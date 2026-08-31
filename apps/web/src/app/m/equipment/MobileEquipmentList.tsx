@@ -196,7 +196,7 @@ export function MobileEquipmentList({
 }
 
 /* ─── Equipment card — procurement-style with status accent ─── */
-function EquipmentCard({ e, canEdit = false }: { e: EquipmentItem; canEdit?: boolean }) {
+function EquipmentCard({ e, _canEdit = false }: { e: EquipmentItem; canEdit?: boolean }) {
   const isAvailable = e.status === "AVAILABLE";
   const isAssigned = e.status === "ASSIGNED";
   const isMaintenance = e.status === "IN_MAINTENANCE";

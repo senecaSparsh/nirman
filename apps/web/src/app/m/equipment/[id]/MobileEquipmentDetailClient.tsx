@@ -8,7 +8,7 @@ import {
   CheckCircle2, Archive, Loader2, X, Search, ChevronRight,
   TrendingDown, FileText, Package, Send, Check, Pencil, Trash2,
 } from "lucide-react";
-import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
+import {formatCurrencyCompact, formatDate} from "@/lib/utils";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";

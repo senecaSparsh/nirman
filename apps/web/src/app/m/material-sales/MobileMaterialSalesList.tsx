@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import {useState, useMemo} from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { TrendingUp, Eye, Copy, Share2, IndianRupee } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
-import { haptic } from "@/lib/haptic";
 import { InteractiveListItem } from "@/components/mobile/v2/interactive-list-item";
 import { PageLead, NextActionCard } from "@/components/mobile/v2/guidance";
 import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";

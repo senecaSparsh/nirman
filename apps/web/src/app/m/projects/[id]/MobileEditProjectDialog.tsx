@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, Pencil, Building2 } from "lucide-react";
+import {X, Loader2, Pencil} from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 

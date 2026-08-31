@@ -102,7 +102,7 @@ const RA_STATUS_CONFIG: Record<RaBill["status"], { label: string; color: string;
   REJECTED:  { label: "Rejected",  color: "text-red-600",           bg: "bg-red-100 dark:bg-red-900/30" },
 };
 
-const STATUS_FILTERS: Array<{ key: WorkOrder["status"] | "ALL"; label: string }> = [
+const _STATUS_FILTERS: Array<{ key: WorkOrder["status"] | "ALL"; label: string }> = [
   { key: "ALL", label: "All" },
   { key: "DRAFT", label: "Draft" },
   { key: "ISSUED", label: "Issued" },
@@ -265,8 +265,8 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<WorkOrder["status"] | "ALL">("ALL");
-  const [search, setSearch] = useState("");
+  const [statusFilter, _setStatusFilter] = useState<WorkOrder["status"] | "ALL">("ALL");
+  const [search, _setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailWO, setDetailWO] = useState<WorkOrder | null>(null);
   const [actionLoading, setActionLoading] = useState(false);

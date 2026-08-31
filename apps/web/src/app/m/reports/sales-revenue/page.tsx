@@ -3,13 +3,12 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
-import { ShoppingCart, TrendingUp, Wallet, Building2 } from "lucide-react";
+import {ShoppingCart, Building2} from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
-  MobileStatCard,
   MobileRow,
   MobileEmptyState,
 } from "@/components/mobile/v2/primitives";

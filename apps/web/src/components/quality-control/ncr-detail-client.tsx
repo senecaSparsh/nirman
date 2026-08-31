@@ -11,7 +11,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { useConfirm } from "@/lib/use-confirm";
 import { formatDate } from "@/lib/utils";
 import { statusBadgeVariant } from "@/components/page";
-import { Send, Check, X, Ban, Trash2, Play, ShieldCheck, Loader2, AlertTriangle, Pencil } from "lucide-react";
+import {Send, Check, X, Ban, Trash2, Play, ShieldCheck, Loader2, Pencil} from "lucide-react";
 
 interface NcrDetail {
   id: string;

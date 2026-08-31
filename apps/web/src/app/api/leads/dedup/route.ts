@@ -76,7 +76,7 @@ export const GET = apiHandler(async () => {
  * Body: { keepId: string, deleteIds: string[] }
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.SALES_MANAGE);
+  const _user = await requirePermission(PERM.SALES_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const keepId: string = body.keepId;

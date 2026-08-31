@@ -9,7 +9,7 @@ import {
   Pencil, Package, Home, Maximize, AlertCircle, Loader2,
 } from "lucide-react";
 import { MobileCustomerEditForm } from "./MobileCustomerEditForm";
-import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
+import {formatCurrencyCompact, formatDate} from "@/lib/utils";
 import { toast } from "sonner";
 
 /* ─── Types ─── */

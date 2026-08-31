@@ -12,8 +12,8 @@ import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
  * time and GPS coordinates. Computes hoursWorked from check-in/out.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requireUser();
-  const company = await getCompany();
+  const _user = await requireUser();
+  const _company = await getCompany();
 
   const schema = z.object({
     employeeId: z.string().min(1, "Employee is required"),

@@ -262,8 +262,8 @@ export function MobileSaleDetailClient({
   const isCancelled = status === "CANCELLED" || saleStage === "CANCELLED";
   const isCompleted = saleStage === "COMPLETED" && !isCancelled;
   const isPaid = paymentStatus === "PAID" && !isCancelled;
-  const isPending = paymentStatus === "PENDING" && !isCancelled;
-  const isPartial = paymentStatus === "PARTIAL" && !isCancelled;
+  const _isPending = paymentStatus === "PENDING" && !isCancelled;
+  const _isPartial = paymentStatus === "PARTIAL" && !isCancelled;
 
   const accentColor = isCancelled
     ? "var(--color-stop)"

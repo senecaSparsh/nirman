@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { Phone, Briefcase, Pencil, Trash2, X } from "lucide-react";
+import {Phone, Briefcase, Trash2, X} from "lucide-react";
 import {
   MobileSearchHeader,
   MobileCardGrid,
@@ -41,7 +41,7 @@ export function MobileBrokersList({
 }) {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<BrokerListItem | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [creating, _setCreating] = useState(false);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return items;

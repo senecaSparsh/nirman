@@ -7,7 +7,7 @@ import { getEvmMetrics } from "@nirman/services";
 import { Gauge, TrendingUp, TrendingDown, AlertTriangle, Target, DollarSign } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
-import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils";
+import {formatCurrencyCompact, formatNumber} from "@/lib/utils";
 import {
   MobileNoAccess,
   MobileEmptyState,

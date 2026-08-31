@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { Upload, FileSpreadsheet, X, CheckCircle2, AlertCircle, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import {Label} from "@/components/ui/input";
 import { Select } from "@/components/ui/input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";

@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import Link from "next/link";
+import {useState} from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Package, ArrowRight, ChevronDown, ChevronRight, Truck, Scale, Camera } from "lucide-react";
+import {Package, ChevronDown, ChevronRight, Truck, Scale} from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea, Select } from "@/components/ui/input";

@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { getBoqTree } from "@nirman/services";
-import { FileText, ListTree, Layers, Package } from "lucide-react";
+import {FileText, ListTree, Package} from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
@@ -13,7 +13,6 @@ import {
   MobileSectionTitle,
   MobileEmptyState,
   MobileStatCard,
-  MobileStatusBadge,
   Badge,
 } from "@/components/mobile/v2/primitives";
 import { MobileBoqProjectSelector, type BoqProjectOption } from "./MobileBoqProjectSelector";

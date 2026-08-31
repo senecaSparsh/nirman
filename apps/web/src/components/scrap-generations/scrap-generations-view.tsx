@@ -225,7 +225,7 @@ function ScrapGenerationForm({
   useEffect(() => { setLocalLocations(locations); }, [locations]);
   useEffect(() => { setLocalMaterials(materials); }, [materials]);
   useEffect(() => { setLocalProjects(projects); }, [projects]);
-  const [materialCreateOpen, setMaterialCreateOpen] = useState(false);
+  const [_materialCreateOpen, _setMaterialCreateOpen] = useState(false);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();

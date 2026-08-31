@@ -97,7 +97,7 @@ export function MobileSalesList({ sales }: { sales: SaleItem[] }) {
 
       {/* ── Fully paid (view-only) ─────────────────────────────── */}
       {paidSales.length > 0 && (
-        <h2 className="px-4 pb-1.5 pt-5 text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+        <h2 className="px-4 pb-1.5 pt-3 text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
           Paid ({paidSales.length})
         </h2>
       )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Building2, Plus, ShieldCheck } from "lucide-react";
+import {Building2, ShieldCheck} from "lucide-react";
 import { formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,

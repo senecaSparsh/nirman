@@ -8,9 +8,9 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
-import { cn, formatDate } from "@/lib/utils";
+import {formatDate} from "@/lib/utils";
 import { statusBadgeVariant } from "@/components/page";
-import { Plus, ClipboardCheck, Search, AlertTriangle, ShieldCheck, Loader2 } from "lucide-react";
+import {Plus, ClipboardCheck, Search, Loader2} from "lucide-react";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 
 type NcrCategory = "MATERIAL" | "WORKMANSHIP" | "DESIGN" | "DOCUMENT" | "PROCESS" | "SAFETY" | "OTHER";

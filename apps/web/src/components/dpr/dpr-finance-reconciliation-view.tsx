@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, cn } from "@/lib/utils";
-import { CheckCircle2, AlertTriangle, Clock, FileText } from "lucide-react";
+import {CheckCircle2, Clock, FileText} from "lucide-react";
 
 type ReconciliationRow = {
   dprId: string;

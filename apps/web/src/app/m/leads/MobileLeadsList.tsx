@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { Phone, Calendar, Flame, TrendingUp, UserPlus, Plus } from "lucide-react";
-import { formatCurrencyCompact, formatDate } from "@/lib/utils";
+import {formatDate} from "@/lib/utils";
 import {
   MobileSearchHeader,
   MobileFilterIcon,

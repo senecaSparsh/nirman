@@ -980,7 +980,7 @@ function MatSection({
         {entries.map((e) => {
           const isWinner = e.isSelected;
           const isCheapest = e.isCheapest;
-          const isHighest = hasMultiple && e.unitLandedCost === highestCost && !isCheapest;
+          const _isHighest = hasMultiple && e.unitLandedCost === highestCost && !isCheapest;
           return (
             <td
               key={e.quoteId}

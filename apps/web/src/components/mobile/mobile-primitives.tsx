@@ -65,7 +65,7 @@ export function MobilePageHeader({
       className="border-b"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
-      <div className="flex items-start justify-between gap-3 px-4 pb-3 pt-3.5">
+      <div className="flex items-start justify-between gap-3 px-4 py-3">
         <div className="min-w-0">
           <h1
             className="truncate text-m-section font-bold leading-tight tracking-[-0.02em]"

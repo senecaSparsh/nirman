@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@nirman/db";
 import { deleteAttendance, logAction, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, attendanceSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";

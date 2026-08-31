@@ -6,14 +6,13 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
-import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusPill } from "@/components/page";
 import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
-import { formatCurrency, formatNumber, formatDate, cn } from "@/lib/utils";
+import {formatCurrency, formatNumber, formatDate} from "@/lib/utils";
 import type { ProjectOption } from "@/lib/types";
 import { Ruler, Plus, CheckCircle, XCircle, ShieldCheck, Printer } from "lucide-react";
 
@@ -39,7 +38,7 @@ type MbEntry = {
   rejectReason: string | null;
 };
 
-const STATUS_CONFIG = {
+const _STATUS_CONFIG = {
   DRAFT: { label: "Draft", variant: "muted" },
   VERIFIED: { label: "Verified", variant: "default" },
   APPROVED: { label: "Approved", variant: "default" },
@@ -157,7 +156,7 @@ export function MeasurementBookView({
   const [entries, setEntries] = useState<MbEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [boqItems, setBoqItems] = useState<BoqItem[]>([]);
+  const [boqItems, _setBoqItems] = useState<BoqItem[]>([]);
   const [wbsNodes, setWbsNodes] = useState<WbsNode[]>([]);
   // Rejection dialog state — replaces native prompt() for rejection reason input
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);

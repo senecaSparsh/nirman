@@ -15,10 +15,9 @@ import { prisma } from "@nirman/db";
 import {
   lowStockAlerts,
   getCompanyPortfolioSummary,
-  projectTotalCost,
   trialBalance,
 } from "@nirman/services";
-import { apiHandler, json, requireUser, getCompany, toNum, getCurrentUser } from "@/lib/server";
+import {apiHandler, json, requireUser, getCompany, toNum} from "@/lib/server";
 import { parseIntent, type Intent } from "@/lib/assistant/nlu";
 import { processConversation, type ConversationContext } from "@/lib/assistant/conversation";
 import { hasPermission, PERM, ROLES, type Role } from "@/lib/roles";

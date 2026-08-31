@@ -7,7 +7,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { MobileSmsIngest } from "./MobileSmsIngest";
 import { formatCurrencyCompact, formatDate } from "@/lib/utils";
-import { MessageSquare, Plus, Link2, Check, AlertCircle } from "lucide-react";
+import {MessageSquare, Link2, Check, AlertCircle} from "lucide-react";
 
 export const metadata = { title: "Bank SMS · Nirman" };
 

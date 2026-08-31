@@ -10,7 +10,6 @@ import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from 
 import {
   MobileEmptyState,
   MobileStatCard,
-  MobileStatusBadge,
   MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobileMbProjectSelector } from "./MobileMbProjectSelector";
@@ -40,7 +39,7 @@ async function MobileMbContent({
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
-  const canView = hasPermission(role, PERM.MB_VIEW);
+  const _canView = hasPermission(role, PERM.MB_VIEW);
   const { project: projectId } = await searchParams;
 
   const projects = await prisma.project.findMany({

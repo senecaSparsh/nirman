@@ -163,9 +163,9 @@ export function MobileTransferDetailClient({
   // Can receive: user is from the destination company
   const canReceive = canManage && isDestCompany && isInTransit;
   // Can cancel: user is from the source company (only source can cancel their outgoing draft)
-  const canCancel = canManage && isSourceCompany && isDraft;
+  const _canCancel = canManage && isSourceCompany && isDraft;
   // Can return to source: user is from the destination company (they are the ones who reject)
-  const canReturn = canManage && isDestCompany && isInTransit;
+  const _canReturn = canManage && isDestCompany && isInTransit;
 
   // For inter-company: find the destination company in user's memberships
   const destCompanyMembership = transfer.userMemberships.find(

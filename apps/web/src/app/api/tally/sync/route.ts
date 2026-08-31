@@ -3,11 +3,10 @@ import {
   syncBatchToTally,
   syncFromTally,
   getTallySyncStats,
-  createTallyProvider,
   createTallyProviderFromConfig,
   getIntegrationConfig,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import {apiHandler, getCompany, json, requirePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 

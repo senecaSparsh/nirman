@@ -3,7 +3,7 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
-import { Building2, Boxes, Package, ClipboardList, PieChart } from "lucide-react";
+import {Building2, Package, PieChart} from "lucide-react";
 import { getCompany, toNum, getUserRole, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
@@ -120,7 +120,7 @@ async function MobileDepartmentConsumptionContent() {
       deptRow.total += lineCost;
       deptRow.totalQty += lineQty;
       grandTotal += lineCost;
-      grandQty += lineQty;
+      _grandQty += lineQty;
     }
   }
 

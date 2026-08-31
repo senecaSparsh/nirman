@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { getCashFlowForecast } from "@nirman/services";
 import { TrendingUp, TrendingDown, Wallet, Calendar } from "lucide-react";
-import { getCompany, toNum, getUserRole, getUserScope } from "@/lib/server";
+import {getCompany, getUserRole, getUserScope} from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {

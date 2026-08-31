@@ -5,7 +5,7 @@ import { prisma } from "@nirman/db";
 import { toNum, getUserRole, getCompany } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { amountInWords } from "@nirman/services";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import {formatCurrency} from "@/lib/utils";
 import { notFound } from "next/navigation";
 
 /**

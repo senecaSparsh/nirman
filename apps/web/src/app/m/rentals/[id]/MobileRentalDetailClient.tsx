@@ -364,7 +364,7 @@ export function MobileRentalDetailClient({
 
       {/* ── Income summary banner ── */}
       <div
-        className="rounded-[0.625rem] border mb-3 overflow-hidden"
+        className="rounded-[0.5rem] border mb-3 overflow-hidden"
         style={{
           borderColor: data.overdueAmount > 0 ? "var(--color-signal)" : "var(--color-line)",
           backgroundColor: "var(--color-paper)",
@@ -503,7 +503,7 @@ export function MobileRentalDetailClient({
 
       {/* ── Lease terms card ── */}
       <div
-        className="rounded-[0.625rem] border mb-3 overflow-hidden"
+        className="rounded-[0.5rem] border mb-3 overflow-hidden"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="px-3 py-2" style={{ borderBottom: "1px solid var(--color-line)" }}>
@@ -624,7 +624,7 @@ export function MobileRentalDetailClient({
 
       {/* ── Tenant contact ── */}
       <div
-        className="rounded-[0.625rem] border mb-3 overflow-hidden"
+        className="rounded-[0.5rem] border mb-3 overflow-hidden"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="px-3 py-2" style={{ borderBottom: "1px solid var(--color-line)" }}>
@@ -945,7 +945,7 @@ function PaymentSheet({
                 <button
                   key={m.value}
                   onClick={() => setMode(m.value)}
-                  className="flex-1 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press"
+                  className="flex-1 h-8 rounded-[0.5rem] text-m-caption font-bold text-m-body press"
                   style={{
                     backgroundColor: mode === m.value ? "var(--color-ink-950)" : "var(--color-paper-2)",
                     color: mode === m.value ? "var(--color-paper)" : "var(--color-ink-500)",

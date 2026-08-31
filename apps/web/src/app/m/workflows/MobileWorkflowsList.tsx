@@ -9,7 +9,6 @@ import {
   Trash2,
   X,
   Loader2,
-  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
@@ -20,7 +19,7 @@ import {
   MobileFab,
   type SummaryStat,
 } from "@/components/mobile/v2/scaffold";
-import { formatDate, formatRelativeTime, cn } from "@/lib/utils";
+import {formatRelativeTime} from "@/lib/utils";
 
 export type WorkflowListItem = {
   id: string;

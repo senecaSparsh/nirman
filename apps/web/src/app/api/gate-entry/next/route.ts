@@ -14,7 +14,7 @@ import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
  */
 export const GET = apiHandler(async (req: NextRequest) => {
   await requireUser();
-  const company = await getCompany();
+  const _company = await getCompany();
   const locationId = req.nextUrl.searchParams.get("locationId");
 
   const year = new Date().getFullYear();

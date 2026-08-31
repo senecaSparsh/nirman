@@ -55,7 +55,7 @@ export function MobileSearchHeader({
 
   return (
     <div
-      className="sticky top-0 z-20 -mx-3.5 px-3.5 pt-1 pb-2 mb-1"
+      className="sticky top-0 z-20 -mx-3.5 px-3.5 pt-2 pb-2 mb-1"
       style={{
         /* Apple §12 — translucent material so content scrolls underneath.
            Blur + saturate conveys hierarchy without a hard divider. */

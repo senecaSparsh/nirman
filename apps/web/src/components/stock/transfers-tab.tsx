@@ -25,7 +25,7 @@ export function TransfersTab({ transfers, locations, projects, canTransfer }: { 
   const [formOpen, setFormOpen] = useState(false);
   const [selected, setSelected] = useState<TransferRow | null>(null);
   const [locationCreateOpen, setLocationCreateOpen] = useState(false);
-  const [localLocations, setLocalLocations] = useState<StockLocationRow[]>(locations);
+  const [localLocations, _setLocalLocations] = useState<StockLocationRow[]>(locations);
 
   const filtered = useMemo(() => {
     let result = transfers;

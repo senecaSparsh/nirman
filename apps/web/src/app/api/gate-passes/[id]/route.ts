@@ -11,7 +11,6 @@ import {
 import { apiHandler, getCompany, json, requirePermission, requireUser, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { prisma } from "@nirman/db";
-import { withSerializableTransaction } from "@nirman/services";
 
 /**
  * GET /api/gate-passes/[id]

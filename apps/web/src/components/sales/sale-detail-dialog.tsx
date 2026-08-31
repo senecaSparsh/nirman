@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Banknote, X, Printer, CheckCircle2, XCircle, HandCoins, MessageCircle, FileText, ExternalLink, CalendarClock, AlertCircle, Upload } from "lucide-react";
+import {Banknote, X, Printer, CheckCircle2, XCircle, HandCoins, MessageCircle, FileText, ExternalLink, CalendarClock, AlertCircle} from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
@@ -256,33 +256,21 @@ export function SaleDetailDialog({
                   Edit
                 </Button>
               )}
-              <a
-                href={`/sales/${sale.id}/print`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground transition-colors hover:bg-accent"
-                title="Print sale booking form"
-              >
-                <Printer className="h-4 w-4" /> Print Form
-              </a>
-              <a
-                href={`/print/sale-invoice/${sale.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground transition-colors hover:bg-accent"
-                title="Print sale invoice"
-              >
-                <Printer className="h-4 w-4" /> Print Invoice
-              </a>
-              <a
-                href={`/print/sale-draft/${sale.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground transition-colors hover:bg-accent"
-                title="Print draft / LOI (Letter of Intent)"
-              >
-                <Printer className="h-4 w-4" /> Print Draft / LOI
-              </a>
+              <Button asChild size="sm" variant="outline">
+                <a href={`/sales/${sale.id}/print`} target="_blank" rel="noopener noreferrer" title="Print sale booking form">
+                  <Printer className="h-4 w-4" /> Print Form
+                </a>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <a href={`/print/sale-invoice/${sale.id}`} target="_blank" rel="noopener noreferrer" title="Print sale invoice">
+                  <Printer className="h-4 w-4" /> Print Invoice
+                </a>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <a href={`/print/sale-draft/${sale.id}`} target="_blank" rel="noopener noreferrer" title="Print draft / LOI (Letter of Intent)">
+                  <Printer className="h-4 w-4" /> Print Draft / LOI
+                </a>
+              </Button>
             </div>
 
             {/* Sale summary */}
@@ -494,7 +482,7 @@ export function SaleDetailDialog({
                         }
                       }}
                     >
-                      <Banknote className="h-3.5 w-3.5" /> Pay Commission
+                      <Banknote className="h-4 w-4" /> Pay Commission
                     </Button>
                   )}
                 </div>
@@ -519,7 +507,7 @@ export function SaleDetailDialog({
             {sale.expenses && sale.expenses.length > 0 && (
               <div className="rounded-lg border p-3 space-y-2">
                 <p className="text-label text-muted-foreground">Expense Heads</p>
-                <div className="rounded-md border border-border/40">
+                <div className="rounded-lg border border-border/40">
                   <Table>
                     <THead>
                       <TR className="hover:bg-transparent">
@@ -581,7 +569,7 @@ export function SaleDetailDialog({
                     each installment as a segment with its status. This is the
                     "4QT-style" view: at a glance, see which slabs are paid,
                     which are due, and which are pending. */}
-                <div className="flex items-stretch gap-0.5 rounded-md bg-muted/30 p-1">
+                <div className="flex items-stretch gap-0.5 rounded-lg bg-muted/30 p-1">
                   {sale.paymentSchedule.items.map((item, idx) => {
                     const segmentColor =
                       item.status === "PAID" ? "bg-success" :
@@ -606,7 +594,7 @@ export function SaleDetailDialog({
                           <div className="absolute right-0 top-0 h-full w-px bg-background/50" />
                         )}
                         {/* Tooltip on hover */}
-                        <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-micro text-background group-hover:block">
+                        <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-foreground px-2 py-1 text-micro text-background group-hover:block">
                           {item.description} · {item.percentage}% · {statusLabel}
                         </div>
                       </div>
@@ -632,7 +620,7 @@ export function SaleDetailDialog({
                   const dueDate = new Date(nextDue.dueDate!);
                   const isOverdue = dueDate < now;
                   return (
-                    <div className={`flex items-center gap-3 rounded-md border p-2.5 ${isOverdue ? "border-danger/30 bg-danger-soft/20" : "border-info/30 bg-info-soft/20"}`}>
+                    <div className={`flex items-center gap-3 rounded-lg border p-2.5 ${isOverdue ? "border-danger/30 bg-danger-soft/20" : "border-info/30 bg-info-soft/20"}`}>
                       {isOverdue ? <AlertCircle className="h-4 w-4 shrink-0 text-danger" /> : <CalendarClock className="h-4 w-4 shrink-0 text-info" />}
                       <div className="min-w-0 flex-1">
                         <p className="text-body font-medium text-foreground">
@@ -645,13 +633,13 @@ export function SaleDetailDialog({
                       </div>
                       {canManage && !isCancelled && (
                         <Button size="sm" variant="outline" onClick={() => setPayOpen(true)} disabled={acting}>
-                          <Banknote className="h-3.5 w-3.5" /> Collect
+                          <Banknote className="h-4 w-4" /> Collect
                         </Button>
                       )}
                     </div>
                   );
                 })()}
-                <div className="rounded-md border border-border/40">
+                <div className="rounded-lg border border-border/40">
                   <Table>
                     <THead>
                       <TR className="hover:bg-transparent">

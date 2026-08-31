@@ -10,7 +10,6 @@ import {
   Loader2,
   ChevronDown,
   ChevronRight,
-  Trophy,
   ShieldCheck,
   AlertTriangle,
   Crown,

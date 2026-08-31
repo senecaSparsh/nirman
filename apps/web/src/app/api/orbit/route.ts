@@ -219,7 +219,7 @@ async function getCompanyNode(id: string, currentCompanyId: string): Promise<Orb
   ]);
 
   // Aggregate financial data — all 4 queries run in parallel (was sequential).
-  const [totalProjectCost, stockValue, landValue, unitValue, parentCompany] = await Promise.all([
+  const [totalProjectCost, _stockValue, landValue, unitValue, parentCompany] = await Promise.all([
     prisma.project.aggregate({
       where: { companyId: c.id, deletedAt: null, totalProjectCost: { not: null } },
       _sum: { totalProjectCost: true },

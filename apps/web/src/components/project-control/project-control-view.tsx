@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, formatNumber, cn } from "@/lib/utils";
-import { TrendingUp, TrendingDown, AlertTriangle, DollarSign, Package, Gauge } from "lucide-react";
+import {TrendingUp, TrendingDown, DollarSign, Package, Gauge} from "lucide-react";
 
 type Project = { id: string; name: string };
 

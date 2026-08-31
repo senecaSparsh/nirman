@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Workflow as WorkflowIcon,
   Play,
   Trash2,
   Clock,
@@ -15,7 +14,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatDate, formatRelativeTime, cn } from "@/lib/utils";
+import {formatDate, formatRelativeTime} from "@/lib/utils";
 
 export type WorkflowDetail = {
   id: string;

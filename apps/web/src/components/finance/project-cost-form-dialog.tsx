@@ -41,7 +41,7 @@ export function ProjectCostFormDialog({
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [previewing, setPreviewing] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
+  const [_showPreview, setShowPreview] = useState(false);
   const [previewLines, setPreviewLines] = useState<GlPreviewLine[]>([]);
   const [form, setForm] = useState({
     projectId: "",

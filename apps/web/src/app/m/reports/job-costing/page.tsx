@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { getJobCosting } from "@nirman/services";
-import { Calculator, TrendingDown, Wallet, Building2 } from "lucide-react";
+import {Calculator, Wallet, Building2} from "lucide-react";
 import { getCompany, getUserRole, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";

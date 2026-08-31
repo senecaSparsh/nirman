@@ -38,7 +38,7 @@ export function GlPreviewPanel({
 
   useEffect(() => {
     if (!open || !hasLines) return;
-    const codes = [...new Set(lines.map((l) => l.accountCode))];
+    const _codes = [...new Set(lines.map((l) => l.accountCode))];
     setLoadingBalances(true);
     fetch("/api/gl/trial-balance")
       .then((r) => r.json())

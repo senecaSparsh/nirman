@@ -42,7 +42,7 @@ const STATUS_CONFIG: Record<AttendanceStatus, { label: string; color: string; bg
 
 const ALL_STATUSES: AttendanceStatus[] = ["PRESENT", "LATE", "ABSENT", "HALF_DAY", "OVERTIME", "LEAVE", "PAID_LEAVE", "NON_PAID_LEAVE"];
 
-const inputClass = "w-full h-9 rounded-[0.375rem] border px-2 text-m-label font-medium outline-none";
+const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-label font-medium outline-none";
 const inputStyle = {
   borderColor: "var(--color-line)",
   backgroundColor: "var(--color-paper)",

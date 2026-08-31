@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import {formatNumber} from "@/lib/utils";
 import type { LandParcelRow } from "@/lib/types";
 
 export function ParcelValuationDialog({

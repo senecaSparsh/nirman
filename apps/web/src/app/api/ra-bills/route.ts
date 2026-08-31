@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
-import { prisma, Prisma, type RaBillStatus } from "@nirman/db";
+import {prisma, type RaBillStatus} from "@nirman/db";
 import { createRaBill, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";

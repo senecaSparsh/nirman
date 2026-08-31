@@ -263,7 +263,7 @@ function FilteredView({
   return (
     <div>
       <h2
-        className="text-m-caption font-bold uppercase tracking-wide pb-1.5 pt-3"
+        className="text-m-caption font-bold uppercase tracking-wide pb-1.5 pt-4"
         style={{ color: "var(--color-ink-500)" }}
       >
         Results ({visible.length})

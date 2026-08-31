@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma, type NcrStatus, type NcrSeverity } from "@nirman/db";
-import { createNcr, getNcrs } from "@nirman/services";
+import {createNcr} from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";

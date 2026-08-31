@@ -134,7 +134,7 @@ export function LeavesView({
   const [fEnd, setFEnd] = useState("");
   const [fReason, setFReason] = useState("");
 
-  const pendingCount = leaves.filter((l) => l.status === "PENDING").length;
+  const _pendingCount = leaves.filter((l) => l.status === "PENDING").length;
 
   const leaveColumns: Column<LeaveRow>[] = [
     {

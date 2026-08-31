@@ -376,7 +376,7 @@ function SupplierReturnDetailDialog({
     }
   }
 
-  const totalValue = ret.lines.reduce((s, l) => s + l.qty, 0);
+  const _totalValue = ret.lines.reduce((s, l) => s + l.qty, 0);
 
   return (
     <Dialog

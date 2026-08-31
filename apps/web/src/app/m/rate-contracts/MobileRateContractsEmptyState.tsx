@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { FileText, Plus } from "lucide-react";
-import { MobileEmptyState, MobileCta } from "@/components/mobile/v2/primitives";
+import {MobileEmptyState} from "@/components/mobile/v2/primitives";
 import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 

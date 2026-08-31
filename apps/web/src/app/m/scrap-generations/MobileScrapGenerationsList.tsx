@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Recycle, Zap, Hand } from "lucide-react";
-import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
+import {formatCurrencyCompact, formatDate} from "@/lib/utils";
 import {
   MobileSearchHeader,
   MobileCardGrid,

@@ -10,7 +10,6 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
   MobileEmptyState,
-  MobileStatCard,
 } from "@/components/mobile/v2/primitives";
 import { MobileProjectControlSelector } from "./MobileProjectControlSelector";
 

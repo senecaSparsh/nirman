@@ -3,7 +3,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
-import { formatCurrency, cn } from "@/lib/utils";
+import {formatCurrency} from "@/lib/utils";
 
 export type SaleExpenseRow = {
   head: "REGISTRY" | "STAMP_DUTY" | "TRANSFER" | "LEASE_RENT" | "GST" | "OTHER";

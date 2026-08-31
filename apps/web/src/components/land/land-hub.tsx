@@ -180,7 +180,7 @@ export type LandPaymentScheduleRow = {
   items: LandPaymentScheduleItemRow[];
 };
 
-const PAYMENT_VARIANT: Record<string, "default" | "success" | "warning" | "danger"> = {
+const _PAYMENT_VARIANT: Record<string, "default" | "success" | "warning" | "danger"> = {
   PENDING: "warning",
   PARTIAL: "warning",
   PAID: "success",
@@ -207,14 +207,14 @@ export function LandHub({ data }: { data: LandHubData }) {
   const [valuateParcel, setValuateParcel] = useState<LandParcelRow | null>(null);
   const [sellParcel, setSellParcel] = useState<LandParcelRow | null>(null);
   const [deleteParcel, setDeleteParcel] = useState<LandParcelRow | null>(null);
-  const [unpartitionParcel, setUnpartitionParcel] = useState<LandParcelRow | null>(null);
+  const [_unpartitionParcel, _setUnpartitionParcel] = useState<LandParcelRow | null>(null);
   // Staged purchase dialogs
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
   const [docUploading, setDocUploading] = useState(false);
   const [possessionSubmitting, setPossessionSubmitting] = useState(false);
-  const [createProjectOpen, setCreateProjectOpen] = useState(false);
+  const [_createProjectOpen, _setCreateProjectOpen] = useState(false);
   const [createProjectLoading, setCreateProjectLoading] = useState(false);
   const [unitFormOpen, setUnitFormOpen] = useState(false);
   const router = useRouter();
@@ -368,7 +368,7 @@ export function LandHub({ data }: { data: LandHubData }) {
           style={{ backgroundColor: "var(--color-stage-sell)" }}
         />
 
-        <div className="relative pl-5 pr-4 py-4">
+        <div className="relative pl-5 pr-5 py-4">
           {/* Document header — eyebrow + registry reference, like a deed's top line */}
           <div className="flex items-center justify-between gap-4">
             <span className="text-label text-muted-foreground/80">Land Purchase</span>

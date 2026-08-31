@@ -33,7 +33,7 @@ const STATUS_STYLES: Record<string, { color: string; icon: typeof CheckCircle2; 
 };
 
 export function MobileOfflineQueueClient() {
-  const router = useRouter();
+  const _router = useRouter();
   const { queue, pending, online, syncing, sync, refresh } = useOfflineQueue();
   const [clearing, setClearing] = useState(false);
 

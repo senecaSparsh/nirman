@@ -9,7 +9,6 @@ import {
   MobileEmptyState,
   MobileCta,
 } from "@/components/mobile/v2/primitives";
-import { MobileExportShareIcons } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileFab } from "@/components/mobile/v2/scaffold";
 import { MobileMaterialsList } from "./MobileMaterialsList";

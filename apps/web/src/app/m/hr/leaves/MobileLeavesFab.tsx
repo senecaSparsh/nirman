@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Loader2, CalendarDays, Plus } from "lucide-react";
-import { toast } from "sonner";
-import { haptic } from "@/lib/haptic";
+import {Plus} from "lucide-react";
 import { MobileNewLeaveDialog } from "./MobileNewLeaveDialog";
 
 export function MobileLeavesFab({

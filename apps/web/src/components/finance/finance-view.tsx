@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, Trash2, Pencil, TrendingDown, Wallet, RefreshCw, ExternalLink } from "lucide-react";
+import {Plus, TrendingDown, Wallet, RefreshCw, ExternalLink} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";

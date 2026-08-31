@@ -98,7 +98,7 @@ export default function MobileNewProcurementClient({ data }: { data: FormData })
   const [draftRestored, setDraftRestored] = useState(false);
 
   // ── Smart defaults — pre-fill from last-used values (if no draft to restore) ──
-  const { getDefault, recordDefaults, hasDefaults: hasSmartDefaults } = useSmartDefaults("po");
+  const { getDefault, recordDefaults, hasDefaults: _hasSmartDefaults } = useSmartDefaults("po");
   const [defaultsApplied, setDefaultsApplied] = useState(false);
 
   useEffect(() => {
@@ -668,7 +668,7 @@ function PoForm({
             return (
               <div
                 key={idx}
-                className="rounded-[0.625rem] border overflow-hidden flex flex-col"
+                className="rounded-[0.5rem] border overflow-hidden flex flex-col"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               >
                 <div
@@ -1057,7 +1057,7 @@ function SelectorCard({
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 text-m-body press text-left"
+      className="w-full flex items-center gap-2.5 rounded-[0.5rem] border p-2.5 text-m-body press text-left"
       style={{
         borderColor: hasValue ? "var(--color-line)" : "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
         backgroundColor: "var(--color-paper)",

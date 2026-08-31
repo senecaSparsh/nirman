@@ -60,7 +60,7 @@ function SignInForm() {
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [fetchingCompanies, setFetchingCompanies] = useState(false);
   // Phone OTP state
-  const [mode, setMode] = useState<LoginMode>("phone");
+  const [mode, setMode] = useState<LoginMode>("email");
   const [phoneStep, setPhoneStep] = useState<PhoneStep>("enter");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");

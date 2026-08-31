@@ -386,7 +386,7 @@ export function EditableGrid<R extends Record<string, unknown>>({
               {columns.map((col, ci) => {
                 const isEditing = editing?.row === ri && editing?.col === ci;
                 const isSelected = selected?.row === ri && selected?.col === ci;
-                const isEditable = col.type === "text" || col.type === "number";
+                const _isEditable = col.type === "text" || col.type === "number";
 
                 // Computed column
                 if (col.type === "computed" && col.compute) {
@@ -433,7 +433,7 @@ export function EditableGrid<R extends Record<string, unknown>>({
 
                 // Select column — always shows a dropdown, no draft state
                 if (col.type === "select") {
-                  const selectedOpt = col.options?.find((o) => o.value === val);
+                  const _selectedOpt = col.options?.find((o) => o.value === val);
                   const CREATE_OPT = "__create_new__";
                   return (
                     <td

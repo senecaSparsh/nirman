@@ -56,7 +56,7 @@ interface RateAnalysisData {
   }>;
 }
 
-const COMPONENT_COLORS: Record<ComponentType, string> = {
+const _COMPONENT_COLORS: Record<ComponentType, string> = {
   MATERIAL: "bg-blue-100 text-blue-700",
   LABOUR: "bg-amber-100 text-amber-700",
   EQUIPMENT: "bg-purple-100 text-purple-700",

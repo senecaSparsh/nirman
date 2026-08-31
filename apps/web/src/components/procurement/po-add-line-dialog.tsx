@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select } from "@/components/ui/input";
+import {Input, Select} from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { formatCurrency } from "@/lib/utils";
 import type { MaterialRow } from "@/lib/types";

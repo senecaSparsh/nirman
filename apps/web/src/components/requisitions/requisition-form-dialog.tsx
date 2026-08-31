@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import {useState, useMemo} from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import {Plus} from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import {formatNumber} from "@/lib/utils";
 
 type ProjectOption = { id: string; name: string };
 type PhaseOption = { id: string; name: string; projectId: string };

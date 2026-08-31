@@ -113,11 +113,11 @@ async function AccountsContent() {
   const payableSuppliers = allSupplierOutstanding
     .filter((s) => toNum(s.balanceOwed) > 0)
     .sort((a, b) => toNum(b.balanceOwed) - toNum(a.balanceOwed));
-  const totalPayables = payableSuppliers.reduce(
+  const _totalPayables = payableSuppliers.reduce(
     (s, x) => s + toNum(x.balanceOwed),
     0,
   );
-  const payableVendorCount = payableSuppliers.length;
+  const _payableVendorCount = payableSuppliers.length;
   const totalReceipts = recentReceipts.reduce(
     (s, r) => s + toNum(r.amount),
     0,

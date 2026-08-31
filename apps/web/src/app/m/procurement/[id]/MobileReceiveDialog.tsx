@@ -363,7 +363,7 @@ export function MobileReceiveDialog({
       });
 
       // Add the new material as a PO line so it can be received immediately
-      const qty = quickAddCost ? Number(quickAddCost) : 0;
+      const _qty = quickAddCost ? Number(quickAddCost) : 0;
       const addLineRes = await fetch(`/api/purchase-orders/${poId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },

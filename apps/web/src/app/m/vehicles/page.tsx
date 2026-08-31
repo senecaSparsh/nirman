@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Truck, Search, Camera, Phone, User, X, ChevronRight, Loader2, RefreshCw } from "lucide-react";
+import {Truck, Search, User, X, ChevronRight, Loader2, RefreshCw} from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils";
 
 interface Vehicle {

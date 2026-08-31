@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Camera, X, Loader2, Truck } from "lucide-react";
+import {Camera, X, Loader2} from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 

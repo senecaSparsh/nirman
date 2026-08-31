@@ -7,7 +7,7 @@ import {
   UserPlus, Plus,
   AlertCircle, ChevronRight,
 } from "lucide-react";
-import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
+import {formatCurrencyCompact} from "@/lib/utils";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -95,7 +95,7 @@ export function MobileCustomersList({
   }, [items, query, filter]);
 
   const duesCount = items.filter((c) => c.dueCount > 0).length;
-  const clearCount = items.length - duesCount;
+  const _clearCount = items.length - duesCount;
 
   const FILTER_OPTIONS: { label: string; value: Filter }[] = [
     { label: "All", value: "all" },
@@ -231,8 +231,8 @@ export function MobileCustomersList({
 /* ─── Customer card ─── */
 function CustomerCard({
   customer: c,
-  canEdit = false,
-  canDelete = false,
+  _canEdit = false,
+  _canDelete = false,
 }: {
   customer: CustomerListItem;
   canEdit?: boolean;

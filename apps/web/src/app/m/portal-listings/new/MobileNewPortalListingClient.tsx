@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Globe, ArrowLeft, Loader2, Plus } from "lucide-react";
+import {Globe, Loader2, Plus} from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { formatCurrencyCompact } from "@/lib/utils";

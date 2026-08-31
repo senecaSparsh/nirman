@@ -6,10 +6,8 @@ import { CalendarDays, Plus } from "lucide-react";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import {
-  MobileSectionTitle,
   MobileEmptyState,
   MobileStatCard,
-  MobileStatusBadge,
   MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { MobileLeavesList } from "./MobileLeavesList";

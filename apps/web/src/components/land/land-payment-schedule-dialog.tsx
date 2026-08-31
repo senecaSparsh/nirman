@@ -6,8 +6,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, CalendarClock } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
-import { Field } from "@/components/field";
+import {Input} from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
 import type { LandPaymentScheduleItemRow } from "./land-hub";
 

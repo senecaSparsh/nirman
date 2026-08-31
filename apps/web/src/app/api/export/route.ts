@@ -38,7 +38,7 @@ import { apiHandler, getCompany, json, toNum, requireUser, getUserRole } from "@
  * For `inventory-value`, `asOn` is optional (YYYY-MM-DD).
  */
 export const GET = apiHandler(async (req: NextRequest) => {
-  const user = await requireUser();
+  const _user = await requireUser();
   const role = await getUserRole();
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
@@ -465,7 +465,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       title = `SALABLE STOCK REPORT OF ${fromDate.toISOString().slice(0, 10)} TO ${toDate.toISOString().slice(0, 10)}`;
       const IN_TYPES: StockMovementType[] = ["PURCHASE_RECEIPT", "ADJUSTMENT_IN"];
       const OUT_TYPES: StockMovementType[] = ["ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "ADJUSTMENT_OUT", "RETURN", "SALE"];
-      const [inBefore, outBefore, inPeriod, outPeriod, locationItems] = await Promise.all([
+      const [_inBefore, _outBefore, inPeriod, outPeriod, locationItems] = await Promise.all([
         prisma.stockMovement.findMany({
           where: { movementType: { in: IN_TYPES }, toLocation: { companyId: company.id, deletedAt: null }, timestamp: { lt: fromDate } },
           select: { qty: true, unitCost: true, toLocationId: true, materialId: true },

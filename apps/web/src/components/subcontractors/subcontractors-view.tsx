@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, HardHat, Phone, Mail, Search } from "lucide-react";
+import {Plus, Pencil, Trash2, HardHat, Phone, Search} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";

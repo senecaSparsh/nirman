@@ -162,7 +162,7 @@ export function BuiltUnitsView({
   const filtered = units;
 
   // ── Portfolio metrics ──
-  const portfolio = useMemo(() => {
+  const _portfolio = useMemo(() => {
     const available = units.filter((u) => u.status === "AVAILABLE");
     // "Sold" = has an active sale (unit may be RESERVED during staged sale flow)
     const sold = units.filter((u) => u.saleId != null);

@@ -5,7 +5,7 @@ import { prisma } from "@nirman/db";
 import { toNum, getUserRole, getCompany, getCompanyGroupIds } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { amountInWords } from "@nirman/services";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import {formatCurrency} from "@/lib/utils";
 import { notFound } from "next/navigation";
 
 /**
@@ -185,7 +185,7 @@ export default async function GoodsReceiptChallanPage({
         </thead>
         <tbody>
           {receipt.lines.map((line, i) => {
-            const poLine = receipt.purchaseOrder?.lines.find((pl) => pl.materialId === line.materialId);
+            const _poLine = receipt.purchaseOrder?.lines.find((pl) => pl.materialId === line.materialId);
             const lineAmount = toNum(line.qtyReceived) * toNum(line.unitCost);
             return (
               <tr key={line.id} className="border-b border-gray-200">

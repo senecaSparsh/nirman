@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { MapPin, Plus, Pencil, Trash2, Loader2, Warehouse, Building2 } from "lucide-react";
+import {MapPin, Pencil, Trash2, Loader2, Warehouse, Building2} from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileFab } from "@/components/mobile/v2/scaffold";
@@ -198,7 +198,7 @@ function EditLocationDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const router = useRouter();
+  const _router = useRouter();
   const [name, setName] = useState(location.name);
   const [address, setAddress] = useState(location.address ?? "");
   const [projectId, setProjectId] = useState(location.projectId ?? "");

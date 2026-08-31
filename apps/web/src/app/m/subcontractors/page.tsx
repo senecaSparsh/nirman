@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import {type MobileColumnSpec} from "@/components/mobile/v2/export-share-bar";
 import { MobileSubcontractorsList, type SubcontractorListItem } from "./MobileSubcontractorsList";
 
 /**

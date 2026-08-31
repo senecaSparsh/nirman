@@ -230,7 +230,7 @@ function MobilePayDialog({
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [paymentMode, setPaymentMode] = useState("BANK");
   const [referenceNo, setReferenceNo] = useState("");
-  const [notes, setNotes] = useState("");
+  const [notes, _setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {

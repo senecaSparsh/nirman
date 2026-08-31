@@ -1,11 +1,10 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { ShieldCheck, Truck, Clock, CheckCircle, XCircle, Plus } from "lucide-react";
+import {ShieldCheck, Truck, Clock, CheckCircle, XCircle} from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileSectionTitle, MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
-import { MobileFab } from "@/components/mobile/v2/scaffold";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { MobileGatePassList, MobileGatePassFormDialog } from "./MobileGatePassList";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";

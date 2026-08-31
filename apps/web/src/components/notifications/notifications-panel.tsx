@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Bell, Plus, Loader2, CheckCircle2, XCircle, Clock, Send } from "lucide-react";
+import {Bell, Plus, Loader2, CheckCircle2, XCircle, Clock} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import {Label, Select, Textarea} from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { StatusPill } from "@/components/page";
@@ -41,7 +41,7 @@ const CHANNELS = [
 ];
 
 export function NotificationsPanel() {
-  const router = useRouter();
+  const _router = useRouter();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, sent: 0, failed: 0, pending: 0 });
   const [loading, setLoading] = useState(true);

@@ -59,7 +59,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 // POST /api/change-orders
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.WO_MANAGE);
-  const company = await getCompany();
+  const _company = await getCompany();
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {

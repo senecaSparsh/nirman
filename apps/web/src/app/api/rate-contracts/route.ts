@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@nirman/db";
 import { createRateContract, getRateContracts } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";

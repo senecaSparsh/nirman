@@ -32,7 +32,6 @@ export function MobileExpensesList({
   items,
   totalAmount,
   categoryCount,
-  canView,
   canCreate,
   exportTitle,
   exportRows,

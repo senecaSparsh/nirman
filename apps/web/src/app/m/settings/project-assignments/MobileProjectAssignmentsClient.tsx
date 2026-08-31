@@ -10,7 +10,6 @@ import {
   ChevronDown,
   Loader2,
   User,
-  Building2,
   ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";

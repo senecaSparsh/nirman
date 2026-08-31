@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Play, Check, Ban, Trash2, ClipboardCheck, X } from "lucide-react";
+import {Loader2, Play, Check, Ban, Trash2, X} from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";

@@ -692,8 +692,8 @@ export function MobileDprForm({
                 }}
               />
               <div className="grid grid-cols-2 gap-1.5 mt-1.5">
-                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Qty" value={l.qty} onChange={(e) => setMaterialLines(materialLines.map((m, i) => i === idx ? { ...m, qty: e.target.value } : m))} className="w-full h-9 rounded-[0.375rem] border px-2 text-m-label tabular-nums outline-none" style={inputStyle} />
-                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Unit cost" value={l.unitCost} onChange={(e) => setMaterialLines(materialLines.map((m, i) => i === idx ? { ...m, unitCost: e.target.value } : m))} className="w-full h-9 rounded-[0.375rem] border px-2 text-m-label tabular-nums outline-none" style={inputStyle} />
+                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Qty" value={l.qty} onChange={(e) => setMaterialLines(materialLines.map((m, i) => i === idx ? { ...m, qty: e.target.value } : m))} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-label tabular-nums outline-none" style={inputStyle} />
+                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Unit cost" value={l.unitCost} onChange={(e) => setMaterialLines(materialLines.map((m, i) => i === idx ? { ...m, unitCost: e.target.value } : m))} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-label tabular-nums outline-none" style={inputStyle} />
               </div>
               {l.qty && l.unitCost && Number(l.qty) > 0 && Number(l.unitCost) > 0 ? (
                 <p className="text-right text-m-caption font-semibold tabular-nums mt-1" style={{ color: "var(--color-ink-500)" }}>
@@ -758,17 +758,17 @@ export function MobileDprForm({
                   <X className="size-3" style={{ color: "var(--color-stop)" }} />
                 </button>
               </div>
-              <select value={l.employeeId} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, employeeId: e.target.value, crewId: e.target.value ? "" : m.crewId } : m))} className="w-full h-9 rounded-[0.375rem] border px-2 text-m-label mb-1.5 outline-none" style={inputStyle}>
+              <select value={l.employeeId} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, employeeId: e.target.value, crewId: e.target.value ? "" : m.crewId } : m))} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-label mb-1.5 outline-none" style={inputStyle}>
                 <option value="">Individual worker…</option>
                 {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.name} {emp.trade ? `(${emp.trade})` : ""}</option>)}
               </select>
-              <select value={l.crewId} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, crewId: e.target.value, employeeId: e.target.value ? "" : m.employeeId } : m))} className="w-full h-9 rounded-[0.375rem] border px-2 text-m-label mb-1.5 outline-none" style={inputStyle}>
+              <select value={l.crewId} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, crewId: e.target.value, employeeId: e.target.value ? "" : m.employeeId } : m))} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-label mb-1.5 outline-none" style={inputStyle}>
                 <option value="">Or crew…</option>
                 {crews.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               <div className="grid grid-cols-2 gap-1.5">
-                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Hours" value={l.hoursWorked} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, hoursWorked: e.target.value } : m))} className="w-full h-9 rounded-[0.375rem] border px-2 text-m-label tabular-nums outline-none" style={inputStyle} />
-                <input placeholder="Task description" value={l.taskDescription} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, taskDescription: e.target.value } : m))} className="w-full h-9 rounded-[0.375rem] border px-2 text-m-label outline-none" style={inputStyle} />
+                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Hours" value={l.hoursWorked} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, hoursWorked: e.target.value } : m))} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-label tabular-nums outline-none" style={inputStyle} />
+                <input placeholder="Task description" value={l.taskDescription} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, taskDescription: e.target.value } : m))} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-label outline-none" style={inputStyle} />
               </div>
             </div>
           ))}

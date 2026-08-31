@@ -1368,7 +1368,7 @@ function WbsDetailDialog({ node, onClose, canEdit, allNodes, onReload, projectId
   }
   collectAll(allNodes);
 
-  const isMilestone = node.type === "MILESTONE";
+  const _isMilestone = node.type === "MILESTONE";
   const approvedEntries = entries.filter((e) => e.status === "APPROVED");
   const totalApproved = approvedEntries.reduce((sum, e) => sum + e.measuredQty, 0);
   const hasBoq = !!node.boqItem;

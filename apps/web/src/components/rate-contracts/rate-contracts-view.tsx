@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Select, Textarea } from "@/components/ui/input";
+import {Input, Textarea} from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusPill } from "@/components/page";

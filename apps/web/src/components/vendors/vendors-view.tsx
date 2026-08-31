@@ -102,9 +102,9 @@ export function VendorsView({
     }
   }
 
-  const totalBalance = vendors.reduce((s, v) => s + v.balanceOwed, 0);
-  const totalSpent = vendors.reduce((s, v) => s + v.totalSpent, 0);
-  const withDues = vendors.filter((v) => v.balanceOwed > 0).length;
+  const _totalBalance = vendors.reduce((s, v) => s + v.balanceOwed, 0);
+  const _totalSpent = vendors.reduce((s, v) => s + v.totalSpent, 0);
+  const _withDues = vendors.filter((v) => v.balanceOwed > 0).length;
 
   return (
     <div className="space-y-4">

@@ -4,7 +4,7 @@ import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
 import { toNum, getUserRole, getCompany } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import {formatCurrency, formatNumber} from "@/lib/utils";
 import { notFound } from "next/navigation";
 
 /**

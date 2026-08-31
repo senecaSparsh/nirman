@@ -126,7 +126,7 @@ export function MobileBarChart({
     stop: "var(--color-stop)",
     signal: "var(--color-signal)",
   };
-  const toneBg = {
+  const _toneBg = {
     default: "var(--color-concrete)",
     go: "var(--color-go-wash)",
     stop: "var(--color-stop-wash)",

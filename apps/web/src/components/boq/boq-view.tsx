@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
-import type { LucideIcon } from "lucide-react";
 import { ChevronRight, ChevronDown, Plus, Pencil, Trash2, Folder, FileText, Calculator } from "lucide-react";
 import { RateAnalysisDialog } from "./rate-analysis-dialog";
 

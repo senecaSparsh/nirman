@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { projectPnl } from "@nirman/services";
-import { Building2, TrendingUp, TrendingDown, Wallet, Gauge } from "lucide-react";
+import {Building2, Gauge} from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";

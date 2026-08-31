@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
-import { Send, Check, X, Play, Ban, Trash2, ArrowUpRight, ArrowDownRight, Clock, Loader2 } from "lucide-react";
+import {Send, Check, X, Play, Ban, Trash2, Loader2} from "lucide-react";
 
 interface ChangeOrderDetail {
   id: string;

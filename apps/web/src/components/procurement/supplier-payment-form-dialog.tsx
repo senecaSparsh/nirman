@@ -75,7 +75,7 @@ export function SupplierPaymentFormDialog({
   const selectedSupplier = suppliers.find((s) => s.id === supplierId);
   const parsedAmount = Number(amount) || 0;
   const parsedTds = Number(tdsAmount) || 0;
-  const netPaid = parsedAmount - parsedTds;
+  const _netPaid = parsedAmount - parsedTds;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

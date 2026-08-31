@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Mic, MicOff, Send, X, Sparkles, Loader2, MessageCircle, Volume2, VolumeX, CheckCircle2 } from "lucide-react";
+import {Mic, MicOff, Send, X, Sparkles, Loader2, MessageCircle, Volume2, VolumeX} from "lucide-react";
 import { SUGGESTION_CHIPS } from "@/lib/assistant/nlu";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -427,7 +427,7 @@ export function AssistantChat({
               <Sparkles className="size-4" style={{ color: "var(--color-ink-950)" }} />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-bold" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
                 Sahayak
               </p>
               <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>
@@ -558,7 +558,7 @@ export function AssistantChat({
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Type karo ya bol lo..."
-                className="flex-1 rounded-full border px-4 py-2.5 text-sm outline-none"
+                className="flex-1 rounded-full border px-4 py-2.5 text-m-body outline-none"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper-2)",

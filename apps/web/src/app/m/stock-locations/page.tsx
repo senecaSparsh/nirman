@@ -6,7 +6,6 @@ import Decimal from "decimal.js";
 import { getUserRole } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
-import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileStockLocationsList } from "./MobileStockLocationsList";
 
 /**

@@ -284,7 +284,7 @@ export function OrbitNavigator({
         {breadcrumb.length > 1 ? (
           <button
             onClick={handleBack}
-            className="touch grid place-items-center rounded-[0.375rem] text-m-body press shrink-0"
+            className="touch grid place-items-center rounded-[0.5rem] text-m-body press shrink-0"
             style={{ color: "var(--color-ink-700)" }}
           >
             <ChevronLeft className="size-4" />
@@ -321,7 +321,7 @@ export function OrbitNavigator({
         {!inline && onClose ? (
           <button
             onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] text-m-body press shrink-0"
+            className="touch grid place-items-center rounded-[0.5rem] text-m-body press shrink-0"
             style={{ color: "var(--color-ink-700)" }}
           >
             <X className="size-4" />
@@ -523,7 +523,7 @@ export function OrbitNavigator({
   if (inline) {
     return (
       <div
-        className="flex flex-col rounded-[0.875rem] border overflow-hidden"
+        className="flex flex-col rounded-[0.75rem] border overflow-hidden"
         style={{
           borderColor: "var(--color-line)",
           backgroundColor: "var(--color-paper-2)",

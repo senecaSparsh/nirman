@@ -11,7 +11,7 @@ import { apiHandler, ForbiddenError, getCompany, getUserPermissions, json, requi
  * Requires SALES_VIEW or FINANCE_VIEW permission.
  */
 export const GET = apiHandler(async (req: NextRequest) => {
-  const user = await requireUser();
+  const _user = await requireUser();
   const perms = await getUserPermissions();
   const hasView = perms.includes(PERM.SALES_VIEW) || perms.includes(PERM.FINANCE_VIEW);
   if (!hasView) throw new ForbiddenError();

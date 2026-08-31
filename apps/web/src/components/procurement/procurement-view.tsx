@@ -329,10 +329,10 @@ function PurchaseOrdersTab({
     { status: "CANCELLED", label: "Cancelled", color: "var(--color-danger)", items: filtered.filter((p) => p.status === "CANCELLED") },
   ];
 
-  const openCount = filtered.filter((p) => ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"].includes(p.status)).length;
-  const totalValue = filtered.filter((p) => p.status !== "CANCELLED").reduce((s, p) => s + p.total, 0);
-  const draftCount = purchaseOrders.filter((p) => p.status === "DRAFT").length;
-  const orderedCount = purchaseOrders.filter((p) => p.status === "ORDERED").length;
+  const _openCount = filtered.filter((p) => ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"].includes(p.status)).length;
+  const _totalValue = filtered.filter((p) => p.status !== "CANCELLED").reduce((s, p) => s + p.total, 0);
+  const _draftCount = purchaseOrders.filter((p) => p.status === "DRAFT").length;
+  const _orderedCount = purchaseOrders.filter((p) => p.status === "ORDERED").length;
 
   // Extract the List/Board toggle + status filter + trailing buttons so they
   // can be reused in both list and board views without TypeScript narrowing.
@@ -622,8 +622,8 @@ function SuppliersTab({ suppliers, canManagePayments }: { suppliers: SupplierRow
   const [deleting, setDeleting] = useState<SupplierRow | null>(null);
   const [paySupplier, setPaySupplier] = useState<SupplierRow | null>(null);
 
-  const totalOwed = suppliers.reduce((s, v) => s + v.balanceOwed, 0);
-  const withDues = suppliers.filter((s) => s.balanceOwed > 0).length;
+  const _totalOwed = suppliers.reduce((s, v) => s + v.balanceOwed, 0);
+  const _withDues = suppliers.filter((s) => s.balanceOwed > 0).length;
 
   const columns: Column<SupplierRow>[] = [
     {
@@ -776,7 +776,7 @@ function DirectPurchasesTab({
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const filtered = directPurchases.filter((p) => !statusFilter || p.status === statusFilter);
-  const totalAmount = filtered.filter((p) => p.status === "COMPLETED").reduce((s, p) => s + p.billAmount, 0);
+  const _totalAmount = filtered.filter((p) => p.status === "COMPLETED").reduce((s, p) => s + p.billAmount, 0);
 
   const supplierOptions = suppliers.map((s) => ({ id: s.id, name: s.name }));
 

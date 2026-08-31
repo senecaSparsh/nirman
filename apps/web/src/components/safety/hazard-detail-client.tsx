@@ -11,7 +11,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { useConfirm } from "@/lib/use-confirm";
 import { formatDate } from "@/lib/utils";
 import { statusBadgeVariant } from "@/components/page";
-import { Shield, Check, Trash2, Loader2, AlertTriangle } from "lucide-react";
+import {Shield, Check, Trash2, Loader2} from "lucide-react";
 
 interface HazardDetail {
   id: string; hazardNumber: string; title: string; description: string;

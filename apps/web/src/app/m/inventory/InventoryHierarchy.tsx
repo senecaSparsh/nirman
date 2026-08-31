@@ -319,7 +319,7 @@ function TreeRow({
       {/* ── Connector columns for each ancestor depth ── */}
       {Array.from({ length: depth }, (_, i) => {
         const isElbowLevel = i === depth - 1;
-        const isAncestorLast = isElbowLevel ? isLast : true; // simplification: ancestors are never last relative to this branch
+        const _isAncestorLast = isElbowLevel ? isLast : true; // simplification: ancestors are never last relative to this branch
         return (
           <div
             key={i}

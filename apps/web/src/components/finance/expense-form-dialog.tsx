@@ -55,7 +55,7 @@ export function ExpenseFormDialog({
   const [saving, setSaving] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [previewLines, setPreviewLines] = useState<GlPreviewLine[]>([]);
-  const [showPreview, setShowPreview] = useState(false);
+  const [_showPreview, setShowPreview] = useState(false);
   const [form, setForm] = useState({
     projectId: "",
     category: "",

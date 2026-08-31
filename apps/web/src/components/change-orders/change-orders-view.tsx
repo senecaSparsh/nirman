@@ -9,8 +9,7 @@ import { Field } from "@/components/field";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
-import { useConfirm } from "@/lib/use-confirm";
-import { Plus, GitBranch, ArrowUpRight, ArrowDownRight, Clock, Search, Trash2, Send, Check, X, Play, Ban } from "lucide-react";
+import {Plus, GitBranch, Search, Trash2} from "lucide-react";
 
 type ChangeOrderType = "ADDITION" | "DELETION" | "MODIFICATION" | "ACCELERATION" | "DECELERATION" | "VARIATION";
 type ChangeOrderReason = "CLIENT_REQUEST" | "SITE_CONDITION" | "DESIGN_CHANGE" | "ERROR_OMISSION" | "REGULATORY" | "VALUE_ENGINEERING" | "OTHER";
@@ -181,7 +180,7 @@ function NewChangeOrderDialog({
   projects: Project[];
   onSaved: () => void;
 }) {
-  const router = useRouter();
+  const _router = useRouter();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     projectId: projects[0]?.id ?? "",

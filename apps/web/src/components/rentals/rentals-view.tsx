@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { KeyRound, Plus, Play, Square, Banknote, Pencil, SearchX, UserCog, TrendingUp, CalendarClock, FileText, ExternalLink, Upload, Printer } from "lucide-react";
+import {KeyRound, Plus, Play, Square, Banknote, Pencil, SearchX, UserCog, TrendingUp, CalendarClock, FileText, ExternalLink, Printer} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label, Textarea } from "@/components/ui/input";

@@ -10,8 +10,6 @@ import {
   CalendarClock,
   ClipboardList,
   ClipboardCheck,
-  ShieldCheck,
-  TrendingDown,
   ArrowRight,
   RefreshCw,
   Loader2,
@@ -21,7 +19,6 @@ import {
 } from "lucide-react";
 import { formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
-import { toast } from "sonner";
 
 type BriefingData = {
   date: string;

@@ -447,7 +447,7 @@ export function LandPurchaseWizardDialog({
     }
   }
 
-  const canPartition = true; // The wizard handles partition inline
+  const _canPartition = true; // The wizard handles partition inline
 
   return (
     <Dialog

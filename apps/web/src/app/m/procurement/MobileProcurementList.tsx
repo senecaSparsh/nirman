@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { AlertTriangle, FileText, Check, X, Copy, Share2, Eye, Printer, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
-import { formatNumber, formatDate, formatCurrency, formatCurrencyCompact } from "@/lib/utils";
+import {formatNumber, formatDate, formatCurrencyCompact} from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { PageLead, NextActionCard } from "@/components/mobile/v2/guidance";

@@ -5,10 +5,8 @@ import { prisma } from "@nirman/db";
 import { Beaker } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatNumber } from "@/lib/utils";
 import {
   MobileStatCard,
-  MobileSectionTitle,
 } from "@/components/mobile/v2/primitives";
 import { MobileStandardConsumptionsList } from "./MobileStandardConsumptionsList";
 import { MobileStandardConsumptionsFab } from "./MobileStandardConsumptionsFab";

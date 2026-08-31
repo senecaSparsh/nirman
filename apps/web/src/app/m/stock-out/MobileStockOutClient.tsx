@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import {useEffect, useState, useRef} from "react";
+import {useRouter} from "next/navigation";
 import {
   ArrowRight, ArrowLeftRight, Package, MapPin, Plus, Trash2,
   Send, Loader2, CheckCircle2, WifiOff, User, Truck,
   ShieldCheck, Printer, Building2, Clock,
 } from "lucide-react";
-import { formatNumber, formatCurrency } from "@/lib/utils";
+import {formatNumber} from "@/lib/utils";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useLongPressNav } from "@/lib/use-long-press-nav";

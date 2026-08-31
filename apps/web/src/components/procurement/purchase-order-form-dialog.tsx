@@ -153,9 +153,9 @@ export function PurchaseOrderFormDialog({
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors<PoFormValues>>({});
   // Inline create dialog open-state for the master selects.
-  const [supplierCreateOpen, setSupplierCreateOpen] = useState(false);
-  const [projectCreateOpen, setProjectCreateOpen] = useState(false);
-  const [locationCreateOpen, setLocationCreateOpen] = useState(false);
+  const [_supplierCreateOpen, _setSupplierCreateOpen] = useState(false);
+  const [_projectCreateOpen, _setProjectCreateOpen] = useState(false);
+  const [_locationCreateOpen, _setLocationCreateOpen] = useState(false);
   const [materialCreateOpen, setMaterialCreateOpen] = useState(false);
   // Local copies so a freshly created master shows up in its select without
   // waiting for router.refresh.

@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { TrendingUp, TrendingDown, Wallet, Building2, ArrowRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatCurrencyDetailed } from "@/lib/utils";
+import {formatCurrency} from "@/lib/utils";
 
 export interface CashPositionData {
   cashBalance: number;

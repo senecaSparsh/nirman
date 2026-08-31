@@ -3,7 +3,7 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma, type StockMovementType } from "@nirman/db";
-import { PackageOpen, ArrowDownToLine, ArrowUpFromLine, Scale, MapPin, Boxes, Package } from "lucide-react";
+import {PackageOpen, MapPin, Boxes, Package} from "lucide-react";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";

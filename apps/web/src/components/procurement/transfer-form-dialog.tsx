@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import {Input, Label, Textarea} from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
 import { SelectWithCreate } from "@/components/ui/select-with-create";

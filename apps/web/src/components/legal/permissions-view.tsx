@@ -8,8 +8,6 @@ import {
   Filter, Search,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import {

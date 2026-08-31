@@ -172,7 +172,7 @@ async function GatePassesContent() {
 
   const pending = gpRows.filter((g) => g.status === "PENDING").length;
   const approved = gpRows.filter((g) => g.status === "APPROVED").length;
-  const exited = gpRows.filter((g) => g.status === "EXITED").length;
+  const _exited = gpRows.filter((g) => g.status === "EXITED").length;
   const rejected = gpRows.filter((g) => g.status === "REJECTED").length;
 
   return (

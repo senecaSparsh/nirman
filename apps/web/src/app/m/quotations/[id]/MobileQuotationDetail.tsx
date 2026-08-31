@@ -19,8 +19,6 @@ import {
   Check,
   AlertCircle,
   Calculator,
-  Calendar,
-  HardHat,
   TrendingUp,
   Crown,
   Download,
@@ -204,7 +202,7 @@ export function MobileQuotationDetail({
   }, [activeQuotes]);
 
   // Per-material comparison matrix.
-  const materialMatrix = useMemo(() => {
+  const _materialMatrix = useMemo(() => {
     return lines.map((line) => {
       const quoteEntries = activeQuotes.map((q) => {
         const ql = q.lines.find((l) => l.materialId === line.materialId);
@@ -799,7 +797,7 @@ function ComparativeSheet({
     const bn = batch.length;
     const labelPct = bn <= 2 ? 34 : bn === 3 ? 30 : 28;
     const quotePct = (100 - labelPct) / bn;
-    const batchNum = Math.floor(batchStart / MAX_PER_TABLE) + 1;
+    const _batchNum = Math.floor(batchStart / MAX_PER_TABLE) + 1;
     const totalBatches = Math.ceil(sortedQuotes.length / MAX_PER_TABLE);
 
     // For this batch, find cheapest within the FULL sorted list (idx 0 is always cheapest overall)
@@ -830,7 +828,7 @@ function ComparativeSheet({
                   <div className="font-bold" style={{ fontSize: `${batchFs.supplier}px` }}>Supplier →</div>
                 </th>
                 {batch.map((q) => {
-                  const globalIdx = sortedQuotes.indexOf(q);
+                  const _globalIdx = sortedQuotes.indexOf(q);
                   const isWinner = q.id === selectedQuoteId;
                   const isCheapest = q.id === globalCheapestId;
                   return (

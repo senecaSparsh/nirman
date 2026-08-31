@@ -8,7 +8,6 @@ import {
   Target, TrendingUp, Clock, MessageSquare,
   CheckCircle2, AlertCircle, ArrowRight,
   Plus, Loader2, X, UserRoundCheck, ChevronDown,
-  Trash2,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
@@ -16,7 +15,6 @@ import {
   MobileRow,
   MobileStatCard,
   MobileEmptyState,
-  MobileStatusBadge,
 } from "@/components/mobile/v2/primitives";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 

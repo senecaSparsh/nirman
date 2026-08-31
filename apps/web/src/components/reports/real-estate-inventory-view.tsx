@@ -7,11 +7,8 @@ import {
   Home,
   LandPlot,
   TrendingUp,
-  TrendingDown,
-  Hammer,
   CheckCircle2,
   CircleDollarSign,
-  ShoppingCart,
   CalendarPlus,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";

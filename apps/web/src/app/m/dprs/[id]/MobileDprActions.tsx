@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, XCircle, Loader2, RotateCw, AlertTriangle, DollarSign, Trash2, Pencil, X } from "lucide-react";
+import {CheckCircle2, XCircle, Loader2, RotateCw, AlertTriangle, DollarSign, Trash2, X} from "lucide-react";
 import { toast } from "sonner";
-import { haptic } from "@/lib/haptic";
 import { useOptimisticAction } from "@/lib/use-optimistic-action";
 import { ActionBar } from "@/components/mobile/v2/primitives";
 

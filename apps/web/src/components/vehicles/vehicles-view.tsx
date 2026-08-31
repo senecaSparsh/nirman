@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Search, Truck, Phone, User, MapPin, X, ChevronRight, Camera } from "lucide-react";
+import {Search, Truck, Phone, User, MapPin, ChevronRight} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/empty-state";

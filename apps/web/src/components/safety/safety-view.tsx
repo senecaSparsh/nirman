@@ -8,7 +8,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
-import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import {cn, formatDate} from "@/lib/utils";
 import { statusBadgeVariant } from "@/components/page";
 import { AlertTriangle, ShieldAlert, ClipboardCheck, Plus, Search, Loader2 } from "lucide-react";
 import { computeRiskLevel } from "@nirman/services/safety";

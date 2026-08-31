@@ -57,7 +57,7 @@ export default async function PurchaseOrderPrintPage({
   const packingTotal = toNum(po.packingTotal);
   const insuranceTotal = toNum(po.insuranceTotal);
   const discountTotal = toNum(po.discountTotal);
-  const miscChargesTotal = toNum(po.miscChargesTotal);
+  const _miscChargesTotal = toNum(po.miscChargesTotal);
   const charges = po.charges;
   const words = amountInWords(total);
 

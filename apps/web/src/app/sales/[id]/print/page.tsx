@@ -36,7 +36,7 @@ export default async function PrintableSaleFormPage({
 
   const sellerBorneExpenses = sale.expenses.filter((e) => e.borneBy === "SELLER");
   const clientBorneExpenses = sale.expenses.filter((e) => e.borneBy === "CLIENT");
-  const totalSellerBorne = sellerBorneExpenses.reduce((s, e) => s + toNum(e.amount), 0);
+  const _totalSellerBorne = sellerBorneExpenses.reduce((s, e) => s + toNum(e.amount), 0);
   const totalClientBorne = clientBorneExpenses.reduce((s, e) => s + toNum(e.amount), 0);
 
   const extraTermsTotal = sale.terms

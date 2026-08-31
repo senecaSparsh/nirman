@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Textarea } from "@/components/ui/input";
+import {Label, Textarea} from "@/components/ui/input";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { formatNumber } from "@/lib/utils";
 import {

@@ -11,7 +11,6 @@ import {
   RefreshCw,
   WifiOff,
   Wifi,
-  AlertTriangle,
   MoreVertical,
 } from "lucide-react";
 import { useSession, signOut as authSignOut } from "@/lib/auth-client";
@@ -313,7 +312,7 @@ function MobileShellInner({
   const [isOffline, setIsOffline] = useState(false);
   const [navSheetOpen, setNavSheetOpen] = useState(false);
   const companySwitcherRef = useRef<HTMLDivElement>(null);
-  const { pending: offlineQueueCount, syncing: offlineSyncing, sync: syncOfflineQueue } = useOfflineQueue();
+  const { pending: offlineQueueCount, syncing: offlineSyncing, sync: _syncOfflineQueue } = useOfflineQueue();
 
   // ── Close company switcher on outside click ──────────────
   useEffect(() => {
@@ -499,10 +498,10 @@ function MobileShellInner({
               <button
                 onClick={() => setNavSheetOpen(true)}
                 aria-label="All pages"
-                className="press grid place-items-center size-7 rounded-[0.375rem]"
+                className="press grid place-items-center size-9 rounded-[0.375rem]"
                 style={{ color: "var(--color-ink-500)" }}
               >
-                <MoreVertical className="size-4" />
+                <MoreVertical className="size-5" />
               </button>
             )}
             {isDrillDown ? (

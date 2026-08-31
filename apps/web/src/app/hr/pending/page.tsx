@@ -48,10 +48,10 @@ async function PendingListContent() {
     return <NoAccess what="the pending list" />;
   }
 
-  const canApproveDpr = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN) || hasPermission(role, PERM.DPR_APPROVE_ADMIN);
-  const canApprovePo = hasPermission(role, PERM.PO_APPROVE);
-  const canApproveRequisition = hasPermission(role, PERM.REQUISITION_APPROVE);
-  const canManagePayroll = hasPermission(role, PERM.PAYROLL_MANAGE);
+  const _canApproveDpr = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN) || hasPermission(role, PERM.DPR_APPROVE_ADMIN);
+  const _canApprovePo = hasPermission(role, PERM.PO_APPROVE);
+  const _canApproveRequisition = hasPermission(role, PERM.REQUISITION_APPROVE);
+  const _canManagePayroll = hasPermission(role, PERM.PAYROLL_MANAGE);
 
   const [
     pendingDprs,

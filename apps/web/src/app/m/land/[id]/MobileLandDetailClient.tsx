@@ -717,7 +717,7 @@ export function MobileLandDetailClient({
           ) : null}
 
           {/* Right side — registry info */}
-          <div className="flex-1 min-w-0 pl-3 pr-2.5 py-2">
+          <div className="flex-1 min-w-0 px-3 py-2">
             {/* Registry no + mode badge */}
             <div className="flex items-center justify-between mb-1">
               <span className="flex items-center gap-0.5 text-m-caption font-mono" style={{ color: "var(--color-ink-500)" }}>
@@ -838,7 +838,7 @@ export function MobileLandDetailClient({
         </div>
 
         {/* Full-width bottom section — cost breakup + messages fill the space below cadastre */}
-        <div className="px-3 pb-2.5 pt-1.5 border-t" style={{ borderColor: "var(--color-line)" }}>
+        <div className="px-3 py-2.5 border-t" style={{ borderColor: "var(--color-line)" }}>
           {/* Cost breakup — full width, right-aligned numbers */}
           {data.baseCost != null && data.baseCost > 0 && (
             <div className="rounded-[0.375rem] border p-2 space-y-0.5"
@@ -1667,7 +1667,7 @@ function ParcelCard({
         style={{ backgroundColor: meta!.color }}
       />
 
-      <div className="pl-3.5 pr-3 py-2.5">
+      <div className="px-3.5 py-2.5">
         {/* ── Top: number + status ── */}
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-1.5">
@@ -1981,7 +1981,7 @@ function BuiltUnitCard({ unit: u, unitShort }: { unit: BuiltUnit; unitShort: str
         style={{ backgroundColor: meta.color }}
       />
 
-      <div className="pl-3.5 pr-3 py-2.5">
+      <div className="px-3.5 py-2.5">
         {/* ── Top: unit number + type + status ── */}
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-1.5">

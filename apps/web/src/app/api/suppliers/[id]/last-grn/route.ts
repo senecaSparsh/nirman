@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompanyGroupIds, json, requireUser } from "@/lib/server";
+import {apiHandler, json, requireUser} from "@/lib/server";
 
 /**
  * GET /api/suppliers/[id]/last-grn — returns logistics fields from the

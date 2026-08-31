@@ -22,7 +22,6 @@ import {
   SectionHead,
   mobileStatusColor,
   MobilePipelineStepper,
-  type MobilePipelineStep,
 } from "@/components/mobile/v2/primitives";
 
 import { MobileEditProjectButton } from "./MobileEditProjectButton";

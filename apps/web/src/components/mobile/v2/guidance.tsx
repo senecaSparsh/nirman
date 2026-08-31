@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ChevronRight, Info, CheckCircle2, ArrowRight, type LucideIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { FLOWS, nextActionFor, flowForRoute, type FlowId, type NextAction } from "@/lib/flow-map";
+import {FLOWS, nextActionFor, type FlowId} from "@/lib/flow-map";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    GUIDANCE PRIMITIVES — orientation that merges into the page
@@ -243,7 +243,7 @@ function ActionCardShell({
 }) {
   const accent =
     tone === "go" ? "var(--color-go)" : tone === "stop" ? "var(--color-stop)" : "var(--color-signal)";
-  const accentDark =
+  const _accentDark =
     tone === "go" ? "var(--color-go)" : tone === "stop" ? "var(--color-stop)" : "var(--color-signal-dark)";
   const wash =
     tone === "go" ? "var(--color-go-wash)" : tone === "stop" ? "var(--color-stop-wash)" : "var(--color-signal-wash)";

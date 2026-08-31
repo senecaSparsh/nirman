@@ -26,7 +26,7 @@ import {
   getTallySyncStats,
 } from "@nirman/services";
 import { getCompany, getCurrentUser, toNum } from "@/lib/server";
-import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate, humanizeAuditAction } from "@/lib/utils";
+import {formatCurrencyCompact, formatNumber, formatDate, humanizeAuditAction} from "@/lib/utils";
 import {
   MobileRow,
   Badge,

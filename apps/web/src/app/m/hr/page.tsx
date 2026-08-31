@@ -4,7 +4,6 @@ import { connection } from "next/server";
 import {
   ClipboardList,
   FileText,
-  Users,
   Wallet,
   CalendarDays,
   ArrowRight,
@@ -72,7 +71,7 @@ async function HrContent() {
     pendingDprCount,
     pendingLeaveCount,
     draftPayroll,
-    crewCount,
+    _crewCount,
     todayProjectAttendance,
   ] = await Promise.all([
     prisma.dailyProgressReport

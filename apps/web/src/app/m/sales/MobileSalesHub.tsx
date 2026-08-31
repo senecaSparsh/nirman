@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CalendarClock, ContactRound, Flame, Phone, Plus, UserRoundCheck } from "lucide-react";
-import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import {CalendarClock, ContactRound, Flame, Phone, UserRoundCheck} from "lucide-react";
+import {type MobileColumnSpec} from "@/components/mobile/v2/export-share-bar";
 import { formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { LeadFormDialog } from "@/components/sales/lead-form-dialog";
 import { LeadDetailDialog } from "@/components/sales/lead-detail-dialog";

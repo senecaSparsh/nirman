@@ -301,8 +301,8 @@ async function SalesContent() {
   const soldUnits = unitCountByStatus.SOLD ?? 0;
   const availableUnits = unitCountByStatus.AVAILABLE ?? 0;
   const reservedUnits = unitCountByStatus.RESERVED ?? 0;
-  const rentedUnits = unitCountByStatus.RENTED ?? 0;
-  const underConstruction = unitCountByStatus.UNDER_CONSTRUCTION ?? 0;
+  const _rentedUnits = unitCountByStatus.RENTED ?? 0;
+  const _underConstruction = unitCountByStatus.UNDER_CONSTRUCTION ?? 0;
 
   return (
     <>

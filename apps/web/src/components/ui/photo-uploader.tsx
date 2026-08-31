@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Camera, X, Loader2, Upload } from "lucide-react";
+import {Camera, X, Loader2} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 

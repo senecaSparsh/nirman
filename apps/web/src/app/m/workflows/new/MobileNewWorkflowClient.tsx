@@ -9,7 +9,6 @@ import {
   Check,
   Loader2,
   Clock,
-  Calendar,
   Zap,
   Bell,
   FileEdit,
@@ -24,7 +23,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { WORKFLOW_TEMPLATES, type WorkflowTemplate } from "@/lib/workflow-templates";
 
 const TEMPLATE_ICONS: Record<string, LucideIcon> = {

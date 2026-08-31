@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Save, CheckCircle2, Building2 } from "lucide-react";
+import {Loader2, Save, CheckCircle2} from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";

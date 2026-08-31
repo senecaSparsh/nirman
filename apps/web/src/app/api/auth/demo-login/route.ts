@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { hashPassword } from "better-auth/crypto";
-import { prisma } from "@nirman/db";
-import { ALL_ROLES, type Role } from "@/lib/roles";
+import {type Role} from "@/lib/roles";
 import { json } from "@/lib/server";
 import { withSerializableTransaction } from "@nirman/services";
 

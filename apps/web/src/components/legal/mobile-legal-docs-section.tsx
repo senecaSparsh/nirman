@@ -11,7 +11,7 @@ import {
 import {
   MobileSectionTitle, MobileEmptyState, MobileStatusBadge,
 } from "@/components/mobile/v2/primitives";
-import { formatCurrencyCompact, formatDate, cn } from "@/lib/utils";
+import {formatCurrencyCompact, formatDate} from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import type { LegalDocRow, LegalDocType, LegalDocStatus } from "@/components/legal/legal-docs-section";
 import {
@@ -468,7 +468,7 @@ function MobileLegalDocForm({
   context: "LAND" | "PROJECT";
   onSaved: () => void;
 }) {
-  const router = useRouter();
+  const _router = useRouter();
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Select, Textarea } from "@/components/ui/input";
+import {Input, Textarea} from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { CategoryFormDialog } from "@/components/materials/category-form-dialog";

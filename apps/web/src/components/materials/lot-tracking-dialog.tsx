@@ -4,10 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Select, Textarea } from "@/components/ui/input";
+import {Input, Select} from "@/components/ui/input";
 import { Field } from "@/components/field";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, AlertTriangle, Package } from "lucide-react";
+import {Plus, AlertTriangle, Package} from "lucide-react";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import type { MaterialRow } from "@/lib/types";
 

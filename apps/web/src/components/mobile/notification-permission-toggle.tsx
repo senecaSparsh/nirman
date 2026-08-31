@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Bell, BellOff, Loader2, CheckCircle2 } from "lucide-react";
 import { usePushNotifications } from "@/lib/use-push-notifications";
 import { haptic } from "@/lib/haptic";

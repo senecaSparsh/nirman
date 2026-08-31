@@ -4,8 +4,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
-import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
-import { MobileCustomersList, type CustomerListItem } from "./MobileCustomersList";
+import {type CustomerListItem} from "./MobileCustomersList";
 import { MobileCustomersLeadsTabs } from "./MobileCustomersLeadsTabs";
 
 /**

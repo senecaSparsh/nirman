@@ -7,7 +7,7 @@ import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
 import { RefreshButton } from "@/components/refresh-button";
 import { NoAccess } from "@/components/no-access";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import {formatCurrency} from "@/lib/utils";
 import { SmsView } from "@/components/sms/sms-view";
 
 export const metadata = { title: "Bank SMS · Nirman" };

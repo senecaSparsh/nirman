@@ -11,7 +11,6 @@ import {
   MobileEmptyState,
   MobileStatusBadge,
   SectionHead,
-  mobileStatusColor,
   MobilePipelineStepper,
   type MobilePipelineStep,
 } from "@/components/mobile/v2/primitives";

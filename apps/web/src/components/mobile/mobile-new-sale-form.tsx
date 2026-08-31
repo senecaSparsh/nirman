@@ -54,9 +54,9 @@ interface ProjectOpt {
 
 const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as const;
 
-const inputClass =
+const _inputClass =
   "w-full h-9 rounded-[0.5rem] border px-3 text-m-section font-medium outline-none";
-const inputStyle = {
+const _inputStyle = {
   borderColor: "var(--color-line)",
   backgroundColor: "var(--color-paper)",
   color: "var(--color-ink-950)",
@@ -132,7 +132,7 @@ export function MobileNewSaleForm({
   initialBuiltUnitId,
   initialLandParcelId,
   initialCustomerId,
-  existingPhones = [],
+  _existingPhones = [],
   sellableProjects = [],
 }: {
   units: UnitOpt[];

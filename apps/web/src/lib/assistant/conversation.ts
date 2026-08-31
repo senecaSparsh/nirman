@@ -334,7 +334,7 @@ export function processConversation(
     // Re-parse each step as a separate intent
     // For now, just acknowledge and process the first step
     // The client will send the next step after confirming
-    const firstStepParsed = parsed; // The NLU already parsed the full text; first step intent is the dominant one
+    const _firstStepParsed = parsed; // The NLU already parsed the full text; first step intent is the dominant one
     const stepDefs: StepDef[] = steps.map((stepText, i) => ({
       intent: i === 0 ? parsed.intent : "UNKNOWN", // First step is parsed; subsequent steps parsed later
       label: stepText,
