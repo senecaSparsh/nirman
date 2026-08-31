@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, departmentSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -52,5 +53,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       active: parsed.data.active ?? true,
     },
   });
+  revalidatePath("/departments");
+  revalidatePath("/m/departments");
   return json({ ok: true, id: created.id }, { status: 201 });
 });

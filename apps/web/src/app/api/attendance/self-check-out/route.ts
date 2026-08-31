@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma, type AttendanceStatus } from "@nirman/db";
 import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
@@ -75,6 +76,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
     },
   });
 
+  revalidatePath("/hr/attendance");
+  revalidatePath("/m/site/attendance");
   return json({
     ok: true,
     id: updated.id,

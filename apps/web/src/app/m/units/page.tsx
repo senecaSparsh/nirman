@@ -5,7 +5,7 @@ import { prisma } from "@nirman/db";
 import { Home } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatNumber, formatCurrency, formatCurrencyCompact } from "@/lib/utils";
+import { formatNumber, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileEmptyState,
   MobileCta,

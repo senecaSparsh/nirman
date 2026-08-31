@@ -223,7 +223,7 @@ export function MeasurementBookView({
         toast.info("WBS progress auto-updated", { description: "Linked activity progress recalculated from approved quantities." });
       }
       // Refresh entries
-      fetch(`/api/mb-entries?projectId=${projectId}`).then((r) => r.json()).then((d) => setEntries(d ?? []));
+      fetch(`/api/mb-entries?projectId=${projectId}`).then((r) => r.json()).then((d) => setEntries(d ?? [])).catch(() => {});
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     }
@@ -245,7 +245,7 @@ export function MeasurementBookView({
       if (!res.ok) throw new Error(data.error ?? "Failed");
       toast.success("Entry rejected");
       setRejectTarget(null);
-      fetch(`/api/mb-entries?projectId=${projectId}`).then((r) => r.json()).then((d) => setEntries(d ?? []));
+      fetch(`/api/mb-entries?projectId=${projectId}`).then((r) => r.json()).then((d) => setEntries(d ?? [])).catch(() => {});
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     }
@@ -311,7 +311,7 @@ export function MeasurementBookView({
         projectId={projectId}
         boqItems={boqItems}
         wbsNodes={wbsNodes}
-        onCreated={() => fetch(`/api/mb-entries?projectId=${projectId}`).then((r) => r.json()).then((d) => setEntries(d ?? []))}
+        onCreated={() => fetch(`/api/mb-entries?projectId=${projectId}`).then((r) => r.json()).then((d) => setEntries(d ?? [])).catch(() => {})}
       />
 
       {/* Rejection reason dialog — replaces native prompt() */}

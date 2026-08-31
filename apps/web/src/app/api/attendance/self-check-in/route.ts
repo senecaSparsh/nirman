@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@nirman/db";
 import { recordAttendance } from "@nirman/services";
@@ -101,6 +102,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
     userId: user.id,
   });
 
+  revalidatePath("/hr/attendance");
+  revalidatePath("/m/site/attendance");
   return json({
     ok: true,
     id: attendance.id,

@@ -298,7 +298,8 @@ export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: b
         }
         collect(data.tree ?? []);
         setBoqItems(items);
-      });
+      })
+      .catch(() => { /* silent — BOQ items are optional */ });
   }, [fetchTree, projectId]);
 
   // Flat lookup for syncing editingNode after refetch

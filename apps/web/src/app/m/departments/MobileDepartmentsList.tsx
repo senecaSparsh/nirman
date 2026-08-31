@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Building2, Package, Plus, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -251,6 +252,7 @@ function DepartmentFormDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const router = useRouter();
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -281,7 +283,7 @@ function DepartmentFormDialog({
       }
       toast.success("Department created");
       onOpenChange(false);
-      window.location.reload();
+      router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create department");
     } finally {

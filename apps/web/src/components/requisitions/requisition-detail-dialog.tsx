@@ -51,6 +51,7 @@ export function RequisitionDetailDialog({
       fetch(`/api/requisitions/${requisition.id}`)
         .then((r) => r.json())
         .then((d) => { if (!d.error) setDetail(d); })
+        .catch(() => { /* silent — loading state reset below */ })
         .finally(() => setLoading(false));
       // Track in recently viewed
       trackRecent({ type: "requisition", id: requisition.id, label: requisition.reqNumber, href: `/requisitions?req=${requisition.id}` });

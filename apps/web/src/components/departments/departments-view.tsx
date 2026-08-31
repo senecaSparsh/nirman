@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Building2, Search, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -206,6 +207,7 @@ function DepartmentFormDialog({
   department: DepartmentRow | null;
   canEdit: boolean;
 }) {
+  const router = useRouter();
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -248,7 +250,7 @@ function DepartmentFormDialog({
       }
       toast.success(department ? "Department updated" : "Department created");
       onOpenChange(false);
-      window.location.reload();
+      router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save department");
     } finally {

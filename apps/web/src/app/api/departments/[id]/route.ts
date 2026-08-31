@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { apiHandler, getCompany, json, departmentSchema, requirePermission } from "@/lib/server";
@@ -51,6 +52,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     });
     return dept;
   });
+  revalidatePath("/departments");
+  revalidatePath("/m/departments");
   return json(updated);
 });
 
@@ -79,5 +82,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
       before: { name: dept.name, code: dept.code },
     });
   });
+  revalidatePath("/departments");
+  revalidatePath("/m/departments");
   return json({ ok: true });
 });
