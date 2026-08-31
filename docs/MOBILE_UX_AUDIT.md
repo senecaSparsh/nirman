@@ -151,9 +151,17 @@ right place for a sitemap pattern.
 
 ## The 7 True Gaps (Ranked by Impact)
 
+> **Update 2026-08-31**: All 7 gaps have been resolved. See the ✅ FIXED
+> notes under each gap for what was done.
+
 These are genuinely missing or broken, and matter for real-world use.
 
-### GAP 1: No pagination on any list page (HIGH IMPACT)
+### GAP 1: No pagination on any list page (HIGH IMPACT) — ✅ FIXED
+
+> **Fixed**: All 5 major list pages (procurement, requisitions, transfers,
+> material sales, DPRs) now use `usePaginatedList` with cursor-based
+> pagination and a "Load More" button. Server pages pass `nextCursor` +
+> `loadMoreUrl` props.
 
 **Finding**: Every list page uses `take: N` (ranging from 40 to 200) with NO
 "load more" button, no infinite scroll, and no pagination controls. Once a
@@ -178,7 +186,13 @@ next batch using cursor-based pagination (Prisma `cursor` + `skip: 1`). The
 `virtualized-list.tsx` component already exists — wire it up. Alternatively,
 add a date-range filter so users can narrow to recent records.
 
-### GAP 2: `useSmartDefaults` hook built but not wired to any form (HIGH IMPACT)
+### GAP 2: `useSmartDefaults` hook built but not wired to any form (HIGH IMPACT) — ✅ FIXED
+
+> **Fixed**: `useSmartDefaults` is now wired to 5 mobile forms: PO creation
+> (`MobileNewProcurementClient`), requisition (`MobileNewRequisitionClient`),
+> material sale (`MobileNewMaterialSaleClient`), attendance
+> (`mobile-attendance-form`), and DPR (`mobile-dpr-form`). Last-used
+> supplier, scope, project, location, etc. are pre-filled on next visit.
 
 **Finding**: The `useSmartDefaults` hook exists at
 `/lib/use-smart-defaults.ts` (96 lines, fully functional — records last-used
@@ -207,7 +221,11 @@ call `getDefault("supplierId")` etc. on mount, and `recordDefaults({ supplierId,
 scope, projectId, locationId })` on submit. Show the `SmartDefaultsBadge` when
 defaults are applied. Same pattern for transfer, requisition, and sale forms.
 
-### GAP 3: Detail page action bar is inline, not sticky bottom (MEDIUM IMPACT)
+### GAP 3: Detail page action bar is inline, not sticky bottom (MEDIUM IMPACT) — ✅ FIXED
+
+> **Fixed**: `MobilePoActions` now wraps its content in `<ActionBar>` from
+> `primitives.tsx`, which renders as a fixed bottom bar with backdrop blur.
+> The actions are always in the thumb zone regardless of scroll position.
 
 **Finding**: `MobilePoActions` renders as inline content at the bottom of the
 page (`space-y-2 px-4 pb-6 pt-3`), NOT as a sticky bottom bar. Users must
@@ -231,7 +249,13 @@ construction site with one hand, this is friction.
 backdrop blur. Add `pb-nav` padding to the detail page content so it doesn't
 hide behind the action bar.
 
-### GAP 4: Text sizes on list cards are too small for outdoor use (MEDIUM IMPACT)
+### GAP 4: Text sizes on list cards are too small for outdoor use (MEDIUM IMPACT) — ✅ FIXED
+
+> **Fixed**: All hardcoded `text-[0.375rem]` (6px), `text-[0.4375rem]` (7px),
+> and `text-[0.5625rem]` (9px) classes have been replaced with semantic
+> typography tokens: `text-m-body`, `text-m-caption`, `text-m-label`. These
+> map to readable sizes (14px body, 12px caption, 11px label) that survive
+> outdoor sunlight.
 
 **Finding**: The PO card uses extremely small text:
 - PO number: `text-[0.5625rem]` = **9px**
@@ -259,7 +283,12 @@ decision (A2).
 4. Add the "Outdoor Mode" toggle from the research (§7.2) that snaps to
    maximum contrast + larger text
 
-### GAP 5: No persistent filters across navigation (MEDIUM IMPACT)
+### GAP 5: No persistent filters across navigation (MEDIUM IMPACT) — ✅ FIXED
+
+> **Fixed**: List pages now use `useUrlQuery` and `useUrlFilter` hooks that
+> sync filter state to URL search params (`?status=DRAFT&q=supplier`).
+> Next.js preserves these across navigation — filtering to "Draft", viewing
+> a PO, and pressing back returns to the filtered list.
 
 **Finding**: When a user filters the PO list to "Draft" status, navigates to a
 PO detail, and comes back, the filter resets to "All". The filter state is
@@ -280,7 +309,12 @@ list again. This causes 2-3 extra taps per approval cycle.
 using `useSearchParams` from `next/navigation`. Next.js will preserve these
 across navigation. Alternatively, use sessionStorage keyed by page path.
 
-### GAP 6: Offline banner uses alarming red, not subtle indicator (LOW IMPACT)
+### GAP 6: Offline banner uses alarming red, not subtle indicator (LOW IMPACT) — ✅ FIXED
+
+> **Fixed**: The offline banner now uses `var(--color-signal-wash)`
+> background with `var(--color-signal-dark)` text and a small `WifiOff`
+> icon — a subtle amber indicator instead of alarming red. The queue count
+> and sync link are preserved.
 
 **Finding**: The offline banner uses `var(--color-stop)` (red) background with
 white text — it looks like an error, not a normal mode.
@@ -301,7 +335,10 @@ architecture is sound), but the UI treatment is wrong.
 a small `WifiOff` icon. Keep the queue count + sync link. Remove the
 full-width banner — make it a thin strip (py-1) or just an icon in the header.
 
-### GAP 7: Filter chips below 44px touch target minimum (LOW IMPACT)
+### GAP 7: Filter chips below 44px touch target minimum (LOW IMPACT) — ✅ FIXED
+
+> **Fixed**: `MobileFilterChips` in `scaffold.tsx` now uses `min-h-11`
+> (44px) instead of `min-h-9` (36px), meeting the Apple HIG minimum.
 
 **Finding**: `MobileFilterChips` uses `min-h-9` = 36px, which is below the
 44px Apple HIG minimum and the 48px Material recommendation.
@@ -379,8 +416,8 @@ If you're going to fix the 7 gaps, do them in this order:
 
 The mobile app is **genuinely well-built** and ahead of the research in several
 areas. The architecture decisions (orbit navigator, persona tabs, tracking
-timeline, voice agent, offline queue) are sound and original. The 7 true gaps
-are mostly wiring issues (smart defaults hook exists but isn't connected,
-pagination isn't implemented, action bar isn't sticky) rather than fundamental
-design problems. Fixing gaps 1-3 would bring the app from its current state to
-production-ready for daily field use.
+timeline, voice agent, offline queue) are sound and original. All 7 true gaps
+identified in the initial audit have been resolved: pagination, smart defaults,
+sticky action bar, readable text sizes, persistent filters, subtle offline
+indicator, and 44px touch targets. The app is now production-ready for daily
+field use.
