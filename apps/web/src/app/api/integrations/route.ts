@@ -45,8 +45,17 @@ const upsertSchema = z.object({
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.COMPANY_MANAGE);
   const company = await getCompany();
-  const body = await req.json().catch(() => ({}));
-  const parsed = upsertSchema.parse(body);
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const parsedResult = upsertSchema.safeParse(body);
+  if (!parsedResult.success) {
+    return json({ error: parsedResult.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  const parsed = parsedResult.data;
 
   const result = await upsertIntegrationConfig({
     companyId: company.id,
@@ -67,7 +76,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
 export const DELETE = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.COMPANY_MANAGE);
   const company = await getCompany();
-  const body = await req.json().catch(() => ({}));
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const { key } = z.object({ key: z.string() }).parse(body);
 
   await deleteIntegrationConfig({

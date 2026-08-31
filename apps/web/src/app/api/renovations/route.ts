@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma, type RenovationStatus } from "@nirman/db";
-import { createRenovation } from "@nirman/services";
+import { createRenovation, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, renovationSchema, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -86,7 +86,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     return json({ ok: true, id: renovation.id, renovationNumber: renovation.renovationNumber }, { status: 201 });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to create renovation";
-    return json({ error: message }, { status: 400 });
+    const message = err instanceof ServiceError ? err.message : "Failed to create renovation";
+    return json({ error: message }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

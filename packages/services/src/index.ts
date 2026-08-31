@@ -117,6 +117,8 @@ export {
   createWhatsAppProviderFromConfig,
   createEmailProviderFromConfig,
   createPortalProviderFromConfig,
+  createHsnSacProviderFromConfig,
+  createOcrProviderFromConfig,
   SmtpEmailProvider,
   INTEGRATION_SCHEMAS,
   type IntegrationSchema,
@@ -215,6 +217,27 @@ export {
   type PortalListingPayload,
   type PortalFieldMapping,
 } from "./portal-listing";
+
+// HSN/SAC Auto-Fetch (D24) — look up HSN/SAC codes and GST rates
+export {
+  searchHsnSac,
+  CbicHsnSacProvider,
+  FastGstHsnSacProvider,
+  type HsnSacResult,
+  type HsnSacProvider,
+} from "./hsn-sac";
+
+// OCR (M19) — extract DPR data from photos via AI vision
+export {
+  StubOcrProvider,
+  OpenAiVisionOcrProvider,
+  GoogleVisionOcrProvider,
+  AzureDiOcrProvider,
+  type DprOcrResult,
+  type DprOcrMaterialLine,
+  type DprOcrLaborLine,
+  type OcrProvider,
+} from "./ocr";
 
 // Direct Purchase — simplified purchase log for local/ad-hoc buys
 export { createDirectPurchase, cancelDirectPurchase, listDirectPurchases } from "./direct-purchase";
@@ -353,6 +376,7 @@ export {
   updateUnitStatus,
   updateUnitValuation,
   purchaseBuiltUnit,
+  purchaseBuiltUnits,
 } from "./built-unit";
 
 // Project Cost — labour/overhead/etc.

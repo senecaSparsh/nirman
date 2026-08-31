@@ -61,6 +61,7 @@ async function ReportContent({
       : {};
 
   const issues = await prisma.materialIssue.findMany({
+    take: 500,
     where: {
       department: { companyId: company.id, deletedAt: null },
       departmentId: { not: null },

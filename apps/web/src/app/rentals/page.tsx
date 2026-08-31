@@ -35,6 +35,7 @@ async function RentalsContent() {
 
   const [tenancies, landParcels, builtUnits, customers, projects] = await Promise.all([
     prisma.tenancy.findMany({
+      take: 500,
       where: { companyId: company.id },
       orderBy: { createdAt: "desc" },
       include: {
@@ -44,21 +45,25 @@ async function RentalsContent() {
       },
     }),
     prisma.landParcel.findMany({
-      where: { deletedAt: null, status: { in: ["AVAILABLE", "RENTED"] } },
+      take: 200,
+      where: { deletedAt: null, status: { in: ["AVAILABLE", "RENTED"] }, landPurchase: { companyId: company.id } },
       select: { id: true, number: true, area: true, areaUnit: true, projectId: true },
       orderBy: { number: "asc" },
     }),
     prisma.builtUnit.findMany({
-      where: { deletedAt: null, status: { in: ["AVAILABLE", "RENTED"] } },
+      take: 200,
+      where: { deletedAt: null, status: { in: ["AVAILABLE", "RENTED"] }, project: { companyId: company.id } },
       select: { id: true, unitNumber: true, unitType: true, area: true, areaUnit: true, projectId: true },
       orderBy: { unitNumber: "asc" },
     }),
     prisma.customer.findMany({
-      where: { deletedAt: null },
+      take: 200,
+      where: { deletedAt: null, companyId: company.id },
       select: { id: true, name: true, phone: true },
       orderBy: { name: "asc" },
     }),
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       select: { id: true, name: true },
       orderBy: { name: "asc" },

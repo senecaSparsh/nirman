@@ -67,14 +67,17 @@ async function HrDashboardContent() {
     prisma.dailyProgressReport.count({ where: { companyId: company.id, approvalStatus: "SUBMITTED" } }),
     prisma.leaveRequest.count({ where: { companyId: company.id, status: "PENDING" } }),
     prisma.employee.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null, active: true },
       select: { trade: true, dailyRate: true, wageType: true, monthlySalary: true },
     }),
     prisma.workerAttendance.findMany({
+      take: 200,
       where: { companyId: company.id, date: { gte: weekAgo } },
       select: { date: true, status: true },
     }),
     prisma.workerAttendance.findMany({
+      take: 500,
       where: { companyId: company.id, date: todayDateOnly, status: { in: ["PRESENT", "OVERTIME"] } },
       include: { project: { select: { name: true } } },
     }),

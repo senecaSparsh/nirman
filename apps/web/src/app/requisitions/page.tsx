@@ -37,6 +37,7 @@ async function RequisitionsContent() {
 
   const [reqs, projects, phases, materials, suppliers, locations, categories] = await Promise.all([
     prisma.materialRequisition.findMany({
+      take: 500,
       where: { project: { companyId: company.id } },
       orderBy: { createdAt: "desc" },
       include: {
@@ -52,16 +53,19 @@ async function RequisitionsContent() {
       },
     }),
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },
     }),
     prisma.projectPhase.findMany({
+      take: 200,
       where: { project: { companyId: company.id, deletedAt: null } },
       select: { id: true, name: true, projectId: true },
     }),
     // Global catalog entity — material definitions shared across companies.
     prisma.material.findMany({
+      take: 200,
       where: { deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, code: true, name: true, unit: true },
@@ -70,17 +74,20 @@ async function RequisitionsContent() {
     // not just those with existing POs (chicken-and-egg: a supplier
     // needs to appear in the dropdown to get their first PO).
     prisma.supplier.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
     prisma.stockLocation.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true },
     }),
     // Global catalog entity — needed by the inline material creator.
     prisma.materialCategory.findMany({
+      take: 200,
       where: { deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, unit: true },

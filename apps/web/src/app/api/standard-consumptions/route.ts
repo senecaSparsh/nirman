@@ -46,7 +46,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.INVENTORY_MANAGE);
   const company = await getCompany();
   const body = await req.json();
-  const parsed = createSchema.parse(body);
+  const result = createSchema.safeParse(body);
+  if (!result.success) {
+    return json({ error: result.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  const parsed = result.data;
 
   const sc = await createStandardConsumption({
     companyId: company.id,

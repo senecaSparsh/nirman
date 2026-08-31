@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -31,6 +31,13 @@ import { useRecentItems, recordRecentItem, type RecentItem } from "@/lib/use-rec
  * live search results grouped by entity type as the user types.
  * Tapping a result navigates to that entity's detail page and records it
  * in recent items.
+ *
+ * Features:
+ * - Debounced live search (300ms)
+ * - Keyboard navigation (arrow up/down, enter to select, escape to close)
+ * - Match highlighting in result labels
+ * - Result count summary bar
+ * - Recent items when query is empty
  */
 
 interface SearchResult {
@@ -81,12 +88,29 @@ const TYPE_ORDER = [
   "equipment", "sale", "transfer",
 ];
 
+/** Highlight matched substring within a text label. */
+function Highlight({ text, query }: { text: string; query: string }) {
+  if (!query.trim()) return <>{text}</>;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark style={{ backgroundColor: "rgba(245,158,11,0.25)", color: "inherit", borderRadius: "2px", padding: "0 1px" }}>
+        {text.slice(idx, idx + query.length)}
+      </mark>
+      {text.slice(idx + query.length)}
+    </>
+  );
+}
+
 export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const { items: recentItems, clear } = useRecentItems();
 
   // Focus input when opened
@@ -94,6 +118,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
     if (open) {
       setQuery("");
       setResults([]);
+      setActiveIndex(-1);
       // Small delay to let the overlay mount
       setTimeout(() => inputRef.current?.focus(), 100);
     }
@@ -123,6 +148,21 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
     return () => clearTimeout(timer);
   }, [query]);
 
+  // Reset active index when results change
+  useEffect(() => {
+    setActiveIndex(-1);
+  }, [results]);
+
+  // Group results by type
+  const grouped = useMemo(() => TYPE_ORDER.map((type) => ({
+    type,
+    label: TYPE_LABELS[type] ?? type,
+    items: results.filter((r) => r.type === type),
+  })).filter((g) => g.items.length > 0), [results]);
+
+  // Flat list for keyboard navigation
+  const flatResults = useMemo(() => grouped.flatMap((g) => g.items), [grouped]);
+
   // Handle result tap
   const handleSelect = useCallback(
     (item: SearchResult | RecentItem) => {
@@ -139,14 +179,31 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
     [router, onClose],
   );
 
-  // Group results by type
-  const grouped = TYPE_ORDER.map((type) => ({
-    type,
-    label: TYPE_LABELS[type] ?? type,
-    items: results.filter((r) => r.type === type),
-  })).filter((g) => g.items.length > 0);
+  // Keyboard navigation
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onClose();
+      return;
+    }
+    if (flatResults.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((prev) => (prev + 1) % flatResults.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((prev) => (prev <= 0 ? flatResults.length - 1 : prev - 1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const item = flatResults[activeIndex];
+      if (item) handleSelect(item);
+    }
+  }, [flatResults, activeIndex, handleSelect, onClose]);
 
   if (!open) return null;
+
+  const totalResults = flatResults.length;
+  const trimmedQuery = query.trim();
 
   return (
     <div
@@ -176,6 +233,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Search POs, projects, materials, people..."
             className="w-full h-9 pl-9 pr-9 rounded-[0.625rem] text-m-body outline-none"
             style={{
@@ -197,10 +255,24 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
         </div>
       </div>
 
+      {/* Results count summary bar */}
+      {!loading && trimmedQuery && totalResults > 0 ? (
+        <div
+          className="px-4 py-1.5 text-m-label font-semibold border-b"
+          style={{
+            color: "var(--color-ink-500)",
+            borderColor: "var(--color-line)",
+            backgroundColor: "var(--color-surface)",
+          }}
+        >
+          {totalResults} result{totalResults !== 1 ? "s" : ""} across {grouped.length} categor{grouped.length !== 1 ? "ies" : "y"}
+        </div>
+      ) : null}
+
       {/* Results / Recent */}
       <div className="flex-1 overflow-y-auto">
         {/* Loading state */}
-        {loading && query.trim() ? (
+        {loading && trimmedQuery ? (
           <div className="flex items-center justify-center py-12">
             <div
               className="size-5 rounded-full border-2 animate-spin"
@@ -213,7 +285,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
         ) : null}
 
         {/* No results */}
-        {!loading && query.trim() && results.length === 0 ? (
+        {!loading && trimmedQuery && totalResults === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
             <Search className="size-8 mb-3" style={{ color: "var(--color-ink-300)" }} />
             <p className="text-m-body font-medium" style={{ color: "var(--color-ink-700)" }}>
@@ -237,12 +309,17 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
                   {group.label}
                 </div>
                 {group.items.map((item) => {
+                  const flatIdx = flatResults.findIndex((r) => r.id === item.id && r.type === item.type);
+                  const isActive = flatIdx === activeIndex;
                   const Icon = TYPE_ICONS[item.type] ?? FileText;
                   return (
                     <button
                       key={`${item.type}:${item.id}`}
                       onClick={() => handleSelect(item)}
-                      className="text-m-body press w-full flex items-center gap-3 px-4 py-2.5 text-left"
+                      className="text-m-body press w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+                      style={{
+                        backgroundColor: isActive ? "var(--color-surface)" : "transparent",
+                      }}
                     >
                       <div
                         className="shrink-0 flex items-center justify-center size-8 rounded-[0.625rem]"
@@ -255,14 +332,14 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
                           className="text-m-body font-medium truncate"
                           style={{ color: "var(--color-ink-950)" }}
                         >
-                          {item.label}
+                          <Highlight text={item.label} query={trimmedQuery} />
                         </div>
                         {item.sublabel ? (
                           <div
                             className="text-m-caption truncate"
                             style={{ color: "var(--color-ink-400)" }}
                           >
-                            {item.sublabel}
+                            <Highlight text={item.sublabel} query={trimmedQuery} />
                           </div>
                         ) : null}
                       </div>
@@ -286,7 +363,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
         ) : null}
 
         {/* Recent items (shown when query is empty) */}
-        {!query.trim() && recentItems.length > 0 ? (
+        {!trimmedQuery && recentItems.length > 0 ? (
           <div className="py-2">
             <div
               className="flex items-center justify-between px-4 py-1.5"
@@ -343,7 +420,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
         ) : null}
 
         {/* Empty recent state */}
-        {!query.trim() && recentItems.length === 0 ? (
+        {!trimmedQuery && recentItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
             <Search className="size-8 mb-3" style={{ color: "var(--color-ink-300)" }} />
             <p className="text-m-body font-medium" style={{ color: "var(--color-ink-700)" }}>

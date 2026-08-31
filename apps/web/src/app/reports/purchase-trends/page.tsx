@@ -35,6 +35,7 @@ async function PurchaseTrendsContent() {
   const from = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
   const orders = await prisma.purchaseOrder.findMany({
+    take: 200,
     where: {
       companyId: company.id,
       status: { not: "CANCELLED" },

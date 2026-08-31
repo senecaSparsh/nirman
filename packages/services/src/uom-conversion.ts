@@ -1,4 +1,4 @@
-import type { Decimal } from "decimal.js";
+import { Decimal } from "decimal.js";
 
 /**
  * UOM (Unit of Measure) Conversion — pure functions for converting
@@ -29,13 +29,13 @@ export interface UomMaterial {
  *
  * @param qty   quantity in secondary units (or base units if no conversion)
  * @param material  the material with UOM fields
- * @returns quantity in base units
+ * @returns quantity in base units (Decimal to preserve precision)
  */
-export function toBaseUnit(qty: number, material: UomMaterial): number {
-  if (!material.secondaryUnit || !material.uomConversionFactor) return qty;
-  const factor = Number(material.uomConversionFactor);
-  if (factor === 0) throw new Error(`Material has zero UOM conversion factor — cannot convert`);
-  return qty * factor;
+export function toBaseUnit(qty: number | Decimal | string, material: UomMaterial): Decimal {
+  if (!material.secondaryUnit || !material.uomConversionFactor) return new Decimal(qty);
+  const factor = new Decimal(material.uomConversionFactor);
+  if (factor.eq(0)) throw new Error(`Material has zero UOM conversion factor — cannot convert`);
+  return new Decimal(qty).times(factor);
 }
 
 /**
@@ -45,13 +45,13 @@ export function toBaseUnit(qty: number, material: UomMaterial): number {
  *
  * @param qty   quantity in base units
  * @param material  the material with UOM fields
- * @returns quantity in secondary units
+ * @returns quantity in secondary units (Decimal to preserve precision)
  */
-export function toSecondaryUnit(qty: number, material: UomMaterial): number {
-  if (!material.secondaryUnit || !material.uomConversionFactor) return qty;
-  const factor = Number(material.uomConversionFactor);
-  if (factor === 0) throw new Error(`Material has zero UOM conversion factor — cannot convert`);
-  return qty / factor;
+export function toSecondaryUnit(qty: number | Decimal | string, material: UomMaterial): Decimal {
+  if (!material.secondaryUnit || !material.uomConversionFactor) return new Decimal(qty);
+  const factor = new Decimal(material.uomConversionFactor);
+  if (factor.eq(0)) throw new Error(`Material has zero UOM conversion factor — cannot convert`);
+  return new Decimal(qty).div(factor);
 }
 
 /**
@@ -66,7 +66,7 @@ export function toSecondaryUnit(qty: number, material: UomMaterial): number {
  * @param material  the material with UOM fields
  * @returns human-readable display string
  */
-export function displayQty(qty: number, material: UomMaterial): string {
+export function displayQty(qty: number | Decimal | string, material: UomMaterial): string {
   if (!material.secondaryUnit || !material.uomConversionFactor) {
     return `${qty} ${material.baseUnit}`;
   }

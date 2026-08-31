@@ -34,7 +34,12 @@ export const GET = apiHandler(async (req: NextRequest) => {
 export const PATCH = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.INVENTORY_MANAGE);
   const id = new URL(req.url).pathname.split("/").pop()!;
-  const body = await req.json().catch(() => ({}));
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const action = body?.action as string;
 
   if (action === "cancel") {

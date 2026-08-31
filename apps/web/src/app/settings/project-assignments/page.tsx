@@ -39,6 +39,7 @@ async function ProjectAssignmentsContent() {
 
   const [assignments, users, projects] = await Promise.all([
     prisma.projectAssignment.findMany({
+      take: 500,
       where: { project: { companyId: company.id } },
       include: {
         user: { select: { id: true, name: true, email: true, role: true } },
@@ -47,6 +48,7 @@ async function ProjectAssignmentsContent() {
       orderBy: { assignedAt: "desc" },
     }),
     prisma.user.findMany({
+      take: 200,
       where: {
         active: true,
         role: { in: ["SUPERVISOR", "QAQC_ENGINEER", "SALES_MANAGER", "ACCOUNTANT", "SITE_ENGINEER", "STORE_KEEPER"] },
@@ -56,6 +58,7 @@ async function ProjectAssignmentsContent() {
       orderBy: { name: "asc" },
     }),
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       select: { id: true, name: true },
       orderBy: { name: "asc" },

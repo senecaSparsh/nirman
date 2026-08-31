@@ -40,6 +40,7 @@ async function EquipmentContent() {
 
   const [equipment, locations, projects] = await Promise.all([
     prisma.equipment.findMany({
+      take: 500,
       where: { companyId: company.id, deletedAt: null },
       orderBy: [{ status: "asc" }, { name: "asc" }],
       include: {
@@ -54,6 +55,7 @@ async function EquipmentContent() {
       },
     }),
     prisma.stockLocation.findMany({
+      take: 500,
       where: { companyId: company.id, deletedAt: null },
       orderBy: [{ type: "asc" }, { name: "asc" }],
       include: {
@@ -62,6 +64,7 @@ async function EquipmentContent() {
       },
     }),
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { startRenovation, completeRenovation, cancelRenovation, logAction } from "@nirman/services";
+import { startRenovation, completeRenovation, cancelRenovation, logAction, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, renovationSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
@@ -75,8 +75,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     });
     return json({ ok: true, id: updated.id, title: updated.title });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to update renovation";
-    return json({ error: message }, { status: 400 });
+    const message = err instanceof ServiceError ? err.message : "Failed to update renovation";
+    return json({ error: message }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });
 
@@ -102,7 +102,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     }
     return json({ error: "Unknown action. Use 'start', 'complete', or 'cancel'." }, { status: 400 });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to update renovation";
-    return json({ error: message }, { status: 400 });
+    const message = err instanceof ServiceError ? err.message : "Failed to update renovation";
+    return json({ error: message }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

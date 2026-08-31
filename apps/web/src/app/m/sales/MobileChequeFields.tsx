@@ -51,8 +51,8 @@ export function MobileChequeFields({
       if (!res.ok) throw new Error(data.error ?? "Upload failed");
       set("chequePhotoUrl", data.url);
       toast.success("Cheque photo uploaded");
-    } catch {
-      toast.error("Failed to upload cheque photo");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to upload cheque photo");
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";

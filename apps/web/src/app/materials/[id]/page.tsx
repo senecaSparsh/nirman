@@ -80,7 +80,7 @@ async function MaterialDetailContent({ params }: { params: Promise<{ id: string 
     prisma.materialRequisitionLine.findMany({
       where: {
         materialId: id,
-        requisition: { status: { in: ["DRAFT", "SUBMITTED", "APPROVED"] } },
+        requisition: { status: { in: ["DRAFT", "SUBMITTED", "APPROVED"] }, project: { companyId: company.id } },
       },
       include: {
         requisition: {
@@ -101,7 +101,7 @@ async function MaterialDetailContent({ params }: { params: Promise<{ id: string 
 
     // Recent material issue lines for this material
     prisma.materialIssueLine.findMany({
-      where: { materialId: id },
+      where: { materialId: id, materialIssue: { project: { companyId: company.id } } },
       include: {
         materialIssue: {
           select: {
@@ -119,6 +119,7 @@ async function MaterialDetailContent({ params }: { params: Promise<{ id: string 
 
     // Suppliers for lot tracking dialog
     prisma.supplier.findMany({
+      take: 200,
       where: { deletedAt: null, companyId: company.id },
       select: { id: true, name: true },
       orderBy: { name: "asc" },

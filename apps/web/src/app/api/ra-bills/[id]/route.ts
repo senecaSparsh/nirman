@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { submitRaBill, approveRaBill, rejectRaBill, payRaBill } from "@nirman/services";
+import { submitRaBill, approveRaBill, rejectRaBill, payRaBill, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, requireUser, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -86,6 +86,6 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
     return json({ error: "Unknown action. Use: submit | approve | reject | pay" }, { status: 400 });
   } catch (err: unknown) {
-    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+    return json({ error: err instanceof ServiceError ? err.message : "Failed to update RA bill" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

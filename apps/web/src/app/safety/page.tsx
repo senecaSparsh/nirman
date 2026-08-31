@@ -29,6 +29,7 @@ async function SafetyContent() {
 
   const [projects, incidents, hazards, inspections] = await Promise.all([
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },

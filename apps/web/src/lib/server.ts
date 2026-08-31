@@ -618,7 +618,7 @@ export const parcelValuationSchema = z.object({
 export const builtUnitSchema = z.object({
   projectId: z.string().min(1, "Project is required"),
   phaseId: z.string().optional().nullable(),
-  unitType: z.enum(["BHK_1", "BHK_2", "BHK_3", "BHK_4", "SHOP", "OFFICE", "WAREHOUSE_UNIT", "OTHER"]),
+  unitType: z.enum(["BHK_1", "BHK_2", "BHK_3", "BHK_4", "SHOP", "OFFICE", "WAREHOUSE_UNIT", "VILLA", "OTHER"]),
   unitNumber: z.string().min(1, "Unit number is required"),
   floor: z.coerce.number().int().optional().nullable(),
   wing: z.string().optional().nullable(),
@@ -631,6 +631,7 @@ export const builtUnitSchema = z.object({
   balconyArea: z.coerce.number().finite().nonnegative().optional().nullable(),
   clearHeight: z.coerce.number().finite().nonnegative().optional().nullable(),
   hasLoadingDock: z.coerce.boolean().optional(),
+  landParcelId: z.string().optional().nullable(),
 });
 
 export const builtUnitStatusSchema = z.enum(["PLANNED", "UNDER_CONSTRUCTION", "AVAILABLE", "HOLD", "SOLD"]);

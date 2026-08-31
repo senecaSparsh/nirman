@@ -35,6 +35,7 @@ async function SalesRevenueContent() {
 
   const [sales, projects] = await Promise.all([
     prisma.assetSale.findMany({
+      take: 500,
       where: {
         companyId: company.id,
         status: "ACTIVE",
@@ -49,6 +50,7 @@ async function SalesRevenueContent() {
       orderBy: { saleDate: "asc" },
     }),
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       select: { id: true, name: true },
       orderBy: { name: "asc" },

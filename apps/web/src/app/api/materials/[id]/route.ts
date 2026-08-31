@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { softDelete, logAction, extractVersion, ConcurrentEditError } from "@nirman/services";
+import { softDelete, logAction, extractVersion, ConcurrentEditError, ServiceError } from "@nirman/services";
 import { apiHandler, json, materialSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
@@ -42,7 +42,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       // Optimistic locking: check version if provided
       if (expectedVersion !== undefined) {
         const current = await tx.material.findUnique({ where: { id }, select: { version: true } });
-        if (!current) return json({ error: "Material not found" }, { status: 404 });
+        if (!current) throw new ServiceError("Material not found", 404);
         if (current.version !== expectedVersion) {
           throw new ConcurrentEditError("Material", id, expectedVersion, current.version);
         }
@@ -66,6 +66,9 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   } catch (err) {
     if (err instanceof ConcurrentEditError) {
       return json({ error: err.message, code: "CONCURRENT_EDIT" }, { status: 409 });
+    }
+    if (err instanceof ServiceError) {
+      return json({ error: err.message }, { status: err.status });
     }
     throw err;
   }

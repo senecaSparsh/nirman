@@ -82,6 +82,7 @@ async function StockContent() {
   ] = await Promise.all([
     // ── On Hand ──
     prisma.stockLocationItem.findMany({
+      take: 500,
       where: {
         qty: { gt: 0 },
         location: { deletedAt: null, companyId: company.id },
@@ -97,12 +98,14 @@ async function StockContent() {
     }),
     // Company locations (on-hand filter + transfers source + issues source)
     prisma.stockLocation.findMany({
+      take: 500,
       where: { companyId: company.id, deletedAt: null },
       orderBy: [{ type: "asc" }, { name: "asc" }],
       include: { project: { select: { id: true, name: true } }, stockItems: { select: { qty: true, movingAvgCost: true } } },
     }),
     // Group locations (inter-company STO destinations)
     prisma.stockLocation.findMany({
+      take: 500,
       where: { companyId: { in: groupCompanyIds }, deletedAt: null },
       orderBy: [{ companyId: "asc" }, { type: "asc" }, { name: "asc" }],
       include: {
@@ -113,6 +116,7 @@ async function StockContent() {
     }),
     // ── Movements ──
     prisma.stockMovement.findMany({
+      where: { OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] },
       orderBy: { timestamp: "desc" },
       take: 200,
       include: {
@@ -124,17 +128,20 @@ async function StockContent() {
     }),
     // ── Projects / departments (shared by movements, issues) ──
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },
     }),
     prisma.department.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { code: "asc" },
       select: { id: true, code: true, name: true },
     }),
     // ── Transfers ──
     prisma.stockTransfer.findMany({
+      take: 500,
       where: {
         OR: [
           { fromLocation: { companyId: company.id } },
@@ -152,6 +159,7 @@ async function StockContent() {
     }),
     // ── Issues ──
     prisma.materialIssue.findMany({
+      take: 500,
       where: {
         OR: [
           { project: { companyId: company.id } },
@@ -173,12 +181,14 @@ async function StockContent() {
     // Global catalog entity (no companyId) — material definitions shared across
     // companies; only stock quantities are company-scoped (handled elsewhere).
     prisma.material.findMany({
+      take: 200,
       where: { deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, code: true, name: true, unit: true, standardCost: true, gstRate: true, isLotTracked: true },
     }),
     // ── Scrap ──
     prisma.scrapGeneration.findMany({
+      take: 500,
       where: { companyId: company.id },
       include: {
         lines: { include: { material: { select: { code: true, name: true, unit: true } } } },
@@ -190,23 +200,27 @@ async function StockContent() {
       orderBy: { generationDate: "desc" },
     }),
     prisma.stockLocation.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       select: { id: true, name: true, type: true },
       orderBy: { name: "asc" },
     }),
     // Global catalog entity — material definitions shared across companies.
     prisma.material.findMany({
+      take: 200,
       where: { deletedAt: null },
       select: { id: true, code: true, name: true, unit: true, isScrap: true },
       orderBy: { name: "asc" },
     }),
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       select: { id: true, name: true, type: true, status: true },
       orderBy: { name: "asc" },
     }),
     // ── Counts ──
     prisma.stockCount.findMany({
+      take: 500,
       where: { location: { companyId: company.id, deletedAt: null } },
       orderBy: { createdAt: "desc" },
       include: {
@@ -215,6 +229,7 @@ async function StockContent() {
       },
     }),
     prisma.stockLocation.findMany({
+      take: 500,
       where: { companyId: company.id, deletedAt: null },
       orderBy: [{ type: "asc" }, { name: "asc" }],
       include: {
@@ -228,6 +243,7 @@ async function StockContent() {
     // Global catalog entity — needed by the inline material creator in the
     // issue form's line items.
     prisma.materialCategory.findMany({
+      take: 200,
       where: { deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, unit: true },

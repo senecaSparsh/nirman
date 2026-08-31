@@ -47,6 +47,7 @@ async function ProcurementContent() {
 
   const [pos, suppliers, materials, locations, projects, directPurchases, categories] = await Promise.all([
     prisma.purchaseOrder.findMany({
+      take: 500,
       where: { companyId: company.id },
       orderBy: { createdAt: "desc" },
       include: {
@@ -57,6 +58,7 @@ async function ProcurementContent() {
       },
     }),
     prisma.supplier.findMany({
+      take: 500,
       // All non-deleted suppliers in this company — not just those with existing POs.
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
@@ -70,6 +72,7 @@ async function ProcurementContent() {
     }),
     // Material is a global catalog entity (no companyId); stock scoped per company.
     prisma.material.findMany({
+      take: 500,
       where: { deletedAt: null },
       orderBy: { name: "asc" },
       include: {
@@ -81,6 +84,7 @@ async function ProcurementContent() {
       },
     }),
     prisma.stockLocation.findMany({
+      take: 500,
       // Include locations across the whole company group so PO destinations
       // (a project site in a sibling/child SPV) are selectable.
       where: { companyId: { in: groupCompanyIds }, deletedAt: null },
@@ -92,11 +96,13 @@ async function ProcurementContent() {
       },
     }),
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },
     }),
     prisma.directPurchase.findMany({
+      take: 500,
       where: { companyId: company.id },
       orderBy: { billDate: "desc" },
       include: {
@@ -112,6 +118,7 @@ async function ProcurementContent() {
     // Global catalog entity (no companyId); needed by the inline material
     // creator inside the PO form's line items.
     prisma.materialCategory.findMany({
+      take: 200,
       where: { deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, unit: true },

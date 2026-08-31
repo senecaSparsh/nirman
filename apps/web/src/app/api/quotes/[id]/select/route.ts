@@ -42,7 +42,12 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   });
   if (!existing) return json({ error: "Quote not found" }, { status: 404 });
 
-  const body = await req.json().catch(() => ({}));
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const parsed = selectSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });

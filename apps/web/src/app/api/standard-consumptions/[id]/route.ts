@@ -45,7 +45,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     notes: z.string().optional().nullable(),
   });
 
-  const parsed = updateSchema.parse(body);
+  const result = updateSchema.safeParse(body);
+  if (!result.success) {
+    return json({ error: result.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  const parsed = result.data;
 
   const sc = await updateStandardConsumption(id, {
     workType: parsed.workType,

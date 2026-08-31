@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { deleteRenovationCost } from "@nirman/services";
+import { deleteRenovationCost, ServiceError } from "@nirman/services";
 import { apiHandler, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -10,7 +10,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     await deleteRenovationCost(costId, user.id);
     return json({ ok: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to delete renovation cost";
-    return json({ error: message }, { status: 400 });
+    const message = err instanceof ServiceError ? err.message : "Failed to delete renovation cost";
+    return json({ error: message }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

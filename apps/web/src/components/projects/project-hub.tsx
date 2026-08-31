@@ -23,6 +23,7 @@ import { statusColor, StatusPill } from "@/components/page";
 import { formatCurrency, formatNumber, formatDate, cn } from "@/lib/utils";
 import { ProjectDetailActions } from "./project-detail-actions";
 import { PhasesSection, type PhaseRow } from "./phases-section";
+import { BuiltUnitFormDialog } from "@/components/built-units/built-unit-form-dialog";
 import { LegalDocsSection } from "@/components/legal/legal-docs-section";
 import { useTabParam } from "@/lib/use-tab-param";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
@@ -945,6 +946,7 @@ function StockTab({ data }: { data: ProjectHubData }) {
 
 function UnitsTab({ data }: { data: ProjectHubData }) {
   const units = data.builtUnits;
+  const [formOpen, setFormOpen] = useState(false);
 
   return (
     <div className="space-y-4">
@@ -962,11 +964,9 @@ function UnitsTab({ data }: { data: ProjectHubData }) {
             initialSort={{ key: "unitNumber", direction: "asc" }}
             onRowClick={(u) => window.open(`/units?unit=${u.id}`, "_self")}
             toolbarTrailing={
-              <Link href="/units">
-                <Button size="sm" className="h-7 gap-1.5">
-                  <Plus className="size-3.5" /> Add Units
-                </Button>
-              </Link>
+              <Button size="sm" className="h-7 gap-1.5" onClick={() => setFormOpen(true)}>
+                <Plus className="size-3.5" /> Add Units
+              </Button>
             }
             columns={[
               {
@@ -1091,6 +1091,13 @@ function UnitsTab({ data }: { data: ProjectHubData }) {
           />
         </div>
       )}
+      <BuiltUnitFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        projects={[{ id: data.project.id, name: data.project.name, type: data.project.type as "RESIDENTIAL", status: data.project.status as "PLANNED" }]}
+        phases={data.phases.map((p) => ({ id: p.id, projectId: data.project.id, name: p.name, status: p.status }))}
+        defaults={{ projectId: data.project.id }}
+      />
     </div>
   );
 }

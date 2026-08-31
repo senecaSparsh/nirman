@@ -22,6 +22,7 @@ interface CreateBuiltUnitsInput {
     areaUnit?: AreaUnit;
     askingPrice?: Decimal | number | string;
     phaseId?: string | null;
+    landParcelId?: string | null;
     // ── RERA fields (optional, all nullable) ──
     carpetArea?: Decimal | number | string | null;
     superBuiltUpArea?: Decimal | number | string | null;
@@ -59,6 +60,16 @@ export async function createBuiltUnits(input: CreateBuiltUnitsInput) {
       throw new ServiceError(`Unit numbers already exist: ${existing.map((e) => e.unitNumber).join(", ")}`);
     }
 
+    // Validate land parcel if provided (shared by all units in the batch)
+    const parcelId = input.units.find((u) => u.landParcelId)?.landParcelId ?? null;
+    if (parcelId) {
+      const parcel = await tx.landParcel.findFirst({
+        where: { id: parcelId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!parcel) throw new ServiceError("Land parcel not found or deleted", 404);
+    }
+
     // Create units
     const created = [];
     for (const u of input.units) {
@@ -85,6 +96,7 @@ export async function createBuiltUnits(input: CreateBuiltUnitsInput) {
           productionCost: new Decimal(0), // will be allocated by reallocateProjectCosts
           askingPrice: u.askingPrice ? new Decimal(u.askingPrice) : null,
           currentValuation: new Decimal(0),
+          landParcelId: u.landParcelId ?? null,
         },
       });
       created.push(unit);
@@ -357,9 +369,37 @@ interface PurchaseBuiltUnitInput {
 }
 
 export async function purchaseBuiltUnit(input: PurchaseBuiltUnitInput) {
-  const acquisitionCost = new Decimal(input.acquisitionCost);
-  if (!acquisitionCost.gt(0)) throw new ServiceError("Acquisition cost must be > 0");
-  if (!new Decimal(input.area).gt(0)) throw new ServiceError("Unit area must be > 0");
+  const created = await purchaseBuiltUnits({ ...input, units: [input] });
+  return created[0]!;
+}
+
+/**
+ * Batch-purchase multiple existing units in one transaction. Each unit gets
+ * its own GL entry (Dr Unit Asset / Cr Cash) and audit log. All units must
+ * belong to the same project/company. Unit numbers must be unique within the
+ * batch and not conflict with existing units.
+ */
+interface PurchaseBuiltUnitsInput {
+  companyId: string;
+  projectId: string;
+  userId?: string;
+  purchaseDate?: Date;
+  notes?: string;
+  units: Omit<PurchaseBuiltUnitInput, "companyId" | "projectId" | "userId">[];
+}
+
+export async function purchaseBuiltUnits(input: PurchaseBuiltUnitsInput) {
+  if (input.units.length === 0) throw new ServiceError("Must purchase at least one unit");
+
+  // Validate all units up-front
+  for (const u of input.units) {
+    if (!new Decimal(u.acquisitionCost).gt(0)) throw new ServiceError(`Unit ${u.unitNumber} acquisition cost must be > 0`);
+    if (!new Decimal(u.area).gt(0)) throw new ServiceError(`Unit ${u.unitNumber} area must be > 0`);
+  }
+  const numbers = input.units.map((u) => u.unitNumber);
+  if (new Set(numbers).size !== numbers.length) {
+    throw new ServiceError("Unit numbers must be unique within the batch");
+  }
 
   return withSerializableTransaction(async (tx) => {
     // Validate project
@@ -368,81 +408,86 @@ export async function purchaseBuiltUnit(input: PurchaseBuiltUnitInput) {
     });
     if (!project) throw new ServiceError("Project not found or deleted", 404);
 
-    // Check unit number doesn't conflict
-    const existing = await tx.builtUnit.findFirst({
-      where: { projectId: input.projectId, unitNumber: input.unitNumber, deletedAt: null },
-      select: { id: true },
+    // Check unit numbers don't conflict with existing
+    const existing = await tx.builtUnit.findMany({
+      where: { projectId: input.projectId, unitNumber: { in: numbers }, deletedAt: null },
+      select: { unitNumber: true },
     });
-    if (existing) throw new ServiceError(`Unit number "${input.unitNumber}" already exists in this project`);
+    if (existing.length > 0) {
+      throw new ServiceError(`Unit numbers already exist: ${existing.map((e) => e.unitNumber).join(", ")}`);
+    }
 
-    // Validate land parcel if provided
-    if (input.landParcelId) {
+    // Validate land parcel if provided (shared)
+    const parcelId = input.units.find((u) => u.landParcelId)?.landParcelId ?? null;
+    if (parcelId) {
       const parcel = await tx.landParcel.findFirst({
-        where: { id: input.landParcelId, deletedAt: null },
+        where: { id: parcelId, deletedAt: null },
       });
       if (!parcel) throw new ServiceError("Land parcel not found or deleted", 404);
     }
 
-    // Create the unit — PURCHASED units start AVAILABLE (already built, ready to sell)
-    const unit = await tx.builtUnit.create({
-      data: {
-        projectId: input.projectId,
-        unitType: input.unitType,
-        unitNumber: input.unitNumber,
-        floor: input.floor,
-        wing: input.wing,
-        area: new Decimal(input.area),
-        areaUnit: input.areaUnit ?? "SQFT",
-        carpetArea: input.carpetArea != null ? new Decimal(input.carpetArea) : null,
-        superBuiltUpArea: input.superBuiltUpArea != null ? new Decimal(input.superBuiltUpArea) : new Decimal(input.area),
-        balconyArea: input.balconyArea != null ? new Decimal(input.balconyArea) : null,
-        clearHeight: input.clearHeight != null ? new Decimal(input.clearHeight) : null,
-        hasLoadingDock: input.hasLoadingDock ?? false,
-        status: "AVAILABLE",
-        originType: "PURCHASED",
-        acquisitionCost,
-        purchaseDate: input.purchaseDate ?? new Date(),
-        landParcelId: input.landParcelId ?? null,
-        // For purchased units, productionCost = acquisitionCost (this IS the cost basis)
-        productionCost: acquisitionCost,
-        // capitalizedAmount = acquisitionCost (already capitalized via direct GL, not WIP)
-        capitalizedAmount: acquisitionCost,
-        askingPrice: input.askingPrice ? new Decimal(input.askingPrice) : null,
-        currentValuation: acquisitionCost, // start at cost; can be updated later
-      },
-    });
+    const created = [];
+    for (const u of input.units) {
+      const acquisitionCost = new Decimal(u.acquisitionCost);
+      const unit = await tx.builtUnit.create({
+        data: {
+          projectId: input.projectId,
+          unitType: u.unitType,
+          unitNumber: u.unitNumber,
+          floor: u.floor,
+          wing: u.wing,
+          area: new Decimal(u.area),
+          areaUnit: u.areaUnit ?? "SQFT",
+          carpetArea: u.carpetArea != null ? new Decimal(u.carpetArea) : null,
+          superBuiltUpArea: u.superBuiltUpArea != null ? new Decimal(u.superBuiltUpArea) : new Decimal(u.area),
+          balconyArea: u.balconyArea != null ? new Decimal(u.balconyArea) : null,
+          clearHeight: u.clearHeight != null ? new Decimal(u.clearHeight) : null,
+          hasLoadingDock: u.hasLoadingDock ?? false,
+          status: "AVAILABLE",
+          originType: "PURCHASED",
+          acquisitionCost,
+          purchaseDate: u.purchaseDate ?? input.purchaseDate ?? new Date(),
+          landParcelId: u.landParcelId ?? null,
+          productionCost: acquisitionCost,
+          capitalizedAmount: acquisitionCost,
+          askingPrice: u.askingPrice ? new Decimal(u.askingPrice) : null,
+          currentValuation: acquisitionCost,
+        },
+      });
 
-    // GL: Dr Unit Asset (1800) / Cr Cash (1000)
-    // This directly capitalizes the unit — no WIP involved.
-    await postJournalEntry(tx, {
-      companyId: input.companyId,
-      sourceType: "UNIT_PURCHASE",
-      sourceId: unit.id,
-      memo: `Unit purchase — ${unit.unitNumber}`,
-      postedById: input.userId,
-      lines: [
-        { accountCode: ACCT.UNIT_ASSET, debit: acquisitionCost, credit: 0, entityType: "BuiltUnit", entityId: unit.id, memo: `Unit asset — ${unit.unitNumber}` },
-        { accountCode: ACCT.CASH, debit: 0, credit: acquisitionCost, entityType: "BuiltUnit", entityId: unit.id, memo: `Cash paid for unit purchase` },
-      ],
-    });
+      // GL: Dr Unit Asset (1800) / Cr Cash (1000)
+      await postJournalEntry(tx, {
+        companyId: input.companyId,
+        sourceType: "UNIT_PURCHASE",
+        sourceId: unit.id,
+        memo: `Unit purchase — ${unit.unitNumber}`,
+        postedById: input.userId,
+        lines: [
+          { accountCode: ACCT.UNIT_ASSET, debit: acquisitionCost, credit: 0, entityType: "BuiltUnit", entityId: unit.id, memo: `Unit asset — ${unit.unitNumber}` },
+          { accountCode: ACCT.CASH, debit: 0, credit: acquisitionCost, entityType: "BuiltUnit", entityId: unit.id, memo: `Cash paid for unit purchase` },
+        ],
+      });
 
-    await logAction(tx, {
-      userId: input.userId,
-      companyId: input.companyId,
-      action: "BUILT_UNIT_PURCHASE",
-      entityType: "BuiltUnit",
-      entityId: unit.id,
-      after: {
-        unitNumber: unit.unitNumber,
-        unitType: unit.unitType,
-        originType: "PURCHASED",
-        acquisitionCost: acquisitionCost.toString(),
-        status: "AVAILABLE",
-        projectId: input.projectId,
-        landParcelId: input.landParcelId ?? null,
-      },
-    });
+      await logAction(tx, {
+        userId: input.userId,
+        companyId: input.companyId,
+        action: "BUILT_UNIT_PURCHASE",
+        entityType: "BuiltUnit",
+        entityId: unit.id,
+        after: {
+          unitNumber: unit.unitNumber,
+          unitType: unit.unitType,
+          originType: "PURCHASED",
+          acquisitionCost: acquisitionCost.toString(),
+          status: "AVAILABLE",
+          projectId: input.projectId,
+          landParcelId: u.landParcelId ?? null,
+        },
+      });
 
-    return unit;
+      created.push(unit);
+    }
+
+    return created;
   });
 }

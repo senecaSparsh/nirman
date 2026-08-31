@@ -31,7 +31,7 @@ async function SupplierDetailContent({ params }: { params: Promise<{ id: string 
   const { id } = await params;
 
   const supplier = await prisma.supplier.findFirst({
-    where: { id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null },
   });
   if (!supplier) notFound();
 
@@ -48,6 +48,7 @@ async function SupplierDetailContent({ params }: { params: Promise<{ id: string 
 
     // Active rate contracts
     prisma.rateContract.findMany({
+      take: 500,
       where: { supplierId: id, companyId: company.id, status: "ACTIVE" },
       include: { material: { select: { id: true, name: true, unit: true, code: true } } },
       orderBy: { validTo: "asc" },

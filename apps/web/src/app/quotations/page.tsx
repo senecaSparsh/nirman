@@ -50,6 +50,7 @@ async function QuotationsContent() {
     }),
     membership
       ? prisma.userCompany.findMany({
+          take: 200,
           where: { reportsToUserCompanyId: membership.id },
           select: { id: true },
         })

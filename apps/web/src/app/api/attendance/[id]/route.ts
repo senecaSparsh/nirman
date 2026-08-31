@@ -50,6 +50,6 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     await deleteAttendance(id, user.id);
     return json({ ok: true });
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to delete attendance record") }, { status: 400 });
+    return json({ error: (err instanceof ServiceError ? err.message : "Failed to delete attendance record") }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

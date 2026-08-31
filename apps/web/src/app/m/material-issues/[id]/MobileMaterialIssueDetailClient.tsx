@@ -6,7 +6,7 @@ import {
   Package, Printer, MapPin, User, Truck, Phone,
   AlertCircle, Loader2, X, Ban, FileText,
 } from "lucide-react";
-import { formatCurrencyCompact, formatDate } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,

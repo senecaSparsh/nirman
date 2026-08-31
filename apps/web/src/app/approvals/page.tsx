@@ -83,6 +83,7 @@ async function ApprovalsContent() {
   const [purchaseOrders, requisitions, gatePasses] = await Promise.all([
     canApprovePo
       ? prisma.purchaseOrder.findMany({
+          take: 500,
           where: { companyId: company.id, status: "DRAFT", ...poProjectFilter },
           orderBy: { createdAt: "desc" },
           include: {
@@ -95,6 +96,7 @@ async function ApprovalsContent() {
       : [],
     canApproveReq
       ? prisma.materialRequisition.findMany({
+          take: 500,
           where: { project: { companyId: company.id }, status: "SUBMITTED", ...reqProjectFilter },
           orderBy: { createdAt: "desc" },
           include: {
@@ -115,6 +117,7 @@ async function ApprovalsContent() {
       : [],
     canApproveGatePass
       ? prisma.gatePass.findMany({
+          take: 500,
           where: { companyId: company.id, status: "PENDING" },
           orderBy: { createdAt: "desc" },
           include: {

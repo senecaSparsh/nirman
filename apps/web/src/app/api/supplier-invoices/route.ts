@@ -11,14 +11,14 @@ const invoiceSchema = z.object({
   purchaseOrderId: z.string().optional(),
   invoiceDate: z.string().min(1, "invoiceDate is required"),
   dueDate: z.string().optional(),
-  subtotal: z.union([z.number(), z.string()]).transform(Number).pipe(z.number().min(0, "subtotal must be >= 0")),
-  gstAmount: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? Number(v) : undefined)),
-  totalAmount: z.union([z.number(), z.string()]).transform(Number).pipe(z.number().min(0, "totalAmount must be >= 0")),
+  subtotal: z.union([z.number(), z.string()]),
+  gstAmount: z.union([z.number(), z.string()]).optional(),
+  totalAmount: z.union([z.number(), z.string()]),
   lines: z.array(z.object({
     materialId: z.string().min(1),
-    quantity: z.union([z.number(), z.string()]).transform(Number),
-    unitPrice: z.union([z.number(), z.string()]).transform(Number),
-    gstRate: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? Number(v) : undefined)),
+    quantity: z.union([z.number(), z.string()]),
+    unitPrice: z.union([z.number(), z.string()]),
+    gstRate: z.union([z.number(), z.string()]).optional(),
   })).optional(),
 });
 

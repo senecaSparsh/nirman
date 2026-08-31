@@ -413,7 +413,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     case "reconciliation": {
       title = "Material Reconciliation Report";
       if (!projectId) return json({ error: "projectId is required for reconciliation export" }, { status: 400 });
-      const project = await prisma.project.findUnique({ where: { id: projectId }, select: { name: true } });
+      const project = await prisma.project.findFirst({ where: { id: projectId, companyId: company.id, deletedAt: null }, select: { name: true } });
       if (!project) return json({ error: "Project not found" }, { status: 404 });
       const recon = await getProjectMaterialReconciliation(projectId, 5);
       sheets = buildReconciliationReport({

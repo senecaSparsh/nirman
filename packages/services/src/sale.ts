@@ -1192,7 +1192,7 @@ export async function updateSale(input: UpdateSaleInput) {
     const data: Prisma.AssetSaleUpdateInput = {};
     const priceChanged =
       input.salePrice !== undefined &&
-      new Decimal(input.salePrice).toNumber() !== sale.salePrice.toNumber();
+      !new Decimal(input.salePrice).equals(sale.salePrice);
 
     // ── Price change: only pre-completion with no payments ──
     if (priceChanged) {
@@ -1207,7 +1207,7 @@ export async function updateSale(input: UpdateSaleInput) {
       data.salePrice = newPrice;
 
       // Recompute GST amount if gstRate is also being updated
-      const rate = input.gstRate !== undefined ? Number(input.gstRate) : sale.gstRate?.toNumber() ?? 0;
+      const rate = input.gstRate !== undefined ? new Decimal(input.gstRate) : (sale.gstRate ?? new Decimal(0));
       data.gstAmount = newPrice.mul(rate).div(100);
       // Recompute profit (cost basis doesn't change)
       data.profit = newPrice.minus(sale.costBasis);
@@ -1217,7 +1217,7 @@ export async function updateSale(input: UpdateSaleInput) {
       data.gstRate = new Decimal(input.gstRate);
       if (!priceChanged) {
         // Recompute GST amount with the new rate on the existing price
-        data.gstAmount = sale.salePrice.mul(Number(input.gstRate)).div(100);
+        data.gstAmount = sale.salePrice.mul(new Decimal(input.gstRate)).div(100);
       }
     }
 

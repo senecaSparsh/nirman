@@ -35,7 +35,8 @@ async function VendorsContent() {
   };
 
   const suppliers = await prisma.supplier.findMany({
-    where: { deletedAt: null },
+    take: 500,
+    where: { deletedAt: null, companyId: company.id },
     orderBy: { name: "asc" },
     include: {
       purchaseOrders: {

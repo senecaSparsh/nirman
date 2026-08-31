@@ -104,7 +104,7 @@ export function BrokersView({
         return (
           <div>
             <span className="tnum text-muted-foreground">{formatCurrency(b.commissionPaid)}</span>
-            {unpaid > 0 && <div className="text-micro text-warning">₹{formatCurrency(unpaid)} unpaid</div>}
+            {unpaid > 0 && <div className="text-micro text-warning">{formatCurrency(unpaid)} unpaid</div>}
           </div>
         );
       },

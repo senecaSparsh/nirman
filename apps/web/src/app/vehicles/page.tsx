@@ -28,6 +28,7 @@ async function VehiclesContent() {
   }
 
   const vehicles = await prisma.vehicle.findMany({
+    take: 500,
     where: { companyId: company.id, deletedAt: null },
     orderBy: { lastUsedAt: "desc" },
     include: {

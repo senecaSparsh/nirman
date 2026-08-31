@@ -33,6 +33,7 @@ async function SalesContent() {
 
   const [sales, customers, leads, projects, units, salesMembers, unitStats] = await Promise.all([
     prisma.assetSale.findMany({
+      take: 500,
       where: { companyId: company.id },
       orderBy: { createdAt: "desc" },
       include: {
@@ -46,6 +47,7 @@ async function SalesContent() {
       },
     }),
     prisma.customer.findMany({
+      take: 500,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       include: {
@@ -53,6 +55,7 @@ async function SalesContent() {
       },
     }),
     prisma.lead.findMany({
+      take: 500,
       where: { companyId: company.id, deletedAt: null },
       orderBy: [{ nextFollowUpAt: "asc" }, { createdAt: "desc" }],
       include: {
@@ -64,11 +67,13 @@ async function SalesContent() {
       },
     }),
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
     prisma.builtUnit.findMany({
+      take: 200,
       where: {
         deletedAt: null,
         status: { in: ["AVAILABLE", "HOLD"] },
@@ -78,6 +83,7 @@ async function SalesContent() {
       select: { id: true, unitNumber: true, unitType: true, projectId: true, project: { select: { name: true } } },
     }),
     prisma.userCompany.findMany({
+      take: 200,
       where: {
         companyId: company.id,
         role: { in: ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "SALES_MANAGER"] },
@@ -100,13 +106,15 @@ async function SalesContent() {
   const [landParcels, builtUnits] = await Promise.all([
     landParcelIds.length > 0
       ? prisma.landParcel.findMany({
-          where: { id: { in: landParcelIds } },
+          take: 200,
+          where: { id: { in: landParcelIds }, landPurchase: { companyId: company.id } },
           select: { id: true, number: true, area: true, areaUnit: true },
         })
       : [],
     builtUnitIds.length > 0
       ? prisma.builtUnit.findMany({
-          where: { id: { in: builtUnitIds } },
+          take: 200,
+          where: { id: { in: builtUnitIds }, project: { companyId: company.id } },
           select: { id: true, unitNumber: true, unitType: true, area: true, areaUnit: true },
         })
       : [],

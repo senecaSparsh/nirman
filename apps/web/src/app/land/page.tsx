@@ -43,6 +43,7 @@ async function LandContent() {
   // Fetch purchases, parcels, projects, land sales, and customers (for sell dialog).
   const [purchases, parcels, projects, landSales, customers, sellers] = await Promise.all([
     prisma.landPurchase.findMany({
+      take: 500,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { createdAt: "desc" },
       include: {
@@ -59,6 +60,7 @@ async function LandContent() {
       },
     }),
     prisma.landParcel.findMany({
+      take: 500,
       where: { deletedAt: null, landPurchase: { companyId: company.id } },
       orderBy: [{ landPurchaseId: "asc" }, { number: "asc" }],
       include: {
@@ -68,11 +70,13 @@ async function LandContent() {
       },
     }),
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },
     }),
     prisma.assetSale.findMany({
+      take: 200,
       where: { companyId: company.id, assetType: "LAND", status: "ACTIVE" },
       select: {
         id: true, saleNumber: true, salePrice: true, profit: true, saleDate: true,
@@ -81,11 +85,13 @@ async function LandContent() {
     }),
     // Customer has no companyId — scope to customers with sales in this company.
     prisma.customer.findMany({
+      take: 200,
       where: { deletedAt: null, assetSales: { some: { companyId: company.id } } },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
     prisma.landSeller.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, phone: true },

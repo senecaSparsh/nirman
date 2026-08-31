@@ -33,6 +33,7 @@ async function AuditTrailContent() {
 
   // Fetch users for the filter dropdown
   const users = await prisma.user.findMany({
+    take: 200,
     where: { memberships: { some: { companyId: company.id } } },
     select: { id: true, name: true },
     orderBy: { name: "asc" },

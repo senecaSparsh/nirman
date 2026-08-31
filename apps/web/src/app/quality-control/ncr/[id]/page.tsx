@@ -32,8 +32,8 @@ async function NcrDetailContent({ id }: { id: string }) {
     return <NoAccess what="NCR" />;
   }
 
-  const ncr = await prisma.nonConformanceReport.findUnique({
-    where: { id },
+  const ncr = await prisma.nonConformanceReport.findFirst({
+    where: { id, companyId: company.id },
     include: {
       project: { select: { id: true, name: true } },
       wbsNode: { select: { id: true, code: true, name: true } },

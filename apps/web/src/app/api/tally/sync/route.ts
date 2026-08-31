@@ -43,8 +43,17 @@ const syncSchema = z.object({
 export const POST = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
-  const body = await req.json().catch(() => ({}));
-  const parsed = syncSchema.parse(body);
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const parsedResult = syncSchema.safeParse(body);
+  if (!parsedResult.success) {
+    return json({ error: parsedResult.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  const parsed = parsedResult.data;
 
   // Try DB config first, fall back to env-based provider
   const provider = await createTallyProviderFromConfig(company.id);

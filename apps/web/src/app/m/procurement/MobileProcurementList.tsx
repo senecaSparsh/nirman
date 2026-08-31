@@ -497,6 +497,7 @@ function PoCard({
   }, [po.id, po.poNumber, onAction]);
 
   const handleCancel = useCallback(async () => {
+    if (!window.confirm("Cancel this purchase order?")) return;
     haptic(10);
     try {
       const res = await fetch(`/api/purchase-orders/${po.id}`, {

@@ -98,6 +98,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
 
     // Built units for this project (with active sale info)
     prisma.builtUnit.findMany({
+      take: 500,
       where: { projectId: id, deletedAt: null },
       orderBy: { unitNumber: "asc" },
       include: {
@@ -116,6 +117,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
 
     // Land parcels for this project (with child count)
     prisma.landParcel.findMany({
+      take: 500,
       where: { projectId: id, deletedAt: null },
       orderBy: { number: "asc" },
       include: {
@@ -145,6 +147,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
 
     // Project costs
     prisma.projectCost.findMany({
+      take: 500,
       where: { projectId: id },
       orderBy: { date: "desc" },
       include: {
@@ -169,6 +172,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
 
     // Equipment assigned to this project
     prisma.equipmentAssignment.findMany({
+      take: 500,
       where: { projectId: id, status: "ACTIVE" },
       include: {
         equipment: { select: { id: true, assetTag: true, name: true, category: true, status: true, currentValue: true } },
@@ -231,6 +235,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
   const [landSales, legalDocs] = await Promise.all([
     parcelIds.length > 0
       ? prisma.assetSale.findMany({
+          take: 200,
           where: { landParcelId: { in: parcelIds }, assetType: "LAND", status: "ACTIVE" },
           select: {
             id: true, saleNumber: true, salePrice: true, profit: true, saleDate: true,
@@ -241,6 +246,7 @@ async function ProjectDetailContent({ params }: { params: Promise<{ id: string }
       : Promise.resolve([]),
     // Legal documents for this project
     prisma.legalDocument.findMany({
+      take: 500,
       where: { projectId: id, companyId: company.id, deletedAt: null },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     }),

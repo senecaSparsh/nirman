@@ -10,6 +10,7 @@ import {
   Truck, Wallet, Wrench,
 } from "lucide-react";
 import { MobileProjectPossession } from "./MobileProjectPossession";
+import { MobileProjectTabs } from "./MobileProjectTabs";
 import { MobileCheckMilestonesButton } from "./MobileCheckMilestonesButton";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
@@ -23,12 +24,11 @@ import {
   MobilePipelineStepper,
   type MobilePipelineStep,
 } from "@/components/mobile/v2/primitives";
-import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
+
 import { MobileEditProjectButton } from "./MobileEditProjectButton";
 import { MobileDeleteProjectButton } from "./MobileDeleteProjectButton";
 import { MobileLegalDocsSection } from "@/components/legal/mobile-legal-docs-section";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 /**
  * /m/projects/[id] — project detail page.
@@ -140,72 +140,17 @@ async function MobileProjectDetailContent({
   const budgetUsedPct = totalBudget > 0 ? Math.min(100, (totalProjectCost / totalBudget) * 100) : 0;
   const isOverBudget = totalBudget > 0 && totalProjectCost > totalBudget;
 
-  // ── Build attention banners ──
-  // Only cross-entity alerts — status & budget are already in the hero card
-  const attentionBanners: AttentionBanner[] = [];
-
-  if (requisitions > 0) {
-    attentionBanners.push({
-      id: "pending-reqs",
-      title: `${requisitions} requisition${requisitions !== 1 ? "s" : ""} pending approval`,
-      subtitle: `Material requests for this project awaiting review`,
-      href: "/m/requisitions",
-      severity: "low",
-      qtyText: String(requisitions),
-      category: "Approvals",
-    });
-  }
-
-  // Pending DPRs
+  // ── Tab badge counts (things that need attention, not just counts) ──
   const pendingDprs = recentDprs.filter((d) => d.approvalStatus === "SUBMITTED" || d.approvalStatus === "SUB_ADMIN_APPROVED");
-  for (const dpr of pendingDprs) {
-    attentionBanners.push({
-      id: dpr.id,
-      title: `Daily Progress Report ${formatDate(dpr.date)}`,
-      subtitle: `${dpr.approvalStatus} · ${dpr.workSummary?.slice(0, 50) ?? "awaiting approval"}`,
-      href: `/m/dprs/${dpr.id}`,
-      severity: "low",
-      qtyText: dpr.approvalStatus === "SUBMITTED" ? "New" : "Sub",
-      category: "Daily Progress Report",
-    });
-  }
+  const activityBadge = pendingDprs.length + requisitions;
+  const unitsBadge = units.filter((u) => !u.askingPrice && (u.status === "AVAILABLE" || u.status === "UNDER_CONSTRUCTION")).length;
+  const legalBadge = legalDocs.filter((d) => !d.obtained).length;
 
-  // Units under construction with no asking price
-  for (const u of units.filter((u) => u.status === "UNDER_CONSTRUCTION" && !u.askingPrice).slice(0, 2)) {
-    attentionBanners.push({
-      id: `no-price-${u.id}`,
-      title: `Unit ${u.unitNumber} — no asking price`,
-      subtitle: `Under construction · ${formatNumber(toNum(u.area), 0)} ${u.areaUnit} · set a price to list`,
-      href: `/m/units/${u.id}`,
-      severity: "low",
-      qtyText: "—",
-      category: "Unit",
-    });
-  }
-
-  if (attentionBanners.length === 0) {
-    attentionBanners.push({
-      id: "clear",
-      title: "All caught up!",
-      subtitle: `${availableUnits.length} available · ${soldUnits.length} sold · ${formatCurrencyCompact(totalProjectCost)} spent · on track`,
-      href: `/m/projects/${id}`,
-      severity: "clear",
-      qtyText: "✓",
-      category: "Everything looks good",
-    });
-  }
-
-  const typeLabel = project.type.replace(/_/g, " ");
+  const typeLabel = project.type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
     <div>
       <RecordRecentItem type="project" id={project.id} label={project.name} href={`/m/projects/${project.id}`} />
-
-      {/* ── Back + status ── */}
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <MobileBackButton fallback="/m/projects" />
-        <MobileStatusBadge status={project.status} />
-      </div>
 
       {/* ── Lifecycle pipeline ── */}
       <div className="rounded-[0.5rem] border px-3 py-2 mb-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
@@ -225,33 +170,26 @@ async function MobileProjectDetailContent({
           backgroundColor: "var(--color-paper)",
         }}
       >
-        <div className="flex items-start gap-2.5">
+        <div className="flex items-center gap-2">
           <div
-            className="grid place-items-center w-11 h-11 rounded-[0.625rem] shrink-0 text-m-section"
+            className="grid place-items-center w-9 h-9 rounded-[0.5rem] shrink-0"
             style={{ backgroundColor: "var(--color-concrete)" }}
           >
-            <Building2 className="size-5" style={{ color: "var(--color-ink-700)" }} />
+            <Building2 className="size-4" style={{ color: "var(--color-ink-700)" }} />
           </div>
           <div className="min-w-0 flex-1">
-            <h1
-              className="font-bold text-m-section leading-tight"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              {project.name}
-            </h1>
-            <p className="text-m-body mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-              {typeLabel} · {project.status}
+            <div className="flex items-center gap-1.5">
+              <h1
+                className="font-bold text-m-body leading-tight truncate"
+                style={{ color: "var(--color-ink-950)" }}
+              >
+                {project.name}
+              </h1>
+              <MobileStatusBadge status={project.status} />
+            </div>
+            <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+              {typeLabel}
             </p>
-            {project.reraNumber && (
-              <div className="mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-m-caption font-bold"
-                style={{
-                  color: "var(--color-go)",
-                  backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)",
-                }}>
-                <ShieldCheck className="size-2.5" />
-                RERA: {project.reraNumber}
-              </div>
-            )}
           </div>
           <div className="flex items-center gap-2">
             <MobileCheckMilestonesButton projectId={project.id} />
@@ -281,6 +219,17 @@ async function MobileProjectDetailContent({
             )}
           </div>
         </div>
+
+        {project.reraNumber && (
+          <div className="mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-m-caption font-bold"
+            style={{
+              color: "var(--color-go)",
+              backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)",
+            }}>
+            <ShieldCheck className="size-2.5" />
+            RERA: {project.reraNumber}
+          </div>
+        )}
 
         {/* Address + dates */}
         <div className="mt-2.5 space-y-1">
@@ -339,9 +288,13 @@ async function MobileProjectDetailContent({
         ) : null}
       </div>
 
-      {/* ── Attention banner ── */}
-      <AttentionBannerCarousel banners={attentionBanners} />
-
+      {/* ── Section toggle tabs with badge counts ── */}
+      <MobileProjectTabs
+        tabs={{ units: unitsBadge, activity: activityBadge, legal: legalBadge }}
+      >
+        {{
+          overview: (
+            <>
       {/* ── Overview + Details — 2-col grid (like inventory category cards) ── */}
       <div className="grid grid-cols-2 gap-2 mb-3">
         {/* Overview card — KPIs */}
@@ -413,7 +366,7 @@ async function MobileProjectDetailContent({
 
       {/* ── Quick actions ── */}
       <SectionHead title="Quick actions" />
-      <div className="grid grid-cols-3 gap-1.5 mb-3">
+      <div className="grid grid-cols-4 gap-1.5 mb-3">
         <QuickActionTile href={`/m/site/dpr?project=${id}`} icon={FileText} label="New Daily Progress Report" />
         <QuickActionTile href={`/m/requisitions?project=${id}`} icon={ClipboardList} label="Requisition" />
         <QuickActionTile href={`/m/stock-out?mode=issue&project=${id}`} icon={PackageCheck} label="Issue" />
@@ -423,7 +376,10 @@ async function MobileProjectDetailContent({
         <QuickActionTile href={`/m/books/finance?project=${id}`} icon={Wallet} label="Add Project Cost" />
         <QuickActionTile href="/m/equipment" icon={Wrench} label="Assign Equipment" />
       </div>
-
+            </>
+          ),
+          units: (
+            <>
       {/* ── Units ── */}
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
@@ -450,7 +406,10 @@ async function MobileProjectDetailContent({
           ))}
         </div>
       )}
-
+            </>
+          ),
+          activity: (
+            <>
       {/* ── Recent DPRs — top accent + progress bar ── */}
       {recentDprs.length > 0 ? (
         <>
@@ -649,7 +608,10 @@ async function MobileProjectDetailContent({
           </div>
         </>
       ) : null}
-
+            </>
+          ),
+          legal: (
+            <>
       {/* ── Legal documents (permissions, licenses, NOCs, certificates, ATS) ── */}
       <MobileLegalDocsSection
         docs={legalDocs.map((d) => ({
@@ -680,6 +642,10 @@ async function MobileProjectDetailContent({
         canManage={hasPermission(role, PERM.LEGAL_MANAGE)}
         context="PROJECT"
       />
+            </>
+          ),
+        }}
+      </MobileProjectTabs>
     </div>
   );
 }
@@ -735,7 +701,7 @@ function KpiRow({
       </span>
       <span className="text-m-caption font-bold text-right tabular-nums truncate" style={{ color }}>
         {value}
-        {sub ? <span className="font-normal ml-0.5" style={{ color: "var(--color-ink-500)" }}>{sub}</span> : null}
+        {sub ? <span className="font-normal ml-1" style={{ color: "var(--color-ink-500)" }}>{" "}{sub}</span> : null}
       </span>
     </div>
   );
@@ -760,37 +726,55 @@ function UnitCard({
   };
 }) {
   const statusColor = mobileStatusColor(unit.status);
+  const needsAttention = !unit.askingPrice && (unit.status === "AVAILABLE" || unit.status === "UNDER_CONSTRUCTION");
+  const statusShort: Record<string, string> = {
+    PLANNED: "Plan",
+    UNDER_CONSTRUCTION: "U/C",
+    AVAILABLE: "Avail",
+    RESERVED: "Rsvd",
+    HOLD: "Hold",
+    SOLD: "Sold",
+    RENTED: "Rent",
+  };
+  const short = statusShort[unit.status] ?? unit.status.slice(0, 4);
 
   return (
     <Link
       href={`/m/units/${unit.id}`}
-      className="flex flex-col rounded-[0.5rem] border p-1.5 text-m-body press"
+      className={`flex flex-col rounded-[0.5rem] border p-1.5 text-m-body press ${needsAttention ? "card-pulse" : ""}`}
       style={{
-        borderColor: "var(--color-line)",
+        borderColor: needsAttention ? "var(--color-stop)" : "var(--color-line)",
         backgroundColor: "var(--color-paper)",
         borderTopColor: statusColor,
         borderTopWidth: "2px",
       }}
     >
-      {/* Unit number + status dot */}
+      {/* Unit number + status pill */}
       <div className="flex items-center justify-between gap-0.5 mb-0.5">
         <p className="text-m-caption font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
           {unit.unitNumber}
         </p>
         <span
-          className="w-1.5 h-1.5 rounded-full shrink-0"
-          style={{ backgroundColor: statusColor }}
-        />
+          className="shrink-0 text-[0.5rem] font-bold uppercase leading-none px-1 py-0.5 rounded"
+          style={{
+            backgroundColor: mobileStatusColor(unit.status, "wash"),
+            color: mobileStatusColor(unit.status, "dark"),
+          }}
+        >
+          {short}
+        </span>
       </div>
 
       {/* Type */}
       <p className="text-m-caption mb-0.5 truncate" style={{ color: "var(--color-ink-500)" }}>
-        {unit.unitType.replace(/_/g, " ").toLowerCase()}
+        {unit.unitType.startsWith("BHK_")
+          ? `${unit.unitType.slice(4)} BHK`
+          : unit.unitType.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
       </p>
 
       {/* Area */}
       <p className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
-        {formatNumber(toNum(unit.area), 0)} {unit.areaUnit}
+        {formatNumber(toNum(unit.area), 0)} {unit.areaUnit.toLowerCase()}
       </p>
 
       {/* Price */}
@@ -799,7 +783,7 @@ function UnitCard({
           {formatCurrencyCompact(toNum(unit.askingPrice))}
         </p>
       ) : (
-        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption font-bold" style={{ color: "var(--color-stop)" }}>
           no price
         </p>
       )}

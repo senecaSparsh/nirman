@@ -15,7 +15,6 @@ import {
   MobileCta,
   MobileNoAccess,
 } from "@/components/mobile/v2/primitives";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 import { MobileMaterialDeleteBtn } from "./MobileMaterialDeleteBtn";
@@ -104,11 +103,6 @@ async function MobileMaterialDetailContent({
   return (
     <div>
       <RecordRecentItem type="material" id={material.id} label={material.name} sublabel={material.code} href={`/m/materials/${material.id}`} />
-
-      {/* ── Back ── */}
-      <div className="mb-3">
-        <MobileBackButton fallback="/m/materials" />
-      </div>
 
       {/* ── Hero card ── */}
       <div

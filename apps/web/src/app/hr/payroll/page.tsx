@@ -32,6 +32,7 @@ async function PayrollContent() {
   };
 
   const periods = await prisma.payrollPeriod.findMany({
+    take: 500,
     where: { companyId: company.id },
     orderBy: [{ year: "desc" }, { month: "desc" }],
     include: {

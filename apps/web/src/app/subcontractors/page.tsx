@@ -16,6 +16,7 @@ export default async function SubcontractorsPage() {
   const company = await getCompany();
 
   const subcontractors = await prisma.subcontractor.findMany({
+    take: 500,
     where: { deletedAt: null, companyId: company.id },
     orderBy: { name: "asc" },
     include: {

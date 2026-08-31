@@ -40,12 +40,14 @@ async function MaterialsContent() {
   const [categories, materials, lowStockMaterials, suppliers] = await Promise.all([
     // Global entity — shared across companies (no companyId on MaterialCategory).
     prisma.materialCategory.findMany({
+      take: 500,
       where: { deletedAt: null },
       orderBy: { name: "asc" },
       include: { _count: { select: { materials: { where: { deletedAt: null } } } } },
     }),
     // Global catalog entity (no companyId); stock scoped per company via stockItems.
     prisma.material.findMany({
+      take: 500,
       where: { deletedAt: null },
       orderBy: { name: "asc" },
       include: {
@@ -58,6 +60,7 @@ async function MaterialsContent() {
     }),
     // Global catalog entity; stock scoped per company via stockItems.
     prisma.material.findMany({
+      take: 500,
       where: { deletedAt: null, minStock: { not: null } },
       include: {
         category: { select: { name: true } },
@@ -68,6 +71,7 @@ async function MaterialsContent() {
       },
     }),
     prisma.supplier.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true },

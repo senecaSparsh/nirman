@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, Copy, AlertCircle, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, Copy, AlertCircle, Sparkles, ChevronDown, ChevronUp, MapPin } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
@@ -80,6 +80,7 @@ export function BuiltUnitFormDialog({
   onOpenChange,
   projects,
   phases,
+  parcelOptions,
   defaults,
 }: {
   open: boolean;
@@ -87,24 +88,35 @@ export function BuiltUnitFormDialog({
   projects: ProjectOption[];
   /** All phases across the company; filtered by selected project. */
   phases: PhaseOption[];
+  /** Optional land parcels — when provided, shows a parcel selector so created
+   *  units can be linked to a plot (used from the land detail page). */
+  parcelOptions?: { id: string; label: string }[];
   /** Pre-fill fields (e.g. { projectId: "abc" } when scoped to a project node). */
-  defaults?: { projectId?: string };
+  defaults?: { projectId?: string; parcelId?: string };
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [projectId, setProjectId] = useState("");
+  const [parcelId, setParcelId] = useState<string | null>(null);
   const [rows, setRows] = useState<UnitRow[]>([emptyRow()]);
   // Local copy so freshly created projects appear in the dropdown without
   // waiting for router.refresh.
   const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects);
   useEffect(() => { setLocalProjects(projects); }, [projects]);
 
-  // ── Sequential unit generator state ──
+  // ── Unit generator state ──
   const [showGenerator, setShowGenerator] = useState(false);
+  const [genMode, setGenMode] = useState<"sequential" | "wing">("sequential");
+  // Sequential
   const [genPrefix, setGenPrefix] = useState("A-");
   const [genStart, setGenStart] = useState("101");
   const [genCount, setGenCount] = useState("5");
   const [genFloorPerFloor, setGenFloorPerFloor] = useState("4");
+  // Wing matrix
+  const [genWings, setGenWings] = useState("A,B,C");
+  const [genFloorFrom, setGenFloorFrom] = useState("1");
+  const [genFloorTo, setGenFloorTo] = useState("4");
+  const [genUnitsPerFloor, setGenUnitsPerFloor] = useState("4");
 
   // Phases for the selected project
   const projectPhases = useMemo(
@@ -116,11 +128,14 @@ export function BuiltUnitFormDialog({
   useEffect(() => {
     if (open) {
       if (defaults?.projectId) setProjectId(defaults.projectId);
+      setParcelId(defaults?.parcelId ?? null);
       setRows([emptyRow()]);
       setShowGenerator(false);
+      setGenMode("sequential");
     } else {
       // Reset on close so state doesn't leak between opens
       setProjectId("");
+      setParcelId(null);
       setRows([emptyRow()]);
       setShowGenerator(false);
     }
@@ -201,6 +216,54 @@ export function BuiltUnitFormDialog({
     toast.success(`Generated ${count} units (${newRows[0]?.unitNumber} – ${newRows[newRows.length - 1]?.unitNumber})`);
   }
 
+  function generateWingMatrix() {
+    const wings = genWings
+      .split(",")
+      .map((w) => w.trim())
+      .filter(Boolean);
+    const floorFrom = parseInt(genFloorFrom) || 1;
+    const floorTo = parseInt(genFloorTo) || floorFrom;
+    const perFloor = parseInt(genUnitsPerFloor) || 1;
+    if (wings.length === 0) {
+      toast.error("Enter at least one wing (e.g. A,B,C)");
+      return;
+    }
+    if (floorTo < floorFrom) {
+      toast.error("Floor 'to' must be ≥ floor 'from'");
+      return;
+    }
+    if (perFloor <= 0 || perFloor > 50) {
+      toast.error("Units per floor must be between 1 and 50");
+      return;
+    }
+    const total = wings.length * (floorTo - floorFrom + 1) * perFloor;
+    if (total > 500) {
+      toast.error(`Too many units (${total}) — max 500`);
+      return;
+    }
+    const baseUnit = rows[0] ?? emptyRow();
+    const newRows: UnitRow[] = [];
+    for (const wing of wings) {
+      for (let floor = floorFrom; floor <= floorTo; floor++) {
+        for (let i = 0; i < perFloor; i++) {
+          const unitIdx = String(i + 1).padStart(2, "0");
+          const unitNumber = `${wing}-${floor}${unitIdx}`;
+          newRows.push({
+            ...baseUnit,
+            id: crypto.randomUUID(),
+            unitNumber,
+            floor: String(floor),
+            wing,
+            askingPrice: "",
+          });
+        }
+      }
+    }
+    setRows(newRows);
+    setShowGenerator(false);
+    toast.success(`Generated ${newRows.length} units across ${wings.length} wing${wings.length !== 1 ? "s" : ""}`);
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!projectId) {
@@ -232,6 +295,7 @@ export function BuiltUnitFormDialog({
       const payload = rows.map((r) => ({
         projectId,
         phaseId: r.phaseId || null,
+        landParcelId: parcelId ?? null,
         unitType: r.unitType,
         unitNumber: r.unitNumber.trim(),
         floor: r.floor ? Number(r.floor) || null : null,
@@ -298,6 +362,32 @@ export function BuiltUnitFormDialog({
               {projectPhases.length} phase{projectPhases.length !== 1 ? "s" : ""} available — assign per unit below.
             </p>
           )}
+          {parcelOptions && parcelOptions.length > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="bu-parcel" className="flex items-center gap-1">
+                <MapPin className="h-3 w-3" /> Land parcel
+              </Label>
+              <Select
+                id="bu-parcel"
+                value={parcelId ?? ""}
+                onChange={(e) => setParcelId(e.target.value || null)}
+                className="h-9"
+              >
+                <option value="">No parcel (unlinked)</option>
+                {parcelOptions.map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+              </Select>
+              <p className="text-caption text-muted-foreground">
+                Units will be linked to the selected parcel (subdivided inventory).
+              </p>
+            </div>
+          )}
+          {parcelId && (!parcelOptions || parcelOptions.length === 0) && (
+            <p className="text-caption text-muted-foreground flex items-center gap-1">
+              <MapPin className="h-3 w-3" /> Units will be linked to the selected land parcel.
+            </p>
+          )}
         </div>
 
         {/* Unit rows */}
@@ -316,63 +406,143 @@ export function BuiltUnitFormDialog({
             </div>
           </div>
 
-          {/* Sequential generator panel */}
+          {/* Unit generator panel */}
           {showGenerator && (
             <div className="rounded-md border border-border bg-muted/20 p-3">
-              <p className="mb-2.5 text-caption text-muted-foreground">
-                Generate sequential unit numbers (e.g. A-101, A-102, A-103…). Floor is auto-assigned based on units per floor.
-              </p>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <div className="space-y-1">
-                  <Label className="text-caption">Prefix</Label>
-                  <Input
-                    value={genPrefix}
-                    onChange={(e) => setGenPrefix(e.target.value)}
-                    placeholder="A-"
-                    className="h-8 text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-caption">Start No.</Label>
-                  <Input
-                    type="number"
-                    value={genStart}
-                    onChange={(e) => setGenStart(e.target.value)}
-                    placeholder="101"
-                    className="h-8 text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-caption">Count</Label>
-                  <Input
-                    type="number"
-                    value={genCount}
-                    onChange={(e) => setGenCount(e.target.value)}
-                    placeholder="5"
-                    className="h-8 text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-caption">Units / floor</Label>
-                  <Input
-                    type="number"
-                    value={genFloorPerFloor}
-                    onChange={(e) => setGenFloorPerFloor(e.target.value)}
-                    placeholder="4"
-                    className="h-8 text-xs"
-                  />
-                </div>
+              <div className="mb-2.5 flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setGenMode("sequential")}
+                  className={`px-2 py-1 text-caption rounded ${genMode === "sequential" ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground"}`}
+                >
+                  Sequential
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGenMode("wing")}
+                  className={`px-2 py-1 text-caption rounded ${genMode === "wing" ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground"}`}
+                >
+                  Wing matrix
+                </button>
               </div>
-              <div className="mt-2.5 flex items-center justify-between">
-                <span className="text-micro text-muted-foreground">
-                  Preview: <span className="tnum font-medium text-foreground">
-                    {genPrefix}{genStart || "1"} – {genPrefix}{(parseInt(genStart) || 1) + (parseInt(genCount) || 1) - 1}
-                  </span>
-                </span>
-                <Button type="button" size="sm" onClick={generateSequential} disabled={saving}>
-                  <Sparkles className="h-3.5 w-3.5" /> Generate
-                </Button>
-              </div>
+
+              {genMode === "sequential" ? (
+                <>
+                  <p className="mb-2.5 text-caption text-muted-foreground">
+                    Generate sequential unit numbers (e.g. A-101, A-102, A-103…). Floor is auto-assigned based on units per floor.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div className="space-y-1">
+                      <Label className="text-caption">Prefix</Label>
+                      <Input
+                        value={genPrefix}
+                        onChange={(e) => setGenPrefix(e.target.value)}
+                        placeholder="A-"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-caption">Start No.</Label>
+                      <Input
+                        type="number"
+                        value={genStart}
+                        onChange={(e) => setGenStart(e.target.value)}
+                        placeholder="101"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-caption">Count</Label>
+                      <Input
+                        type="number"
+                        value={genCount}
+                        onChange={(e) => setGenCount(e.target.value)}
+                        placeholder="5"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-caption">Units / floor</Label>
+                      <Input
+                        type="number"
+                        value={genFloorPerFloor}
+                        onChange={(e) => setGenFloorPerFloor(e.target.value)}
+                        placeholder="4"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2.5 flex items-center justify-between">
+                    <span className="text-micro text-muted-foreground">
+                      Preview: <span className="tnum font-medium text-foreground">
+                        {genPrefix}{genStart || "1"} – {genPrefix}{(parseInt(genStart) || 1) + (parseInt(genCount) || 1) - 1}
+                      </span>
+                    </span>
+                    <Button type="button" size="sm" onClick={generateSequential} disabled={saving}>
+                      <Sparkles className="h-3.5 w-3.5" /> Generate
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="mb-2.5 text-caption text-muted-foreground">
+                    Generate a wing × floor matrix (e.g. A-101, A-102… B-401, B-402). Wing and floor are auto-filled per unit.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div className="space-y-1">
+                      <Label className="text-caption">Wings</Label>
+                      <Input
+                        value={genWings}
+                        onChange={(e) => setGenWings(e.target.value)}
+                        placeholder="A,B,C"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-caption">Floor from</Label>
+                      <Input
+                        type="number"
+                        value={genFloorFrom}
+                        onChange={(e) => setGenFloorFrom(e.target.value)}
+                        placeholder="1"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-caption">Floor to</Label>
+                      <Input
+                        type="number"
+                        value={genFloorTo}
+                        onChange={(e) => setGenFloorTo(e.target.value)}
+                        placeholder="4"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-caption">Units / floor</Label>
+                      <Input
+                        type="number"
+                        value={genUnitsPerFloor}
+                        onChange={(e) => setGenUnitsPerFloor(e.target.value)}
+                        placeholder="4"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2.5 flex items-center justify-between">
+                    <span className="text-micro text-muted-foreground">
+                      {(() => {
+                        const wings = genWings.split(",").map((w) => w.trim()).filter(Boolean);
+                        const total = wings.length * Math.max(0, (parseInt(genFloorTo) || 0) - (parseInt(genFloorFrom) || 0) + 1) * (parseInt(genUnitsPerFloor) || 0);
+                        return <>{total} units · <span className="tnum font-medium text-foreground">{wings.length}</span> wing{wings.length !== 1 ? "s" : ""}</>;
+                      })()}
+                    </span>
+                    <Button type="button" size="sm" onClick={generateWingMatrix} disabled={saving}>
+                      <Sparkles className="h-3.5 w-3.5" /> Generate
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 

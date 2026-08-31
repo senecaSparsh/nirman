@@ -32,8 +32,8 @@ async function CoDetailContent({ id }: { id: string }) {
     return <NoAccess what="change order" />;
   }
 
-  const co = await prisma.changeOrder.findUnique({
-    where: { id },
+  const co = await prisma.changeOrder.findFirst({
+    where: { id, companyId: company.id },
     include: {
       project: { select: { id: true, name: true, totalBudget: true } },
       phase: { select: { id: true, name: true } },

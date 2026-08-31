@@ -39,6 +39,7 @@ async function GatePassesContent() {
 
   const [gatePasses, locations, materials, projects] = await Promise.all([
     prisma.gatePass.findMany({
+      take: 500,
       where: { companyId: company.id },
       orderBy: { createdAt: "desc" },
       include: {
@@ -53,16 +54,19 @@ async function GatePassesContent() {
       },
     }),
     prisma.stockLocation.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: [{ type: "asc" }, { name: "asc" }],
       select: { id: true, type: true, name: true, projectId: true, lat: true, lng: true, geoRadius: true },
     }),
     prisma.material.findMany({
+      take: 200,
       where: { deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, code: true, name: true, grade: true, specification: true, unit: true, isLotTracked: true, isScrap: true, baseUnit: true, secondaryUnit: true, uomConversionFactor: true },
     }),
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },

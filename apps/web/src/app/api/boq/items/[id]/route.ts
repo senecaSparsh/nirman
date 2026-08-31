@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { updateBoqItem, deleteBoqItem } from "@nirman/services";
+import { updateBoqItem, deleteBoqItem, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
@@ -44,7 +44,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     });
     return json(item);
   } catch (err: unknown) {
-    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+    return json({ error: err instanceof ServiceError ? err.message : "Failed to update BOQ item" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });
 
@@ -62,6 +62,6 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     await deleteBoqItem(id, user.id);
     return json({ ok: true });
   } catch (err: unknown) {
-    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+    return json({ error: err instanceof ServiceError ? err.message : "Failed to delete BOQ item" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

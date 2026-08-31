@@ -45,7 +45,7 @@ export function MobileDeleteProjectButton({ projectId, name }: { projectId: stri
       <button
         onClick={handleDelete}
         disabled={busy}
-        className="flex items-center gap-1.5 h-8 px-3 rounded-[0.5rem] border-2 text-m-body font-bold text-m-body press"
+        className="grid place-items-center h-7 w-7 rounded-[0.5rem] border-2 press"
         style={{
           borderColor: "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))",
           color: "var(--color-stop)",
@@ -53,7 +53,6 @@ export function MobileDeleteProjectButton({ projectId, name }: { projectId: stri
         }}
       >
         {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-        Delete
       </button>
       {confirmDialog}
     </>

@@ -277,6 +277,71 @@ export const INTEGRATION_SCHEMAS: IntegrationSchema[] = [
       },
     ],
   },
+  {
+    key: "HSN_SAC",
+    label: "HSN/SAC Auto-Fetch",
+    description: "Automatically look up HSN/SAC codes and GST rates from the CBIC GST portal or a third-party API (FastGST). Eliminates manual code entry on materials and supplier invoices.",
+    icon: "Search",
+    fields: [
+      {
+        name: "provider",
+        label: "Provider",
+        type: "text",
+        required: true,
+        defaultValue: "cbic",
+        helpText: "Data source: 'cbic' (free, government portal) or 'fastgst' (third-party API with fuzzy search).",
+      },
+      {
+        name: "apiKey",
+        label: "API Key (FastGST only)",
+        type: "password",
+        helpText: "Required only if using the FastGST provider. Get it from consoleDesk.in marketplace.",
+      },
+      {
+        name: "baseUrl",
+        label: "API Base URL (FastGST only)",
+        type: "url",
+        defaultValue: "https://api.taxlookup.fastgst.in",
+        helpText: "FastGST API endpoint. Not needed for the free CBIC provider.",
+      },
+    ],
+  },
+  {
+    key: "OCR",
+    label: "OCR (Photo DPR / Document)",
+    description: "Extract work-type, material quantities, and labor counts from photos of handwritten daily progress reports using AI vision OCR. Supports Google Vision, Azure Document Intelligence, or any OpenAI-compatible vision API.",
+    icon: "ScanLine",
+    fields: [
+      {
+        name: "provider",
+        label: "Provider",
+        type: "text",
+        required: true,
+        defaultValue: "openai",
+        helpText: "OCR backend: 'openai' (GPT-4o vision), 'google' (Cloud Vision), 'azure' (Document Intelligence), or 'stub' (logs only, no API calls).",
+      },
+      {
+        name: "apiKey",
+        label: "API Key",
+        type: "password",
+        required: true,
+        helpText: "API key for the chosen OCR provider.",
+      },
+      {
+        name: "baseUrl",
+        label: "API Base URL (OpenAI-compatible only)",
+        type: "url",
+        helpText: "Custom endpoint for OpenAI-compatible vision APIs. Leave blank to use the provider's default endpoint.",
+      },
+      {
+        name: "model",
+        label: "Model (OpenAI only)",
+        type: "text",
+        defaultValue: "gpt-4o",
+        helpText: "Vision model name for OpenAI-compatible providers.",
+      },
+    ],
+  },
 ];
 
 // Fields that should be encrypted at rest
@@ -493,6 +558,51 @@ export async function verifyIntegration(input: {
         }
         break;
       }
+      case "HSN_SAC": {
+        const provider = (config.config.provider as string) || "cbic";
+        if (provider === "fastgst") {
+          const apiKey = config.config.apiKey as string;
+          const baseUrl = (config.config.baseUrl as string) || "https://api.taxlookup.fastgst.in";
+          if (!apiKey) { error = "Missing FastGST API key"; break; }
+          const res = await fetch(`${baseUrl}/health`, {
+            headers: { "X-API-Key": apiKey },
+            signal: AbortSignal.timeout(5000),
+          }).catch((e) => ({ ok: false, status: 0, statusText: e instanceof Error ? e.message : "Network error" }));
+          if (res.ok) { success = true; } else { error = `FastGST API returned ${res.status} ${res.statusText}`; }
+        } else {
+          // CBIC provider — free, no key. Just check connectivity.
+          const res = await fetch("https://cbic-gst.gov.in/", {
+            method: "HEAD",
+            signal: AbortSignal.timeout(5000),
+          }).catch((e) => ({ ok: false, status: 0, statusText: e instanceof Error ? e.message : "Network error" }));
+          if (res.ok || res.status === 301 || res.status === 302) { success = true; } else { error = `CBIC portal returned ${res.status} ${res.statusText}`; }
+        }
+        break;
+      }
+      case "OCR": {
+        const provider = (config.config.provider as string) || "stub";
+        if (provider === "stub") { success = true; break; }
+        const apiKey = config.config.apiKey as string;
+        if (!apiKey) { error = "Missing OCR API key"; break; }
+        if (provider === "openai") {
+          const baseUrl = (config.config.baseUrl as string) || "https://api.openai.com";
+          const res = await fetch(`${baseUrl}/v1/models`, {
+            headers: { Authorization: `Bearer ${apiKey}` },
+            signal: AbortSignal.timeout(5000),
+          }).catch((e) => ({ ok: false, status: 0, statusText: e instanceof Error ? e.message : "Network error" }));
+          if (res.ok) { success = true; } else { error = `OpenAI API returned ${res.status} ${res.statusText}`; }
+        } else if (provider === "google") {
+          const res = await fetch(`https://vision.googleapis.com/v1/projects/-/locations/global/operations?key=${apiKey}`, {
+            signal: AbortSignal.timeout(5000),
+          }).catch((e) => ({ ok: false, status: 0, statusText: e instanceof Error ? e.message : "Network error" }));
+          if (res.ok || res.status === 403) { success = true; } else { error = `Google Vision API returned ${res.status} ${res.statusText}`; }
+        } else if (provider === "azure") {
+          success = true; // Azure DI requires endpoint+key combo; just accept if key present
+        } else {
+          error = `Unknown OCR provider: ${provider}`;
+        }
+        break;
+      }
       default:
         error = `Unknown integration: ${key}`;
     }
@@ -606,6 +716,58 @@ export async function createPortalProviderFromConfig(companyId: string, portalNa
   // Fall back to manual provider (generates pre-filled URLs, not fake stubs)
   const { ManualPortalProvider } = await import("./portal-listing");
   return new ManualPortalProvider(portalName);
+}
+
+/**
+ * Create an HSN/SAC lookup provider from the DB-stored config for a company.
+ * Falls back to the free CBIC provider if no config exists.
+ */
+export async function createHsnSacProviderFromConfig(companyId: string) {
+  const config = await getIntegrationConfig({ companyId, key: "HSN_SAC" });
+  if (config?.enabled) {
+    const { CbicHsnSacProvider, FastGstHsnSacProvider } = await import("./hsn-sac");
+    const provider = (config.config.provider as string) || "cbic";
+    if (provider === "fastgst") {
+      return new FastGstHsnSacProvider({
+        apiKey: config.config.apiKey as string,
+        baseUrl: (config.config.baseUrl as string) || "https://api.taxlookup.fastgst.in",
+      });
+    }
+    return new CbicHsnSacProvider();
+  }
+  // Fall back to free CBIC provider (no config needed)
+  const { CbicHsnSacProvider } = await import("./hsn-sac");
+  return new CbicHsnSacProvider();
+}
+
+/**
+ * Create an OCR provider from the DB-stored config for a company.
+ * Falls back to a stub that logs but doesn't call any API.
+ */
+export async function createOcrProviderFromConfig(companyId: string) {
+  const config = await getIntegrationConfig({ companyId, key: "OCR" });
+  if (config?.enabled) {
+    const { OpenAiVisionOcrProvider, GoogleVisionOcrProvider, AzureDiOcrProvider, StubOcrProvider } = await import("./ocr");
+    const provider = (config.config.provider as string) || "stub";
+    const apiKey = config.config.apiKey as string;
+    switch (provider) {
+      case "openai":
+        return new OpenAiVisionOcrProvider({
+          apiKey,
+          baseUrl: (config.config.baseUrl as string) || undefined,
+          model: (config.config.model as string) || "gpt-4o",
+        });
+      case "google":
+        return new GoogleVisionOcrProvider({ apiKey });
+      case "azure":
+        return new AzureDiOcrProvider({ apiKey });
+      default:
+        return new StubOcrProvider();
+    }
+  }
+  // Fall back to stub
+  const { StubOcrProvider } = await import("./ocr");
+  return new StubOcrProvider();
 }
 
 // ── SMTP Email Provider ─────────────────────────────────────

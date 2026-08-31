@@ -12,7 +12,12 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   const user = await requirePermission(PERM.DPR_SUBMIT);
   const company = await getCompany();
   const { id } = await params;
-  const body = await req.json().catch(() => ({}));
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "Invalid JSON body" }, { status: 400 });
+  }
 
   const schema = z.object({
     autoGenerateScrap: z.boolean().optional().default(false),

@@ -48,6 +48,7 @@ async function ReceivableOrders({
   }
   const company = await getCompany();
   const pos = await prisma.purchaseOrder.findMany({
+    take: 500,
     where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] } },
     orderBy: { createdAt: "desc" },
     include: {

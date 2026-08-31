@@ -20,7 +20,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
 
-  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const type = (body.type as string) ?? "ALL";
   const daysAhead = (body.daysAhead as number) ?? 7;
 

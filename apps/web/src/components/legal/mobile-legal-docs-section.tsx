@@ -11,7 +11,7 @@ import {
 import {
   MobileSectionTitle, MobileEmptyState, MobileStatusBadge,
 } from "@/components/mobile/v2/primitives";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { formatCurrencyCompact, formatDate, cn } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import type { LegalDocRow, LegalDocType, LegalDocStatus } from "@/components/legal/legal-docs-section";
 import {
@@ -180,7 +180,7 @@ export function MobileLegalDocsSection({
         right={canManage ? (
           <button
             onClick={() => { setEditing(null); setShowForm(true); }}
-            className="flex items-center gap-1 text-m-section font-semibold rounded-full px-2.5 py-1"
+            className="flex items-center gap-1 text-m-body font-semibold rounded-full px-2.5 py-1"
             style={{ backgroundColor: "var(--color-brand)", color: "white" }}
           >
             <Plus className="size-3.5" /> Add
@@ -294,7 +294,7 @@ function MobileChecklistRow({
 
   return (
     <div
-      className="rounded-xl border overflow-hidden"
+      className="rounded-[0.5rem] border overflow-hidden"
       style={{
         backgroundColor: isLocked ? "var(--color-paper-2)" : "var(--color-paper)",
         borderColor: isObtained ? "rgba(34,197,94,0.3)" : "var(--color-line)",
@@ -417,14 +417,14 @@ function MobileChecklistRow({
                 {doc.applicationDate && <div><span style={{ color: "var(--color-ink-400)" }}>Applied: </span><span className="font-medium" style={{ color: "var(--color-ink-900)" }}>{formatDate(doc.applicationDate)}</span></div>}
                 {doc.issueDate && <div><span style={{ color: "var(--color-ink-400)" }}>Issued: </span><span className="font-medium" style={{ color: "var(--color-ink-900)" }}>{formatDate(doc.issueDate)}</span></div>}
                 {doc.validTill && <div><span style={{ color: "var(--color-ink-400)" }}>Till: </span><span className="font-medium" style={{ color: "var(--color-ink-900)" }}>{formatDate(doc.validTill)}</span></div>}
-                {doc.amount != null && <div><span style={{ color: "var(--color-ink-400)" }}>{step.amountLabel ?? "Amt"}: </span><span className="font-medium" style={{ color: "var(--color-ink-900)" }}>{formatCurrency(doc.amount)}</span></div>}
+                {doc.amount != null && <div><span style={{ color: "var(--color-ink-400)" }}>{step.amountLabel ?? "Amt"}: </span><span className="font-medium" style={{ color: "var(--color-ink-900)" }}>{formatCurrencyCompact(doc.amount)}</span></div>}
                 {doc.expectedRegistryDate && <div><span style={{ color: "var(--color-ink-400)" }}>Registry: </span><span className="font-medium" style={{ color: "var(--color-ink-900)" }}>{formatDate(doc.expectedRegistryDate)}</span></div>}
               </div>
               {doc.notes && <p className="text-m-label italic mt-1" style={{ color: "var(--color-ink-500)" }}>{doc.notes}</p>}
               {/* Transfer duty → project cost bridge indicator */}
               {step.type === "TRANSFER_DUTY" && doc.amount != null && doc.amount > 0 && doc.projectId && isObtained && (
                 <p className="text-m-caption font-medium mt-1 flex items-center gap-1" style={{ color: "var(--color-go)" }}>
-                  <CheckCircle2 className="size-2.5" /> Transfer duty {formatCurrency(doc.amount)} auto-logged as project cost.
+                  <CheckCircle2 className="size-2.5" /> Transfer duty {formatCurrencyCompact(doc.amount)} auto-logged as project cost.
                 </p>
               )}
               {step.type === "TRANSFER_DUTY" && doc.amount != null && doc.amount > 0 && !doc.projectId && (
@@ -588,7 +588,7 @@ function MobileLegalDocForm({
   }
 
   const isATS = form.type === "AGREEMENT_TO_SELL";
-  const inputClass = "w-full rounded-lg border px-3 py-2 text-m-section";
+  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
   const inputStyle = {
     backgroundColor: "var(--color-surface)",
     borderColor: "var(--color-line)",
@@ -599,7 +599,7 @@ function MobileLegalDocForm({
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <div className="absolute inset-0" style={{ backgroundColor: "rgba(0,0,0,0.4)" }} onClick={onClose} />
       <div
-        className="relative w-full max-w-md rounded-t-[0.75rem] border-t max-h-[90vh] overflow-y-auto"
+        className="relative w-full max-w-md rounded-t-[1rem] border-t max-h-[90vh] overflow-y-auto"
         style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
       >
         {/* Header */}
@@ -712,7 +712,7 @@ function MobileLegalDocForm({
 
           {/* ATS-specific or amount */}
           {isATS ? (
-            <div className="rounded-lg border p-3 space-y-2" style={{ borderColor: "var(--color-brand)", backgroundColor: "rgba(59,130,246,0.05)" }}>
+            <div className="rounded-[0.5rem] border p-3 space-y-2" style={{ borderColor: "var(--color-brand)", backgroundColor: "rgba(59,130,246,0.05)" }}>
               <p className="text-m-section font-bold" style={{ color: "var(--color-brand)" }}>Agreement to Sell</p>
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -739,7 +739,7 @@ function MobileLegalDocForm({
           <div>
             <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Proof Document</label>
             {form.documentUrl ? (
-              <div className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-surface)" }}>
+              <div className="flex items-center justify-between gap-2 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-surface)" }}>
                 <a href={form.documentUrl} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-2 text-m-section" style={{ color: "var(--color-ink-900)" }}>
                   <FileText className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
                   <span className="truncate">{form.documentName ?? "View"}</span>
@@ -752,7 +752,7 @@ function MobileLegalDocForm({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full flex items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-2.5 text-m-body"
+                className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] border border-dashed px-3 py-2.5 text-m-body"
                 style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}
               >
                 {uploading ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />}
@@ -781,7 +781,7 @@ function MobileLegalDocForm({
           <button
             onClick={onClose}
             disabled={saving}
-            className="flex-1 rounded-lg border py-2.5 text-m-section font-semibold"
+            className="flex-1 rounded-[0.5rem] border py-2.5 text-m-section font-semibold"
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
           >
             Cancel
@@ -789,7 +789,7 @@ function MobileLegalDocForm({
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="flex-1 rounded-lg py-2.5 text-m-section font-semibold flex items-center justify-center gap-1"
+            className="flex-1 rounded-[0.5rem] py-2.5 text-m-section font-semibold flex items-center justify-center gap-1"
             style={{ backgroundColor: "var(--color-brand)", color: "white" }}
           >
             {saving ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}

@@ -1,12 +1,13 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, toNum, brokerSchema, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, brokerSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest) => {
-  const user = await requirePermission(PERM.SALES_VIEW);
+  await requirePermission(PERM.SALES_VIEW);
+  const company = await getCompany();
   const brokers = await prisma.broker.findMany({
-    where: { deletedAt: null, companyId: user.companyId ?? undefined },
+    where: { deletedAt: null, companyId: company.id },
     orderBy: { name: "asc" },
     select: {
       id: true,
@@ -31,6 +32,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
 
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.SALE_CREATE);
+  const company = await getCompany();
   const body = await req.json();
   const parsed = brokerSchema.safeParse(body);
   if (!parsed.success) {
@@ -43,7 +45,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       agency: parsed.data.agency ?? null,
       defaultCommissionPercent: parsed.data.defaultCommissionPercent ?? null,
       notes: parsed.data.notes ?? null,
-      companyId: user.companyId!,
+      companyId: company.id,
       createdById: user.id,
     },
   });

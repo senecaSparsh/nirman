@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma, type WorkOrderStatus } from "@nirman/db";
-import { createWorkOrder } from "@nirman/services";
+import { createWorkOrder, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
@@ -51,7 +51,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     return json(wo, { status: 201 });
   } catch (err: unknown) {
-    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+    return json({ error: err instanceof ServiceError ? err.message : "Failed to create work order" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });
 

@@ -17,13 +17,13 @@ type ReconciliationRow = {
   date: string;
   workSummary: string;
   approvalStatus: string;
-  dprMaterialCost: number;
-  dprLaborCost: number;
-  dprTotalCost: number;
-  postedMaterialIssueCost: number;
-  postedProjectCost: number;
-  postedTotal: number;
-  variance: number;
+  dprMaterialCost: string;
+  dprLaborCost: string;
+  dprTotalCost: string;
+  postedMaterialIssueCost: string;
+  postedProjectCost: string;
+  postedTotal: string;
+  variance: string;
   isPosted: boolean;
   costPostedDate: string | null;
 };
@@ -72,9 +72,9 @@ export function DprFinanceReconciliationView() {
 
   const totals = data.reduce(
     (acc, r) => {
-      acc.dprTotal += r.dprTotalCost;
-      acc.postedTotal += r.postedTotal;
-      acc.variance += r.variance;
+      acc.dprTotal += Number(r.dprTotalCost);
+      acc.postedTotal += Number(r.postedTotal);
+      acc.variance += Number(r.variance);
       acc.unposted += r.isPosted ? 0 : 1;
       return acc;
     },
@@ -152,15 +152,15 @@ export function DprFinanceReconciliationView() {
                   <TD className="max-w-xs truncate text-caption text-muted-foreground">{r.workSummary}</TD>
                   <TD className="text-right tnum">{formatCurrency(r.dprTotalCost)}</TD>
                   <TD className="text-right tnum text-success">{formatCurrency(r.postedTotal)}</TD>
-                  <TD className={cn("text-right tnum font-medium", r.variance > 0 ? "text-warning" : "text-success")}>
-                    {r.variance >= 0 ? "+" : ""}{formatCurrency(r.variance)}
+                  <TD className={cn("text-right tnum font-medium", Number(r.variance) > 0 ? "text-warning" : "text-success")}>
+                    {Number(r.variance) >= 0 ? "+" : ""}{formatCurrency(r.variance)}
                   </TD>
                   <TD>
                     {r.isPosted ? (
                       <Badge variant="success">
                         <CheckCircle2 className="mr-1 h-3 w-3" /> Posted
                       </Badge>
-                    ) : r.variance === 0 && r.postedTotal > 0 ? (
+                    ) : Number(r.variance) === 0 && Number(r.postedTotal) > 0 ? (
                       <Badge variant="success">
                         <CheckCircle2 className="mr-1 h-3 w-3" /> Reconciled
                       </Badge>

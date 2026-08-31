@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { addRenovationCost } from "@nirman/services";
+import { addRenovationCost, ServiceError } from "@nirman/services";
 import { apiHandler, json, renovationCostSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -23,7 +23,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     });
     return json({ ok: true, id: cost.id }, { status: 201 });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to add renovation cost";
-    return json({ error: message }, { status: 400 });
+    const message = err instanceof ServiceError ? err.message : "Failed to add renovation cost";
+    return json({ error: message }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

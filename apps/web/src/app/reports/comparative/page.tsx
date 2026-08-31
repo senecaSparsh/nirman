@@ -35,6 +35,7 @@ async function ComparativeContent() {
   }
 
   const projects = await prisma.project.findMany({
+    take: 200,
     where: { companyId: company.id, deletedAt: null },
     select: { id: true, name: true, status: true },
     orderBy: { name: "asc" },

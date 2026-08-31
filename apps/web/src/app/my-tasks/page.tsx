@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { MyTasksHub } from "@/components/tasks/my-tasks-hub";
 import { formatDate } from "@/lib/utils";
-import { getCurrentUser, getUserRole } from "@/lib/server";
+import { getCurrentUser, getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 
 export const metadata = { title: "My Tasks · Nirman" };
@@ -28,10 +28,13 @@ async function MyTasksContent() {
   await connection();
   const role = await getUserRole();
   const currentUser = await getCurrentUser();
+  const company = await getCompany();
   const canViewTeam = hasPermission(role, PERM.TASKS_ASSIGN);
 
   const [teamTasks, users] = await Promise.all([
     prisma.task.findMany({
+      take: 500,
+      where: { assignedTo: { memberships: { some: { companyId: company.id } } } },
       orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
       include: {
         assignedTo: { select: { id: true, name: true, email: true, role: true } },
@@ -39,7 +42,8 @@ async function MyTasksContent() {
       },
     }),
     prisma.user.findMany({
-      where: { active: true },
+      take: 200,
+      where: { active: true, memberships: { some: { companyId: company.id } } },
       select: { id: true, name: true, email: true, role: true },
       orderBy: { name: "asc" },
     }),

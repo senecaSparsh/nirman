@@ -48,6 +48,7 @@ async function ProjectsContent() {
       : {};
 
   const projects = await prisma.project.findMany({
+    take: 500,
     where: { companyId: company.id, deletedAt: null, ...projectScopeFilter },
     orderBy: { createdAt: "desc" },
     include: {

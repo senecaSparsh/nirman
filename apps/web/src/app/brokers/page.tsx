@@ -16,6 +16,7 @@ export default async function BrokersPage() {
   const company = await getCompany();
 
   const brokers = await prisma.broker.findMany({
+    take: 500,
     where: { deletedAt: null, companyId: company.id },
     orderBy: { name: "asc" },
     include: {

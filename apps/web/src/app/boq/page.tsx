@@ -34,12 +34,14 @@ async function BoqContent() {
       : {};
 
   const projects = await prisma.project.findMany({
+    take: 200,
     where: { companyId: company.id, deletedAt: null, ...projectScopeFilter },
     orderBy: { name: "asc" },
     select: { id: true, name: true, type: true, status: true },
   });
 
   const materials = await prisma.material.findMany({
+    take: 200,
     where: { deletedAt: null },
     orderBy: { code: "asc" },
     select: { id: true, code: true, name: true, unit: true },

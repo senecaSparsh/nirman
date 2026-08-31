@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
+import { ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, getCompanyGroupIds, getCurrentUser, requireUser, toNum } from "@/lib/server";
 import { formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 
@@ -68,8 +69,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
     }
     return await getNode(searchParams, company.id, company.id);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const message = err instanceof ServiceError ? err.message : "Failed to load orbit data";
+    return NextResponse.json({ error: message }, { status: err instanceof ServiceError ? err.status : 500 });
   }
 });
 

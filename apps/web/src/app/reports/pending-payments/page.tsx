@@ -34,6 +34,7 @@ async function PendingPaymentsContent() {
 
   // 1. Overdue POs (ORDERED/PARTIAL past expectedDate) — outbound payables
   const overduePOs = await prisma.purchaseOrder.findMany({
+    take: 500,
     where: {
       companyId: company.id,
       status: { in: ["ORDERED", "PARTIAL"] },
@@ -66,6 +67,7 @@ async function PendingPaymentsContent() {
 
   // 2. Outstanding sale receivables — inbound
   const sales = await prisma.assetSale.findMany({
+    take: 500,
     where: {
       companyId: company.id,
       status: "ACTIVE",
@@ -99,6 +101,7 @@ async function PendingPaymentsContent() {
 
   // 3. Draft POs awaiting approval (not yet payable, but pending action)
   const draftPOs = await prisma.purchaseOrder.findMany({
+    take: 500,
     where: { companyId: company.id, status: "DRAFT" },
     include: { supplier: { select: { name: true } }, lines: { select: { qtyOrdered: true, unitCost: true } } },
     orderBy: { createdAt: "desc" },

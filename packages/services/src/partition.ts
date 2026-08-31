@@ -638,12 +638,12 @@ export function allocatePartitionCosts(
     });
     const sumW = weighted.reduce((s, wa) => s.plus(wa), new Decimal(0));
     saleableIdx.forEach((idx, k) => {
-      costs[idx] = new Decimal(totalCost).times(weighted[k]!).div(sumW);
+      costs[idx] = sumW.gt(0) ? new Decimal(totalCost).times(weighted[k]!).div(sumW) : new Decimal(0);
     });
   } else {
     const sumSaleable = saleableIdx.reduce((s, i) => s.plus(new Decimal(childAreas[i]!)), new Decimal(0));
     for (const i of saleableIdx) {
-      costs[i] = new Decimal(totalCost).times(new Decimal(childAreas[i]!)).div(sumSaleable);
+      costs[i] = sumSaleable.gt(0) ? new Decimal(totalCost).times(new Decimal(childAreas[i]!)).div(sumSaleable) : new Decimal(0);
     }
   }
   return costs;

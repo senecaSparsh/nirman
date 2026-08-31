@@ -93,16 +93,19 @@ async function CommandCenterContent() {
       select: { id: true, name: true, email: true, phone: true, image: true, role: true, active: true, createdAt: true },
     }),
     isDevBypass ? [] : prisma.userCompany.findMany({
+      take: 500,
       where: { userId },
       include: { company: { select: { id: true, name: true, businessType: true } } },
       orderBy: { createdAt: "asc" },
     }),
     isDevBypass ? [] : prisma.projectAssignment.findMany({
+      take: 500,
       where: { userId },
       include: { project: { select: { id: true, name: true, status: true } } },
       orderBy: { assignedAt: "desc" },
     }),
     prisma.material.findMany({
+      take: 200,
       where: { deletedAt: null, minStock: { not: null } },
       select: { id: true, name: true, unit: true, minStock: true,
         stockItems: { where: { location: { deletedAt: null, companyId: company.id } }, select: { qty: true } } },
@@ -148,6 +151,7 @@ async function CommandCenterContent() {
       include: { supplier: { select: { name: true } } },
     }),
     prisma.purchaseOrder.findMany({
+      take: 200,
       where: {
         companyId: company.id,
         status: { not: "CANCELLED" },
@@ -174,6 +178,7 @@ async function CommandCenterContent() {
     const [tb, projects, invVal] = await Promise.all([
       trialBalance(company.id),
       prisma.project.findMany({
+        take: 200,
         where: { companyId: company.id, deletedAt: null },
         select: { id: true, name: true, status: true },
         orderBy: { name: "asc" },

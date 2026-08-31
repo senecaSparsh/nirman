@@ -110,6 +110,17 @@ async function wipeTransactional() {
   // Stock ledger (movements + current-state cache)
   await wipe("stockMovement");
   await wipe("stockLocationItem");
+  // HR — attendance, DPRs, payroll, tenancies, brokers, payment schedules
+  await wipe("workerAttendance");
+  await wipe("dPRLaborLine");
+  await wipe("dPRMaterialLine");
+  await wipe("dailyProgressReport");
+  await wipe("payrollLine");
+  await wipe("payrollPeriod");
+  await wipe("tenancy");
+  await wipe("broker");
+  await wipe("paymentScheduleItem");
+  await wipe("paymentSchedule");
 }
 
 // ── Main ─────────────────────────────────────────────────────
@@ -2286,6 +2297,333 @@ async function main() {
     await reallocateProjectCosts(tx, interiorsProj2.id);
   });
 
+  // ── 30. Worker Attendance (5 days × 7 employees) ────────────
+  // Seeds attendance so the HR dashboard, attendance list, and
+  // tier computation (present/absent/late/PL/NPL) all have data.
+  console.log("Seeding worker attendance…");
+  const attendanceDates = [
+    new Date("2024-08-12"),
+    new Date("2024-08-13"),
+    new Date("2024-08-14"),
+    new Date("2024-08-15"),
+    new Date("2024-08-16"),
+  ];
+  const empNames = Object.keys(empMap);
+  for (let di = 0; di < attendanceDates.length; di++) {
+    const date = attendanceDates[di];
+    for (let ei = 0; ei < empNames.length; ei++) {
+      const name = empNames[ei];
+      // Vary statuses: most present, one late, one absent, one PL on day 3
+      let status: "PRESENT" | "LATE" | "ABSENT" | "PAID_LEAVE" | "HALF_DAY" | "OVERTIME" = "PRESENT";
+      if (ei === 3 && di === 2) status = "PAID_LEAVE";
+      else if (ei === 5 && di === 1) status = "LATE";
+      else if (ei === 2 && di === 4) status = "ABSENT";
+      else if (ei === 0 && di === 3) status = "OVERTIME";
+      else if (ei === 4 && di === 2) status = "HALF_DAY";
+
+      const checkIn = status === "ABSENT" || status === "PAID_LEAVE" ? null : new Date(`${date.toISOString().split("T")[0]}T09:${status === "LATE" ? "30" : "00"}:00`);
+      const checkOut = status === "ABSENT" || status === "PAID_LEAVE" ? null : new Date(`${date.toISOString().split("T")[0]}T${status === "OVERTIME" ? "19" : "18"}:00:00`);
+      const hours = status === "ABSENT" || status === "PAID_LEAVE" ? null : status === "OVERTIME" ? 10 : status === "HALF_DAY" ? 4 : status === "LATE" ? 7.5 : 9;
+
+      await prisma.workerAttendance.create({
+        data: {
+          companyId: company.id,
+          employeeId: empMap[name],
+          date,
+          projectId: project1.id,
+          checkIn,
+          checkOut,
+          hoursWorked: hours ? new Decimal(hours) : null,
+          status,
+          recordedById: U.supervisor,
+        },
+      });
+    }
+  }
+
+  // ── 31. Daily Progress Reports (3 DPRs in different approval states) ──
+  // Seeds DPRs with material + labour lines so the DPR list, detail,
+  // and multi-tier approval pipeline (SUBMITTED → SUB_ADMIN_APPROVED → APPROVED)
+  // all have data to display.
+  console.log("Seeding DPRs…");
+  const dprData = [
+    {
+      date: new Date("2024-08-12"),
+      workSummary: "Foundation footing casting for Tower A — 4 footings completed. Concrete pouring ongoing.",
+      progressPct: 15,
+      weather: "Sunny, 32°C",
+      blockers: "Steel delivery delayed by 2 hours",
+      tomorrowPlan: "Complete remaining 3 footings, start column reinforcement",
+      approvalStatus: "APPROVED" as const,
+      subAdminApprovedById: U.manager,
+      subAdminApprovedAt: new Date("2024-08-12T16:00:00"),
+      adminApprovedById: U.admin,
+      adminApprovedAt: new Date("2024-08-13T10:00:00"),
+      workType: "Foundation",
+      materials: [{ material: "CEM-OPC53", qty: 42 }, { material: "AGG-20MM", qty: 18 }, { material: "SND-RIVER", qty: 12 }],
+      labour: [{ employee: "Suresh Kale", hours: 9, task: "Footing casting + finishing" }, { employee: "Deepak More", hours: 8, task: "Reinforcement tying" }],
+    },
+    {
+      date: new Date("2024-08-14"),
+      workSummary: "Column reinforcement for Tower A ground floor — 6 columns tied. Electrical conduit rough-in started.",
+      progressPct: 22,
+      weather: "Cloudy, 28°C",
+      blockers: null,
+      tomorrowPlan: "Complete column shuttering, pour columns by evening",
+      approvalStatus: "SUB_ADMIN_APPROVED" as const,
+      subAdminApprovedById: U.manager,
+      subAdminApprovedAt: new Date("2024-08-14T17:00:00"),
+      adminApprovedById: null,
+      adminApprovedAt: null,
+      workType: "RCC",
+      materials: [{ material: "STL-TMT16", qty: 850 }, { material: "STL-TMT12", qty: 320 }, { material: "ELC-CONDUIT", qty: 120 }],
+      labour: [{ employee: "Deepak More", hours: 9, task: "Column rebar tying" }, { employee: "Mahesh Pawar", hours: 8, task: "Electrical conduit installation" }],
+    },
+    {
+      date: new Date("2024-08-16"),
+      workSummary: "Column casting ground floor — 6 columns poured. Plastering started in stilt area.",
+      progressPct: 28,
+      weather: "Light rain, 26°C",
+      blockers: "Rain slowed plastering — covered area only",
+      tomorrowPlan: "Start first-floor slab shuttering, continue plastering",
+      approvalStatus: "SUBMITTED" as const,
+      subAdminApprovedById: null,
+      subAdminApprovedAt: null,
+      adminApprovedById: null,
+      adminApprovedAt: null,
+      workType: "RCC",
+      materials: [{ material: "CEM-OPC53", qty: 55 }, { material: "AGG-20MM", qty: 25 }, { material: "STL-TMT16", qty: 600 }],
+      labour: [{ employee: "Suresh Kale", hours: 9, task: "Column casting" }, { employee: "Ramesh Gaikwad", hours: 6, task: "Stilt area plastering" }],
+    },
+  ];
+  for (const d of dprData) {
+    const dpr = await prisma.dailyProgressReport.create({
+      data: {
+        companyId: company.id,
+        projectId: project1.id,
+        date: d.date,
+        submittedById: U.supervisor,
+        weather: d.weather,
+        workSummary: d.workSummary,
+        progressPct: new Decimal(d.progressPct),
+        blockers: d.blockers,
+        tomorrowPlan: d.tomorrowPlan,
+        approvalStatus: d.approvalStatus,
+        subAdminApprovedById: d.subAdminApprovedById,
+        subAdminApprovedAt: d.subAdminApprovedAt,
+        adminApprovedById: d.adminApprovedById,
+        adminApprovedAt: d.adminApprovedAt,
+        workType: d.workType,
+      },
+    });
+    // Material lines
+    for (const m of d.materials) {
+      await prisma.dPRMaterialLine.create({
+        data: {
+          dprId: dpr.id,
+          materialId: matMap[m.material],
+          qty: new Decimal(m.qty),
+          unitCost: new Decimal(0),
+        },
+      });
+    }
+    // Labour lines
+    for (const l of d.labour) {
+      await prisma.dPRLaborLine.create({
+        data: {
+          dprId: dpr.id,
+          employeeId: empMap[l.employee],
+          hoursWorked: new Decimal(l.hours),
+          taskDescription: l.task,
+        },
+      });
+    }
+  }
+
+  // ── 32. Payroll Period + Lines (Aug 2024) ───────────────────
+  // Seeds one payroll period with lines for all 7 employees so the
+  // payroll page, salary calculation, and GL posting all have data.
+  console.log("Seeding payroll…");
+  const payrollPeriod = await prisma.payrollPeriod.create({
+    data: {
+      companyId: company.id,
+      month: 8,
+      year: 2024,
+      startDate: new Date("2024-08-01"),
+      endDate: new Date("2024-08-31"),
+      status: "PROCESSED",
+      processedById: U.accountant,
+      processedAt: new Date("2024-09-01T10:00:00"),
+    },
+  });
+  let totalGross = new Decimal(0);
+  let totalNet = new Decimal(0);
+  let totalDed = new Decimal(0);
+  for (const name of empNames) {
+    const emp = employees.find((e) => e.name === name)!;
+    // 26 working days × dailyRate (simplified — no OT for most)
+    const overtimeDays = name === "Suresh Kale" ? 1 : 0;
+    const halfDays = name === "Deepak More" ? 1 : 0;
+    const paidLeaveDays = name === "Anil Shinde" ? 1 : 0;
+    const absentDays = name === "Vinod Jadhav" ? 1 : 0;
+    const presentDays = 26 - halfDays - paidLeaveDays - absentDays;
+    const basic = new Decimal(emp.dailyRate).mul(presentDays);
+    const overtime = new Decimal(emp.dailyRate).mul(overtimeDays).mul(1.5);
+    const halfDayPay = new Decimal(emp.dailyRate).mul(halfDays).mul(0.5);
+    const allowance = new Decimal(500); // flat monthly allowance
+    const grossPay = basic.add(overtime).add(halfDayPay).add(allowance);
+    const pf = grossPay.mul(0.12); // 12% PF
+    const esi = grossPay.mul(0.01); // 1% ESI (simplified)
+    const professionTax = new Decimal(200);
+    const totalDeductions = pf.add(esi).add(professionTax);
+    const netPay = grossPay.sub(totalDeductions);
+    totalGross = totalGross.add(grossPay);
+    totalDed = totalDed.add(totalDeductions);
+    totalNet = totalNet.add(netPay);
+    await prisma.payrollLine.create({
+      data: {
+        payrollPeriodId: payrollPeriod.id,
+        employeeId: empMap[name],
+        daysWorked: new Decimal(presentDays + halfDays * 0.5),
+        basicAmount: basic,
+        overtimeAmount: overtime,
+        allowance: allowance,
+        bonus: new Decimal(0),
+        pf: pf,
+        employerPf: pf,
+        esi: esi,
+        professionTax: professionTax,
+        tax: new Decimal(0),
+        deductions: new Decimal(0),
+        grossPay: grossPay,
+        totalDeductions: totalDeductions,
+        netPay: netPay,
+      },
+    });
+  }
+  await prisma.payrollPeriod.update({
+    where: { id: payrollPeriod.id },
+    data: {
+      totalGross: totalGross,
+      totalOvertime: totalGross.mul(0.05), // approximate
+      totalDeductions: totalDed,
+      totalNet: totalNet,
+    },
+  });
+
+  // ── 33. Brokers (2 brokers for Nirman Constructions) ────────
+  console.log("Seeding brokers…");
+  const broker1 = await ensure("broker", { companyId: company.id, name: "Sandeep Properties" }, {
+    companyId: company.id,
+    name: "Sandeep Properties",
+    phone: "+91 98220 77001",
+    agency: "Sandeep Real Estate Advisors",
+    defaultCommissionPercent: new Decimal(2.0),
+    createdById: U.sales,
+  });
+  const broker2 = await ensure("broker", { companyId: company.id, name: "Pinnacle Realty" }, {
+    companyId: company.id,
+    name: "Pinnacle Realty",
+    phone: "+91 98220 77002",
+    agency: "Pinnacle Property Solutions",
+    defaultCommissionPercent: new Decimal(1.5),
+    createdById: U.sales,
+  });
+
+  // ── 34. Broker-linked sale (Sale 1 gets a broker) ───────────
+  // Update sale1 to have a broker + commission so the broker
+  // section on the sale detail page has data.
+  await prisma.assetSale.update({
+    where: { id: sale1.id },
+    data: {
+      dealSource: "BROKER",
+      brokerId: broker1.id,
+      brokerName: "Sandeep Properties",
+      brokerPhone: "+91 98220 77001",
+      commissionAmount: new Decimal(300000), // 2% of 1.5Cr
+      commissionPaid: false,
+    },
+  });
+
+  // ── 35. Payment Schedule for Sale 1 (construction-linked) ───
+  // Seeds a CLP payment schedule with milestones so the sale detail
+  // page's "Payment Schedule" section has data.
+  console.log("Seeding payment schedule…");
+  const scheduleItems = [
+    { installmentNo: 1, description: "On Booking", percentage: 10, dueDate: new Date("2024-06-15") },
+    { installmentNo: 2, description: "On Foundation Completion", percentage: 15, dueDate: new Date("2024-09-30") },
+    { installmentNo: 3, description: "On 1st Slab Completion", percentage: 20, dueDate: new Date("2024-12-31") },
+    { installmentNo: 4, description: "On 4th Slab Completion", percentage: 20, dueDate: new Date("2025-03-31") },
+    { installmentNo: 5, description: "On 7th Slab Completion", percentage: 15, dueDate: new Date("2025-06-30") },
+    { installmentNo: 6, description: "On Brickwork + Plastering", percentage: 10, dueDate: new Date("2025-09-30") },
+    { installmentNo: 7, description: "On Possession + Registry", percentage: 10, dueDate: new Date("2025-12-31") },
+  ];
+  const totalSaleAmount = new Decimal(15000000);
+  const schedule = await prisma.paymentSchedule.create({
+    data: {
+      assetSaleId: sale1.id,
+      type: "CLP",
+      totalAmount: totalSaleAmount,
+      gstAmount: new Decimal(0),
+      grandTotal: totalSaleAmount,
+    },
+  });
+  for (const item of scheduleItems) {
+    const amount = totalSaleAmount.mul(item.percentage).div(100);
+    await prisma.paymentScheduleItem.create({
+      data: {
+        paymentScheduleId: schedule.id,
+        installmentNo: item.installmentNo,
+        description: item.description,
+        percentage: new Decimal(item.percentage),
+        amount: amount,
+        gstPercentage: new Decimal(0),
+        gstAmount: new Decimal(0),
+        totalAmount: amount,
+        dueDate: item.dueDate,
+        status: item.installmentNo <= 2 ? "PAID" : "PENDING",
+        paidAmount: item.installmentNo <= 2 ? amount : new Decimal(0),
+        paidAt: item.installmentNo <= 2 ? item.dueDate : null,
+      },
+    });
+  }
+
+  // ── 36. Tenancy (shop S-02 rented out) ──────────────────────
+  // Seeds a tenancy on an available shop unit so the rentals page,
+  // tenancy detail, and rent escalation features all have data.
+  console.log("Seeding tenancy…");
+  const unitS02 = await prisma.builtUnit.findFirstOrThrow({ where: { projectId: project1.id, unitNumber: "S-02" } });
+  await prisma.tenancy.create({
+    data: {
+      companyId: company.id,
+      assetType: "BUILT_UNIT",
+      builtUnitId: unitS02.id,
+      projectId: project1.id,
+      tenantName: "Sharma Medical Store",
+      tenantPhone: "+91 98220 66001",
+      tenantEmail: "sharma.medical@gmail.com",
+      startDate: new Date("2024-07-01"),
+      endDate: new Date("2026-06-30"),
+      monthlyRent: new Decimal(25000),
+      baseRent: new Decimal(25000),
+      securityDeposit: new Decimal(100000),
+      rentAgreementNo: "RA-2024-001",
+      sacCode: "997212",
+      escalationPercent: new Decimal(5),
+      escalationIntervalMonths: 12,
+      nextEscalationDate: new Date("2025-07-01"),
+      rentFreeDays: 15,
+      status: "ACTIVE",
+      notes: "Ground floor shop opposite Tower A entrance",
+      createdById: U.sales,
+    },
+  });
+  // Mark the unit as RENTED
+  await prisma.builtUnit.update({
+    where: { id: unitS02.id },
+    data: { status: "RENTED" },
+  });
+
   // ── Summary ─────────────────────────────────────────────────
   const unitCount = await prisma.builtUnit.count({ where: { projectId: project1.id } });
   const totalUnits = await prisma.builtUnit.count();
@@ -2300,6 +2638,12 @@ async function main() {
   const returnCount = await prisma.supplierReturn.count();
   const saleCount = await prisma.assetSale.count();
   const equipCount = await prisma.equipment.count();
+  const dprCount = await prisma.dailyProgressReport.count();
+  const attendanceCount = await prisma.workerAttendance.count();
+  const payrollCount = await prisma.payrollPeriod.count();
+  const tenancyCount = await prisma.tenancy.count();
+  const brokerCount = await prisma.broker.count();
+  const scheduleCount = await prisma.paymentSchedule.count();
   console.log("Seed complete.");
   console.log(`  Companies: ${totalCompanies} (1 parent group + 3 children + 1 standalone)`);
   console.log(`  Users: ${Object.keys(userMap).length} · Employees: ${Object.keys(empMap).length + realtyEmps.length + infraEmps.length + interiorsEmps.length}`);
@@ -2316,6 +2660,8 @@ async function main() {
   console.log(`  Project Costs: 16 · Expenses: 5 · Audit Logs: 21`);
   console.log(`  Consumption Benchmarks: ${benchmarks.length}`);
   console.log(`  BOQ Items: ${boqSections.length + boqLines.length} · MB Entries: ${mbEntries.length}`);
+  console.log(`  DPRs: ${dprCount} · Attendance: ${attendanceCount} · Payroll Periods: ${payrollCount}`);
+  console.log(`  Brokers: ${brokerCount} · Tenancies: ${tenancyCount} · Payment Schedules: ${scheduleCount}`);
 }
 
 main()

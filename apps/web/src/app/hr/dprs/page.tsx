@@ -60,6 +60,7 @@ async function DprsContent() {
       },
     }),
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] }, ...projectOptionFilter },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
@@ -71,6 +72,7 @@ async function DprsContent() {
       take: 200,
     }),
     prisma.employee.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null, active: true },
       select: { id: true, name: true },
       orderBy: { name: "asc" },

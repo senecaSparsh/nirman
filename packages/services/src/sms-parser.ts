@@ -279,8 +279,6 @@ async function matchPayment(
   // We check asset sales, material sales, and tenancies in order.
   // If counterparty name matches a customer/tenant name, boost confidence.
 
-  const amountNum = amount.toNumber();
-
   // 1. Check asset sale payments — find sales with outstanding balance >= amount
   const assetSales = await prisma.assetSale.findMany({
     where: {
@@ -295,11 +293,10 @@ async function matchPayment(
   });
 
   for (const sale of assetSales) {
-    const totalPaid = sale.payments.reduce((s, p) => s + p.amount.toNumber(), 0);
-    const outstanding = sale.salePrice.toNumber() + sale.gstAmount.toNumber() - totalPaid;
-    // Match if the SMS amount equals the outstanding (exact match) or
-    // is a reasonable installment (divides evenly into outstanding)
-    if (Math.abs(outstanding - amountNum) < 1) {
+    const totalPaid = sale.payments.reduce((s, p) => s.plus(new Decimal(p.amount)), new Decimal(0));
+    const outstanding = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount)).minus(totalPaid);
+    // Match if the SMS amount equals the outstanding (exact match within 1 rupee)
+    if (outstanding.minus(amount).abs().lt(1)) {
       // Exact match — high confidence
       const confidence = counterparty && sale.customer?.name?.toLowerCase().includes(counterparty.toLowerCase().split(" ")[0]!)
         ? 95
@@ -370,7 +367,7 @@ async function matchPayment(
 
   for (const tenancy of tenancies) {
     // Check if the amount matches the monthly rent
-    if (Math.abs(tenancy.monthlyRent.toNumber() - amountNum) < 1) {
+    if (new Decimal(tenancy.monthlyRent).minus(amount).abs().lt(1)) {
       const confidence = counterparty && tenancy.tenantName.toLowerCase().includes(counterparty.toLowerCase().split(" ")[0]!)
         ? 90
         : 70;
@@ -425,9 +422,9 @@ async function matchPayment(
   });
 
   for (const sale of materialSales) {
-    const totalPaid = sale.payments.reduce((s, p) => s + p.amount.toNumber(), 0);
-    const outstanding = sale.totalAmount.toNumber() - totalPaid;
-    if (Math.abs(outstanding - amountNum) < 1) {
+    const totalPaid = sale.payments.reduce((s, p) => s.plus(new Decimal(p.amount)), new Decimal(0));
+    const outstanding = new Decimal(sale.totalAmount).minus(totalPaid);
+    if (outstanding.minus(amount).abs().lt(1)) {
       const confidence = counterparty && sale.customer?.name?.toLowerCase().includes(counterparty.toLowerCase().split(" ")[0]!)
         ? 90
         : 75;

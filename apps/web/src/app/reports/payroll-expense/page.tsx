@@ -35,6 +35,7 @@ async function PayrollExpenseContent() {
   const from = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
   const periods = await prisma.payrollPeriod.findMany({
+    take: 500,
     where: {
       companyId: company.id,
       startDate: { gte: from },

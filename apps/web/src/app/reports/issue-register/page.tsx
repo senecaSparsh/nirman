@@ -57,6 +57,7 @@ async function IssueRegisterContent({
   };
 
   const issues = await prisma.materialIssue.findMany({
+    take: 500,
     where: {
       OR: [
         { department: { companyId: company.id, deletedAt: null } },

@@ -343,7 +343,7 @@ function KpiRow({
       </span>
       <span className="text-m-caption font-bold text-right tabular-nums truncate" style={{ color }}>
         {value}
-        {sub ? <span className="font-normal ml-0.5" style={{ color: "var(--color-ink-500)" }}>{sub}</span> : null}
+        {sub ? <span className="font-normal ml-1" style={{ color: "var(--color-ink-500)" }}>{" "}{sub}</span> : null}
       </span>
     </div>
   );

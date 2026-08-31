@@ -29,6 +29,7 @@ async function RcContent() {
   const canCreate = hasPermission(role, PERM.PROCUREMENT_MANAGE);
 
   const categories = await prisma.materialCategory.findMany({
+    take: 200,
     where: { deletedAt: null },
     select: { id: true, name: true, unit: true },
     orderBy: { name: "asc" },

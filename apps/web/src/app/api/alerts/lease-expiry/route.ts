@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { leaseExpiryAlerts } from "@nirman/services";
-import { apiHandler, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -9,7 +9,8 @@ import { PERM } from "@/lib/roles";
  * Also emits LEASE_EXPIRY_WARNING notification events.
  */
 export const GET = apiHandler(async (_req: NextRequest) => {
-  const user = await requirePermission(PERM.ASSETS_VIEW);
-  const alerts = await leaseExpiryAlerts(user.companyId ?? undefined);
+  await requirePermission(PERM.ASSETS_VIEW);
+  const company = await getCompany();
+  const alerts = await leaseExpiryAlerts(company.id);
   return json({ alerts });
 });

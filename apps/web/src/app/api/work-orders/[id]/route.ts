@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { issueWorkOrder, completeWorkOrder, payAdvance, releaseRetention } from "@nirman/services";
+import { issueWorkOrder, completeWorkOrder, payAdvance, releaseRetention, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, requireUser, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -76,7 +76,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
     return json({ error: "Unknown action. Use: issue | complete | pay-advance | release-retention" }, { status: 400 });
   } catch (err: unknown) {
-    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+    return json({ error: err instanceof ServiceError ? err.message : "Failed to update work order" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });
 

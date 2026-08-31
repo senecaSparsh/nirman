@@ -26,7 +26,12 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   const action = url.searchParams.get("action") ?? "start";
 
   if (action === "stop") {
-    const body = await req.json().catch(() => ({}));
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return json({ error: "Invalid JSON body" }, { status: 400 });
+    }
     const parsed = stopSchema.safeParse(body);
     const note = parsed.success ? parsed.data.note : undefined;
     const log = await stopTimer(taskId, user.id, note);

@@ -25,7 +25,7 @@ const quickCreateSchema = z.object({
  */
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.INVENTORY_MANAGE);
-  await getCompany();
+  const company = await getCompany();
   const body = await req.json();
   const parsed = quickCreateSchema.safeParse(body);
   if (!parsed.success) {
@@ -41,7 +41,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       specification: parsed.data.specification ?? null,
       standardCost: parsed.data.standardCost,
       userId: user.id,
-      companyId: user.companyId ?? undefined,
+      companyId: company.id,
     });
 
     return json(material, { status: 201 });

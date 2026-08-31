@@ -1101,6 +1101,20 @@ input[type="number"] {
   to { stroke-dashoffset: var(--offset); }
 }
 
+/* ── Badge pulse — draws the eye to counts that need attention. ── */
+@keyframes badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+.badge-pulse { animation: badge-pulse 1.8s ease-in-out infinite; }
+
+/* ── Card pulse — gentle border glow for cards that need attention. ── */
+@keyframes card-pulse {
+  0%, 100% { border-color: var(--color-stop); }
+  50% { border-color: color-mix(in srgb, var(--color-stop) 50%, var(--color-line)); }
+}
+.card-pulse { animation: card-pulse 2s ease-in-out infinite; }
+
 /* ── Respect the user's motion preference ──
    Apple §14: reduced motion ≠ no feedback. It means a gentler,
    non-vestibular equivalent. Kill transforms/springs/parallax (the

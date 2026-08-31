@@ -107,6 +107,7 @@ export function MobileQuotePanel({
   }
 
   async function deleteQuote(quoteId: string) {
+    if (!window.confirm("Delete this quote?")) return;
     try {
       const res = await fetch(`/api/quotes/${quoteId}`, { method: "DELETE" });
       const data = await res.json();

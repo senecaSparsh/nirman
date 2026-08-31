@@ -58,11 +58,13 @@ async function PurchaseRegisterContent({
 
   const [purchases, returns] = await Promise.all([
     prisma.directPurchase.findMany({
+      take: 500,
       where: { companyId: company.id, ...dateFilter },
       include: { supplier: { select: { name: true } } },
       orderBy: { billDate: "asc" },
     }),
     prisma.supplierReturn.findMany({
+      take: 500,
       where: {
         companyId: company.id,
         status: { in: ["SUBMITTED", "COMPLETED"] },

@@ -54,11 +54,13 @@ async function AttendanceContent() {
 
   const [employees, projects, recentAttendance, leaves, leaveEmployees] = await Promise.all([
     prisma.employee.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null, active: true, ...employeeProjectFilter },
       orderBy: { name: "asc" },
       select: { id: true, name: true, trade: true, activeProjectId: true, crewId: true },
     }),
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] }, ...projectOptionFilter },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
@@ -73,6 +75,7 @@ async function AttendanceContent() {
       },
     }),
     prisma.leaveRequest.findMany({
+      take: 500,
       where: { companyId: company.id },
       orderBy: { createdAt: "desc" },
       include: {
@@ -81,6 +84,7 @@ async function AttendanceContent() {
       },
     }),
     prisma.employee.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null, active: true },
       select: { id: true, name: true, trade: true, designation: true },
       orderBy: { name: "asc" },
@@ -97,6 +101,7 @@ async function AttendanceContent() {
   const dprApprovalMap = new Map<string, boolean>();
   if (projectDateKeys.size > 0) {
     const dprs = await prisma.dailyProgressReport.findMany({
+      take: 200,
       where: { project: { companyId: company.id } },
       select: { projectId: true, date: true, approvalStatus: true },
     });

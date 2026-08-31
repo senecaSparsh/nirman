@@ -55,6 +55,7 @@ async function GstReportContent({
   const OUTPUT_GST = "2100";
 
   const entries = await prisma.journalEntry.findMany({
+    take: 500,
     where: {
       companyId: company.id,
       status: "POSTED",
@@ -120,10 +121,12 @@ async function GstReportContent({
 
   const [suppliers, customers] = await Promise.all([
     purchaseOrders.length > 0 && purchaseOrders.some((p) => p.supplierId)
-      ? prisma.supplier.findMany({ where: { id: { in: purchaseOrders.map((p) => p.supplierId).filter(Boolean) as string[] } }, select: { id: true, name: true } })
+      ? prisma.supplier.findMany({
+      take: 200, where: { id: { in: purchaseOrders.map((p) => p.supplierId).filter(Boolean) as string[] }, companyId: company.id }, select: { id: true, name: true } })
       : Promise.resolve([]),
     sales.length > 0 && sales.some((s) => s.customerId)
-      ? prisma.customer.findMany({ where: { id: { in: sales.map((s) => s.customerId).filter(Boolean) as string[] } }, select: { id: true, name: true } })
+      ? prisma.customer.findMany({
+      take: 200, where: { id: { in: sales.map((s) => s.customerId).filter(Boolean) as string[] }, companyId: company.id }, select: { id: true, name: true } })
       : Promise.resolve([]),
   ]);
 

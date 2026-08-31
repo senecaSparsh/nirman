@@ -40,8 +40,8 @@ export function MobileDocUploader({
       if (!res.ok) throw new Error(data.error ?? "Upload failed");
       onUpload(data.url, file.name ?? "");
       toast.success("Document uploaded");
-    } catch {
-      toast.error("Failed to upload document");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to upload document");
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";

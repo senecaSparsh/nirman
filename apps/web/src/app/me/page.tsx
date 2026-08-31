@@ -49,6 +49,7 @@ async function MeContent() {
   const memberships: MembershipData[] = currentUser.id === "dev"
     ? [{ id: "dev", company: { id: company.id, name: company.name, businessType: null }, role, isCurrent: true }]
     : await prisma.userCompany.findMany({
+        take: 500,
         where: { userId: currentUser.id },
         include: { company: { select: { id: true, name: true, businessType: true } } },
         orderBy: { createdAt: "asc" },

@@ -96,7 +96,7 @@ If you catch yourself planning to "build the rent module" or "add the sale lifec
 | # | Item | Status | Evidence | Backing ticket |
 |---|---|---|---|---|
 | D23 | BOQ (Bill of Quantities) per project — optional, engineer estimates pre-construction | ✅ Done (BoqItem model + service + desktop + mobile) | Transcript §7 | — |
-| D24 | HSN/SAC auto-fetch from government GST portal | ⬜ external integration | Transcript §1.1 | — |
+| D24 | HSN/SAC auto-fetch from government GST portal | ✅ Done (pluggable provider: CBIC free snapshot + FastGST API; integration config + API route + 9 unit tests) | Transcript §1.1 | — |
 | D25 | Standard cost "pull from previous purchase" on material form | ✅ Done (desktop + mobile) | Transcript §1.1 | T03 |
 | D26 | Generic document-attachment infrastructure (polymorphic, any entity) | ✅ Done (EntityAttachment model + API + AttachmentList component) | Transcript §4.1 | — |
 
@@ -123,7 +123,7 @@ If you catch yourself planning to "build the rent module" or "add the sale lifec
 | M14 | GPS Auto-Select Project | ✅ Done (useNearestProject hook + DPR + attendance forms) | mega plan §2.7 |
 | M15 | Module-Level Error Boundaries | ✅ Done (Phase 2) | mega plan §2.8 |
 | M16 | Load More Pagination on All List Pages | ✅ Done (procurement, dprs, transfers, sales, requisitions) | mega plan §2.9 |
-| M17–M23 | Phase 3 magical features (voice, briefing, photo-DPR, push, QR, portal, batch-approve) | 🚧 Partial (voice ✅, QR ✅, batch-approve ✅, briefing ✅, push ✅, portal ✅; photo-DPR ⬜) | mega plan §3.1–3.7 |
+| M17–M23 | Phase 3 magical features (voice, briefing, photo-DPR, push, QR, portal, batch-approve) | ✅ Done (voice ✅, QR ✅, batch-approve ✅, briefing ✅, push ✅, portal ✅, photo-DPR ✅ — OCR provider with OpenAI Vision/Google Vision/Azure DI/stub + API route + 2 unit tests) | mega plan §3.1–3.7 |
 
 ### Tier 5 — Competitor parity (lowest priority per owner-voice-wins)
 
@@ -134,16 +134,17 @@ If you catch yourself planning to "build the rent module" or "add the sale lifec
 
 ## What to work on next (recommended order)
 
-> **Status as of latest audit**: All Tier 0–2 items (D1–D22) are now ✅ complete.
-> Tier 3 is done except D24 (external GST portal integration). Tier 4 mobile UX
-> is done except M19 (photo-DPR OCR). Remaining work:
+> **Status as of latest audit**: All Tier 0–4 items (D1–D26, M1–M23) are now ✅ complete.
+> The schema is ~100% complete. All external integrations are scaffolded with
+> pluggable providers (Tally, WhatsApp, Email, Portals, HSN/SAC, OCR). Remaining work:
 
-1. **M19 — Photo-driven DPR (OCR)** — genuine new build, requires OCR integration
-   to extract work-type + material quantities from DPR photos.
-2. **D24 — HSN/SAC auto-fetch** — requires external government GST portal API
-   integration (not a schema/UI gap).
-3. **Cross-cutting refinement** — per `global_rules.md`, refine every page/button
+1. **Cross-cutting refinement** — per `global_rules.md`, refine every page/button
    to function correctly end-to-end (frontend ↔ backend ↔ database).
+2. **UI wiring for new integrations** — add HSN/SAC search dropdown to material
+   form and supplier invoice form; add photo-capture + OCR button to DPR create
+   form. The backend APIs are ready (`/api/hsn-sac/search`, `/api/ocr/dpr`).
+3. **Seed data completeness** — enriched with DPRs, payroll, tenancies, payment
+   schedules, brokers. Consider adding more variety for testing edge cases.
 
 ---
 

@@ -32,6 +32,7 @@ async function WorkflowsContent() {
   }
   const company = await getCompany();
   const workflows = await prisma.workflow.findMany({
+    take: 500,
     where: { companyId: company.id, deletedAt: null },
     orderBy: { createdAt: "desc" },
     include: {

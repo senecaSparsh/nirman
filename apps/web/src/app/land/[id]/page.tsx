@@ -44,7 +44,8 @@ async function LandDetailContent({ params }: { params: Promise<{ id: string }> }
   const parcelIds = purchase.parcels.map((p) => p.id);
   const [landSales, customers, parcelBuiltUnits, legalDocs] = await Promise.all([
     prisma.assetSale.findMany({
-      where: { landParcelId: { in: parcelIds }, assetType: "LAND", status: "ACTIVE" },
+      take: 200,
+      where: { landParcelId: { in: parcelIds }, assetType: "LAND", status: "ACTIVE", companyId: company.id },
       select: {
         id: true, saleNumber: true, salePrice: true, profit: true, saleDate: true,
         landParcelId: true, paymentStatus: true,
@@ -52,13 +53,15 @@ async function LandDetailContent({ params }: { params: Promise<{ id: string }> }
       },
     }),
     prisma.customer.findMany({
-      where: { deletedAt: null },
+      take: 200,
+      where: { deletedAt: null, companyId: company.id },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
     // Built units linked to parcels (subdivided inventory)
     prisma.builtUnit.findMany({
-      where: { landParcelId: { in: parcelIds }, deletedAt: null },
+      take: 200,
+      where: { landParcelId: { in: parcelIds }, deletedAt: null, project: { companyId: company.id } },
       select: {
         id: true, unitNumber: true, unitType: true, status: true,
         area: true, areaUnit: true, floor: true, wing: true,
@@ -71,6 +74,7 @@ async function LandDetailContent({ params }: { params: Promise<{ id: string }> }
     }),
     // Legal documents for this land purchase
     prisma.legalDocument.findMany({
+      take: 500,
       where: { landPurchaseId: purchase.id, companyId: company.id, deletedAt: null },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     }),

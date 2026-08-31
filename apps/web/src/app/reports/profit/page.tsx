@@ -36,6 +36,7 @@ async function ProfitReportContent() {
 
   // Pull all journal entries in the window with their lines
   const entries = await prisma.journalEntry.findMany({
+    take: 500,
     where: {
       companyId: company.id,
       status: "POSTED",

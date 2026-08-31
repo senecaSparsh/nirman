@@ -13,7 +13,6 @@ import { resolveNextAction } from "@/lib/flow-map";
 import { MobileDprActions } from "./MobileDprActions";
 import { MobileDprVarianceButton } from "./MobileDprVarianceButton";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 
 export default function MobileDprDetailPage({
   params,
@@ -115,11 +114,6 @@ async function MobileDprDetailContent({
   return (
     <div className="pb-20">
       <RecordRecentItem type="dpr" id={dpr.id} label={`DPR ${dpr.date.toISOString().slice(0, 10)}`} sublabel={dpr.project?.name} href={`/m/dprs/${dpr.id}`} />
-
-      {/* ── Back ── */}
-      <div className="mb-3">
-        <MobileBackButton fallback="/m/dprs" />
-      </div>
 
       {/* ── Next action — the one thing to do, doable on this page ── */}
       {nextAction ? (

@@ -2,15 +2,16 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { softDelete, logAction, reallocateProjectCosts, postLandPurchase, reverseJournalEntry, ServiceError } from "@nirman/services";
-import { apiHandler, json, requirePermission, toNum, landPurchaseEditSchema } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, landPurchaseEditSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.ASSETS_VIEW);
+  await requirePermission(PERM.ASSETS_VIEW);
+  const company = await getCompany();
   const { id } = await ctx.params;
   const lp = await prisma.landPurchase.findFirst({
-    where: { id, companyId: user.companyId ?? undefined, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null },
     include: {
       project: { select: { name: true } },
       parcels: {
@@ -100,6 +101,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const company = await getCompany();
   const { id } = await ctx.params;
   const body = await req.json();
   const parsed = landPurchaseEditSchema.safeParse(body);
@@ -173,7 +175,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   const updated = await withSerializableTransaction(async (tx) => {
     // Fetch the existing land purchase (need old totalCost + companyId for GL reversal)
     const existing = await tx.landPurchase.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, companyId: company.id, deletedAt: null },
       include: { parcels: { where: { deletedAt: null, parentParcelId: null } } },
     });
     if (!existing) throw new ServiceError("Land purchase not found", 404);

@@ -40,16 +40,19 @@ async function FinanceContent() {
 
   const [projects, projectCosts, expenses, auditLogs, inventoryVal, unsoldAssets, subcontractors, suppliers, purchaseOrders] = await Promise.all([
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },
     }),
     prisma.projectCost.findMany({
+      take: 500,
       where: { project: { companyId: company.id } },
       orderBy: { date: "desc" },
       include: { project: { select: { name: true } }, subcontractor: { select: { name: true } } },
     }),
     prisma.expense.findMany({
+      take: 500,
       where: { companyId: company.id },
       orderBy: { date: "desc" },
       include: { project: { select: { name: true } } },
@@ -63,16 +66,19 @@ async function FinanceContent() {
     materialInventoryValue(company.id),
     unsoldAssetValue(company.id),
     prisma.subcontractor.findMany({
-      where: { deletedAt: null },
+      take: 200,
+      where: { deletedAt: null, companyId: company.id },
       orderBy: { name: "asc" },
       select: { id: true, name: true, trade: true },
     }),
     prisma.supplier.findMany({
-      where: { deletedAt: null },
+      take: 200,
+      where: { deletedAt: null, companyId: company.id },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
     prisma.purchaseOrder.findMany({
+      take: 200,
       where: { companyId: company.id, status: { in: ["APPROVED", "ORDERED", "PARTIAL", "RECEIVED"] } },
       orderBy: { poNumber: "desc" },
       select: { id: true, poNumber: true, supplierId: true },
@@ -96,6 +102,7 @@ async function FinanceContent() {
 
   // Total revenue from sales
   const sales = await prisma.assetSale.findMany({
+    take: 200,
     where: { companyId: company.id, status: "ACTIVE" },
     select: { salePrice: true, payments: { select: { amount: true } } },
   });

@@ -32,6 +32,7 @@ async function PermissionsContent() {
 
   // Fetch all legal documents for this company, with project + land names
   const docs = await prisma.legalDocument.findMany({
+    take: 500,
     where: { companyId: company.id, deletedAt: null },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     include: {

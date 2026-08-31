@@ -37,6 +37,7 @@ async function SupplierReturnsContent() {
 
   const [returns, suppliers, locations, materials] = await Promise.all([
     prisma.supplierReturn.findMany({
+      take: 500,
       where: { companyId: company.id },
       orderBy: { createdAt: "desc" },
       include: {
@@ -48,16 +49,19 @@ async function SupplierReturnsContent() {
       },
     }),
     prisma.supplier.findMany({
-      where: { deletedAt: null },
+      take: 200,
+      where: { deletedAt: null, companyId: company.id },
       orderBy: { name: "asc" },
       select: { id: true, name: true, gstin: true, phone: true, email: true, address: true, balanceOwed: true, leadTimeDays: true },
     }),
     prisma.stockLocation.findMany({
+      take: 500,
       where: { companyId: company.id, deletedAt: null },
       orderBy: [{ type: "asc" }, { name: "asc" }],
       include: { project: { select: { id: true, name: true } } },
     }),
     prisma.material.findMany({
+      take: 200,
       where: { deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, code: true, name: true, grade: true, specification: true, unit: true, standardCost: true, gstRate: true, isLotTracked: true, isScrap: true, baseUnit: true, secondaryUnit: true, uomConversionFactor: true },

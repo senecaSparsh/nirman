@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   ArrowLeft, Pencil, Trash2, FileText, Layers, DollarSign,
-  Calendar, MapPinned, ScrollText, ExternalLink, Home, Banknote, CheckCircle2, Upload, Building2, Loader2, CalendarClock,
+  Calendar, MapPinned, ScrollText, ExternalLink, Home, Banknote, CheckCircle2, Upload, Building2, Loader2, CalendarClock, Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,10 +25,11 @@ import { PartitionDialog } from "./partition-dialog";
 import { PartitionCanvasDialog } from "./partition-canvas-dialog";
 import { ParcelValuationDialog } from "./parcel-valuation-dialog";
 import { ParcelsTree } from "./parcels-tree";
+import { BuiltUnitFormDialog } from "@/components/built-units/built-unit-form-dialog";
 import { LegalDocsSection, type LegalDocRow } from "@/components/legal/legal-docs-section";
 import { CadastrePlan, CadastreLegend } from "./cadastre-plan";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
-import type { LandParcelRow, LandParcelSummary, LandPurchaseRow, ProjectOption, SellableAssetRow } from "@/lib/types";
+import type { LandParcelRow, LandParcelSummary, LandPurchaseRow, PhaseOption, ProjectOption, SellableAssetRow } from "@/lib/types";
 import { useTabParam } from "@/lib/use-tab-param";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
 import { useConfirm } from "@/lib/use-confirm";
@@ -119,6 +120,7 @@ export type LandHubData = {
   permissions: { canEdit: boolean; canDelete: boolean; canPartition: boolean; canSell: boolean; canManageLegal: boolean };
   customers: { id: string; name: string }[];
   projectOptions: ProjectOption[];
+  phaseOptions?: PhaseOption[];
   // Built units linked to parcels (subdivided inventory)
   parcelBuiltUnits?: ParcelBuiltUnitRow[];
   // Legal documents (permissions, licenses, NOCs, certificates, ATS)
@@ -214,6 +216,7 @@ export function LandHub({ data }: { data: LandHubData }) {
   const [possessionSubmitting, setPossessionSubmitting] = useState(false);
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [createProjectLoading, setCreateProjectLoading] = useState(false);
+  const [unitFormOpen, setUnitFormOpen] = useState(false);
   const router = useRouter();
   const [confirm, confirmDialog] = useConfirm();
 
@@ -683,44 +686,51 @@ export function LandHub({ data }: { data: LandHubData }) {
 
             {hasBuiltUnits && (
               <TabsContent value="units">
-                <div className="rounded-md border border-border">
-                  <Table>
-                    <THead>
-                      <TR className="hover:bg-transparent">
-                        <TH>Unit</TH>
-                        <TH>Type</TH>
-                        <TH>Parcel</TH>
-                        <TH>Status</TH>
-                        <TH>Origin</TH>
-                        <TH className="text-right">Area</TH>
-                        <TH className="text-right">Cost</TH>
-                        <TH className="text-right">Asking</TH>
-                      </TR>
-                    </THead>
-                    <TBody>
-                      {parcelBuiltUnits!.map((u) => {
-                        const parcel = parcels.find((p) => p.id === u.landParcelId);
-                        return (
-                          <TR key={u.id}>
-                            <TD className="font-medium">{u.unitNumber}</TD>
-                            <TD className="text-muted-foreground">{u.unitType.replace("_", " ")}</TD>
-                            <TD className="font-mono text-caption">{parcel?.number ?? "—"}</TD>
-                            <TD><StatusPill status={u.status} /></TD>
-                            <TD>
-                              {u.originType === "PURCHASED" ? (
-                                <span className="text-micro px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Purchased</span>
-                              ) : (
-                                <span className="text-micro text-muted-foreground">Created</span>
-                              )}
-                            </TD>
-                            <TD className="tnum text-right">{formatNumber(u.area, 0)} {u.areaUnit}</TD>
-                            <TD className="tnum text-right">{formatCurrency(u.originType === "PURCHASED" ? u.acquisitionCost : u.productionCost)}</TD>
-                            <TD className="tnum text-right">{u.askingPrice ? formatCurrency(u.askingPrice) : "—"}</TD>
-                          </TR>
-                        );
-                      })}
-                    </TBody>
-                  </Table>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-end">
+                    <Button size="sm" className="h-8 gap-1.5" onClick={() => setUnitFormOpen(true)}>
+                      <Plus className="size-3.5" /> Add Built Unit
+                    </Button>
+                  </div>
+                  <div className="rounded-md border border-border">
+                    <Table>
+                      <THead>
+                        <TR className="hover:bg-transparent">
+                          <TH>Unit</TH>
+                          <TH>Type</TH>
+                          <TH>Parcel</TH>
+                          <TH>Status</TH>
+                          <TH>Origin</TH>
+                          <TH className="text-right">Area</TH>
+                          <TH className="text-right">Cost</TH>
+                          <TH className="text-right">Asking</TH>
+                        </TR>
+                      </THead>
+                      <TBody>
+                        {parcelBuiltUnits!.map((u) => {
+                          const parcel = parcels.find((p) => p.id === u.landParcelId);
+                          return (
+                            <TR key={u.id}>
+                              <TD className="font-medium">{u.unitNumber}</TD>
+                              <TD className="text-muted-foreground">{u.unitType.replace("_", " ")}</TD>
+                              <TD className="font-mono text-caption">{parcel?.number ?? "—"}</TD>
+                              <TD><StatusPill status={u.status} /></TD>
+                              <TD>
+                                {u.originType === "PURCHASED" ? (
+                                  <span className="text-micro px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Purchased</span>
+                                ) : (
+                                  <span className="text-micro text-muted-foreground">Created</span>
+                                )}
+                              </TD>
+                              <TD className="tnum text-right">{formatNumber(u.area, 0)} {u.areaUnit}</TD>
+                              <TD className="tnum text-right">{formatCurrency(u.originType === "PURCHASED" ? u.acquisitionCost : u.productionCost)}</TD>
+                              <TD className="tnum text-right">{u.askingPrice ? formatCurrency(u.askingPrice) : "—"}</TD>
+                            </TR>
+                          );
+                        })}
+                      </TBody>
+                    </Table>
+                  </div>
                 </div>
               </TabsContent>
             )}
@@ -927,6 +937,14 @@ export function LandHub({ data }: { data: LandHubData }) {
         parcel={valuateParcel}
         siblings={valuateParcel ? parcels.filter((p) => p.parentParcelId === valuateParcel.parentParcelId && p.parentParcelId !== null) : undefined}
         parentArea={valuateParcel?.parentParcelId ? parcels.find((p) => p.id === valuateParcel.parentParcelId)?.area ?? null : null}
+      />
+      <BuiltUnitFormDialog
+        open={unitFormOpen}
+        onOpenChange={setUnitFormOpen}
+        projects={data.projectOptions}
+        phases={data.phaseOptions ?? []}
+        parcelOptions={parcels.map((p) => ({ id: p.id, label: `Parcel ${p.number}` }))}
+        defaults={{ projectId: purchase.projectId ?? undefined }}
       />
       {permissions.canSell && sellParcel && (
         <SellAssetDialog

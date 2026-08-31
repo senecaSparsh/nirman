@@ -76,8 +76,7 @@ export async function recordMovement(
     material?.secondaryUnit &&
     material?.uomConversionFactor
   ) {
-    const baseQty = toBaseUnit(Number(input.qty), material);
-    rawQty = new Decimal(baseQty);
+    rawQty = toBaseUnit(input.qty, material);
   }
   const moveQty = rawQty;
   if (!moveQty.gt(0)) {

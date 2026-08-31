@@ -22,7 +22,12 @@ import { PERM } from "@/lib/roles";
  */
 export const POST = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.FINANCE_VIEW);
-  const body = await req.json().catch(() => ({}));
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const type = typeof body?.type === "string" ? body.type : "";
 
   let lines: GlPreviewLine[];

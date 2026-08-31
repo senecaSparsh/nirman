@@ -31,16 +31,19 @@ async function StandardConsumptionsContent() {
 
   const [benchmarks, materials, categories] = await Promise.all([
     prisma.standardConsumption.findMany({
+      take: 500,
       where: { companyId: company.id },
       include: { material: { select: { code: true, name: true, unit: true } } },
       orderBy: [{ workType: "asc" }, { material: { name: "asc" } }],
     }),
     prisma.material.findMany({
+      take: 200,
       where: { deletedAt: null },
       select: { id: true, code: true, name: true, unit: true },
       orderBy: { name: "asc" },
     }),
     prisma.materialCategory.findMany({
+      take: 200,
       where: { deletedAt: null },
       select: { id: true, name: true, unit: true },
       orderBy: { name: "asc" },

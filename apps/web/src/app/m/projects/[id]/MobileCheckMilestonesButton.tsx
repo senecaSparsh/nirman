@@ -41,7 +41,7 @@ export function MobileCheckMilestonesButton({ projectId }: { projectId: string }
     <button
       onClick={checkMilestones}
       disabled={busy}
-      className="flex items-center gap-1.5 h-8 px-3 rounded-[0.5rem] border-2 text-m-body font-bold press"
+      className="grid place-items-center h-7 w-7 rounded-[0.5rem] border-2 press"
       style={{
         borderColor: "color-mix(in srgb, var(--color-steel) 30%, var(--color-line))",
         color: "var(--color-steel)",
@@ -49,7 +49,6 @@ export function MobileCheckMilestonesButton({ projectId }: { projectId: string }
       }}
     >
       {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Milestone className="size-3.5" />}
-      Check Milestones
     </button>
   );
 }

@@ -35,6 +35,7 @@ async function CoContent() {
 
   const [projects, changeOrders] = await Promise.all([
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null, ...projectScopeFilter },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },

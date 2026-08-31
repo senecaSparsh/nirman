@@ -43,11 +43,13 @@ async function SettingsContent() {
 
   const [users, locations, projects, subcontractors, employees, companies, departments] = await Promise.all([
     prisma.user.findMany({
+      take: 200,
       where: { memberships: { some: { companyId: company.id } } },
       orderBy: { name: "asc" },
       select: { id: true, email: true, name: true, role: true, active: true, phone: true, designation: true, department: true, employeeCode: true, joiningDate: true },
     }),
     prisma.stockLocation.findMany({
+      take: 500,
       where: { companyId: company.id, deletedAt: null },
       orderBy: [{ type: "asc" }, { name: "asc" }],
       include: {
@@ -56,22 +58,26 @@ async function SettingsContent() {
       },
     }),
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
     // Subcontractor has no companyId — scope to subcontractors with work orders in this company.
     prisma.subcontractor.findMany({
+      take: 200,
       where: { deletedAt: null, workOrders: { some: { companyId: company.id } } },
       orderBy: { name: "asc" },
       select: { id: true, name: true, trade: true, phone: true, email: true, gstin: true, address: true },
     }),
     prisma.employee.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, trade: true, phone: true, email: true, dailyRate: true, active: true },
     }),
     prisma.company.findMany({
+      take: 500,
       where: {
         deletedAt: null,
         ...(isSuperuser || isDevBypass
@@ -85,6 +91,7 @@ async function SettingsContent() {
       },
     }),
     prisma.department.findMany({
+      take: 500,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { code: "asc" },
       include: {

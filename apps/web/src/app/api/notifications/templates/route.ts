@@ -33,7 +33,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
   const body = await req.json();
-  const parsed = upsertSchema.parse(body);
+  const result = upsertSchema.safeParse(body);
+  if (!result.success) {
+    return json({ error: result.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  const parsed = result.data;
 
   const t = await upsertNotificationTemplate(
     company.id,

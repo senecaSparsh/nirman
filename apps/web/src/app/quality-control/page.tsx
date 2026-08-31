@@ -29,6 +29,7 @@ async function QcContent() {
 
   const [projects, ncrs, subcontractors] = await Promise.all([
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },
@@ -44,6 +45,7 @@ async function QcContent() {
       },
     }),
     prisma.subcontractor.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, trade: true },

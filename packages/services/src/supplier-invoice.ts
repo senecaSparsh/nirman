@@ -33,9 +33,9 @@ const DEFAULT_PRICE_TOLERANCE = 0.01; // 1%
 
 export interface InvoiceLineInput {
   materialId: string;
-  quantity: number | Decimal;
-  unitPrice: number | Decimal;
-  gstRate?: number | Decimal;
+  quantity: number | Decimal | string;
+  unitPrice: number | Decimal | string;
+  gstRate?: number | Decimal | string;
 }
 
 export interface MatchVariance {
@@ -185,9 +185,9 @@ export async function createSupplierInvoice(input: {
   purchaseOrderId?: string;
   invoiceDate: Date;
   dueDate?: Date;
-  subtotal: number | Decimal;
-  gstAmount?: number | Decimal;
-  totalAmount: number | Decimal;
+  subtotal: number | Decimal | string;
+  gstAmount?: number | Decimal | string;
+  totalAmount: number | Decimal | string;
   lines?: InvoiceLineInput[];
   receivedById?: string;
   userId?: string;

@@ -32,6 +32,7 @@ async function ProjectProgressContent() {
   }
 
   const projects = await prisma.project.findMany({
+    take: 200,
     where: { companyId: company.id, deletedAt: null },
     select: {
       id: true, name: true, type: true, status: true,
@@ -44,6 +45,7 @@ async function ProjectProgressContent() {
 
   // Latest DPR progress % per project
   const latestDprs = await prisma.dailyProgressReport.findMany({
+    take: 200,
     where: { companyId: company.id },
     orderBy: { date: "desc" },
     distinct: ["projectId"],

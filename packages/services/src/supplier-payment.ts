@@ -33,8 +33,8 @@ export async function createSupplierPayment(input: {
   companyId: string;
   purchaseOrderId?: string;
   invoiceId?: string;
-  amount: number | Decimal;
-  tdsAmount?: number | Decimal;
+  amount: number | Decimal | string;
+  tdsAmount?: number | Decimal | string;
   tdsSection?: string;
   paymentDate?: Date;
   paymentMode: string;
@@ -212,6 +212,7 @@ export async function getSupplierOutstanding(companyId: string, supplierId?: str
       balanceOwed: true,
     },
     orderBy: { name: "asc" },
+    take: 200,
   });
 
   return suppliers.map((s) => ({

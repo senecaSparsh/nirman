@@ -62,27 +62,32 @@ async function MaterialSalesContent() {
       },
     }),
     prisma.customer.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       select: { id: true, name: true, phone: true },
       orderBy: { name: "asc" },
     }),
     prisma.stockLocation.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       select: { id: true, name: true, type: true },
       orderBy: { name: "asc" },
     }),
     prisma.material.findMany({
+      take: 200,
       where: { deletedAt: null },
       select: { id: true, name: true, unit: true },
       orderBy: { name: "asc" },
     }),
     // Global catalog entity — needed by the inline material creator.
     prisma.materialCategory.findMany({
+      take: 200,
       where: { deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, unit: true },
     }),
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },
@@ -91,6 +96,7 @@ async function MaterialSalesContent() {
 
   // Build stock availability map: { "locationId|materialId": qty }
   const stockItems = await prisma.stockLocationItem.findMany({
+    take: 200,
     where: { location: { companyId: company.id, deletedAt: null } },
     select: { locationId: true, materialId: true, qty: true, movingAvgCost: true },
   });

@@ -16,7 +16,6 @@ import {
   type MobilePipelineStep,
 } from "@/components/mobile/v2/primitives";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
-import { MobileBackButton } from "@/components/mobile/v2/mobile-back-button";
 import { resolveNextAction } from "@/lib/flow-map";
 import { MobilePoActions } from "@/components/mobile/mobile-po-actions";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
@@ -228,11 +227,6 @@ async function MobilePoDetailContent({
 
   return (
     <div className="pb-20">
-      {/* ── Back ── */}
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <MobileBackButton fallback="/m/procurement" />
-      </div>
-
       <RecordRecentItem type="po" id={po.id} label={po.poNumber} sublabel={po.supplier.name} href={`/m/procurement/${po.id}`} />
 
       {/* ── Next action — the one thing to do, doable on this page ── */}

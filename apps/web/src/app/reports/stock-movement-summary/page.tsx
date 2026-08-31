@@ -57,6 +57,7 @@ async function StockMovementSummaryContent({
 
   const [inBefore, outBefore, inPeriod, outPeriod, locationItems] = await Promise.all([
     prisma.stockMovement.findMany({
+      take: 200,
       where: {
         movementType: { in: IN_TYPES },
         toLocation: { companyId: company.id, deletedAt: null },
@@ -65,6 +66,7 @@ async function StockMovementSummaryContent({
       select: { qty: true, unitCost: true },
     }),
     prisma.stockMovement.findMany({
+      take: 200,
       where: {
         movementType: { in: OUT_TYPES },
         fromLocation: { companyId: company.id, deletedAt: null },
@@ -73,6 +75,7 @@ async function StockMovementSummaryContent({
       select: { qty: true, unitCost: true },
     }),
     prisma.stockMovement.findMany({
+      take: 500,
       where: {
         movementType: { in: IN_TYPES },
         toLocation: { companyId: company.id, deletedAt: null },
@@ -85,6 +88,7 @@ async function StockMovementSummaryContent({
       orderBy: { timestamp: "asc" },
     }),
     prisma.stockMovement.findMany({
+      take: 500,
       where: {
         movementType: { in: OUT_TYPES },
         fromLocation: { companyId: company.id, deletedAt: null },
@@ -97,6 +101,7 @@ async function StockMovementSummaryContent({
       orderBy: { timestamp: "asc" },
     }),
     prisma.stockLocationItem.findMany({
+      take: 500,
       where: {
         location: { companyId: company.id, deletedAt: null },
         material: { deletedAt: null },

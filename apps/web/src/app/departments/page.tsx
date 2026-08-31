@@ -28,6 +28,7 @@ async function DepartmentsContent() {
   }
 
   const departments = await prisma.department.findMany({
+    take: 500,
     where: { companyId: company.id, deletedAt: null },
     orderBy: { code: "asc" },
     include: {

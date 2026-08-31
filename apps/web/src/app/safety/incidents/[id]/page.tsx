@@ -26,8 +26,8 @@ async function IncidentDetailContent({ id }: { id: string }) {
   if (!hasPermission(role, PERM.ASSETS_VIEW)) return <NoAccess what="incident" />;
   const canManage = hasPermission(role, PERM.WO_MANAGE);
 
-  const incident = await prisma.safetyIncident.findUnique({
-    where: { id },
+  const incident = await prisma.safetyIncident.findFirst({
+    where: { id, companyId: company.id },
     include: {
       project: { select: { id: true, name: true } },
       wbsNode: { select: { id: true, code: true, name: true } },

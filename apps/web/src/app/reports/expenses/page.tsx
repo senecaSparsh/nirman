@@ -51,6 +51,7 @@ async function ExpensesReportContent({
   const dateFilter = { date: { gte: fromDate, lte: toDate } };
 
   const expenses = await prisma.expense.findMany({
+    take: 500,
     where: {
       companyId: company.id,
       ...dateFilter,
@@ -62,6 +63,7 @@ async function ExpensesReportContent({
   });
 
   const projectCosts = await prisma.projectCost.findMany({
+    take: 500,
     where: {
       project: { companyId: company.id },
       ...dateFilter,

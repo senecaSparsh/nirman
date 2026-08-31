@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { softDelete, logAction } from "@nirman/services";
-import { apiHandler, json, stockLocationSchema } from "@/lib/server";
+import { apiHandler, getCompany, json, stockLocationSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
 import { withSerializableTransaction } from "@nirman/services";
@@ -10,9 +10,10 @@ import { withSerializableTransaction } from "@nirman/services";
 /** GET /api/stock-locations/[id] — fetch a single stock location by ID */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.INVENTORY_VIEW);
+  const company = await getCompany();
   const { id } = await params;
   const location = await prisma.stockLocation.findFirst({
-    where: { id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null },
     include: {
       project: { select: { id: true, name: true } },
       department: { select: { id: true, name: true, code: true } },
@@ -25,7 +26,14 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.INVENTORY_MANAGE);
+  const company = await getCompany();
   const { id } = await params;
+  // Verify the location belongs to the active company before updating
+  const existing = await prisma.stockLocation.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
+    select: { id: true },
+  });
+  if (!existing) return json({ error: "Stock location not found" }, { status: 404 });
   const body = await req.json();
   const parsed = stockLocationSchema.partial().safeParse(body);
   if (!parsed.success) {
@@ -35,10 +43,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (parsed.data.type === "PROJECT_SITE" && !parsed.data.projectId) {
     return json({ error: "A project site must be linked to a project" }, { status: 400 });
   }
-  // Validate project exists and isn't deleted
+  // Validate project exists, isn't deleted, and belongs to the active company
   if (parsed.data.projectId) {
     const project = await prisma.project.findFirst({
-      where: { id: parsed.data.projectId, deletedAt: null },
+      where: { id: parsed.data.projectId, companyId: company.id, deletedAt: null },
     });
     if (!project) {
       return json({ error: "Project not found or deleted" }, { status: 400 });
@@ -69,7 +77,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.INVENTORY_MANAGE);
+  const company = await getCompany();
   const { id } = await params;
+  // Verify the location belongs to the active company before soft-deleting
+  const existing = await prisma.stockLocation.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
+    select: { id: true },
+  });
+  if (!existing) return json({ error: "Stock location not found" }, { status: 404 });
   await softDelete("StockLocation", id);
   revalidatePath("/stock-locations");
   revalidatePath("/m/stock-locations");

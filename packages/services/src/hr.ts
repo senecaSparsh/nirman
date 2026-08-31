@@ -129,6 +129,7 @@ export function computeStatusFromHours(
   const hrs = new Decimal(hoursWorked);
   const std = new Decimal(standardHours);
   if (hrs.lte(0)) return "ABSENT";
+  if (std.lte(0)) return "PRESENT"; // no standard hours defined — treat as present
   const pct = hrs.div(std);
   if (pct.gte(1)) {
     // More than 100% — check if it's overtime (>8h standard)
@@ -370,6 +371,7 @@ export function hourlyRateFor(
     return daily.div(STANDARD_HOURS_PER_DAY);
   }
   if (employee.wageType === "MONTHLY" && employee.monthlySalary != null) {
+    if (workingDaysInPeriod <= 0) return new Decimal(0);
     return new Decimal(employee.monthlySalary)
       .div(workingDaysInPeriod * STANDARD_HOURS_PER_DAY);
   }
@@ -389,6 +391,7 @@ export function computeBasicAmount(
   }
   if (employee.wageType === "MONTHLY" && employee.monthlySalary != null) {
     // Prorate by attendance: salary × (daysWorked / workingDays).
+    if (workingDaysInPeriod <= 0) return new Decimal(employee.monthlySalary);
     return new Decimal(employee.monthlySalary)
       .times(days)
       .div(workingDaysInPeriod);
@@ -1835,15 +1838,15 @@ export interface DprFinanceReconciliation {
   workSummary: string;
   approvalStatus: string;
   // DPR-recorded costs (from material + labor lines)
-  dprMaterialCost: number;
-  dprLaborCost: number;
-  dprTotalCost: number;
+  dprMaterialCost: string;
+  dprLaborCost: string;
+  dprTotalCost: string;
   // GL-posted costs linked to this DPR (via sourceDprId)
-  postedMaterialIssueCost: number;
-  postedProjectCost: number;
-  postedTotal: number;
+  postedMaterialIssueCost: string;
+  postedProjectCost: string;
+  postedTotal: string;
   // Reconciliation
-  variance: number; // dprTotalCost - postedTotal
+  variance: string; // dprTotalCost - postedTotal
   isPosted: boolean; // costPostedDate is set
   costPostedDate: string | null;
 }
@@ -1880,24 +1883,24 @@ export async function dprFinanceReconciliation(
 
   return dprs.map((d) => {
     const dprMaterialCost = d.materialLines.reduce(
-      (sum, l) => sum + new Decimal(l.qty).mul(new Decimal(l.unitCost)).toNumber(),
-      0,
+      (sum, l) => sum.plus(new Decimal(l.qty).mul(new Decimal(l.unitCost))),
+      new Decimal(0),
     );
     const dprLaborCost = d.laborLines.reduce((sum, l) => {
       const rate = l.employee?.dailyRate ?? new Decimal(0);
-      return sum + new Decimal(l.hoursWorked).mul(new Decimal(rate)).div(new Decimal(8)).toNumber();
-    }, 0);
-    const dprTotalCost = dprMaterialCost + dprLaborCost;
+      return sum.plus(new Decimal(l.hoursWorked).mul(new Decimal(rate)).div(new Decimal(8)));
+    }, new Decimal(0));
+    const dprTotalCost = dprMaterialCost.plus(dprLaborCost);
 
     const postedMaterialIssueCost = d.materialIssues.reduce(
-      (sum, mi) => sum + new Decimal(mi.totalAmount).toNumber(),
-      0,
+      (sum, mi) => sum.plus(new Decimal(mi.totalAmount)),
+      new Decimal(0),
     );
     const postedProjectCost = d.projectCosts.reduce(
-      (sum, pc) => sum + new Decimal(pc.amount).toNumber(),
-      0,
+      (sum, pc) => sum.plus(new Decimal(pc.amount)),
+      new Decimal(0),
     );
-    const postedTotal = postedMaterialIssueCost + postedProjectCost;
+    const postedTotal = postedMaterialIssueCost.plus(postedProjectCost);
 
     return {
       dprId: d.id,
@@ -1905,13 +1908,13 @@ export async function dprFinanceReconciliation(
       date: d.date.toISOString().slice(0, 10),
       workSummary: d.workSummary,
       approvalStatus: d.approvalStatus,
-      dprMaterialCost,
-      dprLaborCost,
-      dprTotalCost,
-      postedMaterialIssueCost,
-      postedProjectCost,
-      postedTotal,
-      variance: dprTotalCost - postedTotal,
+      dprMaterialCost: dprMaterialCost.toString(),
+      dprLaborCost: dprLaborCost.toString(),
+      dprTotalCost: dprTotalCost.toString(),
+      postedMaterialIssueCost: postedMaterialIssueCost.toString(),
+      postedProjectCost: postedProjectCost.toString(),
+      postedTotal: postedTotal.toString(),
+      variance: dprTotalCost.minus(postedTotal).toString(),
       isPosted: d.costPostedDate != null,
       costPostedDate: d.costPostedDate?.toISOString() ?? null,
     };

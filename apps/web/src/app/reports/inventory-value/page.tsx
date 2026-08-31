@@ -72,6 +72,7 @@ async function InventoryValueContent({
   if (!isHistorical) {
     // ── Live mode: read current balances ──
     const liveItems = await prisma.stockLocationItem.findMany({
+      take: 500,
       where: {
         location: { deletedAt: null, companyId: company.id },
         material: { deletedAt: null },
@@ -112,6 +113,7 @@ async function InventoryValueContent({
 
     const [inMovements, outMovements, locations, materials] = await Promise.all([
       prisma.stockMovement.findMany({
+        take: 500,
         where: {
           movementType: { in: IN_TYPES },
           toLocation: { companyId: company.id, deletedAt: null },
@@ -129,6 +131,7 @@ async function InventoryValueContent({
         orderBy: { timestamp: "desc" },
       }),
       prisma.stockMovement.findMany({
+        take: 500,
         where: {
           movementType: { in: OUT_TYPES },
           fromLocation: { companyId: company.id, deletedAt: null },
@@ -146,10 +149,12 @@ async function InventoryValueContent({
         orderBy: { timestamp: "desc" },
       }),
       prisma.stockLocation.findMany({
+        take: 200,
         where: { companyId: company.id, deletedAt: null },
         select: { id: true, name: true, type: true },
       }),
       prisma.material.findMany({
+        take: 200,
         where: { deletedAt: null },
         select: {
           id: true, code: true, name: true, unit: true,

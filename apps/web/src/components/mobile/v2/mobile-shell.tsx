@@ -752,7 +752,7 @@ function TabButton({ tab, active, badge }: { tab: ModuleTab; active: boolean; ba
         />
         {badge != null && badge > 0 ? (
           <span
-            className="absolute -top-1.5 -right-2 min-w-[1rem] h-4 rounded-full px-1 text-m-caption font-bold grid place-items-center tabular-nums"
+            className="badge-pulse absolute -top-1.5 -right-2 min-w-[1rem] h-4 rounded-full px-1 text-m-caption font-bold grid place-items-center tabular-nums"
             style={{
               backgroundColor: "var(--color-signal)",
               color: "var(--color-ink-950)",

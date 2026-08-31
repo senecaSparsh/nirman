@@ -35,6 +35,7 @@ async function EmployeesContent() {
 
   const [employees, crews, crewRows, projects, locations] = await Promise.all([
     prisma.employee.findMany({
+      take: 500,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       include: {
@@ -44,11 +45,13 @@ async function EmployeesContent() {
       },
     }),
     prisma.crew.findMany({
+      take: 200,
       where: { companyId: company.id, active: true },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
     prisma.crew.findMany({
+      take: 500,
       where: { companyId: company.id },
       orderBy: { name: "asc" },
       include: {
@@ -62,11 +65,13 @@ async function EmployeesContent() {
       },
     }),
     prisma.project.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
     prisma.stockLocation.findMany({
+      take: 200,
       where: { companyId: company.id, deletedAt: null },
       select: { id: true, name: true, type: true },
       orderBy: { name: "asc" },
