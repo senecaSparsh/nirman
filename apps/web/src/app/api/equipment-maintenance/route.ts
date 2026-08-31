@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { recordMaintenance } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum, equipmentMaintenanceSchema } from "@/lib/server";
@@ -56,6 +57,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : undefined,
       userId: user.id,
     });
+    revalidatePath("/equipment");
+    revalidatePath("/m/equipment");
     return json({ ok: true, id: m.id }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to record maintenance") }, { status: 400 });

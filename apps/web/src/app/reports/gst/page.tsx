@@ -161,10 +161,10 @@ async function GstReportContent({
         title="GST Report"
         description="Input GST (ITC) vs Output GST — net liability position over the selected period."
         stats={[
-          { label: "Input GST (ITC)", value: formatCurrency(totalInput) },
-          { label: "Output GST", value: formatCurrency(totalOutput) },
-          { label: "Net Payable", value: formatCurrency(Math.max(0, netPayable)) },
-          { label: "ITC Credit", value: formatCurrency(Math.max(0, -netPayable)) },
+          { label: "Input GST (ITC)", value: formatCurrency(totalInput), hint: "Total GST paid on purchases (ITC debited to account 1400) in the selected period." },
+          { label: "Output GST", value: formatCurrency(totalOutput), hint: "Total GST collected on sales (credited to account 2100) in the selected period." },
+          { label: "Net Payable", value: formatCurrency(Math.max(0, netPayable)), hint: "GST owed to the government when output GST exceeds input GST (ITC)." },
+          { label: "ITC Credit", value: formatCurrency(Math.max(0, -netPayable)), hint: "Excess input tax credit carried forward when ITC exceeds output GST." },
         ]}
       />
       <GstReport

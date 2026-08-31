@@ -237,7 +237,7 @@ export function IssueMaterialsDialog({
               createLabel="location"
               options={localLocations.map((l) => ({ value: l.id, label: `${l.name} (${l.type === "COMPANY_WAREHOUSE" ? "WH" : l.type === "PROJECT_SITE" ? "Site" : "Dept"})` }))}
               renderCreateDialog={({ open: o, onCreated, onClose }) => (
-                <LocationFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalLocations((p) => [...p, { ...({} as StockLocationRow), id: e.id, name: e.label ?? "", type: "COMPANY_WAREHOUSE", companyId: "", companyName: "" }]); onCreated(e); }} projects={localProjects} location={null} />
+                <LocationFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalLocations((p) => [...p, { id: e.id, name: e.label ?? "", type: "COMPANY_WAREHOUSE", address: null, projectId: null, projectName: null, stockValue: 0, itemCount: 0, companyId: "", companyName: "", lat: null, lng: null, geoRadius: null }]); onCreated(e); }} projects={localProjects} location={null} />
               )}
             />
           </Field>

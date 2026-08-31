@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { formatCurrencyDetailed } from "@/lib/utils";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.DPR_VIEW);
@@ -37,8 +38,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const fmtDate = (d: Date) =>
     d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
-  const fmtCurrency = (n: number) =>
-    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(n);
+  const fmtCurrency = (n: number) => formatCurrencyDetailed(n);
 
   const fmtNumber = (n: number, decimals = 0) =>
     new Intl.NumberFormat("en-IN", { maximumFractionDigits: decimals }).format(n);

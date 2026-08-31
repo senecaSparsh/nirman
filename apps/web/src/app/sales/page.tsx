@@ -300,7 +300,7 @@ async function SalesContent() {
 
   // Unit inventory summary — "kitni unit bachi, kitni bik gayi"
   const unitCountByStatus = Object.fromEntries(unitStats.map((u) => [u.status, u._count]));
-  const totalUnits = Object.values(unitCountByStatus).reduce((s: number, c) => s + (c as number), 0);
+  const totalUnits = unitStats.reduce((s, u) => s + u._count, 0);
   const soldUnits = unitCountByStatus.SOLD ?? 0;
   const availableUnits = unitCountByStatus.AVAILABLE ?? 0;
   const reservedUnits = unitCountByStatus.RESERVED ?? 0;

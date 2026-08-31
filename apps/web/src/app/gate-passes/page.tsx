@@ -181,10 +181,10 @@ async function GatePassesContent() {
         title="Gate Passes"
         description="Outbound gate passes — items cannot leave the gate until an authorized person approves."
         stats={[
-          { label: "Total", value: gpRows.length },
-          { label: "Pending approval", value: pending },
-          { label: "Approved (awaiting exit)", value: approved },
-          { label: "Rejected", value: rejected },
+          { label: "Total", value: gpRows.length, hint: "All outbound gate passes created, regardless of status." },
+          { label: "Pending approval", value: pending, hint: "Gate passes submitted and waiting for an authorized approver." },
+          { label: "Approved (awaiting exit)", value: approved, hint: "Gate passes approved but the vehicle has not yet exited the gate." },
+          { label: "Rejected", value: rejected, hint: "Gate passes denied by the approver — material cannot leave site." },
         ]}
       />
       <GatePassesView

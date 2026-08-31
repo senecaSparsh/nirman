@@ -66,10 +66,10 @@ async function VehiclesContent() {
         title="Vehicles"
         description="Auto-built vehicle master — every goods movement (receive, issue, transfer, sale) logs a trip. Track vehicle numbers, drivers, transporters, and trip history."
         stats={[
-          { label: "Vehicles", value: rows.length },
-          { label: "Total Trips", value: totalTrips },
-          { label: "Drivers", value: uniqueDrivers },
-          { label: "Transporters", value: uniqueTransporters },
+          { label: "Vehicles", value: rows.length, hint: "Distinct vehicles in the master, auto-built from goods movement trips." },
+          { label: "Total Trips", value: totalTrips, hint: "Cumulative trips logged across all vehicles (receives, issues, transfers, sales)." },
+          { label: "Drivers", value: uniqueDrivers, hint: "Unique drivers recorded across all vehicle trips." },
+          { label: "Transporters", value: uniqueTransporters, hint: "Unique transporters recorded across all vehicle trips." },
         ]}
       />
       <VehiclesView vehicles={rows} />

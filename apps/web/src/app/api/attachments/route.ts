@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@nirman/db";
+import { revalidatePath } from "next/cache";
+import { prisma, Prisma } from "@nirman/db";
 import { apiHandler, json, getCompany, requireUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
@@ -69,23 +70,36 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: "Upload not found" }, { status: 404 });
   }
 
-  const attachment = await prisma.entityAttachment.create({
-    data: {
-      companyId: company.id,
-      uploadId,
-      entityType,
-      entityId,
-      category: category ?? "other",
-      label: label ?? null,
-    },
-    include: {
-      upload: { select: { id: true, url: true, originalName: true, mimeType: true, size: true } },
-    },
-  }).catch(() => null);
-
-  if (!attachment) {
-    return json({ error: "Attachment already exists for this upload+entity" }, { status: 409 });
+  let attachment;
+  try {
+    attachment = await prisma.entityAttachment.create({
+      data: {
+        companyId: company.id,
+        uploadId,
+        entityType,
+        entityId,
+        category: category ?? "other",
+        label: label ?? null,
+      },
+      include: {
+        upload: { select: { id: true, url: true, originalName: true, mimeType: true, size: true } },
+      },
+    });
+  } catch (err) {
+    // Distinguish unique-constraint violations (P2002) from other DB errors
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return json({ error: "Attachment already exists for this upload+entity" }, { status: 409 });
+    }
+    return json({ error: "Failed to create attachment" }, { status: 500 });
   }
+
+  // Revalidate pages that commonly show attachments
+  revalidatePath("/land");
+  revalidatePath("/m/land");
+  revalidatePath("/projects");
+  revalidatePath("/m/projects");
+  revalidatePath("/sales");
+  revalidatePath("/m/sales");
 
   return json({
     id: attachment.id,

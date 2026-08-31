@@ -47,7 +47,7 @@ async function WbsContent() {
       <PageHeader
         title="Work Breakdown Structure"
         description="Decompose project scope into phases, deliverables, and work packages. Track progress and dependencies."
-        stats={[{ label: "Projects", value: projects.length }]}
+        stats={[{ label: "Projects", value: projects.length, hint: "Projects with a work breakdown structure available for decomposition into phases and work packages." }]}
       />
       <WbsView projects={projects} canEdit={canEdit} />
     </>

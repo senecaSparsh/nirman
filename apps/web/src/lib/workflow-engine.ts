@@ -316,8 +316,12 @@ async function executeStep(step: WorkflowStep): Promise<RunResult> {
               return { stepId: step.id, status: "failed", message: `Unsupported entity type: ${entityType}` };
             }
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const record: any = await (prisma[modelName] as any).findUnique({ where: { id: entityId } });
+            // Dynamic Prisma model access — typed via a minimal interface
+            // since the model name is determined at runtime from the entity type.
+            const model = prisma[modelName as keyof typeof prisma] as unknown as {
+              findUnique: (args: { where: { id: string } }) => Promise<Record<string, unknown> | null>;
+            };
+            const record = await model.findUnique({ where: { id: entityId } });
             if (!record) {
               return { stepId: step.id, status: "failed", message: `${entityType} ${entityId} not found` };
             }
@@ -373,10 +377,11 @@ async function executeStep(step: WorkflowStep): Promise<RunResult> {
         return { stepId: step.id, status: "failed", message: `Unsupported entity type: ${entityType}` };
       }
 
-      // Use the typed Prisma client — safe from SQL injection
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const model = (prisma as any)[modelName];
-      await model.update({
+      // Dynamic Prisma model access — typed via a minimal interface.
+      const updateModel = prisma[modelName as keyof typeof prisma] as unknown as {
+        update: (args: { where: { id: string }; data: Record<string, unknown> }) => Promise<unknown>;
+      };
+      await updateModel.update({
         where: { id: entityId },
         data: { status: newStatus },
       });

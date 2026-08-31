@@ -52,8 +52,21 @@ export async function createPhoneSession(userId: string): Promise<{
 }> {
   // 1. Create the session via Better-Auth's internal adapter — same call the
   //    sign-in route makes. This creates a Session row in the DB.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const session = await (auth as any).$context.internalAdapter.createSession(userId);
+  // Better-Auth's internal adapter is not part of the public typed API;
+  // we cast to the minimal shape we need.
+  const authInternal = auth as unknown as {
+    $context: {
+      internalAdapter: {
+        createSession: (userId: string) => Promise<{
+          id: string;
+          token: string;
+          userId: string;
+          expiresAt: Date;
+        } | null>;
+      };
+    };
+  };
+  const session = await authInternal.$context.internalAdapter.createSession(userId);
   if (!session) throw new Error("Failed to create session");
 
   // 2. Determine the cookie name + attributes from the auth config.

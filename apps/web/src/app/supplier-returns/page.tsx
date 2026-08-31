@@ -165,10 +165,10 @@ async function SupplierReturnsContent() {
         title="Purchase Returns"
         description="Send defective or excess stock back to a supplier and track the debit note."
         stats={[
-          { label: "Total", value: returnRows.length },
-          { label: "Draft", value: returnRows.filter((r) => r.status === "DRAFT").length },
-          { label: "Submitted", value: returnRows.filter((r) => r.status === "SUBMITTED").length },
-          { label: "Credit pending", value: formatCurrency(creditPending) },
+          { label: "Total", value: returnRows.length, hint: "All purchase returns raised to send defective or excess stock back to suppliers." },
+          { label: "Draft", value: returnRows.filter((r) => r.status === "DRAFT").length, hint: "Returns being prepared but not yet submitted to the supplier." },
+          { label: "Submitted", value: returnRows.filter((r) => r.status === "SUBMITTED").length, hint: "Returns sent to the supplier, awaiting a credit note." },
+          { label: "Credit pending", value: formatCurrency(creditPending), hint: "Value of submitted returns still awaiting the supplier's credit note (qty × unit cost)." },
         ]}
       />
       <SupplierReturnsView

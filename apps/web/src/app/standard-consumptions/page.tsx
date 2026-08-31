@@ -71,8 +71,8 @@ async function StandardConsumptionsContent() {
         title="Consumption Benchmarks"
         description="Define standard material consumption rates per work type (e.g. 1.5 t steel per 100 sqft of foundation). When a DPR is submitted, the system compares actual consumption against these benchmarks and auto-detects over-consumption as generated scrap."
         stats={[
-          { label: "Benchmarks", value: rows.length },
-          { label: "Work Types", value: workTypes.length },
+          { label: "Benchmarks", value: rows.length, hint: "Standard material consumption rates defined per work type for variance analysis." },
+          { label: "Work Types", value: workTypes.length, hint: "Distinct construction work types that have benchmark consumption rates configured." },
         ]}
       />
       <StandardConsumptionsView

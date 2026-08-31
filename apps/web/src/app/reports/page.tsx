@@ -76,7 +76,7 @@ async function InsightsContent() {
       <PageHeader
         title="Reports"
         description="Every report, grouped by the Build lifecycle stage it belongs to. Each one reads from the same ledger the rest of the app writes to — so the numbers here are the numbers, not a copy."
-        stats={[{ label: "Reports", value: reportLinks.length }]}
+        stats={[{ label: "Reports", value: reportLinks.length, hint: "Number of report links visible to your role, grouped by lifecycle stage." }]}
       />
 
       <div className="space-y-7">

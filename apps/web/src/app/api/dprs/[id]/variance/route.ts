@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { runDprVarianceAnalysis } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -34,6 +35,17 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     scrapValuationPct: parsed.scrapValuationPct,
     userId: user.id,
   });
+
+  // Revalidate pages affected by variance analysis + scrap generation
+  revalidatePath("/hr/daily-reports");
+  revalidatePath("/hr/dprs");
+  revalidatePath("/m/dprs");
+  if (result.scrapGenerationId) {
+    revalidatePath("/stock");
+    revalidatePath("/m/inventory");
+    revalidatePath("/scrap-generations");
+    revalidatePath("/m/scrap-generations");
+  }
 
   return json({
     dprId: result.dprId,

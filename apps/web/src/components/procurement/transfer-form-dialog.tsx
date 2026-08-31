@@ -221,7 +221,7 @@ export function TransferFormDialog({
               createLabel="location"
               groups={fromGroups}
               renderCreateDialog={({ open: o, onCreated, onClose }) => (
-                <LocationFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalLocations((p) => [...p, { ...({} as StockLocationRow), id: e.id, name: e.label ?? "", type: "COMPANY_WAREHOUSE", companyId: "", companyName: "" }]); onCreated(e); }} projects={projects} location={null} />
+                <LocationFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalLocations((p) => [...p, { id: e.id, name: e.label ?? "", type: "COMPANY_WAREHOUSE", address: null, projectId: null, projectName: null, stockValue: 0, itemCount: 0, companyId: "", companyName: "", lat: null, lng: null, geoRadius: null }]); onCreated(e); }} projects={projects} location={null} />
               )}
             />
           </Field>
@@ -235,7 +235,7 @@ export function TransferFormDialog({
               createLabel="location"
               groups={toGroups}
               renderCreateDialog={({ open: o, onCreated, onClose }) => (
-                <LocationFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalLocations((p) => [...p, { ...({} as StockLocationRow), id: e.id, name: e.label ?? "", type: "COMPANY_WAREHOUSE", companyId: "", companyName: "" }]); onCreated(e); }} projects={projects} location={null} />
+                <LocationFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalLocations((p) => [...p, { id: e.id, name: e.label ?? "", type: "COMPANY_WAREHOUSE", address: null, projectId: null, projectName: null, stockValue: 0, itemCount: 0, companyId: "", companyName: "", lat: null, lng: null, geoRadius: null }]); onCreated(e); }} projects={projects} location={null} />
               )}
             />
           </Field>

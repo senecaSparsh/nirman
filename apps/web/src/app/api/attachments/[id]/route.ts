@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { apiHandler, json, getCompany, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -22,6 +23,14 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   }
 
   await prisma.entityAttachment.delete({ where: { id } });
+
+  // Revalidate pages that commonly show attachments
+  revalidatePath("/land");
+  revalidatePath("/m/land");
+  revalidatePath("/projects");
+  revalidatePath("/m/projects");
+  revalidatePath("/sales");
+  revalidatePath("/m/sales");
 
   return json({ deleted: true });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownUp,
   Bookmark,
@@ -1168,8 +1168,8 @@ export function DataTable<T>({
               ? groups.map(([label, rows]) => {
                   const isCollapsed = collapsed.has(label);
                   return (
-                    <>
-                      <tr key={`g-${label}`} className="border-b border-border bg-muted/70">
+                    <Fragment key={`g-${label}`}>
+                      <tr className="border-b border-border bg-muted/70">
                         <td
                           colSpan={colCount}
                           className="cursor-pointer px-3 py-1.5"
@@ -1213,7 +1213,7 @@ export function DataTable<T>({
                           cursor += 1;
                           return bodyRow(row, i, cursor);
                         })}
-                    </>
+                    </Fragment>
                   );
                 })
               : paged.map((row, i) => bodyRow(row, i, i))}

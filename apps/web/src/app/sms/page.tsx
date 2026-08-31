@@ -63,10 +63,10 @@ async function SmsContent() {
         title="Bank SMS"
         description="Auto-parse bank SMS notifications and match them to outstanding payments. Forward your payment received SMS here."
         stats={[
-          { label: "Total SMS", value: smsRecords.length },
-          { label: "Matched", value: matchedCount },
-          { label: "Unmatched", value: unmatchedCount },
-          { label: "Auto-collected", value: totalMatched ? formatCurrency(toNum(totalMatched)) : "₹0" },
+          { label: "Total SMS", value: smsRecords.length, hint: "Bank SMS notifications ingested (most recent 200 shown)." },
+          { label: "Matched", value: matchedCount, hint: "SMS successfully linked to a customer, sale, or payment record." },
+          { label: "Unmatched", value: unmatchedCount, hint: "SMS awaiting manual matching to a known entity." },
+          { label: "Auto-collected", value: totalMatched ? formatCurrency(toNum(totalMatched)) : "₹0", hint: "Total payment amount captured from matched bank SMS." },
         ]}
       />
       <div className="flex justify-end">

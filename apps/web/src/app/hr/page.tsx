@@ -154,9 +154,9 @@ async function HrDashboardContent() {
         title="HR Dashboard"
         description="Daily workforce overview — attendance, pending approvals, and payroll status."
         stats={[
-          { label: "Employees", value: employeeCount },
-          { label: "Present today", value: presentToday },
-          { label: "Crews", value: crewCount },
+          { label: "Employees", value: employeeCount, hint: "Total employees on record, including inactive ones (soft-deleted excluded)." },
+          { label: "Present today", value: presentToday, hint: "Workers marked PRESENT or OVERTIME in today's attendance." },
+          { label: "Crews", value: crewCount, hint: "Active worker crews currently registered." },
         ]}
       />
       <div className="flex justify-end">

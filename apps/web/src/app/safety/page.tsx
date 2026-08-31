@@ -80,10 +80,10 @@ async function SafetyContent() {
         title="Safety Management"
         description="Track incidents, hazards, and safety inspections across all projects. Manage investigations, mitigations, and compliance walkthroughs."
         stats={[
-          { label: "Incidents", value: serializedIncidents.length },
-          { label: "Open Hazards", value: serializedHazards.filter((h) => h.status !== "RESOLVED").length },
-          { label: "Inspections", value: serializedInspections.length },
-          { label: "Critical Hazards", value: serializedHazards.filter((h) => h.riskLevel === "CRITICAL" && h.status !== "RESOLVED").length },
+          { label: "Incidents", value: serializedIncidents.length, hint: "Total safety incidents recorded across all projects (most recent 100 shown)." },
+          { label: "Open Hazards", value: serializedHazards.filter((h) => h.status !== "RESOLVED").length, hint: "Identified hazards not yet resolved, regardless of risk level." },
+          { label: "Inspections", value: serializedInspections.length, hint: "Safety inspections scheduled or conducted across all projects." },
+          { label: "Critical Hazards", value: serializedHazards.filter((h) => h.riskLevel === "CRITICAL" && h.status !== "RESOLVED").length, hint: "Unresolved hazards rated CRITICAL — require immediate attention." },
         ]}
       />
       <SafetyView

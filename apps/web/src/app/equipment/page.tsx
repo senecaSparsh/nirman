@@ -136,11 +136,11 @@ async function EquipmentContent() {
         title="Equipment"
         description="Trackable assets — machinery, tools, and vehicles. Track assignments, maintenance, and depreciation."
         stats={[
-          { label: "Total", value: equipmentRows.length },
-          { label: "Available", value: available },
-          { label: "Assigned", value: assigned },
-          { label: "Maintenance", value: maintenance },
-          { label: "Value", value: formatCurrency(totalValue) },
+          { label: "Total", value: equipmentRows.length, hint: "All non-retired equipment assets in your company." },
+          { label: "Available", value: available, hint: "Equipment not currently assigned to any project or person." },
+          { label: "Assigned", value: assigned, hint: "Equipment currently checked out to a project or individual." },
+          { label: "Maintenance", value: maintenance, hint: "Equipment undergoing servicing or repair — unavailable for assignment." },
+          { label: "Value", value: formatCurrency(totalValue), hint: "Current book value of all equipment (purchase cost minus depreciation)." },
         ]}
       />
       <EquipmentView

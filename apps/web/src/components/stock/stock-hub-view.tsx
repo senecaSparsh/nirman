@@ -3,6 +3,7 @@
 import { type ComponentProps, Fragment, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTabParam } from "@/lib/use-tab-param";
+import { formatCurrency } from "@/lib/utils";
 import { Boxes, ScrollText, Truck, Package, Hammer, ClipboardCheck, Building2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OnHandTab } from "./on-hand-tab";
@@ -252,7 +253,7 @@ function CrossCompanyTab() {
         <span className="text-border">·</span>
         <span><strong className="text-foreground tabular-nums">{data.companies.length}</strong> child companies</span>
         <span className="text-border">·</span>
-        <span><strong className="text-foreground tabular-nums">{new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(data.summary.totalValue)}</strong> total value</span>
+        <span><strong className="text-foreground tabular-nums">{formatCurrency(data.summary.totalValue)}</strong> total value</span>
       </div>
 
       {/* Search */}
@@ -300,7 +301,7 @@ function CrossCompanyTab() {
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">{m.categoryName ?? "—"}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{m.totalQty.toLocaleString("en-IN")} {m.unit}</td>
-                    <td className="px-3 py-2 text-right tabular-nums font-medium">{new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(m.totalValue)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums font-medium">{formatCurrency(m.totalValue)}</td>
                     <td className="px-3 py-2 text-muted-foreground">{m.companies.length}</td>
                   </tr>
                   {isExpanded && (
@@ -311,7 +312,7 @@ function CrossCompanyTab() {
                             <div key={c.companyId} className="flex items-center justify-between text-[11px]">
                               <span className="text-muted-foreground">{c.companyName}</span>
                               <span className="tabular-nums">
-                                {c.qty.toLocaleString("en-IN")} {m.unit} · {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(c.value)}
+                                {c.qty.toLocaleString("en-IN")} {m.unit} · {formatCurrency(c.value)}
                               </span>
                             </div>
                           ))}

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { approvePurchaseOrder } from "@nirman/services";
 import { apiHandler, getCompany, getUserPermissions, json, requireUser } from "@/lib/server";
@@ -9,9 +10,12 @@ import { z } from "zod";
  * POST /api/approvals/batch
  * Body: { items: [{ type: "po" | "requisition" | "gatePass", id: string }] }
  *
- * Batch-approves multiple items in sequence. Returns per-item results.
+ * Batch-approves multiple items. Returns per-item results.
  * If some items fail (e.g. already approved, permission error), the rest
  * still succeed — partial success is reported.
+ *
+ * Optimization: pre-fetch all candidate IDs in bulk (one query per type)
+ * instead of N+1 individual findFirst calls inside the loop.
  */
 const batchSchema = z.object({
   items: z.array(
@@ -37,6 +41,43 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const canApproveReq = perms.includes(PERM.REQUISITION_APPROVE);
   const canApproveGp = perms.includes(PERM.GATE_PASS_APPROVE);
 
+  // ── Partition items by type ───────────────────────────────────────
+  const poIds: string[] = [];
+  const reqIds: string[] = [];
+  const gpIds: string[] = [];
+  for (const item of parsed.data.items) {
+    if (item.type === "po") poIds.push(item.id);
+    else if (item.type === "requisition") reqIds.push(item.id);
+    else if (item.type === "gatePass") gpIds.push(item.id);
+  }
+
+  // ── Bulk-fetch valid candidates (one query per type, not N+1) ─────
+  const [validPos, validReqs, validGps] = await Promise.all([
+    canApprovePo && poIds.length > 0
+      ? prisma.purchaseOrder.findMany({
+          where: { id: { in: poIds }, companyId: company.id, status: "DRAFT" },
+          select: { id: true },
+        })
+      : Promise.resolve([]),
+    canApproveReq && reqIds.length > 0
+      ? prisma.materialRequisition.findMany({
+          where: { id: { in: reqIds }, project: { companyId: company.id }, status: "SUBMITTED" },
+          select: { id: true },
+        })
+      : Promise.resolve([]),
+    canApproveGp && gpIds.length > 0
+      ? prisma.gatePass.findMany({
+          where: { id: { in: gpIds }, companyId: company.id, status: "PENDING" },
+          select: { id: true },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const validPoIds = new Set(validPos.map((p) => p.id));
+  const validReqIds = new Set(validReqs.map((r) => r.id));
+  const validGpIds = new Set(validGps.map((g) => g.id));
+
+  // ── Process each item ─────────────────────────────────────────────
   const results: Array<{
     type: string;
     id: string;
@@ -51,12 +92,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
           results.push({ type: item.type, id: item.id, success: false, error: "No permission to approve POs" });
           continue;
         }
-        // Verify the PO belongs to this company and is in DRAFT status
-        const po = await prisma.purchaseOrder.findFirst({
-          where: { id: item.id, companyId: company.id, status: "DRAFT" },
-          select: { id: true, poNumber: true },
-        });
-        if (!po) {
+        if (!validPoIds.has(item.id)) {
           results.push({ type: item.type, id: item.id, success: false, error: "PO not found or not in DRAFT status" });
           continue;
         }
@@ -67,11 +103,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
           results.push({ type: item.type, id: item.id, success: false, error: "No permission to approve requisitions" });
           continue;
         }
-        const req = await prisma.materialRequisition.findFirst({
-          where: { id: item.id, project: { companyId: company.id }, status: "SUBMITTED" },
-          select: { id: true, reqNumber: true },
-        });
-        if (!req) {
+        if (!validReqIds.has(item.id)) {
           results.push({ type: item.type, id: item.id, success: false, error: "Requisition not found or not in SUBMITTED status" });
           continue;
         }
@@ -89,11 +121,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
           results.push({ type: item.type, id: item.id, success: false, error: "No permission to approve gate passes" });
           continue;
         }
-        const gp = await prisma.gatePass.findFirst({
-          where: { id: item.id, companyId: company.id, status: "PENDING" },
-          select: { id: true, gatePassNumber: true },
-        });
-        if (!gp) {
+        if (!validGpIds.has(item.id)) {
           results.push({ type: item.type, id: item.id, success: false, error: "Gate pass not found or not in PENDING status" });
           continue;
         }
@@ -115,6 +143,25 @@ export const POST = apiHandler(async (req: NextRequest) => {
         error: err instanceof Error ? err.message : "Unknown error",
       });
     }
+  }
+
+  // ── Revalidate all affected pages ─────────────────────────────────
+  const anyPo = results.some((r) => r.type === "po" && r.success);
+  const anyReq = results.some((r) => r.type === "requisition" && r.success);
+  const anyGp = results.some((r) => r.type === "gatePass" && r.success);
+
+  revalidatePath("/approvals");
+  if (anyPo) {
+    revalidatePath("/procurement");
+    revalidatePath("/m/procurement");
+  }
+  if (anyReq) {
+    revalidatePath("/requisitions");
+    revalidatePath("/m/requisitions");
+  }
+  if (anyGp) {
+    revalidatePath("/gate-passes");
+    revalidatePath("/m/gate-passes");
   }
 
   const succeeded = results.filter((r) => r.success).length;

@@ -53,7 +53,7 @@ async function WoContent() {
       <PageHeader
         title="Work Orders"
         description="Subcontractor work orders, running-account bills, and payment certificates. Track work done, deductions, and certify payments."
-        stats={[{ label: "Projects", value: projects.length }]}
+        stats={[{ label: "Projects", value: projects.length, hint: "Projects available for subcontractor work orders and running-account billing." }]}
       />
       <WorkOrdersView projects={projects} canCreate={canCreate} permissions={permissions} />
     </>

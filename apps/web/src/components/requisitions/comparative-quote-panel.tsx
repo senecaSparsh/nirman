@@ -858,7 +858,7 @@ function EditQuoteDialog({
       open
       onOpenChange={(open) => { if (!open) onClose(); }}
       title={`Edit Quote — ${quote.supplierName}`}
-      description={`Landed total was ${quote.landedTotal.toLocaleString("en-IN", { style: "currency", currency: "INR" })}`}
+      description={`Landed total was ${formatCurrency(quote.landedTotal)}`}
       className="max-w-md"
     >
       <form onSubmit={handleSubmit} className="space-y-3">
