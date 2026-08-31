@@ -58,9 +58,11 @@ export function GstReportsPanel() {
 
   function exportCsv() {
     if (!gstr1 && !gstr3b) return;
-    let csv = "";
+    // Export each report as a separate CSV file so accountants get clean
+    // files instead of a concatenated hybrid.
+    const downloads: { name: string; content: string }[] = [];
     if (gstr3b) {
-      csv += "GSTR-3B Summary\n";
+      let csv = "GSTR-3B Summary\n";
       csv += `Outward Taxable Value,${gstr3b.outwardTaxableValue}\n`;
       csv += `Output GST,${gstr3b.outwardOutputGst}\n`;
       csv += `Inward Taxable Value,${gstr3b.inwardTaxableValue}\n`;
@@ -68,22 +70,25 @@ export function GstReportsPanel() {
       csv += `ITC Reversed,${gstr3b.itcReversed}\n`;
       csv += `Net ITC Available,${gstr3b.itcAvailable}\n`;
       csv += `Net GST Payable,${gstr3b.netGstPayable}\n`;
-      csv += `ITC Carried Forward,${gstr3b.itcCarriedForward}\n\n`;
+      csv += `ITC Carried Forward,${gstr3b.itcCarriedForward}\n`;
+      downloads.push({ name: `gstr-3b-${from}-to-${to}.csv`, content: csv });
     }
     if (gstr1) {
-      csv += "GSTR-1 Line Items\n";
-      csv += "Date,Source,Memo,Taxable Value,GST Amount,GST Rate\n";
+      let csv = "Date,Source,Memo,Taxable Value,GST Amount,GST Rate\n";
       for (const e of gstr1.entries) {
         csv += `${new Date(e.date).toLocaleDateString("en-IN")},${e.sourceType},"${e.memo}",${e.taxableValue},${e.gstAmount},${e.gstRate.toFixed(2)}%\n`;
       }
+      downloads.push({ name: `gstr-1-${from}-to-${to}.csv`, content: csv });
     }
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `gst-report-${from}-to-${to}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    for (const d of downloads) {
+      const blob = new Blob([d.content], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = d.name;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
   }
 
   return (

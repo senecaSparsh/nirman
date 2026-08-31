@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, UserPlus, X, Plug, Pencil } from "lucide-react";
+import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, UserPlus, X, Plug, Pencil, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -287,7 +287,7 @@ export function SettingsView({
             <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Locations</span>
           </TabsTrigger>
           <TabsTrigger value="cost-centres">
-            <span className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" /> Cost Centres</span>
+            <span className="flex items-center gap-1.5"><Layers className="h-3.5 w-3.5" /> Cost Centres</span>
           </TabsTrigger>
           <TabsTrigger value="people">
             <span className="flex items-center gap-1.5"><HardHat className="h-3.5 w-3.5" /> People</span>
@@ -400,7 +400,7 @@ export function SettingsView({
                   </div>
                   <div className="flex items-end gap-2">
                     <div className="flex-1 space-y-1.5">
-                      <Label>PO Amount (₹)</Label>
+                      <Label>PO Amount</Label>
                       <Input
                         type="number"
                         min={0}

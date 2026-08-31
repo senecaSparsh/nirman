@@ -152,22 +152,25 @@ function TradeBreakdownChart({ trades, total }: { trades: TradeBreakdown[]; tota
   );
 }
 
-/** Project presence — where workers are today. */
+/** Project presence — where workers are today.
+ *  Bar is relative to the busiest project (not a % of total headcount),
+ *  since we don't have per-project rosters to compute a real rate. */
 function ProjectPresenceList({ projects }: { projects: ProjectPresence[] }) {
   if (projects.length === 0) {
     return <p className="py-4 text-center text-caption text-muted-foreground">No site attendance logged today</p>;
   }
+  const maxPresent = Math.max(...projects.map((p) => p.present), 1);
   return (
     <div className="space-y-2">
       {projects.map((p) => {
-        const rate = p.total > 0 ? (p.present / p.total) * 100 : 0;
+        const share = (p.present / maxPresent) * 100;
         return (
           <div key={p.projectName} className="flex items-center gap-2">
             <span className="flex-1 truncate text-caption font-medium text-foreground">{p.projectName}</span>
             <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
-              <div className={cn("h-full rounded-full", rate >= 75 ? "bg-success" : rate >= 50 ? "bg-warning" : "bg-danger")} style={{ width: `${rate}%` }} />
+              <div className="h-full rounded-full bg-brand" style={{ width: `${share}%` }} />
             </div>
-            <span className="tnum w-16 text-right text-caption text-muted-foreground">{p.present}/{p.total}</span>
+            <span className="tnum w-10 text-right text-caption text-muted-foreground">{p.present}</span>
           </div>
         );
       })}
@@ -234,8 +237,8 @@ export function HrDashboard({
       <div className="grid divide-border overflow-hidden rounded-lg border border-border bg-card sm:divide-x sm:grid-cols-4 divide-y sm:divide-y-0">
         <Link href="/hr/employees" className="group flex flex-col gap-1 p-4 transition-colors hover:bg-subtle">
           <span className="text-label text-muted-foreground/75">Headcount</span>
-          <span className="text-figure-lg text-foreground">{employeeCount}</span>
-          <span className="text-caption text-muted-foreground">{activeEmployees} active · {crewCount} crews</span>
+          <span className="text-figure-lg text-foreground">{activeEmployees}</span>
+          <span className="text-caption text-muted-foreground">{employeeCount - activeEmployees} inactive · {crewCount} crews</span>
         </Link>
         <Link href="/hr/attendance" className="group flex flex-col gap-1 p-4 transition-colors hover:bg-subtle">
           <span className="text-label text-muted-foreground/75">Present Today</span>
@@ -248,11 +251,11 @@ export function HrDashboard({
           <span className="text-caption text-muted-foreground">{pendingPayrolls > 0 ? `${pendingPayrolls} draft payroll${pendingPayrolls > 1 ? "s" : ""}` : "All payrolls settled"}</span>
         </Link>
         <Link href="/hr/dprs" className="group flex flex-col gap-1 p-4 transition-colors hover:bg-subtle">
-          <span className="text-label text-muted-foreground/75">Pending Approvals</span>
+          <span className="text-label text-muted-foreground/75">Pending Actions</span>
           <span className={cn("text-figure-lg", pendingActions.length > 0 ? "text-warning" : "text-foreground")}>
-            {pendingDprApprovals + pendingLeaves}
+            {pendingDprApprovals + pendingLeaves + pendingPayrolls}
           </span>
-          <span className="text-caption text-muted-foreground">{pendingDprApprovals} DPRs · {pendingLeaves} leaves</span>
+          <span className="text-caption text-muted-foreground">{pendingDprApprovals} DPRs · {pendingLeaves} leaves · {pendingPayrolls} payrolls</span>
         </Link>
       </div>
 
@@ -287,7 +290,7 @@ export function HrDashboard({
             </Link>
           </div>
           <div className="p-4">
-            <TradeBreakdownChart trades={tradeBreakdown} total={employeeCount} />
+            <TradeBreakdownChart trades={tradeBreakdown} total={activeEmployees} />
           </div>
         </div>
       </div>

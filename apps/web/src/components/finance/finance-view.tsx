@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { formatCurrency, formatDate, humanizeAuditAction } from "@/lib/utils";
+import { formatCurrency, formatDate, humanizeAuditAction, cn } from "@/lib/utils";
 import { entityUrl } from "@/lib/entity-url";
 import { ProjectCostFormDialog } from "./project-cost-form-dialog";
 import { ExpenseFormDialog } from "./expense-form-dialog";
@@ -331,7 +331,11 @@ const moneyFlowColumns: Column<FlowEvent>[] = [
     label: "Amount",
     align: "right",
     sortable: true,
-    render: (ev) => <span className="tnum font-semibold text-danger">−{formatCurrency(ev.amount)}</span>,
+    render: (ev) => (
+      <span className={cn("tnum font-semibold", ev.type === "cost" ? "text-warning" : "text-danger")}>
+        −{formatCurrency(ev.amount)}
+      </span>
+    ),
     exportValue: (ev) => ev.amount,
   },
 ];
@@ -420,8 +424,8 @@ const auditLogColumns: Column<AuditLogRow>[] = [
     sortable: true,
     filterable: true,
     render: (log) => <span className="font-medium text-foreground">{humanizeAuditAction(log.action)}</span>,
-    filterValue: (log) => log.action,
-    exportValue: (log) => log.action,
+    filterValue: (log) => humanizeAuditAction(log.action),
+    exportValue: (log) => humanizeAuditAction(log.action),
   },
   {
     key: "entityType",

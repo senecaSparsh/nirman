@@ -43,8 +43,12 @@ async function PurchaserPerformanceContent({
   const fromDate = fromParam ? new Date(fromParam) : fyStart;
   const toDate = toParam ? new Date(toParam) : now;
   toDate.setHours(23, 59, 59, 999);
-  const from = fromDate.toISOString().slice(0, 10);
-  const to = toDate.toISOString().slice(0, 10);
+  // Format from local components to avoid toISOString() shifting the date
+  // across timezones (e.g. UTC- would roll the end date to the next day).
+  const fmtLocal = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const from = fmtLocal(fromDate);
+  const to = fmtLocal(toDate);
 
   const rows = await getPurchaserPerformance(company.id, { from: fromDate, to: toDate });
 

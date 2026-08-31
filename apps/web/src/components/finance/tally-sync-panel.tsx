@@ -136,6 +136,7 @@ export function TallySyncPanel({ stats }: { stats: TallyStats }) {
             size="sm"
             onClick={() => sync("push")}
             disabled={syncing || stats.pending === 0}
+            title={stats.pending === 0 ? "No pending entries to push — all journal entries are already synced." : undefined}
           >
             {syncing && syncMode === "push" ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-1 h-3.5 w-3.5" />}
             Push {stats.pending > 0 ? `(${stats.pending})` : ""}

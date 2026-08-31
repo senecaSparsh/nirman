@@ -100,8 +100,9 @@ async function HrDashboardContent() {
       monthlyLabourCost += toNum(e.monthlySalary);
     }
   }
-  // If we have a latest payroll, use its net instead
-  if (latestPayroll) {
+  // If we have a latest payroll from the current month/year, use its net instead.
+  // Older payrolls don't represent the current month's cost.
+  if (latestPayroll && latestPayroll.month === today.getMonth() + 1 && latestPayroll.year === today.getFullYear()) {
     monthlyLabourCost = toNum(latestPayroll.totalNet);
   }
 
@@ -131,7 +132,11 @@ async function HrDashboardContent() {
     overtime: v.overtime,
   }));
 
-  // Compute project presence today
+  // Compute project presence today.
+  // The denominator for each project is the number of workers who attended
+  // today (PRESENT/OVERTIME) — we don't have a per-project roster, so the
+  // share-of-present is the honest metric. Using the global present count
+  // (as before) made every project look understaffed.
   const projectMap = new Map<string, number>();
   for (const r of todayProjectAttendance) {
     const name = r.project?.name ?? "Unassigned";

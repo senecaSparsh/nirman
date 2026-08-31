@@ -145,7 +145,6 @@ function AlertGroup({
           <div className="min-w-0 flex-1">
             <p className="text-meta font-medium text-foreground">
               {item.count} {item.label}
-              {item.count > 1 ? "s" : ""}
             </p>
           </div>
           <span className="shrink-0 text-caption text-muted-foreground/50">→</span>

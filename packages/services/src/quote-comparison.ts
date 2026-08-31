@@ -787,18 +787,33 @@ export async function getPurchaserPerformance(
     }
   }
 
-  // Allocate spend and savings to each user who handled a requisition
+  // Allocate spend and savings.
+  // Spend is attributed ONLY to the purchaser whose quote was selected —
+  // attributing it to every purchaser who uploaded a quote inflated the
+  // totals (N× the actual spend). Savings (max − selected) is a team
+  // metric, so it's allocated to everyone who participated.
   for (const [reqId, reqQuotes] of quotesByRequisition) {
     const spend = requisitionSpend.get(reqId);
     const savings = requisitionSavings.get(reqId);
     if (!spend && !savings) continue;
-    // Allocate to each user who uploaded a quote for this requisition
-    const usersForReq = new Set(reqQuotes.filter((q) => q.submittedBy).map((q) => q.submittedBy!.id));
-    for (const userId of usersForReq) {
-      const entry = byUser.get(userId);
-      if (!entry) continue;
-      if (spend) entry.totalSpend = entry.totalSpend.plus(spend);
-      if (savings) entry.potentialSavings = entry.potentialSavings.plus(savings);
+
+    // Spend → only the selected quote's submitter
+    if (spend) {
+      const selected = reqQuotes.find((q) => q.status === "SELECTED");
+      if (selected?.submittedBy) {
+        const entry = byUser.get(selected.submittedBy.id);
+        if (entry) entry.totalSpend = entry.totalSpend.plus(spend);
+      }
+    }
+
+    // Savings → everyone who uploaded a quote for this requisition
+    if (savings) {
+      const usersForReq = new Set(reqQuotes.filter((q) => q.submittedBy).map((q) => q.submittedBy!.id));
+      for (const userId of usersForReq) {
+        const entry = byUser.get(userId);
+        if (!entry) continue;
+        entry.potentialSavings = entry.potentialSavings.plus(savings);
+      }
     }
   }
 

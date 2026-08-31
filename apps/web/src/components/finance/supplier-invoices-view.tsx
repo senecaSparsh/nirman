@@ -613,7 +613,10 @@ function SupplierInvoiceFormDialog({
       return;
     }
     const subtotal = Number(form.subtotal);
-    const totalAmount = Number(form.totalAmount || form.subtotal);
+    const gstAmount = form.gstAmount ? Number(form.gstAmount) : 0;
+    // If the user didn't type a total, compute it as subtotal + GST so the
+    // recorded total always matches the supplier's actual bill.
+    const totalAmount = form.totalAmount ? Number(form.totalAmount) : subtotal + gstAmount;
     if (Number.isNaN(subtotal) || subtotal < 0) {
       toast.error("Subtotal must be a valid number >= 0");
       return;

@@ -255,7 +255,7 @@ export function GeneralLedgerView({
         <span className="text-body font-medium">
           {isBalanced
             ? "Books are balanced — total debits equal total credits."
-            : "Books are out of balance — contact support."}
+            : `Books are out of balance — debits exceed credits by ${fmt(totalDebit - totalCredit)}. Contact support.`}
         </span>
       </div>
 

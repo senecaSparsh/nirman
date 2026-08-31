@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ClipboardList, Plus, Cloud, Pencil, Trash2, CheckCircle2, XCircle, ShieldCheck, RotateCw, Ruler, RefreshCw, Recycle, Loader2, SearchX, Wallet, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -66,7 +66,7 @@ function DprStatsBar({ dprs }: { dprs: DprRow[] }) {
       <div className="flex flex-col gap-0.5 p-3">
         <span className="text-label text-muted-foreground/75">Approved</span>
         <span className="text-figure text-success">{approved}</span>
-        <span className="text-micro text-muted-foreground">{rejected} rejected</span>
+        <span className="text-micro text-muted-foreground">fully approved</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
         <span className="text-label text-muted-foreground/75">Avg Progress</span>
@@ -152,6 +152,7 @@ export function DprsView({
   permissions?: { canSubmit?: boolean; canSubAdminApprove?: boolean; canAdminApprove?: boolean };
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const canSubmit = permissions?.canSubmit ?? false;
   const canSubAdminApprove = permissions?.canSubAdminApprove ?? false;
   const canAdminApprove = permissions?.canAdminApprove ?? false;
@@ -169,10 +170,21 @@ export function DprsView({
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
+  // Auto-open a DPR detail when navigated with ?id=…
+  useEffect(() => {
+    const id = searchParams.get("id");
+    if (!id || detailTarget) return;
+    const match = dprs.find((d) => d.id === id);
+    if (match) setDetailTarget(match);
+  }, [searchParams, dprs, detailTarget]);
+
   const filteredDprs = useMemo(
     () => dprs.filter((d) => {
-      if (dateFrom && d.date < dateFrom) return false;
-      if (dateTo && d.date > dateTo) return false;
+      // d.date is an ISO string; compare only the date portion to avoid
+      // the "T..." suffix making same-day records sort after the filter.
+      const dDate = d.date.slice(0, 10);
+      if (dateFrom && dDate < dateFrom) return false;
+      if (dateTo && dDate > dateTo) return false;
       return true;
     }),
     [dprs, dateFrom, dateTo],
@@ -610,7 +622,9 @@ function DprFormDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const today = new Date().toISOString().split("T")[0];
+  // Local date (not UTC) — avoids off-by-one in early morning / non-UTC zones.
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     projectId: editTarget?.projectId ?? "",
