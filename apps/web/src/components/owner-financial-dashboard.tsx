@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { TrendingUp, TrendingDown, Wallet, Building2, ArrowRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import {formatCurrency} from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 
 export interface CashPositionData {
   cashBalance: number;
@@ -211,7 +211,8 @@ function ProjectProfitRowItem({ p }: { p: ProjectProfitRow }) {
   );
 }
 
-function CashStat({  label,
+function CashStat({
+  label,
   value,
   tone,
   negate,

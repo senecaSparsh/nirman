@@ -1,11 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { ResponsiveSurfaceRedirector } from "@/components/responsive-surface-redirector";
 import { SwRegister } from "@/components/sw-register";
 import { CurrencyProvider } from "@/components/currency-provider";
+import { runWithCurrencyMode, type CurrencyMode } from "@/lib/currency-server";
 import { Toaster } from "sonner";
 
 /**
@@ -73,11 +75,17 @@ if(localStorage.getItem('nirman.nav.panel')==='closed')r.dataset.nav='collapsed'
 var t=localStorage.getItem('nirman.theme');
 if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches))r.classList.add('dark');
 var c=localStorage.getItem('nirman-currency-mode');
-if(!c){c=window.innerWidth<768?'compact':'detailed';try{localStorage.setItem('nirman-currency-mode',c);}catch(e){}}
+if(!c){c='compact';try{localStorage.setItem('nirman-currency-mode',c);}catch(e){}}
 }catch(e){}`;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Read the currency mode from the cookie so ALL server-side
+  // formatCurrency() calls automatically respect the user's preference
+  // via AsyncLocalStorage — no call site needs to pass the mode.
+  const cookie = (await cookies()).get("nirman-currency-mode")?.value;
+  const currencyMode: CurrencyMode = cookie === "detailed" ? "detailed" : "compact";
+
+  return runWithCurrencyMode(currencyMode, () => (
     <html lang="en" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
@@ -113,5 +121,5 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SwRegister />
       </body>
     </html>
-  );
+  ));
 }

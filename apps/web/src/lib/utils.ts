@@ -50,7 +50,74 @@ export function cn(...inputs: ClassValue[]) {
   return twMergeCustom(clsx(inputs));
 }
 
-export function formatCurrency(value: number | string | null | undefined, currency = "INR") {
+/**
+ * Currency mode — "compact" shows ₹1.2L / ₹3.5Cr, "detailed" shows
+ * ₹1,20,000.00.
+ *
+ * ═══════════════════════════════════════════════════════════════════
+ *  HOW IT WORKS — no call site ever needs to pass the mode
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ *  Client: CurrencyProvider calls `setGlobalCurrencyMode()` on mount
+ *  and on every toggle. `formatCurrency()` reads this module-level
+ *  variable automatically.
+ *
+ *  Server: The root layout wraps the entire app in a currency-mode
+ *  context via `runWithCurrencyMode()` (from `@/lib/currency-server`).
+ *  That sets an AsyncLocalStorage store that `formatCurrency()` checks
+ *  via a callback registered at startup. This means EVERY server-side
+ *  `formatCurrency()` call — in any page, any component, now or in the
+ *  future — automatically respects the user's preference without
+ *  passing a parameter.
+ *
+ *  The explicit `mode` parameter is kept only for edge cases
+ *  (e.g. forcing detailed format in a GL reconciliation view).
+ * ═══════════════════════════════════════════════════════════════════
+ */
+export type CurrencyMode = "compact" | "detailed";
+
+// ── Server-side request-scoped storage ─────────────────────────────
+// The server module (@/lib/currency-server) registers a function here
+// that returns the current AsyncLocalStorage store. This indirection
+// keeps `node:async_hooks` out of the client bundle — utils.ts is
+// imported by both server and client components, so it cannot import
+// node builtins directly.
+type ServerModeGetter = () => CurrencyMode | undefined;
+let serverModeGetter: ServerModeGetter | null = null;
+
+/**
+ * Called once at server startup by currency-server.ts to wire up the
+ * AsyncLocalStorage bridge. Client-side code never calls this.
+ */
+export function registerServerModeGetter(getter: ServerModeGetter) {
+  serverModeGetter = getter;
+}
+
+// ── Client-side global (set by CurrencyProvider) ───────────────────
+// Defaults to "compact" so KPIs, stats, and badges show ₹1.2L
+// instead of ₹1,20,000.00. CurrencyProvider updates this on mount
+// from the user's stored preference.
+let globalCurrencyMode: CurrencyMode = "compact";
+
+/** Set the global currency mode (called by CurrencyProvider on the client). */
+export function setGlobalCurrencyMode(mode: CurrencyMode) {
+  globalCurrencyMode = mode;
+}
+
+/** Get the current global currency mode (useful for testing / debugging). */
+export function getGlobalCurrencyMode(): CurrencyMode {
+  return globalCurrencyMode;
+}
+
+export function formatCurrency(
+  value: number | string | null | undefined,
+  currency = "INR",
+  mode?: CurrencyMode,
+) {
+  // Priority: explicit parameter > server ALS (per-request) > client global
+  const effectiveMode = mode ?? (serverModeGetter?.() ?? globalCurrencyMode);
+  if (effectiveMode === "compact") return formatCurrencyCompact(value, currency);
+  // Default and "detailed" both use the full format
   if (value == null) return "—";
   const n = typeof value === "string" ? Number(value) : value;
   if (Number.isNaN(n)) return "—";
