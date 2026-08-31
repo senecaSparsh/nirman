@@ -19,15 +19,23 @@ export function GstReportsPanel() {
   const [gstr1, setGstr1] = useState<null | {
     totalTaxableValue: number;
     totalOutputGst: number;
+    totalCgst: number;
+    totalSgst: number;
     totalIgst: number;
     totalInvoiceCount: number;
-    entries: { date: string; sourceType: string; memo: string; taxableValue: number; gstAmount: number; gstRate: number }[];
+    entries: { date: string; sourceType: string; memo: string; taxableValue: number; gstAmount: number; gstRate: number; cgst: number; sgst: number; igst: number }[];
   }>(null);
   const [gstr3b, setGstr3b] = useState<null | {
     outwardTaxableValue: number;
     outwardOutputGst: number;
+    outwardCgst: number;
+    outwardSgst: number;
+    outwardIgst: number;
     inwardTaxableValue: number;
     inwardInputGst: number;
+    inwardCgst: number;
+    inwardSgst: number;
+    inwardIgst: number;
     itcAvailable: number;
     itcReversed: number;
     netGstPayable: number;
@@ -65,8 +73,14 @@ export function GstReportsPanel() {
       let csv = "GSTR-3B Summary\n";
       csv += `Outward Taxable Value,${gstr3b.outwardTaxableValue}\n`;
       csv += `Output GST,${gstr3b.outwardOutputGst}\n`;
+      csv += `  CGST,${gstr3b.outwardCgst}\n`;
+      csv += `  SGST,${gstr3b.outwardSgst}\n`;
+      csv += `  IGST,${gstr3b.outwardIgst}\n`;
       csv += `Inward Taxable Value,${gstr3b.inwardTaxableValue}\n`;
       csv += `Input GST (ITC),${gstr3b.inwardInputGst}\n`;
+      csv += `  CGST,${gstr3b.inwardCgst}\n`;
+      csv += `  SGST,${gstr3b.inwardSgst}\n`;
+      csv += `  IGST,${gstr3b.inwardIgst}\n`;
       csv += `ITC Reversed,${gstr3b.itcReversed}\n`;
       csv += `Net ITC Available,${gstr3b.itcAvailable}\n`;
       csv += `Net GST Payable,${gstr3b.netGstPayable}\n`;
@@ -74,9 +88,9 @@ export function GstReportsPanel() {
       downloads.push({ name: `gstr-3b-${from}-to-${to}.csv`, content: csv });
     }
     if (gstr1) {
-      let csv = "Date,Source,Memo,Taxable Value,GST Amount,GST Rate\n";
+      let csv = "Date,Source,Memo,Taxable Value,GST Amount,GST Rate,CGST,SGST,IGST\n";
       for (const e of gstr1.entries) {
-        csv += `${new Date(e.date).toLocaleDateString("en-IN")},${e.sourceType},"${e.memo}",${e.taxableValue},${e.gstAmount},${e.gstRate.toFixed(2)}%\n`;
+        csv += `${new Date(e.date).toLocaleDateString("en-IN")},${e.sourceType},"${e.memo}",${e.taxableValue},${e.gstAmount},${e.gstRate.toFixed(2)}%,${e.cgst},${e.sgst},${e.igst}\n`;
       }
       downloads.push({ name: `gstr-1-${from}-to-${to}.csv`, content: csv });
     }
@@ -129,8 +143,14 @@ export function GstReportsPanel() {
             <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Outward Taxable Value:</span><span className="font-mono">{formatCurrency(gstr3b.outwardTaxableValue)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Output GST:</span><span className="font-mono">{formatCurrency(gstr3b.outwardOutputGst)}</span></div>
+              <div className="flex justify-between pl-4 text-xs"><span className="text-muted-foreground">CGST:</span><span className="font-mono">{formatCurrency(gstr3b.outwardCgst)}</span></div>
+              <div className="flex justify-between pl-4 text-xs"><span className="text-muted-foreground">SGST:</span><span className="font-mono">{formatCurrency(gstr3b.outwardSgst)}</span></div>
+              <div className="flex justify-between pl-4 text-xs"><span className="text-muted-foreground">IGST:</span><span className="font-mono">{formatCurrency(gstr3b.outwardIgst)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Inward Taxable Value:</span><span className="font-mono">{formatCurrency(gstr3b.inwardTaxableValue)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Input GST (ITC):</span><span className="font-mono">{formatCurrency(gstr3b.inwardInputGst)}</span></div>
+              <div className="flex justify-between pl-4 text-xs"><span className="text-muted-foreground">CGST:</span><span className="font-mono">{formatCurrency(gstr3b.inwardCgst)}</span></div>
+              <div className="flex justify-between pl-4 text-xs"><span className="text-muted-foreground">SGST:</span><span className="font-mono">{formatCurrency(gstr3b.inwardSgst)}</span></div>
+              <div className="flex justify-between pl-4 text-xs"><span className="text-muted-foreground">IGST:</span><span className="font-mono">{formatCurrency(gstr3b.inwardIgst)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">ITC Reversed:</span><span className="font-mono">{formatCurrency(gstr3b.itcReversed)}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Net ITC Available:</span><span className="font-mono">{formatCurrency(gstr3b.itcAvailable)}</span></div>
             </div>
@@ -154,8 +174,10 @@ export function GstReportsPanel() {
           <div className="rounded-lg border overflow-hidden">
             <div className="bg-muted/50 px-4 py-2 flex justify-between items-center">
               <h4 className="font-semibold text-sm">GSTR-1 Outward Supplies ({gstr1.totalInvoiceCount} entries)</h4>
-              <div className="text-sm text-muted-foreground">
-                Total GST: <span className="font-mono font-semibold">{formatCurrency(gstr1.totalOutputGst)}</span>
+              <div className="text-sm text-muted-foreground flex gap-3">
+                <span>CGST: <span className="font-mono font-semibold">{formatCurrency(gstr1.totalCgst)}</span></span>
+                <span>SGST: <span className="font-mono font-semibold">{formatCurrency(gstr1.totalSgst)}</span></span>
+                <span>IGST: <span className="font-mono font-semibold">{formatCurrency(gstr1.totalIgst)}</span></span>
               </div>
             </div>
             <div className="max-h-64 overflow-y-auto">
@@ -167,11 +189,14 @@ export function GstReportsPanel() {
                     <th className="text-right p-2">Taxable</th>
                     <th className="text-right p-2">GST</th>
                     <th className="text-right p-2">Rate</th>
+                    <th className="text-right p-2">CGST</th>
+                    <th className="text-right p-2">SGST</th>
+                    <th className="text-right p-2">IGST</th>
                   </tr>
                 </thead>
                 <tbody>
                   {gstr1.entries.length === 0 ? (
-                    <tr><td colSpan={5} className="text-center p-4 text-muted-foreground">No outward supplies in this period</td></tr>
+                    <tr><td colSpan={8} className="text-center p-4 text-muted-foreground">No outward supplies in this period</td></tr>
                   ) : (
                     gstr1.entries.map((e, i) => (
                       <tr key={i} className="border-t">
@@ -180,6 +205,9 @@ export function GstReportsPanel() {
                         <td className="p-2 text-right font-mono">{formatCurrency(e.taxableValue)}</td>
                         <td className="p-2 text-right font-mono">{formatCurrency(e.gstAmount)}</td>
                         <td className="p-2 text-right">{e.gstRate.toFixed(1)}%</td>
+                        <td className="p-2 text-right font-mono">{formatCurrency(e.cgst)}</td>
+                        <td className="p-2 text-right font-mono">{formatCurrency(e.sgst)}</td>
+                        <td className="p-2 text-right font-mono">{formatCurrency(e.igst)}</td>
                       </tr>
                     ))
                   )}

@@ -101,7 +101,7 @@ For each capability:
 | Project cost allocation | HAVE | HAVE | HAVE | HAVE | — |
 | Cost-per-sqft reallocation | HAVE | HAVE | — | — | — |
 | Tally XML sync | HAVE | HAVE | — | — | — |
-| GST (CGST/SGST/IGST auto) | GAP | HAVE | HAVE | HAVE | P0 |
+| GST (CGST/SGST/IGST auto) | HAVE | HAVE | HAVE | HAVE | — |
 | e-Invoicing (IRN + QR) | GAP | HAVE | HAVE | HAVE | P0 |
 | e-Way Bill | GAP | HAVE | HAVE | HAVE | P1 |
 | GSTR-1/2B/3B filing | GAP | HAVE | HAVE | HAVE | P0 |
@@ -185,7 +185,7 @@ For each capability:
 
 1. ~~**Allotment letter + demand notice generation**~~ ✅ DONE — print templates at `/print/allotment-letter/[id]` and `/print/demand-notice/[id]`, wired to desktop + mobile sale detail
 2. ~~**Construction-linked payment schedule (auto)**~~ ✅ DONE — `PaymentSchedule` + `PaymentScheduleItem` with CLP type, WBS milestone triggers
-3. **GST calc (CGST/SGST/IGST auto) + GSTR-1/2B/3B filing** (Tally gold standard)
+3. ~~**GST calc (CGST/SGST/IGST auto) + GSTR-1/2B/3B filing**~~ ✅ DONE — CGST/SGST/IGST auto-split based on GSTIN state codes, GSTR-1 + GSTR-3B reports with per-entry split, CSV export
 4. **e-Invoicing (IRN + QR)** (regulatory mandate)
 5. ~~**BOQ + rate analysis**~~ ✅ DONE — `/boq` page with hierarchical BOQ, rate analysis dialog, mobile BOQ pages
 6. **Customer portal** (4QT CP, Zoho CRM portal — table stakes for real estate)

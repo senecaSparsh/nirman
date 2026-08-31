@@ -9,6 +9,52 @@ import Decimal from "decimal.js";
  * They provide the data needed to file GST returns.
  */
 
+/**
+ * Extract the state code (first 2 digits) from a GSTIN.
+ * GSTIN format: 2-digit state code + 10-char PAN + 1-char entity + 1-char Z + 1-char checksum.
+ * Returns null if the GSTIN is too short or malformed.
+ */
+export function getStateCodeFromGstin(gstin: string | null | undefined): string | null {
+  if (!gstin || gstin.length < 2) return null;
+  const stateCode = gstin.slice(0, 2);
+  // State codes are 01-38 (India has 36 states/UTs + special codes)
+  if (!/^\d{2}$/.test(stateCode)) return null;
+  return stateCode;
+}
+
+/**
+ * Determine if a transaction is intra-state (same state) or inter-state.
+ * If either party's GSTIN is unknown, defaults to inter-state (IGST).
+ * This is the conservative approach — IGST is always valid, CGST/SGST is only
+ * for confirmed same-state transactions.
+ */
+export function isIntraState(
+  companyGstin: string | null | undefined,
+  partyGstin: string | null | undefined,
+): boolean {
+  const companyState = getStateCodeFromGstin(companyGstin);
+  const partyState = getStateCodeFromGstin(partyGstin);
+  if (!companyState || !partyState) return false;
+  return companyState === partyState;
+}
+
+/**
+ * Split a GST amount into CGST, SGST, and IGST components.
+ * - Intra-state: CGST = 50%, SGST = 50%, IGST = 0
+ * - Inter-state: CGST = 0, SGST = 0, IGST = 100%
+ */
+export function splitGst(
+  gstAmount: Decimal,
+  companyGstin: string | null | undefined,
+  partyGstin: string | null | undefined,
+): { cgst: Decimal; sgst: Decimal; igst: Decimal } {
+  if (isIntraState(companyGstin, partyGstin)) {
+    const half = gstAmount.div(2);
+    return { cgst: half, sgst: half, igst: new Decimal(0) };
+  }
+  return { cgst: new Decimal(0), sgst: new Decimal(0), igst: gstAmount };
+}
+
 export interface Gstr1Report {
   fromDate: Date;
   toDate: Date;
@@ -29,6 +75,9 @@ export interface Gstr1Report {
     taxableValue: Decimal;
     gstAmount: Decimal;
     gstRate: Decimal;
+    cgst: Decimal;
+    sgst: Decimal;
+    igst: Decimal;
   }[];
 }
 
@@ -39,9 +88,15 @@ export interface Gstr3bReport {
   // 3.1 — Outward supplies
   outwardTaxableValue: Decimal;
   outwardOutputGst: Decimal;
+  outwardCgst: Decimal;
+  outwardSgst: Decimal;
+  outwardIgst: Decimal;
   // 3.2 — Inward supplies
   inwardTaxableValue: Decimal;
   inwardInputGst: Decimal;
+  inwardCgst: Decimal;
+  inwardSgst: Decimal;
+  inwardIgst: Decimal;
   // 4 — ITC details
   itcAvailable: Decimal;
   itcReversed: Decimal;
@@ -59,6 +114,13 @@ export async function generateGstr1(
   fromDate: Date,
   toDate: Date,
 ): Promise<Gstr1Report> {
+  // Get the company's GSTIN for place-of-supply determination
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { gstin: true },
+  });
+  const companyGstin = company?.gstin ?? null;
+
   // Find all journal lines crediting Output GST (2100) in the date range
   const gstLines = await prisma.journalLine.findMany({
     where: {
@@ -70,7 +132,7 @@ export async function generateGstr1(
       },
     },
     include: {
-      journalEntry: { select: { id: true, entryDate: true, sourceType: true, memo: true } },
+      journalEntry: { select: { id: true, entryDate: true, sourceType: true, sourceId: true, memo: true } },
     },
     orderBy: { journalEntry: { entryDate: "asc" } },
   });
@@ -78,6 +140,9 @@ export async function generateGstr1(
   const entries: Gstr1Report["entries"] = [];
   let totalTaxableValue = new Decimal(0);
   let totalOutputGst = new Decimal(0);
+  let totalCgst = new Decimal(0);
+  let totalSgst = new Decimal(0);
+  let totalIgst = new Decimal(0);
 
   for (const gl of gstLines) {
     const gstAmount = new Decimal(gl.credit);
@@ -95,6 +160,31 @@ export async function generateGstr1(
       ? gstAmount.div(taxableValue).times(100)
       : new Decimal(0);
 
+    // Determine the counterparty's GSTIN for CGST/SGST/IGST split
+    let partyGstin: string | null = null;
+    const je = gl.journalEntry;
+    if (je.sourceId) {
+      // Trace back to the sale → customer → GSTIN
+      if (je.sourceType === "ASSET_SALE") {
+        const sale = await prisma.assetSale.findUnique({
+          where: { id: je.sourceId },
+          select: { customer: { select: { gstin: true } } },
+        });
+        partyGstin = sale?.customer?.gstin ?? null;
+      } else if (je.sourceType === "MATERIAL_SALE") {
+        const sale = await prisma.materialSale.findUnique({
+          where: { id: je.sourceId },
+          select: { customer: { select: { gstin: true } } },
+        });
+        partyGstin = sale?.customer?.gstin ?? null;
+      }
+    }
+
+    const split = splitGst(gstAmount, companyGstin, partyGstin);
+    totalCgst = totalCgst.plus(split.cgst);
+    totalSgst = totalSgst.plus(split.sgst);
+    totalIgst = totalIgst.plus(split.igst);
+
     totalTaxableValue = totalTaxableValue.plus(taxableValue);
     totalOutputGst = totalOutputGst.plus(gstAmount);
 
@@ -106,20 +196,21 @@ export async function generateGstr1(
       taxableValue,
       gstAmount,
       gstRate,
+      cgst: split.cgst,
+      sgst: split.sgst,
+      igst: split.igst,
     });
   }
 
-  // For simplicity, assume all GST is IGST (inter-state). In a real system,
-  // CGST/SGST split would be determined by place of supply.
   return {
     fromDate,
     toDate,
     companyId,
     totalTaxableValue,
     totalOutputGst,
-    totalCgst: new Decimal(0),  // would need place-of-supply logic
-    totalSgst: new Decimal(0),
-    totalIgst: totalOutputGst,
+    totalCgst,
+    totalSgst,
+    totalIgst,
     totalInvoiceCount: entries.length,
     entries,
   };
@@ -134,8 +225,15 @@ export async function generateGstr3b(
   fromDate: Date,
   toDate: Date,
 ): Promise<Gstr3bReport> {
-  // Output GST (credited) — from sales
-  const outputGstLines = await prisma.journalLine.aggregate({
+  // Get the company's GSTIN for place-of-supply determination
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { gstin: true },
+  });
+  const companyGstin = company?.gstin ?? null;
+
+  // ── Outward supplies: compute per-entry to get CGST/SGST/IGST split ──
+  const outputGstLines = await prisma.journalLine.findMany({
     where: {
       accountCode: "2100",
       credit: { gt: 0 },
@@ -144,9 +242,42 @@ export async function generateGstr3b(
         entryDate: { gte: fromDate, lte: toDate },
       },
     },
-    _sum: { credit: true },
+    include: {
+      journalEntry: { select: { id: true, sourceType: true, sourceId: true } },
+    },
   });
-  const outwardOutputGst = new Decimal(outputGstLines._sum?.credit ?? 0);
+
+  let outwardOutputGst = new Decimal(0);
+  let outwardCgst = new Decimal(0);
+  let outwardSgst = new Decimal(0);
+  let outwardIgst = new Decimal(0);
+
+  for (const gl of outputGstLines) {
+    const gstAmount = new Decimal(gl.credit);
+    outwardOutputGst = outwardOutputGst.plus(gstAmount);
+
+    let partyGstin: string | null = null;
+    if (gl.journalEntry.sourceId) {
+      if (gl.journalEntry.sourceType === "ASSET_SALE") {
+        const sale = await prisma.assetSale.findUnique({
+          where: { id: gl.journalEntry.sourceId },
+          select: { customer: { select: { gstin: true } } },
+        });
+        partyGstin = sale?.customer?.gstin ?? null;
+      } else if (gl.journalEntry.sourceType === "MATERIAL_SALE") {
+        const sale = await prisma.materialSale.findUnique({
+          where: { id: gl.journalEntry.sourceId },
+          select: { customer: { select: { gstin: true } } },
+        });
+        partyGstin = sale?.customer?.gstin ?? null;
+      }
+    }
+
+    const split = splitGst(gstAmount, companyGstin, partyGstin);
+    outwardCgst = outwardCgst.plus(split.cgst);
+    outwardSgst = outwardSgst.plus(split.sgst);
+    outwardIgst = outwardIgst.plus(split.igst);
+  }
 
   // Sales revenue (taxable value)
   const revenueLines = await prisma.journalLine.aggregate({
@@ -162,8 +293,8 @@ export async function generateGstr3b(
   });
   const outwardTaxableValue = new Decimal(revenueLines._sum?.credit ?? 0);
 
-  // Input GST (ITC) — debited from purchases
-  const inputGstLines = await prisma.journalLine.aggregate({
+  // ── Inward supplies: compute per-entry to get CGST/SGST/IGST split ──
+  const inputGstLineRecords = await prisma.journalLine.findMany({
     where: {
       accountCode: "1400",
       debit: { gt: 0 },
@@ -172,9 +303,43 @@ export async function generateGstr3b(
         entryDate: { gte: fromDate, lte: toDate },
       },
     },
-    _sum: { debit: true },
+    include: {
+      journalEntry: { select: { id: true, sourceType: true, sourceId: true } },
+    },
   });
-  const itcAvailable = new Decimal(inputGstLines._sum?.debit ?? 0);
+
+  let itcAvailable = new Decimal(0);
+  let inwardCgst = new Decimal(0);
+  let inwardSgst = new Decimal(0);
+  let inwardIgst = new Decimal(0);
+
+  for (const gl of inputGstLineRecords) {
+    const gstAmount = new Decimal(gl.debit);
+    itcAvailable = itcAvailable.plus(gstAmount);
+
+    let partyGstin: string | null = null;
+    if (gl.journalEntry.sourceId) {
+      if (gl.journalEntry.sourceType === "PO_RECEIPT") {
+        // Trace: GoodsReceipt → PurchaseOrder → Supplier
+        const gr = await prisma.goodsReceipt.findUnique({
+          where: { id: gl.journalEntry.sourceId },
+          select: { purchaseOrder: { select: { supplier: { select: { gstin: true } } } } },
+        });
+        partyGstin = gr?.purchaseOrder?.supplier?.gstin ?? null;
+      } else if (gl.journalEntry.sourceType === "DIRECT_PURCHASE") {
+        const dp = await prisma.directPurchase.findUnique({
+          where: { id: gl.journalEntry.sourceId },
+          select: { supplier: { select: { gstin: true } } },
+        });
+        partyGstin = dp?.supplier?.gstin ?? null;
+      }
+    }
+
+    const split = splitGst(gstAmount, companyGstin, partyGstin);
+    inwardCgst = inwardCgst.plus(split.cgst);
+    inwardSgst = inwardSgst.plus(split.sgst);
+    inwardIgst = inwardIgst.plus(split.igst);
+  }
 
   // Purchase value (taxable)
   const purchaseInventoryLines = await prisma.journalLine.aggregate({
@@ -215,8 +380,14 @@ export async function generateGstr3b(
     companyId,
     outwardTaxableValue,
     outwardOutputGst,
+    outwardCgst,
+    outwardSgst,
+    outwardIgst,
     inwardTaxableValue,
     inwardInputGst: itcAvailable,
+    inwardCgst,
+    inwardSgst,
+    inwardIgst,
     itcAvailable: netItc,
     itcReversed,
     netGstPayable: netGstPayable.gt(0) ? netGstPayable : new Decimal(0),

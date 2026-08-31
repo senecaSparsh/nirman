@@ -561,8 +561,14 @@ export {
   type PostJournalInput,
 } from "./gl-posting";
 
-// GST reconciliation reports (GSTR-1, GSTR-3B)
-export { generateGstr1, generateGstr3b } from "./gst-reports";
+// GST reconciliation reports (GSTR-1, GSTR-3B) + CGST/SGST/IGST split utilities
+export {
+  generateGstr1,
+  generateGstr3b,
+  getStateCodeFromGstin,
+  isIntraState,
+  splitGst,
+} from "./gst-reports";
 
 // GL Preview — pure functions that compute journal lines without persisting
 export {
