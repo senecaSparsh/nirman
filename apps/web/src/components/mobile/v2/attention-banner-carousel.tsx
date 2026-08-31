@@ -161,10 +161,10 @@ export function AttentionBannerCarousel({
               style={{ background: GRADIENTS[banner.severity] }}
             >
               <Link href={banner.href} className="block">
-                <div className="px-4 py-5 flex items-center gap-3 min-h-[8rem] pr-20">
+                <div className="px-4 py-5 flex items-center gap-3 min-h-[8rem] pr-12">
                   {/* Icon */}
                   <div
-                    className="grid place-items-center w-14 h-14 rounded-[0.625rem] shrink-0"
+                    className="grid place-items-center w-14 h-14 rounded-[0.75rem] shrink-0"
                     style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
                   >
                     <Icon className="size-7" style={{ color: "#fff" }} />
