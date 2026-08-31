@@ -271,6 +271,11 @@ export function SaleDetailDialog({
                   <Printer className="h-4 w-4" /> Print Draft / LOI
                 </a>
               </Button>
+              <Button asChild size="sm" variant="outline">
+                <a href={`/print/allotment-letter/${sale.id}`} target="_blank" rel="noopener noreferrer" title="Print allotment letter">
+                  <Printer className="h-4 w-4" /> Allotment Letter
+                </a>
+              </Button>
             </div>
 
             {/* Sale summary */}
@@ -663,19 +668,30 @@ export function SaleDetailDialog({
                           <TD><StatusPill status={item.status} /></TD>
                           {canManage && (
                             <TD className="text-right">
-                              {item.status !== "PAID" && !isCancelled ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-6 text-[11px]"
-                                  disabled={acting}
-                                  onClick={() => setCollectItem(item)}
+                              <div className="flex items-center justify-end gap-1">
+                                {item.status !== "PAID" && !isCancelled ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 text-[11px]"
+                                    disabled={acting}
+                                    onClick={() => setCollectItem(item)}
+                                  >
+                                    <Banknote className="h-3 w-3" /> Collect
+                                  </Button>
+                                ) : (
+                                  <span className="text-caption text-muted-foreground">—</span>
+                                )}
+                                <a
+                                  href={`/print/demand-notice/${item.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-micro text-muted-foreground hover:text-foreground"
+                                  title="Print demand notice"
                                 >
-                                  <Banknote className="h-3 w-3" /> Collect
-                                </Button>
-                              ) : (
-                                <span className="text-caption text-muted-foreground">—</span>
-                              )}
+                                  <Printer className="h-3 w-3" />
+                                </a>
+                              </div>
                             </TD>
                           )}
                         </TR>

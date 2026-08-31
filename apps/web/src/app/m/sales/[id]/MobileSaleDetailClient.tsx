@@ -656,6 +656,16 @@ export function MobileSaleDetailClient({
           <Printer className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-700)" }} />
           <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Invoice</span>
         </a>
+        <a
+          href={`/print/allotment-letter/${saleId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <Printer className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-700)" }} />
+          <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Allotment</span>
+        </a>
       </div>
 
       {/* ── Info + Deal Details grid (2 columns) ── */}
@@ -1021,6 +1031,17 @@ export function MobileSaleDetailClient({
                     </div>
                   )}
                 </div>
+                {it.status !== "PAID" && (
+                  <a
+                    href={`/print/demand-notice/${it.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-2 shrink-0"
+                    title="Print demand notice"
+                  >
+                    <Printer className="size-3" style={{ color: "var(--color-ink-500)" }} />
+                  </a>
+                )}
               </div>
             ))}
           </div>

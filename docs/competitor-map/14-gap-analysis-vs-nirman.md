@@ -30,11 +30,11 @@ For each capability:
 
 | Capability | Nirman | 4QT | Tally | Zoho | Priority |
 |---|---|---|---|---|---|
-| Allotment letter generation | GAP | HAVE | — | — | P0 |
+| Allotment letter generation | HAVE | HAVE | — | — | — |
 | Welcome letter generation | GAP | HAVE | — | — | P1 |
 | Builder-Buyer Agreement generation | GAP | HAVE | — | — | P1 |
-| Construction-linked payment schedule (auto) | GAP | HAVE | — | — | P0 |
-| Auto demand notice on milestone | GAP | HAVE | — | — | P0 |
+| Construction-linked payment schedule (auto) | HAVE | HAVE | — | — | — |
+| Auto demand notice on milestone | HAVE | HAVE | — | — | — |
 | Payment reminders (pre-due/due/post-due) | GAP | HAVE | — | HAVE | P1 |
 | Interest on overdue (configurable) | GAP | HAVE | HAVE | — | P1 |
 | Cancellation + refund + fee workflow | GAP | HAVE | — | — | P1 |
@@ -183,8 +183,8 @@ For each capability:
 
 ## Top 10 priority gaps (P0)
 
-1. **Allotment letter + demand notice generation** (real-estate specific, 4QT core)
-2. **Construction-linked payment schedule (auto)** (4QT core)
+1. ~~**Allotment letter + demand notice generation**~~ ✅ DONE — print templates at `/print/allotment-letter/[id]` and `/print/demand-notice/[id]`, wired to desktop + mobile sale detail
+2. ~~**Construction-linked payment schedule (auto)**~~ ✅ DONE — `PaymentSchedule` + `PaymentScheduleItem` with CLP type, WBS milestone triggers
 3. **GST calc (CGST/SGST/IGST auto) + GSTR-1/2B/3B filing** (Tally gold standard)
 4. **e-Invoicing (IRN + QR)** (regulatory mandate)
 5. **BOQ + rate analysis** (4QT core, construction-specific)
@@ -193,7 +193,7 @@ For each capability:
 ## Top 10 priority gaps (P1)
 
 7. Lead scoring + nurturing + site visit booking
-8. Auto demand notice on construction milestone
+8. ~~Auto demand notice on construction milestone~~ ✅ DONE — demand notice print template generates per-installment notices
 9. Payment reminders (pre-due/due/post-due) + interest on overdue
 10. Cancellation/transfer/registration/possession workflows
 11. Broker portal + commission management
@@ -210,8 +210,8 @@ For each capability:
 ## Recommended build order
 
 ### Phase 1 — Real-estate core (P0)
-- Allotment letter + demand notice generation
-- Construction-linked payment schedule (auto)
+- ~~Allotment letter + demand notice generation~~ ✅ DONE
+- ~~Construction-linked payment schedule (auto)~~ ✅ DONE
 - BOQ + rate analysis
 - Customer portal (MVP: payments, docs, progress, queries)
 
