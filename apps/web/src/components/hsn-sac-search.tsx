@@ -19,6 +19,8 @@ interface HsnSacSearchProps {
   onGstRateChange?: (gstRate: number) => void;
   placeholder?: string;
   className?: string;
+  inputClassName?: string;
+  inputStyle?: React.CSSProperties;
 }
 
 /**
@@ -33,6 +35,8 @@ export function HsnSacSearch({
   onGstRateChange,
   placeholder = "Search HSN/SAC code…",
   className,
+  inputClassName,
+  inputStyle,
 }: HsnSacSearchProps) {
   const [query, setQuery] = useState(value);
   const [results, setResults] = useState<HsnSacResult[]>([]);
@@ -122,6 +126,8 @@ export function HsnSacSearch({
         }}
         placeholder={placeholder}
         autoComplete="off"
+        className={inputClassName}
+        style={inputStyle}
       />
       {open && (loading || results.length > 0) && (
         <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-60 overflow-y-auto">

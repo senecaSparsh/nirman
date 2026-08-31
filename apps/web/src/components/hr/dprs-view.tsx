@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ClipboardList, Plus, Cloud, Pencil, Trash2, CheckCircle2, XCircle, ShieldCheck, RotateCw, Ruler, RefreshCw, Recycle, Loader2, SearchX, Wallet, Printer } from "lucide-react";
+import { ClipboardList, Plus, Cloud, Pencil, Trash2, CheckCircle2, XCircle, ShieldCheck, RotateCw, Ruler, RefreshCw, Recycle, Loader2, SearchX, Wallet, Printer, ScanLine } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label, Textarea } from "@/components/ui/input";
@@ -648,6 +648,85 @@ function DprFormDialog({
   const [laborLines, setLaborLines] = useState<Array<{ employeeId: string; crewId: string; hoursWorked: string; taskDescription: string }>>(
     editTarget?.laborLines?.map((l) => ({ employeeId: l.employeeId ?? "", crewId: l.crewId ?? "", hoursWorked: String(l.hoursWorked), taskDescription: l.taskDescription })) ?? []
   );
+  const [ocrLoading, setOcrLoading] = useState(false);
+
+  // ── OCR: extract DPR data from a site photo ──────────────────
+  async function runOcr() {
+    if (fPhotos.length === 0) {
+      toast.error("Add a site photo first, then click Scan");
+      return;
+    }
+    setOcrLoading(true);
+    try {
+      const photoUrl = fPhotos[0]!.url;
+      let base64: string | undefined;
+      if (photoUrl.startsWith("data:")) {
+        base64 = photoUrl.split(",")[1];
+      } else {
+        const res = await fetch(photoUrl);
+        const blob = await res.blob();
+        const reader = new FileReader();
+        base64 = await new Promise<string>((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+        base64 = base64.split(",")[1];
+      }
+
+      const res = await fetch("/api/ocr/dpr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base64 }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "OCR failed");
+      }
+      const data = await res.json();
+      const result = data.result;
+
+      if (result.workType) set("workType", result.workType);
+      if (result.workQty != null) set("workQty", String(result.workQty));
+      if (result.workUnit) set("workUnit", result.workUnit);
+      if (result.notes) set("notes", result.notes);
+      if (result.progressPercent != null) set("progressPct", String(result.progressPercent));
+
+      if (result.materials?.length > 0) {
+        const matched: Array<{ materialId: string; qty: string; unitCost: string }> = [];
+        for (const ml of result.materials) {
+          const mat = materials.find(
+            (m) => m.name.toLowerCase().includes(ml.materialName.toLowerCase()) ||
+                   ml.materialName.toLowerCase().includes(m.name.toLowerCase()),
+          );
+          if (mat) {
+            matched.push({ materialId: mat.id, qty: String(ml.quantity), unitCost: String(mat.standardCost) });
+          }
+        }
+        if (matched.length > 0) {
+          setMaterialLines(matched);
+          toast.success(`OCR: filled ${matched.length} material lines from photo`);
+        }
+      }
+
+      if (result.labor?.length > 0) {
+        const matched: Array<{ employeeId: string; crewId: string; hoursWorked: string; taskDescription: string }> = [];
+        for (const ll of result.labor) {
+          matched.push({ employeeId: "", crewId: "", hoursWorked: "8", taskDescription: ll.trade });
+        }
+        if (matched.length > 0) {
+          setLaborLines(matched);
+        }
+      }
+
+      if (result.materials?.length === 0 && result.labor?.length === 0) {
+        toast.info("OCR completed but no lines detected. The photo may need to be clearer.");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "OCR failed — fill manually");
+    } finally {
+      setOcrLoading(false);
+    }
+  }
   // Local copies so freshly created masters appear in their dropdowns without
   // waiting for router.refresh.
   const [localProjects, setLocalProjects] = useState(projects);
@@ -850,7 +929,22 @@ function DprFormDialog({
           </div>
 
           <div>
-            <Label>Site Photos</Label>
+            <div className="mb-1.5 flex items-center justify-between">
+              <Label>Site Photos</Label>
+              {fPhotos.length > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={runOcr}
+                  disabled={ocrLoading}
+                  className="gap-1.5"
+                >
+                  {ocrLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ScanLine className="h-3.5 w-3.5" />}
+                  {ocrLoading ? "Scanning…" : "Scan Photo"}
+                </Button>
+              )}
+            </div>
             <PhotoUploader photos={fPhotos} onChange={setFPhotos} maxPhotos={8} label="Add Site Photo" />
           </div>
 

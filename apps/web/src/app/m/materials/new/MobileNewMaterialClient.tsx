@@ -9,6 +9,7 @@ import {
 import { formatCurrencyCompact } from "@/lib/utils";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { HsnSacSearch } from "@/components/hsn-sac-search";
 import { MobileNewCategoryDialog } from "./MobileNewCategoryDialog";
 
 interface Category {
@@ -351,14 +352,13 @@ export default function MobileNewMaterialClient({
         {/* ── HSN + GST ── */}
         <div className="grid grid-cols-2 gap-2">
           <FormField label="HSN code">
-            <input
-              type="text"
+            <HsnSacSearch
               value={hsnCode}
-              onChange={(e) => setHsnCode(e.target.value)}
-              placeholder="25232900"
-              enterKeyHint="next"
-              className={`${inputClass} font-mono`}
-              style={inputStyle}
+              onCodeChange={setHsnCode}
+              onGstRateChange={(rate) => setGstRate(String(rate))}
+              placeholder="Search or type…"
+              inputClassName={`${inputClass} font-mono`}
+              inputStyle={inputStyle}
             />
           </FormField>
           <FormField label="GST rate (%)">
