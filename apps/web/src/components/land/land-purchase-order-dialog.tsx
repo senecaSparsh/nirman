@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -73,9 +73,9 @@ export function LandPurchaseOrderDialog({
   const [partialRegistry, setPartialRegistry] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors<FormValues>>({});
 
-  function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+  const set = useCallback(<K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm((f) => ({ ...f, [key]: value }));
-  }
+  }, []);
 
   function validateField(key: keyof FormValues): string | undefined {
     if (key === "sellerName") return required(form.sellerName, "Seller name");
@@ -97,7 +97,7 @@ export function LandPurchaseOrderDialog({
         set("sellerContact", s.phone ?? "");
       }
     }
-  }, [form.sellerId, sellers]);
+  }, [form.sellerId, sellers, set]);
 
   const totalCostNum = Number(form.totalCost) || 0;
   const tokenNum = Number(form.tokenAmount) || 0;

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import {
-  CheckCircle2, X, Package, Truck, Calendar, MapPin, Camera, Loader2,
+  CheckCircle2, X, Package, Truck, Calendar, Loader2,
   RotateCcw, AlertTriangle,
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";

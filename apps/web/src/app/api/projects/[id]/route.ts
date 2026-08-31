@@ -57,7 +57,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   if (!existing) return json({ error: "Project not found" }, { status: 404 });
   const {
     startDate, endDate, totalBudget,
-    isATS, atsRegistrationAmount, atsExpectedRegistryDate, registryNo,
+    isATS: _isATS, atsRegistrationAmount: _atsRegistrationAmount, atsExpectedRegistryDate: _atsExpectedRegistryDate, registryNo: _registryNo,
     reraNumber, reraRegistrationDate, reraValidityDate, reraWebsiteUrl,
     ...rest
   } = parsed.data;

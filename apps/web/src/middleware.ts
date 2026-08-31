@@ -73,6 +73,18 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/m", req.url));
   }
 
+  // ── Server-side desktop redirect (eliminates flash on desktop) ──
+  // If a desktop browser lands on the bare mobile home "/m", redirect to
+  // the desktop home "/". The client-side redirector handles deeper
+  // mobile home routes (/m/home, /m/inventory) via matchMedia.
+  if (
+    (pathname === "/m" || pathname === "/m/home") &&
+    !hasDesktopCookie(req) &&
+    !isMobileRequest(req)
+  ) {
+    return NextResponse.redirect(new URL("/", req.url));
+  }
+
   // AUTH_BYPASS=true: skip the auth gate entirely (headless dev mode).
   // Hard-gated to non-production so it can never leak into a real deploy
   // even if the env var is accidentally set.

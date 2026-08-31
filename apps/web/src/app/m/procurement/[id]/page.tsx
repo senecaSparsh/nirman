@@ -193,6 +193,7 @@ async function MobilePoDetailContent({
   const total = toNum(po.total);
 
   // Overdue calculation for inline alert
+  // eslint-disable-next-line react-hooks/purity -- server component
   const now = Date.now();
   let overdueDays = 0;
   if (po.status === "ORDERED" && po.expectedDate) {

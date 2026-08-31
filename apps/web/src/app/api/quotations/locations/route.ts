@@ -17,7 +17,7 @@ import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission } f
  *     }
  *   ]
  */
-export const GET = apiHandler(async (req: NextRequest) => {
+export const GET = apiHandler(async (_req: NextRequest) => {
   await requirePermission(PERM.QUOTATION_VIEW);
   const company = await getCompany();
   const groupIds = await getCompanyGroupIds(company);

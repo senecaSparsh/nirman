@@ -119,6 +119,7 @@ export function MobileChequeFields({
         </label>
         {value.chequePhotoUrl ? (
           <div className="relative rounded-[0.375rem] border overflow-hidden" style={{ borderColor: "var(--color-line)" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded photo */}
             <img src={value.chequePhotoUrl} alt="Cheque" className="w-full h-24 object-cover" />
             <button
               type="button"

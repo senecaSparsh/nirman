@@ -136,7 +136,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       window.fetch = originalFetch;
       (window as unknown as { __authInterceptorInstalled?: boolean }).__authInterceptorInstalled = false;
     };
-  }, [router]);
+  }, [router, pathname]);
 
   /**
    * Collapse is a presentation preference, so it lives in the DOM (a root

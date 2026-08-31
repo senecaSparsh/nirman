@@ -72,7 +72,8 @@ const INVENTORY_TAB: ModuleTab = {
   label: "Inventory",
   href: "/m/inventory",
   icon: Boxes,
-  badge: { endpoint: "/api/purchase-orders?status=DRAFT,APPROVED,ORDERED,PARTIAL" },
+  // Badge = draft POs awaiting approval (actionable count, not total POs)
+  badge: { endpoint: "/api/purchase-orders?status=DRAFT" },
 };
 const HR_TAB: ModuleTab = { id: "hr", label: "HR", href: "/m/hr", icon: Users };
 const ACCOUNTS_TAB: ModuleTab = { id: "accounts", label: "Accounts", href: "/m/accounts", icon: BookOpen };

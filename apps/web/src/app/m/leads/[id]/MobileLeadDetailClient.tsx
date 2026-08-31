@@ -95,7 +95,7 @@ const NEXT_STAGES: Record<string, string[]> = {
 
 export function MobileLeadDetailClient({
   data,
-  canCreate,
+  canCreate: _canCreate,
   canManage,
   notFound,
 }: {

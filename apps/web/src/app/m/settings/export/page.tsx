@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import {
   Download, FileText, Loader2, Package, TrendingUp,
   Wallet, Receipt, Scale, BarChart3, FileSpreadsheet,
-  CheckCircle2, FolderOpen,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";

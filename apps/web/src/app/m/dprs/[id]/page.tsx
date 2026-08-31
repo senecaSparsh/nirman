@@ -252,6 +252,7 @@ async function MobileDprDetailContent({
                 className="block overflow-hidden rounded-[0.375rem] border"
                 style={{ borderColor: "var(--color-line)" }}
               >
+                {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded photo */}
                 <img src={url} alt={`Site photo ${i + 1}`} className="aspect-video w-full object-cover" />
               </a>
             ))}

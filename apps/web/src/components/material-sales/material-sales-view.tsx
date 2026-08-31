@@ -841,7 +841,7 @@ function MaterialSaleDetailDialog({
   totalPaid,
   outstanding,
   onClose,
-  onPrint,
+  onPrint: _onPrint,
   onRecordPayment,
   onCancel,
   canCancel,

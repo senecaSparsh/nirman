@@ -38,6 +38,7 @@ export function VirtualizedList<T>({
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- @tanstack/react-virtual is not fully compiler-compatible
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => parentRef.current,

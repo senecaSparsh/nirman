@@ -548,7 +548,7 @@ export function flowPosition(flowId: FlowId, status: string): FlowNode[] {
   const upper = status.toUpperCase();
   const idx = flow.nodes.findIndex((n) => n.status?.toUpperCase() === upper);
   if (idx === -1) return flow.nodes;
-  return flow.nodes.map((n, i) => ({
+  return flow.nodes.map((n, _i) => ({
     ...n,
     // state is derived by the caller; here we just return the slice
   }));

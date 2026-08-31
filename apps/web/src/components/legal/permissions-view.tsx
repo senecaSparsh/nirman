@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
   ShieldCheck, CheckCircle2, Clock, AlertTriangle, XCircle,
-  RefreshCw, Download, FileText, MapPin, Building2, ExternalLink,
+  RefreshCw, Download, FileText, MapPin, Building2,
   Filter, Search,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
@@ -379,7 +379,7 @@ function EntityLink({ doc }: { doc: PermissionRow }) {
 }
 
 function FilterSelect({
-  label, value, onChange, options,
+  label: _label, value, onChange, options,
 }: {
   label: string;
   value: string;

@@ -172,7 +172,7 @@ export function TransfersTab({ transfers, locations, projects, canTransfer }: { 
         onOpenChange={setLocationCreateOpen}
         projects={projects}
         location={null}
-        onCreated={(entity) => {
+        onCreated={(_entity) => {
           setLocationCreateOpen(false);
           // Refresh to pick up the new location in the list
           router.refresh();
@@ -182,111 +182,6 @@ export function TransfersTab({ transfers, locations, projects, canTransfer }: { 
   );
 }
 
-function TransferCard({ transfer }: { transfer: TransferRow }) {
-  const router = useRouter();
-  const [acting, setActing] = useState(false);
-
-  async function doAction(action: "complete" | "cancel" | "dispatch" | "returnToSource") {
-    setActing(true);
-    try {
-      const res = await fetch(`/api/transfers/${transfer.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Action failed");
-      const done: Record<typeof action, string> = { complete: "completed", cancel: "cancelled", dispatch: "dispatched", returnToSource: "returned to source" };
-      toast.success(`Transfer ${done[action]}`);
-      router.refresh();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setActing(false);
-    }
-  }
-
-  return (
-    <div className="flex flex-col rounded-lg border border-border bg-card p-4 transition-all hover:border-foreground/20 hover:shadow-sm">
-      {/* Route: From → To (with company labels for cross-company STOs) */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="font-semibold text-foreground">{transfer.fromLocationName}</span>
-        {transfer.isInterCompany && transfer.fromCompanyName && (
-          <span className="text-micro text-muted-foreground">· {transfer.fromCompanyName}</span>
-        )}
-        <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="font-semibold text-foreground">{transfer.toLocationName}</span>
-        {transfer.isInterCompany && transfer.toCompanyName && (
-          <span className="text-micro text-muted-foreground">· {transfer.toCompanyName}</span>
-        )}
-      </div>
-
-      {/* Status badge + inter-company STO badge */}
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <StatusPill status={transfer.status} />
-        {transfer.isInterCompany && (
-          <span className="inline-flex items-center gap-1 rounded-full border border-brand/40 bg-brand/10 px-2 py-0.5 text-micro font-medium text-brand">
-            <Building2 className="h-3 w-3" /> Inter-company STO
-          </span>
-        )}
-      </div>
-
-      {/* Line count + materials (truncated to 1 line) */}
-      <div className="mt-3 space-y-1">
-        <div className="text-caption text-muted-foreground">
-          {transfer.lineCount} line{transfer.lineCount !== 1 ? "s" : ""}
-          {transfer.isInterCompany && transfer.transferPriceTotal != null && transfer.status === "COMPLETED" && (
-            <span className="ml-2 tnum">· Transfer price {formatCurrency(transfer.transferPriceTotal)}</span>
-          )}
-        </div>
-        <div className="truncate text-caption text-muted-foreground">{transfer.materials.join(", ") || "—"}</div>
-      </div>
-
-      {/* Date */}
-      <div className="mt-2 text-micro tnum text-muted-foreground">{formatDate(transfer.transferDate)}</div>
-
-      {/* Print link */}
-      <div className="mt-2 border-t border-border pt-2">
-        <a
-          href={`/print/stock-transfer/${transfer.id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-micro text-muted-foreground hover:text-foreground"
-          title="Print transfer note"
-        >
-          <Printer className="h-3 w-3" /> Print Note
-        </a>
-      </div>
-
-      {/* Actions for DRAFT transfers */}
-      {transfer.status === "DRAFT" && (
-        <div className="mt-3 flex gap-1 border-t border-border pt-3">
-          <Button variant="ghost" size="sm" onClick={() => doAction("dispatch")} disabled={acting} className="text-info hover:text-info">
-            <Send className="h-4 w-4" /> Dispatch
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => doAction("complete")} disabled={acting} className="text-success hover:text-success">
-            <Check className="h-4 w-4" /> Complete
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => doAction("cancel")} disabled={acting} aria-label="Cancel" className="ml-auto text-muted-foreground hover:text-danger">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
-
-      {/* Actions for IN_TRANSIT transfers */}
-      {transfer.status === "IN_TRANSIT" && (
-        <div className="mt-3 flex gap-1 border-t border-border pt-3">
-          <Button variant="ghost" size="sm" onClick={() => doAction("complete")} disabled={acting} className="text-success hover:text-success">
-            <Check className="h-4 w-4" /> Complete
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => doAction("returnToSource")} disabled={acting} className="ml-auto text-muted-foreground hover:text-warning">
-            <Undo className="h-4 w-4" /> Return to Source
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
 
 /** Detail panel for the split-view — shows full transfer info. */
 function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {

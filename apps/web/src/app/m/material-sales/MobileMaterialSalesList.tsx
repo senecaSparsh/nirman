@@ -217,7 +217,7 @@ export function MobileMaterialSalesList({
 }
 
 /* ─── Sale card — procurement-style with payment status accent ─── */
-function SaleCard({ s, onAction }: { s: MaterialSaleItem; onAction?: () => void }) {
+function SaleCard({s}: { s: MaterialSaleItem; onAction?: () => void }) {
   const router = useRouter();
   const isCancelled = s.status === "CANCELLED";
   const isPending = s.paymentStatus === "PENDING" && !isCancelled;

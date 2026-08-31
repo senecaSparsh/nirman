@@ -117,6 +117,8 @@ async function SettingsContent() {
         id: true,
         action: true,
         entityType: true,
+        entityId: true,
+        after: true,
         timestamp: true,
         user: { select: { name: true } },
       },
@@ -335,7 +337,9 @@ async function SettingsContent() {
         <>
           <ZoneDivider label="Recent activity" />
           <div className="flex flex-col gap-1.5 mb-4">
-            {recentActivity.map((log) => (
+            {recentActivity.map((log) => {
+              const desc = auditDescription(log.action, log.after);
+              return (
               <div
                 key={log.id}
                 className="flex items-center gap-2 rounded-[0.5rem] border p-2"
@@ -355,6 +359,14 @@ async function SettingsContent() {
                   >
                     {humanizeAuditAction(log.action)}
                   </p>
+                  {desc ? (
+                    <p
+                      className="text-m-caption truncate"
+                      style={{ color: "var(--color-ink-700)" }}
+                    >
+                      {desc}
+                    </p>
+                  ) : null}
                   <p
                     className="text-m-caption mt-0.5"
                     style={{ color: "var(--color-ink-500)" }}
@@ -363,7 +375,8 @@ async function SettingsContent() {
                   </p>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </>
       ) : null}
@@ -408,6 +421,38 @@ function ZoneDivider({ label }: { label: string }) {
       />
     </div>
   );
+}
+
+/**
+ * Extract a human-readable description from the audit log's `after` payload.
+ * Shows the entity name/number/amount so the activity feed isn't just
+ * "Purchase order created" but "Purchase order created — PO-20250115-0001 · ₹1,23,456".
+ */
+function auditDescription(action: string, after: unknown): string {
+  if (!after || typeof after !== "object") return "";
+  const a = after as Record<string, unknown>;
+  // Common identifier fields, in priority order
+  const identifier =
+    a.poNumber ?? a.reqNumber ?? a.gatePassNumber ?? a.invoiceNumber ??
+    a.saleNumber ?? a.transferNumber ?? a.issueNumber ??
+    a.name ?? a.title ?? a.code ?? a.number ??
+    a.projectName ?? a.supplierName ?? a.customerName ??
+    a.materialName ?? a.locationName ?? a.unitNumber;
+  // Common amount fields
+  const amount =
+    a.total ?? a.totalAmount ?? a.amount ?? a.billAmount ??
+    a.grandTotal ?? a.subtotal;
+  const parts: string[] = [];
+  if (identifier && typeof identifier === "string") {
+    parts.push(String(identifier));
+  }
+  if (amount && typeof amount === "number") {
+    parts.push(formatCurrencyCompact(amount));
+  } else if (amount && typeof amount === "string") {
+    const n = Number(amount);
+    if (!isNaN(n) && n > 0) parts.push(formatCurrencyCompact(n));
+  }
+  return parts.join(" · ");
 }
 
 /* ── Dues row — colored left border, like needs-attention cards ── */

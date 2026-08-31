@@ -29,12 +29,15 @@ interface PoLine {
  unit: string;
  qtyOrdered: number;
  unitCost: number;
+ gstRate: number;
 }
 interface PoRow {
  id: string;
  poNumber: string;
  supplierName: string;
  createdAt: string;
+ subtotal: number;
+ gstTotal: number;
  total: number;
  lines: PoLine[];
 }
@@ -141,13 +144,17 @@ export function MobileApprovalsQueue({
  return next;
  });
  } else if (type === "dpr") {
- items = visibleDprs.map((d) => ({ type: "gatePass" as const, id: d.id }));
  // DPRs don't have a batch API yet — approve individually
- setBatchApproving(false);
+ setDprStates((s) => {
+ const next = { ...s };
+ for (const d of visibleDprs) next[d.id] = "approving";
+ return next;
+ });
  // Fall back to individual approves
  for (const dpr of visibleDprs) {
  await approveDpr(dpr);
  }
+ setBatchApproving(false);
  return;
  }
 
@@ -441,7 +448,7 @@ export function MobileApprovalsQueue({
  <div key={i} className="flex items-center justify-between gap-2 text-m-caption">
  <div className="min-w-0">
  <div className="truncate font-medium" style={{ color: "var(--color-ink-950)" }}>{l.materialName}</div>
- <div>{l.materialCode}</div>
+ <div>{l.materialCode}{l.gstRate > 0 ? ` · GST ${l.gstRate}%` : ""}</div>
  </div>
  <div className="shrink-0 text-right">
  <div className="tnum" style={{ color: "var(--color-ink-950)" }}>{formatNumber(l.qtyOrdered, 3)} {l.unit}</div>
@@ -449,9 +456,21 @@ export function MobileApprovalsQueue({
  </div>
  </div>
  ))}
- <div className="flex justify-between border-t pt-1.5 text-m-body font-semibold" style={{ borderColor: "var(--color-line)" }}>
- <span>Total</span>
+ <div className="border-t pt-1.5 space-y-0.5" style={{ borderColor: "var(--color-line)" }}>
+ <div className="flex justify-between text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+ <span>Subtotal</span>
+ <span className="tnum">{formatCurrency(po.subtotal)}</span>
+ </div>
+ {po.gstTotal > 0 && (
+ <div className="flex justify-between text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+ <span>GST</span>
+ <span className="tnum">{formatCurrency(po.gstTotal)}</span>
+ </div>
+ )}
+ <div className="flex justify-between text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>
+ <span>Total (incl. GST)</span>
  <span className="tnum">{formatCurrency(po.total)}</span>
+ </div>
  </div>
  </div>
  </ApprovalCard>
@@ -723,7 +742,7 @@ export function MobileApprovalsQueue({
 // ── Approval card with expandable detail + action buttons ───────
 
 function ApprovalCard({
- kind,
+ kind: _kind,
  isOpen,
  onToggle,
  icon: Icon,

@@ -4,8 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   RefreshCw, Loader2, WifiOff, CheckCircle2, XCircle, AlertTriangle,
-  Package, Send, ShoppingCart, ArrowRightLeft, ClipboardCheck, Undo2,
-  ChevronLeft, Trash2,
+  Package, Send, ShoppingCart, ArrowRightLeft, ClipboardCheck, Undo2, Trash2,
 } from "lucide-react";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { formatRelativeTime } from "@/lib/utils";

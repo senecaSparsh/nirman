@@ -577,6 +577,7 @@ export function IdentityStrip(props: ProfileTabsProps) {
   return (
     <div className="flex items-center gap-4 rounded-lg border border-border bg-card px-4 py-3">
       {props.image ? (
+        /* eslint-disable-next-line @next/next/no-img-element -- user-uploaded photo */
         <img
           src={props.image}
           alt={props.name}

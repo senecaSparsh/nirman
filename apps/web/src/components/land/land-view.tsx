@@ -547,7 +547,7 @@ export function LandView({
           onOpenChange={(o) => { if (!o) setSellParcel(null); }}
           customers={customers ?? []}
           presetAsset={toSellableAsset(sellParcel)}
-          onSold={(assetId) => {
+          onSold={(_assetId) => {
             // The sellAsset service already marks the parcel SOLD.
             // A full refresh will update the local state; just close the dialog.
             setSellParcel(null);

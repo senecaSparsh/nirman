@@ -114,6 +114,7 @@ async function AttentionContent() {
   const totalAlerts =
     approvalCount + overduePOs.length + lowStock.length + overBudget.length + tallyStats.pending + leaseExpiry.length;
 
+  // eslint-disable-next-line react-hooks/purity -- server component
   const now = Date.now();
 
   if (totalAlerts === 0) {

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import {
   ScanLine, CheckCircle2, Clock, AlertCircle, Wifi, WifiOff,
-  RefreshCw, ChevronDown, ChevronRight, Truck, Camera, Scale,
+  RefreshCw, ChevronDown, ChevronRight, Truck, Scale,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";

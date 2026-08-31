@@ -1254,7 +1254,7 @@ async function expenseResponse(companyId: string): Promise<AssistantResponse> {
   };
 }
 
-async function taskResponse(companyId: string): Promise<AssistantResponse> {
+async function taskResponse(_companyId: string): Promise<AssistantResponse> {
   // Tasks don't have companyId — they're scoped by assignee. Get all pending.
   const tasks = await prisma.task.findMany({
     where: { status: { in: ["PENDING", "IN_PROGRESS"] } },
@@ -2226,7 +2226,7 @@ async function salesPipelineResponse(companyId: string): Promise<AssistantRespon
 }
 
 // ── Payment Schedule — installment status ─────────────────────────────────
-async function paymentScheduleResponse(companyId: string, entities: ParsedEntities): Promise<AssistantResponse> {
+async function paymentScheduleResponse(companyId: string, _entities: ParsedEntities): Promise<AssistantResponse> {
   // Get payment schedule items that are due or partial
   const items = await prisma.paymentScheduleItem.findMany({
     where: {
@@ -2477,7 +2477,7 @@ async function findProjectByName(companyId: string, name: string) {
 }
 
 // ── Helper: find material by name (fuzzy) ─────────────────────────────────
-async function findMaterialByName(_companyId: string, name: string) {
+async function _findMaterialByName(_companyId: string, name: string) {
   if (!name) return null;
   // Materials are global (not company-scoped)
   const exact = await prisma.material.findFirst({

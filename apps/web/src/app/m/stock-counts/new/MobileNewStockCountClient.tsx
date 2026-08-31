@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Plus, Trash2, Loader2, CheckCircle2, ScanLine,
+  Plus, Trash2, Loader2, CheckCircle2,
   Search, X, ChevronRight, MapPin, Package, Send, TrendingUp, TrendingDown,
   WifiOff,
 } from "lucide-react";

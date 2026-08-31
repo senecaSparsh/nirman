@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ShoppingCart, Plus, Trash2, Send, Loader2, ChevronLeft, WifiOff,
+  ShoppingCart, Plus, Trash2, Send, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLongPressNav } from "@/lib/use-long-press-nav";
@@ -293,6 +293,7 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
                     <div className="min-w-0 flex-1">
                       <MobileSelectWithCreate
                         label=""
+                        createLabel="material"
                         value={line.materialId}
                         onChange={(val) => updateLine(idx, "materialId", val)}
                         options={data.materials.map((m) => ({ value: m.id, label: `${m.name} (${m.code})` }))}

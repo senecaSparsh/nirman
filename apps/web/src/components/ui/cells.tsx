@@ -218,6 +218,7 @@ export function DateCell({
 }) {
   if (!date) return <span className="text-faint">—</span>;
   const d = typeof date === "string" ? new Date(date) : date;
+  // eslint-disable-next-line react-hooks/purity -- server component; relative date is non-critical
   const days = Math.round((d.getTime() - Date.now()) / 86_400_000);
   const relative =
     days === 0

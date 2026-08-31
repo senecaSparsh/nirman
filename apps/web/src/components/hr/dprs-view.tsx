@@ -885,6 +885,7 @@ function DprDetailDialog({
 
   useEffect(() => {
     loadDetail().catch(() => { setLoading(false); toast.error("Failed to load DPR details"); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch when dpr changes
   }, [dpr.id]);
 
   async function runVariance(autoGenerate = false) {
@@ -1100,6 +1101,7 @@ function DprDetailDialog({
                 <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {detail.photoUrls.map((url, i) => (
                     <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg border border-border">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded photo */}
                       <img src={url} alt={`Site photo ${i + 1}`} className="aspect-video w-full object-cover" />
                     </a>
                   ))}

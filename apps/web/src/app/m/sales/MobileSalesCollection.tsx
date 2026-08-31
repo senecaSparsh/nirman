@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import {
-  Plus, TrendingUp, CheckCircle2,
+  TrendingUp, CheckCircle2,
   IndianRupee, Loader2, Phone, ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";

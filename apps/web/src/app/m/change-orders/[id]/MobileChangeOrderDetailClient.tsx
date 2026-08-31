@@ -235,7 +235,7 @@ export function MobileChangeOrderDetailClient({
             Line Items ({co.lines.length})
           </p>
         </div>
-        {co.lines.map((l, i) => (
+        {co.lines.map((l, _i) => (
           <div key={l.id} className="px-3 py-2 border-b last:border-b-0" style={{ borderColor: "var(--color-line)" }}>
             <div className="flex items-start justify-between mb-1">
               <div className="flex-1 min-w-0">

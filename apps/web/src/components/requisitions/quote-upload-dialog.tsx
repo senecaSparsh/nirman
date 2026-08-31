@@ -28,7 +28,7 @@ export function QuoteUploadDialog({
   reqNumber,
   requisitionLines,
   suppliers,
-  materials,
+  materials: _materials,
   onUploaded,
 }: {
   open: boolean;

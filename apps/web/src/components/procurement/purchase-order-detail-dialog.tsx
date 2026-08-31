@@ -94,6 +94,7 @@ export function PurchaseOrderDetailDialog({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- doAction uses latest state via closure
   }, [open, detail, canApprove, showApproveField, acting]);
 
   async function doAction(action: "approve" | "order" | "cancel") {

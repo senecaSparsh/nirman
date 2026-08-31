@@ -226,6 +226,7 @@ export default function MobileNewMaterialSaleClient() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load on mount only
   }, []);
 
   // ── Auto-save draft whenever form state changes (debounced 2s) ──

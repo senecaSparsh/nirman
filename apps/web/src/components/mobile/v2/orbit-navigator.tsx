@@ -555,7 +555,7 @@ export function OrbitNavigator({
 /* ─── Center card with details ─── */
 function CenterCard({
   node,
-  expanded,
+  expanded: _expanded,
 }: {
   node: OrbitNode;
   expanded?: boolean;

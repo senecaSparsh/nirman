@@ -918,7 +918,7 @@ export function LandPurchaseWizardDialog({
           </div>
           <div className="text-body font-semibold pt-1">Parcels ({sections.length})</div>
           <div className="space-y-2">
-            {sections.map((s, i) => (
+            {sections.map((s, _i) => (
               <div key={s.id} className="rounded-md border border-border p-2.5 space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-body font-medium">{s.number}</span>

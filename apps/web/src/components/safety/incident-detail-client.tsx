@@ -74,6 +74,7 @@ export function IncidentDetailClient({ incident, canManage }: { incident: Incide
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {incident.attachments.map((url, i) => (
                 <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg border border-border">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded photo */}
                   <img src={url} alt={`Evidence ${i + 1}`} className="aspect-video w-full object-cover" />
                 </a>
               ))}

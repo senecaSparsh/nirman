@@ -64,18 +64,18 @@ export function AttentionBannerCarousel({
 
   const goNext = React.useCallback(() => {
     setCurrent((c) => (c + 1) % visibleBanners.length);
-  }, [banners.length]);
+  }, [visibleBanners.length]);
 
   const goPrev = React.useCallback(() => {
-    setCurrent((c) => (c - 1 + banners.length) % visibleBanners.length);
-  }, [banners.length]);
+    setCurrent((c) => (c - 1 + visibleBanners.length) % visibleBanners.length);
+  }, [visibleBanners.length]);
 
   // Auto-scroll every 4s, pause on touch
   React.useEffect(() => {
     if (paused || visibleBanners.length <= 1) return;
     const timer = setInterval(goNext, 4000);
     return () => clearInterval(timer);
-  }, [paused, goNext, banners.length]);
+  }, [paused, goNext, visibleBanners.length]);
 
   const onTouchStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
@@ -155,47 +155,46 @@ export function AttentionBannerCarousel({
                   ? CheckCircle2
                   : AlertTriangle;
           return (
-            <Link
+            <div
               key={banner.id}
-              href={banner.href}
-              className="block shrink-0 w-full text-m-body"
+              className="relative shrink-0 w-full text-m-body"
               style={{ background: GRADIENTS[banner.severity] }}
             >
-              <div className="px-4 py-5 flex items-center gap-3 min-h-[8rem]">
-                {/* Icon */}
-                <div
-                  className="grid place-items-center w-14 h-14 rounded-[0.625rem] shrink-0"
-                  style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
-                >
-                  <Icon className="size-7" style={{ color: "#fff" }} />
-                </div>
-
-                {/* Text */}
-                <div className="flex-1 min-w-0">
-                  <span
-                    className="text-m-caption font-semibold uppercase tracking-wide block mb-1"
-                    style={{ color: "#fff", opacity: 0.7 }}
-                  >
-                    {banner.category}
-                  </span>
-                  <p
-                    className="font-bold text-m-section leading-tight truncate"
-                    style={{ color: "#fff" }}
-                  >
-                    {banner.title}
-                  </p>
-                  <p
-                    className="text-m-body mt-1 truncate"
-                    style={{ color: "#fff", opacity: 0.8 }}
-                  >
-                    {banner.subtitle}
-                  </p>
-                </div>
-
-                {/* CTA pill + Snooze */}
-                <div className="shrink-0 flex flex-col items-end gap-1.5">
+              <Link href={banner.href} className="block">
+                <div className="px-4 py-5 flex items-center gap-3 min-h-[8rem] pr-20">
+                  {/* Icon */}
                   <div
-                    className="rounded-full px-3 py-1.5 text-m-body font-bold flex items-center gap-1"
+                    className="grid place-items-center w-14 h-14 rounded-[0.625rem] shrink-0"
+                    style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
+                  >
+                    <Icon className="size-7" style={{ color: "#fff" }} />
+                  </div>
+
+                  {/* Text */}
+                  <div className="flex-1 min-w-0">
+                    <span
+                      className="text-m-caption font-semibold uppercase tracking-wide block mb-1"
+                      style={{ color: "#fff", opacity: 0.7 }}
+                    >
+                      {banner.category}
+                    </span>
+                    <p
+                      className="font-bold text-m-section leading-tight truncate"
+                      style={{ color: "#fff" }}
+                    >
+                      {banner.title}
+                    </p>
+                    <p
+                      className="text-m-body mt-1 truncate"
+                      style={{ color: "#fff", opacity: 0.8 }}
+                    >
+                      {banner.subtitle}
+                    </p>
+                  </div>
+
+                  {/* CTA pill */}
+                  <div
+                    className="shrink-0 rounded-full px-3 py-1.5 text-m-body font-bold flex items-center gap-1"
                     style={{
                       backgroundColor: ACCENT_COLORS[banner.severity],
                       color: "#1a1a1a",
@@ -204,12 +203,18 @@ export function AttentionBannerCarousel({
                     {banner.qtyText}
                     <ArrowRight className="size-3" />
                   </div>
-                  <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-                    <SnoozeButton itemId={`attention:${banner.id}`} label={banner.title} size="sm" />
-                  </div>
                 </div>
+              </Link>
+
+              {/* Snooze button — outside the Link so it never triggers navigation */}
+              <div
+                className="absolute bottom-2 right-2 z-40"
+                onPointerDown={(e) => { e.stopPropagation(); setPaused(true); }}
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+              >
+                <SnoozeButton itemId={`attention:${banner.id}`} label={banner.title} size="sm" />
               </div>
-            </Link>
+            </div>
           );
         })}
       </div>

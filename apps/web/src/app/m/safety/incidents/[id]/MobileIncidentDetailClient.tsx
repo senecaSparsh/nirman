@@ -119,6 +119,7 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
             <div className="grid grid-cols-2 gap-2">
               {incident.attachments.map((url, i) => (
                 <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-[0.375rem] border" style={{ borderColor: "var(--color-line)" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded photo */}
                   <img src={url} alt={`Evidence ${i + 1}`} className="aspect-video w-full object-cover" />
                 </a>
               ))}

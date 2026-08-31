@@ -91,7 +91,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       }
     }
     lowStock = Array.from(byMaterial.values())
-      .filter((m) => m.reorderPoint != null && m.qty <= m.reorderPoint)
+      .filter((m) => m.reorderPoint != null && m.qty < m.reorderPoint)
       .sort((a, b) => (a.reorderPoint! - a.qty) / a.reorderPoint! - (b.reorderPoint! - b.qty) / b.reorderPoint!)
       .slice(0, 5);
   }

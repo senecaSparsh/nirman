@@ -88,7 +88,7 @@ export function MobileHomeClient({
           type: "company",
           title: activeCompany.name,
           subtitle: activeCompany.businessType ?? "Construction & Real Estate",
-          meta: activeCompany.currency,
+          meta: activeCompany.currency === "INR" ? "₹ INR" : activeCompany.currency,
         }}
         inline={true}
         open={true}

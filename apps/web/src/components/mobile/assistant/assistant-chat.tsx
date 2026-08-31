@@ -278,7 +278,7 @@ export function AssistantChat({
     } finally {
       setLoading(false);
     }
-  }, [loading]);
+  }, [loading, speakResponse, stopSpeaking]);
 
   // ── Execute action card (button/confirm) ──
   const executeCard = useCallback(async (card: ActionCard) => {

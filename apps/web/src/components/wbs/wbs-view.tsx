@@ -431,12 +431,13 @@ export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: b
 
   const dateRange = useMemo(() => computeDateRange(tree), [tree]);
   const monthMarkers = useMemo(() => (dateRange ? generateMonthMarkers(dateRange) : []), [dateRange]);
+  const [now] = useState(() => Date.now());
   const todayPct = useMemo(() => {
     if (!dateRange) return null;
     const span = dateRange.end - dateRange.start;
-    const pct = ((Date.now() - dateRange.start) / span) * 100;
+    const pct = ((now - dateRange.start) / span) * 100;
     return pct >= 0 && pct <= 100 ? pct : null;
-  }, [dateRange]);
+  }, [dateRange, now]);
 
   // ── Search filter: keep matching nodes + their ancestors ──
   const filteredTree = useMemo(() => {

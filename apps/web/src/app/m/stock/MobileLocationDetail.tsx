@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ChevronLeft, Search, X,
+  Search, X,
   ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight,
   Package, Truck, Plus,
   type LucideIcon,

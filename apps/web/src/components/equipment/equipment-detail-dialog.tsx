@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowRight, Wrench, Check, Ban, Pencil, Trash2, RotateCcw } from "lucide-react";
@@ -179,18 +179,18 @@ export function EquipmentDetailDialog({
     }
   }
 
+  // Smart maintenance alert: if last maintenance was >90 days ago (or never), suggest scheduling
+  const [now] = useState(() => Date.now());
+  const daysSinceMaint = useMemo(() => {
+    const completedMaint = detail?.maintenance.filter((m) => m.endDate) ?? [];
+    if (completedMaint.length === 0) return null;
+    const lastMaintDate = new Date(completedMaint[completedMaint.length - 1]!.endDate!);
+    return Math.floor((now - lastMaintDate.getTime()) / (1000 * 60 * 60 * 24));
+  }, [detail, now]);
+
   if (!equipment) return null;
 
   const status = detail?.status ?? equipment.status;
-
-  // Smart maintenance alert: if last maintenance was >90 days ago (or never), suggest scheduling
-  const completedMaint = detail?.maintenance.filter((m) => m.endDate) ?? [];
-  const lastMaintDate = completedMaint.length > 0
-    ? new Date(completedMaint[completedMaint.length - 1]!.endDate!)
-    : null;
-  const daysSinceMaint = lastMaintDate
-    ? Math.floor((Date.now() - lastMaintDate.getTime()) / (1000 * 60 * 60 * 24))
-    : null;
   const maintDue = (status === "AVAILABLE" || status === "ASSIGNED") && (daysSinceMaint === null || daysSinceMaint > 90);
 
   // Lifecycle pipeline: Available → Assigned → Maintenance → Retired

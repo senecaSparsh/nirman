@@ -95,7 +95,7 @@ async function InventoryContent() {
     );
     const minStock = m.minStock ? toNum(m.minStock) : null;
     const reorderPoint = m.reorderPoint ? toNum(m.reorderPoint) : null;
-    const isLow = reorderPoint != null && totalQty <= reorderPoint;
+    const isLow = reorderPoint != null && totalQty < reorderPoint;
     const isOut = totalQty <= 0;
     return {
       id: m.id,
@@ -369,11 +369,21 @@ async function loadInventoryTree(current: {
       ? (nodes.get(current.parentCompanyId)?.name ?? current.name)
       : current.name;
 
+  // Count visible locations from the tree (excludes locations linked to
+  // deleted projects, which are in the raw `locations` array but not in the tree)
+  function countTreeLocations(node: InventoryCompanyNode): number {
+    let n = node.warehouses.length;
+    for (const p of node.projects) n += p.locations.length;
+    for (const s of node.subsidiaries) n += countTreeLocations(s);
+    return n;
+  }
+  const visibleLocationCount = roots.reduce((s, n) => s + countTreeLocations(n), 0);
+
   return {
     rootName,
     totalValue: roots.reduce((s, n) => s + n.stockValue, 0),
     companyCount: companies.length,
-    locationCount: locations.length,
+    locationCount: visibleLocationCount,
     skuCount: roots.reduce((s, n) => s + n.skuCount, 0),
     companies: roots,
   };

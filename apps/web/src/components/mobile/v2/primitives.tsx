@@ -292,7 +292,7 @@ export function MobileStatCard({
   value,
   hint,
   tone = "neutral",
-  icon: Icon,
+  icon: _Icon,
   href,
 }: {
   label: string;

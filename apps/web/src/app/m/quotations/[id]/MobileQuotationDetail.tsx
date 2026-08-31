@@ -483,9 +483,9 @@ export function MobileQuotationDetail({
 function ComparativeSheet({
   lines,
   quotes,
-  cheapestQuoteId,
+  cheapestQuoteId: _cheapestQuoteId,
   selectedQuoteId,
-  savings,
+  savings: _savings,
   expandedMaterial,
   onToggleMaterial,
   canEdit,
@@ -1531,7 +1531,7 @@ function MatSection({
 
 // ── Summary row (Subtotal, GST, etc.) ──
 function SummaryRow({
-  label, quotes, getValue, remark, fs,
+  label, quotes, getValue, remark: _remark, fs,
 }: {
   label: string;
   quotes: Quote[];
@@ -1546,7 +1546,7 @@ function SummaryRow({
       <td className="border px-1.5 py-0.5 font-semibold uppercase tracking-wide overflow-hidden" style={{ fontSize: `${fs.sub}px` }}>
         {label}
       </td>
-      {quotes.map((q, idx) => {
+      {quotes.map((q, _idx) => {
         const v = getValue(q);
         const isCheapest = v > 0 && v === minVal && quotes.length > 1;
         const isHighest = v > 0 && v === Math.max(...values) && v !== minVal && quotes.length > 1;
@@ -1616,7 +1616,7 @@ function AddQuoteDialog({
   onAdded: () => void;
 }) {
   // ── Sensible defaults (reduces friction for the common case) ──
-  const todayPlus30 = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const [todayPlus30] = useState(() => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
   const DELIVERY_LABELS: Record<string, string> = {
     DELIVERED_SITE: "Delivered to site",
     EX_WORKS: "Ex-works (we pick up)",

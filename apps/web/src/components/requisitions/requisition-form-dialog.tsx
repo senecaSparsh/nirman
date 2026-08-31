@@ -114,10 +114,6 @@ export function RequisitionFormDialog({
   function addLine() {
     setLines((ls) => [...ls, newLine()]);
   }
-  function removeLine(key: string) {
-    setLines((ls) => (ls.length > 1 ? ls.filter((l) => l.key !== key) : ls));
-  }
-
   // Handle EditableGrid changes — sync stock context when material changes
   function handleLinesChange(newLines: Line[]) {
     for (const nl of newLines) {

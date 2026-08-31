@@ -155,25 +155,6 @@ export function ReceiveGoodsDialog({
     }
   }
 
-  function updateLine(lineId: string, patch: Partial<RecvLine>) {
-    setLines((ls) =>
-      ls.map((l) => {
-        if (l.lineId !== lineId) return l;
-        const next = { ...l, ...patch };
-        // Auto-calculate qty from weight when conversion factor exists
-        if (patch.weightReceived !== undefined && l.uomConversionFactor && l.uomConversionFactor > 0) {
-          const wt = Number(patch.weightReceived);
-          if (wt > 0) {
-            next.qtyToReceive = (wt / l.uomConversionFactor).toFixed(3);
-          } else if (patch.weightReceived === "") {
-            next.qtyToReceive = "";
-          }
-        }
-        return next;
-      }),
-    );
-  }
-
   // Intercept grid changes to auto-calc qty from weight
   function handleGridChange(newRows: RecvLine[]) {
     setLines(newRows.map((r) => {

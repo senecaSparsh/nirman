@@ -918,7 +918,7 @@ function EditQuoteDialog({
 }
 
 function MatSection({
-  line, entries, cheapestCost, highestCost, hasMultiple,
+  line, entries, cheapestCost: _cheapestCost, highestCost, hasMultiple,
 }: {
   line: RequisitionLine;
   entries: {

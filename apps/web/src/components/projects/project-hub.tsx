@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -8,7 +8,6 @@ import {
   Package, Truck, Home, LandPlot, Wallet, Wrench,
   ArrowRight, TrendingUp, Clock,
   Plus, MapPin, AlertTriangle,
-  ClipboardList, HardHat, Ruler, ListChecks,
   ShieldCheck, KeyRound, FileText,
 } from "lucide-react";
 import type { ProjectFormValues } from "@/components/projects/project-form-dialog";
@@ -195,6 +194,12 @@ export function ProjectHub({
   const router = useRouter();
   const [possessionSubmitting, setPossessionSubmitting] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [now] = useState(() => Date.now());
+
+  const reraDays = useMemo(() => {
+    if (!project.reraValidityDate) return null;
+    return Math.ceil((new Date(project.reraValidityDate).getTime() - now) / (1000 * 60 * 60 * 24));
+  }, [project.reraValidityDate, now]);
 
   async function handleTogglePossession() {
     setPossessionSubmitting(true);
@@ -271,8 +276,8 @@ export function ProjectHub({
       />
 
       {/* RERA expiry warning */}
-      {project.reraNumber && project.reraValidityDate && (() => {
-        const days = Math.ceil((new Date(project.reraValidityDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      {project.reraNumber && reraDays !== null && (() => {
+        const days = reraDays;
         if (days > 30) return null;
         const isExpired = days < 0;
         return (

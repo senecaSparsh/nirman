@@ -30,10 +30,10 @@ export function CurrencyToggleRow() {
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-m-body font-semibold leading-tight" style={{ color: "var(--color-ink-950)" }}>
-          {isCompact ? "Compact amounts" : "Detailed amounts"}
+          Currency format
         </p>
         <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-          {isCompact ? "₹1.2L format" : "₹1,23,456.78 format"}
+          {isCompact ? "Compact: ₹1.2L, ₹3.5Cr" : "Full: ₹1,23,456.78"}
         </p>
       </div>
       <span

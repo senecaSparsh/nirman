@@ -55,7 +55,7 @@ const STAGE_META: Record<string, { color: string; label: string }> = {
 export function MobileSaleDetailClient({
   saleId,
   saleNumber,
-  assetType,
+  assetType: _assetType,
   status,
   saleStage,
   paymentStatus,

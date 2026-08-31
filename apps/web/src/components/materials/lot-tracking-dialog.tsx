@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -126,14 +126,18 @@ export function LotTrackingDialog({
     }
   }
 
-  if (!material) return null;
+  const [now] = useState(() => Date.now());
+  const { expiredLots, expiringSoon } = useMemo(() => {
+    const expired = lots.filter((l) => l.expiryDate && new Date(l.expiryDate).getTime() < now && l.currentQty > 0);
+    const soon = lots.filter((l) => {
+      if (!l.expiryDate || l.currentQty <= 0) return false;
+      const days = Math.ceil((new Date(l.expiryDate).getTime() - now) / (1000 * 60 * 60 * 24));
+      return days >= 0 && days <= 30;
+    });
+    return { expiredLots: expired, expiringSoon: soon };
+  }, [lots, now]);
 
-  const expiredLots = lots.filter((l) => l.expiryDate && new Date(l.expiryDate) < new Date() && l.currentQty > 0);
-  const expiringSoon = lots.filter((l) => {
-    if (!l.expiryDate || l.currentQty <= 0) return false;
-    const days = Math.ceil((new Date(l.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    return days >= 0 && days <= 30;
-  });
+  if (!material) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title={`Lots — ${material.code}`} description={`${material.name} · ${material.unit}`}>
@@ -233,9 +237,9 @@ export function LotTrackingDialog({
               </thead>
               <tbody className="divide-y divide-border">
                 {lots.map((lot) => {
-                  const isExpired = lot.expiryDate && new Date(lot.expiryDate) < new Date() && lot.currentQty > 0;
+                  const isExpired = lot.expiryDate && new Date(lot.expiryDate).getTime() < now && lot.currentQty > 0;
                   const isExpiringSoon = lot.expiryDate && !isExpired && lot.currentQty > 0 &&
-                    Math.ceil((new Date(lot.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) <= 30;
+                    Math.ceil((new Date(lot.expiryDate).getTime() - now) / (1000 * 60 * 60 * 24)) <= 30;
                   return (
                     <tr key={lot.id} className="hover:bg-muted/30">
                       <td className="px-3 py-2 font-mono text-caption font-medium">

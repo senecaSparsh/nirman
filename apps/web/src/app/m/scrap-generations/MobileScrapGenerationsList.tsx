@@ -35,7 +35,7 @@ export type ScrapGenerationItem = {
 export function MobileScrapGenerationsList({
   items,
   totalValue,
-  canCreate,
+  canCreate: _canCreate,
   exportTitle,
   exportRows,
   exportColumns,

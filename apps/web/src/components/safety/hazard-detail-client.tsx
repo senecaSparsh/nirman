@@ -166,6 +166,7 @@ export function HazardDetailClient({ hazard, canManage }: { hazard: HazardDetail
           <div className="grid grid-cols-3 gap-2">
             {hazard.attachments.map((url, i) => (
               <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-md border border-border">
+                {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded photo */}
                 <img src={url} alt={`Attachment ${i + 1}`} className="aspect-square w-full object-cover" />
               </a>
             ))}

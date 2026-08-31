@@ -36,6 +36,7 @@ export function DprFinanceReconciliationView() {
 
   useEffect(() => {
     fetchReconciliation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch on mount
   }, []);
 
   async function fetchReconciliation() {

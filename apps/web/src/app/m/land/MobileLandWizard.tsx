@@ -1782,7 +1782,7 @@ export function MobileLandWizard({
                 Parcels ({sections.length})
               </div>
               <div className="space-y-2">
-                {sections.map((s, i) => (
+                {sections.map((s, _i) => (
                   <div key={s.id} style={cardStyle} className="space-y-1">
                     <div className="flex items-center justify-between">
                       <span

@@ -332,7 +332,18 @@ function ReqCard({ req, onAction }: { req: RequisitionListItem; onAction?: () =>
       (needed.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
     );
     if (diffDays < 0) {
-      neededText = `${Math.abs(diffDays)}d overdue`;
+      const absDays = Math.abs(diffDays);
+      // Human-readable overdue: < 30d → "Nd overdue", 30-365 → "Nmo overdue", > 365 → "Ny Nmo overdue"
+      if (absDays < 30) {
+        neededText = `${absDays}d overdue`;
+      } else if (absDays < 365) {
+        const months = Math.floor(absDays / 30);
+        neededText = `${months}mo overdue`;
+      } else {
+        const years = Math.floor(absDays / 365);
+        const months = Math.floor((absDays % 365) / 30);
+        neededText = months > 0 ? `${years}y ${months}mo overdue` : `${years}y overdue`;
+      }
       neededColor = "var(--color-stop)";
       neededUrgent = true;
     } else if (diffDays === 0) {
@@ -437,7 +448,7 @@ function ReqCard({ req, onAction }: { req: RequisitionListItem; onAction?: () =>
                   className="text-m-caption font-semibold"
                   style={{ color: "var(--color-go)" }}
                 >
-                  Convert to Purchase Order
+                  Ready for PO
                 </span>
               </div>
             ) : (

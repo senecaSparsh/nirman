@@ -43,7 +43,7 @@ const FILTER_OPTIONS: { label: string; value: CountFilter }[] = [
 export function MobileStockCountsList({
   items,
   counts,
-  canCreate,
+  canCreate: _canCreate,
 }: {
   items: StockCountItem[];
   counts: { total: number; draft: number; counted: number; reconciled: number };

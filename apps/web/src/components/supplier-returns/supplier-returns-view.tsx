@@ -183,12 +183,6 @@ function SupplierReturnFormDialog({
   function addLine() {
     setLines((ls) => [...ls, { id: crypto.randomUUID(), materialId: "", qty: "", unitCost: "", reason: "" }]);
   }
-  function removeLine(id: string) {
-    setLines((ls) => ls.filter((l) => l.id !== id));
-  }
-  function updateLine(id: string, key: "materialId" | "qty" | "unitCost" | "reason", value: string) {
-    setLines((ls) => ls.map((l) => (l.id === id ? { ...l, [key]: value } : l)));
-  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

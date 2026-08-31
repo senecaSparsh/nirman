@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   FileText, ShieldCheck, Banknote, UserCircle, Building2,
-  IndianRupee, CalendarClock, ScrollText, Users, Printer,
+  IndianRupee, CalendarClock, ScrollText, Users,
 } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";

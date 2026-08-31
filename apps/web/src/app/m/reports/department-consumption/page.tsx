@@ -89,7 +89,7 @@ async function MobileDepartmentConsumptionContent() {
     }
   >();
   let grandTotal = 0;
-  let grandQty = 0;
+  let _grandQty = 0;
   const materialIds = new Set<string>();
   let issueCount = 0;
 
@@ -120,7 +120,7 @@ async function MobileDepartmentConsumptionContent() {
       deptRow.total += lineCost;
       deptRow.totalQty += lineQty;
       grandTotal += lineCost;
-      grandQty += lineQty;
+      _grandQty += lineQty;
     }
   }
 

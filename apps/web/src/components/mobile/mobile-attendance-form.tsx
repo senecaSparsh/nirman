@@ -112,7 +112,6 @@ export function MobileAttendanceForm({
       haptic(10);
       toast.success(`Auto-selected ${nearestProjectName} (${Math.round(distanceMeters ?? 0)}m away)`);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nearestProjectId, nearestProjectName, distanceMeters, projects]);
 
   // Auto-save form state (debounced via the hook's internal timer)

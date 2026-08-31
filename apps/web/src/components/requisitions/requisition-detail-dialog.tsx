@@ -84,6 +84,7 @@ export function RequisitionDetailDialog({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- doAction uses latest state via closure
   }, [open, detail, acting]);
 
   async function doAction(action: "submit" | "approve" | "reject") {

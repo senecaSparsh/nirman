@@ -33,6 +33,7 @@ export function MobileSelectWithCreate({
   options,
   placeholder,
   renderDialog,
+  createLabel,
   inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none",
   inputStyle = {
     borderColor: "var(--color-line)",
@@ -49,6 +50,8 @@ export function MobileSelectWithCreate({
   options: { value: string; label: string }[];
   placeholder?: string;
   renderDialog: (props: { open: boolean; onClose: () => void; onCreated: (value: string, label: string) => void }) => ReactNode;
+  /** Label for the "+" button's aria-label and title. Falls back to `label`, then "item". */
+  createLabel?: string;
   inputClass?: string;
   inputStyle?: React.CSSProperties;
   labelClass?: string;
@@ -99,7 +102,8 @@ export function MobileSelectWithCreate({
             backgroundColor: "var(--color-signal-wash)",
             color: "var(--color-signal-dark)",
           }}
-          aria-label={`Create new ${label || "option"}`}
+          aria-label={`Create new ${createLabel || label || "item"}`}
+          title={`Create new ${createLabel || label || "item"}`}
         >
           <Plus className="size-4" />
         </button>

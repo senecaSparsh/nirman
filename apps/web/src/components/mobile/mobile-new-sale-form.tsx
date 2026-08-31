@@ -71,29 +71,6 @@ const inputStyleSm = {
   color: "var(--color-ink-950)",
 } as React.CSSProperties;
 
-function FormField({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label
-        className="block text-m-caption font-semibold mb-1"
-        style={{ color: "var(--color-ink-500)" }}
-      >
-        {label}
-        {required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
-      </label>
-      {children}
-    </div>
-  );
-}
-
 // Compact FormField for 2-col grid (smaller label, tighter spacing)
 function FormFieldSm({
   label,
@@ -132,7 +109,7 @@ export function MobileNewSaleForm({
   initialBuiltUnitId,
   initialLandParcelId,
   initialCustomerId,
-  existingPhones = [],
+  existingPhones: _existingPhones = [],
   sellableProjects = [],
 }: {
   units: UnitOpt[];

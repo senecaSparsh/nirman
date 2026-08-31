@@ -78,11 +78,11 @@ async function MobileInventoryValueContent({
   const byCategory = new Map<string, { name: string; value: number; qty: number }>();
   const materialTotals = new Map<string, { code: string; name: string; unit: string; categoryName: string; value: number; qty: number }>();
   let grandTotal = 0;
-  let totalQty = 0;
+  let _totalQty = 0;
 
   for (const item of items) {
     grandTotal += item.value;
-    totalQty += item.qty;
+    _totalQty += item.qty;
     if (!byLocation.has(item.locationId)) byLocation.set(item.locationId, { name: item.locationName, type: item.locationType, value: 0, qty: 0 });
     const locRow = byLocation.get(item.locationId)!;
     locRow.value += item.value;

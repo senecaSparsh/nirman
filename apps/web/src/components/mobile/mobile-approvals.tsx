@@ -53,6 +53,7 @@ export async function MobileApprovals({ title }: { title: string }) {
               select: {
                 qtyOrdered: true,
                 unitCost: true,
+                gstRate: true,
                 material: { select: { name: true, code: true, unit: true } },
               },
               orderBy: { material: { name: "asc" } },
@@ -103,20 +104,30 @@ export async function MobileApprovals({ title }: { title: string }) {
       : [],
   ]);
 
-  const poRows = draftPOs.map((po) => ({
-    id: po.id,
-    poNumber: po.poNumber,
-    supplierName: po.supplier.name,
-    createdAt: po.createdAt.toISOString(),
-    total: po.lines.reduce((s, l) => s + toNum(l.qtyOrdered) * toNum(l.unitCost), 0),
-    lines: po.lines.map((l) => ({
-      materialName: l.material.name,
-      materialCode: l.material.code,
-      unit: l.material.unit,
-      qtyOrdered: toNum(l.qtyOrdered),
-      unitCost: toNum(l.unitCost),
-    })),
-  }));
+  const poRows = draftPOs.map((po) => {
+    const subtotal = po.lines.reduce((s, l) => s + toNum(l.qtyOrdered) * toNum(l.unitCost), 0);
+    const gstTotal = po.lines.reduce((s, l) => {
+      const rate = toNum(l.gstRate);
+      return s + toNum(l.qtyOrdered) * toNum(l.unitCost) * rate / 100;
+    }, 0);
+    return {
+      id: po.id,
+      poNumber: po.poNumber,
+      supplierName: po.supplier.name,
+      createdAt: po.createdAt.toISOString(),
+      subtotal,
+      gstTotal,
+      total: subtotal + gstTotal,
+      lines: po.lines.map((l) => ({
+        materialName: l.material.name,
+        materialCode: l.material.code,
+        unit: l.material.unit,
+        qtyOrdered: toNum(l.qtyOrdered),
+        unitCost: toNum(l.unitCost),
+        gstRate: toNum(l.gstRate),
+      })),
+    };
+  });
 
   const reqRows = pendingReqs.map((r) => ({
     id: r.id,

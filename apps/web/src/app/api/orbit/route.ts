@@ -256,7 +256,7 @@ async function getCompanyNode(id: string, currentCompanyId: string): Promise<Orb
     id: c.id, type: "company",
     title: c.name,
     subtitle: c.businessType ?? "Construction & Real Estate",
-    meta: c.currency,
+    meta: c.currency === "INR" ? "₹ INR" : c.currency,
     href: "/m/settings",
     details,
     orbits: [
