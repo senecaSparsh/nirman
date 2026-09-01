@@ -217,12 +217,13 @@ export function MobileAttendanceForm({
   async function submit() {
     const recordList = employees.map((emp) => {
       const r = records[emp.id] ?? { status: "PRESENT" as AttendanceStatus, checkIn: "", checkOut: "", hoursWorked: "" };
+      const hrs = r.hoursWorked ? Number(r.hoursWorked) : null;
       return {
         employeeId: emp.id,
         status: r.status,
         checkIn: r.checkIn || null,
         checkOut: r.checkOut || null,
-        hoursWorked: r.hoursWorked ? Number(r.hoursWorked) : null,
+        hoursWorked: hrs != null && !isNaN(hrs) ? Math.min(Math.max(hrs, 0), 24) : null,
         // Attach GPS coordinates to all records from this submission
         checkInLat: gps?.lat ?? null,
         checkInLng: gps?.lng ?? null,
@@ -502,10 +503,13 @@ export function MobileAttendanceForm({
                     <div>
                       <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Hrs</label>
                       <input
-                        type="text"
+                        type="number"
                         inputMode="decimal"
                         enterKeyHint="done"
                         placeholder="8"
+                        min={0}
+                        max={24}
+                        step="0.5"
                         value={r.hoursWorked}
                         onChange={(e) => updateRecord(emp.id, "hoursWorked", e.target.value)}
                         className={`${inputClass} tabular-nums`}

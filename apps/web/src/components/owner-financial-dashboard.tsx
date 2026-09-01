@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { TrendingUp, TrendingDown, Wallet, Building2, ArrowRight } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, Building2, ArrowRight, BarChart3 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/empty-state";
 import { formatCurrency } from "@/lib/utils";
 
 export interface CashPositionData {
@@ -98,9 +99,7 @@ export function OwnerFinancialDashboard({
           </div>
 
           {projectProfits.length === 0 ? (
-            <p className="text-caption text-muted-foreground py-4 text-center">
-              No active projects with financial data yet.
-            </p>
+            <EmptyState size="compact" icon={<BarChart3 />} title="No project profitability data" description="Active projects with financial data will appear here." />
           ) : (
             <>
               {/* Summary row */}

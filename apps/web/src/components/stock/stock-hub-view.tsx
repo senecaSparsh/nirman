@@ -4,8 +4,9 @@ import { type ComponentProps, Fragment, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTabParam } from "@/lib/use-tab-param";
 import { formatCurrency } from "@/lib/utils";
-import { Boxes, ScrollText, Truck, Package, Hammer, ClipboardCheck, Building2 } from "lucide-react";
+import { Boxes, ScrollText, Truck, Package, Hammer, ClipboardCheck, Building2, Loader2, PackageSearch } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { EmptyState } from "@/components/empty-state";
 import { OnHandTab } from "./on-hand-tab";
 import { TransfersTab } from "./transfers-tab";
 import { IssuesTab } from "./issues-tab";
@@ -232,16 +233,18 @@ function CrossCompanyTab() {
   }, [search]);
 
   if (loading) {
-    return <div className="py-8 text-center text-sm text-muted-foreground">Loading cross-company inventory…</div>;
+    return (
+      <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" /> Loading cross-company inventory…
+      </div>
+    );
   }
   if (error) {
     return <div className="py-8 text-center text-sm text-red-600">{error}</div>;
   }
   if (!data || data.materials.length === 0) {
     return (
-      <div className="py-8 text-center text-sm text-muted-foreground">
-        No stock found across child companies.
-      </div>
+      <EmptyState size="compact" icon={<PackageSearch />} title="No stock found" description="No stock found across child companies." />
     );
   }
 

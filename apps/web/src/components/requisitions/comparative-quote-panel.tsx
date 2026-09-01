@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input, Textarea, Label } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { QuoteUploadDialog } from "./quote-upload-dialog";
 import type { ComparativeStatement, VendorQuoteRow } from "@/lib/types";
@@ -717,18 +718,17 @@ export function ComparativeQuotePanel({
           EMPTY STATE
          ═══════════════════════════════════════════════════════════════ */}
       {activeQuotes.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 py-12 text-center">
-          <FileText className="h-8 w-8 mx-auto text-slate-300" />
-          <p className="mt-2 text-body text-slate-500">No quotes uploaded yet</p>
-          <p className="text-caption text-slate-400 mt-1">
-            Upload {minRequired} vendor quotes to enable comparison and PO conversion
-          </p>
-          {canCreate && (
-            <Button size="sm" variant="outline" className="mt-3" onClick={() => setUploadOpen(true)}>
+        <EmptyState
+          size="compact"
+          icon={<FileText />}
+          title="No quotes uploaded yet"
+          description={`Upload ${minRequired} vendor quotes to enable comparison and PO conversion`}
+          action={canCreate ? (
+            <Button size="sm" variant="outline" onClick={() => setUploadOpen(true)}>
               <Plus className="h-3.5 w-3.5" /> Upload First Quote
             </Button>
-          )}
-        </div>
+          ) : undefined}
+        />
       ) : null}
 
       {/* ═══════════════════════════════════════════════════════════════

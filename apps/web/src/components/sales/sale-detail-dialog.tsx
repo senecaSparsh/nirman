@@ -831,6 +831,21 @@ export function SaleDetailDialog({
                 </p>
                 {sale.customerPhone && <p className="text-muted-foreground">{sale.customerPhone}</p>}
                 {sale.paymentMode && <p className="text-muted-foreground">Mode: {sale.paymentMode.replace("_", " ")}</p>}
+                {sale.customerPhone && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="mt-2 h-7 px-2 text-caption"
+                    onClick={() => {
+                      const url = `${window.location.origin}/portal/login`;
+                      navigator.clipboard?.writeText(url);
+                      toast.success(`Portal link copied — share with ${sale.customerName}`);
+                    }}
+                    title="Copy customer portal login link"
+                  >
+                    <ExternalLink className="h-3 w-3" /> Copy Portal Link
+                  </Button>
+                )}
               </div>
             </div>
 

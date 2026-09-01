@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRight, Wrench, Check, Ban, Pencil, Trash2, RotateCcw } from "lucide-react";
+import { ArrowRight, Wrench, Check, Ban, Pencil, Trash2, RotateCcw, ClipboardList, Hammer } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { StatusPill } from "@/components/page";
 import { PipelineStepper, type PipelineStep } from "@/components/ui/pipeline-stepper";
@@ -336,9 +337,7 @@ export function EquipmentDetailDialog({
             <div className="space-y-2">
               <p className="text-body font-medium">Assignment History</p>
               {detail.assignments.length === 0 ? (
-                <p className="rounded-lg border border-border/60 p-4 text-center text-body text-muted-foreground">
-                  No assignments yet.
-                </p>
+                <EmptyState size="compact" icon={<ClipboardList />} title="No assignments yet" description="This equipment has not been assigned to any project." />
               ) : (
                 <div className="rounded-lg border border-border/60">
                   <Table>
@@ -373,9 +372,7 @@ export function EquipmentDetailDialog({
             <div className="space-y-2">
               <p className="text-body font-medium">Maintenance History</p>
               {detail.maintenance.length === 0 ? (
-                <p className="rounded-lg border border-border/60 p-4 text-center text-body text-muted-foreground">
-                  No maintenance records yet.
-                </p>
+                <EmptyState size="compact" icon={<Hammer />} title="No maintenance records" description="No maintenance or service records for this equipment." />
               ) : (
                 <div className="rounded-lg border border-border/60">
                   <Table>

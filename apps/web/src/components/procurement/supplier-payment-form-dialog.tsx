@@ -89,6 +89,16 @@ export function SupplierPaymentFormDialog({
       toast.error("Please fix the errors in the form");
       return;
     }
+    // TDS cannot exceed payment amount
+    if (parsedTds > 0 && parsedTds > parsedAmount) {
+      toast.error("TDS amount cannot exceed the payment amount");
+      return;
+    }
+    // Warn (but allow) overpayment against balance owed
+    if (selectedSupplier && parsedAmount > selectedSupplier.balanceOwed && selectedSupplier.balanceOwed > 0) {
+      // Allow overpayment — supplier may have un-billed dues. Just warn.
+      toast.warning(`Payment exceeds balance owed (${formatCurrency(selectedSupplier.balanceOwed)})`);
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/supplier-payments", {

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, UserPlus, X, Plug, Pencil, Layers } from "lucide-react";
+import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, UserPlus, X, Plug, Pencil, Layers, Warehouse } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { StatusPill } from "@/components/page";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
@@ -757,12 +758,13 @@ function LocationsTab({
         </div>
       )}
       {locations.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-center">
-          <p className="text-muted-foreground">No stock locations yet</p>
-          <Button size="sm" onClick={onNew}>
-            <Plus className="size-4" /> New Location
-          </Button>
-        </div>
+        <EmptyState
+          size="compact"
+          icon={<Warehouse />}
+          title="No stock locations yet"
+          description="Add a warehouse or project site to track inventory."
+          action={<Button size="sm" onClick={onNew}><Plus className="size-4" /> New Location</Button>}
+        />
       ) : (
         <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
           <DataTable

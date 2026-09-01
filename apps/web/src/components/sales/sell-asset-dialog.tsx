@@ -317,6 +317,17 @@ export function SellAssetDialog({
       }
     }
 
+    // Validate initial payment doesn't exceed sale price
+    if (initialPaymentNum > 0 && initialPaymentNum > salePriceNum) {
+      toast.error("Initial payment cannot exceed the sale price");
+      return;
+    }
+    // Validate home loan amount doesn't exceed sale price
+    if (form.homeLoanAmount && Number(form.homeLoanAmount) > salePriceNum) {
+      toast.error("Home loan amount cannot exceed the sale price");
+      return;
+    }
+
     setSaving(true);
     try {
       const payload: Record<string, unknown> = {

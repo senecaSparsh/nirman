@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { RefreshCw, CheckCircle2, XCircle, Clock, Loader2, Download, ArrowDownToLine, ArrowUpDown, AlertTriangle, Inbox, AlertCircle, Settings } from "lucide-react";
+import { RefreshCw, CheckCircle2, XCircle, Clock, Loader2, Download, ArrowDownToLine, ArrowUpDown, AlertTriangle, Inbox, AlertCircle, Settings, FileClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/empty-state";
 import { StatusPill } from "@/components/page";
 import Link from "next/link";
 
@@ -189,7 +190,7 @@ export function TallySyncPanel({ stats }: { stats: TallyStats }) {
             <Button size="sm" variant="ghost" onClick={() => setShowLog(false)}>Close</Button>
           </div>
           {logs.length === 0 ? (
-            <p className="text-caption text-muted-foreground py-4 text-center">No sync records yet.</p>
+            <EmptyState size="compact" icon={<FileClock />} title="No sync records yet" description="Journal entries synced to Tally will appear here." />
           ) : (
             <div className="max-h-64 space-y-1.5 overflow-y-auto">
               {logs.map((l) => (

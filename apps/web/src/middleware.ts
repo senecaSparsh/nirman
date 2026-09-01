@@ -99,6 +99,8 @@ export function middleware(req: NextRequest) {
     pathname === "/sign-up" ||
     pathname.startsWith("/sign-up/") ||
     pathname.startsWith("/api/auth/") ||
+    pathname.startsWith("/portal") ||
+    pathname.startsWith("/api/portal/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||
     pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|map|webmanifest|txt)$/)

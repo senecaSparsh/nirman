@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Search, ArrowRight, TrendingUp, AlertTriangle } from "lucide-react";
+import { Search, ArrowRight, TrendingUp, AlertTriangle, HardHat, MapPin, Wallet } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/empty-state";
 import { formatNumber, formatDate, formatCurrency, cn } from "@/lib/utils";
 
 
@@ -146,7 +147,7 @@ function TradeBreakdownChart({ trades, total }: { trades: TradeBreakdown[]; tota
         );
       })}
       {trades.length === 0 && (
-        <p className="py-4 text-center text-caption text-muted-foreground">No trade data yet</p>
+        <EmptyState size="compact" icon={<HardHat />} title="No trade data yet" description="Trade breakdown will appear once attendance is logged." />
       )}
     </div>
   );
@@ -157,7 +158,7 @@ function TradeBreakdownChart({ trades, total }: { trades: TradeBreakdown[]; tota
  *  since we don't have per-project rosters to compute a real rate. */
 function ProjectPresenceList({ projects }: { projects: ProjectPresence[] }) {
   if (projects.length === 0) {
-    return <p className="py-4 text-center text-caption text-muted-foreground">No site attendance logged today</p>;
+    return <EmptyState size="compact" icon={<MapPin />} title="No site attendance today" description="Project presence will appear here once workers check in." />;
   }
   const maxPresent = Math.max(...projects.map((p) => p.present), 1);
   return (
@@ -448,10 +449,13 @@ export function HrDashboard({
                 </div>
               </Link>
             ) : (
-              <div className="py-6 text-center">
-                <p className="text-body text-muted-foreground">No payroll generated yet.</p>
-                <Link href="/hr/payroll" className="mt-2 inline-block text-caption text-brand hover:underline">Generate one →</Link>
-              </div>
+              <EmptyState
+                size="compact"
+                icon={<Wallet />}
+                title="No payroll generated yet"
+                description="Generate payroll for the current period."
+                action={<Link href="/hr/payroll" className="text-caption text-brand hover:underline">Generate one →</Link>}
+              />
             )}
           </div>
         </div>

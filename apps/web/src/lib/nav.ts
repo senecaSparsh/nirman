@@ -22,6 +22,7 @@ import {
   TrendingUp,
   Receipt,
   ShieldCheck,
+  Database,
   Boxes,
   Building2,
   HardHat,
@@ -946,6 +947,14 @@ export const SETTINGS_LINKS: NavLink[] = [
     hint: "Scope a person to a site so they only see their own work",
     roles: OWNERS,
     keywords: ["access", "permission", "role", "assignment", "scope", "sub admin", "user access"],
+  },
+  {
+    label: "Backup & Restore",
+    href: "/settings/backup",
+    icon: Database,
+    hint: "Download a full backup of your company data, or restore from a previous backup file",
+    roles: OWNERS,
+    keywords: ["backup", "restore", "export", "import", "dump", "data", "safety", "download"],
   },
 ];
 

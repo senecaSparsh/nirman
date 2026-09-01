@@ -1,0 +1,52 @@
+/* Customer Portal — minimal standalone styles (no dependency on app theme) */
+.portal-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.portal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  padding: 0.625rem 1rem;
+  transition: all 0.15s;
+  cursor: pointer;
+  border: none;
+}
+.portal-btn-primary {
+  background: #0f172a;
+  color: white;
+}
+.portal-btn-primary:hover { background: #1e293b; }
+.portal-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.portal-btn-secondary {
+  background: white;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+.portal-btn-secondary:hover { background: #f8fafc; }
+.portal-input {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.9375rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.portal-input:focus { border-color: #0f172a; }
+.portal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}

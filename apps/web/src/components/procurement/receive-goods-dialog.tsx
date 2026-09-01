@@ -181,6 +181,15 @@ export function ReceiveGoodsDialog({
       }
     }
 
+    // Validate weighbridge consistency
+    if (wbGross && wbTare) {
+      const g = Number(wbGross);
+      const t = Number(wbTare);
+      if (!isNaN(g) && !isNaN(t) && t > g) {
+        return toast.error("Tare weight cannot exceed gross weight");
+      }
+    }
+
     setSaving(true);
     try {
       const isHandCarry = deliveryMode === "HAND_CARRY";
@@ -502,6 +511,7 @@ export function ReceiveGoodsDialog({
                     <Input
                       type="number"
                       step="0.001"
+                      min="0"
                       placeholder="0"
                       value={wbGross}
                       onChange={(e) => {
@@ -518,6 +528,7 @@ export function ReceiveGoodsDialog({
                     <Input
                       type="number"
                       step="0.001"
+                      min="0"
                       placeholder="0"
                       value={wbTare}
                       onChange={(e) => {
@@ -534,6 +545,7 @@ export function ReceiveGoodsDialog({
                     <Input
                       type="number"
                       step="0.001"
+                      min="0"
                       placeholder="0"
                       value={wbNet}
                       onChange={(e) => setWbNet(e.target.value)}
