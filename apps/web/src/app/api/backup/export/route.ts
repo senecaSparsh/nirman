@@ -47,7 +47,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
     { model: "equipment" },
     { model: "vehicle" },
     // Land
-    { model: "landPurchase", include: { parcels: true, valuationHistory: true, paymentSchedule: { include: { items: true } } } },
+    { model: "landPurchase", include: { parcels: true, paymentSchedule: { include: { items: true } } } },
+    { model: "landParcel" },
     // Procurement
     { model: "purchaseOrder", include: { lines: true, goodsReceipts: { include: { lines: true } } } },
     { model: "directPurchase", include: { lines: true } },
@@ -71,14 +72,14 @@ export const GET = apiHandler(async (req: NextRequest) => {
     { model: "expense" },
     // HR
     { model: "employee" },
-    { model: "payrollPeriod", include: { entries: true } },
-    { model: "attendance" },
+    { model: "payrollPeriod", include: { lines: true } },
+    { model: "workerAttendance" },
     { model: "dailyProgressReport" },
     // Construction
-    { model: "wbsElement" },
-    { model: "boq", include: { items: true } },
-    { model: "workOrder", include: { raBills: true } },
-    { model: "measurementBook", include: { entries: true } },
+    { model: "wbsNode" },
+    { model: "boqItem" },
+    { model: "subcontractorWorkOrder", include: { raBills: true } },
+    { model: "measurementBookEntry" },
     // Other
     { model: "lead", include: { activities: true } },
     { model: "task" },

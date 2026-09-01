@@ -17,6 +17,7 @@ import { SupplierPaymentFormDialog } from "./supplier-payment-form-dialog";
 import { PoAddLineDialog } from "./po-add-line-dialog";
 import { AuditTrail } from "@/components/audit-trail";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
+import { useApiAction } from "@/lib/use-api-action";
 import type { PurchaseOrderDetail, PurchaseOrderRow, SupplierRow } from "@/lib/types";
 
 export function PurchaseOrderDetailDialog({
@@ -45,6 +46,7 @@ export function PurchaseOrderDetailDialog({
   const [approvalNotes, setApprovalNotes] = useState("");
   const [showApproveField, setShowApproveField] = useState(false);
   const trackRecent = useTrackRecent();
+  const { mutate: mutateAction } = useApiAction();
 
   useEffect(() => {
     if (open && po) {
@@ -100,37 +102,44 @@ export function PurchaseOrderDetailDialog({
   async function doAction(action: "approve" | "order" | "cancel") {
     if (!po) return;
     setActing(true);
+
+    // Map action to the new status for optimistic update
+    const newStatus = action === "approve" ? "APPROVED" : action === "order" ? "ORDERED" : "CANCELLED";
+    const prevStatus = detail?.status;
+
+    const payload: Record<string, unknown> = { action };
+    if (action === "approve") payload.approvalNotes = approvalNotes.trim() || undefined;
+
     try {
-      const payload: Record<string, unknown> = { action };
-      if (action === "approve") payload.approvalNotes = approvalNotes.trim() || undefined;
-      const res = await fetch(`/api/purchase-orders/${po.id}`, {
+      await mutateAction({
+        endpoint: `/api/purchase-orders/${po.id}`,
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: payload,
+        // Optimistic: update local status immediately so the UI feels instant
+        optimisticUpdate: () => {
+          setDetail((d) => d ? { ...d, status: newStatus as PurchaseOrderDetail["status"] } : d);
+        },
+        revert: () => {
+          setDetail((d) => d && prevStatus ? { ...d, status: prevStatus } : d);
+        },
+        successMessage: action === "order" ? "Order placed with supplier" : `PO ${action}d`,
+        successDescription: action === "order" ? "The supplier has been sent the order. Receive goods when they arrive." : undefined,
+        successAction: action === "order" ? { label: "Receive Goods", onClick: () => setRecvOpen(true) } : undefined,
+        refreshOnSuccess: false, // we re-fetch detail manually below
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Action failed");
-      if (action === "order") {
-        toast.success("Order placed with supplier", {
-          description: "The supplier has been sent the order. Receive goods when they arrive.",
-          action: {
-            label: "Receive Goods",
-            onClick: () => setRecvOpen(true),
-          },
-        });
-      } else {
-        toast.success(`PO ${action}d`);
-      }
+
       setApprovalNotes("");
       setShowApproveField(false);
-      // Re-fetch detail
+
+      // Re-fetch detail to get the full updated state (approval info, timestamps)
       const r2 = await fetch(`/api/purchase-orders/${po.id}`);
-      if (!r2.ok) throw new Error("Failed to re-fetch purchase order details");
-      const d2 = await r2.json();
-      if (!d2.error) setDetail(d2);
+      if (r2.ok) {
+        const d2 = await r2.json();
+        if (!d2.error) setDetail(d2);
+      }
       router.refresh();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Unknown error");
+    } catch {
+      // Error already handled by useApiAction (toast + revert)
     } finally {
       setActing(false);
     }
