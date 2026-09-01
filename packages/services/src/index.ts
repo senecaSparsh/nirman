@@ -570,6 +570,20 @@ export {
   splitGst,
 } from "./gst-reports";
 
+// e-Invoicing — NIC e-Invoice API integration (IRN + QR code)
+export {
+  generateMaterialSaleIrn,
+  generateAssetSaleIrn,
+  cancelMaterialSaleIrn,
+  cancelAssetSaleIrn,
+  buildMaterialSaleEInvoicePayload,
+  buildAssetSaleEInvoicePayload,
+  setEInvoiceProvider,
+  type EInvoicePayload,
+  type EInvoiceProvider,
+  type EInvoiceResult,
+} from "./e-invoice";
+
 // GL Preview — pure functions that compute journal lines without persisting
 export {
   previewExpenseGl,

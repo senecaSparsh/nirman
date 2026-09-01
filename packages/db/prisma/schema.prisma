@@ -3163,6 +3163,15 @@ model AssetSale {
   draftDocumentName   String?    // original filename for display
   draftNotes          String?    // informal terms — what was agreed verbally
   draftDate           DateTime?  @db.Date  // when the LOI was signed
+  // ── e-Invoicing (IRN + QR) — for B2B invoices per NIC e-Invoice API ──
+  irn            String?   // Invoice Reference Number (64-char hash from NIC)
+  irnAckNo       String?   // Acknowledgment number from NIC
+  irnAckDate     DateTime? // Acknowledgment date from NIC
+  irnQrCode      String?   // Base64 QR code image from NIC
+  irnStatus      String?   // PENDING | GENERATED | CANCELLED | FAILED
+  irnError       String?   // Error message if generation failed
+  irnGeneratedAt DateTime? // When the IRN was generated
+  irnCancelledAt DateTime? // When the IRN was cancelled (if applicable)
   createdById   String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -3188,6 +3197,7 @@ model AssetSale {
   @@index([createdById])
   @@index([brokerId])
   @@index([landParcelId])
+  @@index([irnStatus])
 }
 
 model AssetSalePayment {
@@ -4066,6 +4076,15 @@ model MaterialSale {
   driverName     String?
   driverPhone    String?
   notes         String?
+  // ── e-Invoicing (IRN + QR) — for B2B invoices per NIC e-Invoice API ──
+  irn            String?   // Invoice Reference Number (64-char hash from NIC)
+  irnAckNo       String?   // Acknowledgment number from NIC
+  irnAckDate     DateTime? // Acknowledgment date from NIC
+  irnQrCode      String?   // Base64 QR code image from NIC
+  irnStatus      String?   // PENDING | GENERATED | CANCELLED | FAILED
+  irnError       String?   // Error message if generation failed
+  irnGeneratedAt DateTime? // When the IRN was generated
+  irnCancelledAt DateTime? // When the IRN was cancelled (if applicable)
   createdById   String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -4081,6 +4100,7 @@ model MaterialSale {
   @@index([customerId])
   @@index([projectId])
   @@index([status])
+  @@index([irnStatus])
 }
 
 model MaterialSalePayment {

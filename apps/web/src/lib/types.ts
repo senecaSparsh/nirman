@@ -885,6 +885,15 @@ export type AssetSaleRow = {
   draftDocumentName: string | null;
   draftNotes: string | null;
   draftDate: string | null;
+  // e-Invoicing (IRN + QR)
+  irn: string | null;
+  irnAckNo: string | null;
+  irnAckDate: string | null;
+  irnQrCode: string | null;
+  irnStatus: string | null;
+  irnError: string | null;
+  irnGeneratedAt: string | null;
+  irnCancelledAt: string | null;
 };
 
 export type AssetSaleDetail = AssetSaleRow & {

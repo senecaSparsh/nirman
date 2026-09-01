@@ -104,7 +104,7 @@ For each capability:
 | GST (CGST/SGST/IGST auto) | HAVE | HAVE | HAVE | HAVE | — |
 | e-Invoicing (IRN + QR) | GAP | HAVE | HAVE | HAVE | P0 |
 | e-Way Bill | GAP | HAVE | HAVE | HAVE | P1 |
-| GSTR-1/2B/3B filing | GAP | HAVE | HAVE | HAVE | P0 |
+| GSTR-1/2B/3B filing | HAVE | HAVE | HAVE | HAVE | — |
 | GST reconciliation (books vs portal) | GAP | HAVE | HAVE | HAVE | P1 |
 | TDS (section-wise, threshold, challan) | GAP | HAVE | HAVE | HAVE | P1 |
 | TCS (Section 206C(1H)) | GAP | HAVE | HAVE | HAVE | P2 |

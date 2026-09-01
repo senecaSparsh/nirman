@@ -166,6 +166,15 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       chequeClearDate: p.chequeClearDate ? p.chequeClearDate.toISOString() : null,
       chequeBounceReason: p.chequeBounceReason,
     })),
+    // e-Invoicing (IRN + QR)
+    irn: s.irn,
+    irnAckNo: s.irnAckNo,
+    irnAckDate: s.irnAckDate ? s.irnAckDate.toISOString() : null,
+    irnQrCode: s.irnQrCode,
+    irnStatus: s.irnStatus,
+    irnError: s.irnError,
+    irnGeneratedAt: s.irnGeneratedAt ? s.irnGeneratedAt.toISOString() : null,
+    irnCancelledAt: s.irnCancelledAt ? s.irnCancelledAt.toISOString() : null,
   });
 });
 

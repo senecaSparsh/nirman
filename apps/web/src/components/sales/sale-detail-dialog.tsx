@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import {Banknote, X, Printer, CheckCircle2, XCircle, HandCoins, MessageCircle, FileText, ExternalLink, CalendarClock, AlertCircle} from "lucide-react";
+import {Banknote, X, Printer, CheckCircle2, XCircle, HandCoins, MessageCircle, FileText, ExternalLink, CalendarClock, AlertCircle, QrCode, Zap} from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
@@ -71,6 +71,23 @@ export function SaleDetailDialog({
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setDocUploading(false);
+    }
+  }
+
+  async function generateIrn() {
+    if (!sale) return;
+    setActing(true);
+    try {
+      const res = await fetch(`/api/e-invoice/asset-sale/${sale.id}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "IRN generation failed");
+      toast.success(`IRN generated: ${data.irn.slice(0, 16)}…`);
+      refreshDetail();
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "IRN generation failed");
+    } finally {
+      setActing(false);
     }
   }
 
@@ -276,6 +293,31 @@ export function SaleDetailDialog({
                   <Printer className="h-4 w-4" /> Allotment Letter
                 </a>
               </Button>
+              {sale.irnStatus === "GENERATED" ? (
+                <span className="inline-flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-3 py-1.5 text-xs font-medium text-success" title={`IRN: ${sale.irn}`}>
+                  <CheckCircle2 className="h-3 w-3" /> IRN Generated
+                </span>
+              ) : sale.irnStatus === "FAILED" ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={acting}
+                  onClick={generateIrn}
+                  title={sale.irnError ?? "Retry IRN generation"}
+                >
+                  <Zap className="h-4 w-4 text-warning" /> Retry IRN
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={acting}
+                  onClick={generateIrn}
+                  title="Generate e-Invoice IRN (B2B only — requires GSTIN on both parties)"
+                >
+                  <Zap className="h-4 w-4" /> Generate IRN
+                </Button>
+              )}
             </div>
 
             {/* Sale summary */}
@@ -374,6 +416,18 @@ export function SaleDetailDialog({
                   )}
                   {sale.homeLoanBank && (
                     <div><span className="text-muted-foreground">Home Loan:</span> <strong className="text-foreground">{sale.homeLoanBank}</strong>{sale.homeLoanAmount ? ` · ${formatCurrency(sale.homeLoanAmount)}` : ""}</div>
+                  )}
+                  {sale.irn && (
+                    <div className="col-span-2">
+                      <span className="text-muted-foreground">e-Invoice IRN:</span>{" "}
+                      <strong className="text-foreground font-mono text-[10px]">{sale.irn.slice(0, 32)}…</strong>
+                      {sale.irnAckNo && <span className="text-muted-foreground"> · Ack {sale.irnAckNo}</span>}
+                      {sale.irnGeneratedAt && <span className="text-muted-foreground"> · {formatDate(sale.irnGeneratedAt)}</span>}
+                      {sale.irnStatus === "CANCELLED" && <span className="text-danger font-medium"> · CANCELLED</span>}
+                    </div>
+                  )}
+                  {sale.irnStatus === "FAILED" && sale.irnError && (
+                    <div className="col-span-2 text-danger"><span className="text-muted-foreground">IRN Error:</span> {sale.irnError}</div>
                   )}
                 </div>
               </div>
