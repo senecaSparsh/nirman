@@ -132,7 +132,7 @@ For each capability:
 
 | Capability | Nirman | 4QT | Tally | Zoho | Priority |
 |---|---|---|---|---|---|
-| Customer portal (payments, docs, progress, queries) | GAP | HAVE | — | HAVE | P0 |
+| Customer portal (payments, docs, progress, queries) | HAVE | HAVE | — | HAVE | — |
 | Channel partner / broker portal | GAP | HAVE | — | HAVE | P1 |
 | Supplier portal (PO, dispatch, invoice, payment) | GAP | HAVE | — | — | P2 |
 
@@ -163,7 +163,7 @@ For each capability:
 | Mobile shell (V2, offline queue) | HAVE | HAVE | — | HAVE | — |
 | Camera/GPS/signature/scan | HAVE | HAVE | — | HAVE | — |
 | Role-based tabs (persona) | HAVE | HAVE | — | HAVE | — |
-| Customer portal mobile | GAP | HAVE | — | HAVE | P0 |
+| Customer portal mobile | HAVE | HAVE | — | HAVE | — |
 | Broker portal mobile | GAP | HAVE | — | HAVE | P1 |
 
 ## Reports
@@ -188,7 +188,7 @@ For each capability:
 3. ~~**GST calc (CGST/SGST/IGST auto) + GSTR-1/2B/3B filing**~~ ✅ DONE — CGST/SGST/IGST auto-split based on GSTIN state codes, GSTR-1 + GSTR-3B reports with per-entry split, CSV export
 4. ~~**e-Invoicing (IRN + QR)**~~ ✅ DONE — schema fields on AssetSale/MaterialSale, e-invoice service with NIC v1.03 payload builder + pluggable provider, API routes, UI button in sale detail dialog
 5. ~~**BOQ + rate analysis**~~ ✅ DONE — `/boq` page with hierarchical BOQ, rate analysis dialog, mobile BOQ pages
-6. **Customer portal** (4QT CP, Zoho CRM portal — table stakes for real estate)
+6. ~~**Customer portal**~~ ✅ DONE — phone OTP auth, booking dashboard with payment progress, document download, payment schedule + history, construction progress tab with DPR photos, print allotment/demand from portal, "Copy Portal Link" in staff sale detail
 
 ## Top 10 priority gaps (P1)
 
@@ -213,7 +213,7 @@ For each capability:
 - ~~Allotment letter + demand notice generation~~ ✅ DONE
 - ~~Construction-linked payment schedule (auto)~~ ✅ DONE
 - BOQ + rate analysis
-- Customer portal (MVP: payments, docs, progress, queries)
+- ~~Customer portal (MVP: payments, docs, progress, queries)~~ ✅ DONE
 
 ### Phase 2 — Compliance (P0)
 - GST calc (auto) + GSTR-1/2B/3B
