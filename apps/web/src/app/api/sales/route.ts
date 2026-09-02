@@ -1,10 +1,11 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { SaleStatus } from "@nirman/db";
 import { sellAsset } from "@nirman/services";
 import { apiHandler, getCompany, json, toNum, sellAssetSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.SALES_VIEW);
@@ -12,12 +13,20 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
 
+  // Cursor pagination — backward compatible. If `cursor` param is present,
+  // return { items, nextCursor, hasMore }. Otherwise return flat array.
+  const { take, cursor, skip } = parseCursorParams(req);
+  const usePagination = searchParams.has("cursor") || searchParams.has("take");
+
   const sales = await prisma.assetSale.findMany({
     where: {
       companyId: company.id,
       ...(status ? { status: status as SaleStatus } : {}),
+      ...(cursorToWhere(cursor, "saleDate") ?? {}),
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { saleDate: "desc" },
+    take: usePagination ? take + 1 : undefined,
+    skip: usePagination ? skip : undefined,
     include: {
       customer: { select: { id: true, name: true, phone: true } },
       project: { select: { id: true, name: true } },
@@ -45,8 +54,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const parcelMap = new Map(landParcels.map((p) => [p.id, p]));
   const unitMap = new Map(builtUnits.map((u) => [u.id, u]));
 
-  return json(
-    sales.map((s) => {
+  const mapped = sales.map((s) => {
       const totalPaid = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
       const parcel = s.landParcelId ? parcelMap.get(s.landParcelId) : null;
       const unit = s.builtUnitId ? unitMap.get(s.builtUnitId) : null;
@@ -172,8 +180,17 @@ export const GET = apiHandler(async (req: NextRequest) => {
         irnGeneratedAt: s.irnGeneratedAt ? s.irnGeneratedAt.toISOString() : null,
         irnCancelledAt: s.irnCancelledAt ? s.irnCancelledAt.toISOString() : null,
       };
-    }),
-  );
+    });
+
+  // Return paginated response if pagination was requested, flat array otherwise
+  if (usePagination) {
+    const { items, nextCursor, hasMore } = buildCursorResponse(mapped, take, (r) => ({
+      createdAt: r.saleDate,
+      id: r.id,
+    }));
+    return NextResponse.json({ items, nextCursor, hasMore });
+  }
+  return json(mapped);
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {

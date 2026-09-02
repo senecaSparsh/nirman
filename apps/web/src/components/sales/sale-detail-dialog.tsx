@@ -19,6 +19,7 @@ import { CompleteSaleDialog } from "./complete-sale-dialog";
 import { EditScheduleDialog } from "./edit-schedule-dialog";
 import { EditSaleDialog } from "./edit-sale-dialog";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
+import { useApiAction } from "@/lib/use-api-action";
 import type { AssetSaleDetail, AssetSaleRow } from "@/lib/types";
 
 export function SaleDetailDialog({
@@ -45,6 +46,7 @@ export function SaleDetailDialog({
   const [chequeActionLoading, setChequeActionLoading] = useState(false);
   const [docUploading, setDocUploading] = useState(false);
   const [collectItem, setCollectItem] = useState<{ id: string; installmentNo: number; description: string; amount: number; paidAmount: number } | null>(null);
+  const { mutate: mutateAction } = useApiAction();
   const trackRecent = useTrackRecent();
 
   async function uploadDocument(documentType: "ATS" | "BBA" | "REGISTRY" | "ALLOTMENT", photos: { url: string; fileName?: string }[]) {
@@ -118,21 +120,26 @@ export function SaleDetailDialog({
   async function cancelSale() {
     if (!sale) return;
     setActing(true);
+    const prevStatus = detail?.status;
     try {
-      const res = await fetch(`/api/sales/${sale.id}`, {
+      await mutateAction({
+        endpoint: `/api/sales/${sale.id}`,
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cancel" }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Cancel failed");
-      toast.success("Sale cancelled", {
-        description: sale.depositAmount ? "Deposit refunded. Asset released." : "Asset released back to available.",
+        body: { action: "cancel" },
+        optimisticUpdate: () => {
+          setDetail((d) => d ? { ...d, status: "CANCELLED" as AssetSaleDetail["status"] } : d);
+        },
+        revert: () => {
+          setDetail((d) => d && prevStatus ? { ...d, status: prevStatus } : d);
+        },
+        successMessage: "Sale cancelled",
+        successDescription: sale.depositAmount ? "Deposit refunded. Asset released." : "Asset released back to available.",
+        refreshOnSuccess: false,
       });
       onOpenChange(false);
       router.refresh();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Unknown error");
+    } catch {
+      // Error already handled by useApiAction (toast + revert)
     } finally {
       setActing(false);
     }
@@ -159,14 +166,13 @@ export function SaleDetailDialog({
   async function handleChequeAction(paymentId: string, action: "clear" | "bounce") {
     setChequeActionLoading(true);
     try {
-      const res = await fetch(`/api/sales/payments/${paymentId}/cheque`, {
+      await mutateAction({
+        endpoint: `/api/sales/payments/${paymentId}/cheque`,
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: { action },
+        successMessage: action === "clear" ? "Cheque cleared — sale completed" : "Cheque bounced",
+        refreshOnSuccess: false,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? `Failed to ${action} cheque`);
-      toast.success(action === "clear" ? "Cheque cleared — sale completed" : "Cheque bounced");
       router.refresh();
       // Refresh the detail
       if (sale) {
@@ -176,8 +182,8 @@ export function SaleDetailDialog({
           setDetail(fresh);
         }
       }
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : `Failed to ${action} cheque`);
+    } catch {
+      // Error already handled by useApiAction
     } finally {
       setChequeActionLoading(false);
     }

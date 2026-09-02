@@ -34,8 +34,9 @@ export function parseCursorParams(req: Request) {
   );
   const cursorParam = url.searchParams.get("cursor");
   const cursor = cursorParam ? decodeCursor(cursorParam) : null;
-  const skip = cursor ? 1 : 0; // skip the cursor record itself
-  return { take, cursor, skip };
+  // No skip needed — cursorToWhere already filters out the cursor record
+  // by using lt/eq+lt conditions.
+  return { take, cursor, skip: 0 };
 }
 
 export function decodeCursor(cursor: string): CursorValue | null {
@@ -53,16 +54,23 @@ export function encodeCursor(value: CursorValue): string {
 
 /**
  * Converts a cursor to a Prisma `where` clause for cursor-based pagination.
- * Assumes orderBy: { createdAt: "desc" } — the cursor filters for records
- * created before the cursor's createdAt (or same createdAt but lower id).
+ * Assumes orderBy: { [field]: "desc" } — the cursor filters for records
+ * with a lower field value (or same field value but lower id).
+ *
+ * @param cursor The decoded cursor value
+ * @param field The field name used for ordering (default: "createdAt")
  */
-export function cursorToWhere(cursor: CursorValue | null): Record<string, unknown> | null {
+export function cursorToWhere(
+  cursor: CursorValue | null,
+  field: string = "createdAt",
+): Record<string, unknown> | null {
   if (!cursor) return null;
+  const dateValue = new Date(cursor.createdAt);
   return {
     OR: [
-      { createdAt: { lt: new Date(cursor.createdAt) } },
+      { [field]: { lt: dateValue } },
       {
-        createdAt: new Date(cursor.createdAt),
+        [field]: dateValue,
         id: { lt: cursor.id },
       },
     ],
@@ -72,10 +80,14 @@ export function cursorToWhere(cursor: CursorValue | null): Record<string, unknow
 /**
  * Builds the paginated response — slices off the extra record (take + 1)
  * and generates the next cursor if there are more records.
+ *
+ * Pass `getCursorValue` if your records don't have { id, createdAt: Date }
+ * directly (e.g. after mapping to a DTO with string dates).
  */
-export function buildCursorResponse<T extends { id: string; createdAt: Date }>(
+export function buildCursorResponse<T>(
   records: T[],
   take: number,
+  getCursorValue?: (record: T) => CursorValue,
 ): { items: T[]; nextCursor: string | null; hasMore: boolean } {
   const hasMore = records.length > take;
   const items = hasMore ? records.slice(0, take) : records;
@@ -85,10 +97,17 @@ export function buildCursorResponse<T extends { id: string; createdAt: Date }>(
     return { items, nextCursor: null, hasMore: false };
   }
 
-  const nextCursor = encodeCursor({
-    createdAt: lastRecord.createdAt.toISOString(),
-    id: lastRecord.id,
-  });
+  let cursorVal: CursorValue;
+  if (getCursorValue) {
+    cursorVal = getCursorValue(lastRecord);
+  } else {
+    // Default: expect { id, createdAt: Date } on the record
+    const record = lastRecord as unknown as { id: string; createdAt: Date | string };
+    cursorVal = {
+      createdAt: record.createdAt instanceof Date ? record.createdAt.toISOString() : record.createdAt,
+      id: record.id,
+    };
+  }
 
-  return { items, nextCursor, hasMore };
+  return { items, nextCursor: encodeCursor(cursorVal), hasMore };
 }
