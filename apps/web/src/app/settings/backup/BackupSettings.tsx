@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Download, Upload, Database, Shield, AlertTriangle, CheckCircle2, HardDrive, Cloud } from "lucide-react";
@@ -26,7 +27,7 @@ export function BackupSettings() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Backup failed");
+      toast.error(err instanceof Error ? err.message : "Backup failed");
     } finally {
       setExporting(false);
     }

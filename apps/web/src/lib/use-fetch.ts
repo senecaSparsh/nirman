@@ -62,6 +62,7 @@ export function useFetch<T = unknown>(
   const [isValidating, setIsValidating] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const retryCountRef = useRef(0);
+  const fetchDataRef = useRef<(() => Promise<void>) | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!url || skip) return;
@@ -112,7 +113,7 @@ export function useFetch<T = unknown>(
         // Auto-retry with exponential backoff
         const delay = RETRY_DELAYS[retryCountRef.current] ?? 3000;
         retryCountRef.current++;
-        setTimeout(() => fetchData(), delay);
+        setTimeout(() => fetchDataRef.current?.(), delay);
         return;
       }
 
@@ -124,6 +125,11 @@ export function useFetch<T = unknown>(
     }
   }, [url, skip, noCache, maxRetries]);
 
+  // Keep ref in sync for retry/poll callbacks
+  useEffect(() => {
+    fetchDataRef.current = fetchData;
+  }, [fetchData]);
+
   useEffect(() => {
     if (skip || !url) {
       setLoading(false);
@@ -134,7 +140,7 @@ export function useFetch<T = unknown>(
     // Polling
     let interval: ReturnType<typeof setInterval> | undefined;
     if (pollMs && pollMs > 0) {
-      interval = setInterval(() => fetchData(), pollMs);
+      interval = setInterval(() => fetchDataRef.current?.(), pollMs);
     }
 
     return () => {

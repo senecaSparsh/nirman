@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -62,6 +62,9 @@ export function useApiAction() {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  // Ref to hold the latest mutate function so the retry button can call it
+  // without creating a circular dependency in useCallback.
+  const mutateRef = useRef<((opts: ApiActionOptions) => Promise<unknown>) | null>(null);
 
   const mutate = useCallback(
     async (opts: ApiActionOptions) => {
@@ -88,7 +91,6 @@ export function useApiAction() {
       }
 
       let lastError: Error | null = null;
-      let lastResponseData: unknown = null;
 
       // Retry loop — only retries on network errors, not 4xx/5xx business errors
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -101,7 +103,6 @@ export function useApiAction() {
           });
 
           const data = await res.json().catch(() => null);
-          lastResponseData = data;
 
           if (!res.ok) {
             // Business error (4xx) — don't retry, show error immediately
@@ -141,13 +142,18 @@ export function useApiAction() {
       toast.error(msg, {
         action: {
           label: "Retry",
-          onClick: () => mutate(opts),
+          onClick: () => mutateRef.current?.(opts),
         },
       });
       throw lastError;
     },
     [router],
   );
+
+  // Keep the ref in sync so the retry button always calls the latest mutate
+  useEffect(() => {
+    mutateRef.current = mutate;
+  }, [mutate]);
 
   return { mutate, isPending, error };
 }

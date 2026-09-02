@@ -24,7 +24,7 @@ import { PERM } from "@/lib/roles";
  * Permission: FINANCE_MANAGE (accountants/owners only — backup contains
  * sensitive financial data).
  */
-export const GET = apiHandler(async (req: NextRequest) => {
+export const GET = apiHandler(async (_req: NextRequest) => {
   await requirePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
 
