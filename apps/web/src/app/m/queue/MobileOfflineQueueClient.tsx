@@ -12,13 +12,14 @@ import { clearCompleted } from "@/lib/offline/queue";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import type { QueuedOperation } from "@/lib/offline/queue";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 const KIND_LABELS: Record<QueuedOperation["kind"], { label: string; icon: typeof Package }> = {
   "goods-receipt": { label: "Goods Receipt", icon: Package },
   "material-issue": { label: "Material Issue", icon: Send },
   "stock-transfer": { label: "Stock Transfer", icon: ArrowRightLeft },
   "material-sale": { label: "Material Sale", icon: ShoppingCart },
-  "requisition": { label: "Requisition", icon: ClipboardCheck },
+  "requisition": { label: "Indent", icon: ClipboardCheck },
   "stock-count": { label: "Stock Inventory", icon: ClipboardCheck },
   "supplier-return": { label: "Supplier Return", icon: Undo2 },
   "purchase-order": { label: "Purchase Order", icon: ShoppingCart },
@@ -121,18 +122,11 @@ export function MobileOfflineQueueClient() {
 
       {/* Queue list */}
       {queue.length === 0 ? (
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-16 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <CheckCircle2 className="size-8 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            Queue is empty
-          </p>
-          <p className="text-m-body mt-1" style={{ color: "var(--color-ink-500)" }}>
-            Operations created while offline will appear here
-          </p>
-        </div>
+        <MobileEmptyState
+          icon={CheckCircle2}
+          title="Queue is empty"
+          description="Operations created while offline will appear here"
+        />
       ) : (
         <div className="flex flex-col gap-2">
           {queue.map((op) => {

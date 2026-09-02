@@ -4,7 +4,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
-import { MobileNoAccess } from "@/components/mobile/v2/primitives";
+import { MobileNoAccess, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileWorkflowDetailClient, type WorkflowDetail, type WorkflowRunRow } from "./MobileWorkflowDetailClient";
 
 export default function MobileWorkflowDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -37,11 +37,7 @@ async function WorkflowDetailLoader({ params }: { params: Promise<{ id: string }
 
   if (!workflow) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-        <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-500)" }}>
-          Workflow not found
-        </p>
-      </div>
+      <MobileEmptyState title="Workflow not found" />
     );
   }
 

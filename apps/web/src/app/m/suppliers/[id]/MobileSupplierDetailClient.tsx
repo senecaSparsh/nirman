@@ -8,7 +8,7 @@ import {
   FileText, Banknote, Pencil, X, Loader2, Trash2,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
-import { mobileStatusColor } from "@/components/mobile/v2/primitives";
+import { mobileStatusColor, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";
@@ -344,15 +344,7 @@ export function MobileSupplierDetailClient({
 function PosTab({ pos }: { pos: PoItem[] }) {
   if (pos.length === 0) {
     return (
-      <div
-        className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-      >
-        <FileText className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-        <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-          No purchase orders
-        </p>
-      </div>
+      <MobileEmptyState icon={FileText} title="No purchase orders" size="compact" />
     );
   }
 
@@ -401,15 +393,7 @@ function PosTab({ pos }: { pos: PoItem[] }) {
 function PaymentsTab({ payments }: { payments: PaymentItem[] }) {
   if (payments.length === 0) {
     return (
-      <div
-        className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-      >
-        <Banknote className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-        <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-          No payments recorded
-        </p>
-      </div>
+      <MobileEmptyState icon={Banknote} title="No payments recorded" size="compact" />
     );
   }
 

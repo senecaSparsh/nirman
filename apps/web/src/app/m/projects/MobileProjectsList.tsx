@@ -3,6 +3,8 @@
 import { useState, useMemo } from "react";
 import {Building2, ShieldCheck} from "lucide-react";
 import { formatCurrencyCompact } from "@/lib/utils";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -69,7 +71,7 @@ export function MobileProjectsList({
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProjectStatusFilter>("ALL");
-  const [showNewProject, setShowNewProject] = useState(false);
+  const fab = useFabModal();
 
   const filtered = useMemo(() => {
     let result = items;
@@ -89,13 +91,12 @@ export function MobileProjectsList({
     <div>
       {/* ── New project FAB (managers only) ─────────────────── */}
       {canManage && (
-        <MobileFab onClick={() => setShowNewProject(true)} label="New project" />
+        <MobileFab onClick={fab.toggle} label="New project" isOpen={fab.isOpen} />
       )}
-      {showNewProject && (
-        <MobileNewProjectDialog
-          open={showNewProject}
-          onClose={() => setShowNewProject(false)}
-        />
+      {canManage && (
+        <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="New Project">
+          <MobileNewProjectDialog open={fab.isOpen} onClose={fab.close} />
+        </MobileFabModal>
       )}
 
       {/* ── No projects: show empty state (button already rendered above) ── */}

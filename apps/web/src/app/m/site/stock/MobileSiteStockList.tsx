@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import { MobileSearchHeader, MobileNoResults, MobileSummaryStrip, MobileCardGrid } from "@/components/mobile/v2/scaffold";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /* ── Time helper ── */
@@ -215,18 +216,11 @@ export function MobileSiteStockList({
         query.trim() ? (
           <MobileNoResults title="No matching locations" hint="Try a different search" />
         ) : (
-          <div
-            className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-          >
-            <Package className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-            <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-              No stock locations
-            </p>
-            <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>
-              Stock locations will appear here
-            </p>
-          </div>
+          <MobileEmptyState
+            icon={Package}
+            title="No stock locations"
+            hint="Stock locations will appear here"
+          />
         )
       ) : (
         <div className="mb-4">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Image from "next/image";
 import { Camera, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -59,19 +60,25 @@ export function MobileChequeFields({
     }
   }
 
+  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
+  const inputStyle = {
+    borderColor: "var(--color-line)",
+    backgroundColor: "transparent",
+    color: "var(--color-ink-950)",
+  };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
+
   return (
-    <div
-      className="rounded-[0.375rem] border p-2.5 space-y-2"
-      style={{ borderColor: "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-signal) 5%, var(--color-paper))" }}
-    >
-      <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-signal)" }}>
+    <div className="space-y-3 pt-1">
+      <p className="text-m-caption font-bold" style={{ color: "var(--color-signal)" }}>
         Cheque Details — pending until cleared
       </p>
 
       {/* Cheque No + Date */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="text-m-caption font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+      <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+        <div className="pr-2">
+          <label className={labelClass} style={labelStyle}>
             Cheque No.
           </label>
           <input
@@ -79,27 +86,27 @@ export function MobileChequeFields({
             value={value.chequeNo}
             onChange={(e) => set("chequeNo", e.target.value)}
             placeholder="000123"
-            className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+            className={inputClass}
+            style={inputStyle}
           />
         </div>
-        <div>
-          <label className="text-m-caption font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+        <div className="pl-2">
+          <label className={labelClass} style={labelStyle}>
             Cheque Date
           </label>
           <input
             type="date"
             value={value.chequeDate}
             onChange={(e) => set("chequeDate", e.target.value)}
-            className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+            className={inputClass}
+            style={inputStyle}
           />
         </div>
       </div>
 
       {/* Bank */}
       <div>
-        <label className="text-m-caption font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+        <label className={labelClass} style={labelStyle}>
           Bank
         </label>
         <input
@@ -107,20 +114,19 @@ export function MobileChequeFields({
           value={value.chequeBank}
           onChange={(e) => set("chequeBank", e.target.value)}
           placeholder="HDFC, SBI, ICICI…"
-          className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body outline-none"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          className={inputClass}
+          style={inputStyle}
         />
       </div>
 
       {/* Cheque photo */}
       <div>
-        <label className="text-m-caption font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
+        <label className={labelClass} style={labelStyle}>
           Cheque Photo (front)
         </label>
         {value.chequePhotoUrl ? (
-          <div className="relative rounded-[0.375rem] border overflow-hidden" style={{ borderColor: "var(--color-line)" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded photo */}
-            <img src={value.chequePhotoUrl} alt="Cheque" className="w-full h-24 object-cover" />
+          <div className="relative h-24 rounded-[0.375rem] border overflow-hidden" style={{ borderColor: "var(--color-line)" }}>
+            <Image src={value.chequePhotoUrl} alt="Cheque" fill className="object-cover" sizes="(max-width: 768px) 100vw, 400px" />
             <button
               type="button"
               onClick={() => set("chequePhotoUrl", "")}

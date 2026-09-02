@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, ChevronDown, Search, X, Check } from "lucide-react";
+import { MobileNoResults } from "@/components/mobile/v2/scaffold";
 
 type ProjectItem = { id: string; name: string };
 
@@ -120,12 +121,7 @@ export function MobileBudgetVarianceProjectSelector({
             {/* List */}
             <div className="flex-1 overflow-y-auto overscroll-contain">
               {filtered.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <Search className="size-5 mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-                  <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-500)" }}>
-                    No results
-                  </p>
-                </div>
+                <MobileNoResults title="No results" hint="Try a different search." />
               ) : (
                 filtered.map((p) => {
                   const isSelected = p.id === selectedId;

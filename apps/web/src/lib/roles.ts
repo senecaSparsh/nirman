@@ -21,6 +21,7 @@
 export type Role =
   | "OWNER"
   | "ADMIN"
+  | "DEVELOPER"
   | "PROJECT_DIRECTOR"
   | "FINANCE_HEAD"
   | "PROJECT_MANAGER"
@@ -36,6 +37,7 @@ export type Role =
 export const ALL_ROLES: Role[] = [
   "OWNER",
   "ADMIN",
+  "DEVELOPER",
   "PROJECT_DIRECTOR",
   "FINANCE_HEAD",
   "PROJECT_MANAGER",
@@ -60,6 +62,7 @@ export const ALL_ROLES: Role[] = [
 const ROLE_TIER: Record<Role, number> = {
   OWNER: 1,
   ADMIN: 1,
+  DEVELOPER: 1,
   PROJECT_DIRECTOR: 2,
   FINANCE_HEAD: 2,
   PROJECT_MANAGER: 3,
@@ -98,7 +101,7 @@ export function canAssignRole(actorRole: string | undefined | null, targetRole: 
   if (actor === target) return false;
   // Strictly below → always allowed.
   if (actorTier < targetTier) return true;
-  // Same tier, different role → allowed only for tier 1 (OWNER↔ADMIN).
+  // Same tier, different role → allowed only for tier 1 (OWNER↔ADMIN↔DEVELOPER).
   if (actorTier === 1 && actorTier === targetTier && actor !== target) return true;
   // Same tier for tiers 2-4 → not allowed (peers can't create peers).
   // Higher tier → never allowed.
@@ -214,6 +217,20 @@ export const PERM = {
   GATE_PASS_MANAGE: "gate_pass.manage",  // edit/cancel
   // Generic document attachments — link uploads to any entity
   ATTACHMENT_MANAGE: "attachment.manage",
+  // Call tracking & recording
+  CALL_VIEW: "call.view",
+  CALL_VIEW_ALL: "call.view_all",
+  CALL_VIEW_CHILD: "call.view_child_companies",
+  CALL_VIEW_FULL_NUMBER: "call.view_full_number",
+  CALL_CREATE: "call.create",
+  CALL_EDIT: "call.edit",
+  CALL_DELETE: "call.delete",
+  CALL_MANAGE: "call.manage",
+  CALL_RECORDING_LISTEN: "call.recording.listen",
+  CALL_RECORDING_DELETE: "call.recording.delete",
+  CALL_ANALYTICS: "call.analytics",
+  TELEPHONY_VIEW: "telephony.view",
+  TELEPHONY_MANAGE: "telephony.manage",
 } as const;
 
 export type Permission = (typeof PERM)[keyof typeof PERM];
@@ -237,6 +254,17 @@ export const ROLES: Record<Role, RoleDef> = {
     key: "ADMIN",
     label: "System Administrator",
     description: "Full system access — manages users, settings, and all modules.",
+    permissions: "*",
+    canManageUsers: true,
+    canAssignTasks: true,
+    canManageWorkflows: true,
+    tier: 1,
+    category: "Executive",
+  },
+  DEVELOPER: {
+    key: "DEVELOPER",
+    label: "Developer (God Mode)",
+    description: "Platform developer — full access to everything + receives all user feedback.",
     permissions: "*",
     canManageUsers: true,
     canAssignTasks: true,
@@ -269,6 +297,9 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.USERS_VIEW,
       PERM.GATE_PASS_VIEW, PERM.GATE_PASS_CREATE, PERM.GATE_PASS_APPROVE, PERM.GATE_PASS_MANAGE,
       PERM.LEGAL_MANAGE,
+      PERM.CALL_VIEW, PERM.CALL_VIEW_ALL, PERM.CALL_VIEW_CHILD, PERM.CALL_VIEW_FULL_NUMBER,
+      PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_RECORDING_LISTEN, PERM.CALL_ANALYTICS,
+      PERM.TELEPHONY_VIEW,
     ],
     canManageUsers: false,
     canAssignTasks: true,
@@ -294,6 +325,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.USERS_VIEW,
       PERM.GATE_PASS_VIEW, PERM.GATE_PASS_APPROVE,
       PERM.LEGAL_MANAGE,
+      PERM.CALL_VIEW, PERM.CALL_ANALYTICS,
     ],
     canManageUsers: false,
     canAssignTasks: false,
@@ -324,6 +356,8 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.VEHICLE_VIEW, PERM.VEHICLE_MANAGE,
       PERM.GATE_PASS_VIEW, PERM.GATE_PASS_CREATE, PERM.GATE_PASS_APPROVE, PERM.GATE_PASS_MANAGE,
       PERM.LEGAL_MANAGE,
+      PERM.CALL_VIEW, PERM.CALL_VIEW_ALL, PERM.CALL_VIEW_FULL_NUMBER,
+      PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_RECORDING_LISTEN, PERM.CALL_ANALYTICS,
     ],
     canManageUsers: false,
     canAssignTasks: true,
@@ -346,6 +380,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.VEHICLE_VIEW, PERM.VEHICLE_MANAGE,
       PERM.TASKS_VIEW,
       PERM.GATE_PASS_VIEW, PERM.GATE_PASS_CREATE, PERM.GATE_PASS_APPROVE, PERM.GATE_PASS_MANAGE,
+      PERM.CALL_VIEW, PERM.CALL_CREATE, PERM.CALL_EDIT,
     ],
     canManageUsers: false,
     canAssignTasks: false,
@@ -367,6 +402,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.USERS_VIEW,
       PERM.TASKS_VIEW,
       PERM.GATE_PASS_VIEW,
+      PERM.CALL_VIEW, PERM.CALL_CREATE, PERM.CALL_EDIT,
     ],
     canManageUsers: false,
     canAssignTasks: false,
@@ -391,6 +427,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.TASKS_VIEW,
       PERM.VEHICLE_VIEW,
       PERM.GATE_PASS_VIEW, PERM.GATE_PASS_CREATE, PERM.GATE_PASS_MANAGE,
+      PERM.CALL_VIEW, PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_RECORDING_LISTEN,
     ],
     canManageUsers: false,
     canAssignTasks: false,
@@ -411,6 +448,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.VEHICLE_VIEW, PERM.VEHICLE_MANAGE,
       PERM.TASKS_VIEW,
       PERM.GATE_PASS_VIEW, PERM.GATE_PASS_CREATE, PERM.GATE_PASS_EXIT, PERM.GATE_PASS_MANAGE,
+      PERM.CALL_VIEW, PERM.CALL_CREATE, PERM.CALL_EDIT,
     ],
     canManageUsers: false,
     canAssignTasks: false,
@@ -452,6 +490,8 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.QUOTATION_VIEW, PERM.QUOTATION_MANAGE,
       PERM.TASKS_VIEW,
       PERM.GATE_PASS_VIEW, PERM.GATE_PASS_CREATE, PERM.GATE_PASS_MANAGE,
+      PERM.CALL_VIEW, PERM.CALL_VIEW_FULL_NUMBER, PERM.CALL_CREATE, PERM.CALL_EDIT,
+      PERM.CALL_RECORDING_LISTEN, PERM.CALL_ANALYTICS,
     ],
     canManageUsers: false,
     canAssignTasks: false,
@@ -476,6 +516,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.BOQ_VIEW, PERM.WBS_VIEW, PERM.MB_VIEW, PERM.MB_VERIFY, PERM.PROJECT_CONTROL_VIEW,
       PERM.HR_VIEW, PERM.DPR_VIEW, PERM.DPR_SUBMIT,
       PERM.GATE_PASS_VIEW, PERM.GATE_PASS_CREATE, PERM.GATE_PASS_EXIT,
+      PERM.CALL_VIEW, PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_RECORDING_LISTEN,
     ],
     canManageUsers: false,
     canAssignTasks: false,
@@ -497,6 +538,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.HR_VIEW, PERM.DPR_VIEW, PERM.DPR_SUBMIT,
       PERM.TASKS_VIEW,
       PERM.GATE_PASS_VIEW,
+      PERM.CALL_VIEW, PERM.CALL_CREATE,
     ],
     canManageUsers: false,
     canAssignTasks: false,

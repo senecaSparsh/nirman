@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { MoneyCell } from "@/components/ui/cells";
+import { EmployeeName } from "@/components/employee-name";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
@@ -622,6 +623,7 @@ function PayrollDetailDialog({
 }) {
   const [lines, setLines] = useState<Array<{
     id: string;
+    employeeId: string;
     employeeName: string;
     trade: string | null;
     wageType: string;
@@ -733,7 +735,7 @@ function PayrollDetailDialog({
             {lines.map((l) => (
               <TR key={l.id}>
                 <TD>
-                  <div className="font-medium">{l.employeeName}</div>
+                  <div className="font-medium"><EmployeeName id={l.employeeId} name={l.employeeName} /></div>
                   <div className="text-caption text-muted-foreground">{l.trade ?? l.wageType}</div>
                 </TD>
                 <TD className="tnum">{l.daysWorked}</TD>

@@ -7,6 +7,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
+import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Plus, FileText, Trophy, ChevronRight, AlertCircle, Check } from "lucide-react";
 
@@ -86,13 +87,11 @@ async function QuotationsContent() {
       </div>
 
       {requests.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-12 text-center">
-          <FileText className="mx-auto size-8 text-muted-foreground/50" />
-          <p className="mt-2 font-semibold">No quotation requests yet</p>
-          <p className="text-sm text-muted-foreground">
-            {canCreate ? "Create one from the mobile app to get started." : "Quotation requests will appear here once created."}
-          </p>
-        </div>
+        <EmptyState
+          icon={<FileText className="h-5 w-5" />}
+          title="No quotation requests yet"
+          description={canCreate ? "Create one from the mobile app to get started." : "Quotation requests will appear here once created."}
+        />
       ) : (
         <div className="rounded-lg border border-border overflow-hidden">
           <table className="w-full text-sm">

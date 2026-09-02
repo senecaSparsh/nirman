@@ -101,7 +101,7 @@ export function RequisitionDetailDialog({
       toast.success(`Indent ${action}ted`);
       // Re-fetch detail
       const r2 = await fetch(`/api/requisitions/${requisition.id}`);
-      if (!r2.ok) throw new Error("Failed to re-fetch requisition details");
+      if (!r2.ok) throw new Error("Failed to re-fetch indent details");
       const d2 = await r2.json();
       if (!d2.error) setDetail(d2);
       router.refresh();
@@ -114,13 +114,13 @@ export function RequisitionDetailDialog({
 
   async function handleDelete() {
     if (!requisition) return;
-    if (!window.confirm(`Delete requisition ${requisition.reqNumber}?\n\nThis cannot be undone.`)) return;
+    if (!window.confirm(`Delete indent ${requisition.reqNumber}?\n\nThis cannot be undone.`)) return;
     setActing(true);
     try {
       const res = await fetch(`/api/requisitions/${requisition.id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Delete failed");
-      toast.success("Requisition deleted");
+      toast.success("Indent deleted");
       onOpenChange(false);
       router.refresh();
     } catch (err: unknown) {

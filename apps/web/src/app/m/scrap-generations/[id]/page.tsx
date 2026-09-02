@@ -10,7 +10,7 @@ import { toNum, getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import { MobileScrapCancelBtn } from "./MobileScrapCancelBtn";
-import { ActionBar } from "@/components/mobile/v2/primitives";
+import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 export default function MobileScrapDetailPage({
   params,
@@ -50,19 +50,10 @@ async function MobileScrapDetailContent({
 
   if (!scrap) {
     return (
-      <div>
-        <div className="mb-4">
-        </div>
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-12 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <Recycle className="size-8 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            Scrap slip not found
-          </p>
-        </div>
-      </div>
+      <MobileEmptyState
+        icon={Recycle}
+        title="Scrap slip not found"
+      />
     );
   }
 
@@ -216,15 +207,11 @@ async function MobileScrapDetailContent({
         Line Items ({scrap.lines.length})
       </p>
       {scrap.lines.length === 0 ? (
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <Recycle className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            No line items
-          </p>
-        </div>
+        <MobileEmptyState
+          icon={Recycle}
+          title="No line items"
+          size="compact"
+        />
       ) : (
         <div
           className="rounded-[0.5rem] border overflow-hidden mb-3"

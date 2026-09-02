@@ -19,6 +19,7 @@ export function MobileCustomersLeadsTabs({
   canDelete = false,
   customerStats,
   leadCount,
+  existingPhones = [],
 }: {
   customers: CustomerListItem[];
   leads: LeadListItem[];
@@ -32,6 +33,8 @@ export function MobileCustomersLeadsTabs({
     pipelineValue: number;
   };
   leadCount: number;
+  /** Existing phone numbers for duplicate-check in the new-customer FAB modal. */
+  existingPhones?: string[];
 }) {
   const [tab, setTab] = useState<"customers" | "leads">("customers");
 
@@ -93,6 +96,7 @@ export function MobileCustomersLeadsTabs({
           canEdit={canEdit}
           canDelete={canDelete}
           stats={customerStats}
+          existingPhones={existingPhones}
           exportTitle="Customers"
           exportRows={customers as unknown as Record<string, unknown>[]}
           exportColumns={[

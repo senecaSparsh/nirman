@@ -8,6 +8,7 @@ import {
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 
 interface ProjectItem { id: string; name: string; }
@@ -194,8 +195,10 @@ export default function MobileNewStockLocationClient({
               options={projects.map((p) => ({ value: p.id, label: p.name }))}
               inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
               inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              renderDialog={({ open, onClose, onCreated }) => (
-                <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+              renderDialog={({ open, onClose, onCreated, originRect }) => (
+                <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+                  <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+                </MobileFabModal>
               )}
             />
           </div>

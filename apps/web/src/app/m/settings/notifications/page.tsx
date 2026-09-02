@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { NotificationPermissionToggle } from "@/components/mobile/notification-permission-toggle";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 interface Template {
   id: string;
@@ -272,12 +273,12 @@ function PreferencesTab({
 }) {
   if (preferences.length === 0) {
     return (
-      <div className="rounded-[0.625rem] border p-6 text-center" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <Bell className="size-8 mx-auto mb-2" style={{ color: "var(--color-ink-500)" }} />
-        <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
-          No notification preferences set. Defaults will be used.
-        </p>
-      </div>
+      <MobileEmptyState
+        icon={Bell}
+        title="No notification preferences set"
+        description="Defaults will be used."
+        size="compact"
+      />
     );
   }
 
@@ -352,12 +353,11 @@ function TemplatesTab({
 }) {
   if (templates.length === 0) {
     return (
-      <div className="rounded-[0.625rem] border p-6 text-center" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <Bell className="size-8 mx-auto mb-2" style={{ color: "var(--color-ink-500)" }} />
-        <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
-          No notification templates configured.
-        </p>
-      </div>
+      <MobileEmptyState
+        icon={Bell}
+        title="No notification templates configured"
+        size="compact"
+      />
     );
   }
 
@@ -426,12 +426,11 @@ function TemplatesTab({
 function LogTab({ logs }: { logs: LogEntry[] }) {
   if (logs.length === 0) {
     return (
-      <div className="rounded-[0.625rem] border p-6 text-center" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <Clock className="size-8 mx-auto mb-2" style={{ color: "var(--color-ink-500)" }} />
-        <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
-          No notifications sent yet.
-        </p>
-      </div>
+      <MobileEmptyState
+        icon={Clock}
+        title="No notifications sent yet"
+        size="compact"
+      />
     );
   }
 

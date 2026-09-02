@@ -28,8 +28,9 @@ import { ParcelsTree } from "./parcels-tree";
 import { BuiltUnitFormDialog } from "@/components/built-units/built-unit-form-dialog";
 import { LegalDocsSection, type LegalDocRow } from "@/components/legal/legal-docs-section";
 import { CadastrePlan, CadastreLegend } from "./cadastre-plan";
+import { LandCostComponentDialog } from "./land-cost-component-dialog";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
-import type { LandParcelRow, LandParcelSummary, LandPurchaseRow, PhaseOption, ProjectOption, SellableAssetRow } from "@/lib/types";
+import type { LandParcelRow, LandParcelSummary, LandPurchaseRow, LandCostComponentRow, PhaseOption, ProjectOption, SellableAssetRow } from "@/lib/types";
 import { useTabParam } from "@/lib/use-tab-param";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
 import { useConfirm } from "@/lib/use-confirm";
@@ -70,6 +71,8 @@ export type LandHubData = {
     brokerageAmount?: number | null;
     legalFees?: number | null;
     otherCharges?: number | null;
+    // ── Cost components (arbitrary / recurring / future costs) ──
+    costComponents?: LandCostComponentRow[];
     // ── Staged purchase ──
     purchaseStage?: string | null;
     tokenAmount?: number | null;
@@ -187,6 +190,13 @@ const _PAYMENT_VARIANT: Record<string, "default" | "success" | "warning" | "dang
   CANCELLED: "danger",
 };
 
+const INTERVAL_LABELS: Record<string, string> = {
+  MONTHLY: "Monthly",
+  QUARTERLY: "Quarterly",
+  HALF_YEARLY: "Half-Yearly",
+  YEARLY: "Yearly",
+};
+
 export function LandHub({ data }: { data: LandHubData }) {
   const { purchase, parcels, parcelSummaries, stats, permissions, customers, parcelBuiltUnits } = data;
   const hasBuiltUnits = parcelBuiltUnits && parcelBuiltUnits.length > 0;
@@ -217,6 +227,8 @@ export function LandHub({ data }: { data: LandHubData }) {
   const [_createProjectOpen, _setCreateProjectOpen] = useState(false);
   const [createProjectLoading, setCreateProjectLoading] = useState(false);
   const [unitFormOpen, setUnitFormOpen] = useState(false);
+  const [costComponentOpen, setCostComponentOpen] = useState(false);
+  const [editingCostComponent, setEditingCostComponent] = useState<LandCostComponentRow | null>(null);
   const router = useRouter();
   const [confirm, confirmDialog] = useConfirm();
 
@@ -583,11 +595,46 @@ export function LandHub({ data }: { data: LandHubData }) {
                 {purchase.otherCharges != null && purchase.otherCharges > 0 && (
                   <div className="flex justify-between"><span className="text-muted-foreground">Other Charges:</span> <strong className="text-foreground tabular-nums">{formatCurrency(purchase.otherCharges)}</strong></div>
                 )}
+                {/* Cost components — arbitrary / recurring / future costs */}
+                {purchase.costComponents?.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex justify-between cursor-pointer hover:bg-muted/50 -mx-1 px-1 rounded"
+                    onClick={() => { setEditingCostComponent(c); setCostComponentOpen(true); }}
+                    title="Click to edit"
+                  >
+                    <span className="text-muted-foreground">
+                      {c.label}
+                      {c.frequency === "RECURRING" && c.interval && (
+                        <span className="text-muted-foreground/70"> ({INTERVAL_LABELS[c.interval]})</span>
+                      )}
+                    </span>
+                    <strong className="text-foreground tabular-nums text-right">
+                      {formatCurrency(c.postedAmount)}
+                      {c.frequency === "RECURRING" && c.scheduledTotal > 0 && c.postedAmount !== c.scheduledTotal && (
+                        <span className="text-muted-foreground/70 font-normal"> / {formatCurrency(c.scheduledTotal)}</span>
+                      )}
+                    </strong>
+                  </div>
+                ))}
               </div>
               <div className="flex justify-between border-t border-border pt-1 text-body font-semibold">
                 <span>Total Land Cost</span>
                 <strong className="tabular-nums">{formatCurrency(purchase.totalCost)}</strong>
               </div>
+              {permissions.canEdit && (
+                <div className="pt-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-caption h-7 px-2"
+                    onClick={() => { setEditingCostComponent(null); setCostComponentOpen(true); }}
+                  >
+                    <Plus className="mr-1 h-3.5 w-3.5" /> Add Cost
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
@@ -945,6 +992,12 @@ export function LandHub({ data }: { data: LandHubData }) {
         phases={data.phaseOptions ?? []}
         parcelOptions={parcels.map((p) => ({ id: p.id, label: `Parcel ${p.number}` }))}
         defaults={{ projectId: purchase.projectId ?? undefined }}
+      />
+      <LandCostComponentDialog
+        open={costComponentOpen}
+        onOpenChange={setCostComponentOpen}
+        landPurchaseId={purchase.id}
+        editing={editingCostComponent}
       />
       {permissions.canSell && sellParcel && (
         <SellAssetDialog

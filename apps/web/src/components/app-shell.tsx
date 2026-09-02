@@ -14,6 +14,8 @@ import {
   Settings,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import useSWR, { mutate } from "swr";
+import { swrFetcher } from "@/lib/swr";
 import {
   worldsFor,
   worldForPath,
@@ -25,8 +27,11 @@ import {
   type NavLink,
 } from "@/lib/nav";
 import { cn } from "@/lib/utils";
-import { CommandPalette } from "@/components/command-palette";
-import { AssistantChat } from "@/components/mobile/assistant/assistant-chat";
+import dynamic from "next/dynamic";
+// Heavy client-only components — lazy-loaded with ssr:false so they
+// never enter the initial server bundle or block first paint.
+const CommandPalette = dynamic(() => import("@/components/command-palette").then(m => m.CommandPalette), { ssr: false });
+const AssistantChat = dynamic(() => import("@/components/mobile/assistant/assistant-chat").then(m => m.AssistantChat), { ssr: false });
 import { CompanySwitcher } from "@/components/company-switcher";
 import { AlertBell } from "@/components/alert-bell";
 import { NotificationBell } from "@/components/notification-bell";
@@ -79,7 +84,11 @@ function isAuthRoute(pathname: string): boolean {
     pathname === "/sign-in" ||
     pathname.startsWith("/sign-in/") ||
     pathname === "/sign-up" ||
-    pathname.startsWith("/sign-up/")
+    pathname.startsWith("/sign-up/") ||
+    pathname === "/forgot-password" ||
+    pathname.startsWith("/forgot-password/") ||
+    pathname === "/reset-password" ||
+    pathname.startsWith("/reset-password/")
   );
 }
 
@@ -93,17 +102,55 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { data: session, isPending: sessionLoading } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [companyName, setCompanyName] = useState("Nirman");
-  const [companies, setCompanies] = useState<
-    { id: string; name: string; businessType: string | null; parentName: string | null; isCurrent: boolean }[]
-  >([]);
-  const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
-  const [userRole, setUserRole] = useState<string>("PROJECT_MANAGER");
-  const [userName, setUserName] = useState<string>("");
+  // Tracks whether a company switch is in progress — used to dim/blur
+  // the content area so the user never sees old-company data under a
+  // new-company header.
+  const [isCompanySwitching, setIsCompanySwitching] = useState(false);
+
+  // ── Context data via SWR ─────────────────────────────────────
+  // SWR dedupes + caches, so navigating between pages does NOT refetch
+  // /api/company or /api/me on every route change (the old useEffect did).
+  // On mobile/auth/print routes we pass null as the key so nothing fetches.
+  const isShellRoute = !isMobileRoute(pathname) && !isAuthRoute(pathname) && !isPrintRoute(pathname);
+
+  const { data: companyData } = useSWR(isShellRoute ? "/api/company" : null, swrFetcher);
+  const { data: meData } = useSWR(isShellRoute ? "/api/me" : null, swrFetcher);
+
+  // Badges: one stable key per role (NOT dependent on pathname). The fetcher
+  // hits every badge endpoint for the role and returns a {href: count} map.
+  const { data: badgeData } = useSWR(
+    isShellRoute && meData?.role ? ["badges", meData.role] : null,
+    async () => {
+      const role = meData!.role;
+      const items = badgeLinksFor(role);
+      const results = await Promise.all(
+        items.map((item) =>
+          fetch(item.badge!.endpoint)
+            .then((r) => (r.ok ? r.json() : []))
+            .then((data) => ({ href: item.href, count: Array.isArray(data) ? data.length : 0 }))
+            .catch(() => ({ href: item.href, count: 0 })),
+        ),
+      );
+      const map: Record<string, number> = {};
+      for (const r of results) if (r.count > 0) map[r.href] = r.count;
+      return map;
+    },
+  );
+
+  // ── Derived state (computed from SWR data, no setState) ────
+  const companyName = companyData?.name ?? "Nirman";
+  const companies: { id: string; name: string; businessType: string | null; parentName: string | null; isCurrent: boolean }[] =
+    Array.isArray(companyData?.companies) ? companyData.companies : [];
+  const badgeCounts: Record<string, number> = badgeData ?? {};
+  const userRole: string = meData?.role ?? "PROJECT_MANAGER";
+  const userName: string = meData?.name ?? "";
 
   // ── Auth guard ───────────────────────────────────────────────
+  // Runs in ALL environments (including dev) so that expired sessions
+  // redirect to /sign-in. Only skipped when NEXT_PUBLIC_AUTH_BYPASS=true
+  // is set explicitly (headless dev mode).
   useEffect(() => {
-    if (process.env.NODE_ENV !== "production") return;
+    if (process.env.NEXT_PUBLIC_AUTH_BYPASS === "true") return;
     if (isAuthRoute(pathname) || isPrintRoute(pathname)) return;
     if (!sessionLoading && !session) {
       authSignOut().catch(() => {});
@@ -127,7 +174,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         if (res.status === 401 && !redirecting) {
           redirecting = true;
           authSignOut().catch(() => {});
-          router.replace("/sign-in");
+          // Preserve the current path so the user returns here after re-login.
+          const current = window.location.pathname + window.location.search;
+          router.replace(`/sign-in?redirect=${encodeURIComponent(current)}`);
         }
         return res;
       });
@@ -155,48 +204,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // ── Context fetches ─────────────────────────────────────────
-  useEffect(() => {
-    if (isMobileRoute(pathname) || isAuthRoute(pathname) || isPrintRoute(pathname)) return;
-    let cancelled = false;
-
-    fetch("/api/company")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((c) => {
-        if (cancelled) return;
-        if (c?.name) setCompanyName(c.name);
-        if (Array.isArray(c?.companies)) setCompanies(c.companies);
-      })
-      .catch(() => {});
-
-    fetch("/api/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (cancelled) return;
-        if (d?.role) setUserRole(d.role);
-        if (d?.name) setUserName(d.name);
-      })
-      .catch(() => {});
-
-    Promise.all(
-      badgeLinksFor(userRole).map((item) =>
-        fetch(item.badge!.endpoint)
-          .then((r) => (r.ok ? r.json() : []))
-          .then((data) => ({ href: item.href, count: Array.isArray(data) ? data.length : 0 }))
-          .catch(() => ({ href: item.href, count: 0 })),
-      ),
-    ).then((results) => {
-      if (cancelled) return;
-      const map: Record<string, number> = {};
-      for (const r of results) if (r.count > 0) map[r.href] = r.count;
-      setBadgeCounts(map);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [pathname, userRole]);
-
   // ── Update document title to the current company name ──────
   // The layout's static metadata says "Nirman Inventory OS" (the product
   // name). Once we know the active company, the tab title becomes
@@ -210,31 +217,46 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [companyName]);
 
-  // ── Re-fetch company info when the user switches company ──
+  // ── Company switch handler ──────────────────────────────────
   // The CompanySwitcher dispatches a "nirman-company-switched" event
-  // after a successful switch. We listen for it and re-fetch /api/company
-  // to update the brand mark, document title, and switcher list.
+  // with the new company data in `detail`. We:
+  //   1. Set the document title instantly from the event detail (no
+  //      second round-trip to /api/company).
+  //   2. Revalidate /api/company + badges via SWR mutate (background).
+  //   3. Track `isCompanySwitching` to dim/blur the content area while
+  //      router.refresh() fetches the new company's page data.
   useEffect(() => {
     if (isMobileRoute(pathname) || isAuthRoute(pathname) || isPrintRoute(pathname)) return;
-    function onCompanySwitched() {
-      fetch("/api/company")
-        .then((r) => (r.ok ? r.json() : null))
-        .then((c) => {
-          if (c?.name) {
-            setCompanyName(c.name);
-            // Set the title immediately — the navigation in the
-            // switcher may re-apply Next.js metadata and overwrite it.
-            const newTitle = c.name !== "Nirman" ? `${c.name} · Nirman OS` : "Nirman Inventory OS";
-            document.title = newTitle;
-            setTimeout(() => { document.title = newTitle; }, 300);
-          }
-          if (Array.isArray(c?.companies)) setCompanies(c.companies);
-        })
-        .catch(() => {});
+
+    function onCompanySwitched(e: Event) {
+      const detail = (e as CustomEvent).detail as
+        | { id: string; name: string; parentCompanyId: string | null }
+        | undefined;
+
+      // Update title instantly from event detail — no network round-trip.
+      if (detail?.name) {
+        const newTitle =
+          detail.name !== "Nirman" ? `${detail.name} · Nirman OS` : "Nirman Inventory OS";
+        document.title = newTitle;
+        // Re-apply after router.refresh() may re-apply Next.js metadata.
+        setTimeout(() => { document.title = newTitle; }, 300);
+      }
+
+      // Revalidate SWR caches in the background.
+      mutate("/api/company");
+      if (userRole) mutate(["badges", userRole]);
+
+      // Dim the content area while router.refresh() re-renders the page
+      // with the new company's data. Clear after a short delay —
+      // router.refresh() in a transition is usually fast enough that
+      // the dim is barely perceptible, but it eliminates the visual gap.
+      setIsCompanySwitching(true);
+      setTimeout(() => setIsCompanySwitching(false), 600);
     }
-    window.addEventListener("nirman-company-switched", onCompanySwitched);
-    return () => window.removeEventListener("nirman-company-switched", onCompanySwitched);
-  }, [pathname]);
+
+    window.addEventListener("nirman-company-switched", onCompanySwitched as EventListener);
+    return () => window.removeEventListener("nirman-company-switched", onCompanySwitched as EventListener);
+  }, [pathname, userRole]);
 
   // Mobile routes render their own shell.
   if (isMobileRoute(pathname)) return <>{children}</>;
@@ -282,7 +304,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     });
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background" data-switching={isCompanySwitching ? "true" : undefined}>
       {/* ── World rail — always visible, 64px, dark ──────────────── */}
       <WorldRail
         worlds={worlds}
@@ -636,7 +658,7 @@ function WorldRail({
         <CurrencyToggle />
         <ThemeToggle />
         <button
-          onClick={() => authSignOut().then(() => (window.location.href = "/sign-in"))}
+          onClick={() => authSignOut().catch(() => {}).finally(() => { window.location.href = "/sign-in"; })}
           className="flex size-8 items-center justify-center rounded-md text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
           title="Sign out"
           aria-label="Sign out"

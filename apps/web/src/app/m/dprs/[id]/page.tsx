@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
@@ -48,7 +49,7 @@ async function MobileDprDetailContent({
       },
       laborLines: {
         include: {
-          employee: { select: { name: true } },
+          employee: { select: { id: true, name: true } },
           crew: { select: { name: true } },
         },
       },
@@ -249,11 +250,10 @@ async function MobileDprDetailContent({
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block overflow-hidden rounded-[0.375rem] border"
+                className="relative block overflow-hidden rounded-[0.375rem] border aspect-video"
                 style={{ borderColor: "var(--color-line)" }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded photo */}
-                <img src={url} alt={`Site photo ${i + 1}`} className="aspect-video w-full object-cover" />
+                <Image src={url} alt={`Site photo ${i + 1}`} fill className="object-cover" sizes="(max-width: 768px) 100vw, 400px" />
               </a>
             ))}
           </div>
@@ -340,7 +340,11 @@ async function MobileDprDetailContent({
                     {ll.taskDescription}
                   </p>
                   <div className="flex items-center justify-between">
-                    <span className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
+                    <span
+                      className="text-m-caption truncate"
+                      style={{ color: "var(--color-ink-500)", ...(ll.employee?.id ? { cursor: "pointer" } : {}) }}
+                      {...(ll.employee?.id ? { "data-emp-id": ll.employee.id } : {})}
+                    >
                       {ll.employee?.name ?? ll.crew?.name ?? "—"}
                     </span>
                     <span className="text-m-caption tabular-nums font-semibold" style={{ color: "var(--color-ink-700)" }}>

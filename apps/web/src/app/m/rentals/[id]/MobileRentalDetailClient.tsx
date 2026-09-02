@@ -13,7 +13,7 @@ import {
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
 import { MobileDocUploader } from "../../MobileDocUploader";
-import { ActionBar } from "@/components/mobile/v2/primitives";
+import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 /* ─── Types ─── */
 
@@ -113,22 +113,7 @@ export function MobileRentalDetailClient({
 
   if (notFound || !data) {
     return (
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-            Tenancy not found
-          </p>
-        </div>
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <KeyRound className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            Tenancy not found
-          </p>
-        </div>
-      </div>
+      <MobileEmptyState icon={AlertCircle} title="Tenancy not found" />
     );
   }
 
@@ -675,15 +660,7 @@ export function MobileRentalDetailClient({
         </div>
 
         {data.payments.length === 0 ? (
-          <div
-            className="flex flex-col items-center justify-center rounded-[0.5rem] border py-6 text-center"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-          >
-            <Banknote className="size-5 mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-            <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-700)" }}>
-              No payments recorded
-            </p>
-          </div>
+          <MobileEmptyState icon={Banknote} title="No payments recorded" size="compact" />
         ) : (
           <div className="flex flex-col gap-1.5">
             {data.payments.map((p) => {

@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileSellerDialog } from "./MobileSellerDialog";
 import { MobileLegalDocsSection } from "@/components/legal/mobile-legal-docs-section";
@@ -169,6 +170,8 @@ export function MobileLandWizard({
     otherCharges: "",
   });
   const [mode, setMode] = useState<Mode>("WHOLE");
+  // Additional cost components (recurring / future costs)
+  const [extraCosts, setExtraCosts] = useState<{ label: string; amount: string; frequency: "ONE_TIME" | "RECURRING"; interval: "MONTHLY" | "QUARTERLY" | "HALF_YEARLY" | "YEARLY"; startDate: string; occurrences: string }[]>([]);
   const [sections, setSections] = useState<SectionForm[]>([
     newSection("PLOT", 1),
   ]);
@@ -226,6 +229,7 @@ export function MobileLandWizard({
       });
       setMode("WHOLE");
       setSections([newSection("PLOT", 1)]);
+      setExtraCosts([]);
       setDocumentUrl(null);
       setDocumentName("");
       setCreatedLandPurchaseId(null);
@@ -549,6 +553,22 @@ export function MobileLandWizard({
       const data = await res.json();
       if (!res.ok)
         throw new Error(data.error ?? "Failed to record land purchase");
+      // Create additional cost components after the land purchase exists.
+      for (const c of extraCosts) {
+        if (!c.label.trim() || !c.amount || Number(c.amount) <= 0) continue;
+        await fetch(`/api/land-purchases/${data.id}/cost-components`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            label: c.label.trim(),
+            amount: Number(c.amount),
+            frequency: c.frequency,
+            interval: c.frequency === "RECURRING" ? c.interval : null,
+            startDate: c.startDate || null,
+            occurrences: c.occurrences ? Number(c.occurrences) : null,
+          }),
+        });
+      }
       haptic([10, 40, 80]);
       toast.success("Land purchase recorded", {
         description:
@@ -571,14 +591,14 @@ export function MobileLandWizard({
   if (!open) return null;
 
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
   const cardStyle = {
     borderRadius: "0.5rem",
     border: "1px solid var(--color-line)",
@@ -608,7 +628,7 @@ export function MobileLandWizard({
             borderBottom: "1px solid var(--color-line)",
           }}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <span
               className="grid place-items-center size-7 rounded-[0.375rem]"
               style={{ backgroundColor: "var(--color-concrete)" }}
@@ -621,13 +641,13 @@ export function MobileLandWizard({
             <div>
               <p
                 className="text-m-section font-bold"
-                style={{ color: "var(--color-ink-950)" }}
+                style={{ color: "var(--color-ink-500)" }}
               >
                 Record Land Purchase
               </p>
               <p
                 className="text-m-caption"
-                style={{ color: "var(--color-ink-500)" }}
+                style={{ color: "var(--color-ink-700)" }}
               >
                 Step {step} of 4
               </p>
@@ -636,7 +656,7 @@ export function MobileLandWizard({
           <button
             onClick={onClose}
             className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-500)" }}
+            style={{ color: "var(--color-ink-700)" }}
             aria-label="Close"
           >
             <X className="size-4" />
@@ -699,12 +719,12 @@ export function MobileLandWizard({
                   className="rounded-[0.5rem] px-3 py-2 text-m-caption flex items-center gap-1.5"
                   style={{
                     backgroundColor: "var(--color-concrete)",
-                    color: "var(--color-ink-500)",
+                    color: "var(--color-ink-700)",
                   }}
                 >
                   <Building2 className="size-3" />
                   Land will be recorded under{" "}
-                  <strong style={{ color: "var(--color-ink-950)" }}>
+                  <strong style={{ color: "var(--color-ink-500)" }}>
                     {company.name}
                   </strong>
                 </div>
@@ -752,10 +772,10 @@ export function MobileLandWizard({
                 {land.sellerContact && (
                   <div
                     className="text-m-caption mt-1"
-                    style={{ color: "var(--color-ink-500)" }}
+                    style={{ color: "var(--color-ink-700)" }}
                   >
                     Contact:{" "}
-                    <strong style={{ color: "var(--color-ink-950)" }}>
+                    <strong style={{ color: "var(--color-ink-500)" }}>
                       {land.sellerContact}
                     </strong>
                   </div>
@@ -775,7 +795,7 @@ export function MobileLandWizard({
                   style={inputStyle}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className={labelClass} style={labelStyle}>
                     Total Area{" "}
@@ -818,7 +838,7 @@ export function MobileLandWizard({
                 <label className={labelClass} style={labelStyle}>
                   Land Type
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <button
                     type="button"
                     onClick={() => {
@@ -839,13 +859,13 @@ export function MobileLandWizard({
                   >
                     <div
                       className="text-m-body font-bold"
-                      style={{ color: "var(--color-ink-950)" }}
+                      style={{ color: "var(--color-ink-500)" }}
                     >
                       Freehold
                     </div>
                     <div
                       className="text-m-caption"
-                      style={{ color: "var(--color-ink-500)" }}
+                      style={{ color: "var(--color-ink-700)" }}
                     >
                       Outright purchase
                     </div>
@@ -870,13 +890,13 @@ export function MobileLandWizard({
                   >
                     <div
                       className="text-m-body font-bold"
-                      style={{ color: "var(--color-ink-950)" }}
+                      style={{ color: "var(--color-ink-500)" }}
                     >
                       Leasehold
                     </div>
                     <div
                       className="text-m-caption"
-                      style={{ color: "var(--color-ink-500)" }}
+                      style={{ color: "var(--color-ink-700)" }}
                     >
                       Leased from authority
                     </div>
@@ -889,7 +909,7 @@ export function MobileLandWizard({
                 <div style={cardStyle} className="space-y-3">
                   <div
                     className="text-m-body font-bold"
-                    style={{ color: "var(--color-ink-950)" }}
+                    style={{ color: "var(--color-ink-500)" }}
                   >
                     Lease Details
                   </div>
@@ -897,7 +917,7 @@ export function MobileLandWizard({
                     <label className={labelClass} style={labelStyle}>
                       Lease Rent Type
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                       <button
                         type="button"
                         onClick={() => {
@@ -918,7 +938,7 @@ export function MobileLandWizard({
                       >
                         <div
                           className="text-m-caption font-bold"
-                          style={{ color: "var(--color-ink-950)" }}
+                          style={{ color: "var(--color-ink-500)" }}
                         >
                           One-Time
                         </div>
@@ -943,14 +963,14 @@ export function MobileLandWizard({
                       >
                         <div
                           className="text-m-caption font-bold"
-                          style={{ color: "var(--color-ink-950)" }}
+                          style={{ color: "var(--color-ink-500)" }}
                         >
                           Yearly
                         </div>
                       </button>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                     <div>
                       <label className={labelClass} style={labelStyle}>
                         Period (yrs)
@@ -1005,7 +1025,7 @@ export function MobileLandWizard({
               <div style={cardStyle} className="space-y-3">
                 <div
                   className="text-m-body font-bold"
-                  style={{ color: "var(--color-ink-950)" }}
+                  style={{ color: "var(--color-ink-500)" }}
                 >
                   Cost Breakup
                 </div>
@@ -1028,7 +1048,7 @@ export function MobileLandWizard({
                 </div>
 
                 {isLeasehold && (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                     <div>
                       <label className={labelClass} style={labelStyle}>
                         Lease Rent (%)
@@ -1052,11 +1072,11 @@ export function MobileLandWizard({
                         Rent Amount (₹){isYearlyLease ? " /yr" : ""}
                       </label>
                       <div
-                        className="h-10 flex items-center rounded-[0.5rem] border px-3 text-m-body"
+                        className="h-7 flex items-center px-1 text-m-caption border-b focus:border-b-2 transition-colors"
                         style={{
                           borderColor: "var(--color-line)",
                           backgroundColor: "var(--color-concrete)",
-                          color: "var(--color-ink-500)",
+                          color: "var(--color-ink-700)",
                         }}
                       >
                         {leaseRentAmount > 0
@@ -1066,10 +1086,10 @@ export function MobileLandWizard({
                       {isYearlyLease && totalLeaseRentOverTerm > 0 && (
                         <div
                           className="text-m-caption mt-0.5"
-                          style={{ color: "var(--color-ink-500)" }}
+                          style={{ color: "var(--color-ink-700)" }}
                         >
                           Total over {leasePeriodNum}y:{" "}
-                          <strong style={{ color: "var(--color-ink-950)" }}>
+                          <strong style={{ color: "var(--color-ink-500)" }}>
                             {formatCurrency(totalLeaseRentOverTerm)}
                           </strong>{" "}
                           (recurring)
@@ -1080,7 +1100,7 @@ export function MobileLandWizard({
                 )}
 
                 {isLeasehold && (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                     <div>
                       <label className={labelClass} style={labelStyle}>
                         GST on Rent (%)
@@ -1104,11 +1124,11 @@ export function MobileLandWizard({
                         GST Amount (₹)
                       </label>
                       <div
-                        className="h-10 flex items-center rounded-[0.5rem] border px-3 text-m-body"
+                        className="h-7 flex items-center px-1 text-m-caption border-b focus:border-b-2 transition-colors"
                         style={{
                           borderColor: "var(--color-line)",
                           backgroundColor: "var(--color-concrete)",
-                          color: "var(--color-ink-500)",
+                          color: "var(--color-ink-700)",
                         }}
                       >
                         {gstAmount > 0 ? formatCurrency(gstAmount) : "—"}
@@ -1117,7 +1137,7 @@ export function MobileLandWizard({
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
                     <label className={labelClass} style={labelStyle}>
                       Registration (%)
@@ -1141,11 +1161,11 @@ export function MobileLandWizard({
                       Reg. Amount (₹)
                     </label>
                     <div
-                      className="h-10 flex items-center rounded-[0.5rem] border px-3 text-m-body"
+                      className="h-7 flex items-center px-1 text-m-caption border-b focus:border-b-2 transition-colors"
                       style={{
                         borderColor: "var(--color-line)",
                         backgroundColor: "var(--color-concrete)",
-                        color: "var(--color-ink-500)",
+                        color: "var(--color-ink-700)",
                       }}
                     >
                       {registrationAmount > 0
@@ -1155,7 +1175,7 @@ export function MobileLandWizard({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
                     <label className={labelClass} style={labelStyle}>
                       Stamp Duty (%)
@@ -1179,11 +1199,11 @@ export function MobileLandWizard({
                       Stamp Amount (₹)
                     </label>
                     <div
-                      className="h-10 flex items-center rounded-[0.5rem] border px-3 text-m-body"
+                      className="h-7 flex items-center px-1 text-m-caption border-b focus:border-b-2 transition-colors"
                       style={{
                         borderColor: "var(--color-line)",
                         backgroundColor: "var(--color-concrete)",
-                        color: "var(--color-ink-500)",
+                        color: "var(--color-ink-700)",
                       }}
                     >
                       {stampDutyAmount > 0
@@ -1194,7 +1214,7 @@ export function MobileLandWizard({
                 </div>
 
                 {/* Transfer duty (authority land — DDA, HUDCO, etc.) */}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
                     <label className={labelClass} style={labelStyle}>
                       Transfer Duty (%)
@@ -1218,11 +1238,11 @@ export function MobileLandWizard({
                       Transfer Duty Amt (₹)
                     </label>
                     <div
-                      className="h-10 flex items-center rounded-[0.5rem] border px-3 text-m-body"
+                      className="h-7 flex items-center px-1 text-m-caption border-b focus:border-b-2 transition-colors"
                       style={{
                         borderColor: "var(--color-line)",
                         backgroundColor: "var(--color-concrete)",
-                        color: "var(--color-ink-500)",
+                        color: "var(--color-ink-700)",
                       }}
                     >
                       {transferDutyAmount > 0
@@ -1233,7 +1253,7 @@ export function MobileLandWizard({
                 </div>
 
                 {/* Additional acquisition costs */}
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
                     <label className={labelClass} style={labelStyle}>
                       Brokerage (₹)
@@ -1291,24 +1311,97 @@ export function MobileLandWizard({
                 </div>
 
                 <div
-                  className="flex items-center justify-between pt-1"
+                  className="flex items-center justify-between "
                   style={{ borderTop: "1px solid var(--color-line)" }}
                 >
                   <span
                     className="text-m-body font-bold"
-                    style={{ color: "var(--color-ink-950)" }}
+                    style={{ color: "var(--color-ink-500)" }}
                   >
                     Total
                   </span>
                   <span
                     className="text-m-section font-bold tabular-nums"
-                    style={{ color: "var(--color-ink-950)" }}
+                    style={{ color: "var(--color-ink-500)" }}
                   >
                     {formatCurrency(calculatedTotal)}
                   </span>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+
+              {/* Additional Costs — recurring / future costs */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className={labelClass} style={labelStyle}>
+                    Additional Costs (recurring / future)
+                  </label>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 text-m-caption font-medium"
+                    style={{ color: "var(--color-brand)" }}
+                    onClick={() => setExtraCosts((c) => [...c, { label: "", amount: "", frequency: "ONE_TIME", interval: "YEARLY", startDate: new Date().toISOString().slice(0, 10), occurrences: "" }])}
+                  >
+                    <Plus className="size-3" /> Add
+                  </button>
+                </div>
+                {extraCosts.length === 0 && (
+                  <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
+                    No additional costs. Add yearly lease rent, EDC/IDC, maintenance, or any future-dated charge.
+                  </p>
+                )}
+                {extraCosts.map((c, i) => (
+                  <div key={i} className="rounded-[0.375rem] border p-2 space-y-3" style={{ borderColor: "var(--color-line)" }}>
+                    <div className="flex items-start gap-1">
+                      <input
+                        className={inputClass}
+                        style={inputStyle}
+                        value={c.label}
+                        onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
+                        placeholder="Label (e.g. Yearly Lease Rent)"
+                      />
+                      <button type="button" onClick={() => setExtraCosts((arr) => arr.filter((_, j) => j !== i))} className="mt-1.5 shrink-0" style={{ color: "var(--color-ink-400)" }}>
+                        <X className="size-4" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        className={inputClass}
+                        style={inputStyle}
+                        value={c.amount}
+                        onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))}
+                        placeholder="Amount ₹"
+                      />
+                      <select
+                        className={inputClass}
+                        style={inputStyle}
+                        value={c.frequency}
+                        onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, frequency: e.target.value as "ONE_TIME" | "RECURRING" } : x))}
+                      >
+                        <option value="ONE_TIME">One-time</option>
+                        <option value="RECURRING">Recurring</option>
+                      </select>
+                    </div>
+                    {c.frequency === "RECURRING" && (
+                      <select
+                        className={inputClass}
+                        style={inputStyle}
+                        value={c.interval}
+                        onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, interval: e.target.value as typeof c.interval } : x))}
+                      >
+                        <option value="MONTHLY">Monthly</option>
+                        <option value="QUARTERLY">Quarterly</option>
+                        <option value="HALF_YEARLY">Half-Yearly</option>
+                        <option value="YEARLY">Yearly</option>
+                      </select>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className={labelClass} style={labelStyle}>
                     Registry No.
@@ -1346,7 +1439,7 @@ export function MobileLandWizard({
                 </label>
                 {documentUrl ? (
                   <div
-                    className="flex items-center justify-between gap-2 rounded-[0.5rem] border px-3 py-2"
+                    className="flex items-center justify-between gap-1 rounded-[0.5rem] border px-3 py-2"
                     style={{
                       borderColor: "var(--color-line)",
                       backgroundColor: "var(--color-concrete)",
@@ -1357,11 +1450,11 @@ export function MobileLandWizard({
                       target="_blank"
                       rel="noreferrer"
                       className="flex min-w-0 items-center gap-1.5 text-m-body underline underline-offset-2"
-                      style={{ color: "var(--color-ink-950)" }}
+                      style={{ color: "var(--color-ink-500)" }}
                     >
                       <FileText
                         className="size-3.5 shrink-0"
-                        style={{ color: "var(--color-ink-500)" }}
+                        style={{ color: "var(--color-ink-700)" }}
                       />
                       <span className="truncate">
                         {documentName || "View document"}
@@ -1371,7 +1464,7 @@ export function MobileLandWizard({
                       type="button"
                       onClick={removeDocument}
                       className="shrink-0 grid place-items-center size-6 rounded press"
-                      style={{ color: "var(--color-ink-500)" }}
+                      style={{ color: "var(--color-ink-700)" }}
                       aria-label="Remove"
                     >
                       <X className="size-3.5" />
@@ -1382,7 +1475,7 @@ export function MobileLandWizard({
                     className="flex cursor-pointer items-center justify-center gap-1.5 rounded-[0.5rem] border border-dashed px-3 py-2.5 text-m-caption transition-colors press"
                     style={{
                       borderColor: "var(--color-line)",
-                      color: "var(--color-ink-500)",
+                      color: "var(--color-ink-700)",
                     }}
                   >
                     <Upload className="size-3.5" />
@@ -1419,11 +1512,11 @@ export function MobileLandWizard({
               </div>
 
               {/* Mode selection */}
-              <div className="pt-1">
+              <div className="">
                 <label className={labelClass} style={labelStyle}>
                   How is this land being purchased?
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <button
                     type="button"
                     onClick={() => selectMode("WHOLE")}
@@ -1450,13 +1543,13 @@ export function MobileLandWizard({
                     />
                     <div
                       className="text-m-body font-bold"
-                      style={{ color: "var(--color-ink-950)" }}
+                      style={{ color: "var(--color-ink-500)" }}
                     >
                       Whole Plot
                     </div>
                     <div
                       className="text-m-caption"
-                      style={{ color: "var(--color-ink-500)" }}
+                      style={{ color: "var(--color-ink-700)" }}
                     >
                       Single parcel
                     </div>
@@ -1487,13 +1580,13 @@ export function MobileLandWizard({
                     />
                     <div
                       className="text-m-body font-bold"
-                      style={{ color: "var(--color-ink-950)" }}
+                      style={{ color: "var(--color-ink-500)" }}
                     >
                       Sub-divided
                     </div>
                     <div
                       className="text-m-caption"
-                      style={{ color: "var(--color-ink-500)" }}
+                      style={{ color: "var(--color-ink-700)" }}
                     >
                       Multiple sections
                     </div>
@@ -1598,44 +1691,44 @@ export function MobileLandWizard({
           {/* Step 3: Review */}
           {step === 3 && (
             <>
-              <div style={cardStyle} className="space-y-1.5">
+              <div style={cardStyle} className="space-y-3.5">
                 <div
                   className="text-m-section font-bold"
-                  style={{ color: "var(--color-ink-950)" }}
+                  style={{ color: "var(--color-ink-500)" }}
                 >
                   Review Land Purchase
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-m-caption">
-                  <div style={{ color: "var(--color-ink-500)" }}>
+                  <div style={{ color: "var(--color-ink-700)" }}>
                     Seller:{" "}
-                    <span style={{ color: "var(--color-ink-950)" }}>
+                    <span style={{ color: "var(--color-ink-500)" }}>
                       {land.sellerName}
                     </span>
                   </div>
-                  <div style={{ color: "var(--color-ink-500)" }}>
+                  <div style={{ color: "var(--color-ink-700)" }}>
                     Type:{" "}
-                    <span style={{ color: "var(--color-ink-950)" }}>
+                    <span style={{ color: "var(--color-ink-500)" }}>
                       {land.landType === "FREEHOLD"
                         ? "Freehold"
                         : `Leasehold (${land.leaseType === "ONE_TIME" ? "One-time" : "Yearly"})`}
                     </span>
                   </div>
-                  <div style={{ color: "var(--color-ink-500)" }}>
+                  <div style={{ color: "var(--color-ink-700)" }}>
                     Mode:{" "}
-                    <span style={{ color: "var(--color-ink-950)" }}>
+                    <span style={{ color: "var(--color-ink-500)" }}>
                       {mode === "WHOLE" ? "Whole" : "Sub-divided"}
                     </span>
                   </div>
-                  <div style={{ color: "var(--color-ink-500)" }}>
+                  <div style={{ color: "var(--color-ink-700)" }}>
                     Area:{" "}
-                    <span style={{ color: "var(--color-ink-950)" }}>
+                    <span style={{ color: "var(--color-ink-500)" }}>
                       {formatNumber(totalAreaNum, 2)} {land.areaUnit}
                     </span>
                   </div>
                   {land.location && (
-                    <div style={{ color: "var(--color-ink-500)" }}>
+                    <div style={{ color: "var(--color-ink-700)" }}>
                       Location:{" "}
-                      <span style={{ color: "var(--color-ink-950)" }}>
+                      <span style={{ color: "var(--color-ink-500)" }}>
                         {land.location}
                       </span>
                     </div>
@@ -1643,13 +1736,13 @@ export function MobileLandWizard({
                 </div>
                 {/* Cost breakup summary */}
                 <div
-                  className="pt-1.5 space-y-0.5 text-m-caption"
+                  className=".5 space-y-3.5 text-m-caption"
                   style={{ borderTop: "1px solid var(--color-line)" }}
                 >
                   <div className="flex justify-between">
-                    <span style={{ color: "var(--color-ink-500)" }}>Base:</span>{" "}
+                    <span style={{ color: "var(--color-ink-700)" }}>Base:</span>{" "}
                     <strong
-                      style={{ color: "var(--color-ink-950)" }}
+                      style={{ color: "var(--color-ink-500)" }}
                       className="tabular-nums"
                     >
                       {formatCurrency(baseCostNum)}
@@ -1657,11 +1750,11 @@ export function MobileLandWizard({
                   </div>
                   {isLeasehold && leaseRentAmount > 0 && (
                     <div className="flex justify-between">
-                      <span style={{ color: "var(--color-ink-500)" }}>
+                      <span style={{ color: "var(--color-ink-700)" }}>
                         Rent ({land.leaseRentPercent}%):
                       </span>{" "}
                       <strong
-                        style={{ color: "var(--color-ink-950)" }}
+                        style={{ color: "var(--color-ink-500)" }}
                         className="tabular-nums"
                       >
                         {formatCurrency(leaseRentAmount)}
@@ -1670,11 +1763,11 @@ export function MobileLandWizard({
                   )}
                   {isLeasehold && gstAmount > 0 && (
                     <div className="flex justify-between">
-                      <span style={{ color: "var(--color-ink-500)" }}>
+                      <span style={{ color: "var(--color-ink-700)" }}>
                         GST ({land.gstPercent}%):
                       </span>{" "}
                       <strong
-                        style={{ color: "var(--color-ink-950)" }}
+                        style={{ color: "var(--color-ink-500)" }}
                         className="tabular-nums"
                       >
                         {formatCurrency(gstAmount)}
@@ -1683,11 +1776,11 @@ export function MobileLandWizard({
                   )}
                   {registrationAmount > 0 && (
                     <div className="flex justify-between">
-                      <span style={{ color: "var(--color-ink-500)" }}>
+                      <span style={{ color: "var(--color-ink-700)" }}>
                         Reg. ({land.registrationPercent}%):
                       </span>{" "}
                       <strong
-                        style={{ color: "var(--color-ink-950)" }}
+                        style={{ color: "var(--color-ink-500)" }}
                         className="tabular-nums"
                       >
                         {formatCurrency(registrationAmount)}
@@ -1696,11 +1789,11 @@ export function MobileLandWizard({
                   )}
                   {stampDutyAmount > 0 && (
                     <div className="flex justify-between">
-                      <span style={{ color: "var(--color-ink-500)" }}>
+                      <span style={{ color: "var(--color-ink-700)" }}>
                         Stamp ({land.stampDutyPercent}%):
                       </span>{" "}
                       <strong
-                        style={{ color: "var(--color-ink-950)" }}
+                        style={{ color: "var(--color-ink-500)" }}
                         className="tabular-nums"
                       >
                         {formatCurrency(stampDutyAmount)}
@@ -1709,11 +1802,11 @@ export function MobileLandWizard({
                   )}
                   {transferDutyAmount > 0 && (
                     <div className="flex justify-between">
-                      <span style={{ color: "var(--color-ink-500)" }}>
+                      <span style={{ color: "var(--color-ink-700)" }}>
                         Transfer ({land.transferDutyPercent}%):
                       </span>{" "}
                       <strong
-                        style={{ color: "var(--color-ink-950)" }}
+                        style={{ color: "var(--color-ink-500)" }}
                         className="tabular-nums"
                       >
                         {formatCurrency(transferDutyAmount)}
@@ -1722,11 +1815,11 @@ export function MobileLandWizard({
                   )}
                   {brokerageNum > 0 && (
                     <div className="flex justify-between">
-                      <span style={{ color: "var(--color-ink-500)" }}>
+                      <span style={{ color: "var(--color-ink-700)" }}>
                         Brokerage:
                       </span>{" "}
                       <strong
-                        style={{ color: "var(--color-ink-950)" }}
+                        style={{ color: "var(--color-ink-500)" }}
                         className="tabular-nums"
                       >
                         {formatCurrency(brokerageNum)}
@@ -1735,11 +1828,11 @@ export function MobileLandWizard({
                   )}
                   {legalFeesNum > 0 && (
                     <div className="flex justify-between">
-                      <span style={{ color: "var(--color-ink-500)" }}>
+                      <span style={{ color: "var(--color-ink-700)" }}>
                         Legal Fees:
                       </span>{" "}
                       <strong
-                        style={{ color: "var(--color-ink-950)" }}
+                        style={{ color: "var(--color-ink-500)" }}
                         className="tabular-nums"
                       >
                         {formatCurrency(legalFeesNum)}
@@ -1748,11 +1841,11 @@ export function MobileLandWizard({
                   )}
                   {otherChargesNum > 0 && (
                     <div className="flex justify-between">
-                      <span style={{ color: "var(--color-ink-500)" }}>
+                      <span style={{ color: "var(--color-ink-700)" }}>
                         Other:
                       </span>{" "}
                       <strong
-                        style={{ color: "var(--color-ink-950)" }}
+                        style={{ color: "var(--color-ink-500)" }}
                         className="tabular-nums"
                       >
                         {formatCurrency(otherChargesNum)}
@@ -1763,11 +1856,11 @@ export function MobileLandWizard({
                     className="flex justify-between font-bold pt-0.5"
                     style={{ borderTop: "1px solid var(--color-line)" }}
                   >
-                    <span style={{ color: "var(--color-ink-950)" }}>
+                    <span style={{ color: "var(--color-ink-500)" }}>
                       Total:
                     </span>
                     <strong
-                      style={{ color: "var(--color-ink-950)" }}
+                      style={{ color: "var(--color-ink-500)" }}
                       className="tabular-nums"
                     >
                       {formatCurrency(calculatedTotal)}
@@ -1776,36 +1869,36 @@ export function MobileLandWizard({
                 </div>
               </div>
               <div
-                className="text-m-body font-bold pt-1"
-                style={{ color: "var(--color-ink-950)" }}
+                className="text-m-body font-bold "
+                style={{ color: "var(--color-ink-500)" }}
               >
                 Parcels ({sections.length})
               </div>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {sections.map((s, _i) => (
-                  <div key={s.id} style={cardStyle} className="space-y-1">
+                  <div key={s.id} style={cardStyle} className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span
                         className="text-m-body font-bold"
-                        style={{ color: "var(--color-ink-950)" }}
+                        style={{ color: "var(--color-ink-500)" }}
                       >
                         {s.number}
                       </span>
                       <MobilePurposeBadge purpose={s.purpose} />
                     </div>
                     <div
-                      className="grid grid-cols-3 gap-2 text-m-caption"
-                      style={{ color: "var(--color-ink-500)" }}
+                      className="grid grid-cols-3 gap-1 text-m-caption"
+                      style={{ color: "var(--color-ink-700)" }}
                     >
                       <div>
                         Area:{" "}
-                        <strong style={{ color: "var(--color-ink-950)" }}>
+                        <strong style={{ color: "var(--color-ink-500)" }}>
                           {formatNumber(Number(s.area) || 0, 2)} {land.areaUnit}
                         </strong>
                       </div>
                       <div>
                         Cost:{" "}
-                        <strong style={{ color: "var(--color-ink-950)" }}>
+                        <strong style={{ color: "var(--color-ink-500)" }}>
                           {formatCurrency(sectionCost(s))}
                         </strong>
                       </div>
@@ -1813,7 +1906,7 @@ export function MobileLandWizard({
                         {s.purpose === "SELL" && s.askingPrice && (
                           <>
                             Ask:{" "}
-                            <strong style={{ color: "var(--color-ink-950)" }}>
+                            <strong style={{ color: "var(--color-ink-500)" }}>
                               {formatCurrency(Number(s.askingPrice))}
                             </strong>
                           </>
@@ -1821,7 +1914,7 @@ export function MobileLandWizard({
                         {s.purpose === "PROJECT" && (
                           <>
                             Project:{" "}
-                            <strong style={{ color: "var(--color-ink-950)" }}>
+                            <strong style={{ color: "var(--color-ink-500)" }}>
                               {s.projectId
                                 ? localProjects.find(
                                     (p) => p.id === s.projectId,
@@ -1842,7 +1935,7 @@ export function MobileLandWizard({
           {step === 4 && createdLandPurchaseId && (
             <>
               <div
-                className="rounded-[0.5rem] px-3 py-2.5 flex items-start gap-2"
+                className="rounded-[0.5rem] px-3 py-2.5 flex items-start gap-1"
                 style={{ backgroundColor: "var(--color-concrete)" }}
               >
                 <ShieldCheck
@@ -1852,13 +1945,13 @@ export function MobileLandWizard({
                 <div>
                   <div
                     className="text-m-section font-bold"
-                    style={{ color: "var(--color-ink-950)" }}
+                    style={{ color: "var(--color-ink-500)" }}
                   >
                     Land recorded — add permissions
                   </div>
                   <div
                     className="text-m-caption"
-                    style={{ color: "var(--color-ink-500)" }}
+                    style={{ color: "var(--color-ink-700)" }}
                   >
                     Start recording ownership certificate, non-encumbrance, land
                     sanction (CLU), mutation, ATS, and transfer duty. You can
@@ -1878,7 +1971,7 @@ export function MobileLandWizard({
 
         {/* Footer */}
         <div
-          className="sticky bottom-0 flex gap-2 p-4 pt-2"
+          className="sticky bottom-0 flex gap-1 p-4 pt-2"
           style={{
             backgroundColor: "var(--color-paper)",
             borderTop: "1px solid var(--color-line)",
@@ -1892,8 +1985,8 @@ export function MobileLandWizard({
               className="h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1"
               style={{
                 borderColor: "var(--color-line)",
-                color: "var(--color-ink-500)",
-                backgroundColor: "transparent",
+                color: "var(--color-ink-700)",
+                backgroundColor: "var(--color-paper)",
                 minWidth: "5rem",
               }}
             >
@@ -1994,11 +2087,11 @@ function MobileSectionEditor({
       : 0;
 
   return (
-    <div style={cardStyle} className="space-y-2.5">
+    <div style={cardStyle} className="space-y-3">
       <div className="flex items-center justify-between">
         <span
           className="text-m-body font-bold"
-          style={{ color: "var(--color-ink-950)" }}
+          style={{ color: "var(--color-ink-500)" }}
         >
           {isWhole ? "Parcel" : `Section ${index + 1}`}
         </span>
@@ -2015,7 +2108,7 @@ function MobileSectionEditor({
         )}
       </div>
 
-      <div className={isWhole ? "space-y-2" : "grid grid-cols-2 gap-2"}>
+      <div className={isWhole ? "space-y-3" : "grid grid-cols-2 gap-2 divide-x"} style={{ borderColor: "var(--color-line)" }}>
         <div>
           <label className={labelClass} style={labelStyle}>
             Parcel No. *
@@ -2050,10 +2143,10 @@ function MobileSectionEditor({
         {isWhole && (
           <div
             className="text-m-caption"
-            style={{ color: "var(--color-ink-500)" }}
+            style={{ color: "var(--color-ink-700)" }}
           >
             Area:{" "}
-            <strong style={{ color: "var(--color-ink-950)" }}>
+            <strong style={{ color: "var(--color-ink-500)" }}>
               {formatNumber(Number(section.area) || 0, 2)} {areaUnit}
             </strong>{" "}
             (from total)
@@ -2064,10 +2157,10 @@ function MobileSectionEditor({
       {Number(section.area) > 0 && (
         <div
           className="text-m-caption"
-          style={{ color: "var(--color-ink-500)" }}
+          style={{ color: "var(--color-ink-700)" }}
         >
           Cost:{" "}
-          <strong style={{ color: "var(--color-ink-950)" }}>
+          <strong style={{ color: "var(--color-ink-500)" }}>
             {formatCurrency(cost)}
           </strong>{" "}
           (PRO_RATA)
@@ -2079,7 +2172,7 @@ function MobileSectionEditor({
         <label className={labelClass} style={labelStyle}>
           Purpose
         </label>
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           {[
             { value: "SELL" as const, label: "Sell", icon: CircleDollarSign },
             { value: "PROJECT" as const, label: "Project", icon: Building2 },
@@ -2159,21 +2252,23 @@ function MobileSectionEditor({
           options={projects.map((p) => ({ value: p.id, label: p.name }))}
           inputClass={inputClass}
           inputStyle={inputStyle}
-          renderDialog={({ open, onClose, onCreated }) => (
-            <MobileNewProjectDialog
-              open={open}
-              onClose={onClose}
-              initial={{
-                type: "LAND",
-                status: "PLANNED",
-                address: landLocation || undefined,
-                totalSellableArea: Number(section.area) || undefined,
-              }}
-              onCreated={(p) => {
-                onProjectCreated(p);
-                onCreated(p.id, p.name);
-              }}
-            />
+          renderDialog={({ open, onClose, onCreated, originRect }) => (
+            <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+              <MobileNewProjectDialog
+                open={open}
+                onClose={onClose}
+                initial={{
+                  type: "LAND",
+                  status: "PLANNED",
+                  address: landLocation || undefined,
+                  totalSellableArea: Number(section.area) || undefined,
+                }}
+                onCreated={(p) => {
+                  onProjectCreated(p);
+                  onCreated(p.id, p.name);
+                }}
+              />
+            </MobileFabModal>
           )}
         />
       )}
@@ -2191,12 +2286,12 @@ function MobilePurposeBadge({ purpose }: { purpose: Purpose }) {
     PROJECT: {
       label: "Project",
       bg: "var(--color-concrete)",
-      color: "var(--color-ink-950)",
+      color: "var(--color-ink-500)",
     },
     HOLD: {
       label: "Hold",
       bg: "var(--color-line)",
-      color: "var(--color-ink-500)",
+      color: "var(--color-ink-700)",
     },
   };
   const c = config[purpose];

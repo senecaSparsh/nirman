@@ -186,7 +186,7 @@ async function PulseContent() {
           New Sale
         </Link>
         <Link
-          href="/m/requisitions"
+          href="/m/procurement?tab=indents"
           className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[0.625rem] border-2 px-3 py-2.5 text-m-section font-bold text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)" }}
         >

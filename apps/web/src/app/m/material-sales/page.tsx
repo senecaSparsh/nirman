@@ -5,8 +5,8 @@ import { prisma } from "@nirman/db";
 import { getCompany, toNum, getUserRole } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileMaterialSalesList } from "./MobileMaterialSalesList";
+import { MobileMaterialSalesFab } from "./MobileMaterialSalesFab";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
-import { MobileFab } from "@/components/mobile/v2/scaffold";
 
 /**
  * /m/material-sales — mobile material/scrap sales. Shows recent sales with
@@ -108,7 +108,7 @@ async function MobileMaterialSalesContent() {
         exportSummary={`${serialized.length} sales`}
       />
       {canCreate && (
-        <MobileFab href="/m/material-sales/new" label="New material sale" />
+        <MobileMaterialSalesFab />
       )}
     </div>
   );

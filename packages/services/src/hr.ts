@@ -850,11 +850,31 @@ export async function bulkRecordAttendance(input: BulkAttendanceInput) {
   const dateOnly = dateOnlyUTC(input.date);
   return withSerializableTransaction(async (tx) => {
     const results: { employeeId: string; status: string }[] = [];
+
+    // Batch-fetch all needed employees and existing attendance rows once,
+    // instead of per-record queries inside the loop.
+    const employeeIds = input.records.map((r) => r.employeeId);
+    const employees = employeeIds.length > 0
+      ? await tx.employee.findMany({
+          where: { id: { in: employeeIds }, companyId: input.companyId, deletedAt: null },
+          select: { id: true },
+        })
+      : [];
+    const validEmployeeIds = new Set(employees.map((e) => e.id));
+
+    const existingAttendances = employeeIds.length > 0
+      ? await tx.workerAttendance.findMany({
+          where: { employeeId: { in: employeeIds }, date: dateOnly },
+          select: { id: true, employeeId: true },
+        })
+      : [];
+    const existingByEmployeeId = new Map(existingAttendances.map((a) => [a.employeeId, a]));
+
+    const toCreate: Prisma.WorkerAttendanceCreateManyInput[] = [];
+    const toUpdate: { where: { id: string }; data: Prisma.WorkerAttendanceUpdateInput }[] = [];
+
     for (const r of input.records) {
-      const employee = await tx.employee.findFirst({
-        where: { id: r.employeeId, companyId: input.companyId, deletedAt: null },
-      });
-      if (!employee) continue; // skip unknown workers in bulk mode
+      if (!validEmployeeIds.has(r.employeeId)) continue; // skip unknown workers in bulk mode
 
       const data = {
         companyId: input.companyId,
@@ -873,19 +893,21 @@ export async function bulkRecordAttendance(input: BulkAttendanceInput) {
         checkOutLocation: r.checkOutLocation ?? null,
       };
 
-      const existing = await tx.workerAttendance.findUnique({
-        where: { employeeId_date: { employeeId: r.employeeId, date: dateOnly } },
-      });
-      let record;
+      const existing = existingByEmployeeId.get(r.employeeId);
       if (existing) {
-        record = await tx.workerAttendance.update({ where: { id: existing.id }, data });
+        toUpdate.push({ where: { id: existing.id }, data });
       } else {
-        record = await tx.workerAttendance.create({
-          data: { employeeId: r.employeeId, date: dateOnly, ...data },
-        });
+        toCreate.push({ employeeId: r.employeeId, date: dateOnly, ...data });
       }
       results.push({ employeeId: r.employeeId, status: r.status });
     }
+
+    if (toCreate.length > 0) {
+      await tx.workerAttendance.createMany({ data: toCreate });
+    }
+    await Promise.all(
+      toUpdate.map((u) => tx.workerAttendance.update(u)),
+    );
 
     await logAction(tx, {
       userId: input.userId,

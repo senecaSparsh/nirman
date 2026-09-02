@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { FileText, Plus, Trash2, Loader2, Check, Search, X, Package, MapPin, Warehouse, Building2, HardHat } from "lucide-react";
 import { toast } from "sonner";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 type Material = { id: string; name: string; code: string; unit: string; hsnCode: string | null; gstRate: number };
 type Project = { id: string; name: string };
@@ -177,43 +179,32 @@ export function MobileNewQuotationClient({
     }
   }
 
+  // Underline-style inputs — no box, just a subtle bottom border
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
-    <div className="space-y-3">
-      {onClose ? (
-        <div className="flex items-center gap-2 mb-2">
-          <button type="button" onClick={onClose} className="p-1 -ml-1 press" style={{ color: "var(--color-ink-700)" }}>
-            <X className="size-5" />
-          </button>
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-            New Quotation Request
-          </p>
-        </div>
-      ) : null}
-
-      <form onSubmit={onSubmit} className="space-y-3">
-        {/* ── Details card ── */}
+    <div className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-4">
+        {/* ── Details — one big border box ── */}
         <div
-          className="rounded-[0.625rem] border p-3 space-y-2.5"
+          className="rounded-[0.625rem] border p-3 space-y-3"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
-          <div className="flex items-center gap-1.5 border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
-            <FileText className="size-3.5" style={{ color: "var(--color-steel)" }} />
-            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-              Request Details
-            </span>
-          </div>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Request Details
+          </p>
 
           {/* Title */}
-          <div>
-            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <div className="">
+            <label className={labelClass} style={labelStyle}>
               Title <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
             <input
@@ -229,7 +220,7 @@ export function MobileNewQuotationClient({
           </div>
 
           {/* Project */}
-          <div>
+          <div className="">
             <MobileSelectWithCreate
               label="Project (optional)"
               value={projectId}
@@ -238,47 +229,51 @@ export function MobileNewQuotationClient({
               options={data.projects.map((p) => ({ value: p.id, label: p.name }))}
               inputClass={inputClass}
               inputStyle={inputStyle}
-              renderDialog={({ open, onClose, onCreated }) => (
-                <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+              labelClass={labelClass}
+              labelStyle={labelStyle}
+              renderDialog={({ open, onClose, onCreated, originRect }) => (
+                <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+                  <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+                </MobileFabModal>
               )}
             />
           </div>
 
-          {/* Min quotes */}
-          <div>
-            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
-              Minimum quotes required
-            </label>
-            <input
-              type="number"
-              inputMode="numeric"
-              min="1"
-              max="20"
-              value={minQuotes}
-              onChange={(e) => setMinQuotes(e.target.value)}
-              className={`${inputClass} font-mono w-24`}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Required by date */}
-          <div>
-            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
-              Required by date <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="date"
-              value={requiredByDate}
-              onChange={(e) => setRequiredByDate(e.target.value)}
-              required
-              className={`${inputClass} font-mono`}
-              style={inputStyle}
-            />
+          {/* Min quotes + Required by date */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Min quotes
+              </label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                max="20"
+                value={minQuotes}
+                onChange={(e) => setMinQuotes(e.target.value)}
+                className={`${inputClass} font-mono tabular-nums`}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Required by <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <input
+                type="date"
+                value={requiredByDate}
+                onChange={(e) => setRequiredByDate(e.target.value)}
+                required
+                className={`${inputClass} font-mono`}
+                style={inputStyle}
+              />
+            </div>
           </div>
 
           {/* Work activity */}
-          <div>
-            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <div className="">
+            <label className={labelClass} style={labelStyle}>
               Work activity (optional)
             </label>
             <input
@@ -291,9 +286,9 @@ export function MobileNewQuotationClient({
             />
           </div>
 
-          {/* Destination location — where should the material be delivered? */}
-          <div>
-            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          {/* Destination location */}
+          <div className="">
+            <label className={labelClass} style={labelStyle}>
               Deliver to <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
             <button
@@ -329,7 +324,7 @@ export function MobileNewQuotationClient({
           {showLocationPicker ? (
             <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={() => setShowLocationPicker(false)}>
               <div
-                className="w-full max-h-[80vh] overflow-y-auto rounded-t-[1rem] p-3 space-y-2"
+                className="w-full max-h-[80vh] overflow-y-auto rounded-t-[1rem] p-3 space-y-3"
                 style={{ backgroundColor: "var(--color-canvas)" }}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -340,7 +335,7 @@ export function MobileNewQuotationClient({
                   </button>
                 </div>
                 {locationGroups.map((g) => (
-                  <div key={g.companyId} className="space-y-1">
+                  <div key={g.companyId} className="space-y-3">
                     <div className="flex items-center gap-1.5 pt-2 pb-1">
                       <Building2 className="size-3" style={{ color: "var(--color-steel)" }} />
                       <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
@@ -361,7 +356,7 @@ export function MobileNewQuotationClient({
                             setDestinationLocationId(loc.id);
                             setShowLocationPicker(false);
                           }}
-                          className="w-full flex items-center gap-2 rounded-[0.5rem] border p-2 text-left press"
+                          className="w-full flex items-center gap-1 rounded-[0.5rem] border p-2 text-left press"
                           style={{
                             borderColor: destinationLocationId === loc.id ? "var(--color-steel)" : "var(--color-line)",
                             backgroundColor: destinationLocationId === loc.id ? "var(--color-steel-wash)" : "var(--color-paper)",
@@ -386,8 +381,8 @@ export function MobileNewQuotationClient({
           ) : null}
 
           {/* Notes */}
-          <div>
-            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <div className="">
+            <label className={labelClass} style={labelStyle}>
               Notes (optional)
             </label>
             <textarea
@@ -395,38 +390,36 @@ export function MobileNewQuotationClient({
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               placeholder="Any special instructions for suppliers…"
-              className={`${inputClass} resize-none`}
+              className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
               style={inputStyle}
             />
           </div>
         </div>
 
-        {/* ── Materials card ── */}
+        {/* ── Materials — one big border box ── */}
         <div
-          className="rounded-[0.625rem] border p-3 space-y-2"
+          className="rounded-[0.625rem] border p-3 space-y-3"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
-          <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
-            <div className="flex items-center gap-1.5">
-              <Package className="size-3.5" style={{ color: "var(--color-steel)" }} />
-              <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-                Materials ({lines.length})
-              </span>
-            </div>
+          <div className="flex items-center justify-between">
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Materials ({lines.length})
+            </p>
           </div>
 
           {/* Line items */}
           {lines.length === 0 ? (
-            <p className="text-m-body text-center py-3" style={{ color: "var(--color-ink-500)" }}>
-              No materials added yet
-            </p>
+            <MobileEmptyState
+              icon={Package}
+              title="No materials added yet"
+              size="compact"
+            />
           ) : (
-            <div className="space-y-1.5">
+            <div className="divide-y" style={{ borderColor: "var(--color-line)" }}>
               {lines.map((l) => (
                 <div
                   key={l.key}
-                  className="rounded-[0.5rem] border p-2 space-y-1.5"
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+                  className="py-2 space-y-3"
                 >
                   <div className="flex items-start justify-between gap-1">
                     <div className="min-w-0 flex-1">
@@ -457,7 +450,7 @@ export function MobileNewQuotationClient({
                       value={l.qty}
                       onChange={(e) => updateQty(l.key, e.target.value)}
                       placeholder="Qty"
-                      className={`${inputClass} font-mono w-24`}
+                      className="w-20 h-8 px-1 text-m-caption font-mono font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
                       style={inputStyle}
                     />
                     <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
@@ -473,8 +466,8 @@ export function MobileNewQuotationClient({
           <button
             type="button"
             onClick={() => setShowMaterialPicker(true)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2 text-m-body font-bold text-m-body press"
-            style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+            className="flex w-full items-center justify-center gap-1 py-2 text-m-body font-bold text-m-body press"
+            style={{ color: "var(--color-signal-dark)" }}
           >
             <Plus className="size-3.5" />
             Add Material
@@ -485,7 +478,7 @@ export function MobileNewQuotationClient({
         <button
           type="submit"
           disabled={saving || !title.trim() || !requiredByDate || lines.length === 0}
-          className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3.5 text-m-section font-bold text-m-body press transition-transform active:scale-95 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-1 rounded-[0.625rem] py-3.5 text-m-section font-bold text-m-body press transition-transform active:scale-95 disabled:opacity-50"
           style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           {saving ? (
@@ -507,7 +500,7 @@ export function MobileNewQuotationClient({
         >
           {/* Header */}
           <div
-            className="flex items-center gap-2 p-3 border-b"
+            className="flex items-center gap-1 p-3 border-b"
             style={{ borderColor: "var(--color-line)" }}
           >
             <button

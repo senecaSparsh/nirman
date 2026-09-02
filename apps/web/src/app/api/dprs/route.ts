@@ -1,8 +1,9 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
 import { submitDPR } from "@nirman/services";
 import { apiHandler, getCompany, json, dprSchema, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.DPR_VIEW);
@@ -13,15 +14,22 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const endDate = url.searchParams.get("endDate");
   const approvalStatus = url.searchParams.get("approvalStatus");
 
+  // Cursor pagination — backward compatible. If `cursor` param is present,
+  // return { items, nextCursor, hasMore }. Otherwise return flat array.
+  const { take, cursor, skip } = parseCursorParams(req);
+  const usePagination = url.searchParams.has("cursor") || url.searchParams.has("take");
+
   const dprs = await prisma.dailyProgressReport.findMany({
     where: {
       companyId: company.id,
       ...(projectId ? { projectId } : {}),
       ...(startDate && endDate ? { date: { gte: new Date(startDate), lte: new Date(endDate) } } : {}),
       ...(approvalStatus ? { approvalStatus: approvalStatus as "SUBMITTED" | "SUB_ADMIN_APPROVED" | "APPROVED" | "REJECTED" } : {}),
+      ...(cursorToWhere(cursor, "date") ?? {}),
     },
     orderBy: { date: "desc" },
-    take: 500,
+    take: usePagination ? take + 1 : 500,
+    skip: usePagination ? skip : undefined,
     include: {
       project: { select: { id: true, name: true, totalProjectCost: true, costPerSqft: true, totalBudget: true, totalSellableArea: true } },
       submittedBy: { select: { id: true, name: true } },
@@ -31,8 +39,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     },
   });
 
-  return json(
-    dprs.map((d) => ({
+  const mapped = dprs.map((d) => ({
       id: d.id,
       projectId: d.projectId,
       projectName: d.project?.name ?? null,
@@ -53,8 +60,16 @@ export const GET = apiHandler(async (req: NextRequest) => {
       costPerSqft: d.project?.costPerSqft ? toNum(d.project.costPerSqft) : null,
       projectBudget: d.project?.totalBudget ? toNum(d.project.totalBudget) : null,
       totalSellableArea: d.project?.totalSellableArea ? toNum(d.project.totalSellableArea) : null,
-    })),
-  );
+    }));
+
+  if (usePagination) {
+    const { items, nextCursor, hasMore } = buildCursorResponse(mapped, take, (r) => ({
+      createdAt: r.date instanceof Date ? r.date.toISOString() : r.date,
+      id: r.id,
+    }));
+    return NextResponse.json({ items, nextCursor, hasMore });
+  }
+  return json(mapped);
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {

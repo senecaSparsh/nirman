@@ -10,8 +10,8 @@ import Link from "next/link";
 const FIELD_MORE_LINKS = [
   { label: "Daily Progress", href: "/m/dprs" },
   { label: "Attendance", href: "/m/site/attendance" },
-  { label: "Quotations", href: "/m/quotations" },
-  { label: "Stock Counts", href: "/m/stock-counts" },
+  { label: "Quotations", href: "/m/procurement?tab=quotations" },
+  { label: "Stock Counts", href: "/m/stock?tab=counts" },
 ];
 
 export default function SiteMePage() {

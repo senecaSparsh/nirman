@@ -4,10 +4,15 @@ import { cookies } from "next/headers";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
-import { ResponsiveSurfaceRedirector } from "@/components/responsive-surface-redirector";
-import { SwRegister } from "@/components/sw-register";
+import { EmployeeNavListener } from "@/components/employee-nav-listener";
+import { FeedbackButton } from "@/components/feedback/feedback-button";
+// SW register is client-only and not needed for first paint — lazy-loaded
+// via a client wrapper (ssr:false dynamic imports can't be used directly
+// in Server Components).
+import { LazySwRegister } from "@/components/lazy-sw-register";
 import { CurrencyProvider } from "@/components/currency-provider";
 import { runWithCurrencyMode, type CurrencyMode } from "@/lib/currency-server";
+import { swrConfig, SWRConfig } from "@/lib/swr";
 import { Toaster } from "sonner";
 
 /**
@@ -92,14 +97,23 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className="antialiased">
         <Suspense fallback={<div className="min-h-screen bg-background" />}>
-          <CurrencyProvider>
-            <AppShell>{children}</AppShell>
-            {/* Watches the viewport and swaps between the desktop (/) and
-                mobile (/m) surfaces on a screen-size mismatch. Auto-redirects
-                at home routes; offers a toast on deep routes so in-progress
-                work is never lost. Respects the nirman-desktop=1 override. */}
-            <ResponsiveSurfaceRedirector />
-          </CurrencyProvider>
+          <SWRConfig value={swrConfig}>
+            <CurrencyProvider>
+              <EmployeeNavListener />
+              <AppShell>{children}</AppShell>
+              {/* Surface selection is now one-time only: the middleware
+                  redirects "/" → "/m" for mobile UAs (entry landing), and
+                  the sign-in page routes to the correct surface after login.
+                  There is NO client-side surface swapping — once you're on
+                  a surface (desktop "/" or mobile "/m"), you stay there
+                  regardless of resize or navigation. This prevents the
+                  disruptive desktop↔mobile redirects. */}
+              {/* Instant feedback — floating button on every page.
+                  Auto-captures a screenshot, lets users record voice +
+                  write feedback, routes it to the developer/owner. */}
+              <FeedbackButton />
+            </CurrencyProvider>
+          </SWRConfig>
         </Suspense>
         <Toaster
           position="top-right"
@@ -118,7 +132,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             },
           }}
         />
-        <SwRegister />
+        <LazySwRegister />
       </body>
     </html>
   ));

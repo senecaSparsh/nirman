@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { ClipboardList, Plus, Cloud, Pencil, Trash2, CheckCircle2, XCircle, ShieldCheck, RotateCw, Ruler, RefreshCw, Recycle, Loader2, SearchX, Wallet, Printer, ScanLine } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { EmployeeQuickCreateDialog } from "@/components/hr/employee-quick-create-dialog";
+import { EmployeeName } from "@/components/employee-name";
 import { formatDate, formatNumber, formatCurrency, formatCurrencyCompact, formatCurrencyDetailed, cn } from "@/lib/utils";
 
 export type DprApprovalStatus = "SUBMITTED" | "SUB_ADMIN_APPROVED" | "APPROVED" | "REJECTED";
@@ -1208,9 +1210,8 @@ function DprDetailDialog({
                 <Label>Site Photos</Label>
                 <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {detail.photoUrls.map((url, i) => (
-                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg border border-border">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded photo */}
-                      <img src={url} alt={`Site photo ${i + 1}`} className="aspect-video w-full object-cover" />
+                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="relative block overflow-hidden rounded-lg border border-border aspect-video">
+                      <Image src={url} alt={`Site photo ${i + 1}`} fill className="object-cover" sizes="(max-width: 768px) 100vw, 400px" />
                     </a>
                   ))}
                 </div>
@@ -1246,7 +1247,7 @@ function DprDetailDialog({
                   <TBody>
                     {detail.laborLines!.map((l) => (
                       <TR key={l.id}>
-                        <TD>{l.employeeName ?? l.crewName ?? "—"}</TD>
+                        <TD>{l.employeeId ? <EmployeeName id={l.employeeId} name={l.employeeName ?? l.crewName ?? "—"} /> : (l.crewName ?? "—")}</TD>
                         <TD className="tnum">{l.hoursWorked}h</TD>
                         <TD>{l.taskDescription}</TD>
                       </TR>

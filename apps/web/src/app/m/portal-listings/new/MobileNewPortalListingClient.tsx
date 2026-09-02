@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {Globe, Loader2, Plus} from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { formatCurrencyCompact } from "@/lib/utils";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
+import { MobileEmptyState, MobileCta } from "@/components/mobile/v2/primitives";
 
 interface UnitOption {
   id: string;
@@ -108,28 +108,16 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
 
   if (units.length === 0) {
     return (
-      <div>
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-16 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <Globe className="size-8 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            No available units
-          </p>
-          <p className="text-m-body mt-1 mb-4" style={{ color: "var(--color-ink-500)" }}>
-            Units with status &quot;Available&quot; can be listed on portals
-          </p>
-          <Link
-            href="/m/units"
-            className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed px-6 py-2.5 text-m-body font-bold text-m-body press"
-            style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
-          >
-            <Plus className="size-3.5" />
+      <MobileEmptyState
+        icon={Globe}
+        title="No available units"
+        description="Units with status &quot;Available&quot; can be listed on portals"
+        action={
+          <MobileCta href="/m/units" icon={Plus} variant="primary">
             Go to Built Units
-          </Link>
-        </div>
-      </div>
+          </MobileCta>
+        }
+      />
     );
   }
 

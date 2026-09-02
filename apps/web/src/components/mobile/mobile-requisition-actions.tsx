@@ -133,9 +133,9 @@ export function MobileRequisitionActions({
         method: "DELETE",
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to delete requisition");
-      toast.success("Requisition deleted");
-      router.push("/m/requisitions");
+      if (!res.ok) throw new Error(data.error ?? "Failed to delete indent");
+      toast.success("Indent deleted");
+      router.push("/m/procurement?tab=indents");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -148,7 +148,7 @@ export function MobileRequisitionActions({
     <div className="space-y-2 px-4 pb-6 pt-3">
       {showSubmit && (
         <BarButton
-          onClick={() => act("submit", `Requisition ${requisition.reqNumber} submitted`)}
+          onClick={() => act("submit", `Indent ${requisition.reqNumber} submitted`)}
           busy={busy === "submit"}
           icon={Send}
           label="Submit for approval"
@@ -158,7 +158,7 @@ export function MobileRequisitionActions({
       {showApproveReject && (
         <div className="flex gap-2">
           <BarButton
-            onClick={() => act("approve", `Requisition ${requisition.reqNumber} approved`)}
+            onClick={() => act("approve", `Indent ${requisition.reqNumber} approved`)}
             busy={busy === "approve"}
             icon={CheckCircle2}
             label="Approve"
@@ -166,7 +166,7 @@ export function MobileRequisitionActions({
             className="flex-1"
           />
           <BarButton
-            onClick={() => act("reject", `Requisition ${requisition.reqNumber} rejected`)}
+            onClick={() => act("reject", `Indent ${requisition.reqNumber} rejected`)}
             busy={busy === "reject"}
             icon={XCircle}
             label="Reject"
@@ -210,7 +210,7 @@ export function MobileRequisitionActions({
           }}
           busy={busy === "delete"}
           icon={Trash2}
-          label="Delete Requisition"
+          label="Delete Indent"
           variant="outline"
         />
       )}

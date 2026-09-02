@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { X, Plus, FileText, Trophy, ChevronRight, Loader2 } from "lucide-react";
+import { X, FileText, Trophy, ChevronRight, Loader2 } from "lucide-react";
 import { formatCurrencyCompact } from "@/lib/utils";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import {
@@ -14,7 +14,7 @@ import {
   MobileExportShareIcons,
   type MobileColumnSpec,
 } from "@/components/mobile/v2/export-share-bar";
-import { MobileNewQuotationClient } from "./new/MobileNewQuotationClient";
+
 import { MobileQuotationDetail } from "./[id]/MobileQuotationDetail";
 
 export type QuotationListItem = {
@@ -78,23 +78,15 @@ export function MobileQuotationsList({
   const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<TabKey>("all");
-  const [showNew, setShowNew] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [overlayKey, setOverlayKey] = useState(0);
 
   useEffect(() => {
     const open = searchParams.get("open");
-    const create = searchParams.get("new");
     if (open) {
-      setShowNew(false);
       setOpenId(open);
-    } else if (create === "1") {
-      setOpenId(null);
-      setShowNew(true);
     } else {
-      // No URL params — ensure both are closed (prevents stale reopen after refresh)
       setOpenId(null);
-      setShowNew(false);
     }
   }, [searchParams]);
 
@@ -115,48 +107,23 @@ export function MobileQuotationsList({
 
   const pendingCount = items.filter((r) => r.isPendingMyApproval).length;
 
-  function openNew() {
-    setOpenId(null);
-    setShowNew(true);
-    router.replace("/m/quotations?new=1", { scroll: false });
-  }
-
   function openDetail(id: string) {
-    setShowNew(false);
     setOpenId(id);
-    router.replace(`/m/quotations?open=${id}`, { scroll: false });
+    router.replace(`/m/procurement?tab=quotations&open=${id}`, { scroll: false });
   }
 
   return (
     <div>
-      {items.length === 0 && !showNew ? (
-        <div>
-          {canCreate ? (
-            <div className="mb-3">
-              <button
-                type="button"
-                onClick={openNew}
-                className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
-                style={{
-                  borderColor: "var(--color-signal)",
-                  color: "var(--color-signal-dark)",
-                }}
-              >
-                <Plus className="size-3.5" />
-                New Quotation Request
-              </button>
-            </div>
-          ) : null}
-          <MobileEmptyState
-            icon={FileText}
-            title="No quotation requests"
-            hint={
-              canCreate
-                ? "Tap above to create your first quotation request"
-                : "Quotation requests will appear here"
-            }
-          />
-        </div>
+      {items.length === 0 ? (
+        <MobileEmptyState
+          icon={FileText}
+          title="No quotation requests"
+          description={
+            canCreate
+              ? "Tap the + button below to create your first quotation request."
+              : "Quotation requests will appear here once created."
+          }
+        />
       ) : (
         <>
           <MobileSearchHeader
@@ -235,29 +202,6 @@ export function MobileQuotationsList({
         </>
       )}
 
-      {showNew ? (
-        <div
-          className="fixed inset-0 z-50 overflow-y-auto p-3.5"
-          style={{ backgroundColor: "var(--color-paper)" }}
-        >
-          <MobileNewQuotationClient
-            data={catalog}
-            onClose={() => {
-              setShowNew(false);
-              // Clear the ?new=1 URL param so the useEffect doesn't reopen the dialog
-              if (searchParams.get("new")) {
-                router.replace("/m/quotations", { scroll: false });
-              }
-            }}
-            onCreated={(id) => {
-              setShowNew(false);
-              setOpenId(id);
-              router.refresh();
-            }}
-          />
-        </div>
-      ) : null}
-
       {openId ? (
         <QuotationAnalysisOverlay
           key={`${openId}-${overlayKey}`}
@@ -266,7 +210,7 @@ export function MobileQuotationsList({
             setOpenId(null);
             // Clear the ?open= URL param so the useEffect doesn't reopen the overlay
             if (searchParams.get("open")) {
-              router.replace("/m/quotations", { scroll: false });
+              router.replace("/m/procurement?tab=quotations", { scroll: false });
             }
             router.refresh();
           }}

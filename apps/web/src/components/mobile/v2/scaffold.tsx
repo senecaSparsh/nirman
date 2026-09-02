@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Search, X, Plus, ChevronDown, type LucideIcon } from "lucide-react";
+import { Search, X, Plus, ChevronDown, RotateCw, type LucideIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MOBILE V2 SCAFFOLD — shared list-page building blocks
@@ -470,26 +471,39 @@ export function MobileCardGrid({
 
 /**
  * Standard FAB. Sits above the bottom tab bar + safe area.
- * size-12, right-4, ink-950 fill.
+ * size-14, right-4, ink-950 fill.
+ *
+ * When `isOpen` is true, the Plus icon rotates 45° into a cross (×)
+ * — Apple-style morph. The FAB stays in place and acts as a toggle:
+ * click to open, click again to close. The modal springs from the
+ * FAB's on-screen position (see MobileFabModal).
  */
 export function MobileFab({
   href,
   onClick,
   icon: Icon = Plus,
   label,
+  isOpen = false,
 }: {
   href?: string;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   icon?: LucideIcon;
   label?: string;
+  /** When true, the icon rotates 45° (Plus → × morph) and the FAB
+   *  sits above the modal backdrop. */
+  isOpen?: boolean;
 }) {
-  const className = "fixed right-4 z-30 grid place-items-center size-14 rounded-full text-m-body shadow-lg press";
+  // z-50 when open so the FAB stays clickable above the backdrop
+  const className = "fixed right-4 grid place-items-center size-14 rounded-full text-m-body shadow-lg press transition-colors";
   const style: React.CSSProperties = {
     bottom:
       "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
-    backgroundColor: "var(--color-ink-950)",
+    backgroundColor: isOpen ? "var(--color-ink-700)" : "var(--color-ink-950)",
     color: "var(--color-paper)",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+    boxShadow: isOpen
+      ? "0 4px 16px rgba(0,0,0,0.3)"
+      : "0 4px 12px rgba(0,0,0,0.2)",
+    zIndex: isOpen ? 60 : 30,
   };
   if (onClick) {
     return (
@@ -499,7 +513,16 @@ export function MobileFab({
         className={className}
         style={style}
       >
-        <Icon className="size-6" />
+        {/* Icon morph: Plus rotates 45° to become ×.
+            Using a single icon + rotation avoids a cross-fade and
+            gives the crisp "spin" feel Apple uses in Control Center. */}
+        <Icon
+          className="size-6"
+          style={{
+            transform: isOpen ? "rotate(45deg)" : "rotate(0deg)",
+            transition: "transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)",
+          }}
+        />
       </button>
     );
   }
@@ -629,5 +652,25 @@ export function MobileDashedCreateButton({
         {children}
       </Link>
     </div>
+  );
+}
+
+// ─── Refresh button ────────────────────────────────────────────────────────
+
+/**
+ * Icon-only refresh button that calls router.refresh(). 44px touch target.
+ */
+export function MobileRefreshButton() {
+  const router = useRouter();
+  return (
+    <button
+      type="button"
+      onClick={() => router.refresh()}
+      className="flex size-11 shrink-0 items-center justify-center rounded-[0.625rem] press"
+      style={{ color: "var(--color-ink-500)" }}
+      aria-label="Refresh"
+    >
+      <RotateCw className="size-[18px]" />
+    </button>
   );
 }

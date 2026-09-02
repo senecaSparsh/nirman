@@ -44,7 +44,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       return json({
         ok: true,
         generated: false,
-        message: "All low-stock materials already have an open requisition.",
+        message: "All low-stock materials already have an open indent.",
         skipped: result.skipped,
       });
     }
@@ -97,7 +97,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     } catch { /* best-effort */ }
 
     revalidatePath("/requisitions");
-    revalidatePath("/m/requisitions");
+    revalidatePath("/m/procurement");
     return json(
       {
         ok: true,
@@ -117,6 +117,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
       { status: 201 },
     );
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to generate auto-requisition") }, { status: 400 });
+    return json({ error: (err instanceof Error ? err.message : "Failed to generate auto-indent") }, { status: 400 });
   }
 });

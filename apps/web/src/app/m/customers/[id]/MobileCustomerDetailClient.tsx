@@ -11,6 +11,7 @@ import {
 import { MobileCustomerEditForm } from "./MobileCustomerEditForm";
 import {formatCurrencyCompact, formatDate} from "@/lib/utils";
 import { toast } from "sonner";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 /* ─── Types ─── */
 
@@ -82,22 +83,11 @@ export function MobileCustomerDetailClient({
 
   if (notFound || !data) {
     return (
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-            Customer not found
-          </p>
-        </div>
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <AlertCircle className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            Customer not found
-          </p>
-        </div>
-      </div>
+      <MobileEmptyState
+        icon={AlertCircle}
+        title="Customer not found"
+        description="This customer may have been deleted or doesn't exist."
+      />
     );
   }
 
@@ -255,24 +245,21 @@ export function MobileCustomerDetailClient({
         </p>
 
         {data.sales.length === 0 ? (
-          <div
-            className="flex flex-col items-center justify-center rounded-[0.5rem] border py-6 text-center"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-          >
-            <ShoppingCart className="size-5 mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-            <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-700)" }}>
-              No purchases yet
-            </p>
-            {canSell ? (
+          <MobileEmptyState
+            icon={ShoppingCart}
+            title="No purchases yet"
+            description="Sales made to this customer will appear here."
+            size="compact"
+            action={canSell ? (
               <Link
                 href={`/m/sales/new?customerId=${data.id}`}
-                className="text-m-caption mt-1 underline"
+                className="text-m-caption font-semibold text-m-body press"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 Create first sale
               </Link>
-            ) : null}
-          </div>
+            ) : undefined}
+          />
         ) : (
           <div className="flex flex-col gap-2">
             {data.sales.map((s) => (

@@ -15,10 +15,10 @@ type Preference = {
 
 const EVENT_TYPES = [
   // Procurement (9)
-  { value: "REQUISITION_SUBMITTED", label: "Requisition Submitted", group: "Procurement" },
-  { value: "REQUISITION_APPROVED", label: "Requisition Approved", group: "Procurement" },
-  { value: "REQUISITION_REJECTED", label: "Requisition Rejected", group: "Procurement" },
-  { value: "REQUISITION_CONVERTED_TO_PO", label: "Requisition → PO Converted", group: "Procurement" },
+  { value: "REQUISITION_SUBMITTED", label: "Indent Submitted", group: "Procurement" },
+  { value: "REQUISITION_APPROVED", label: "Indent Approved", group: "Procurement" },
+  { value: "REQUISITION_REJECTED", label: "Indent Rejected", group: "Procurement" },
+  { value: "REQUISITION_CONVERTED_TO_PO", label: "Indent → PO Converted", group: "Procurement" },
   { value: "PO_APPROVED", label: "PO Approved", group: "Procurement" },
   { value: "PO_ORDERED", label: "PO Ordered", group: "Procurement" },
   { value: "GOODS_RECEIVED", label: "Goods Received", group: "Procurement" },

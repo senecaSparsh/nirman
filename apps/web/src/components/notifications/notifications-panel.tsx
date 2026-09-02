@@ -9,6 +9,7 @@ import {Label, Select, Textarea} from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { StatusPill } from "@/components/page";
+import { EmptyState } from "@/components/empty-state";
 
 type Template = {
   id: string;
@@ -139,11 +140,11 @@ export function NotificationsPanel() {
 
       {/* Templates list */}
       {templates.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-6 text-center">
-          <Bell className="mx-auto h-8 w-8 text-muted-foreground/50" />
-          <p className="mt-2 text-body text-muted-foreground">No notification templates yet</p>
-          <p className="text-caption text-muted-foreground">Create templates for low stock, task assignments, quote approvals, and more.</p>
-        </div>
+        <EmptyState
+          icon={<Bell />}
+          title="No notification templates yet"
+          description="Create templates for low stock, task assignments, quote approvals, and more."
+        />
       ) : (
         <div className="space-y-2">
           {templates.map((t) => (
@@ -172,7 +173,11 @@ export function NotificationsPanel() {
           className="max-w-2xl max-h-[80vh] overflow-y-auto"
         >
           {logs.length === 0 ? (
-            <p className="py-8 text-center text-meta text-muted-foreground">No notifications sent yet.</p>
+            <EmptyState
+              icon={<Bell />}
+              title="No notifications sent yet"
+              size="compact"
+            />
           ) : (
             <div className="space-y-1.5">
               {logs.map((l) => (
@@ -261,7 +266,7 @@ function TemplateForm({ onOpenChange, onSaved }: { onOpenChange: (o: boolean) =>
             value={template}
             onChange={(e) => setTemplate(e.target.value)}
             rows={4}
-            placeholder="⚠️ Low Stock Alert: {{materialName}} ({{materialCode}}) — current stock: {{totalQty}} {{unit}}. Please raise a requisition."
+            placeholder="⚠️ Low Stock Alert: {{materialName}} ({{materialCode}}) — current stock: {{totalQty}} {{unit}}. Please raise an indent."
           />
           <p className="text-micro text-muted-foreground">Use {"{{variables}}"} for dynamic content. The system replaces them at send time.</p>
         </div>

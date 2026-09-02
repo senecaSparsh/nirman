@@ -100,11 +100,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
         results.push({ type: item.type, id: item.id, success: true });
       } else if (item.type === "requisition") {
         if (!canApproveReq) {
-          results.push({ type: item.type, id: item.id, success: false, error: "No permission to approve requisitions" });
+          results.push({ type: item.type, id: item.id, success: false, error: "No permission to approve indents" });
           continue;
         }
         if (!validReqIds.has(item.id)) {
-          results.push({ type: item.type, id: item.id, success: false, error: "Requisition not found or not in SUBMITTED status" });
+          results.push({ type: item.type, id: item.id, success: false, error: "Indent not found or not in SUBMITTED status" });
           continue;
         }
         await prisma.materialRequisition.update({
@@ -157,7 +157,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
   if (anyReq) {
     revalidatePath("/requisitions");
-    revalidatePath("/m/requisitions");
+    revalidatePath("/m/procurement");
   }
   if (anyGp) {
     revalidatePath("/gate-passes");

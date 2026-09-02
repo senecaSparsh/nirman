@@ -135,7 +135,7 @@ async function SiteContent() {
         <ActionCard href="/m/site/receive" icon={Truck} label="Receive Stock" sub="Scan PO / gate entry" badge={inTransitPOs.length > 0 ? String(inTransitPOs.length) : undefined} badgeTone={overduePOs.length > 0 ? "stop" : "steel"} />
         <ActionCard href="/m/site/dpr" icon={ClipboardList} label="Submit Daily Progress Report" sub="Progress & variance" badge={dprDone ? "Done" : "Due"} badgeTone={dprDone ? "go" : "signal"} />
         <ActionCard href="/m/site/attendance" icon={CalendarCheck} label="Attendance" sub="GPS tagged" badge={attendanceToday > 0 ? String(attendanceToday) : undefined} badgeTone="steel" />
-        <ActionCard href="/m/scrap-generations" icon={Recycle} label="Scrap Log" sub="Log scrap generation" />
+        <ActionCard href="/m/stock?tab=scrap" icon={Recycle} label="Scrap Log" sub="Log scrap generation" />
         <ActionCard href="/m/site/tasks" icon={ListTodo} label="Open Tasks" sub="Site punch list" badge={myTasks.length > 0 ? String(myTasks.length) : undefined} badgeTone={overdueTasks.length > 0 ? "stop" : "steel"} />
       </div>
 

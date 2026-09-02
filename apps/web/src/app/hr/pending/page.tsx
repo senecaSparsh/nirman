@@ -8,6 +8,7 @@ import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
 import { RefreshButton } from "@/components/refresh-button";
 import { NoAccess } from "@/components/no-access";
+import { EmptyState } from "@/components/empty-state";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import {
   ClipboardList,
@@ -158,15 +159,11 @@ async function PendingListContent() {
       </div>
 
       {totalCount === 0 && (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border bg-card py-16 text-center">
-          <ClipboardList className="h-8 w-8 text-muted-foreground" />
-          <div>
-            <p className="text-body font-medium text-foreground">All caught up</p>
-            <p className="mt-1 text-caption text-muted-foreground">
-              No pending items. Everything that needs your attention has been handled.
-            </p>
-          </div>
-        </div>
+        <EmptyState
+          icon={<ClipboardList className="h-5 w-5" />}
+          title="All caught up"
+          description="No pending items. Everything that needs your attention has been handled."
+        />
       )}
 
       {/* Overdue tasks — highest priority */}
@@ -262,7 +259,7 @@ async function PendingListContent() {
       {/* Requisitions pending approval */}
       {pendingRequisitions.length > 0 && (
         <PendingSection
-          title="Requisitions Pending Approval"
+          title="Indents Pending Approval"
           icon={<Hammer className="h-4 w-4 text-warning" />}
           tone="warning"
           count={pendingRequisitions.length}

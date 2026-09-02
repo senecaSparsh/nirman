@@ -10,6 +10,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { IdentityCell, DateCell } from "@/components/ui/cells";
+import { EmployeeName } from "@/components/employee-name";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
@@ -230,7 +231,7 @@ export function AttendanceView({
       sortValue: (r) => r.employeeName,
       render: (r) => (
         <IdentityCell
-          name={r.employeeName}
+          name={<EmployeeName id={r.employeeId} name={r.employeeName} />}
           sub={r.trade ?? null}
         />
       ),
@@ -487,7 +488,7 @@ export function AttendanceView({
                         const currentStatus = getStatus(e.id);
                         return (
                           <TR key={e.id}>
-                            <TD className="font-medium">{e.name}</TD>
+                            <TD className="font-medium"><EmployeeName id={e.id} name={e.name} /></TD>
                             <TD>{e.trade || <span className="text-muted-foreground">—</span>}</TD>
                             <TD>
                               <div className="flex gap-1">

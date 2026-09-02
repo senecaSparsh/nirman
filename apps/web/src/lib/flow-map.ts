@@ -163,7 +163,7 @@ const PROCUREMENT_FLOW: FlowDef = {
 
 const REQUISITION_FLOW: FlowDef = {
   id: "requisition",
-  listHref: "/m/requisitions",
+  listHref: "/m/procurement?tab=indents",
   listLead: "Material requests raised by site. Approved requisitions become purchase orders.",
   nodes: [
     { status: "DRAFT", label: "Draft", detailHref: "/m/requisitions/{id}" },
@@ -220,7 +220,7 @@ const REQUISITION_FLOW: FlowDef = {
 
 const STOCK_TRANSFER_FLOW: FlowDef = {
   id: "stockTransfer",
-  listHref: "/m/transfers",
+  listHref: "/m/stock?tab=transfers",
   listLead: "Stock moves between warehouses and sites. In-transit transfers need confirmation on arrival.",
   nodes: [
     { status: "DRAFT", label: "Draft", detailHref: "/m/transfers/{id}" },
@@ -491,7 +491,7 @@ export const FLOWS: Record<FlowId, FlowDef> = {
 const ROUTE_TO_FLOW: Record<string, FlowId> = {
   "/m/procurement": "procurement",
   "/m/requisitions": "requisition",
-  "/m/transfers": "stockTransfer",
+  "/m/stock": "stockTransfer",
   "/m/site/issue": "materialIssue",
   "/m/material-sales": "materialSale",
   "/m/dprs": "dpr",

@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { projectTotalCost } from "@nirman/services";
 import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -28,6 +27,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     prisma.purchaseOrder.findMany({
       where: { companyId: company.id, status: "DRAFT" },
       orderBy: { createdAt: "desc" },
+      take: 100,
       include: {
         supplier: { select: { id: true, name: true } },
         project: { select: { id: true, name: true, totalBudget: true } },
@@ -38,6 +38,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     prisma.materialRequisition.findMany({
       where: { project: { companyId: company.id }, status: "SUBMITTED" },
       orderBy: { createdAt: "desc" },
+      take: 100,
       include: {
         project: { select: { id: true, name: true, totalBudget: true } },
         phase: { select: { id: true, name: true } },
@@ -53,6 +54,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       ? prisma.gatePass.findMany({
           where: { companyId: company.id, status: "PENDING" },
           orderBy: { createdAt: "desc" },
+          take: 100,
           include: {
             lines: true,
             location: { select: { name: true } },
@@ -63,15 +65,21 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   ]);
 
   // ── Compute budget context for each project ──
-  // Cache project cost lookups to avoid redundant queries
+  // Read the cached Project.totalProjectCost column (refreshed by
+  // reallocateProjectCosts) instead of calling projectTotalCost() which
+  // scans materialIssueLine + projectCost + landPurchase per project.
+  // This is a budget-context approximation for approvers, not exact spend.
   const projectCostCache = new Map<string, number>();
   async function getProjectSpent(projectId: string | null): Promise<number | null> {
     if (!projectId) return null;
     if (projectCostCache.has(projectId)) return projectCostCache.get(projectId)!;
     try {
-      const cost = await projectTotalCost(projectId);
-      const spent = toNum(cost.total);
-      projectCostCache.set(projectId, spent);
+      const proj = await prisma.project.findUnique({
+        where: { id: projectId },
+        select: { totalProjectCost: true },
+      });
+      const spent = proj?.totalProjectCost ? toNum(proj.totalProjectCost) : null;
+      if (spent != null) projectCostCache.set(projectId, spent);
       return spent;
     } catch {
       return null;

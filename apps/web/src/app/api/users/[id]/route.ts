@@ -104,6 +104,39 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     select: { id: true, email: true, name: true, role: true, active: true, phone: true, designation: true, department: true, employeeCode: true, companyId: true },
   });
 
+  // When deactivating a user, auto-unassign all their company phone numbers.
+  // This prevents deactivated users from remaining the "assignedTo" of numbers
+  // that are still receiving calls. The numbers return to the unassigned pool.
+  if (body.active === false && body.active !== existing.active) {
+    const assignedPhones = await prisma.companyPhone.findMany({
+      where: { assignedToUserId: userId, deletedAt: null },
+      select: { id: true, companyId: true },
+    });
+    if (assignedPhones.length > 0) {
+      // Close all open PhoneAssignment records for this user
+      await prisma.phoneAssignment.updateMany({
+        where: { userId, returnedAt: null },
+        data: { returnedAt: new Date(), reason: "User deactivated" },
+      });
+      // Clear the assignedToUserId on all their numbers
+      await prisma.companyPhone.updateMany({
+        where: { assignedToUserId: userId, deletedAt: null },
+        data: { assignedToUserId: null, assignedAt: null },
+      });
+      // Audit log the auto-unassignment
+      if (actorId) {
+        await logAction(prisma, {
+          userId: actorId,
+          companyId: updated.companyId ?? undefined,
+          action: "PHONE_AUTO_UNASSIGN_ON_DEACTIVATION",
+          entityType: "User",
+          entityId: userId,
+          after: { unassignedCount: assignedPhones.length, phoneIds: assignedPhones.map((p) => p.id) },
+        });
+      }
+    }
+  }
+
   // Audit log for role changes
   if (body.role !== undefined && body.role !== existing.role && actorId) {
     await logAction(prisma, {

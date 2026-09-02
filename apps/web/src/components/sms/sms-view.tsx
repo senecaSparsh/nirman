@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { EmptyState } from "@/components/empty-state";
 
 export type SmsRow = {
   id: string;
@@ -71,15 +72,11 @@ export function SmsView({ items, canCreate }: { items: SmsRow[]; canCreate: bool
 
       {/* SMS list */}
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border bg-card py-16 text-center">
-          <MessageSquare className="h-8 w-8 text-muted-foreground" />
-          <div>
-            <p className="text-body font-medium text-foreground">No SMS records</p>
-            <p className="mt-1 text-caption text-muted-foreground">
-              Forward bank payment SMS to auto-create payment entries.
-            </p>
-          </div>
-        </div>
+        <EmptyState
+          icon={<MessageSquare />}
+          title="No SMS records"
+          description="Forward bank payment SMS to auto-create payment entries."
+        />
       ) : (
         <div className="space-y-2">
           {filtered.map((sms) => {

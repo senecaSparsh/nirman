@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, startTransition } from "react";
-import { useRouter } from "next/navigation";
-import { Building2, Check, ChevronDown, Plus } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Building2, Check, ChevronDown, Loader2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCompanySwitch } from "@/lib/use-company-switch";
 
 type CompanyOption = {
   id: string;
@@ -17,16 +17,27 @@ type CompanyOption = {
  * Header company switcher. Shows the active company name and lets the
  * user switch to any company they have access to. Hidden when there is
  * only one company (the common single-company case).
+ *
+ * Uses `useCompanySwitch` for optimistic UI + generation-counter race
+ * protection. The header label and checkmark move instantly on click;
+ * the content area dims while `router.refresh()` fetches the new data.
  */
 export function CompanySwitcher({
   companies: initial,
 }: {
   companies: CompanyOption[];
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [switching, setSwitching] = useState<string | null>(null);
+  // Track the optimistically-selected company so the header label and the
+  // checkmark move instantly on click — before router.refresh() round-trips
+  // with fresh server props. Falls back to the server-provided isCurrent.
+  const [activeId, setActiveId] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+
+  const { switchCompany, isSwitching, switchingToId } = useCompanySwitch({
+    onOptimisticSwitch: (target) => setActiveId(target.id),
+    onRevert: () => setActiveId(null),
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -38,44 +49,38 @@ export function CompanySwitcher({
   }, [open]);
 
   if (initial.length <= 1) return null;
-  const current = initial.find((c) => c.isCurrent) ?? initial[0]!;
+  const serverCurrent = initial.find((c) => c.isCurrent) ?? initial[0]!;
+  // Prefer the optimistic selection, then the server's current company.
+  const current =
+    (activeId && initial.find((c) => c.id === activeId)) || serverCurrent;
 
   async function switchTo(id: string) {
     const target = initial.find((c) => c.id === id);
-    if (!target || target.isCurrent) {
+    if (!target || target.id === current.id) {
       setOpen(false);
       return;
     }
-    // Optimistic — close dropdown immediately
     setOpen(false);
-    setSwitching(id);
-    try {
-      const res = await fetch("/api/companies/switch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyId: id }),
-      });
-      if (res.ok) {
-        window.dispatchEvent(new CustomEvent("nirman-company-switched"));
-        // Stay on the current page — just refresh the data so it reflects
-        // the new company context. No redirect.
-        startTransition(() => {
-          router.refresh();
-        });
-      }
-    } finally {
-      setSwitching(null);
-    }
+    await switchCompany({
+      id: target.id,
+      name: target.name,
+      parentCompanyId: target.parentName ? undefined : null,
+    });
   }
 
   return (
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1.5 text-caption text-foreground transition-colors hover:border-foreground/20"
+        disabled={isSwitching}
+        className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1.5 text-caption text-foreground transition-colors hover:border-foreground/20 disabled:opacity-60"
         title="Switch company"
       >
-        <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+        {isSwitching ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+        ) : (
+          <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+        )}
         <span className="hidden max-w-[120px] truncate sm:inline">{current.name}</span>
         <ChevronDown className="h-3 w-3 text-muted-foreground" />
       </button>
@@ -87,10 +92,10 @@ export function CompanySwitcher({
               <button
                 key={c.id}
                 onClick={() => switchTo(c.id)}
-                disabled={switching === c.id}
+                disabled={isSwitching}
                 className={cn(
-                  "flex w-full items-start gap-2 rounded-md px-2.5 py-2 text-left text-body transition-colors hover:bg-muted",
-                  c.isCurrent && "bg-muted/50",
+                  "flex w-full items-start gap-2 rounded-md px-2.5 py-2 text-left text-body transition-colors hover:bg-muted disabled:opacity-50",
+                  c.id === current.id && "bg-muted/50",
                 )}
               >
                 <div className="min-w-0 flex-1">
@@ -102,7 +107,8 @@ export function CompanySwitcher({
                     <div className="truncate text-micro text-muted-foreground">under {c.parentName}</div>
                   )}
                 </div>
-                {c.isCurrent && <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />}
+                {c.id === current.id && <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />}
+                {switchingToId === c.id && <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />}
               </button>
             ))}
           </div>
@@ -110,7 +116,7 @@ export function CompanySwitcher({
             <button
               onClick={() => {
                 setOpen(false);
-                router.push("/settings?tab=companies");
+                window.location.href = "/settings?tab=companies";
               }}
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-body text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >

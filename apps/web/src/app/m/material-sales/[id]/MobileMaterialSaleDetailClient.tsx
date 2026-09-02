@@ -11,7 +11,7 @@ import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from 
 import { toast } from "sonner";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../../sales/MobileChequeFields";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
-import { ActionBar } from "@/components/mobile/v2/primitives";
+import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
 type PaymentStatus = "PENDING" | "PARTIAL" | "PAID";
@@ -115,19 +115,11 @@ export function MobileMaterialSaleDetailClient({
 
   if (notFound) {
     return (
-      <div>
-        <div className="mb-4">
-        </div>
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-12 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <IndianRupee className="size-8 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            Sale not found
-          </p>
-        </div>
-      </div>
+      <MobileEmptyState
+        icon={IndianRupee}
+        title="Sale not found"
+        description="This sale may have been deleted or doesn't exist."
+      />
     );
   }
 
@@ -511,13 +503,11 @@ export function MobileMaterialSaleDetailClient({
         Line Items ({lines.length})
       </p>
       {lines.length === 0 ? (
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center mb-3"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <IndianRupee className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>No line items</p>
-        </div>
+        <MobileEmptyState
+          icon={IndianRupee}
+          title="No line items"
+          size="compact"
+        />
       ) : (
         <div
           className="rounded-[0.5rem] border overflow-hidden mb-3"

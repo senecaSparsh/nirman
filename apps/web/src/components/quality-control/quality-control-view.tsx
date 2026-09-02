@@ -12,6 +12,7 @@ import {formatDate} from "@/lib/utils";
 import { statusBadgeVariant } from "@/components/page";
 import {Plus, ClipboardCheck, Search, Loader2} from "lucide-react";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
+import { EmptyState } from "@/components/empty-state";
 
 type NcrCategory = "MATERIAL" | "WORKMANSHIP" | "DESIGN" | "DOCUMENT" | "PROCESS" | "SAFETY" | "OTHER";
 type NcrSeverity = "CRITICAL" | "MAJOR" | "MINOR" | "OBSERVATION";
@@ -107,12 +108,11 @@ export function QualityControlView({
 
       {/* Table */}
       {filtered.length === 0 ? (
-        <div className="rounded-lg border border-border p-12 text-center">
-          <ClipboardCheck className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
-          <p className="text-sm text-muted-foreground">
-            {ncrs.length === 0 ? "No NCRs raised yet. Raise one to track quality issues." : "No NCRs match your filters."}
-          </p>
-        </div>
+        <EmptyState
+          icon={<ClipboardCheck />}
+          title={ncrs.length === 0 ? "No NCRs raised yet" : "No NCRs match your filters"}
+          description={ncrs.length === 0 ? "Raise one to track quality issues." : undefined}
+        />
       ) : (
         <div className="rounded-lg border border-border overflow-hidden">
           <div className="grid grid-cols-[120px_1fr_120px_100px_100px_100px_90px] gap-2 border-b border-border bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground">

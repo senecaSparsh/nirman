@@ -8,6 +8,7 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { MobileSmsIngest } from "./MobileSmsIngest";
 import { formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {MessageSquare, Link2, Check, AlertCircle} from "lucide-react";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 export const metadata = { title: "Bank SMS · Nirman" };
 
@@ -100,18 +101,11 @@ async function MobileSmsContent() {
 
       {/* SMS list */}
       {smsRecords.length === 0 ? (
-        <div
-          className="flex flex-col items-center justify-center gap-2 rounded-[0.75rem] border py-12 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-        >
-          <MessageSquare className="size-6" style={{ color: "var(--color-ink-400)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            No SMS yet
-          </p>
-          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-            Forward bank payment SMS to auto-create entries.
-          </p>
-        </div>
+        <MobileEmptyState
+          icon={MessageSquare}
+          title="No SMS yet"
+          description="Forward bank payment SMS to auto-create entries."
+        />
       ) : (
         <div className="space-y-2">
           {smsRecords.map((sms) => {

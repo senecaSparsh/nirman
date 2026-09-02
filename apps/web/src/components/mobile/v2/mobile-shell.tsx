@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   ChevronLeft,
@@ -21,6 +21,7 @@ import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { NavSheet } from "@/components/mobile/v2/nav-sheet";
 import { VoiceAgentButton } from "@/components/mobile/v2/voice-agent-button";
 import { MobileGlobalSearch } from "@/components/mobile/v2/mobile-global-search";
+import { useCompanySwitch } from "@/lib/use-company-switch";
 import {
   MOBILE_TABS,
   tabsForRole,
@@ -107,7 +108,9 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
         if (res.status === 401 && !redirecting) {
           redirecting = true;
           authSignOut().catch(() => {});
-          router.replace("/sign-in");
+          // Preserve the current path so the user returns here after re-login.
+          const current = window.location.pathname + window.location.search;
+          router.replace(`/sign-in?redirect=${encodeURIComponent(current)}`);
         }
         return res;
       });
@@ -156,81 +159,11 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
 
   // ── Re-fetch company info when the user switches company ──
   // The mobile company switcher (in /m/settings) dispatches a
-  // "nirman-company-switched" event after a successful switch.
-  useEffect(() => {
-    function onCompanySwitched() {
-      fetch("/api/company")
-        .then((r) => (r.ok ? r.json() : null))
-        .then((c) => {
-          if (c?.name) setCompanyInfo((prev) => ({
-            ...prev,
-            name: c.name,
-            parentCompanyId: c.parentCompanyId ?? null,
-          }));
-          if (Array.isArray(c?.companies)) setCompanies(c.companies);
-        })
-        .catch(() => {});
-    }
-    window.addEventListener("nirman-company-switched", onCompanySwitched);
-    return () => window.removeEventListener("nirman-company-switched", onCompanySwitched);
-  }, []);
-
-  // ── Switch company ───────────────────────────────────────
-  async function switchCompany(id: string) {
-    const target = companies.find((c) => c.id === id);
-    if (!target || target.isCurrent) {
-      setCompanySwitcherOpen(false);
-      return;
-    }
-    // Optimistic update — close dropdown + update name instantly
-    setCompanySwitcherOpen(false);
-    const prevName = companyInfo.name;
-    const prevParentId = companyInfo.parentCompanyId;
-    const prevCompanies = companies;
-    setCompanyInfo((prev) => ({
-      ...prev,
-      name: target.name,
-      parentCompanyId: target.parentCompanyId,
-    }));
-    setCompanies((prev) => prev.map((c) => ({ ...c, isCurrent: c.id === id })));
-    const newTitle = target.name !== "Nirman" ? `${target.name} · Nirman OS` : "Nirman Inventory OS";
-    document.title = newTitle;
-    setSwitchingCompanyId(id);
-    try {
-      const res = await fetch("/api/company/switch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyId: id }),
-      });
-      if (res.ok) {
-        window.dispatchEvent(new CustomEvent("nirman-company-switched"));
-        router.refresh();
-        // Re-apply title after router.refresh() re-applies metadata.
-        requestAnimationFrame(() => {
-          document.title = newTitle;
-        });
-      } else {
-        // Revert optimistic update on failure
-        setCompanyInfo((prev) => ({ ...prev, name: prevName, parentCompanyId: prevParentId }));
-        setCompanies(prevCompanies);
-        document.title = prevName !== "Nirman" ? `${prevName} · Nirman OS` : "Nirman Inventory OS";
-        toast.error("Failed to switch company. Please try again.");
-      }
-    } catch {
-      // Revert optimistic update on network error
-      setCompanyInfo((prev) => ({ ...prev, name: prevName, parentCompanyId: prevParentId }));
-      setCompanies(prevCompanies);
-      document.title = prevName !== "Nirman" ? `${prevName} · Nirman OS` : "Nirman Inventory OS";
-      toast.error("Network error. Please try again.");
-    } finally {
-      setSwitchingCompanyId(null);
-    }
-  }
-  useEffect(() => {
+  // "nirman-company-switched" event after a successful switch. We also
+  // re-fetch badge counts because pending approvals/requisitions/etc.
+  // are scoped to the active company.
+  const refreshBadgeCounts = useCallback(() => {
     let cancelled = false;
-    // Fetch badges from ALL tabs that carry a badge, across every persona.
-    // The old code only fetched from MOBILE_TABS (legacy 5-tab array),
-    // which missed tabs like POs, DPR, Tasks that aren't in MOBILE_TABS.
     Promise.all(
       ALL_BADGE_TABS.map((tab) =>
         fetch(tab.badge!.endpoint)
@@ -251,6 +184,91 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
       cancelled = true;
     };
   }, []);
+
+  // ── Company switch via unified hook ───────────────────────
+  // Uses useCompanySwitch for optimistic UI + generation-counter race
+  // protection + event-with-data. The onOptimisticSwitch callback
+  // updates the header instantly; onRevert restores on failure.
+  const prevCompanyRef = useRef<{ name: string; parentCompanyId: string | null; companies: CompanyOption[] } | null>(null);
+
+  const { switchCompany: doSwitch, isSwitching: isCompanySwitching } = useCompanySwitch({
+    endpoint: "/api/company/switch",
+    onOptimisticSwitch: (target) => {
+      // Save previous state for rollback
+      prevCompanyRef.current = {
+        name: companyInfo.name,
+        parentCompanyId: companyInfo.parentCompanyId,
+        companies,
+      };
+      // Optimistic update — header + checkmark move instantly
+      setCompanyInfo((prev) => ({
+        ...prev,
+        name: target.name,
+        parentCompanyId: target.parentCompanyId ?? null,
+      }));
+      setCompanies((prev) => prev.map((c) => ({ ...c, isCurrent: c.id === target.id })));
+      const newTitle = target.name !== "Nirman" ? `${target.name} · Nirman OS` : "Nirman Inventory OS";
+      document.title = newTitle;
+    },
+    onRevert: () => {
+      const prev = prevCompanyRef.current;
+      if (prev) {
+        setCompanyInfo((p) => ({ ...p, name: prev.name, parentCompanyId: prev.parentCompanyId }));
+        setCompanies(prev.companies);
+        document.title = prev.name !== "Nirman" ? `${prev.name} · Nirman OS` : "Nirman Inventory OS";
+      }
+      toast.error("Failed to switch company. Please try again.");
+    },
+  });
+
+  useEffect(() => {
+    function onCompanySwitched(e: Event) {
+      const detail = (e as CustomEvent).detail as
+        | { id: string; name: string; parentCompanyId: string | null }
+        | undefined;
+      // Update from event detail (instant — no second round-trip)
+      if (detail?.name) {
+        setCompanyInfo((prev) => ({
+          ...prev,
+          name: detail.name,
+          parentCompanyId: detail.parentCompanyId ?? null,
+        }));
+      }
+      // Also re-fetch /api/company for the full companies list (isCurrent flags)
+      fetch("/api/company")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((c) => {
+          if (Array.isArray(c?.companies)) setCompanies(c.companies);
+        })
+        .catch(() => {});
+      refreshBadgeCounts();
+    }
+    window.addEventListener("nirman-company-switched", onCompanySwitched as EventListener);
+    return () => window.removeEventListener("nirman-company-switched", onCompanySwitched as EventListener);
+  }, [refreshBadgeCounts]);
+
+  // ── Switch company (delegates to useCompanySwitch hook) ───
+  async function switchCompany(id: string) {
+    const target = companies.find((c) => c.id === id);
+    if (!target || target.isCurrent) {
+      setCompanySwitcherOpen(false);
+      return;
+    }
+    setCompanySwitcherOpen(false);
+    setSwitchingCompanyId(id);
+    await doSwitch({
+      id: target.id,
+      name: target.name,
+      parentCompanyId: target.parentCompanyId,
+    });
+    setSwitchingCompanyId(null);
+  }
+  useEffect(() => {
+    // Fetch badges from ALL tabs that carry a badge, across every persona.
+    // The old code only fetched from MOBILE_TABS (legacy 5-tab array),
+    // which missed tabs like POs, DPR, Tasks that aren't in MOBILE_TABS.
+    return refreshBadgeCounts();
+  }, [refreshBadgeCounts]);
 
   if (process.env.NEXT_PUBLIC_AUTH_BYPASS !== "true" && sessionLoading && !session) {
     return (
@@ -276,6 +294,7 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
       canSwitchCompany={canSwitchCompany}
       companySwitcherOpen={companySwitcherOpen}
       switchingCompanyId={switchingCompanyId}
+      isCompanySwitching={isCompanySwitching}
       onToggleCompanySwitcher={() => setCompanySwitcherOpen((o) => !o)}
       onSwitchCompany={switchCompany}
       badgeCounts={badgeCounts}
@@ -298,6 +317,7 @@ function MobileShellInner({
   canSwitchCompany,
   companySwitcherOpen,
   switchingCompanyId,
+  isCompanySwitching,
   onToggleCompanySwitcher,
   onSwitchCompany,
   badgeCounts,
@@ -314,6 +334,7 @@ function MobileShellInner({
   canSwitchCompany: boolean;
   companySwitcherOpen: boolean;
   switchingCompanyId: string | null;
+  isCompanySwitching: boolean;
   onToggleCompanySwitcher: () => void;
   onSwitchCompany: (id: string) => void;
   badgeCounts: Record<string, number>;
@@ -366,6 +387,23 @@ function MobileShellInner({
   // homes. This includes pages that don't fall under any tab prefix (e.g.
   // /m/boq, /m/projects, /m/reports) — those still need a back button.
   const isDrillDown = !isModuleHome(pathname, personaTabs) && pathname !== "/m";
+
+  // ── Drill-down title ───────────────────────────────────────
+  // Resolved from the active tab label (if the route matches a persona tab)
+  // or derived from the URL path segment via pageTitleFromPath.
+  //
+  // IMPORTANT: We defer the title to after mount to guarantee server and
+  // client produce identical HTML on first paint. If we computed it
+  // synchronously, any HMR stale-cache mismatch between the server and
+  // client bundles (e.g. pageTitleFromPath's TITLE_MAP being edited) would
+  // cause a hydration error. By starting with an empty string and setting
+  // the real title in useEffect, the first client render always matches
+  // the server's empty placeholder — no comparison can ever mismatch.
+  const computedTitle = activeTab?.label ?? pageTitleFromPath(pathname);
+  const [drillDownTitle, setDrillDownTitle] = useState("");
+  useEffect(() => {
+    setDrillDownTitle(computedTitle);
+  }, [computedTitle]);
 
   // ── Edge-swipe to go back (iOS-style) ──
   // Tracks a touch that starts within 28px of the left edge. If the user
@@ -525,7 +563,7 @@ function MobileShellInner({
                 className="text-m-body font-bold truncate"
                 style={{ color: "var(--color-ink-950)" }}
               >
-                {activeTab?.label ?? pageTitleFromPath(pathname)}
+                {drillDownTitle}
               </span>
             ) : (
               <div ref={companySwitcherRef} className="relative min-w-0">
@@ -629,7 +667,8 @@ function MobileShellInner({
 
       {/* ══ CONTENT — scrollable, clears bottom nav ══ */}
       <main
-        className="relative flex-1 overflow-y-auto pb-nav"
+        className="m-shell-content relative flex-1 overflow-y-auto pb-nav"
+        data-switching={isCompanySwitching ? "true" : undefined}
         {...mergedTouchHandlers}
       >
         {/* Pull-to-refresh indicator */}
@@ -847,13 +886,13 @@ function pageTitleFromPath(pathname: string): string {
     rentals: "Rentals",
     "portal-listings": "Portal Listings",
     reports: "Reports",
-    procurement: "Purchase Orders",
+    procurement: "Procurement",
     requisitions: "Material Indents",
     suppliers: "Suppliers",
     subcontractors: "Subcontractors",
     "supplier-returns": "Supplier Returns",
     materials: "Materials",
-    stock: "Stock Ledger",
+    stock: "Stock",
     "stock-counts": "Stock Inventory",
     transfers: "Transfers",
     vehicles: "Vehicles",
@@ -883,6 +922,8 @@ function pageTitleFromPath(pathname: string): string {
     approvals: "Approvals",
     attention: "Attention",
     new: "New",
+    telephony: "Telephony",
+    calls: "Call Log",
   };
 
   // For [id] segments (dynamic routes), use the parent segment's title

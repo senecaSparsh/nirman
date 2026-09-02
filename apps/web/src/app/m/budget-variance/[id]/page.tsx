@@ -153,12 +153,11 @@ async function MobileBudgetVarianceDetailContent({
       <div>
         <SectionHead title={`Line Items (${items.length})`} />
         {items.length === 0 ? (
-          <div
-            className="rounded-[0.5rem] border p-3 text-center"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          >
-            <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>No variance data</p>
-          </div>
+          <MobileEmptyState
+            icon={TrendingUp}
+            title="No variance data"
+            size="compact"
+          />
         ) : (
           <div className="flex flex-col gap-2">
             {items.map((item) => {

@@ -45,7 +45,7 @@ const STEP_TYPES: Record<StepType, { label: string; icon: typeof Zap; color: str
   wait: { label: "Wait", icon: Clock, color: "#f59e0b", description: "Pause for a duration" },
   condition: { label: "Condition", icon: GitBranch, color: "#8b5cf6", description: "Branch based on a condition (low stock, overdue POs, etc.)" },
   update_status: { label: "Update Status", icon: Zap, color: "#ec4899", description: "Update a record's status" },
-  auto_requisition: { label: "Auto Requisition", icon: ShoppingCart, color: "#f97316", description: "Generate a draft requisition for low-stock materials" },
+  auto_requisition: { label: "Auto Indent", icon: ShoppingCart, color: "#f97316", description: "Generate a draft indent for low-stock materials" },
 };
 
 interface StepNodeData {
@@ -767,7 +767,7 @@ function UpdateStatusConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: 
           <option value="">Select type…</option>
           <option value="Project">Project</option>
           <option value="PurchaseOrder">Purchase Order</option>
-          <option value="MaterialRequisition">Requisition</option>
+          <option value="MaterialRequisition">Indent</option>
           <option value="StockTransfer">Stock Transfer</option>
           <option value="Task">Task</option>
         </Select>
@@ -804,7 +804,7 @@ function ConditionConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u:
         >
           <option value="low_stock">Low stock — any material below reorder point</option>
           <option value="overdue_pos">Overdue POs — any PO past expected date</option>
-          <option value="pending_approvals">Pending approvals — any DRAFT POs or SUBMITTED requisitions</option>
+          <option value="pending_approvals">Pending approvals — any DRAFT POs or SUBMITTED indents</option>
           <option value="task_count">Open task count above threshold</option>
           <option value="custom_field">Custom field — evaluate a field on a record</option>
         </Select>
@@ -838,7 +838,7 @@ function AutoRequisitionConfig({ step, onUpdate }: { step: WorkflowStep; onUpdat
 
   return (
     <div className="space-y-2">
-      <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Auto Requisition Config</p>
+      <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Auto Indent Config</p>
       <div className="space-y-1.5">
         <Label>Project</Label>
         <Select

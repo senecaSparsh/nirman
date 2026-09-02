@@ -4,6 +4,10 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
   ChevronRight, MapPin, Building2, ExternalLink,
+  ShieldCheck, AlertTriangle, Clock, CheckCircle2, FileText,
+  XCircle, RefreshCw, ScrollText, Landmark, Flame, Trees, Plane,
+  Zap, Droplets, HardHat, Home, KeyRound, FileCheck2, Gavel,
+  Building, FileSignature,
 } from "lucide-react";
 import {
   MobileStatusBadge,
@@ -12,6 +16,7 @@ import { MobileSearchHeader, MobileFilterIcon, MobileNoResults } from "@/compone
 import { formatDate } from "@/lib/utils";
 import {
   STAGE_LABELS, STAGE_ORDER, daysUntilExpiry, getExpiryStatus,
+  LEGAL_DOC_FLOW_MAP,
 } from "@/lib/legal-doc-flow";
 import type { LegalDocStatus, LegalDocType } from "@/components/legal/legal-docs-section";
 
@@ -35,13 +40,13 @@ export type MobilePermissionRow = {
   landLocation: string | null;
 };
 
-const STATUS_CONFIG: Record<LegalDocStatus, { label: string; tone: "neutral" | "signal" | "go" | "stop" }> = {
-  NOT_REQUIRED: { label: "N/A", tone: "neutral" },
-  PENDING: { label: "Pending", tone: "signal" },
-  APPROVED: { label: "Approved", tone: "go" },
-  REJECTED: { label: "Rejected", tone: "stop" },
-  EXPIRED: { label: "Expired", tone: "stop" },
-  RENEWAL_DUE: { label: "Renewal Due", tone: "signal" },
+const STATUS_CONFIG: Record<LegalDocStatus, { label: string; tone: "neutral" | "signal" | "go" | "stop"; bg: string; fg: string }> = {
+  NOT_REQUIRED: { label: "N/A", tone: "neutral", bg: "var(--color-concrete)", fg: "var(--color-ink-500)" },
+  PENDING: { label: "Pending", tone: "signal", bg: "var(--color-signal-wash)", fg: "var(--color-signal-dark)" },
+  APPROVED: { label: "Approved", tone: "go", bg: "var(--color-go-wash)", fg: "var(--color-go-dark)" },
+  REJECTED: { label: "Rejected", tone: "stop", bg: "var(--color-stop-wash)", fg: "var(--color-stop)" },
+  EXPIRED: { label: "Expired", tone: "stop", bg: "var(--color-stop-wash)", fg: "var(--color-stop)" },
+  RENEWAL_DUE: { label: "Renewal", tone: "signal", bg: "var(--color-signal-wash)", fg: "var(--color-signal-dark)" },
 };
 
 const STATUS_CHIPS: { label: string; value: string }[] = [
@@ -58,9 +63,45 @@ const CONTEXT_CHIPS: { label: string; value: string }[] = [
   { label: "Project", value: "PROJECT" },
 ];
 
+// ── Type → icon mapping (mirrors the tree hierarchy icon style) ──
+const TYPE_ICON: Record<string, typeof FileText> = {
+  OWNERSHIP_CERTIFICATE: KeyRound,
+  NON_ENCUMBRANCE: FileCheck2,
+  LAND_SANCTION: Landmark,
+  CHANGE_LAND_USE: MapPin,
+  AGREEMENT_TO_SELL: FileSignature,
+  TRANSFER_DUTY: Gavel,
+  RERA_REGISTRATION: Building,
+  MAP_APPROVAL: Building2,
+  BUILDING_PERMISSION: Building2,
+  CLA: ScrollText,
+  FIRE_NOC: Flame,
+  POLLUTION_NOC: AlertTriangle,
+  ENVIRONMENTAL_CLEARANCE: ShieldCheck,
+  TREE_CUTTING_NOC: Trees,
+  AVIATION_NOC: Plane,
+  HEIGHT_CLEARANCE: Plane,
+  DRAINAGE_NOC: Droplets,
+  ELECTRICITY_NOC: Zap,
+  WATER_NOC: Droplets,
+  COMMENCEMENT_CERTIFICATE: HardHat,
+  PLINTH_CERTIFICATE: HardHat,
+  COMPLETION_CERTIFICATE: CheckCircle2,
+  OCCUPANCY_CERTIFICATE: Home,
+  FUNCTIONAL_CERTIFICATE: FileCheck2,
+  OTHER: FileText,
+};
+
+// ── Stage → icon + color ──
+const STAGE_STYLE: Record<string, { icon: typeof MapPin; bg: string; fg: string }> = {
+  FEASIBILITY: { icon: MapPin, bg: "var(--color-ink-950)", fg: "var(--color-paper)" },
+  SANCTION: { icon: Building2, bg: "var(--color-steel)", fg: "#fff" },
+  POST_COMPLETION: { icon: ShieldCheck, bg: "var(--color-signal)", fg: "var(--color-ink-950)" },
+};
+
 /**
  * MobilePermissionsList — filterable list of legal documents.
- * Mobile-optimized card layout with status, expiry, and entity links.
+ * Tree-hierarchy-style compact cards in a 2-column grid.
  */
 export function MobilePermissionsList({
   docs,
@@ -131,7 +172,7 @@ export function MobilePermissionsList({
         onClear={() => { setSearch(""); setStatusFilter("ALL"); setContextFilter("ALL"); }}
       />
 
-      {/* ── Grouped list ── */}
+      {/* ── Grouped list — 2-column grid per stage ── */}
       {filtered.length === 0 ? (
         <MobileNoResults title="No documents match your filters" />
       ) : (
@@ -139,15 +180,34 @@ export function MobilePermissionsList({
           {STAGE_ORDER.map((stage) => {
             const stageDocs = grouped[stage];
             if (!stageDocs || stageDocs.length === 0) return null;
+            const stageStyle = STAGE_STYLE[stage] ?? STAGE_STYLE.SANCTION!;
+            const StageIcon = stageStyle.icon;
             return (
               <div key={stage}>
-                <p
-                  className="text-m-caption font-bold uppercase tracking-wide mb-2"
-                  style={{ color: "var(--color-ink-500)" }}
-                >
-                  {STAGE_LABELS[stage]} ({stageDocs.length})
-                </p>
-                <div className="flex flex-col gap-1.5">
+                {/* ── Stage header — tree-row style ── */}
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span
+                    className="grid place-items-center size-4 rounded-[0.1875rem] shrink-0"
+                    style={{ backgroundColor: stageStyle.bg }}
+                  >
+                    <StageIcon className="size-2.5" style={{ color: stageStyle.fg }} />
+                  </span>
+                  <p
+                    className="text-m-caption font-bold uppercase tracking-wide"
+                    style={{ color: "var(--color-ink-500)" }}
+                  >
+                    {STAGE_LABELS[stage]}
+                  </p>
+                  <span
+                    className="text-m-caption font-semibold shrink-0"
+                    style={{ color: "var(--color-ink-400)" }}
+                  >
+                    {stageDocs.length}
+                  </span>
+                </div>
+
+                {/* ── 2-column grid of compact cards ── */}
+                <div className="grid grid-cols-2 gap-1.5">
                   {stageDocs.map((doc) => (
                     <PermissionCard key={doc.id} doc={doc} canManage={canManage} />
                   ))}
@@ -161,7 +221,7 @@ export function MobilePermissionsList({
   );
 }
 
-// ── Single permission card ──────────────────────────────────────────────────
+// ── Single permission card — tree-hierarchy compact style ──────────────────
 
 function PermissionCard({ doc }: { doc: MobilePermissionRow; canManage: boolean }) {
   const statusConfig = STATUS_CONFIG[doc.status];
@@ -173,97 +233,101 @@ function PermissionCard({ doc }: { doc: MobilePermissionRow; canManage: boolean 
       ? `/m/land/${doc.landPurchaseId}`
       : null;
   const entityName = doc.projectName ?? doc.landSellerName ?? null;
+  const flowStep = LEGAL_DOC_FLOW_MAP[doc.type];
+  const typeLabel = flowStep?.label ?? doc.type.replace(/_/g, " ");
+  const DocIcon = TYPE_ICON[doc.type] ?? FileText;
 
   return (
     <div
-      className="rounded-[0.5rem] border p-2.5"
+      className="rounded-[0.375rem] border p-2 flex flex-col gap-1"
       style={{
         backgroundColor: "var(--color-paper)",
         borderColor: "var(--color-line)",
       }}
     >
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          {/* Title + status badge */}
-          <div className="flex items-center gap-1.5 mb-1">
-            <span className="text-m-caption font-bold uppercase shrink-0" style={{ color: "var(--color-ink-300)" }}>
-              {doc.type.replace(/_/g, " ")}
+      {/* ── Row 1: icon + type label + status badge ── */}
+      <div className="flex items-center gap-1.5">
+        <span
+          className="grid place-items-center size-4 rounded-[0.1875rem] shrink-0"
+          style={{ backgroundColor: statusConfig.bg }}
+        >
+          <DocIcon className="size-2.5" style={{ color: statusConfig.fg }} />
+        </span>
+        <span
+          className="text-m-caption font-bold uppercase truncate flex-1 min-w-0"
+          style={{ color: "var(--color-ink-400)" }}
+        >
+          {doc.type.replace(/_/g, " ")}
+        </span>
+        <span
+          className="inline-block rounded px-1 py-px text-m-caption font-bold uppercase shrink-0"
+          style={{ backgroundColor: statusConfig.bg, color: statusConfig.fg }}
+        >
+          {statusConfig.label}
+        </span>
+      </div>
+
+      {/* ── Row 2: title (bold, truncated) ── */}
+      <p
+        className="text-m-label font-semibold leading-tight line-clamp-2"
+        style={{ color: "var(--color-ink-950)" }}
+      >
+        {doc.title}
+      </p>
+
+      {/* ── Row 3: entity link (project/land) ── */}
+      {entityName && (
+        <Link
+          href={entityHref ?? "#"}
+          className="inline-flex items-center gap-0.5 text-m-caption font-medium min-w-0"
+          style={{ color: "var(--color-steel)" }}
+        >
+          {doc.projectId ? <Building2 className="size-2.5 shrink-0" /> : <MapPin className="size-2.5 shrink-0" />}
+          <span className="truncate">{entityName}</span>
+        </Link>
+      )}
+
+      {/* ── Row 4: validity + expiry alert ── */}
+      {doc.validTill && (
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+            {formatDate(doc.validTill)}
+          </span>
+          {expiryStatus === "expired" && (
+            <span className="text-m-caption font-bold" style={{ color: "var(--color-stop)" }}>
+              · {Math.abs(days!)}d ago
             </span>
-          </div>
-          <p
-            className="text-m-section font-semibold leading-tight mb-1"
-            style={{ color: "var(--color-ink-950)" }}
-          >
-            {doc.title}
-          </p>
-
-          {/* Entity link */}
-          {entityName && (
-            <Link
-              href={entityHref ?? "#"}
-              className="inline-flex items-center gap-1 text-m-caption font-medium mb-1"
-              style={{ color: "var(--color-steel)" }}
-            >
-              {doc.projectId ? <Building2 className="size-3" /> : <MapPin className="size-3" />}
-              {entityName}
-              {doc.landLocation ? ` — ${doc.landLocation}` : ""}
-              <ChevronRight className="size-2.5" />
-            </Link>
           )}
-
-          {/* Doc number + authority */}
-          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-            {doc.docNumber && (
-              <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                Doc#: <span className="font-semibold" style={{ color: "var(--color-ink-950)" }}>{doc.docNumber}</span>
-              </span>
-            )}
-            {doc.authority && (
-              <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                Auth: <span className="font-semibold" style={{ color: "var(--color-ink-700)" }}>{doc.authority}</span>
-              </span>
-            )}
-          </div>
-
-          {/* Validity + expiry alert */}
-          {doc.validTill && (
-            <div className="mt-1.5">
-              <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                Valid till: <span className="font-semibold" style={{ color: "var(--color-ink-950)" }}>{formatDate(doc.validTill)}</span>
-              </span>
-              {expiryStatus === "expired" && (
-                <span className="ml-2 text-m-caption font-bold" style={{ color: "var(--color-stop)" }}>
-                  Expired {Math.abs(days!)}d ago
-                </span>
-              )}
-              {expiryStatus === "expiring" && (
-                <span className="ml-2 text-m-caption font-bold" style={{ color: "var(--color-signal)" }}>
-                  Expires in {days}d
-                </span>
-              )}
-            </div>
+          {expiryStatus === "expiring" && (
+            <span className="text-m-caption font-bold" style={{ color: "var(--color-signal)" }}>
+              · {days}d left
+            </span>
           )}
+        </div>
+      )}
 
-          {/* Document link */}
+      {/* ── Row 5: doc number + document link ── */}
+      {(doc.docNumber || doc.documentUrl) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {doc.docNumber && (
+            <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+              #{doc.docNumber}
+            </span>
+          )}
           {doc.documentUrl && (
             <a
               href={doc.documentUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 mt-1.5 text-m-caption font-semibold"
+              className="inline-flex items-center gap-0.5 text-m-caption font-semibold"
               style={{ color: "var(--color-steel)" }}
             >
-              <ExternalLink className="size-3" />
-              View document
+              <ExternalLink className="size-2.5" />
+              Doc
             </a>
           )}
         </div>
-
-        {/* Status badge */}
-        <div className="shrink-0">
-          <MobileStatusBadge status={doc.status} label={statusConfig.label} />
-        </div>
-      </div>
+      )}
     </div>
   );
 }

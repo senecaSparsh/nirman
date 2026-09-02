@@ -342,7 +342,7 @@ export function MobileNewSaleForm({
 
   return (
     <div className="pb-32">
-      <form className="flex flex-col gap-2.5">
+      <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="flex flex-col gap-2.5">
         {/* ══════ SECTION: WHAT ══════ */}
         {/* ── Asset type (full width) ── */}
         <div>
@@ -1152,7 +1152,6 @@ export function MobileNewSaleForm({
             </div>
           </div>
         </div>
-      </form>
 
       {/* ── Sticky bottom bar ── */}
       <div
@@ -1165,8 +1164,7 @@ export function MobileNewSaleForm({
       >
         <div className="max-w-md mx-auto px-3.5 py-2">
           <button
-            type="button"
-            onClick={submit}
+            type="submit"
             disabled={submitting}
             className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
@@ -1182,6 +1180,7 @@ export function MobileNewSaleForm({
           </button>
         </div>
       </div>
+      </form>
     </div>
   );
 }

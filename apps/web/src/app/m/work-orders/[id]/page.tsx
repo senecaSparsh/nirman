@@ -190,9 +190,7 @@ async function MobileWorkOrderDetailContent({
           style={{ borderColor: "var(--color-line)" }}
         >
           {wo.lines.length === 0 ? (
-            <div className="p-3 text-center">
-              <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>No scope items</p>
-            </div>
+            <MobileEmptyState icon={Wrench} title="No scope items" size="compact" />
           ) : (
             wo.lines.map((line, i) => (
               <div
@@ -234,13 +232,7 @@ async function MobileWorkOrderDetailContent({
       <div>
         <SectionHead title={`RA Bills (${wo.raBills.length})`} />
         {wo.raBills.length === 0 ? (
-          <div
-            className="rounded-[0.5rem] border p-3 text-center"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          >
-            <FileText className="size-5 mx-auto mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-            <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>No RA bills yet</p>
-          </div>
+          <MobileEmptyState icon={FileText} title="No RA bills yet" size="compact" />
         ) : (
           <div className="flex flex-col gap-2">
             {wo.raBills.map((bill) => (

@@ -7,9 +7,7 @@ import {
   Truck,
   ScanLine,
   Send,
-  ArrowLeftRight,
   PackagePlus,
-  ClipboardCheck,
   TrendingUp,
   FileText,
   ShoppingCart,
@@ -38,14 +36,13 @@ interface QuickAction {
 }
 
 const RAW_MATERIAL_ACTIONS: QuickAction[] = [
-  { href: "/m/requisitions", icon: ShoppingCart, label: "Indents" },
-  { href: "/m/quotations", icon: FileText, label: "Quotations" },
+  { href: "/m/procurement?tab=indents", icon: ShoppingCart, label: "Indents" },
+  { href: "/m/procurement?tab=quotations", icon: FileText, label: "Quotations" },
   { href: "/m/procurement", icon: Truck, label: "Purchase Orders" },
   { href: "/m/site/receive", icon: ScanLine, label: "Receive" },
-  { href: "/m/stock-out", icon: Send, label: "Stock Out" },
-  { href: "/m/transfers", icon: ArrowLeftRight, label: "Transfers" },
+  { href: "/m/stock-out", icon: Send, label: "Stock Out (Transfer / Issue)" },
   { href: "/m/materials", icon: PackagePlus, label: "Materials" },
-  { href: "/m/stock-counts", icon: ClipboardCheck, label: "Stock Inventory" },
+  { href: "/m/stock", icon: Package, label: "Stock" },
   { href: "/m/material-sales", icon: TrendingUp, label: "Material Sales" },
 ];
 

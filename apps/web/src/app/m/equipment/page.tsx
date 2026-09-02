@@ -6,8 +6,8 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { formatCurrencyCompact } from "@/lib/utils";
 import { MobileEquipmentList } from "./MobileEquipmentList";
+import { MobileEquipmentFab } from "./MobileEquipmentFab";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
-import { MobileFab } from "@/components/mobile/v2/scaffold";
 
 /**
  * /m/equipment — mobile equipment list. Shows all company equipment
@@ -101,7 +101,7 @@ async function MobileEquipmentContent() {
         }
         exportSummary={`${equipment.length} items · ${formatCurrencyCompact(totalValue)} total value`}
       />
-      {canCreate && <MobileFab href="/m/equipment/new" label="Add equipment" />}
+      {canCreate && <MobileEquipmentFab />}
     </div>
   );
 }

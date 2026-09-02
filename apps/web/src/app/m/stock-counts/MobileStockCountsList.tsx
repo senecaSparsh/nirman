@@ -11,6 +11,7 @@ import {
   MobileNoResults,
   MobileSummaryStrip,
 } from "@/components/mobile/v2/scaffold";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 type CountFilter = "ALL" | "DRAFT" | "COUNTED" | "RECONCILED";
 
@@ -122,30 +123,11 @@ export function MobileStockCountsList({
             hint="Try a different search or filter"
           />
         ) : (
-          <div
-            className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-            style={{
-              borderColor: "var(--color-line)",
-              backgroundColor: "var(--color-paper-2)",
-            }}
-          >
-            <ScanLine
-              className="size-6 mb-2"
-              style={{ color: "var(--color-ink-300)" }}
-            />
-            <p
-              className="text-m-section font-semibold"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              No stock inventories
-            </p>
-            <p
-              className="text-m-label"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Start a physical verification
-            </p>
-          </div>
+          <MobileEmptyState
+            icon={ScanLine}
+            title="No stock inventories"
+            hint="Start a physical verification"
+          />
         )
       ) : (
         <div>

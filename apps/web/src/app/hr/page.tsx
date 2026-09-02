@@ -1,12 +1,15 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getCurrentUser, toNum, getUserRole } from "@/lib/server";
+import { PERM, hasPermission, migrateRole, ROLES } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { RefreshButton } from "@/components/refresh-button";
 import { PageHeader } from "@/components/page-header";
 import { HrDashboard } from "@/components/hr/hr-dashboard";
+import { OrgHierarchyDesktop } from "@/components/hr/org-hierarchy";
+import type { OrgTreeData } from "@/app/m/hr/OrgHierarchy";
+import { buildOrgTree } from "@/lib/org-tree-builder";
 import { NoAccess } from "@/components/no-access";
 
 export default function HrDashboardPage() {
@@ -21,6 +24,7 @@ async function HrDashboardContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();
+  const currentUser = await getCurrentUser();
 
   if (!hasPermission(role, PERM.HR_VIEW)) {
     return <NoAccess what="the HR module" />;
@@ -45,6 +49,7 @@ async function HrDashboardContent() {
     employees,
     weekAttendance,
     todayProjectAttendance,
+    orgTree,
   ] = await Promise.all([
     prisma.employee.count({ where: { companyId: company.id, deletedAt: null } }),
     prisma.employee.count({ where: { companyId: company.id, deletedAt: null, active: true } }),
@@ -81,6 +86,7 @@ async function HrDashboardContent() {
       where: { companyId: company.id, date: todayDateOnly, status: { in: ["PRESENT", "OVERTIME"] } },
       include: { project: { select: { name: true } } },
     }),
+    loadOrgTree(company.id, company.name, currentUser?.id ?? null),
   ]);
 
   // Compute trade breakdown
@@ -197,6 +203,166 @@ async function HrDashboardContent() {
         projectPresence={projectPresence}
         monthlyLabourCost={monthlyLabourCost}
       />
+
+      {/* ── Organization tree — reporting line + scope assignments ── */}
+      <OrgHierarchyDesktop tree={orgTree} />
     </div>
   );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ORG TREE LOADER — builds the people hierarchy for the OrgHierarchy tree.
+   (Shared logic — mirrors the mobile /m/hr loader.)
+   ═══════════════════════════════════════════════════════════════════════════ */
+async function loadOrgTree(
+  companyId: string,
+  companyName: string,
+  currentUserId: string | null,
+): Promise<OrgTreeData> {
+  const today = new Date();
+  const todayDateOnly = new Date(
+    Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
+  );
+
+  const memberships = await prisma.userCompany.findMany({
+    where: { companyId },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          active: true,
+          designation: true,
+          department: true,
+          employeeCode: true,
+        },
+      },
+      scopes: {
+        include: {
+          department: { select: { name: true } },
+          project: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: { user: { name: "asc" } },
+  });
+
+  if (memberships.length === 0) {
+    return {
+      companyName,
+      peopleCount: 0,
+      projectCount: 0,
+      roots: [],
+      unassigned: [],
+      projects: [],
+      departments: [],
+      labourByTrade: [],
+      labourCount: 0,
+    };
+  }
+
+  const userIds = memberships.map((m) => m.userId);
+
+  const [tasks, allTasks, dprs, crews, unassignedEmployees, todayAttendanceRows, leaveRows] = await Promise.all([
+    prisma.task.findMany({
+      where: { assignedToId: { in: userIds }, status: { in: ["PENDING", "IN_PROGRESS"] } },
+      select: { id: true, title: true, status: true, priority: true, dueDate: true, assignedToId: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.task.findMany({
+      where: { assignedToId: { in: userIds } },
+      select: { id: true, title: true, status: true, priority: true, dueDate: true, assignedToId: true },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    }),
+    prisma.dailyProgressReport.findMany({
+      where: { submittedById: { in: userIds } },
+      orderBy: { date: "desc" },
+      take: userIds.length * 5,
+      select: { id: true, date: true, approvalStatus: true, submittedById: true, project: { select: { name: true } } },
+    }),
+    prisma.crew.findMany({
+      where: { companyId, active: true },
+      include: {
+        supervisor: { select: { userId: true } },
+        project: { select: { name: true } },
+        members: {
+          where: { deletedAt: null, active: true },
+          select: {
+            id: true, name: true, trade: true, designation: true, wageType: true,
+            dailyRate: true, monthlySalary: true, active: true, crewId: true,
+            phone: true, activeProject: { select: { name: true } },
+          },
+        },
+      },
+    }),
+    prisma.employee.findMany({
+      where: { companyId, deletedAt: null, crewId: null },
+      select: {
+        id: true, name: true, trade: true, designation: true, wageType: true,
+        dailyRate: true, monthlySalary: true, active: true, crewId: true,
+        phone: true, activeProject: { select: { name: true } },
+      },
+    }),
+    prisma.workerAttendance.findMany({
+      where: {
+        company: { id: companyId },
+        date: todayDateOnly,
+        employee: { userId: { in: userIds } },
+      },
+      select: {
+        employeeId: true, status: true, checkIn: true, checkOut: true,
+        employee: { select: { userId: true } },
+        project: { select: { name: true } },
+      },
+    }).catch(() => []),
+    prisma.leaveRequest.findMany({
+      where: {
+        company: { id: companyId },
+        employee: { userId: { in: userIds } },
+        status: { in: ["PENDING", "APPROVED"] },
+      },
+      select: {
+        id: true, employeeId: true, status: true, startDate: true, endDate: true,
+        employee: { select: { userId: true } },
+      },
+    }).catch(() => []),
+  ]);
+
+  const roleTierFn = (role: string): number => {
+    const r = migrateRole(role) ?? "SUPERVISOR";
+    return ROLES[r]?.tier ?? 5;
+  };
+  const roleLabelFn = (role: string): string => {
+    const r = migrateRole(role) ?? "SUPERVISOR";
+    return ROLES[r]?.label ?? r;
+  };
+
+  const { roots, unassigned, projects, departments, labourByTrade, labourCount } = buildOrgTree(
+    memberships as unknown as Parameters<typeof buildOrgTree>[0],
+    tasks as unknown as Parameters<typeof buildOrgTree>[1],
+    dprs as unknown as Parameters<typeof buildOrgTree>[2],
+    crews as unknown as Parameters<typeof buildOrgTree>[3],
+    unassignedEmployees as unknown as Parameters<typeof buildOrgTree>[4],
+    currentUserId,
+    roleTierFn,
+    roleLabelFn,
+    allTasks as unknown as Parameters<typeof buildOrgTree>[8],
+    todayAttendanceRows as unknown as Parameters<typeof buildOrgTree>[9],
+    leaveRows as unknown as Parameters<typeof buildOrgTree>[10],
+  );
+
+  return {
+    companyName,
+    peopleCount: memberships.length,
+    projectCount: projects.length,
+    roots,
+    unassigned,
+    projects,
+    departments,
+    labourByTrade,
+    labourCount,
+  };
 }

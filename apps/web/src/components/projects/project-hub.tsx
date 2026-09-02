@@ -479,7 +479,7 @@ function OverviewTab({ data }: { data: ProjectHubData }) {
             <div className="divide-y divide-border">
               <ContextLink href={`/units?project=${project.id}`} label="Built Units" value={stats.builtUnitCount} />
               <ContextLink href={`/land?project=${project.id}`} label="Land Parcels" value={stats.landParcelCount} />
-              <ContextLink href="/requisitions" label="Requisitions" value={stats.openRequisitionCount} />
+              <ContextLink href="/requisitions" label="Indents" value={stats.openRequisitionCount} />
               <ContextLink href="/procurement" label="Open POs" value={stats.openPOCount} />
               <ContextLink href="/equipment" label="Equipment" value={stats.equipmentCount} />
             </div>

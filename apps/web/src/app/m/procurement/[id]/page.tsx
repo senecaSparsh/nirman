@@ -656,14 +656,11 @@ async function MobilePoDetailContent({
               );
             })
           ) : (
-            <div
-              className="flex flex-col items-center justify-center rounded-[0.5rem] border p-2 text-center"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", minHeight: "3rem" }}
-            >
-              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                No receipts yet
-              </p>
-            </div>
+            <MobileEmptyState
+              icon={ScanLine}
+              title="No receipts yet"
+              size="compact"
+            />
           )}
         </div>
       </div>

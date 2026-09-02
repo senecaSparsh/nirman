@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useRef, type ReactNode } from "react";
 import { Plus } from "lucide-react";
 import { haptic } from "@/lib/haptic";
 
@@ -34,14 +34,14 @@ export function MobileSelectWithCreate({
   placeholder,
   renderDialog,
   createLabel,
-  inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none",
+  inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors",
   inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   },
-  labelClass = "text-m-caption font-semibold block mb-1",
-  labelStyle = { color: "var(--color-ink-500)" } as React.CSSProperties,
+  labelClass = "block text-m-caption font-bold mb-0",
+  labelStyle = { color: "var(--color-ink-700)" } as React.CSSProperties,
 }: {
   label: string;
   required?: boolean;
@@ -49,7 +49,7 @@ export function MobileSelectWithCreate({
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
   placeholder?: string;
-  renderDialog: (props: { open: boolean; onClose: () => void; onCreated: (value: string, label: string) => void }) => ReactNode;
+  renderDialog: (props: { open: boolean; onClose: () => void; onCreated: (value: string, label: string) => void; originRect: DOMRect | null }) => ReactNode;
   /** Label for the "+" button's aria-label and title. Falls back to `label`, then "item". */
   createLabel?: string;
   inputClass?: string;
@@ -59,6 +59,8 @@ export function MobileSelectWithCreate({
 }) {
   const [showDialog, setShowDialog] = useState(false);
   const [extraOptions, setExtraOptions] = useState<{ value: string; label: string }[]>([]);
+  const [originRect, setOriginRect] = useState<DOMRect | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   const allOptions = [...options, ...extraOptions];
 
@@ -66,6 +68,13 @@ export function MobileSelectWithCreate({
     setExtraOptions((prev) => [...prev, { value, label }]);
     onChange(value);
     setShowDialog(false);
+  }
+
+  function openDialog() {
+    if (triggerRef.current) {
+      setOriginRect(triggerRef.current.getBoundingClientRect());
+    }
+    setShowDialog(true);
   }
 
   return (
@@ -91,10 +100,11 @@ export function MobileSelectWithCreate({
           ))}
         </select>
         <button
+          ref={triggerRef}
           type="button"
           onClick={() => {
             haptic(10);
-            setShowDialog(true);
+            openDialog();
           }}
           className="shrink-0 grid place-items-center self-stretch aspect-square rounded-[0.5rem] border text-m-body press"
           style={{
@@ -109,7 +119,7 @@ export function MobileSelectWithCreate({
         </button>
       </div>
 
-      {renderDialog({ open: showDialog, onClose: () => setShowDialog(false), onCreated: handleCreated })}
+      {renderDialog({ open: showDialog, onClose: () => setShowDialog(false), onCreated: handleCreated, originRect })}
     </div>
   );
 }

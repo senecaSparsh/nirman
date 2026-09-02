@@ -1,10 +1,11 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { EquipmentStatus } from "@nirman/db";
 import { createEquipment } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum, equipmentSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.ASSETS_VIEW);
@@ -13,15 +14,22 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const status = searchParams.get("status");
   const category = searchParams.get("category");
 
+  // Cursor pagination — backward compatible. If `cursor` param is present,
+  // return { items, nextCursor, hasMore }. Otherwise return flat array.
+  const { take, cursor, skip } = parseCursorParams(req);
+  const usePagination = searchParams.has("cursor") || searchParams.has("take");
+
   const equipment = await prisma.equipment.findMany({
-    take: 200,
+    take: usePagination ? take + 1 : 200,
+    skip: usePagination ? skip : undefined,
     where: {
       companyId: company.id,
       deletedAt: null,
       ...(status ? { status: status as EquipmentStatus } : {}),
       ...(category ? { category } : {}),
+      ...(usePagination ? (cursorToWhere(cursor) ?? {}) : {}),
     },
-    orderBy: [{ status: "asc" }, { name: "asc" }],
+    orderBy: usePagination ? { createdAt: "desc" } : [{ status: "asc" }, { name: "asc" }],
     include: {
       assignments: {
         where: { status: "ACTIVE" },
@@ -34,8 +42,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     },
   });
 
-  return json(
-    equipment.map((e) => {
+  const mapped = equipment.map((e) => {
       const activeAssignment = e.assignments[0] ?? null;
       return {
         id: e.id,
@@ -48,6 +55,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         acquisitionCost: toNum(e.acquisitionCost),
         currentValue: toNum(e.currentValue),
         purchaseDate: e.purchaseDate?.toISOString() ?? null,
+        createdAt: e.createdAt.toISOString(),
         notes: e.notes,
         activeAssignment: activeAssignment
           ? {
@@ -60,8 +68,16 @@ export const GET = apiHandler(async (req: NextRequest) => {
             }
           : null,
       };
-    }),
-  );
+    });
+
+  if (usePagination) {
+    const { items, nextCursor, hasMore } = buildCursorResponse(mapped, take, (r) => ({
+      createdAt: r.createdAt,
+      id: r.id,
+    }));
+    return NextResponse.json({ items, nextCursor, hasMore });
+  }
+  return json(mapped);
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {

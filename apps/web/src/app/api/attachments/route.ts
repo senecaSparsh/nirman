@@ -1,9 +1,10 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma, Prisma } from "@nirman/db";
 import { apiHandler, json, getCompany, requireUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
+import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
 /**
  * GET /api/attachments?entityType=X&entityId=Y
@@ -21,27 +22,42 @@ export const GET = apiHandler(async (req: NextRequest) => {
     return json({ error: "entityType and entityId are required" }, { status: 400 });
   }
 
+  // Cursor pagination — backward compatible. If `cursor` param is present,
+  // return { items, nextCursor, hasMore }. Otherwise return flat array.
+  const { take, cursor, skip } = parseCursorParams(req);
+  const usePagination = url.searchParams.has("cursor") || url.searchParams.has("take");
+
   const attachments = await prisma.entityAttachment.findMany({
     where: {
       companyId: company.id,
       entityType,
       entityId,
+      ...(cursorToWhere(cursor) ?? {}),
     },
     include: {
       upload: { select: { id: true, url: true, originalName: true, mimeType: true, size: true } },
     },
     orderBy: { createdAt: "desc" },
+    take: usePagination ? take + 1 : undefined,
+    skip: usePagination ? skip : undefined,
   });
 
-  return json(
-    attachments.map((a) => ({
-      id: a.id,
-      category: a.category,
-      label: a.label,
-      createdAt: a.createdAt,
-      upload: a.upload,
-    })),
-  );
+  const mapped = attachments.map((a) => ({
+    id: a.id,
+    category: a.category,
+    label: a.label,
+    createdAt: a.createdAt,
+    upload: a.upload,
+  }));
+
+  if (usePagination) {
+    const { items, nextCursor, hasMore } = buildCursorResponse(mapped, take, (r) => ({
+      createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
+      id: r.id,
+    }));
+    return NextResponse.json({ items, nextCursor, hasMore });
+  }
+  return json(mapped);
 });
 
 /**

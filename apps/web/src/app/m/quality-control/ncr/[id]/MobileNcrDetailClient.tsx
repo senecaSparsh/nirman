@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { toast } from "sonner";
 import {Loader2, Send, Check, X, Ban, Trash2, Play, ShieldCheck} from "lucide-react";
 import { haptic } from "@/lib/haptic";
@@ -216,11 +217,10 @@ export function MobileNcrDetailClient({
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block overflow-hidden rounded-[0.375rem] border"
+                className="relative block overflow-hidden rounded-[0.375rem] border aspect-video"
                 style={{ borderColor: "var(--color-line)" }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded photo */}
-                <img src={url} alt={`Evidence ${i + 1}`} className="aspect-video w-full object-cover" />
+                <Image src={url} alt={`Evidence ${i + 1}`} fill className="object-cover" sizes="(max-width: 768px) 100vw, 400px" />
               </a>
             ))}
           </div>

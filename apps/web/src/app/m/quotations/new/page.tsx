@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** New quotation is a same-page popup on /m/quotations. */
+/** New quotation is a same-page popup on the procurement hub quotations tab. */
 export default function MobileNewQuotationRedirect() {
-  redirect("/m/quotations");
+  redirect("/m/procurement?tab=quotations&new=1");
 }

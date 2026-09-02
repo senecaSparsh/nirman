@@ -16,6 +16,7 @@ import {
   AlertCircle,
   ArrowRight,
 } from "lucide-react";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 export const metadata = { title: "Pending List · Nirman" };
 
@@ -135,21 +136,11 @@ async function MobilePendingListContent() {
       </div>
 
       {totalCount === 0 && (
-        <div
-          className="flex flex-col items-center justify-center gap-2 rounded-[0.75rem] border py-12 text-center"
-          style={{
-            borderColor: "var(--color-line)",
-            backgroundColor: "var(--color-paper)",
-          }}
-        >
-          <ClipboardList className="size-6" style={{ color: "var(--color-ink-400)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            All caught up
-          </p>
-          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-            Nothing pending. You&apos;re all set.
-          </p>
-        </div>
+        <MobileEmptyState
+          icon={ClipboardList}
+          title="All caught up"
+          description="Nothing pending. You're all set."
+        />
       )}
 
       {/* Overdue tasks */}
@@ -260,7 +251,7 @@ async function MobilePendingListContent() {
       {/* Requisitions */}
       {pendingRequisitions.length > 0 && (
         <MobilePendingSection
-          title="Requisitions Pending"
+          title="Indents Pending"
           icon={<Hammer className="size-3.5" style={{ color: "var(--color-signal)" }} />}
           count={pendingRequisitions.length}
           tone="signal"
@@ -271,7 +262,7 @@ async function MobilePendingListContent() {
               title={r.reqNumber}
               subtitle={`${r.project?.name ?? "No project"} · ${r.requestedBy?.name ?? "Unknown"}`}
               meta={formatDate(r.createdAt)}
-              href="/m/requisitions"
+              href="/m/procurement?tab=indents"
               tone="signal"
             />
           ))}

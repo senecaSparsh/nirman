@@ -30,6 +30,8 @@ import {
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 
 type GatePassRow = {
   id: string;
@@ -636,7 +638,7 @@ export function MobileGatePassFormDialog({
   projects: { id: string; name: string }[];
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const fab = useFabModal();
   const [submitting, setSubmitting] = useState(false);
 
   // Form state
@@ -671,7 +673,7 @@ export function MobileGatePassFormDialog({
   }
 
   function handleClose() {
-    setOpen(false);
+    fab.close();
     resetForm();
   }
 
@@ -723,19 +725,9 @@ export function MobileGatePassFormDialog({
 
   return (
     <>
-      <MobileFab onClick={() => setOpen(true)} label="New gate pass" />
+      <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="New gate pass" />
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center " style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={handleClose}>
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-t-[0.75rem] p-4 space-y-2.5" onClick={(e) => e.stopPropagation()}>
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <div className="text-m-section font-semibold">New Gate Pass</div>
-              <button onClick={handleClose} className="press">
-                <X className="size-4" />
-              </button>
-            </div>
-
+      <MobileFabModal open={fab.isOpen} onClose={handleClose} originRect={fab.originRect} title="New Gate Pass">
             {/* Location */}
             <div>
               <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
@@ -962,9 +954,7 @@ export function MobileGatePassFormDialog({
                 {autoSubmit ? "Create & Submit" : "Create Draft"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </MobileFabModal>
     </>
   );
 }

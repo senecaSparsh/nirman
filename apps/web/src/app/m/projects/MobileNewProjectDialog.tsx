@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, Building2, FileText, ShieldCheck } from "lucide-react";
+import { Loader2, FileText, ShieldCheck, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 
@@ -69,10 +69,13 @@ interface ProjectInitial {
 }
 
 /**
- * MobileNewProjectDialog — bottom-sheet style form for creating a project
- * from the mobile surface. Mirrors the desktop ProjectFormDialog's API
- * contract (POST /api/projects with the same body shape) but uses the
- * warm mobile v2 primitives and touch-sized inputs.
+ * MobileNewProjectDialog — form body for creating a project from the
+ * mobile surface. Mirrors the desktop ProjectFormDialog's API contract
+ * (POST /api/projects with the same body shape) but uses the warm
+ * mobile v2 primitives and touch-sized inputs.
+ *
+ * This component renders only the form content — the backdrop, sheet
+ * wrapper, title, and drag handle are provided by MobileFabModal.
  */
 export function MobileNewProjectDialog({
   open,
@@ -87,6 +90,8 @@ export function MobileNewProjectDialog({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [showRera, setShowRera] = useState(false);
+  const [showAts, setShowAts] = useState(false);
   const [form, setForm] = useState<FormState>({
     name: "",
     type: "RESIDENTIAL",
@@ -128,6 +133,18 @@ export function MobileNewProjectDialog({
       }));
     }
   }, [open, initial]);
+
+  // Auto-expand RERA/ATS sections if they already have data
+  useEffect(() => {
+    if (open) {
+      if (form.reraNumber || form.reraRegistrationDate || form.reraValidityDate || form.reraWebsiteUrl) {
+        setShowRera(true);
+      }
+      if (form.isATS || form.registryNo || form.atsRegistrationAmount) {
+        setShowAts(true);
+      }
+    }
+  }, [open]);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -201,87 +218,50 @@ export function MobileNewProjectDialog({
     }
   }
 
-  if (!open) return null;
-
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
+    <div className="space-y-3">
+      {/* ── Main fields — one big border box ── */}
       <div
-        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-        onClick={(e) => e.stopPropagation()}
+        className="rounded-[0.625rem] border p-3 space-y-3"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span
-              className="grid place-items-center size-7 rounded-[0.375rem]"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              <Building2
-                className="size-3.5"
-                style={{ color: "var(--color-ink-600)" }}
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Project Details
+          </p>
+
+          {/* Name + Type (Name takes 2/3, Type 1/3) */}
+          <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div className="col-span-2">
+              <label className={labelClass} style={labelStyle}>
+                Project Name <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSubmit();
+                  }
+                }}
+                placeholder="e.g. Apex Center — Tower One"
+                autoFocus
+                enterKeyHint="next"
+                className={inputClass}
+                style={inputStyle}
               />
-            </span>
-            <p
-              className="text-m-section font-bold"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              New Project
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-500)" }}
-            aria-label="Close"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-3">
-          {/* Name */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Project Name <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleSubmit();
-                }
-              }}
-              placeholder="e.g. Apex Center — Tower One"
-              autoFocus
-              enterKeyHint="next"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Type + Status */}
-          <div className="grid grid-cols-2 gap-3">
+            </div>
             <div>
               <label className={labelClass} style={labelStyle}>
                 Type
@@ -299,6 +279,10 @@ export function MobileNewProjectDialog({
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Status + LCI Threshold (side by side) */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
               <label className={labelClass} style={labelStyle}>
                 Status
@@ -315,6 +299,23 @@ export function MobileNewProjectDialog({
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                LCI % <span className="font-normal" style={{ color: "var(--color-ink-400)" }}>opt.</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="any"
+                value={form.lciThreshold}
+                onChange={(e) => set("lciThreshold", e.target.value)}
+                placeholder="Default"
+                inputMode="decimal"
+                className={inputClass}
+                style={inputStyle}
+              />
             </div>
           </div>
 
@@ -334,8 +335,8 @@ export function MobileNewProjectDialog({
             />
           </div>
 
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Start + End Date (side by side) */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
               <label className={labelClass} style={labelStyle}>
                 Start Date
@@ -362,8 +363,8 @@ export function MobileNewProjectDialog({
             </div>
           </div>
 
-          {/* Budget + Area */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Budget + Sellable Area (side by side) */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
               <label className={labelClass} style={labelStyle}>
                 Budget (₹)
@@ -398,253 +399,231 @@ export function MobileNewProjectDialog({
           </div>
 
           {/* Description */}
-          <div>
+          <div className="">
             <label className={labelClass} style={labelStyle}>
-              Description
+              Description <span className="font-normal" style={{ color: "var(--color-ink-400)" }}>opt.</span>
             </label>
             <textarea
               value={form.description}
               onChange={(e) => set("description", e.target.value)}
               rows={2}
               placeholder="Optional notes"
-              className={`w-full rounded-[0.5rem] border px-3 py-2 text-m-section outline-none resize-none`}
+              className={`w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors`}
               style={inputStyle}
             />
           </div>
+      </div>
 
-          {/* RERA Registration */}
-          <div
-            className="rounded-[0.5rem] border p-3 space-y-2.5"
-            style={{ borderColor: "var(--color-line)" }}
+      {/* ── RERA Registration — collapsible ── */}
+      <div
+        className="rounded-[0.625rem] border p-3 space-y-3"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      >
+          <button
+            type="button"
+            onClick={() => { setShowRera((v) => !v); haptic(10); }}
+            className="flex items-center gap-1.5 w-full text-left press"
+            style={{
+              backgroundColor: "transparent",
+            }}
           >
-            <div className="flex items-start gap-2">
-              <ShieldCheck
-                className="size-3.5 shrink-0 mt-0.5"
-                style={{ color: "var(--color-ink-500)" }}
-              />
-              <div>
-                <div
-                  className="text-m-body font-bold"
-                  style={{ color: "var(--color-ink-950)" }}
-                >
-                  RERA Registration
-                </div>
-                <div
-                  className="text-m-caption"
-                  style={{ color: "var(--color-ink-500)" }}
-                >
-                  Mandatory for projects &gt; 500 sqm or &gt; 8 units. Required
-                  before marketing/selling.
-                </div>
+            <ShieldCheck className="size-4 shrink-0" style={{ color: showRera ? "var(--color-steel-dark)" : "var(--color-ink-500)" }} />
+            <div className="flex-1 min-w-0">
+              <div className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
+                RERA Registration
+              </div>
+              <div className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
+                {form.reraNumber ? `№ ${form.reraNumber}` : "Mandatory for >500 sqm or >8 units"}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  RERA Number
-                </label>
-                <input
-                  type="text"
-                  value={form.reraNumber}
-                  onChange={(e) => set("reraNumber", e.target.value)}
-                  placeholder="e.g. P1234567890"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Reg. Date
-                </label>
-                <input
-                  type="date"
-                  value={form.reraRegistrationDate}
-                  onChange={(e) => set("reraRegistrationDate", e.target.value)}
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Validity Date
-                </label>
-                <input
-                  type="date"
-                  value={form.reraValidityDate}
-                  onChange={(e) => set("reraValidityDate", e.target.value)}
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  RERA URL
-                </label>
-                <input
-                  type="text"
-                  value={form.reraWebsiteUrl}
-                  onChange={(e) => set("reraWebsiteUrl", e.target.value)}
-                  placeholder="https://..."
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* LCI Threshold override */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              LCI Threshold % (optional)
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="any"
-              value={form.lciThreshold}
-              onChange={(e) => set("lciThreshold", e.target.value)}
-              placeholder="Company default"
-              className={inputClass}
-              style={inputStyle}
-            />
-            <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
-              Per-project override for the Logistics Complexity Index threshold that routes procurement between central and direct.
-            </p>
-          </div>
-
-          {/* ATS — Agreement to Sell */}
-          <div
-            className="rounded-[0.5rem] border p-3 space-y-2.5"
-            style={{ borderColor: "var(--color-line)" }}
-          >
-            <div className="flex items-start gap-2">
-              <FileText
-                className="size-3.5 shrink-0 mt-0.5"
-                style={{ color: "var(--color-ink-500)" }}
-              />
-              <div>
-                <div
-                  className="text-m-body font-bold"
-                  style={{ color: "var(--color-ink-950)" }}
-                >
-                  Agreement to Sell (ATS)
-                </div>
-                <div
-                  className="text-m-caption"
-                  style={{ color: "var(--color-ink-500)" }}
-                >
-                  Registry not possible yet? Record an ATS — amount paid now,
-                  registry deferred.
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  set("isATS", false);
-                  haptic(10);
-                }}
-                className="h-9 rounded-[0.375rem] border-2 text-m-caption font-bold text-m-body press"
-                style={{
-                  borderColor: !form.isATS
-                    ? "var(--color-ink-950)"
-                    : "var(--color-line)",
-                  backgroundColor: !form.isATS
-                    ? "var(--color-ink-950)"
-                    : "var(--color-paper)",
-                  color: !form.isATS
-                    ? "var(--color-paper)"
-                    : "var(--color-ink-500)",
-                }}
-              >
-                No ATS
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  set("isATS", true);
-                  haptic(10);
-                }}
-                className="h-9 rounded-[0.375rem] border-2 text-m-caption font-bold text-m-body press"
-                style={{
-                  borderColor: form.isATS
-                    ? "var(--color-ink-950)"
-                    : "var(--color-line)",
-                  backgroundColor: form.isATS
-                    ? "var(--color-ink-950)"
-                    : "var(--color-paper)",
-                  color: form.isATS
-                    ? "var(--color-paper)"
-                    : "var(--color-ink-500)",
-                }}
-              >
-                Yes, ATS
-              </button>
-            </div>
-            {form.isATS && (
-              <div className="grid grid-cols-2 gap-3 pt-1">
+            {showRera ? <ChevronDown className="size-4 shrink-0" style={{ color: "var(--color-ink-700)" }} /> : <ChevronRight className="size-4 shrink-0" style={{ color: "var(--color-ink-700)" }} />}
+          </button>
+          {showRera && (
+            <div className="space-y-3 ">
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className={labelClass} style={labelStyle}>
-                    Reg. Amount (₹)
+                    RERA Number
                   </label>
                   <input
-                    type="number"
-                    min={0}
-                    value={form.atsRegistrationAmount}
-                    onChange={(e) =>
-                      set("atsRegistrationAmount", e.target.value)
-                    }
-                    placeholder="e.g. 500000"
-                    inputMode="numeric"
+                    type="text"
+                    value={form.reraNumber}
+                    onChange={(e) => set("reraNumber", e.target.value)}
+                    placeholder="e.g. P1234567890"
                     className={inputClass}
                     style={inputStyle}
                   />
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>
-                    Expected Registry
+                    Reg. Date
                   </label>
                   <input
                     type="date"
-                    value={form.atsExpectedRegistryDate}
-                    onChange={(e) =>
-                      set("atsExpectedRegistryDate", e.target.value)
-                    }
+                    value={form.reraRegistrationDate}
+                    onChange={(e) => set("reraRegistrationDate", e.target.value)}
                     className={inputClass}
                     style={inputStyle}
                   />
                 </div>
               </div>
-            )}
-            {!form.isATS && (
-              <div className="pt-1">
-                <label className={labelClass} style={labelStyle}>
-                  Registry / Sale Deed No.
-                </label>
-                <input
-                  type="text"
-                  value={form.registryNo}
-                  onChange={(e) => set("registryNo", e.target.value)}
-                  placeholder="e.g. SR-1234/2025"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-                <p
-                  className="text-m-caption mt-1"
-                  style={{ color: "var(--color-ink-500)" }}
-                >
-                  Sale deed / registry number for the land.
-                </p>
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                <div>
+                  <label className={labelClass} style={labelStyle}>
+                    Validity Date
+                  </label>
+                  <input
+                    type="date"
+                    value={form.reraValidityDate}
+                    onChange={(e) => set("reraValidityDate", e.target.value)}
+                    className={inputClass}
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass} style={labelStyle}>
+                    RERA URL
+                  </label>
+                  <input
+                    type="text"
+                    value={form.reraWebsiteUrl}
+                    onChange={(e) => set("reraWebsiteUrl", e.target.value)}
+                    placeholder="https://..."
+                    className={inputClass}
+                    style={inputStyle}
+                  />
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+      </div>
+
+      {/* ── ATS — Agreement to Sell — collapsible ── */}
+      <div
+        className="rounded-[0.625rem] border p-3 space-y-3"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      >
+          <button
+            type="button"
+            onClick={() => { setShowAts((v) => !v); haptic(10); }}
+            className="flex items-center gap-1.5 w-full text-left press"
+            style={{
+              backgroundColor: "transparent",
+            }}
+          >
+            <FileText className="size-4 shrink-0" style={{ color: showAts ? "var(--color-steel-dark)" : "var(--color-ink-500)" }} />
+            <div className="flex-1 min-w-0">
+              <div className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
+                Agreement to Sell (ATS)
+              </div>
+              <div className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
+                {form.isATS ? "ATS — registry deferred" : form.registryNo ? `Deed № ${form.registryNo}` : "Registry not done? Record an ATS"}
+              </div>
+            </div>
+            {showAts ? <ChevronDown className="size-4 shrink-0" style={{ color: "var(--color-ink-700)" }} /> : <ChevronRight className="size-4 shrink-0" style={{ color: "var(--color-ink-700)" }} />}
+          </button>
+          {showAts && (
+            <div className="space-y-3 ">
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    set("isATS", false);
+                    haptic(10);
+                  }}
+                  className="h-9 rounded-[0.375rem] border-2 text-m-caption font-bold text-m-body press"
+                  style={{
+                    borderColor: !form.isATS
+                      ? "var(--color-ink-950)"
+                      : "var(--color-line)",
+                    backgroundColor: !form.isATS
+                      ? "var(--color-ink-950)"
+                      : "var(--color-paper)",
+                    color: !form.isATS
+                      ? "var(--color-paper)"
+                      : "var(--color-ink-500)",
+                  }}
+                >
+                  No ATS
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    set("isATS", true);
+                    haptic(10);
+                  }}
+                  className="h-9 rounded-[0.375rem] border-2 text-m-caption font-bold text-m-body press"
+                  style={{
+                    borderColor: form.isATS
+                      ? "var(--color-ink-950)"
+                      : "var(--color-line)",
+                    backgroundColor: form.isATS
+                      ? "var(--color-ink-950)"
+                      : "var(--color-paper)",
+                    color: form.isATS
+                      ? "var(--color-paper)"
+                      : "var(--color-ink-500)",
+                  }}
+                >
+                  Yes, ATS
+                </button>
+              </div>
+              {form.isATS && (
+                <div className="grid grid-cols-2 gap-1 pt-0.5">
+                  <div>
+                    <label className={labelClass} style={labelStyle}>
+                      Reg. Amount (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={form.atsRegistrationAmount}
+                      onChange={(e) =>
+                        set("atsRegistrationAmount", e.target.value)
+                      }
+                      placeholder="e.g. 500000"
+                      inputMode="numeric"
+                      className={inputClass}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>
+                      Expected Registry
+                    </label>
+                    <input
+                      type="date"
+                      value={form.atsExpectedRegistryDate}
+                      onChange={(e) =>
+                        set("atsExpectedRegistryDate", e.target.value)
+                      }
+                      className={inputClass}
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
+              )}
+              {!form.isATS && (
+                <div className="pt-0.5">
+                  <label className={labelClass} style={labelStyle}>
+                    Registry / Sale Deed No.
+                  </label>
+                  <input
+                    type="text"
+                    value={form.registryNo}
+                    onChange={(e) => set("registryNo", e.target.value)}
+                    placeholder="e.g. SR-1234/2025"
+                    className={inputClass}
+                    style={inputStyle}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+      </div>
 
           {/* Actions */}
-          <div className="flex flex-col gap-2 pt-1">
+          <div className="flex flex-col gap-3 ">
             <button
               type="button"
               onClick={onClose}
@@ -652,8 +631,8 @@ export function MobileNewProjectDialog({
               className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
               style={{
                 borderColor: "var(--color-line)",
-                color: "var(--color-ink-500)",
-                backgroundColor: "transparent",
+                color: "var(--color-ink-700)",
+                backgroundColor: "var(--color-paper)",
               }}
             >
               Cancel
@@ -673,7 +652,5 @@ export function MobileNewProjectDialog({
             </button>
           </div>
         </div>
-      </div>
-    </div>
   );
 }

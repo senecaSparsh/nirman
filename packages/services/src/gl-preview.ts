@@ -106,6 +106,31 @@ export function previewProjectCostGl(amount: number): GlPreviewLine[] {
 }
 
 /**
+ * Preview the GL impact of a land cost component accrual.
+ *
+ *   Dr Unsold Assets - Land  (amount)
+ *   Cr Cash / Bank            (amount)
+ */
+export function previewLandCostComponentGl(amount: number): GlPreviewLine[] {
+  return [
+    {
+      accountCode: ACCT.LAND_ASSET,
+      accountName: accountName(ACCT.LAND_ASSET),
+      debit: amount,
+      credit: 0,
+      memo: "Additional land cost capitalised",
+    },
+    {
+      accountCode: ACCT.CASH,
+      accountName: accountName(ACCT.CASH),
+      debit: 0,
+      credit: amount,
+      memo: "Cash paid for land cost",
+    },
+  ];
+}
+
+/**
  * Preview the GL impact of a purchase receipt.
  *
  *   Dr Inventory - Materials  (subtotal)

@@ -175,9 +175,9 @@ export function MobileRequisitionsList({
       {/* ── Results ── */}
       {filtered.length === 0 ? (
         <MobileNoResults
-          title="No requisitions found"
+          title="No indents found"
           query={query || undefined}
-          hint="No requisitions match the selected filter."
+          hint="No indents match the selected filter."
         />
       ) : (
         <div>
@@ -187,7 +187,7 @@ export function MobileRequisitionsList({
                 className="text-m-label font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
-                {filtered.length} requisition{filtered.length !== 1 ? "s" : ""}
+                {filtered.length} indent{filtered.length !== 1 ? "s" : ""}
               </span>
             </div>
           )}

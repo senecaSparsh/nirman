@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ShieldCheck,
   Plus,
   Trash2,
   X,
@@ -21,6 +20,8 @@ import {
   type SummaryStat,
 } from "@/components/mobile/v2/scaffold";
 import { formatDate, cn } from "@/lib/utils";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 
 export type AssignmentRow = {
   id: string;
@@ -78,7 +79,7 @@ export function MobileProjectAssignmentsClient({
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [formOpen, setFormOpen] = useState(false);
+  const fab = useFabModal();
   const [delTarget, setDelTarget] = useState<AssignmentRow | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -208,14 +209,14 @@ export function MobileProjectAssignmentsClient({
 
       {/* FAB */}
       {canManage && users.length > 0 && projects.length > 0 ? (
-        <MobileFab onClick={() => setFormOpen(true)} label="Assign user to project" />
+        <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="Assign user to project" />
       ) : null}
 
       {/* ── Assignment form dialog ── */}
-      {formOpen ? (
-        <AssignmentFormDialog
-          open={formOpen}
-          onOpenChange={setFormOpen}
+      <AssignmentFormDialog
+          open={fab.isOpen}
+          onOpenChange={fab.close}
+          originRect={fab.originRect}
           users={users}
           projects={projects}
           onSubmit={async (userId, projectId, scopedRole) => {
@@ -229,7 +230,7 @@ export function MobileProjectAssignmentsClient({
               const data = await res.json();
               if (!res.ok) throw new Error(data.error ?? "Failed to create assignment");
               toast.success("Project assignment created");
-              setFormOpen(false);
+              fab.close();
               router.refresh();
             } catch (err) {
               toast.error(err instanceof Error ? err.message : "Failed to create assignment");
@@ -239,7 +240,6 @@ export function MobileProjectAssignmentsClient({
           }}
           submitting={submitting}
         />
-      ) : null}
 
       {/* ── Delete confirmation ── */}
       {delTarget && (
@@ -294,6 +294,7 @@ export function MobileProjectAssignmentsClient({
 function AssignmentFormDialog({
   open,
   onOpenChange,
+  originRect,
   users,
   projects,
   onSubmit,
@@ -301,6 +302,7 @@ function AssignmentFormDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  originRect?: DOMRect | null;
   users: UserOption[];
   projects: ProjectOption[];
   onSubmit: (userId: string, projectId: string, scopedRole: string) => void;
@@ -312,7 +314,16 @@ function AssignmentFormDialog({
   const [userPickerOpen, setUserPickerOpen] = useState(false);
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
 
-  if (!open) return null;
+  // Reset form state when the dialog closes
+  useEffect(() => {
+    if (!open) {
+      setUserId("");
+      setProjectId("");
+      setScopedRole("SUPERVISOR");
+      setUserPickerOpen(false);
+      setProjectPickerOpen(false);
+    }
+  }, [open]);
 
   const selectedUser = users.find((u) => u.id === userId);
   const selectedProject = projects.find((p) => p.id === projectId);
@@ -324,27 +335,8 @@ function AssignmentFormDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex flex-col"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={() => onOpenChange(false)}
-    >
-      <div
-        className="mt-auto rounded-t-[0.75rem] max-h-[85vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between p-3 border-b sticky top-0" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="size-4" style={{ color: "var(--color-steel)" }} />
-            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Assign User to Project</p>
-          </div>
-          <button onClick={() => onOpenChange(false)} className="text-m-body press p-1">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
-
-        <div className="p-3 space-y-4">
+    <MobileFabModal open={open} onClose={() => onOpenChange(false)} originRect={originRect} title="Assign User to Project">
+        <div className="space-y-4">
           {/* User picker */}
           <div>
             <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-700)" }}>
@@ -455,7 +447,6 @@ function AssignmentFormDialog({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </MobileFabModal>
   );
 }

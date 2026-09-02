@@ -133,14 +133,14 @@ export function MobileNewEmployeeDialog({
   if (!open) return null;
 
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
     <div
@@ -158,7 +158,7 @@ export function MobileNewEmployeeDialog({
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <span
               className="grid place-items-center size-7 rounded-[0.375rem]"
               style={{ backgroundColor: "var(--color-concrete)" }}
@@ -178,7 +178,7 @@ export function MobileNewEmployeeDialog({
           <button
             onClick={onClose}
             className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-500)" }}
+            style={{ color: "var(--color-ink-700)" }}
             aria-label="Close"
           >
             <X className="size-4" />
@@ -204,7 +204,7 @@ export function MobileNewEmployeeDialog({
           </div>
 
           {/* Trade + Designation */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
               <label className={labelClass} style={labelStyle}>
                 Trade / Skill
@@ -268,7 +268,7 @@ export function MobileNewEmployeeDialog({
           </div>
 
           {/* Phone + Email */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
               <label className={labelClass} style={labelStyle}>
                 Phone
@@ -279,7 +279,7 @@ export function MobileNewEmployeeDialog({
                 onChange={(e) => set("phone", e.target.value)}
                 placeholder="98765 43210"
                 enterKeyHint="next"
-                className={inputClass}
+                className={`${inputClass} tabular-nums`}
                 style={inputStyle}
               />
             </div>
@@ -299,12 +299,12 @@ export function MobileNewEmployeeDialog({
             </div>
           </div>
 
-          {/* Wage Type */}
+          {/* Wage Type — horizontal 3-col */}
           <div>
             <label className={labelClass} style={labelStyle}>
               Wage Type
             </label>
-            <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
               {(Object.keys(WAGE_TYPE_LABELS) as WageType[]).map((w) => (
                 <button
                   key={w}
@@ -313,7 +313,7 @@ export function MobileNewEmployeeDialog({
                     set("wageType", w);
                     haptic(10);
                   }}
-                  className="flex-1 h-10 rounded-[0.5rem] border-2 text-m-body font-bold text-m-body press"
+                  className="h-9 rounded-[0.375rem] border-2 text-m-caption font-bold text-m-body press"
                   style={{
                     borderColor:
                       form.wageType === w
@@ -349,7 +349,7 @@ export function MobileNewEmployeeDialog({
                 onChange={(e) => set("dailyRate", e.target.value)}
                 placeholder="0"
                 inputMode="numeric"
-                className={inputClass}
+                className={`${inputClass} tabular-nums`}
                 style={inputStyle}
               />
             </div>
@@ -366,14 +366,14 @@ export function MobileNewEmployeeDialog({
                 onChange={(e) => set("monthlySalary", e.target.value)}
                 placeholder="0"
                 inputMode="numeric"
-                className={inputClass}
+                className={`${inputClass} tabular-nums`}
                 style={inputStyle}
               />
             </div>
           )}
 
           {/* Join Date + Project */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
               <label className={labelClass} style={labelStyle}>
                 Join Date
@@ -424,13 +424,13 @@ export function MobileNewEmployeeDialog({
                 </option>
               ))}
             </select>
-            <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
-              When set, attendance auto-marks as PRESENT when the employee enters this location&apos;s geo-fence.
+            <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-700)" }}>
+              Auto-marks PRESENT when employee enters this location&apos;s geo-fence.
             </p>
           </div>
 
           {/* Actions */}
-          <div className="flex flex-col gap-2 pt-1">
+          <div className="flex flex-col gap-3 ">
             <button
               type="button"
               onClick={onClose}
@@ -438,8 +438,8 @@ export function MobileNewEmployeeDialog({
               className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
               style={{
                 borderColor: "var(--color-line)",
-                color: "var(--color-ink-500)",
-                backgroundColor: "transparent",
+                color: "var(--color-ink-700)",
+                backgroundColor: "var(--color-paper)",
               }}
             >
               Cancel

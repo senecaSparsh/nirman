@@ -50,9 +50,11 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       isCurrent: c.id === company.id,
     })),
   });
-  // Company info changes rarely — let the browser cache it for 60s and
-  // serve stale while revalidating in the background. This eliminates a
-  // network round-trip on every mobile shell mount.
-  res.headers.set("Cache-Control", "private, max-age=60, stale-while-revalidate=300");
+  // The active company is selected via the nirman-company-id cookie and can
+  // change at any time through POST /api/company/switch. A cached response
+  // here would make the header/switcher/title keep showing the OLD company
+  // for up to a minute after a switch — the single biggest source of
+  // "glitchy when switching company" reports. So we never cache this.
+  res.headers.set("Cache-Control", "no-store, max-age=0");
   return res;
 });

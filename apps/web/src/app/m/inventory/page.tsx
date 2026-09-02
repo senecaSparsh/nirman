@@ -146,7 +146,7 @@ async function InventoryContent() {
     attentionBanners.push({
       id: "approvals",
       title: `${approvalCount} approval${approvalCount !== 1 ? "s" : ""} waiting`,
-      subtitle: `${draftPOs} draft Purchase Order${draftPOs !== 1 ? "s" : ""} · ${pendingReqs} pending requisition${pendingReqs !== 1 ? "s" : ""}`,
+      subtitle: `${draftPOs} draft Purchase Order${draftPOs !== 1 ? "s" : ""} · ${pendingReqs} pending indent${pendingReqs !== 1 ? "s" : ""}`,
       href: "/m/pulse/approvals",
       severity: "low",
       qtyText: String(approvalCount),
@@ -186,7 +186,7 @@ async function InventoryContent() {
           <MobileSectionTitle
             right={
               <Link
-                href="/m/requisitions"
+                href="/m/procurement?tab=indents"
                 className="text-m-label font-semibold text-m-body press"
                 style={{ color: "var(--color-ink-500)" }}
               >

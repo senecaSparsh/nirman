@@ -144,16 +144,49 @@ export async function generateGstr1(
   let totalSgst = new Decimal(0);
   let totalIgst = new Decimal(0);
 
+  // Batch-fetch revenue lines and counterparty sales to avoid N+1 queries.
+  const journalEntryIds = gstLines.map((gl) => gl.journalEntryId);
+  const revenueLines = journalEntryIds.length > 0
+    ? await prisma.journalLine.findMany({
+        where: {
+          journalEntryId: { in: journalEntryIds },
+          accountCode: { in: ["4000", "4100", "4200"] },
+          credit: { gt: 0 },
+        },
+        select: { journalEntryId: true, credit: true },
+      })
+    : [];
+  const revenueByJeId = new Map(revenueLines.map((rl) => [rl.journalEntryId, rl]));
+
+  const assetSaleIds = gstLines
+    .map((gl) => gl.journalEntry)
+    .filter((je) => je.sourceId && je.sourceType === "ASSET_SALE")
+    .map((je) => je.sourceId!) as string[];
+  const materialSaleIds = gstLines
+    .map((gl) => gl.journalEntry)
+    .filter((je) => je.sourceId && je.sourceType === "MATERIAL_SALE")
+    .map((je) => je.sourceId!) as string[];
+
+  const assetSales = assetSaleIds.length > 0
+    ? await prisma.assetSale.findMany({
+        where: { id: { in: assetSaleIds } },
+        select: { id: true, customer: { select: { gstin: true } } },
+      })
+    : [];
+  const assetSaleGstinById = new Map(assetSales.map((s) => [s.id, s.customer?.gstin ?? null]));
+
+  const materialSales = materialSaleIds.length > 0
+    ? await prisma.materialSale.findMany({
+        where: { id: { in: materialSaleIds } },
+        select: { id: true, customer: { select: { gstin: true } } },
+      })
+    : [];
+  const materialSaleGstinById = new Map(materialSales.map((s) => [s.id, s.customer?.gstin ?? null]));
+
   for (const gl of gstLines) {
     const gstAmount = new Decimal(gl.credit);
     // The taxable value is the sales revenue line (4000) in the same journal entry
-    const revenueLine = await prisma.journalLine.findFirst({
-      where: {
-        journalEntryId: gl.journalEntryId,
-        accountCode: { in: ["4000", "4100", "4200"] },
-        credit: { gt: 0 },
-      },
-    });
+    const revenueLine = revenueByJeId.get(gl.journalEntryId);
     const taxableValue = revenueLine ? new Decimal(revenueLine.credit) : new Decimal(0);
     // Derive GST rate from the amounts (gst / taxable * 100)
     const gstRate = taxableValue.gt(0)
@@ -166,17 +199,9 @@ export async function generateGstr1(
     if (je.sourceId) {
       // Trace back to the sale → customer → GSTIN
       if (je.sourceType === "ASSET_SALE") {
-        const sale = await prisma.assetSale.findUnique({
-          where: { id: je.sourceId },
-          select: { customer: { select: { gstin: true } } },
-        });
-        partyGstin = sale?.customer?.gstin ?? null;
+        partyGstin = assetSaleGstinById.get(je.sourceId) ?? null;
       } else if (je.sourceType === "MATERIAL_SALE") {
-        const sale = await prisma.materialSale.findUnique({
-          where: { id: je.sourceId },
-          select: { customer: { select: { gstin: true } } },
-        });
-        partyGstin = sale?.customer?.gstin ?? null;
+        partyGstin = materialSaleGstinById.get(je.sourceId) ?? null;
       }
     }
 
@@ -252,6 +277,32 @@ export async function generateGstr3b(
   let outwardSgst = new Decimal(0);
   let outwardIgst = new Decimal(0);
 
+  // Batch-fetch counterparty sales to avoid N+1 queries.
+  const outAssetSaleIds = outputGstLines
+    .map((gl) => gl.journalEntry)
+    .filter((je) => je.sourceId && je.sourceType === "ASSET_SALE")
+    .map((je) => je.sourceId!) as string[];
+  const outMaterialSaleIds = outputGstLines
+    .map((gl) => gl.journalEntry)
+    .filter((je) => je.sourceId && je.sourceType === "MATERIAL_SALE")
+    .map((je) => je.sourceId!) as string[];
+
+  const outAssetSales = outAssetSaleIds.length > 0
+    ? await prisma.assetSale.findMany({
+        where: { id: { in: outAssetSaleIds } },
+        select: { id: true, customer: { select: { gstin: true } } },
+      })
+    : [];
+  const outAssetSaleGstinById = new Map(outAssetSales.map((s) => [s.id, s.customer?.gstin ?? null]));
+
+  const outMaterialSales = outMaterialSaleIds.length > 0
+    ? await prisma.materialSale.findMany({
+        where: { id: { in: outMaterialSaleIds } },
+        select: { id: true, customer: { select: { gstin: true } } },
+      })
+    : [];
+  const outMaterialSaleGstinById = new Map(outMaterialSales.map((s) => [s.id, s.customer?.gstin ?? null]));
+
   for (const gl of outputGstLines) {
     const gstAmount = new Decimal(gl.credit);
     outwardOutputGst = outwardOutputGst.plus(gstAmount);
@@ -259,17 +310,9 @@ export async function generateGstr3b(
     let partyGstin: string | null = null;
     if (gl.journalEntry.sourceId) {
       if (gl.journalEntry.sourceType === "ASSET_SALE") {
-        const sale = await prisma.assetSale.findUnique({
-          where: { id: gl.journalEntry.sourceId },
-          select: { customer: { select: { gstin: true } } },
-        });
-        partyGstin = sale?.customer?.gstin ?? null;
+        partyGstin = outAssetSaleGstinById.get(gl.journalEntry.sourceId) ?? null;
       } else if (gl.journalEntry.sourceType === "MATERIAL_SALE") {
-        const sale = await prisma.materialSale.findUnique({
-          where: { id: gl.journalEntry.sourceId },
-          select: { customer: { select: { gstin: true } } },
-        });
-        partyGstin = sale?.customer?.gstin ?? null;
+        partyGstin = outMaterialSaleGstinById.get(gl.journalEntry.sourceId) ?? null;
       }
     }
 
@@ -313,6 +356,32 @@ export async function generateGstr3b(
   let inwardSgst = new Decimal(0);
   let inwardIgst = new Decimal(0);
 
+  // Batch-fetch counterparty purchase sources to avoid N+1 queries.
+  const grIds = inputGstLineRecords
+    .map((gl) => gl.journalEntry)
+    .filter((je) => je.sourceId && je.sourceType === "PO_RECEIPT")
+    .map((je) => je.sourceId!) as string[];
+  const dpIds = inputGstLineRecords
+    .map((gl) => gl.journalEntry)
+    .filter((je) => je.sourceId && je.sourceType === "DIRECT_PURCHASE")
+    .map((je) => je.sourceId!) as string[];
+
+  const goodsReceipts = grIds.length > 0
+    ? await prisma.goodsReceipt.findMany({
+        where: { id: { in: grIds } },
+        select: { id: true, purchaseOrder: { select: { supplier: { select: { gstin: true } } } } },
+      })
+    : [];
+  const grGstinById = new Map(goodsReceipts.map((gr) => [gr.id, gr.purchaseOrder?.supplier?.gstin ?? null]));
+
+  const directPurchases = dpIds.length > 0
+    ? await prisma.directPurchase.findMany({
+        where: { id: { in: dpIds } },
+        select: { id: true, supplier: { select: { gstin: true } } },
+      })
+    : [];
+  const dpGstinById = new Map(directPurchases.map((dp) => [dp.id, dp.supplier?.gstin ?? null]));
+
   for (const gl of inputGstLineRecords) {
     const gstAmount = new Decimal(gl.debit);
     itcAvailable = itcAvailable.plus(gstAmount);
@@ -321,17 +390,9 @@ export async function generateGstr3b(
     if (gl.journalEntry.sourceId) {
       if (gl.journalEntry.sourceType === "PO_RECEIPT") {
         // Trace: GoodsReceipt → PurchaseOrder → Supplier
-        const gr = await prisma.goodsReceipt.findUnique({
-          where: { id: gl.journalEntry.sourceId },
-          select: { purchaseOrder: { select: { supplier: { select: { gstin: true } } } } },
-        });
-        partyGstin = gr?.purchaseOrder?.supplier?.gstin ?? null;
+        partyGstin = grGstinById.get(gl.journalEntry.sourceId) ?? null;
       } else if (gl.journalEntry.sourceType === "DIRECT_PURCHASE") {
-        const dp = await prisma.directPurchase.findUnique({
-          where: { id: gl.journalEntry.sourceId },
-          select: { supplier: { select: { gstin: true } } },
-        });
-        partyGstin = dp?.supplier?.gstin ?? null;
+        partyGstin = dpGstinById.get(gl.journalEntry.sourceId) ?? null;
       }
     }
 

@@ -25,3 +25,10 @@ storage/
 # Python bytecode cache
 __pycache__/
 *.pyc
+
+# Env backups (secrets)
+.env.bak
+.env.*.bak
+
+# Runtime call recordings / uploaded audio
+apps/web/data/

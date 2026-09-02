@@ -7,6 +7,9 @@ import {MapPin, Pencil, Trash2, Loader2, Warehouse, Building2} from "lucide-reac
 import { haptic } from "@/lib/haptic";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileFab } from "@/components/mobile/v2/scaffold";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileNewStockLocationForm } from "./MobileNewStockLocationDialog";
 import { formatCurrencyCompact } from "@/lib/utils";
 
 type LocationType = "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT" | "CENTRAL_WAREHOUSE";
@@ -53,6 +56,7 @@ export function MobileStockLocationsList({
   const router = useRouter();
   const [editing, setEditing] = useState<LocationRow | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const fab = useFabModal();
 
   async function handleDelete(loc: LocationRow) {
     if (loc.itemCount > 0) {
@@ -96,7 +100,20 @@ export function MobileStockLocationsList({
       </div>
 
       {canManage && (
-        <MobileFab href="/m/stock-locations/new" label="New location" icon={MapPin} />
+        <>
+          <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="New location" icon={MapPin} />
+          <MobileFabModal
+            open={fab.isOpen}
+            onClose={fab.close}
+            originRect={fab.originRect}
+            title="New Stock Location"
+          >
+            <MobileNewStockLocationForm
+              onClose={fab.close}
+              projects={projects}
+            />
+          </MobileFabModal>
+        </>
       )}
 
       {locations.length === 0 ? (

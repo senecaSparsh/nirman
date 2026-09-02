@@ -1,0 +1,205 @@
+import { prisma, type Prisma } from "@nirman/db";
+import Decimal from "decimal.js";
+import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
+import { logAction } from "./audit";
+import { postJournalEntry, ACCT, type JournalLineInput } from "./gl-posting";
+import { ServiceError } from "./errors";
+
+/**
+ * Manual Stock Adjustment Service.
+ *
+ * Lets a user directly add (ADJUSTMENT_IN) or remove (ADJUSTMENT_OUT) quantity
+ * for a material at a location — opening stock, corrections, write-offs, damaged
+ * goods — without going through a PO / direct purchase / transfer / stock count.
+ *
+ * This is the sanctioned entry point for manual stock corrections: it appends an
+ * immutable StockMovement, atomically updates the StockLocationItem (qty + MAC),
+ * posts the GL variance, and writes an AuditLog entry — all inside one
+ * Serializable transaction. Never bypass it by writing to StockLocationItem directly.
+ *
+ * GL treatment mirrors stock-count reconciliation (see postStockAdjustment):
+ *   IN  → Dr Inventory, Cr Operating Expense   (the cost capitalises into stock)
+ *   OUT → Dr Inventory Shrinkage (5500), Cr Inventory
+ * The MAC is recalculated for IN movements using the supplied unit cost; for OUT
+ * movements the issue is valued at the current MAC (cost leaves unchanged).
+ */
+
+export type AdjustmentDirection = "IN" | "OUT";
+
+export interface RecordStockAdjustmentInput {
+  materialId: string;
+  locationId: string;
+  direction: AdjustmentDirection;
+  qty: Decimal | number | string;
+  /** Required for IN (the cost of the added stock). Optional for OUT (uses current MAC). */
+  unitCost?: Decimal | number | string | null;
+  reason: string;
+  userId?: string;
+}
+
+export interface StockAdjustmentResult {
+  movementId: string;
+  movementType: "ADJUSTMENT_IN" | "ADJUSTMENT_OUT";
+  qty: Decimal;
+  unitCost: Decimal;
+  newQty: Decimal;
+  newMac: Decimal;
+}
+
+export async function recordStockAdjustment(
+  input: RecordStockAdjustmentInput,
+): Promise<StockAdjustmentResult> {
+  // ── Pre-transaction validation ──
+  const qty = new Decimal(input.qty);
+  if (!qty.gt(0)) {
+    throw new ServiceError("Adjustment quantity must be greater than 0");
+  }
+  if (!input.reason || input.reason.trim().length === 0) {
+    throw new ServiceError("A reason is required for a manual stock adjustment");
+  }
+
+  const material = await prisma.material.findFirst({
+    where: { id: input.materialId, deletedAt: null },
+    select: { id: true, code: true, name: true, unit: true, standardCost: true, isLotTracked: true },
+  });
+  if (!material) throw new ServiceError("Material not found or deleted", 404);
+
+  const location = await prisma.stockLocation.findFirst({
+    where: { id: input.locationId, deletedAt: null },
+    select: { id: true, name: true, companyId: true },
+  });
+  if (!location) throw new ServiceError("Stock location not found or deleted", 404);
+
+  const movementType = input.direction === "IN" ? "ADJUSTMENT_IN" : "ADJUSTMENT_OUT";
+
+  return withStockTransaction(async (tx) => {
+    // Resolve the unit cost.
+    //   IN  → user-supplied cost (defaults to current MAC, then standard cost)
+    //   OUT → current MAC of the StockLocationItem (issue valued at carrying cost)
+    const item = await tx.stockLocationItem.findUnique({
+      where: {
+        locationId_materialId: {
+          locationId: input.locationId,
+          materialId: input.materialId,
+        },
+      },
+    });
+    const currentMac = item ? new Decimal(item.movingAvgCost) : new Decimal(0);
+
+    let unitCost: Decimal;
+    if (input.direction === "IN") {
+      if (input.unitCost != null && new Decimal(input.unitCost).gt(0)) {
+        unitCost = new Decimal(input.unitCost);
+      } else if (currentMac.gt(0)) {
+        unitCost = currentMac;
+      } else {
+        unitCost = new Decimal(material.standardCost ?? 0);
+      }
+    } else {
+      // OUT — issue at current MAC; ignore any user-supplied cost.
+      unitCost = currentMac;
+      const available = item ? new Decimal(item.qty) : new Decimal(0);
+      if (available.lt(qty)) {
+        throw new ServiceError(
+          `Cannot adjust out ${qty} ${material.unit} of ${material.code}: only ${available} ${material.unit} available at ${location.name}.`,
+        );
+      }
+    }
+
+    // Lot-tracked materials require a lot for IN movements. Manual adjustments
+    // without a lot reference are rejected for lot-tracked materials — the user
+    // should receive via a PO/direct-purchase to create a lot, or use stock count.
+    if (material.isLotTracked && input.direction === "IN") {
+      const hasLot = await tx.materialLot.findFirst({
+        where: { materialId: input.materialId, companyId: location.companyId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!hasLot) {
+        throw new ServiceError(
+          `${material.code} is lot-tracked. Open a purchase receipt or direct purchase to create a lot before adjusting stock manually.`,
+        );
+      }
+    }
+
+    const result = await recordMovement(tx, {
+      materialId: input.materialId,
+      movementType,
+      toLocationId: input.direction === "IN" ? input.locationId : undefined,
+      fromLocationId: input.direction === "OUT" ? input.locationId : undefined,
+      qty,
+      unitCost: input.direction === "IN" ? unitCost : undefined,
+      reason: input.reason,
+      refType: "MANUAL_ADJUSTMENT",
+      companyId: location.companyId,
+      userId: input.userId,
+    });
+    const movement = result.movement;
+
+    // Refresh the material's denormalised currentCost.
+    await refreshMaterialCurrentCost(tx, [input.materialId]);
+
+    // Read back the updated StockLocationItem for the response.
+    const updated = await tx.stockLocationItem.findUnique({
+      where: {
+        locationId_materialId: {
+          locationId: input.locationId,
+          materialId: input.materialId,
+        },
+      },
+    });
+    const newQty = updated ? new Decimal(updated.qty) : new Decimal(0);
+    const newMac = updated ? new Decimal(updated.movingAvgCost) : unitCost;
+
+    // ── GL: post the inventory variance ──
+    // IN  → Dr Inventory, Cr Operating Expense
+    // OUT → Dr Inventory Shrinkage, Cr Inventory
+    const value = qty.times(unitCost);
+    if (value.gt(0)) {
+      const lines: JournalLineInput[] =
+        input.direction === "IN"
+          ? [
+              { accountCode: ACCT.INVENTORY, debit: value, credit: 0, entityType: "StockMovement", entityId: movement.id, memo: `Manual stock adjustment (+${qty} ${material.unit}) — ${material.code}` },
+              { accountCode: ACCT.OPERATING_EXPENSE, debit: 0, credit: value, entityType: "StockMovement", entityId: movement.id, memo: `Stock addition — ${material.code}` },
+            ]
+          : [
+              { accountCode: ACCT.INVENTORY_SHRINKAGE, debit: value, credit: 0, entityType: "StockMovement", entityId: movement.id, memo: `Manual stock write-off (-${qty} ${material.unit}) — ${material.code}` },
+              { accountCode: ACCT.INVENTORY, debit: 0, credit: value, entityType: "StockMovement", entityId: movement.id, memo: `Stock removal — ${material.code}` },
+            ];
+      await postJournalEntry(tx, {
+        companyId: location.companyId,
+        sourceType: "STOCK_ADJUSTMENT",
+        sourceId: movement.id,
+        memo: `Manual stock adjustment — ${material.code} (${input.direction})`,
+        postedById: input.userId,
+        lines,
+      });
+    }
+
+    // ── Audit log ──
+    await logAction(tx, {
+      userId: input.userId,
+      action: "STOCK_ADJUSTMENT",
+      entityType: "StockMovement",
+      entityId: movement.id,
+      after: {
+        materialId: input.materialId,
+        materialCode: material.code,
+        locationId: input.locationId,
+        direction: input.direction,
+        qty: qty.toString(),
+        unitCost: unitCost.toString(),
+        reason: input.reason,
+        newQty: newQty.toString(),
+      },
+    });
+
+    return {
+      movementId: movement.id,
+      movementType,
+      qty,
+      unitCost,
+      newQty,
+      newMac,
+    };
+  });
+}

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Package, ArrowRight, Plus, TrendingUp, ShoppingCart, ClipboardList,
-  AlertTriangle, FileText,
+  AlertTriangle, FileText, SlidersHorizontal,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { StatusPill } from "@/components/page";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
 import { LotTrackingDialog } from "./lot-tracking-dialog";
+import { AdjustStockDialog } from "./adjust-stock-dialog";
 import type { MaterialRow } from "@/lib/types";
 
 // ───────────────────────────────────────────────────────────
@@ -108,9 +109,12 @@ const MOVEMENT_LABELS: Record<string, string> = {
 //  Main component
 // ───────────────────────────────────────────────────────────
 
-export function MaterialCockpit({ data, suppliers }: { data: MaterialCockpitData; suppliers?: { id: string; name: string }[] }) {
+type LocationOption = { id: string; name: string; type: string; projectName: string | null };
+
+export function MaterialCockpit({ data, suppliers, locations }: { data: MaterialCockpitData; suppliers?: { id: string; name: string }[]; locations?: LocationOption[] }) {
   const [tab, setTab] = useState("overview");
   const [lotOpen, setLotOpen] = useState(false);
+  const [adjustOpen, setAdjustOpen] = useState(false);
   const { material } = data;
   const totalQty = data.stockItems.reduce((s, si) => s + si.qty, 0);
   const totalValue = data.stockItems.reduce((s, si) => s + si.totalValue, 0);
@@ -155,6 +159,9 @@ export function MaterialCockpit({ data, suppliers }: { data: MaterialCockpitData
             </Button>
           </>
         )}
+        <Button variant="outline" size="sm" onClick={() => setAdjustOpen(true)} className="ml-auto">
+          <SlidersHorizontal className="h-3.5 w-3.5" /> Adjust Stock
+        </Button>
       </div>
 
       {/* Stats strip */}
@@ -194,7 +201,7 @@ export function MaterialCockpit({ data, suppliers }: { data: MaterialCockpitData
               <p className="text-body font-medium text-danger">Below reorder point</p>
               <p className="text-caption text-muted-foreground">
                 Total stock ({formatNumber(totalQty, 3)} {material.unit}) is at or below the reorder level ({formatNumber(material.reorderPoint, 3)} {material.unit}).
-                <Link href="/requisitions" className="ml-1 font-medium text-brand hover:underline">Create a requisition →</Link>
+                <Link href="/requisitions" className="ml-1 font-medium text-brand hover:underline">Create an indent →</Link>
               </p>
             </div>
           </div>
@@ -224,6 +231,22 @@ export function MaterialCockpit({ data, suppliers }: { data: MaterialCockpitData
         onOpenChange={setLotOpen}
         material={material as unknown as MaterialRow}
         suppliers={suppliers ?? []}
+      />
+
+      {/* Manual stock adjustment dialog */}
+      <AdjustStockDialog
+        open={adjustOpen}
+        onOpenChange={setAdjustOpen}
+        material={{
+          id: material.id,
+          code: material.code,
+          name: material.name,
+          unit: material.unit,
+          currentCost: aggregateMac,
+          isLotTracked: material.isLotTracked,
+        }}
+        stockItems={data.stockItems}
+        locations={locations}
       />
     </div>
   );
@@ -307,7 +330,7 @@ function OverviewTab({ data }: { data: MaterialCockpitData; totalQty: number; to
         <div>
           <h2 className="mb-3 text-label text-muted-foreground">Quick Actions</h2>
           <div className="space-y-1">
-            <ActionLink href="/requisitions" label="Create Requisition" icon={<ClipboardList className="h-3.5 w-3.5" />} />
+            <ActionLink href="/requisitions" label="Create Indent" icon={<ClipboardList className="h-3.5 w-3.5" />} />
             <ActionLink href="/procurement" label="Create Purchase Order" icon={<ShoppingCart className="h-3.5 w-3.5" />} />
             <ActionLink href="/stock?tab=issues" label="Issue to Project" icon={<Package className="h-3.5 w-3.5" />} />
             <ActionLink href="/stock?tab=transfers" label="Transfer Stock" icon={<ArrowRight className="h-3.5 w-3.5" />} />
@@ -439,14 +462,14 @@ function ProcurementTab({ data }: { data: MaterialCockpitData }) {
   const { material } = data;
   return (
     <div className="space-y-6">
-      {/* Open Requisitions */}
+      {/* Open Indents */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-label text-muted-foreground">Open Requisitions</h2>
-          <Link href="/requisitions"><Button size="sm" variant="outline"><Plus className="h-4 w-4" /> New Requisition</Button></Link>
+          <h2 className="text-label text-muted-foreground">Open Indents</h2>
+          <Link href="/requisitions"><Button size="sm" variant="outline"><Plus className="h-4 w-4" /> New Indent</Button></Link>
         </div>
         {data.openRequisitions.length === 0 ? (
-          <EmptyState icon={<ClipboardList className="h-5 w-5" />} title="No open requisitions" description="Material requisitions requesting this item will appear here." />
+          <EmptyState icon={<ClipboardList className="h-5 w-5" />} title="No open indents" description="Material indents requesting this item will appear here." />
         ) : (
           <div className="divide-y divide-border rounded-lg border border-border">
             {data.openRequisitions.map((r) => (

@@ -4,6 +4,7 @@ import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM, ALL_ROLES, canAssignRole, type Role } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
+import { normalizePhone } from "@/lib/phone-otp";
 
 /**
  * GET /api/users — list users scoped to the active company (for task
@@ -46,7 +47,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const actorRole = session.role;
 
   const body = await req.json();
-  const { name, email, role, phone, password, employeeCode, designation, department, joiningDate } = body as {
+  const { name, email, role, phone, password, employeeCode, designation, department, joiningDate, employmentEndDate, mustChangePassword } = body as {
     name?: string;
     email?: string;
     role?: string;
@@ -56,14 +57,23 @@ export const POST = apiHandler(async (req: NextRequest) => {
     designation?: string;
     department?: string;
     joiningDate?: string;
+    employmentEndDate?: string;
+    mustChangePassword?: boolean;
   };
 
   // ── Validate inputs ──
   if (!name || typeof name !== "string" || !name.trim()) {
     return json({ error: "Name is required" }, { status: 400 });
   }
-  if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  // Email is optional if phone is provided (phone-based login).
+  // If email is provided, it must be valid. If neither email nor phone is
+  // provided, we can't create a loginable account.
+  const normalizedEmail = email?.trim().toLowerCase() || null;
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return json({ error: "A valid email is required" }, { status: 400 });
+  }
+  if (!normalizedEmail && !phone?.trim()) {
+    return json({ error: "Either an email or a phone number is required for login." }, { status: 400 });
   }
   if (!role || !ALL_ROLES.includes(role as Role)) {
     return json({ error: `Role must be one of: ${ALL_ROLES.join(", ")}` }, { status: 400 });
@@ -76,19 +86,36 @@ export const POST = apiHandler(async (req: NextRequest) => {
     );
   }
 
+  // ── Password policy ──
+  const minLength = company.passwordMinLength ?? 8;
   const defaultPassword = password?.trim() || "nirman123";
-  if (defaultPassword.length < 8) {
-    return json({ error: "Password must be at least 8 characters" }, { status: 400 });
+  if (defaultPassword.length < minLength) {
+    return json({ error: `Password must be at least ${minLength} characters` }, { status: 400 });
   }
 
   const hashed = await hashPassword(defaultPassword);
-  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedPhone = phone?.trim() ? normalizePhone(phone) : null;
 
-  // ── Check if user already exists ──
-  const existing = await prisma.user.findUnique({
-    where: { email: normalizedEmail },
-    select: { id: true, name: true, role: true, active: true },
-  });
+  // ── Check if user already exists (by email OR by phone) ──
+  // This implements the duplicate detection from the design doc:
+  // if a user with the same phone (or email) already exists, offer to add
+  // a UserCompany membership instead of creating a duplicate User.
+  let existing = null as null | { id: string; name: string; role: string; active: boolean };
+
+  if (normalizedEmail) {
+    existing = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true, name: true, role: true, active: true },
+    });
+  }
+
+  // If not found by email, try by phone (Shape A: same person, different company)
+  if (!existing && normalizedPhone) {
+    existing = await prisma.user.findFirst({
+      where: { phoneNormalized: normalizedPhone, active: true },
+      select: { id: true, name: true, role: true, active: true },
+    });
+  }
 
   if (existing) {
     // Check if already a member of this company
@@ -111,24 +138,31 @@ export const POST = apiHandler(async (req: NextRequest) => {
       name: existing.name,
       email: normalizedEmail,
       role,
-      message: `${existing.name} added to ${company.name} as ${role}.`,
+      message: `${existing.name} added to ${company.name} as ${role}. Their existing login credentials remain unchanged.`,
     });
   }
 
   // ── Create new user + membership + account in one transaction ──
+  // For phone-based accounts without an email, generate a placeholder email
+  // (Better-Auth requires a unique email). The phone number is the real login ID.
+  const finalEmail = normalizedEmail ?? `phone+${normalizedPhone}@nirman.internal`;
+
   const result = await withSerializableTransaction(async (tx) => {
     const user = await tx.user.create({
       data: {
-        email: normalizedEmail,
+        email: finalEmail,
         name: name.trim(),
         role: role as Role,
         phone: phone?.trim() || null,
+        phoneNormalized: normalizedPhone,
         companyId: company.id,
         emailVerified: true,
         employeeCode: employeeCode?.trim() || null,
         designation: designation?.trim() || null,
         department: department?.trim() || null,
         joiningDate: joiningDate ? new Date(joiningDate) : null,
+        employmentEndDate: employmentEndDate ? new Date(employmentEndDate) : null,
+        mustChangePassword: mustChangePassword !== false, // default true
       },
       select: { id: true, name: true, email: true, role: true },
     });
@@ -150,11 +184,15 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return user;
   });
 
+  const loginHint = normalizedPhone
+    ? `phone number ${phone} and the password you set`
+    : `email ${result.email} and the password you set`;
+
   return json({
     id: result.id,
     name: result.name,
     email: result.email,
     role: result.role,
-    message: `${result.name} added. They can sign in with ${result.email} and the password you set.`,
+    message: `${result.name} added. They can sign in with ${loginHint}.${mustChangePassword !== false ? " They will be asked to set a new password on first login." : ""}`,
   }, { status: 201 });
 });

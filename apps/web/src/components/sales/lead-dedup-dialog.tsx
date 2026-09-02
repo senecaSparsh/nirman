@@ -8,6 +8,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
+import { EmptyState } from "@/components/empty-state";
 
 type DuplicateLead = {
   id: string;
@@ -116,11 +117,12 @@ export function LeadDedupDialog({
             <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Scanning for duplicates…
           </div>
         ) : groups.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <Check className="h-8 w-8 text-success mb-2" />
-            <p className="text-body font-medium">No duplicates found</p>
-            <p className="text-meta text-muted-foreground">All leads have unique name + phone combinations.</p>
-          </div>
+          <EmptyState
+            icon={<Check />}
+            title="No duplicates found"
+            description="All leads have unique name + phone combinations."
+            size="compact"
+          />
         ) : (
           groups.map((group) => (
             <div key={group.key} className="rounded-lg border border-border p-3 space-y-2">

@@ -1,10 +1,11 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { PurchaseOrderStatus } from "@nirman/db";
 import { createPurchaseOrder } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, getCompanyGroupIds, json, purchaseOrderSchema, requirePermission, toNum } from "@/lib/server";
+import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.PROCUREMENT_VIEW);
@@ -19,10 +20,16 @@ export const GET = apiHandler(async (req: NextRequest) => {
   // the parent's central warehouse → PO is in the parent's books).
   const groupCompanyIds = await getCompanyGroupIds(company);
 
+  // Cursor pagination — backward compatible. If `cursor` param is present,
+  // return { items, nextCursor, hasMore }. Otherwise return flat array.
+  const { take, cursor, skip } = parseCursorParams(req);
+  const usePagination = searchParams.has("cursor") || searchParams.has("take");
+
   const pos = await prisma.purchaseOrder.findMany({
-    where: { companyId: { in: groupCompanyIds }, ...statusFilter },
+    where: { companyId: { in: groupCompanyIds }, ...statusFilter, ...(cursorToWhere(cursor) ?? {}) },
     orderBy: { createdAt: "desc" },
-    take: 200,
+    take: usePagination ? take + 1 : 200,
+    skip: usePagination ? skip : undefined,
     include: {
       supplier: { select: { id: true, name: true } },
       project: { select: { id: true, name: true } },
@@ -31,8 +38,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       charges: { select: { id: true, heading: true, amount: true, notes: true } },
     },
   });
-  return json(
-    pos.map((po) => {
+  const mapped = pos.map((po) => {
       const totalOrdered = po.lines.reduce((s, l) => s + toNum(l.qtyOrdered), 0);
       const totalReceived = po.lines.reduce((s, l) => s + toNum(l.qtyReceived), 0);
       return {
@@ -67,8 +73,16 @@ export const GET = apiHandler(async (req: NextRequest) => {
         receivedPct: totalOrdered > 0 ? Math.round((totalReceived / totalOrdered) * 100) : 0,
         createdAt: po.createdAt.toISOString(),
       };
-    }),
-  );
+    });
+
+  if (usePagination) {
+    const { items, nextCursor, hasMore } = buildCursorResponse(mapped, take, (r) => ({
+      createdAt: r.createdAt,
+      id: r.id,
+    }));
+    return NextResponse.json({ items, nextCursor, hasMore });
+  }
+  return json(mapped);
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
@@ -82,7 +96,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // Reject requisitionId — requisition-to-PO conversion must go through
   // PATCH /api/requisitions/[id] with action:"convert" (enforces quote gate)
   if (body?.requisitionId) {
-    return json({ error: "Use PATCH /api/requisitions/[id] with action:\"convert\" to convert a requisition to a PO" }, { status: 400 });
+    return json({ error: "Use PATCH /api/requisitions/[id] with action:\"convert\" to convert an indent to a PO" }, { status: 400 });
   }
   const { expectedDate, projectId, charges, ...rest } = parsed.data;
   try {

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import {
   previewExpenseGl,
   previewProjectCostGl,
+  previewLandCostComponentGl,
   previewPurchaseReceiptGl,
   previewMaterialIssueGl,
   previewAssetSaleGl,
@@ -38,6 +39,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
       break;
     case "projectCost":
       lines = previewProjectCostGl(Number(body.amount) || 0);
+      break;
+    case "landCostComponent":
+      lines = previewLandCostComponentGl(Number(body.amount) || 0);
       break;
     case "purchaseReceipt":
       lines = previewPurchaseReceiptGl(

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import Image from "next/image";
 import {Search, Truck, Phone, User, MapPin, ChevronRight} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -78,8 +79,9 @@ export function VehiclesView({ vehicles }: { vehicles: VehicleRow[] }) {
       render: (v) => (
         <div className="flex items-center gap-2">
           {v.photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={v.photoUrl} alt={v.vehicleNumber} className="size-8 rounded object-cover shrink-0" />
+            <div className="relative size-8 rounded overflow-hidden shrink-0">
+              <Image src={v.photoUrl} alt={v.vehicleNumber} fill className="object-cover" sizes="32px" />
+            </div>
           ) : (
             <div className="size-8 rounded bg-muted flex items-center justify-center shrink-0">
               <Truck className="size-4 text-muted-foreground" />
@@ -254,8 +256,9 @@ function VehicleDetailDialog({
       <div className="space-y-4">
         {/* Photo */}
         {vehicle.photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={vehicle.photoUrl} alt={vehicle.vehicleNumber} className="w-full h-40 rounded-lg object-cover" />
+          <div className="relative w-full h-40 rounded-lg overflow-hidden">
+            <Image src={vehicle.photoUrl} alt={vehicle.vehicleNumber} fill className="object-cover" sizes="(max-width: 768px) 100vw, 400px" />
+          </div>
         ) : (
           <div className="w-full h-32 rounded-lg bg-muted flex items-center justify-center">
             <Truck className="size-10 text-muted-foreground" />

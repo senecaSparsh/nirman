@@ -270,7 +270,7 @@ async function CommandCenterContent() {
   const queues: QueueData[] = [];
 
   if (canApproveReq && pendingRequisitions.length > 0) queues.push({
-    key: "req", title: "Requisitions waiting for approval",
+    key: "req", title: "Indents waiting for approval",
     consequence: "Site can't order material until you approve these",
     count: pendingRequisitions.length, href: "/approvals", cta: "Review", urgency: "blocking", icon: "clipboardList",
     items: pendingRequisitions.map((r) => ({ label: r.project?.name ?? "N/A", sub: `${formatNumber(r.lines.reduce((s, l) => s + toNum(l.qtyRequested), 0), 0)} units requested` })),
@@ -289,12 +289,12 @@ async function CommandCenterContent() {
   });
   if (canSeeStock && lowStock.length > 0) queues.push({
     key: "low", title: "Materials below their reorder point",
-    consequence: "Raise a requisition before site runs out",
+    consequence: "Raise an indent before site runs out",
     count: lowStock.length, href: "/materials", cta: "Reorder", urgency: "soon", icon: "package",
     items: lowStock.map((m) => ({ label: m.name, sub: `${formatNumber(m.totalQty, 0)} ${m.unit} left · need ${formatNumber(m.minStock, 0)}` })),
   });
   if (canApproveReq && approvedReqs.length > 0) queues.push({
-    key: "approved-req", title: "Approved requisitions ready to order",
+    key: "approved-req", title: "Approved indents ready to order",
     consequence: "Convert these to purchase orders so the supplier can be engaged",
     count: approvedReqs.length, href: "/requisitions", cta: "Convert", urgency: "soon", icon: "clipboardList",
     items: approvedReqs.map((r) => ({ label: r.reqNumber ?? r.id.slice(0, 8), sub: r.project?.name ?? "N/A" })),
@@ -333,7 +333,7 @@ async function CommandCenterContent() {
 
   // ── Pending actions by type (for chart) ──────────────────────────
   const pendingActions: { label: string; value: number }[] = [];
-  if (canApproveReq && pendingRequisitions.length > 0) pendingActions.push({ label: "Pending reqs", value: pendingRequisitions.length });
+  if (canApproveReq && pendingRequisitions.length > 0) pendingActions.push({ label: "Pending indents", value: pendingRequisitions.length });
   if (canApprovePO && draftPOs.length > 0) pendingActions.push({ label: "Draft POs", value: draftPOs.length });
   if (canSeeProcurement && overduePOs.length > 0) pendingActions.push({ label: "Overdue POs", value: overduePOs.length });
   if (canSeeStock && lowStockCount > 0) pendingActions.push({ label: "Low stock", value: lowStockCount });
@@ -353,7 +353,7 @@ async function CommandCenterContent() {
     { icon: "clipboardCheck", label: "Assign tasks", has: roleDef.canAssignTasks },
     { icon: "briefcase", label: "Manage workflows", has: roleDef.canManageWorkflows },
     { icon: "clipboardCheck", label: "Approve POs", has: hasPermission(role, PERM.PO_APPROVE) },
-    { icon: "clipboardList", label: "Approve requisitions", has: hasPermission(role, PERM.REQUISITION_APPROVE) },
+    { icon: "clipboardList", label: "Approve indents", has: hasPermission(role, PERM.REQUISITION_APPROVE) },
     { icon: "package", label: "Transfer stock", has: hasPermission(role, PERM.STOCK_TRANSFER) },
     { icon: "package", label: "Issue stock", has: hasPermission(role, PERM.STOCK_ISSUE) },
     { icon: "dollarSign", label: "Create sales", has: hasPermission(role, PERM.SALE_CREATE) },
@@ -373,7 +373,7 @@ async function CommandCenterContent() {
       { key: "view", label: "View", has: hasPermission(role, PERM.PROCUREMENT_VIEW) },
       { key: "manage", label: "Manage", has: hasPermission(role, PERM.PROCUREMENT_MANAGE) },
       { key: "po_approve", label: "Approve PO", has: hasPermission(role, PERM.PO_APPROVE) },
-      { key: "req_approve", label: "Approve Req", has: hasPermission(role, PERM.REQUISITION_APPROVE) },
+      { key: "req_approve", label: "Approve Indent", has: hasPermission(role, PERM.REQUISITION_APPROVE) },
     ]},
     { key: "inventory", label: "Stock", actions: [
       { key: "view", label: "View", has: hasPermission(role, PERM.INVENTORY_VIEW) },

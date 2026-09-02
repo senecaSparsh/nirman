@@ -90,9 +90,17 @@ export default function MePage() {
     }
   };
 
-  const handleSignOut = () => {
-    authSignOut().catch(() => {});
-    router.replace("/sign-in");
+  const [signingOut, setSigningOut] = useState(false);
+  const handleSignOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await authSignOut();
+    } catch {
+      // Even if the server call fails, clear the client and redirect.
+    }
+    // Hard redirect — drops all client state/cache, ensures a clean session.
+    window.location.href = "/sign-in";
   };
 
   function startEditProfile() {
@@ -319,15 +327,15 @@ export default function MePage() {
           href="/m/pulse/approvals"
           icon={ClipboardCheck}
           title="Approvals Queue"
-          subtitle="POs & requisitions"
+          subtitle="POs & indents"
         />
       </div>
 
       {/* ── Sign out ──────────────────────────────────────────────── */}
       <div className="mt-6">
-        <Button variant="danger" fullWidth size="lg" onClick={handleSignOut}>
-          <LogOut className="size-4" />
-          Sign Out
+        <Button variant="danger" fullWidth size="lg" onClick={handleSignOut} disabled={signingOut}>
+          {signingOut ? <Loader2 className="size-4 animate-spin" /> : <LogOut className="size-4" />}
+          {signingOut ? "Signing out…" : "Sign Out"}
         </Button>
       </div>
     </div>

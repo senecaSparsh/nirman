@@ -45,7 +45,7 @@ interface CreateRequisitionInput {
 }
 
 export async function createRequisition(input: CreateRequisitionInput) {
-  if (input.lines.length === 0) throw new ServiceError("Requisition must have at least one line");
+  if (input.lines.length === 0) throw new ServiceError("Indent must have at least one line");
   if (!input.projectId && !input.departmentId) {
     throw new ServiceError("Either projectId or departmentId must be set", 400);
   }
@@ -161,10 +161,10 @@ export async function submitRequisition(reqId: string, userId?: string) {
         department: { select: { companyId: true } },
       },
     });
-    if (!req) throw new ServiceError("Requisition not found", 404);
-    if (req.status !== "DRAFT") throw new ServiceError(`Cannot submit requisition in status ${req.status}`);
+    if (!req) throw new ServiceError("Indent not found", 404);
+    if (req.status !== "DRAFT") throw new ServiceError(`Cannot submit indent in status ${req.status}`);
     const reqCompanyId = req.project?.companyId ?? req.department?.companyId;
-    if (!reqCompanyId) throw new ServiceError("Requisition has no project or department", 400);
+    if (!reqCompanyId) throw new ServiceError("Indent has no project or department", 400);
     const updated = await tx.materialRequisition.update({ where: { id: reqId }, data: { status: "SUBMITTED" } });
     await logAction(tx, {
       userId,
@@ -209,10 +209,10 @@ export async function approveRequisition(reqId: string, approvedById?: string, a
         department: { select: { companyId: true } },
       },
     });
-    if (!req) throw new ServiceError("Requisition not found", 404);
-    if (req.status !== "SUBMITTED") throw new ServiceError(`Cannot approve requisition in status ${req.status}`);
+    if (!req) throw new ServiceError("Indent not found", 404);
+    if (req.status !== "SUBMITTED") throw new ServiceError(`Cannot approve indent in status ${req.status}`);
     const reqCompanyId = req.project?.companyId ?? req.department?.companyId;
-    if (!reqCompanyId) throw new ServiceError("Requisition has no project or department", 400);
+    if (!reqCompanyId) throw new ServiceError("Indent has no project or department", 400);
     const updated = await tx.materialRequisition.update({
       where: { id: reqId },
       data: {
@@ -290,8 +290,8 @@ export async function approveRequisition(reqId: string, approvedById?: string, a
           await createQuotationRequest({
             companyId,
             projectId: reqWithLines.projectId,
-            title: `Auto-generated from Requisition ${reqWithLines.reqNumber}`,
-            notes: `Auto-created when requisition ${reqWithLines.reqNumber} was approved.`,
+            title: `Auto-generated from Indent ${reqWithLines.reqNumber}`,
+            notes: `Auto-created when indent ${reqWithLines.reqNumber} was approved.`,
             minQuotesRequired: reqWithLines.minQuotesRequired,
             requisitionId: reqId,
             submittedById: submitterId,
@@ -323,10 +323,10 @@ export async function rejectRequisition(reqId: string, rejectedById?: string, re
         department: { select: { companyId: true } },
       },
     });
-    if (!req) throw new ServiceError("Requisition not found", 404);
-    if (req.status !== "SUBMITTED") throw new ServiceError(`Cannot reject requisition in status ${req.status}`);
+    if (!req) throw new ServiceError("Indent not found", 404);
+    if (req.status !== "SUBMITTED") throw new ServiceError(`Cannot reject indent in status ${req.status}`);
     const reqCompanyId = req.project?.companyId ?? req.department?.companyId;
-    if (!reqCompanyId) throw new ServiceError("Requisition has no project or department", 400);
+    if (!reqCompanyId) throw new ServiceError("Indent has no project or department", 400);
     const updated = await tx.materialRequisition.update({
       where: { id: reqId },
       data: {
@@ -438,16 +438,16 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
       where: { id: input.requisitionId },
       include: { lines: true, project: true, department: { select: { companyId: true } } },
     });
-    if (!req) throw new ServiceError("Requisition not found", 404);
+    if (!req) throw new ServiceError("Indent not found", 404);
     if (req.status !== "APPROVED") {
-      throw new ServiceError(`Cannot convert requisition in status ${req.status}. Must be APPROVED.`);
+      throw new ServiceError(`Cannot convert indent in status ${req.status}. Must be APPROVED.`);
     }
     if (req.convertedPoId) {
-      throw new ServiceError("Requisition has already been converted to a PO.");
+      throw new ServiceError("Indent has already been converted to a PO.");
     }
     // Resolve companyId from project or department (one must exist)
     const reqCompanyId = req.project?.companyId ?? req.department?.companyId;
-    if (!reqCompanyId) throw new ServiceError("Requisition has no project or department — cannot determine company", 400);
+    if (!reqCompanyId) throw new ServiceError("Indent has no project or department — cannot determine company", 400);
 
     // Build PO lines from requisition lines. If a winning quote exists, auto-fill
     // costs + all landed-cost components from it (overriding manual lineCosts).

@@ -209,13 +209,11 @@ async function MobileBoqDetailContent({
         <div>
           <SectionHead title={`MB Entries (${item.mbEntries.length})`} />
           {item.mbEntries.length === 0 ? (
-            <div
-              className="rounded-[0.5rem] border p-3 text-center"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-            >
-              <BookOpen className="size-5 mx-auto mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-              <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>No measurement entries yet</p>
-            </div>
+            <MobileEmptyState
+              icon={BookOpen}
+              title="No measurement entries yet"
+              size="compact"
+            />
           ) : (
             <div className="flex flex-col gap-2">
               {item.mbEntries.map((mb) => (

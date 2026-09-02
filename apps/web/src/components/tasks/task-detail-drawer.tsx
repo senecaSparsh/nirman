@@ -14,6 +14,7 @@ import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatDate } from "@/lib/utils";
 import { StatusPill } from "@/components/page";
+import { EmployeeName } from "@/components/employee-name";
 
 // ───────────────────────────────────────────────────────────
 //  Types — mirror the shape returned by GET /api/tasks/[id]
@@ -21,7 +22,7 @@ import { StatusPill } from "@/components/page";
 //  serialized to numbers by the server component via toNum().
 // ───────────────────────────────────────────────────────────
 
-interface TaskUser { id: string; name: string; email: string; role: string }
+interface TaskUser { id: string; name: string; email: string; role: string; employeeId?: string | null }
 interface SubTask {
   id: string; title: string; completed: boolean; order: number;
   completedAt: string | null; completedBy: { name: string } | null;
@@ -175,7 +176,11 @@ export function TaskDetailDrawer({
     try {
       const res = await fetch(`/api/tasks/${taskId}`);
       if (!res.ok) { toast.error("Failed to load task"); return; }
-      const data = (await res.json()) as TaskDetail;
+      const data = (await res.json()) as TaskDetail & { assignedTo?: { employees?: { id: string }[] } };
+      // Flatten employees[] → employeeId for the EmployeeName link
+      if (data.assignedTo?.employees?.[0]?.id) {
+        data.assignedTo.employeeId = data.assignedTo.employees[0].id;
+      }
       setDetail(data);
       // Detect open timer for current user
       const openLog = data.timeLogs.find((l) => l.user.id === currentUserId && l.endedAt === null);
@@ -415,7 +420,13 @@ function DrawerHeader({
             <span className={cn("flex h-5 w-5 items-center justify-center rounded-full text-micro font-bold", avatarColor(detail.assignedTo.name))}>
               {initials(detail.assignedTo.name)}
             </span>
-            <span className="font-medium text-foreground">{detail.assignedTo.name}</span>
+            <span className="font-medium text-foreground">
+              {detail.assignedTo.employeeId ? (
+                <EmployeeName id={detail.assignedTo.employeeId} name={detail.assignedTo.name} />
+              ) : (
+                detail.assignedTo.name
+              )}
+            </span>
           </span>
         ) : (
           <span className="text-muted-foreground/60">Unassigned</span>

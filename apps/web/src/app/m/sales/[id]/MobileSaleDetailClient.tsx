@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../MobileChequeFields";
 import { MobileDocUploader } from "../../MobileDocUploader";
-import { ActionBar } from "@/components/mobile/v2/primitives";
+import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 type AssetType = "LAND" | "BUILT_UNIT" | "PROJECT";
 type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
@@ -243,19 +243,10 @@ export function MobileSaleDetailClient({
 
   if (notFound) {
     return (
-      <div>
-        <div className="mb-4">
-        </div>
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-12 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <IndianRupee className="size-8 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            Sale not found
-          </p>
-        </div>
-      </div>
+      <MobileEmptyState
+        icon={IndianRupee}
+        title="Sale not found"
+      />
     );
   }
 
@@ -638,14 +629,16 @@ export function MobileSaleDetailClient({
             <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-300)" }}>—</span>
           </div>
         )}
-        <Link
+        <a
           href={`/sales/${saleId}/print`}
+          target="_blank"
+          rel="noopener noreferrer"
           className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <Printer className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-700)" }} />
           <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Form</span>
-        </Link>
+        </a>
         <a
           href={`/print/sale-invoice/${saleId}`}
           target="_blank"
@@ -1004,14 +997,15 @@ export function MobileSaleDetailClient({
               Payment Schedule ({paymentSchedule.items.length})
             </p>
             {canManage && !isCancelled ? (
-              <Link
-                href={`/sales?sale=${saleId}`}
+              <button
+                type="button"
+                onClick={() => setShowEdit(true)}
                 className="flex items-center gap-1 text-m-caption font-bold press"
                 style={{ color: "var(--color-brand)" }}
               >
                 <CalendarClock className="size-3" />
                 <span>Edit</span>
-              </Link>
+              </button>
             ) : null}
           </div>
           <div className="rounded-[0.5rem] border overflow-hidden" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>

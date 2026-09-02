@@ -11,6 +11,7 @@ import {
   MobileSectionTitle,
   MobileStatCard,
   MobileRow,
+  MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
 
 /**
@@ -79,18 +80,11 @@ async function MobileReportsContent() {
 
   if (allZero) {
     return (
-      <div
-        className="flex flex-col items-center justify-center rounded-[0.5rem] border py-16 text-center"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-      >
-        <TrendingUp className="size-8 mb-2" style={{ color: "var(--color-ink-300)" }} />
-        <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-          No financial data yet
-        </p>
-        <p className="text-m-body mt-1" style={{ color: "var(--color-ink-500)" }}>
-          Post transactions to see analytics here
-        </p>
-      </div>
+      <MobileEmptyState
+        icon={TrendingUp}
+        title="No financial data yet"
+        description="Post transactions to see analytics here"
+      />
     );
   }
 

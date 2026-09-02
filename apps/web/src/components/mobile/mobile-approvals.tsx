@@ -2,7 +2,8 @@ import { connection } from "next/server";
 import { prisma, type DprApprovalStatus } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { MobilePageHeader, MobileRefreshButton } from "@/components/mobile/mobile-primitives";
+import { MobilePageHeader } from "@/components/mobile/v2/primitives";
+import { MobileRefreshButton } from "@/components/mobile/v2/scaffold";
 import { MobileApprovalsQueue } from "@/components/mobile/mobile-approvals-queue";
 
 /**

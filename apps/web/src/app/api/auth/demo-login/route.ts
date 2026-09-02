@@ -31,13 +31,14 @@ import { withSerializableTransaction } from "@nirman/services";
  */
 const DEMO_PASSWORD = "nirman123";
 
-// Demo accounts for the 6 most common roles (shown as quick-login buttons).
+// Demo accounts for the 7 most common roles (shown as quick-login buttons).
 // The other 7 roles can be created via the Team management UI.
-const DEMO_ROLES: Role[] = ["OWNER", "ADMIN", "PROJECT_MANAGER", "SUPERVISOR", "SALES_MANAGER", "ACCOUNTANT"];
+const DEMO_ROLES: Role[] = ["OWNER", "ADMIN", "DEVELOPER", "PROJECT_MANAGER", "SUPERVISOR", "SALES_MANAGER", "ACCOUNTANT"];
 
 const ROLE_NAMES: Partial<Record<Role, string>> = {
   OWNER: "Amit Patil",
   ADMIN: "Anita Rao",
+  DEVELOPER: "Sparsh Agarwal",
   PROJECT_MANAGER: "Sneha Kulkarni",
   SUPERVISOR: "Ravi Deshmukh",
   SALES_MANAGER: "Karan Mehta",
@@ -47,6 +48,7 @@ const ROLE_NAMES: Partial<Record<Role, string>> = {
 const ROLE_EMAILS: Partial<Record<Role, string>> = {
   OWNER: "amit@nirman.in",
   ADMIN: "anita@nirman.in",
+  DEVELOPER: "sparsh@nirman.in",
   PROJECT_MANAGER: "sneha@nirman.in",
   SUPERVISOR: "ravi@nirman.in",
   SALES_MANAGER: "karan@nirman.in",

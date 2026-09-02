@@ -88,22 +88,7 @@ export function MobileSubcontractorDetailClient({
 
   if (notFound || !data) {
     return (
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-            Subcontractor not found
-          </p>
-        </div>
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <AlertCircle className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            Subcontractor not found
-          </p>
-        </div>
-      </div>
+      <MobileEmptyState icon={AlertCircle} title="Subcontractor not found" />
     );
   }
 

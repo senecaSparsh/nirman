@@ -11,6 +11,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { StatusPill } from "@/components/page";
+import { EmployeeName } from "@/components/employee-name";
 import { formatCurrency, cn } from "@/lib/utils";
 
 export type CrewMember = {
@@ -297,7 +298,7 @@ function CrewDetailDialog({ crew, onClose }: { crew: CrewRow; onClose: () => voi
             {initials(m.name)}
           </span>
           <div className="min-w-0">
-            <span className="block truncate font-medium text-foreground">{m.name}</span>
+            <span className="block truncate font-medium text-foreground"><EmployeeName id={m.id} name={m.name} /></span>
             {m.trade && <span className="block truncate text-caption text-muted-foreground">{m.trade}</span>}
           </div>
         </div>

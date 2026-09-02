@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import {Plus, GitBranch, Search, Trash2} from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 
 type ChangeOrderType = "ADDITION" | "DELETION" | "MODIFICATION" | "ACCELERATION" | "DECELERATION" | "VARIATION";
 type ChangeOrderReason = "CLIENT_REQUEST" | "SITE_CONDITION" | "DESIGN_CHANGE" | "ERROR_OMISSION" | "REGULATORY" | "VALUE_ENGINEERING" | "OTHER";
@@ -106,12 +107,14 @@ export function ChangeOrdersView({
 
       {/* Table */}
       {filtered.length === 0 ? (
-        <div className="rounded-lg border border-border p-12 text-center">
-          <GitBranch className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
-          <p className="text-sm text-muted-foreground">
-            {changeOrders.length === 0 ? "No change orders yet. Create one to track scope changes." : "No change orders match your filters."}
-          </p>
-        </div>
+        <EmptyState
+          icon={<GitBranch />}
+          title="No change orders found"
+          description={
+            changeOrders.length === 0 ? "Create one to track scope changes." : "No change orders match your filters."
+          }
+          size="compact"
+        />
       ) : (
         <div className="rounded-lg border border-border overflow-hidden">
           <div className="grid grid-cols-[120px_1fr_120px_100px_120px_100px_80px] gap-2 border-b border-border bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground">

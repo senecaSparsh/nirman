@@ -6,6 +6,7 @@ import { X, Loader2, Home, Sparkles, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 
 type UnitType =
@@ -223,14 +224,14 @@ export function MobileNewUnitDialog({
   if (!open) return null;
 
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
     <div
@@ -248,7 +249,7 @@ export function MobileNewUnitDialog({
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <span
               className="grid place-items-center size-7 rounded-[0.375rem]"
               style={{ backgroundColor: "var(--color-concrete)" }}
@@ -268,7 +269,7 @@ export function MobileNewUnitDialog({
           <button
             onClick={onClose}
             className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-500)" }}
+            style={{ color: "var(--color-ink-700)" }}
             aria-label="Close"
           >
             <X className="size-4" />
@@ -315,12 +316,14 @@ export function MobileNewUnitDialog({
             options={projects.map((p) => ({ value: p.id, label: p.name }))}
             inputClass={inputClass}
             inputStyle={inputStyle}
-            renderDialog={({ open, onClose, onCreated }) => (
-              <MobileNewProjectDialog
-                open={open}
-                onClose={onClose}
-                onCreated={(p) => onCreated(p.id, p.name)}
-              />
+            renderDialog={({ open, onClose, onCreated, originRect }) => (
+              <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+                <MobileNewProjectDialog
+                  open={open}
+                  onClose={onClose}
+                  onCreated={(p) => onCreated(p.id, p.name)}
+                />
+              </MobileFabModal>
             )}
           />
 
@@ -347,7 +350,7 @@ export function MobileNewUnitDialog({
               </div>
 
               {/* Prefix + Start No */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className={labelClass} style={labelStyle}>
                     Number Prefix
@@ -378,7 +381,7 @@ export function MobileNewUnitDialog({
               </div>
 
               {/* Count + Units per floor */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className={labelClass} style={labelStyle}>
                     Count <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -419,7 +422,7 @@ export function MobileNewUnitDialog({
               >
                 <Sparkles className="inline size-3 mr-1" style={{ color: "var(--color-signal)" }} />
                 Preview:{" "}
-                <span className="font-bold" style={{ color: "var(--color-ink-950)" }}>
+                <span className="font-bold" style={{ color: "var(--color-ink-500)" }}>
                   {genPrefix}{genStart || "1"}
                   {" – "}
                   {genPrefix}{(parseInt(genStart) || 1) + (parseInt(genCount) || 1) - 1}
@@ -430,7 +433,7 @@ export function MobileNewUnitDialog({
           ) : (
             <>
           {/* Unit Number + Type */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
               <label className={labelClass} style={labelStyle}>
                 Unit Number{" "}
@@ -467,7 +470,7 @@ export function MobileNewUnitDialog({
           </div>
 
           {/* Floor + Wing */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
               <label className={labelClass} style={labelStyle}>
                 Floor
@@ -499,7 +502,7 @@ export function MobileNewUnitDialog({
           </div>
 
           {/* Area + Unit */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
               <label className={labelClass} style={labelStyle}>
                 Area <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -556,7 +559,7 @@ export function MobileNewUnitDialog({
 
           {/* RERA areas (optional) */}
           <div
-            className="rounded-[0.5rem] border p-2.5 space-y-2.5"
+            className="space-y-3 "
             style={{
               borderColor: "var(--color-line)",
               backgroundColor: "var(--color-paper-2)",
@@ -564,11 +567,11 @@ export function MobileNewUnitDialog({
           >
             <p
               className="text-m-caption font-bold uppercase"
-              style={{ color: "var(--color-ink-500)" }}
+              style={{ color: "var(--color-ink-700)" }}
             >
               RERA Areas (optional)
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
               <div>
                 <label className={labelClass} style={labelStyle}>
                   Carpet Area
@@ -602,7 +605,7 @@ export function MobileNewUnitDialog({
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
               <div>
                 <label className={labelClass} style={labelStyle}>
                   Balcony Area
@@ -637,7 +640,7 @@ export function MobileNewUnitDialog({
               </div>
             </div>
             <label
-              className="flex items-center gap-2 text-m-caption font-semibold"
+              className="flex items-center gap-1 text-m-caption font-semibold"
               style={{ color: "var(--color-ink-700)" }}
             >
               <input
@@ -653,7 +656,7 @@ export function MobileNewUnitDialog({
           )}
 
           {/* Actions */}
-          <div className="flex flex-col gap-2 pt-1">
+          <div className="flex flex-col gap-3 ">
             <button
               type="button"
               onClick={onClose}
@@ -661,8 +664,8 @@ export function MobileNewUnitDialog({
               className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
               style={{
                 borderColor: "var(--color-line)",
-                color: "var(--color-ink-500)",
-                backgroundColor: "transparent",
+                color: "var(--color-ink-700)",
+                backgroundColor: "var(--color-paper)",
               }}
             >
               Cancel

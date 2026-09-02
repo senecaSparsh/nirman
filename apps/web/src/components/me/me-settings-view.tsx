@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { User, Lock, Building2, Check, Loader2 } from "lucide-react";
+import { User, Lock, Building2, Check, Loader2, ShieldAlert, Monitor, Smartphone, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ interface MeSettingsViewProps {
     email: string;
     phone: string | null;
     image: string | null;
+    assignedCompanyPhones?: { id: string; phoneNumber: string; label: string | null; provider: string | null }[];
   };
   roleLabel: string;
   roleDescription: string;
@@ -160,6 +161,30 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
             <p className="mt-1 text-micro text-muted-foreground">{roleDescription}</p>
           </div>
         </div>
+
+        {/* Assigned company phone numbers */}
+        {user.assignedCompanyPhones && user.assignedCompanyPhones.length > 0 && (
+          <div className="mt-4 rounded-md border border-border bg-muted/30 p-3">
+            <div className="flex items-center gap-1.5 text-caption font-medium text-foreground">
+              <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+              Assigned Company Numbers
+            </div>
+            <div className="mt-2 space-y-1">
+              {user.assignedCompanyPhones.map((p) => (
+                <div key={p.id} className="flex items-center justify-between text-meta">
+                  <span className="font-medium">{p.phoneNumber}</span>
+                  <span className="text-muted-foreground">
+                    {p.label && <span className="mr-2">{p.label}</span>}
+                    {p.provider === "TWILIO" && <span className="rounded bg-muted px-1.5 py-0.5 text-micro">Twilio</span>}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-micro text-muted-foreground">
+              Incoming calls to these numbers are tracked and logged automatically. Ask an admin to assign or unassign numbers.
+            </p>
+          </div>
+        )}
         {!isDevBypass && (
           <div className="mt-4 flex justify-end">
             <Button onClick={handleSaveProfile} disabled={savingProfile || (profileForm.name === user.name && profileForm.phone === (user.phone ?? ""))}>
@@ -221,6 +246,11 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
         </section>
       )}
 
+      {/* ── Security / Sessions ─────────────────────────────────── */}
+      {!isDevBypass && (
+        <SessionsSection />
+      )}
+
       {/* ── Company Switcher ───────────────────────────────────── */}
       <section className="rounded-lg border border-border bg-card p-6">
         <div className="mb-4 flex items-center gap-2">
@@ -267,5 +297,90 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
         </div>
       </section>
     </div>
+  );
+}
+
+// ── Sessions / "Sign out all devices" ─────────────────────────
+function SessionsSection() {
+  const [revokingAll, setRevokingAll] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  async function handleRevokeAll() {
+    setRevokingAll(true);
+    try {
+      const { error } = await authClient.revokeSessions();
+      if (error) {
+        toast.error(error.message ?? "Could not revoke sessions");
+        setRevokingAll(false);
+        return;
+      }
+      toast.success("All other sessions signed out");
+      setConfirmOpen(false);
+      // Hard redirect to sign-in since the current session is also revoked.
+      setTimeout(() => { window.location.href = "/sign-in"; }, 1000);
+    } catch {
+      toast.error("Network error");
+      setRevokingAll(false);
+    }
+  }
+
+  return (
+    <section className="rounded-lg border border-border bg-card p-6">
+      <div className="mb-4 flex items-center gap-2">
+        <ShieldAlert className="h-4 w-4 text-muted-foreground" />
+        <h3 className="text-body font-semibold text-foreground">Security</h3>
+      </div>
+
+      {confirmOpen ? (
+        <div className="space-y-3 rounded-md border border-danger/30 bg-danger-soft/30 p-4">
+          <p className="text-caption leading-relaxed text-foreground">
+            This will sign out <strong>every device</strong> currently logged
+            into your account — including this one. You&apos;ll need to sign in
+            again everywhere.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleRevokeAll}
+              disabled={revokingAll}
+            >
+              {revokingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldAlert className="h-3.5 w-3.5" />}
+              {revokingAll ? "Revoking…" : "Yes, sign out everywhere"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmOpen(false)}
+              disabled={revokingAll}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-start gap-2.5">
+            <Monitor className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div>
+              <p className="text-caption font-medium text-foreground">
+                Sign out all devices
+              </p>
+              <p className="mt-0.5 text-micro text-muted-foreground">
+                Revoke all active sessions across every device.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setConfirmOpen(true)}
+          >
+            <Smartphone className="h-3.5 w-3.5" />
+            Revoke all
+          </Button>
+        </div>
+      )}
+    </section>
   );
 }

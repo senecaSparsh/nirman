@@ -77,6 +77,8 @@ export function MobileDprForm({
   materials,
   existingDprsByProject,
   yesterdayDprsByProject,
+  onClose,
+  onCreated,
 }: {
   projects: { id: string; name: string }[];
   employees: { id: string; name: string; trade: string | null }[];
@@ -84,6 +86,10 @@ export function MobileDprForm({
   materials: { id: string; name: string; unit: string | null; standardCost: number }[];
   existingDprsByProject: Record<string, ExistingDpr>;
   yesterdayDprsByProject: Record<string, YesterdayDpr>;
+  /** Called when the form is dismissed (modal close). */
+  onClose?: () => void;
+  /** Called after a DPR is successfully submitted/updated. */
+  onCreated?: () => void;
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -455,6 +461,7 @@ export function MobileDprForm({
       // Record smart defaults for next time
       recordDefaults({ project: fProject, workType: fWorkType, weather: fWeather });
       clearDraft();
+      onCreated?.();
       router.push("/m/site");
     } catch (err) {
       haptic([50, 20, 50]);

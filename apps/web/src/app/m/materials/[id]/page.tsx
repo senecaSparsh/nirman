@@ -18,6 +18,7 @@ import {
 
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 import { MobileMaterialDeleteBtn } from "./MobileMaterialDeleteBtn";
+import { MobileAdjustStockBtn } from "./MobileAdjustStockBtn";
 
 /**
  * /m/materials/[id] — material detail page.
@@ -54,7 +55,7 @@ async function MobileMaterialDetailContent({
   }
   const { id } = await params;
 
-  const [material, stockItems, movements] = await Promise.all([
+  const [material, stockItems, movements, locationRows] = await Promise.all([
     prisma.material.findFirst({
       where: { id, deletedAt: null },
       include: { category: { select: { name: true } } },
@@ -72,6 +73,14 @@ async function MobileMaterialDetailContent({
       orderBy: { timestamp: "desc" },
       take: 10,
       include: { fromLocation: { select: { name: true } }, toLocation: { select: { name: true } } },
+    }),
+
+    // All company stock locations — passed to the adjust-stock sheet so the
+    // location select is never empty, even when this material has zero stock.
+    prisma.stockLocation.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      orderBy: [{ type: "asc" }, { name: "asc" }],
+      include: { project: { select: { id: true, name: true } } },
     }),
   ]);
 
@@ -204,12 +213,11 @@ async function MobileMaterialDetailContent({
             By Location ({stockItems.length})
           </h3>
           {stockItems.length === 0 ? (
-            <div
-              className="flex flex-col items-center justify-center rounded-[0.5rem] border p-2 text-center"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", minHeight: "3rem" }}
-            >
-              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>None on hand</p>
-            </div>
+            <MobileEmptyState
+              icon={Package}
+              title="None on hand"
+              size="compact"
+            />
           ) : (
             stockItems.map((i) => {
               const locQty = toNum(i.qty);
@@ -243,12 +251,11 @@ async function MobileMaterialDetailContent({
             Movements ({movements.length})
           </h3>
           {movements.length === 0 ? (
-            <div
-              className="flex flex-col items-center justify-center rounded-[0.5rem] border p-2 text-center"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", minHeight: "3rem" }}
-            >
-              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>No movements</p>
-            </div>
+            <MobileEmptyState
+              icon={ArrowLeftRight}
+              title="No movements"
+              size="compact"
+            />
           ) : (
             movements.map((m) => {
               const isIn = m.toLocation?.name != null && m.fromLocation?.name == null;
@@ -287,6 +294,29 @@ async function MobileMaterialDetailContent({
       {/* ── Edit + Archive actions (managers only) ── */}
       {hasPermission(role, PERM.INVENTORY_MANAGE) && (
         <MobileMaterialDeleteBtn materialId={material.id} materialName={material.name} />
+      )}
+
+      {/* ── Floating Adjust Stock action (managers only) ── */}
+      {hasPermission(role, PERM.INVENTORY_MANAGE) && (
+        <MobileAdjustStockBtn
+          materialId={material.id}
+          materialCode={material.code}
+          materialName={material.name}
+          materialUnit={material.unit}
+          currentCost={aggregateMac}
+          isLotTracked={material.isLotTracked ?? false}
+          stockItems={stockItems.map((i) => ({
+            locationId: i.locationId,
+            locationName: i.location.name,
+            qty: toNum(i.qty),
+            movingAvgCost: toNum(i.movingAvgCost),
+          }))}
+          locations={locationRows.map((l) => ({
+            id: l.id,
+            name: l.name,
+            projectName: l.project?.name ?? null,
+          }))}
+        />
       )}
     </div>
   );

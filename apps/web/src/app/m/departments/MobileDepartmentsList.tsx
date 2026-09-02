@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, Package, Plus, X, Loader2 } from "lucide-react";
+import { Building2, Package, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   MobileSearchHeader,
@@ -15,6 +14,8 @@ import {
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 
 export type DepartmentListItem = {
   id: string;
@@ -59,7 +60,7 @@ export function MobileDepartmentsList({
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
-  const [formOpen, setFormOpen] = useState(false);
+  const fab = useFabModal();
 
   const filtered = useMemo(() => {
     let result = items;
@@ -86,22 +87,16 @@ export function MobileDepartmentsList({
 
   if (items.length === 0) {
     return (
-      <MobileEmptyState
-        icon={Building2}
-        title="No departments yet"
-        hint="Create departments to organize your team"
-        action={
-          canManage ? (
-            <Link
-              href="/departments"
-              className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-            >
-              <Plus className="size-3.5" /> Add Department
-            </Link>
-          ) : undefined
-        }
-      />
+      <>
+        <MobileEmptyState
+          icon={Building2}
+          title="No departments yet"
+          description={canManage ? "Tap the + button below to create your first department." : "Departments will appear here once created."}
+        />
+        <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="Add Department">
+          <DepartmentFormDialog onClose={fab.close} />
+        </MobileFabModal>
+      </>
     );
   }
 
@@ -166,15 +161,12 @@ export function MobileDepartmentsList({
       )}
 
       {canManage ? (
-        <MobileFab onClick={() => setFormOpen(true)} label="Add department" />
+        <MobileFab onClick={fab.toggle} label="Add department" isOpen={fab.isOpen} />
       ) : null}
 
-      {formOpen ? (
-        <DepartmentFormDialog
-          open={formOpen}
-          onOpenChange={setFormOpen}
-        />
-      ) : null}
+      <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="Add Department">
+        <DepartmentFormDialog onClose={fab.close} />
+      </MobileFabModal>
     </div>
   );
 }
@@ -191,28 +183,28 @@ function DepartmentCard({ d }: { d: DepartmentListItem }) {
     >
       <div className="h-0.5 w-full" style={{ backgroundColor: accentColor }} />
 
-      <div className="p-2 flex flex-col gap-1 flex-1">
+      <div className="p-2 flex flex-col gap-3 flex-1">
         <div className="flex items-center justify-between gap-1">
-          <p className="text-m-label font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-label font-bold leading-tight truncate" style={{ color: "var(--color-ink-500)" }}>
             {d.name}
           </p>
           <span
             className="text-m-caption font-bold uppercase shrink-0 font-mono"
-            style={{ color: "var(--color-steel)" }}
+            style={{ color: "var(--color-ink-500)" }}
           >
             {d.code}
           </span>
         </div>
 
         {d.description && (
-          <p className="text-m-caption leading-tight line-clamp-2" style={{ color: "var(--color-ink-500)" }}>
+          <p className="text-m-caption leading-tight line-clamp-2" style={{ color: "var(--color-ink-700)" }}>
             {d.description}
           </p>
         )}
 
-        <div className="mt-auto pt-1 flex items-center gap-1.5">
+        <div className="mt-auto  flex items-center gap-1.5">
           {d.stockLocationName ? (
-            <span className="text-m-caption flex items-center gap-0.5 truncate" style={{ color: "var(--color-ink-700)" }}>
+            <span className="text-m-caption flex items-center gap-1.5 truncate" style={{ color: "var(--color-ink-700)" }}>
               <Package className="size-2 shrink-0" />
               {d.stockLocationName}
             </span>
@@ -234,7 +226,7 @@ function DepartmentCard({ d }: { d: DepartmentListItem }) {
             {d.active ? "Active" : "Inactive"}
           </span>
           {hasIssues && (
-            <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-steel)" }}>
+            <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
               {d.issueCount} issue{d.issueCount !== 1 ? "s" : ""}
             </span>
           )}
@@ -244,13 +236,11 @@ function DepartmentCard({ d }: { d: DepartmentListItem }) {
   );
 }
 
-/* ─── Add department form dialog (bottom sheet) ─── */
+/* ─── Add department form (rendered inside MobileFabModal) ─── */
 function DepartmentFormDialog({
-  open,
-  onOpenChange,
+  onClose,
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onClose: () => void;
 }) {
   const router = useRouter();
   const [code, setCode] = useState("");
@@ -282,7 +272,7 @@ function DepartmentFormDialog({
         throw new Error(err.error ?? "Failed to create department");
       }
       toast.success("Department created");
-      onOpenChange(false);
+      onClose();
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create department");
@@ -291,103 +281,80 @@ function DepartmentFormDialog({
     }
   }
 
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex flex-col"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={() => onOpenChange(false)}
-    >
-      <div
-        className="mt-auto rounded-t-[0.75rem] max-h-[85vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between p-3 border-b sticky top-0" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <div className="flex items-center gap-2">
-            <Building2 className="size-4" style={{ color: "var(--color-steel)" }} />
-            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Add Department</p>
-          </div>
-          <button onClick={() => onOpenChange(false)} className="text-m-body press p-1">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-3 space-y-3">
-          <div>
-            <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-700)" }}>
-              Code *
-            </label>
-            <input
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="BOILER, MP-2, WORKSHOP…"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section font-mono outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-700)" }}>
-              Name *
-            </label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Boiler House"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-700)" }}>
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-              placeholder="What this department does…"
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section outline-none resize-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
-            />
-          </div>
-
-          <label className="flex items-center gap-2 text-m-section" style={{ color: "var(--color-ink-950)" }}>
-            <input
-              type="checkbox"
-              checked={active}
-              onChange={(e) => setActive(e.target.checked)}
-              className="rounded"
-            />
-            Active department
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+        <div>
+          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+            Code *
           </label>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              className="px-4 h-10 rounded-[0.5rem] text-m-section font-medium press"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 h-10 rounded-[0.5rem] text-m-section font-bold flex items-center gap-1.5 press"
-              style={{ backgroundColor: "var(--color-steel)", color: "var(--color-paper)" }}
-            >
-              {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
-              {saving ? "Creating…" : "Create"}
-            </button>
-          </div>
-        </form>
+          <input
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="BOILER"
+            className="w-full h-7 px-1 text-m-caption font-mono outline-none border-b focus:border-b-2 transition-colors"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+            Name *
+          </label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Boiler House"
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}
+            required
+          />
+        </div>
       </div>
-    </div>
+
+      <div>
+        <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+          Description
+        </label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={2}
+          placeholder="What this department does…"
+          className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}
+        />
+      </div>
+
+      <label className="flex items-center gap-1 text-m-body" style={{ color: "var(--color-ink-500)" }}>
+        <input
+          type="checkbox"
+          checked={active}
+          onChange={(e) => setActive(e.target.checked)}
+          className="rounded"
+        />
+        Active department
+      </label>
+
+      <div className="flex justify-end gap-1 pt-2">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 h-10 rounded-[0.5rem] text-m-body font-medium press"
+          style={{ color: "var(--color-ink-700)" }}
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={saving}
+          className="px-4 h-10 rounded-[0.5rem] text-m-section font-bold flex items-center gap-1.5 press"
+          style={{ backgroundColor: "var(--color-steel)", color: "var(--color-paper)" }}
+        >
+          {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
+          {saving ? "Creating…" : "Create"}
+        </button>
+      </div>
+    </form>
   );
 }

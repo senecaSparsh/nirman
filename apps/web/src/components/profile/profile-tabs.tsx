@@ -34,6 +34,7 @@ import { Section, MetricGrid, Metric } from "@/components/page";
 import { MyTasksPanel } from "@/components/tasks/my-tasks-panel";
 import { BarSeries, PieSeries } from "@/components/reports/charts";
 import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/empty-state";
 
 /**
  * Icon map — the server passes string keys (not icon components,
@@ -411,11 +412,11 @@ export function ProfileTabs(props: ProfileTabsProps) {
             </Section>
           </>
         ) : (
-          <div className="rounded-lg border border-border bg-card px-4 py-12 text-center">
-            <p className="text-body text-muted-foreground">
-              No actions recorded yet. Your activity will appear here as you work.
-            </p>
-          </div>
+          <EmptyState
+            icon={<Activity />}
+            title="No actions recorded yet"
+            description="Your activity will appear here as you work."
+          />
         )}
       </TabsContent>
     </Tabs>

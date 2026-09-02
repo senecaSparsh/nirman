@@ -11,7 +11,7 @@ import { type Role, ROLES } from "@/lib/roles";
 
 type CompanyOption = { id: string; name: string; role: string };
 type LoginMode = "phone" | "email";
-type PhoneStep = "enter" | "verify" | "select-user";
+type PhoneStep = "password" | "otp-enter" | "otp-verify" | "otp-select-user" | "select-user";
 
 type MultiUserEntry = {
   id: string;
@@ -22,7 +22,7 @@ type MultiUserEntry = {
 };
 
 // Demo roles shown as one-click buttons (dev only).
-const DEMO_ROLES: Role[] = ["OWNER", "ADMIN", "PROJECT_MANAGER", "SUPERVISOR", "SALES_MANAGER", "ACCOUNTANT"];
+const DEMO_ROLES: Role[] = ["OWNER", "ADMIN", "DEVELOPER", "PROJECT_MANAGER", "SUPERVISOR", "SALES_MANAGER", "ACCOUNTANT"];
 
 /**
  * SIGN IN — the first screen, so it sets the expectation for the rest.
@@ -60,9 +60,10 @@ function SignInForm() {
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [fetchingCompanies, setFetchingCompanies] = useState(false);
   // Phone OTP state
-  const [mode, setMode] = useState<LoginMode>("email");
-  const [phoneStep, setPhoneStep] = useState<PhoneStep>("enter");
+  const [mode, setMode] = useState<LoginMode>("phone");
+  const [phoneStep, setPhoneStep] = useState<PhoneStep>("password");
   const [phone, setPhone] = useState("");
+  const [phonePassword, setPhonePassword] = useState("");
   const [otp, setOtp] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
   const [multiUsers, setMultiUsers] = useState<MultiUserEntry[]>([]);
@@ -216,7 +217,7 @@ function SignInForm() {
         setLoading(false);
         return;
       }
-      setPhoneStep("verify");
+      setPhoneStep("otp-verify");
       setResendCooldown(30);
     } catch {
       setError("Could not reach the server. Is the dev server running?");
@@ -272,7 +273,7 @@ function SignInForm() {
       if (data.multiUser) {
         setMultiUsers(data.users);
         setPendingOtpId(data.otpId);
-        setPhoneStep("select-user");
+        setPhoneStep("otp-select-user");
         setLoading(false);
         return;
       }
@@ -310,19 +311,116 @@ function SignInForm() {
 
   // Auto-submit when all 6 digits are entered
   useEffect(() => {
-    if (phoneStep === "verify" && otp.length === 6 && !loading) {
+    if (phoneStep === "otp-verify" && otp.length === 6 && !loading) {
       handleVerifyOtp();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otp, phoneStep]);
 
   function resetPhoneFlow() {
-    setPhoneStep("enter");
+    setPhoneStep("password");
     setOtp("");
+    setPhonePassword("");
     setError("");
     setMultiUsers([]);
     setPendingOtpId("");
     setResendCooldown(0);
+  }
+
+  // Phone + password login
+  async function handlePhonePasswordLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/auth/phone-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, password: phonePassword }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Invalid phone number or password.");
+        setLoading(false);
+        return;
+      }
+      const data = await res.json();
+      // Multi-user: show account picker (Shape C — same phone, same password)
+      if (data.multiUser) {
+        setMultiUsers(data.users);
+        setPhoneStep("select-user");
+        setLoading(false);
+        return;
+      }
+      // Company picker: user has multiple memberships
+      if (data.requiresCompanySelect) {
+        setCompanies(data.companies.map((c: { id: string; name: string; role: string }) => ({
+          id: c.id, name: c.name, role: c.role,
+        })));
+        setSelectedCompanyId(data.companies[0]?.id ?? "");
+        // Session is already created — just need to pick company
+        if (data.mustChangePassword) {
+          router.push("/change-password");
+          router.refresh();
+          return;
+        }
+        await routeAfterLogin();
+        return;
+      }
+      // Must change password on first login
+      if (data.mustChangePassword) {
+        router.push("/change-password");
+        router.refresh();
+        return;
+      }
+      await routeAfterLogin();
+    } catch {
+      setError("Could not reach the server. Is the dev server running?");
+    }
+    setLoading(false);
+  }
+
+  // Phone-password: select user (Shape C — multiple accounts, same phone+password)
+  async function handlePhonePasswordSelectUser(userId: string) {
+    if (loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/auth/phone-password/select", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, userId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Could not complete login. Try again.");
+        setLoading(false);
+        return;
+      }
+      const data = await res.json();
+      if (data.requiresCompanySelect) {
+        setCompanies(data.companies.map((c: { id: string; name: string; role: string }) => ({
+          id: c.id, name: c.name, role: c.role,
+        })));
+        setSelectedCompanyId(data.companies[0]?.id ?? "");
+        if (data.mustChangePassword) {
+          router.push("/change-password");
+          router.refresh();
+          return;
+        }
+        await routeAfterLogin();
+        return;
+      }
+      if (data.mustChangePassword) {
+        router.push("/change-password");
+        router.refresh();
+        return;
+      }
+      await routeAfterLogin();
+    } catch {
+      setError("Could not reach the server. Is the dev server running?");
+    }
+    setLoading(false);
   }
 
   const busy = loading || oneClickRole !== null;
@@ -366,78 +464,44 @@ function SignInForm() {
           </button>
         </div>
 
-        {/* ── Phone OTP form ── */}
-        {mode === "phone" && phoneStep !== "select-user" && (
+        {/* ── Phone + password form (default phone mode) ── */}
+        {mode === "phone" && phoneStep === "password" && (
           <form
-            onSubmit={phoneStep === "enter" ? handleSendOtp : handleVerifyOtp}
+            onSubmit={handlePhonePasswordLogin}
             className="space-y-4 rounded-lg border border-border bg-card p-5 shadow-raised"
           >
-            {phoneStep === "enter" ? (
-              <div>
-                <Label htmlFor="phone" className="mb-1.5 block">
-                  Phone number
-                </Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="98765 43210"
-                  autoComplete="tel"
-                  required
-                  autoFocus
-                  disabled={busy}
-                />
-                <p className="mt-1.5 text-micro text-muted-foreground">
-                  We&apos;ll send a 6-digit code to verify your number.
-                </p>
-              </div>
-            ) : (
-              <div>
-                <Label htmlFor="otp" className="mb-1.5 block">
-                  Enter the 6-digit code
-                </Label>
-                <Input
-                  id="otp"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]{6}"
-                  maxLength={6}
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                  placeholder="000000"
-                  required
-                  autoFocus
-                  disabled={busy}
-                  className="text-center text-lg tracking-[0.5em]"
-                />
-                <div className="mt-1.5 flex items-center justify-between text-micro text-muted-foreground">
-                  <span>
-                    Code sent to {phone}.{" "}
-                    <button
-                      type="button"
-                      onClick={resetPhoneFlow}
-                      className="font-medium text-foreground underline"
-                      disabled={busy}
-                    >
-                      Change
-                    </button>
-                  </span>
-                  {resendCooldown > 0 ? (
-                    <span className="tabular-nums">Resend in {resendCooldown}s</span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleResendOtp}
-                      className="font-medium text-foreground underline disabled:opacity-50"
-                      disabled={busy}
-                    >
-                      Resend code
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
+            <div>
+              <Label htmlFor="phone" className="mb-1.5 block">
+                Phone number
+              </Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="98765 43210"
+                autoComplete="tel"
+                required
+                autoFocus
+                disabled={busy}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="phonePassword" className="mb-1.5 block">
+                Password
+              </Label>
+              <Input
+                id="phonePassword"
+                type="password"
+                value={phonePassword}
+                onChange={(e) => setPhonePassword(e.target.value)}
+                placeholder="••••••••"
+                autoComplete="current-password"
+                required
+                disabled={busy}
+              />
+            </div>
 
             {error && (
               <p
@@ -451,15 +515,147 @@ function SignInForm() {
 
             <Button type="submit" size="touch" className="w-full" disabled={busy}>
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {loading
-                ? phoneStep === "enter" ? "Sending code…" : "Verifying…"
-                : phoneStep === "enter" ? "Send code" : "Verify & sign in"}
+              {loading ? "Signing in…" : "Sign in"}
+            </Button>
+
+            <div className="space-y-2 text-center">
+              <p className="text-micro text-muted-foreground">
+                Forgot your password? Contact your administrator to reset it.
+              </p>
+              <button
+                type="button"
+                onClick={() => { setPhoneStep("otp-enter"); setError(""); }}
+                className="text-caption text-muted-foreground underline hover:text-foreground"
+                disabled={busy}
+              >
+                Sign in with a code instead
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* ── Phone OTP: enter phone (secondary option) ── */}
+        {mode === "phone" && phoneStep === "otp-enter" && (
+          <form
+            onSubmit={handleSendOtp}
+            className="space-y-4 rounded-lg border border-border bg-card p-5 shadow-raised"
+          >
+            <div>
+              <Label htmlFor="phone-otp" className="mb-1.5 block">
+                Phone number
+              </Label>
+              <Input
+                id="phone-otp"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="98765 43210"
+                autoComplete="tel"
+                required
+                autoFocus
+                disabled={busy}
+              />
+              <p className="mt-1.5 text-micro text-muted-foreground">
+                We&apos;ll send a 6-digit code to verify your number.
+              </p>
+            </div>
+
+            {error && (
+              <p
+                role="alert"
+                className="flex items-start gap-1.5 rounded-md bg-danger-soft px-2.5 py-2 text-caption leading-relaxed text-danger"
+              >
+                <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
+                <span>{error}</span>
+              </p>
+            )}
+
+            <Button type="submit" size="touch" className="w-full" disabled={busy}>
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+              {loading ? "Sending code…" : "Send code"}
+            </Button>
+
+            <button
+              type="button"
+              onClick={() => { setPhoneStep("password"); setError(""); }}
+              className="block w-full text-center text-caption text-muted-foreground underline hover:text-foreground"
+              disabled={busy}
+            >
+              Use password instead
+            </button>
+          </form>
+        )}
+
+        {/* ── Phone OTP: verify code ── */}
+        {mode === "phone" && phoneStep === "otp-verify" && (
+          <form
+            onSubmit={handleVerifyOtp}
+            className="space-y-4 rounded-lg border border-border bg-card p-5 shadow-raised"
+          >
+            <div>
+              <Label htmlFor="otp" className="mb-1.5 block">
+                Enter the 6-digit code
+              </Label>
+              <Input
+                id="otp"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                placeholder="000000"
+                required
+                autoFocus
+                disabled={busy}
+                className="text-center text-lg tracking-[0.5em]"
+              />
+              <div className="mt-1.5 flex items-center justify-between text-micro text-muted-foreground">
+                <span>
+                  Code sent to {phone}.{" "}
+                  <button
+                    type="button"
+                    onClick={resetPhoneFlow}
+                    className="font-medium text-foreground underline"
+                    disabled={busy}
+                  >
+                    Change
+                  </button>
+                </span>
+                {resendCooldown > 0 ? (
+                  <span className="tabular-nums">Resend in {resendCooldown}s</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    className="font-medium text-foreground underline disabled:opacity-50"
+                    disabled={busy}
+                  >
+                    Resend code
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {error && (
+              <p
+                role="alert"
+                className="flex items-start gap-1.5 rounded-md bg-danger-soft px-2.5 py-2 text-caption leading-relaxed text-danger"
+              >
+                <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
+                <span>{error}</span>
+              </p>
+            )}
+
+            <Button type="submit" size="touch" className="w-full" disabled={busy}>
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+              {loading ? "Verifying…" : "Verify & sign in"}
             </Button>
           </form>
         )}
 
         {/* ── Phone OTP: multi-user picker ── */}
-        {mode === "phone" && phoneStep === "select-user" && (
+        {mode === "phone" && (phoneStep === "otp-select-user" || phoneStep === "select-user") && (
           <div className="space-y-4 rounded-lg border border-border bg-card p-5 shadow-raised">
             <div>
               <p className="text-body font-medium text-foreground">Select an account</p>
@@ -472,7 +668,7 @@ function SignInForm() {
                 <button
                   key={u.id}
                   type="button"
-                  onClick={() => handleSelectUser(u.id)}
+                  onClick={() => phoneStep === "select-user" ? handlePhonePasswordSelectUser(u.id) : handleSelectUser(u.id)}
                   disabled={busy}
                   className="flex w-full items-center gap-3 rounded-lg border border-border bg-card px-3 py-3 text-left transition-colors hover:bg-accent/50 disabled:opacity-50"
                 >
@@ -601,6 +797,15 @@ function SignInForm() {
               {(loading || oneClickRole !== null) && <Loader2 className="h-4 w-4 animate-spin" />}
               {loading ? "Signing in…" : "Sign in"}
             </Button>
+
+            <div className="text-center">
+              <a
+                href="/forgot-password"
+                className="text-caption text-muted-foreground underline hover:text-foreground"
+              >
+                Forgot password?
+              </a>
+            </div>
           </form>
         )}
 

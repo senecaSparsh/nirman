@@ -13,6 +13,9 @@ import {
   type SummaryStat,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { MobileNewSubcontractorClient } from "./new/MobileNewSubcontractorClient";
 
 type TradeFilter = "ALL" | "PLUMBING" | "ELECTRICAL" | "MASONRY" | "OTHER";
 
@@ -69,6 +72,7 @@ export function MobileSubcontractorsList({
 }) {
   const [query, setQuery] = useState("");
   const [tradeFilter, setTradeFilter] = useState<TradeFilter>("ALL");
+  const fab = useFabModal();
 
   const filtered = useMemo(() => {
     let result = items;
@@ -149,7 +153,16 @@ export function MobileSubcontractorsList({
 
       {/* ── New subcontractor FAB ── */}
       {canCreate ? (
-        <MobileFab href="/m/subcontractors/new" label="Add subcontractor" />
+        <MobileFab onClick={fab.toggle} label="Add subcontractor" isOpen={fab.isOpen} />
+      ) : null}
+
+      {canCreate ? (
+        <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="New Subcontractor">
+          <MobileNewSubcontractorClient
+            onClose={fab.close}
+            onCreated={() => window.location.reload()}
+          />
+        </MobileFabModal>
       ) : null}
     </div>
   );

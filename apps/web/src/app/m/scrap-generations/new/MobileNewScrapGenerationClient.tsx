@@ -9,6 +9,7 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewStockLocationDialog";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
@@ -37,7 +38,7 @@ interface ScrapLine {
   unitCost: string;
 }
 
-export default function MobileNewScrapGenerationClient() {
+export default function MobileNewScrapGenerationClient({ onClose, onCreated }: { onClose?: () => void; onCreated?: (id: string) => void } = {}) {
   const router = useRouter();
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
@@ -163,17 +164,21 @@ export default function MobileNewScrapGenerationClient() {
         <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
           Scrap Generated
         </p>
-        <p className="text-m-body font-mono mb-3" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption font-mono mb-3" style={{ color: "var(--color-ink-700)" }}>
           {success.scrapNumber}
         </p>
         <p className="text-m-section font-bold tabular-nums mb-4" style={{ color: "var(--color-go)" }}>
           {formatCurrency(success.totalValue)}
         </p>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           <button
             onClick={() => {
-              router.refresh();
-              router.push("/m/scrap-generations");
+              if (onCreated) {
+                onCreated("");
+              } else {
+                router.refresh();
+                router.push("/m/stock?tab=scrap");
+              }
             }}
             className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
@@ -187,7 +192,7 @@ export default function MobileNewScrapGenerationClient() {
               setNotes("");
             }}
             className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
           >
             Add Another
           </button>
@@ -200,13 +205,13 @@ export default function MobileNewScrapGenerationClient() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <Loader2 className="size-6 animate-spin" style={{ color: "var(--color-ink-500)" }} />
-        <p className="text-m-body mt-2" style={{ color: "var(--color-ink-500)" }}>Loading form…</p>
+        <Loader2 className="size-6 animate-spin" style={{ color: "var(--color-ink-700)" }} />
+        <p className="text-m-body mt-2" style={{ color: "var(--color-ink-700)" }}>Loading form…</p>
       </div>
     );
   }
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
 
   return (
     <div>
@@ -246,15 +251,17 @@ export default function MobileNewScrapGenerationClient() {
           placeholder="No project linkage"
           inputClass={inputClass}
           inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          renderDialog={({ open, onClose, onCreated }) => (
-            <MobileNewProjectDialog
-              open={open}
-              onClose={onClose}
-              onCreated={(p) => {
-                setProjects((prev) => [...prev, { id: p.id, name: p.name }]);
-                onCreated(p.id, p.name);
-              }}
-            />
+          renderDialog={({ open, onClose, onCreated, originRect }) => (
+            <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+              <MobileNewProjectDialog
+                open={open}
+                onClose={onClose}
+                onCreated={(p) => {
+                  setProjects((prev) => [...prev, { id: p.id, name: p.name }]);
+                  onCreated(p.id, p.name);
+                }}
+              />
+            </MobileFabModal>
           )}
         />
 
@@ -282,10 +289,10 @@ export default function MobileNewScrapGenerationClient() {
 
         {/* ── Line items ── */}
         <div>
-          <label className="block text-m-caption font-semibold mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+          <label className="block text-m-caption font-semibold mb-1.5" style={{ color: "var(--color-ink-700)" }}>
             Line Items <span style={{ color: "var(--color-stop)" }}>*</span>
           </label>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             {lines.map((line, idx) => {
               const mat = materials.find((m) => m.id === line.materialId);
               const lineTotal = (Number(line.qty) || 0) * (Number(line.unitCost) || 0);
@@ -318,9 +325,9 @@ export default function MobileNewScrapGenerationClient() {
                   />
 
                   {/* Qty + unit cost */}
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                     <div>
-                      <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                      <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-700)" }}>
                         Qty{mat ? ` (${mat.unit})` : ""}
                       </label>
                       <input
@@ -330,12 +337,12 @@ export default function MobileNewScrapGenerationClient() {
                         value={line.qty}
                         onChange={(e) => handleLineChange(idx, "qty", e.target.value)}
                         placeholder="0"
-                        className={`${inputClass} text-m-body tabular-nums`}
+                        className={`${inputClass} text-m-caption tabular-nums`}
                         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                       />
                     </div>
                     <div>
-                      <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                      <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-700)" }}>
                         Unit Cost
                       </label>
                       <input
@@ -345,7 +352,7 @@ export default function MobileNewScrapGenerationClient() {
                         value={line.unitCost}
                         onChange={(e) => handleLineChange(idx, "unitCost", e.target.value)}
                         placeholder="0"
-                        className={`${inputClass} text-m-body tabular-nums`}
+                        className={`${inputClass} text-m-caption tabular-nums`}
                         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                       />
                     </div>
@@ -360,7 +367,7 @@ export default function MobileNewScrapGenerationClient() {
                       <button
                         type="button"
                         onClick={() => handleRemoveLine(idx)}
-                        className="flex items-center gap-0.5 text-m-caption font-semibold text-m-body press"
+                        className="flex items-center gap-1.5 text-m-caption font-semibold text-m-body press"
                         style={{ color: "var(--color-stop)" }}
                       >
                         <Trash2 className="size-3" /> Remove
@@ -398,10 +405,10 @@ export default function MobileNewScrapGenerationClient() {
 
         {/* ── Total + submit ── */}
         <div
-          className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2"
+          className="flex items-center justify-between py-2"
           style={{ borderColor: "color-mix(in srgb, var(--color-go) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-go) 6%, var(--color-paper))" }}
         >
-          <span className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+          <span className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-700)" }}>
             Total Scrap Value
           </span>
           <span className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
@@ -412,7 +419,7 @@ export default function MobileNewScrapGenerationClient() {
         <button
           type="submit"
           disabled={submitting}
-          className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+          className="flex items-center justify-center gap-1 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
           style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           {submitting ? (
@@ -443,7 +450,7 @@ function FormField({
     <div>
       <label
         className="block text-m-caption font-semibold mb-1"
-        style={{ color: "var(--color-ink-500)" }}
+        style={{ color: "var(--color-ink-700)" }}
       >
         {label}
         {required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}

@@ -11,6 +11,7 @@ import {
 import { getCompany, toNum } from "@/lib/server";
 import { formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import { TallySyncButton } from "@/components/mobile/tally-sync-button";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 /**
  * /m/pulse/attention — the "things that need you" drill-down.
@@ -119,23 +120,11 @@ async function AttentionContent() {
 
   if (totalAlerts === 0) {
     return (
-      <div
-        className="flex flex-col items-center justify-center rounded-[0.625rem] border py-16 text-center"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <div
-          className="grid place-items-center size-12 rounded-full mb-3"
-          style={{ backgroundColor: `color-mix(in srgb, var(--color-go) 10%, transparent)` }}
-        >
-          <CheckCircle2 className="size-6" style={{ color: "var(--color-go)" }} />
-        </div>
-        <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-          All clear
-        </p>
-        <p className="text-m-label mt-1" style={{ color: "var(--color-ink-500)" }}>
-          No approvals, overruns, or low stock. You&apos;re up to date.
-        </p>
-      </div>
+      <MobileEmptyState
+        icon={CheckCircle2}
+        title="All clear"
+        description="No approvals, overruns, or low stock. You're up to date."
+      />
     );
   }
 
@@ -225,19 +214,19 @@ async function AttentionContent() {
             </div>
           ) : null}
 
-          {/* Requisition approvals */}
+          {/* Indent approvals */}
           {pendingReqs.length > 0 ? (
             <div>
               <p className="text-m-caption font-bold uppercase tracking-wide mb-1.5 px-1" style={{ color: "var(--color-ink-500)" }}>
-                Requisitions ({pendingReqs.length})
+                Indents ({pendingReqs.length})
               </p>
               <div className="flex flex-col gap-1.5">
                 {pendingReqs.slice(0, 5).map((req) => (
                   <AlertCard
                     key={req.id}
                     href={`/m/requisitions/${req.id}`}
-                    title={req.project?.name ?? "Requisition"}
-                    subtitle={`Requisition ${req.reqNumber ?? req.id.slice(-6)}`}
+                    title={req.project?.name ?? "Indent"}
+                    subtitle={`Indent ${req.reqNumber ?? req.id.slice(-6)}`}
                     meta="Submitted"
                     metaColor="var(--color-signal)"
                     icon={<ClipboardCheck className="size-3" />}
@@ -249,7 +238,7 @@ async function AttentionContent() {
                     className="text-m-caption font-semibold text-center py-1.5 text-m-body press"
                     style={{ color: "var(--color-ink-600)" }}
                   >
-                    +{pendingReqs.length - 5} more requisitions
+                    +{pendingReqs.length - 5} more indents
                   </Link>
                 ) : null}
               </div>

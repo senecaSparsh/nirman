@@ -33,6 +33,8 @@ async function MobileExpensesContent() {
     take: 80,
     include: {
       project: { select: { id: true, name: true } },
+      categoryMaster: { select: { id: true, name: true } },
+      supplier: { select: { id: true, name: true } },
     },
   });
 
@@ -43,6 +45,11 @@ async function MobileExpensesContent() {
     date: e.date.toISOString(),
     projectName: e.project?.name ?? null,
     notes: e.notes ?? null,
+    status: e.status,
+    paymentMode: e.paymentMode,
+    payeeName: e.payeeName,
+    supplierName: e.supplier?.name ?? null,
+    receiptUrl: e.receiptUrl,
   }));
 
   const totalAmount = rows.reduce((s, e) => s + e.amount, 0);
@@ -52,7 +59,11 @@ async function MobileExpensesContent() {
     { key: "category", label: "Category" },
     { key: "amount", label: "Amount", format: "currency" },
     { key: "date", label: "Date", format: "date" },
+    { key: "status", label: "Status" },
+    { key: "paymentMode", label: "Payment Mode" },
     { key: "projectName", label: "Project" },
+    { key: "supplierName", label: "Vendor" },
+    { key: "payeeName", label: "Payee" },
     { key: "notes", label: "Notes" },
   ];
 

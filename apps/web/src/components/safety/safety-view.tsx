@@ -13,6 +13,7 @@ import { statusBadgeVariant } from "@/components/page";
 import { AlertTriangle, ShieldAlert, ClipboardCheck, Plus, Search, Loader2 } from "lucide-react";
 import { computeRiskLevel } from "@nirman/services/safety";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
+import { EmptyState } from "@/components/empty-state";
 
 type Tab = "incidents" | "hazards" | "inspections";
 
@@ -164,7 +165,7 @@ export function SafetyView({
 
 function IncidentTable({ items, totalCount, onRowClick }: { items: IncidentItem[]; totalCount: number; onRowClick: (id: string) => void }) {
   if (items.length === 0) {
-    return <EmptyState icon={AlertTriangle} message={totalCount === 0 ? "No incidents reported yet. Report accidents, near-misses, and injuries here." : "No incidents match your filters."} />;
+    return <EmptyState icon={<AlertTriangle />} title={totalCount === 0 ? "No incidents reported yet" : "No incidents match your filters"} description={totalCount === 0 ? "Report accidents, near-misses, and injuries here." : undefined} />;
   }
   return (
     <div className="rounded-lg border border-border overflow-hidden">
@@ -191,7 +192,7 @@ function IncidentTable({ items, totalCount, onRowClick }: { items: IncidentItem[
 
 function HazardTable({ items, totalCount, onRowClick }: { items: HazardItem[]; totalCount: number; onRowClick: (id: string) => void }) {
   if (items.length === 0) {
-    return <EmptyState icon={ShieldAlert} message={totalCount === 0 ? "No hazards identified yet. Report site hazards with risk assessment here." : "No hazards match your filters."} />;
+    return <EmptyState icon={<ShieldAlert />} title={totalCount === 0 ? "No hazards identified yet" : "No hazards match your filters"} description={totalCount === 0 ? "Report site hazards with risk assessment here." : undefined} />;
   }
   return (
     <div className="rounded-lg border border-border overflow-hidden">
@@ -218,7 +219,7 @@ function HazardTable({ items, totalCount, onRowClick }: { items: HazardItem[]; t
 
 function InspectionTable({ items, totalCount, onRowClick }: { items: InspectionItem[]; totalCount: number; onRowClick: (id: string) => void }) {
   if (items.length === 0) {
-    return <EmptyState icon={ClipboardCheck} message={totalCount === 0 ? "No inspections scheduled yet. Plan safety walkthroughs and audits here." : "No inspections match your filters."} />;
+    return <EmptyState icon={<ClipboardCheck />} title={totalCount === 0 ? "No inspections scheduled yet" : "No inspections match your filters"} description={totalCount === 0 ? "Plan safety walkthroughs and audits here." : undefined} />;
   }
   return (
     <div className="rounded-lg border border-border overflow-hidden">
@@ -239,15 +240,6 @@ function InspectionTable({ items, totalCount, onRowClick }: { items: InspectionI
           <div className="text-right text-xs text-muted-foreground self-center tabular-nums">{i.conductedDate ? formatDate(i.conductedDate) : "—"}</div>
         </button>
       ))}
-    </div>
-  );
-}
-
-function EmptyState({ icon: Icon, message }: { icon: React.ComponentType<{ className?: string }>; message: string }) {
-  return (
-    <div className="rounded-lg border border-border p-12 text-center">
-      <Icon className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
-      <p className="text-sm text-muted-foreground">{message}</p>
     </div>
   );
 }

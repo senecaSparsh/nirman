@@ -55,9 +55,12 @@ async function ExpensesReportContent({
     where: {
       companyId: company.id,
       ...dateFilter,
+      status: "APPROVED",
     },
     include: {
       project: { select: { id: true, name: true } },
+      categoryMaster: { select: { id: true, name: true } },
+      supplier: { select: { id: true, name: true } },
     },
     orderBy: { date: "desc" },
   });
@@ -125,6 +128,22 @@ async function ExpensesReportContent({
   }
   const projectRows = Array.from(byProject.values()).sort((a, b) => b.amount - a.amount);
 
+  // By vendor / payee
+  const byVendor = new Map<string, { vendor: string; amount: number; count: number }>();
+  for (const e of expenses) {
+    const name = e.supplier?.name ?? e.payeeName ?? "Uncategorized";
+    if (!byVendor.has(name)) byVendor.set(name, { vendor: name, amount: 0, count: 0 });
+    const row = byVendor.get(name)!;
+    row.amount += toNum(e.amount);
+    row.count += 1;
+  }
+  const vendorRows = Array.from(byVendor.values()).sort((a, b) => b.amount - a.amount).slice(0, 15);
+
+  // GST ITC + TDS totals
+  const gstItc = expenses.reduce((s, e) => s + toNum(e.cgst) + toNum(e.sgst) + toNum(e.igst), 0);
+  const tdsTotal = expenses.reduce((s, e) => s + toNum(e.tdsAmount), 0);
+  const subtotalTotal = expenses.reduce((s, e) => s + toNum(e.subtotal), 0);
+
   const totalOperating = monthly.reduce((s, m) => s + m.operating, 0);
   const totalProject = monthly.reduce((s, m) => s + m.project, 0);
   const total = totalOperating + totalProject;
@@ -133,12 +152,14 @@ async function ExpensesReportContent({
     <>
       <PageHeader
         title="Expenses"
-        description="Operating expenses and project costs over the selected period — where the money goes."
+        description="Operating expenses and project costs over the selected period — where the money goes. Only approved expenses are counted."
         stats={[
           { label: "Total", value: formatCurrency(total) },
           { label: "Operating", value: formatCurrency(totalOperating) },
           { label: "Project Costs", value: formatCurrency(totalProject) },
-          { label: "Categories", value: categoryRows.length },
+          { label: "GST ITC", value: formatCurrency(gstItc), hint: "Input tax credit claimed on approved expenses in this period." },
+          { label: "TDS Deducted", value: formatCurrency(tdsTotal), hint: "TDS deducted on expenses in this period." },
+          { label: "Vendors", value: vendorRows.length, hint: "Top vendors/payees by spend in this period." },
         ]}
       />
       <ExpensesReport
@@ -147,6 +168,10 @@ async function ExpensesReportContent({
         monthly={monthly}
         categoryRows={categoryRows}
         projectRows={projectRows}
+        vendorRows={vendorRows}
+        gstItc={gstItc}
+        tdsTotal={tdsTotal}
+        subtotalTotal={subtotalTotal}
         totalOperating={totalOperating}
         totalProject={totalProject}
       />

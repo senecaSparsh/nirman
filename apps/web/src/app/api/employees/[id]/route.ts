@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { updateEmployee, softDelete } from "@nirman/services";
+import { updateEmployee, softDelete, updateEmployeeDossier, type EmployeeDossierInput } from "@nirman/services";
 import { apiHandler, getCompany, json, employeeSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -57,8 +57,32 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     hierarchyLevel: parsed.data.hierarchyLevel ?? undefined,
     userId: user.id,
   });
+
+  // ── Dossier fields (employment terms, bank, tax, emergency, address) ──
+  const dossierFields: EmployeeDossierInput = {};
+  const dossierKeys: (keyof EmployeeDossierInput)[] = [
+    "employmentType", "probationEndDate", "confirmationDate", "noticePeriodDays",
+    "contractStartDate", "contractEndDate", "payDay",
+    "bankAccountHolder", "bankAccountNumber", "bankIfsc", "bankName", "bankBranch",
+    "panNumber", "aadhaarNumber", "pfNumber", "esiNumber", "uan",
+    "emergencyContactName", "emergencyContactPhone", "emergencyContactRelation",
+    "permanentAddress", "currentAddress",
+  ];
+  let hasDossier = false;
+  for (const key of dossierKeys) {
+    if (key in body) {
+      (dossierFields as Record<string, unknown>)[key] = body[key];
+      hasDossier = true;
+    }
+  }
+  if (hasDossier) {
+    await updateEmployeeDossier(id, company.id, user.id, dossierFields);
+  }
+
   revalidatePath("/hr/employees");
   revalidatePath("/m/hr/employees");
+  revalidatePath(`/hr/employees/${id}`);
+  revalidatePath(`/m/hr/employees/${id}`);
   return json({ ok: true, id: updated.id });
 });
 

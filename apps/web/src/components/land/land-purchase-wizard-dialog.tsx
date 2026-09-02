@@ -148,6 +148,9 @@ export function LandPurchaseWizardDialog({
   });
   const [mode, setMode] = useState<Mode>("WHOLE");
 
+  // Step 3: additional cost components (recurring / future costs)
+  const [extraCosts, setExtraCosts] = useState<{ label: string; amount: string; frequency: "ONE_TIME" | "RECURRING"; interval: "MONTHLY" | "QUARTERLY" | "HALF_YEARLY" | "YEARLY"; startDate: string; occurrences: string }[]>([]);
+
   // Step 2: sections
   const [sections, setSections] = useState<SectionForm[]>([newSection("PLOT", 1)]);
 
@@ -167,6 +170,7 @@ export function LandPurchaseWizardDialog({
       });
       setMode("WHOLE");
       setSections([newSection("PLOT", 1)]);
+      setExtraCosts([]);
       setDocumentUrl(null);
       setDocumentName("");
       setCreatedLandPurchaseId(null);
@@ -430,6 +434,23 @@ export function LandPurchaseWizardDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to record land purchase");
+      // Create additional cost components (recurring / future costs) after the
+      // land purchase exists. Each is a separate POST that triggers recompute.
+      for (const c of extraCosts) {
+        if (!c.label.trim() || !c.amount || Number(c.amount) <= 0) continue;
+        await fetch(`/api/land-purchases/${data.id}/cost-components`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            label: c.label.trim(),
+            amount: Number(c.amount),
+            frequency: c.frequency,
+            interval: c.frequency === "RECURRING" ? c.interval : null,
+            startDate: c.startDate || null,
+            occurrences: c.occurrences ? Number(c.occurrences) : null,
+          }),
+        });
+      }
       toast.success("Land purchase recorded", {
         description: mode === "WHOLE"
           ? "1 parcel created."
@@ -743,6 +764,56 @@ export function LandPurchaseWizardDialog({
             <div className="flex items-center justify-between border-t border-border pt-2">
               <span className="text-body font-semibold">Total Land Cost</span>
               <span className="text-body font-bold tabular-nums">{formatCurrency(calculatedTotal)}</span>
+            </div>
+
+            {/* Additional Costs — recurring / future costs */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-muted-foreground">Additional Costs (recurring / future)</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-caption"
+                  onClick={() => setExtraCosts((c) => [...c, { label: "", amount: "", frequency: "ONE_TIME", interval: "YEARLY", startDate: new Date().toISOString().slice(0, 10), occurrences: "" }])}
+                >
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Add
+                </Button>
+              </div>
+              {extraCosts.length === 0 && (
+                <p className="text-caption text-muted-foreground">No additional costs. Add yearly lease rent, EDC/IDC, maintenance, or any future-dated charge.</p>
+              )}
+              {extraCosts.map((c, i) => (
+                <div key={i} className="grid grid-cols-[1fr_100px_120px_120px_28px] gap-2 items-end">
+                  <div className="space-y-1">
+                    <Label className="text-caption">Label</Label>
+                    <Input value={c.label} onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} placeholder="e.g. Yearly Lease Rent" className="h-8 text-caption" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-caption">Amount (₹)</Label>
+                    <Input type="number" min="0" step="any" value={c.amount} onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))} placeholder="500000" className="h-8 text-caption" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-caption">Frequency</Label>
+                    <Select value={c.frequency} onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, frequency: e.target.value as "ONE_TIME" | "RECURRING" } : x))} className="h-8 text-caption">
+                      <option value="ONE_TIME">One-time</option>
+                      <option value="RECURRING">Recurring</option>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-caption">Interval</Label>
+                    <Select value={c.interval} disabled={c.frequency !== "RECURRING"} onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, interval: e.target.value as typeof c.interval } : x))} className="h-8 text-caption">
+                      <option value="MONTHLY">Monthly</option>
+                      <option value="QUARTERLY">Quarterly</option>
+                      <option value="HALF_YEARLY">Half-Yearly</option>
+                      <option value="YEARLY">Yearly</option>
+                    </Select>
+                  </div>
+                  <button type="button" onClick={() => setExtraCosts((arr) => arr.filter((_, j) => j !== i))} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-danger" title="Remove">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">

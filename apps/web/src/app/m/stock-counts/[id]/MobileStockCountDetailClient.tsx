@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 type CountStatus = "DRAFT" | "COUNTED" | "RECONCILED";
 
@@ -58,22 +59,10 @@ export function MobileStockCountDetailClient({
   /* ── Not found ── */
   if (notFound || !count) {
     return (
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-            Stock inventory not found
-          </p>
-        </div>
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <ScanLine className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            Count not found
-          </p>
-        </div>
-      </div>
+      <MobileEmptyState
+        icon={ScanLine}
+        title="Count not found"
+      />
     );
   }
 
@@ -115,7 +104,7 @@ export function MobileStockCountDetailClient({
         throw new Error(err.error ?? "Failed to delete");
       }
       toast.success("Draft count deleted");
-      router.push("/m/stock-counts");
+      router.push("/m/stock?tab=counts");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete");
     } finally {
@@ -224,13 +213,11 @@ export function MobileStockCountDetailClient({
       </div>
 
       {count.lines.length === 0 ? (
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-6 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <ScanLine className="size-5 mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-700)" }}>No items counted</p>
-        </div>
+        <MobileEmptyState
+          icon={ScanLine}
+          title="No items counted"
+          size="compact"
+        />
       ) : (
         <div className="flex flex-col gap-1.5">
           {count.lines.map((l) => {

@@ -44,7 +44,7 @@ async function MaterialDetailContent({ params }: { params: Promise<{ id: string 
 
   const locationIds = material.stockItems.map((s) => s.locationId);
 
-  const [movements, openPOLines, openReqLines, rateContracts, issueLines, suppliers] = await Promise.all([
+  const [movements, openPOLines, openReqLines, rateContracts, issueLines, suppliers, locationRows] = await Promise.all([
     // Recent stock movements for this material at this company's locations
     locationIds.length > 0
       ? prisma.stockMovement.findMany({
@@ -124,6 +124,14 @@ async function MaterialDetailContent({ params }: { params: Promise<{ id: string 
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+
+    // All company stock locations — passed to the adjust-stock dialog so the
+    // location select is never empty, even when this material has zero stock.
+    prisma.stockLocation.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      orderBy: [{ type: "asc" }, { name: "asc" }],
+      include: { project: { select: { id: true, name: true } } },
+    }),
   ]);
 
   const data: MaterialCockpitData = {
@@ -195,5 +203,12 @@ async function MaterialDetailContent({ params }: { params: Promise<{ id: string 
     })),
   };
 
-  return <MaterialCockpit data={data} suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))} />;
+  const locations = locationRows.map((l) => ({
+    id: l.id,
+    name: l.name,
+    type: l.type,
+    projectName: l.project?.name ?? null,
+  }));
+
+  return <MaterialCockpit data={data} suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))} locations={locations} />;
 }

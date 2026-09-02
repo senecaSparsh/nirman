@@ -265,6 +265,14 @@ export {
   deleteStockCount,
 } from "./stock-count";
 
+// Manual Stock Adjustment — opening stock / corrections / write-offs
+export {
+  recordStockAdjustment,
+  type RecordStockAdjustmentInput,
+  type StockAdjustmentResult,
+  type AdjustmentDirection,
+} from "./stock-adjustment";
+
 // Partition — land subdivision
 export {
   partitionLandParcel,
@@ -369,6 +377,17 @@ export type {
   MarkPossessionInput,
 } from "./land";
 
+// Land cost components — arbitrary / recurring / future costs
+export {
+  addLandCostComponent,
+  updateLandCostComponent,
+  deleteLandCostComponent,
+  recomputeLandTotalCost,
+  refreshLandTotalCost,
+  effectivePostedAmount,
+  scheduledTotal,
+} from "./land-cost-component";
+
 // Built Units — sellable units within projects
 export {
   createBuiltUnits,
@@ -396,6 +415,60 @@ export {
   logAction,
   getAuditTrail,
 } from "./audit";
+
+// Expenses — full expense-booking lifecycle (DRAFT→PENDING→APPROVED|REJECTED)
+// with GL posting on approval, category master, GST/TDS breakdown.
+export {
+  createExpense,
+  updateExpense,
+  submitExpense,
+  approveExpense,
+  rejectExpense,
+  deleteExpense,
+  createExpenseCategory,
+  updateExpenseCategory,
+  deleteExpenseCategory,
+  type CreateExpenseInput,
+  type UpdateExpenseInput,
+  type CreateCategoryInput,
+} from "./expense";
+
+// Expense claims — employee reimbursement lifecycle
+export {
+  createExpenseClaim,
+  addClaimLine,
+  removeClaimLine,
+  submitExpenseClaim,
+  approveExpenseClaim,
+  rejectExpenseClaim,
+  payExpenseClaim,
+  type CreateClaimInput,
+  type AddClaimLineInput,
+} from "./expense-claim";
+
+// Petty cash — site/office cash floats + top-ups
+export {
+  createPettyCashFloat,
+  topUpPettyCash,
+  recordPettyCashSpend,
+  type CreateFloatInput,
+  type TopUpInput,
+} from "./petty-cash";
+
+// Recurring expenses — templates + due-generation scheduler
+export {
+  createRecurringExpense,
+  generateDueRecurringExpenses,
+  type CreateRecurringInput,
+} from "./recurring-expense";
+
+// Expense budgets — budget vs actuals variance
+export {
+  setExpenseBudget,
+  getExpenseBudgetVariance,
+  type SetBudgetInput,
+  type ExpenseBudgetVariance,
+} from "./expense-budget";
 
 // Equipment — discrete trackable assets (machinery, tools, vehicles)
 export {
@@ -538,6 +611,7 @@ export {
   postExpense,
   postSupplierReturn,
   postLandPurchase,
+  postLandCostComponent,
   postPayroll,
   postPayrollPayment,
   postDirectPurchase,
@@ -588,6 +662,7 @@ export {
 export {
   previewExpenseGl,
   previewProjectCostGl,
+  previewLandCostComponentGl,
   previewPurchaseReceiptGl,
   previewMaterialIssueGl,
   previewAssetSaleGl,
@@ -691,6 +766,17 @@ export {
   type CreateLeaveInput,
   type ApproveLeaveInput,
 } from "./leave";
+
+// Employee Dossier — employment terms, bank, tax, benefits, emergency contact, address
+export {
+  updateEmployeeDossier,
+  createEmployeeBenefit,
+  updateEmployeeBenefit,
+  deleteEmployeeBenefit,
+  type EmployeeDossierInput,
+  type CreateBenefitInput,
+  type UpdateBenefitInput,
+} from "./employee-dossier";
 
 // SMS Parser — auto payment entry from bank SMS notifications
 export {
@@ -1025,3 +1111,16 @@ export {
 
 // Web Push notifications
 export { sendPushToUser, sendPushToApprovers, type PushPayload } from "./push";
+
+// Instant Feedback — screenshot + voice + text feedback from any user
+export {
+  createFeedback,
+  listFeedback,
+  getFeedback,
+  markFeedbackRead,
+  resolveFeedback,
+  archiveFeedback,
+  reopenFeedback,
+  getFeedbackStats,
+  type CreateFeedbackInput,
+} from "./feedback";

@@ -10,7 +10,6 @@ import {
   Receipt,
   AlertTriangle,
   ChevronRight,
-  LogOut,
   Download,
   Calendar,
   Building2,
@@ -36,6 +35,7 @@ import { InstallAppRow } from "@/components/mobile/install-prompt";
 import { ThemeToggleRow } from "@/components/mobile/theme-toggle-row";
 import { CurrencyToggleRow } from "@/components/mobile/currency-toggle-row";
 import { CompanySwitcher } from "./company-switcher";
+import { MobileSignOutButton } from "@/components/mobile/sign-out-button";
 
 /**
  * /m/settings — Settings & Portfolio hub.
@@ -524,20 +524,5 @@ function DuesRow({
 
 /* ── Sign out button ── */
 function SignOutButton() {
-  return (
-    <form action="/api/auth/sign-out" method="POST">
-      <button
-        type="submit"
-        className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] border-2 p-2.5 text-m-section font-semibold text-m-body press"
-        style={{
-          borderColor: "var(--color-stop)",
-          color: "var(--color-stop)",
-          backgroundColor: "var(--color-paper)",
-        }}
-      >
-        <LogOut className="size-4" />
-        Sign out
-      </button>
-    </form>
-  );
+  return <MobileSignOutButton />;
 }

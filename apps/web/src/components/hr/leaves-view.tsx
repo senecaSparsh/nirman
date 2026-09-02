@@ -12,6 +12,7 @@ import { DateCell } from "@/components/ui/cells";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import { formatDate, cn } from "@/lib/utils";
+import { EmployeeName } from "@/components/employee-name";
 
 export type LeaveRow = {
   id: string;
@@ -150,7 +151,7 @@ export function LeavesView({
             {initials(l.employeeName)}
           </span>
           <div className="min-w-0">
-            <div className="font-medium text-foreground">{l.employeeName}</div>
+            <div className="font-medium text-foreground"><EmployeeName id={l.employeeId} name={l.employeeName} /></div>
             {l.employeeTrade && <div className="text-caption text-muted-foreground">{l.employeeTrade}</div>}
           </div>
         </div>

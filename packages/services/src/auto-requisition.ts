@@ -58,7 +58,7 @@ export async function generateAutoRequisition(opts: {
   });
   if (!project) throw new ServiceError("Project not found or doesn't belong to this company", 404);
   if (project.status === "COMPLETED" || project.status === "ON_HOLD") {
-    throw new ServiceError(`Cannot generate auto-requisitions for a ${project.status} project`);
+    throw new ServiceError(`Cannot generate auto-indents for a ${project.status} project`);
   }
 
   // 2. Detect low-stock materials across the company.

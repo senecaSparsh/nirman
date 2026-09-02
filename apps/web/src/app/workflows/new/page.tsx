@@ -3,9 +3,8 @@ import { connection } from "next/server";
 import { PageHeader } from "@/components/page-header";
 import { WorkflowBuilder } from "@/components/workflows/workflow-builder";
 import { PageLoading } from "@/components/page-loading";
-import { getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
-import { NoAccess } from "@/components/no-access";
+import { PermissionGate } from "@/components/permission-gate";
+import { PERM } from "@/lib/roles";
 
 export const metadata = { title: "New Workflow · Nirman" };
 
@@ -25,9 +24,9 @@ export default function NewWorkflowPage() {
 
 async function NewWorkflowContent() {
   await connection();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.CANVAS_VIEW)) {
-    return <NoAccess />;
-  }
-  return <WorkflowBuilder />;
+  return (
+    <PermissionGate perm={PERM.CANVAS_VIEW}>
+      <WorkflowBuilder />
+    </PermissionGate>
+  );
 }

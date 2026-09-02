@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, Users, UsersRound, Phone, Briefcase, SearchX, MapPin } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, UsersRound, Phone, Briefcase, SearchX, MapPin, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { CrewsView, type CrewRow } from "@/components/hr/crews-view";
+import { EmployeeName } from "@/components/employee-name";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useTabParam } from "@/lib/use-tab-param";
 
@@ -76,7 +77,7 @@ const employeeColumns: Column<EmployeeRow>[] = [
           {initials(e.name)}
         </span>
         <div className="min-w-0">
-          <div className="font-medium text-foreground">{e.name}</div>
+          <div className="font-medium text-foreground"><EmployeeName id={e.id} name={e.name} /></div>
           {e.designation && <div className="text-caption text-muted-foreground">{e.designation}</div>}
         </div>
       </div>
@@ -258,23 +259,33 @@ export function EmployeesView({
   const [delTarget, setDelTarget] = useState<EmployeeRow | null>(null);
 
   function rowActions(e: EmployeeRow) {
-    if (!canEdit) return null;
     return (
       <>
         <button
-          onClick={(ev) => { ev.stopPropagation(); setEditTarget(e); setFormOpen(true); }}
+          onClick={(ev) => { ev.stopPropagation(); router.push(`/hr/employees/${e.id}`); }}
           className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-          title="Edit"
+          title="View profile"
         >
-          <Pencil className="h-3.5 w-3.5" />
+          <Eye className="h-3.5 w-3.5" />
         </button>
-        <button
-          onClick={(ev) => { ev.stopPropagation(); setDelTarget(e); }}
-          className="rounded p-1 text-muted-foreground hover:bg-danger/10 hover:text-danger"
-          title="Delete"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        {canEdit && (
+          <>
+            <button
+              onClick={(ev) => { ev.stopPropagation(); setEditTarget(e); setFormOpen(true); }}
+              className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              title="Edit"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={(ev) => { ev.stopPropagation(); setDelTarget(e); }}
+              className="rounded p-1 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+              title="Delete"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </>
+        )}
       </>
     );
   }
@@ -341,6 +352,7 @@ export function EmployeesView({
                 searchPlaceholder="Search name, trade, crew, project…"
                 toolbarTrailing={trailingButtons}
                 rowActions={rowActions}
+                onRowClick={(e) => router.push(`/hr/employees/${e.id}`)}
                 pageSize={50}
                 emptyState={noMatch}
               />

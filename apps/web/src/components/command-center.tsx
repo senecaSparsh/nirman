@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, ArrowRight } from "lucide-react";
+import { CheckCircle2, ArrowRight, Activity } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Section } from "@/components/page";
 import { MyTasksPanel } from "@/components/tasks/my-tasks-panel";
 import { cn } from "@/lib/utils";
 import { useDashboardPolling } from "@/lib/use-dashboard-polling";
+import { EmptyState } from "@/components/empty-state";
 import {
   OverviewCharts,
   QueueCard,
@@ -309,11 +310,12 @@ export function CommandCenter(props: ProfileTabsProps) {
                     </Section>
                   </>
                 ) : (
-                  <div className="rounded-lg border border-border bg-card px-4 py-12 text-center">
-                    <p className="text-body text-muted-foreground">
-                      No actions recorded yet. Your activity will appear here as you work.
-                    </p>
-                  </div>
+                  <EmptyState
+                    icon={<Activity />}
+                    title="No actions recorded yet"
+                    description="Your activity will appear here as you work."
+                    size="compact"
+                  />
                 )}
               </TabsContent>
             </Tabs>

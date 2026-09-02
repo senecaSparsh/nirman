@@ -61,6 +61,7 @@ async function MobileLeavesContent() {
 
   const serialized = leaves.map((l) => ({
     id: l.id,
+    employeeId: l.employeeId,
     employeeName: l.employee.name,
     employeeTrade: l.employee.trade ?? null,
     type: l.type,

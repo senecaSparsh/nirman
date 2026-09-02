@@ -10,6 +10,7 @@ import {
   MobileNoResults,
   MobileSummaryStrip,
 } from "@/components/mobile/v2/scaffold";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import {
   MobileExportShareIcons,
   type MobileColumnSpec,
@@ -111,31 +112,11 @@ export function MobileScrapGenerationsList({
             hint="Try a different search"
           />
         ) : (
-          <div
-            className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-            style={{
-              borderColor: "var(--color-line)",
-              backgroundColor: "var(--color-paper-2)",
-            }}
-          >
-            <Recycle
-              className="size-6 mb-2"
-              style={{ color: "var(--color-ink-300)" }}
-            />
-            <p
-              className="text-m-section font-semibold"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              No scrap generated
-            </p>
-            <p
-              className="text-m-label"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Auto-detected from Daily Progress Report variance or added
-              manually
-            </p>
-          </div>
+          <MobileEmptyState
+            icon={Recycle}
+            title="No scrap generated"
+            hint="Auto-detected from Daily Progress Report variance or added manually"
+          />
         )
       ) : (
         <div>

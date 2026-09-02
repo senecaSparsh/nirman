@@ -11,6 +11,7 @@ interface TaskUser {
   name: string;
   email: string;
   role: string;
+  employeeId?: string | null;
 }
 
 interface TaskRow {

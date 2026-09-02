@@ -572,7 +572,12 @@ async function stockQueryResponse(companyId: string, entities: ParsedEntities): 
   // General stock summary — top items by qty across company locations
   const stockItems = await prisma.stockLocationItem.findMany({
     where: { location: { companyId, deletedAt: null }, qty: { gt: 0 } },
-    include: { material: true, location: true },
+    select: {
+      qty: true,
+      movingAvgCost: true,
+      material: { select: { name: true, unit: true } },
+      location: { select: { name: true } },
+    },
     orderBy: { qty: "desc" },
     take: 10,
   });
@@ -628,8 +633,8 @@ async function lowStockResponse(companyId: string): Promise<AssistantResponse> {
     intent: "LOW_STOCK",
     confidence: 0.9,
     cards: [
-      { type: "link", label: "Reorder now", href: "/m/requisitions" },
-      { type: "button", label: "Auto-generate requisition", endpoint: "/api/requisitions/auto", method: "POST", variant: "primary" },
+      { type: "link", label: "Reorder now", href: "/m/procurement?tab=indents" },
+      { type: "button", label: "Auto-generate indent", endpoint: "/api/requisitions/auto", method: "POST", variant: "primary" },
     ],
   };
 }
@@ -747,7 +752,7 @@ async function approveReqResponse(companyId: string, entities: ParsedEntities): 
     });
 
     if (pendingReqs.length === 0) {
-      return { text: "Koi pending requisition nahi hai.", intent: "APPROVE_REQUISITION", confidence: 0.8 };
+      return { text: "Koi pending indent nahi hai.", intent: "APPROVE_REQUISITION", confidence: 0.8 };
     }
 
     const text = `Kaunsi requisition approve karni hai?\n\n`;
@@ -769,7 +774,7 @@ async function approveReqResponse(companyId: string, entities: ParsedEntities): 
   });
 
   if (!req) {
-    return { text: `Requisition "${entities.reqNumber}" nahi mili.`, intent: "APPROVE_REQUISITION", confidence: 0.7 };
+    return { text: `Indent "${entities.reqNumber}" nahi mili.`, intent: "APPROVE_REQUISITION", confidence: 0.7 };
   }
 
   if (req.status !== "SUBMITTED") {
@@ -821,12 +826,12 @@ async function rejectPoResponse(companyId: string, entities: ParsedEntities): Pr
 
 async function rejectReqResponse(companyId: string, entities: ParsedEntities): Promise<AssistantResponse> {
   if (!entities.reqNumber) {
-    return { text: "Kaunsi requisition reject karni hai? Number bataiye.", intent: "REJECT_REQUISITION", confidence: 0.7 };
+    return { text: "Kaunsa indent reject karna hai? Number bataiye.", intent: "REJECT_REQUISITION", confidence: 0.7 };
   }
   const req = await prisma.materialRequisition.findFirst({
     where: { reqNumber: { contains: entities.reqNumber.replace("REQ-", ""), mode: "insensitive" } },
   });
-  if (!req) return { text: `Requisition "${entities.reqNumber}" nahi mili.`, intent: "REJECT_REQUISITION", confidence: 0.7 };
+  if (!req) return { text: `Indent "${entities.reqNumber}" nahi mili.`, intent: "REJECT_REQUISITION", confidence: 0.7 };
 
   return {
     text: `**${req.reqNumber}** reject karni hai?`,
@@ -1118,7 +1123,7 @@ function createReqResponse(): AssistantResponse {
     text: `Nayi Requisition banani hai?\n\nMaterial aur quantity bataiye. Ya form kholein:`,
     intent: "CREATE_REQUISITION",
     confidence: 0.8,
-    cards: [{ type: "link", label: "➕ New Requisition", href: "/m/requisitions", variant: "primary" }],
+    cards: [{ type: "link", label: "➕ New Indent", href: "/m/procurement?tab=indents", variant: "primary" }],
   };
 }
 
@@ -1130,7 +1135,7 @@ function autoReqResponse(): AssistantResponse {
     cards: [
       {
         type: "confirm",
-        label: "🔄 Auto-generate requisitions",
+        label: "🔄 Auto-generate indents",
         endpoint: "/api/requisitions/auto",
         method: "POST",
         variant: "primary",
@@ -1360,7 +1365,7 @@ async function attentionResponse(companyId: string): Promise<AssistantResponse> 
     cards.push({ type: "link", label: "Go to approvals", href: "/m/pulse/approvals", variant: "primary" });
   }
   if (lowStock.length > 0) {
-    cards.push({ type: "button", label: "Auto-generate requisition", endpoint: "/api/requisitions/auto", method: "POST" });
+    cards.push({ type: "button", label: "Auto-generate indent", endpoint: "/api/requisitions/auto", method: "POST" });
   }
 
   return { text, cards, intent: "ATTENTION", confidence: 0.9 };
@@ -1907,7 +1912,7 @@ async function scrapResponse(companyId: string): Promise<AssistantResponse> {
   });
 
   if (scraps.length === 0) {
-    return { text: "Koi scrap generation nahi hai.", intent: "SCRAP_STATUS", confidence: 0.8, cards: [{ type: "link", label: "Scrap module", href: "/m/scrap-generations" }] };
+    return { text: "Koi scrap generation nahi hai.", intent: "SCRAP_STATUS", confidence: 0.8, cards: [{ type: "link", label: "Scrap module", href: "/m/stock?tab=scrap" }] };
   }
 
   let text = `**Scrap Generations (${scraps.length}):**\n\n`;
@@ -1915,7 +1920,7 @@ async function scrapResponse(companyId: string): Promise<AssistantResponse> {
     text += `• ${s.scrapNumber} — ${s._count.lines} items | ${s.createdAt.toISOString().split("T")[0]}\n`;
   }
 
-  return { text, intent: "SCRAP_STATUS", confidence: 0.9, cards: [{ type: "link", label: "All scrap", href: "/m/scrap-generations" }] };
+  return { text, intent: "SCRAP_STATUS", confidence: 0.9, cards: [{ type: "link", label: "All scrap", href: "/m/stock?tab=scrap" }] };
 }
 
 async function tallyResponse(companyId: string): Promise<AssistantResponse> {

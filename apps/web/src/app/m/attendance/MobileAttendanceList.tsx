@@ -28,6 +28,7 @@ type AttendanceStatusFilter =
 
 export type AttendanceListItem = {
   id: string;
+  employeeId: string;
   employeeName: string | null;
   projectName: string | null;
   projectId: string | null;
@@ -213,6 +214,7 @@ export function MobileAttendanceList({
               key={r.id}
               icon={CalendarCheck}
               title={r.employeeName ?? "Worker"}
+              empId={r.employeeId}
               subtitle={`${r.projectName ?? "—"} · ${formatDate(r.date)}${r.checkIn ? ` · ${r.checkIn}${r.checkOut ? `–${r.checkOut}` : ""}` : ""}`}
               meta=""
               badge={

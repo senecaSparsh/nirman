@@ -23,7 +23,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     where: { id: requisitionId, project: { companyId: company.id } },
     select: { id: true },
   });
-  if (!requisition) return json({ error: "Requisition not found" }, { status: 404 });
+  if (!requisition) return json({ error: "Indent not found" }, { status: 404 });
 
   const statement = await getComparativeStatement(requisitionId);
 
@@ -107,7 +107,7 @@ const quoteLineSchema = z.object({
 });
 
 const createQuoteSchema = z.object({
-  requisitionId: z.string().min(1, "Requisition is required"),
+  requisitionId: z.string().min(1, "Indent is required"),
   supplierId: z.string().min(1, "Supplier is required"),
   fileUrl: z.string().min(1, "Quote file is required"),
   fileName: z.string().min(1),
@@ -138,7 +138,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     where: { id: parsed.data.requisitionId, project: { companyId: company.id } },
     select: { id: true },
   });
-  if (!reqExists) return json({ error: "Requisition not found" }, { status: 404 });
+  if (!reqExists) return json({ error: "Indent not found" }, { status: 404 });
 
   const quote = await createVendorQuote({
     requisitionId: parsed.data.requisitionId,

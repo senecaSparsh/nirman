@@ -47,6 +47,7 @@ async function MobileAttendanceContent() {
   // Serialize for the client component (search + filter chips + date/project filters + badges)
   const serialized = tieredRecords.map((r) => ({
     id: r.id,
+    employeeId: r.employeeId,
     employeeName: r.employeeName,
     projectName: r.projectName,
     projectId: r.projectId,

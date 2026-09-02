@@ -11,10 +11,10 @@ import { haptic } from "@/lib/haptic";
 import { BottomSheet } from "@/components/mobile/v2/bottom-sheet";
 
 const inputClass =
-  "w-full h-10 rounded-[0.5rem] border px-3 text-m-section font-medium outline-none";
+  "w-full h-7 px-1 text-m-caption font-medium outline-none border-b focus:border-b-2 transition-colors";
 const inputStyle = {
   borderColor: "var(--color-line)",
-  backgroundColor: "var(--color-paper)",
+  backgroundColor: "transparent",
   color: "var(--color-ink-950)",
 } as React.CSSProperties;
 
@@ -31,7 +31,7 @@ function FormField({
     <div>
       <label
         className="block text-m-caption font-semibold mb-1"
-        style={{ color: "var(--color-ink-500)" }}
+        style={{ color: "var(--color-ink-700)" }}
       >
         {label}
         {required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
@@ -50,11 +50,18 @@ function FormField({
 export function MobileCustomerForm({
   redirectTo,
   existingPhones,
+  onClose,
+  onCreated,
 }: {
   /** URL to redirect to after creating (e.g. "/m/sales/new?customerId=..."). */
   redirectTo?: string;
   /** Existing phone numbers in the company for duplicate-check. */
   existingPhones: string[];
+  /** When provided, the component renders in modal mode (no header,
+   *  no sticky bottom bar, inline Cancel/Create buttons, and success
+   *  calls onCreated + onClose instead of router.push). */
+  onClose?: () => void;
+  onCreated?: (customer: { id: string; name: string; phone: string | null }) => void;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -105,12 +112,17 @@ export function MobileCustomerForm({
       toast.success("Customer created", {
         description: form.phone ? `${form.name} · ${form.phone}` : form.name,
       });
-      // Redirect to sale form with the new customer pre-selected
-      const dest = redirectTo
-        ? `${redirectTo}${redirectTo.includes("?") ? "&" : "?"}customerId=${data.id}`
-        : `/m/sales/new?customerId=${data.id}`;
-      router.push(dest);
-      router.refresh();
+      if (onCreated) {
+        onCreated({ id: data.id, name: data.name, phone: data.phone ?? null });
+        onClose?.();
+      } else {
+        // Redirect to sale form with the new customer pre-selected
+        const dest = redirectTo
+          ? `${redirectTo}${redirectTo.includes("?") ? "&" : "?"}customerId=${data.id}`
+          : `/m/sales/new?customerId=${data.id}`;
+        router.push(dest);
+        router.refresh();
+      }
     } catch (err: unknown) {
       haptic([50, 20, 50]);
       toast.error(err instanceof Error ? err.message : "Something went wrong");
@@ -120,9 +132,10 @@ export function MobileCustomerForm({
   }
 
   return (
-    <div className="pb-32">
-      {/* ── Header ── */}
-      <div className="flex items-center gap-2 mb-3">
+    <div className={onClose ? "" : "pb-32"}>
+      {/* ── Header — hidden in modal mode (MobileFabModal provides title) ── */}
+      {onClose ? null : (
+      <div className="flex items-center gap-1 mb-3">
         <Link href="/m/sales/new" className="shrink-0">
           <ChevronLeft className="size-5" style={{ color: "var(--color-ink-700)" }} />
         </Link>
@@ -132,13 +145,14 @@ export function MobileCustomerForm({
           </p>
         </div>
         <span
-          className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
-          style={{ color: "var(--color-steel)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
+          className="flex items-center gap-1.5 text-m-section font-extrabold tracking-tight px-2 py-0.5 rounded-full shrink-0"
+          style={{ color: "var(--color-ink-500)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
         >
           <Users className="size-2.5" />
           Customer
         </span>
       </div>
+      )}
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {/* ── Name ── */}
@@ -157,43 +171,43 @@ export function MobileCustomerForm({
           />
         </FormField>
 
-        {/* ── Phone ── */}
-        <FormField label="Phone" required>
-          <input
-            type="tel"
-            value={form.phone}
-            onChange={(e) => set("phone", e.target.value)}
-            placeholder="98765 43210"
-            required
-            autoComplete="tel"
-            enterKeyHint="next"
-            className={`${inputClass} tabular-nums`}
-            style={inputStyle}
-          />
-          {duplicatePhone && (
-            <p
-              className="flex items-center gap-1.5 text-m-caption mt-1.5"
-              style={{ color: "var(--color-signal-dark)" }}
-            >
-              <AlertCircle className="size-3" />
-              A customer with this phone already exists
-            </p>
-          )}
-        </FormField>
-
-        {/* ── Email ── */}
-        <FormField label="Email">
-          <input
-            type="email"
-            value={form.email}
-            onChange={(e) => set("email", e.target.value)}
-            placeholder="customer@example.com"
-            autoComplete="email"
-            enterKeyHint="next"
-            className={inputClass}
-            style={inputStyle}
-          />
-        </FormField>
+        {/* ── Phone + Email ── */}
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+          <FormField label="Phone" required>
+            <input
+              type="tel"
+              value={form.phone}
+              onChange={(e) => set("phone", e.target.value)}
+              placeholder="98765 43210"
+              required
+              autoComplete="tel"
+              enterKeyHint="next"
+              className={`${inputClass} tabular-nums`}
+              style={inputStyle}
+            />
+            {duplicatePhone && (
+              <p
+                className="flex items-center gap-1.5 text-m-caption mt-1.5"
+                style={{ color: "var(--color-signal-dark)" }}
+              >
+                <AlertCircle className="size-3" />
+                A customer with this phone already exists
+              </p>
+            )}
+          </FormField>
+          <FormField label="Email">
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => set("email", e.target.value)}
+              placeholder="customer@example.com"
+              autoComplete="email"
+              enterKeyHint="next"
+              className={inputClass}
+              style={inputStyle}
+            />
+          </FormField>
+        </div>
 
         {/* ── GSTIN ── */}
         <FormField label="GSTIN">
@@ -209,9 +223,35 @@ export function MobileCustomerForm({
             style={inputStyle}
           />
         </FormField>
+
+        {/* ── Inline buttons (modal mode only) ── */}
+        {onClose ? (
+          <div className="flex gap-1 ">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
+              style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={(e) => onSubmit(e as unknown as React.FormEvent)}
+              disabled={saving || !form.name.trim() || !form.phone.trim()}
+              className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            >
+              {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+              {saving ? "Creating…" : "Create Customer"}
+            </button>
+          </div>
+        ) : null}
       </form>
 
-      {/* ── Sticky bottom bar ── */}
+      {/* ── Sticky bottom bar (page mode only) ── */}
+      {onClose ? null : (
       <div
         className="fixed left-0 right-0 z-30 border-t backdrop-blur-sm"
         style={{
@@ -239,6 +279,7 @@ export function MobileCustomerForm({
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 }
@@ -344,40 +385,42 @@ export function MobileCreateCustomerButton({
                 style={inputStyle}
               />
             </FormField>
-            <FormField label="Phone" required>
-              <input
-                type="tel"
-                value={form.phone}
-                onChange={(e) => set("phone", e.target.value)}
-                placeholder="98765 43210"
-                required
-                autoComplete="tel"
-                enterKeyHint="next"
-                className={`${inputClass} tabular-nums`}
-                style={inputStyle}
-              />
-              {duplicatePhone && (
-                <p
-                  className="flex items-center gap-1.5 text-m-caption mt-1.5"
-                  style={{ color: "var(--color-signal-dark)" }}
-                >
-                  <AlertCircle className="size-3" />
-                  A customer with this phone already exists
-                </p>
-              )}
-            </FormField>
-            <FormField label="Email">
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => set("email", e.target.value)}
-                placeholder="customer@example.com"
-                autoComplete="email"
-                enterKeyHint="next"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </FormField>
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <FormField label="Phone" required>
+                <input
+                  type="tel"
+                  value={form.phone}
+                  onChange={(e) => set("phone", e.target.value)}
+                  placeholder="98765 43210"
+                  required
+                  autoComplete="tel"
+                  enterKeyHint="next"
+                  className={`${inputClass} tabular-nums`}
+                  style={inputStyle}
+                />
+                {duplicatePhone && (
+                  <p
+                    className="flex items-center gap-1.5 text-m-caption mt-1.5"
+                    style={{ color: "var(--color-signal-dark)" }}
+                  >
+                    <AlertCircle className="size-3" />
+                    A customer with this phone already exists
+                  </p>
+                )}
+              </FormField>
+              <FormField label="Email">
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => set("email", e.target.value)}
+                  placeholder="customer@example.com"
+                  autoComplete="email"
+                  enterKeyHint="next"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </FormField>
+            </div>
             <FormField label="GSTIN">
               <input
                 type="text"
@@ -390,7 +433,7 @@ export function MobileCreateCustomerButton({
                 style={inputStyle}
               />
             </FormField>
-            <div className="flex gap-2 pt-1">
+            <div className="flex gap-1 ">
               <button
                 type="button"
                 onClick={close}

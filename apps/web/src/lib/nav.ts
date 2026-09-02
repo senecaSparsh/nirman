@@ -42,6 +42,9 @@ import {
   Workflow,
   MessageSquare,
   Handshake,
+  RefreshCw,
+  Phone,
+  PhoneCall,
   type LucideIcon,
 } from "lucide-react";
 
@@ -102,7 +105,7 @@ const BOOKS = ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "FINANCE_HEAD", "PROJECT_MA
 const SELLING = ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "SALES_MANAGER"];
 /** Leadership only. */
 const LEADERSHIP = ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "FINANCE_HEAD", "PROJECT_MANAGER"];
-const OWNERS = ["OWNER", "ADMIN"];
+const OWNERS = ["OWNER", "ADMIN", "DEVELOPER"];
 /** Roles that see reports (finance users plus field/sales who need a few). */
 const REPORTS = [...BOOKS, "SUPERVISOR", "QAQC_ENGINEER", "SALES_MANAGER", "SITE_ENGINEER", "STORE_KEEPER", "PROCUREMENT_MANAGER", "HR_MANAGER"];
 
@@ -222,6 +225,15 @@ export const WORLDS: World[] = [
             badge: { endpoint: "/api/approvals" },
             keywords: ["approve", "sign off", "authorise", "pending", "approval"],
           },
+          {
+            label: "Call Log",
+            href: "/calls",
+            icon: PhoneCall,
+            hint: "Every call made or received on company numbers — recordings, notes, dispositions, and analytics",
+            roles: EVERYONE,
+            badge: { endpoint: "/api/calls?status=MISSED&limit=1" },
+            keywords: ["call", "phone", "recording", "telephony", "voicemail", "missed call", "call log", "communication"],
+          },
         ],
       },
       {
@@ -234,6 +246,16 @@ export const WORLDS: World[] = [
             hint: "Every report, grouped by the Build lifecycle stage it belongs to",
             roles: REPORTS,
             keywords: ["report", "analysis", "analytics", "insight", "insights"],
+          },
+          {
+            label: "Call Analytics",
+            href: "/reports/calls",
+            icon: PhoneCall,
+            hint: "Call volume, missed call rate, duration by staff, disposition breakdown, and cost summary",
+            roles: [...BOOKS, "SALES_MANAGER", "PROJECT_MANAGER"],
+            keywords: ["call analytics", "call report", "missed calls", "call duration", "telephony report", "call performance"],
+            hidden: true,
+            group: RG.PEOPLE,
           },
         ],
       },
@@ -812,6 +834,46 @@ export const WORLDS: World[] = [
             keywords: ["cash", "expense", "payment", "cost", "spend", "finance"],
           },
           {
+            label: "Expenses",
+            href: "/expenses",
+            icon: Receipt,
+            hint: "Book and approve operating expenses — categories, payment mode, GST, receipts, and approval workflow",
+            roles: BOOKS,
+            keywords: ["expense", "spend", "opex", "voucher", "bill", "reimbursement", "petty cash", "approval"],
+          },
+          {
+            label: "Expense Claims",
+            href: "/expense-claims",
+            icon: Receipt,
+            hint: "Employee reimbursement claims — submit, approve, and pay out",
+            roles: BOOKS,
+            keywords: ["claim", "reimbursement", "employee expense", "travel", "site expense"],
+          },
+          {
+            label: "Petty Cash",
+            href: "/petty-cash",
+            icon: Wallet,
+            hint: "Site/office cash floats — top-ups and balances",
+            roles: BOOKS,
+            keywords: ["petty cash", "float", "cash", "imprest"],
+          },
+          {
+            label: "Recurring Expenses",
+            href: "/recurring-expenses",
+            icon: RefreshCw,
+            hint: "Templates for periodic expenses (rent, salaries, AMC) — auto-generates drafts on schedule",
+            roles: BOOKS,
+            keywords: ["recurring", "repeating", "rent", "salary", "amc", "subscription", "auto"],
+          },
+          {
+            label: "Expense Budgets",
+            href: "/expense-budgets",
+            icon: Calculator,
+            hint: "Budget vs actuals per category and period — variance tracking",
+            roles: BOOKS,
+            keywords: ["budget", "variance", "forecast", "limit", "actuals"],
+          },
+          {
             label: "Outstanding Dues",
             href: "/reports/pending-payments",
             icon: ClipboardCheck,
@@ -955,6 +1017,22 @@ export const SETTINGS_LINKS: NavLink[] = [
     hint: "Download a full backup of your company data, or restore from a previous backup file",
     roles: OWNERS,
     keywords: ["backup", "restore", "export", "import", "dump", "data", "safety", "download"],
+  },
+  {
+    label: "Feedback Inbox",
+    href: "/feedback",
+    icon: MessageSquare,
+    hint: "User feedback from across the platform — screenshots, voice notes, and text",
+    roles: OWNERS,
+    keywords: ["feedback", "bug", "suggestion", "user voice", "complaint", "feature request", "screenshot", "voice note"],
+  },
+  {
+    label: "Telephony",
+    href: "/telephony",
+    icon: Phone,
+    hint: "Company phone numbers, call recording config, telephony providers, and call monitoring consent policy",
+    roles: OWNERS,
+    keywords: ["telephony", "phone number", "call recording", "exotel", "knowlarity", "twilio", "consent", "ivr", "virtual number"],
   },
 ];
 

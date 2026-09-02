@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import {
   FileText, ShoppingCart, Building2, Boxes, Truck, Users,
   Package, LandPlot, ClipboardList, Wrench, ArrowLeftRight,
-  TrendingUp, Clock, type LucideIcon,
+  TrendingUp, Clock, Sun, type LucideIcon,
 } from "lucide-react";
 import { OrbitNavigator } from "@/components/mobile/v2/orbit-navigator";
 import { useRecentItems, type RecentItem } from "@/lib/use-recent-items";
+import { useAutoScroll } from "@/lib/use-auto-scroll";
+import { formatDate } from "@/lib/utils";
 import { MobileCompanyFab } from "./MobileCompanyFab";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -70,16 +72,9 @@ export function MobileHomeClient({
 
   // Key forces OrbitNavigator to re-mount when company changes
   const orbitKey = activeCompany.id;
-  const router = useRouter();
-  const { items: recentItems } = useRecentItems();
 
   return (
     <div>
-      {/* ── Recent items ("Jump Back In") ── */}
-      {recentItems.length > 0 ? (
-        <RecentItemsCarousel items={recentItems} onSelect={(href) => router.push(href)} />
-      ) : null}
-
       {/* ── Orbit for the active company (always visible, no grid) ── */}
       <OrbitNavigator
         key={orbitKey}
@@ -100,6 +95,53 @@ export function MobileHomeClient({
           parentOptions={companies.map((c) => ({ id: c.id, name: c.name }))}
         />
       ) : null}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOME TOP SECTION — greeting (left) + recent carousel (right) in a 2-col grid.
+   Rendered at the very top of the mobile home page, above the MorningBriefing.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+export function HomeTopSection({ userName }: { userName: string | null }) {
+  const router = useRouter();
+  const { items: recentItems } = useRecentItems();
+
+  return (
+    <div
+      className="grid gap-2 pt-3 pb-1"
+      style={{ gridTemplateColumns: "2fr 3fr" }}
+    >
+      <GreetingHeader userName={userName} />
+      {recentItems.length > 0 ? (
+        <RecentItemsCarousel items={recentItems} onSelect={(href) => router.push(href)} />
+      ) : (
+        <div />
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GREETING HEADER — compact, flush-left, sits in the left grid column
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function GreetingHeader({ userName }: { userName: string | null }) {
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const firstName = userName ? userName.split(" ")[0] : "there";
+  return (
+    <div className="flex items-start gap-1.5 min-w-0">
+      <Sun className="size-3.5 shrink-0 mt-0.5" style={{ color: "var(--color-signal)" }} />
+      <div className="min-w-0">
+        <div className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+          {greeting}, {firstName}
+        </div>
+        <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+          {formatDate(new Date())}
+        </div>
+      </div>
     </div>
   );
 }
@@ -143,36 +185,44 @@ function RecentItemsCarousel({
   items: RecentItem[];
   onSelect: (href: string) => void;
 }) {
+  const scrollerRef = useAutoScroll<HTMLDivElement>([items.length]);
+
   return (
-    <div className="mb-4">
-      <div className="flex items-center gap-1.5 mb-2 px-1">
-        <Clock className="size-3.5" style={{ color: "var(--color-ink-400)" }} />
+    <div className="min-w-0">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Clock className="size-3" style={{ color: "var(--color-ink-400)" }} />
         <span
-          className="text-m-label font-bold uppercase tracking-wide"
+          className="text-m-caption font-bold uppercase tracking-wide"
           style={{ color: "var(--color-ink-400)" }}
         >
           Recent
         </span>
       </div>
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
+      <div
+        ref={scrollerRef}
+        className="flex gap-1.5 overflow-x-auto pb-0.5"
+        style={{ scrollbarWidth: "none" }}
+      >
         {items.slice(0, 10).map((item) => {
           const Icon = RECENT_ICONS[item.type] ?? FileText;
           return (
             <button
               key={`${item.type}:${item.id}`}
               onClick={() => onSelect(item.href)}
-              className="text-m-body press shrink-0 w-[8.5rem] rounded-[0.625rem] border p-2.5 text-left"
+              className="text-m-body press shrink-0 border p-1.5 text-left"
               style={{
+                width: "5rem",
+                borderRadius: "0.5rem",
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-paper)",
               }}
             >
-              <div className="flex items-center gap-1.5 mb-1.5">
+              <div className="flex items-center gap-1 mb-1">
                 <div
-                  className="flex items-center justify-center size-6 rounded-md shrink-0"
+                  className="flex items-center justify-center size-4 rounded-md shrink-0"
                   style={{ backgroundColor: "var(--color-surface)" }}
                 >
-                  <Icon className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
+                  <Icon className="size-2.5" style={{ color: "var(--color-ink-500)" }} />
                 </div>
                 <span
                   className="text-m-caption font-medium uppercase tracking-wide"

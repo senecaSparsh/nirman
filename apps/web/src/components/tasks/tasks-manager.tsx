@@ -17,12 +17,14 @@ import { AssignTaskDialog } from "@/components/tasks/assign-task-dialog";
 import { TaskDetailDrawer } from "@/components/tasks/task-detail-drawer";
 import { downloadCSV } from "@/lib/export";
 import { cn, formatDate } from "@/lib/utils";
+import { EmployeeName } from "@/components/employee-name";
 
 interface TaskUser {
   id: string;
   name: string;
   email: string;
   role: string;
+  employeeId?: string | null;
 }
 
 interface TaskRow {
@@ -526,7 +528,7 @@ function TaskCard({
           </span>
         )}
         {task.assignedTo && (
-          <span className="truncate text-caption text-muted-foreground">{task.assignedTo.name.split(" ")[0]}</span>
+          <span className="truncate text-caption text-muted-foreground" {...(task.assignedTo.employeeId ? { "data-emp-id": task.assignedTo.employeeId } : {})}>{task.assignedTo.name.split(" ")[0]}</span>
         )}
         {!task.assignedTo && (
           <span className="text-caption text-muted-foreground/50">Unassigned</span>
@@ -621,7 +623,7 @@ function TaskList({
                 {t.title}
               </span>
               {t.assignedTo && (
-                <span className="ml-2 text-caption text-muted-foreground">{t.assignedTo.name.split(" ")[0]}</span>
+                <span className="ml-2 text-caption text-muted-foreground" {...(t.assignedTo.employeeId ? { "data-emp-id": t.assignedTo.employeeId } : {})}>{t.assignedTo.name.split(" ")[0]}</span>
               )}
             </div>
 

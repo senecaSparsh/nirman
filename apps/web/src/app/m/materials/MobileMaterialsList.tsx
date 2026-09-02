@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Package } from "lucide-react";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { formatNumber, formatCurrencyCompact } from "@/lib/utils";
 import { MaterialIllustration } from "@/components/mobile/v2/material-illustration";
@@ -11,7 +10,7 @@ import {
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
-import { mobileStatusColor, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { mobileStatusColor } from "@/components/mobile/v2/primitives";
 
 export type MaterialItem = {
   id: string;
@@ -96,22 +95,15 @@ export function MobileMaterialsList({
   }
   const groupedCategories = Object.keys(grouped).sort();
 
-  if (items.length === 0) {
-    return (
-      <MobileEmptyState
-        icon={Package}
-        title="No materials"
-        hint="Materials will appear here once added to the catalog"
-      />
-    );
-  }
-
   const sortLabel: Record<SortMode, string> = {
     default: "Default",
     "stock-low": "Stock: Low first",
     "stock-high": "Stock: High first",
     name: "Name A-Z",
   };
+
+  // Empty state is rendered by the parent page (with the proper CTA).
+  if (items.length === 0) return null;
 
   return (
     <div>

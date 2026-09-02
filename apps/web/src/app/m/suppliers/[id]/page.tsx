@@ -5,6 +5,7 @@ import { prisma } from "@nirman/db";
 import { Truck } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileSupplierDetailClient } from "./MobileSupplierDetailClient";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 
@@ -57,19 +58,7 @@ async function MobileSupplierDetailContent({
 
   if (!supplier) {
     return (
-      <div>
-        <div className="mb-4">
-        </div>
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-12 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <Truck className="size-8 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            Supplier not found
-          </p>
-        </div>
-      </div>
+      <MobileEmptyState icon={Truck} title="Supplier not found" />
     );
   }
 

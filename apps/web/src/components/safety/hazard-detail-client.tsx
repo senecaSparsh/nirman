@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
@@ -165,9 +166,8 @@ export function HazardDetailClient({ hazard, canManage }: { hazard: HazardDetail
           <p className="text-label font-semibold text-muted-foreground">Attachments ({hazard.attachments.length})</p>
           <div className="grid grid-cols-3 gap-2">
             {hazard.attachments.map((url, i) => (
-              <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-md border border-border">
-                {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded photo */}
-                <img src={url} alt={`Attachment ${i + 1}`} className="aspect-square w-full object-cover" />
+              <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="relative block overflow-hidden rounded-md border border-border aspect-square">
+                <Image src={url} alt={`Attachment ${i + 1}`} fill className="object-cover" sizes="(max-width: 768px) 33vw, 200px" />
               </a>
             ))}
           </div>

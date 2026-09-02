@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { toast } from "sonner";
 import {
   Globe, Plus, RefreshCw, ExternalLink, XCircle, Loader2,
@@ -509,10 +510,9 @@ function ListingDetailDialog({
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="aspect-square overflow-hidden rounded-md border border-border bg-muted"
+                className="relative aspect-square overflow-hidden rounded-md border border-border bg-muted"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt={`Photo ${i + 1}`} className="h-full w-full object-cover transition-transform hover:scale-105" />
+                <Image src={url} alt={`Photo ${i + 1}`} fill className="object-cover transition-transform hover:scale-105" sizes="(max-width: 768px) 33vw, 200px" />
               </a>
             ))}
           </div>
@@ -813,8 +813,7 @@ function ListingForm({
             <div className="flex flex-wrap gap-2">
               {photos.map((url, i) => (
                 <div key={i} className="relative h-16 w-16 overflow-hidden rounded-md border border-border bg-muted">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt={`Photo ${i + 1}`} className="h-full w-full object-cover" />
+                  <Image src={url} alt={`Photo ${i + 1}`} fill className="object-cover" sizes="64px" />
                   <button
                     type="button"
                     onClick={() => removePhoto(i)}

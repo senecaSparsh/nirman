@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import {Truck, Search, User, X, ChevronRight, Loader2, RefreshCw} from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileNoResults } from "@/components/mobile/v2/scaffold";
 
 interface Vehicle {
   id: string;
@@ -109,15 +112,15 @@ export default function MobileVehiclesPage() {
           <Loader2 className="size-5 animate-spin" style={{ color: "var(--color-steel)" }} />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-          <Truck className="size-8 mb-3" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-500)" }}>
-            {query ? "No vehicles match your search" : "No vehicles yet"}
-          </p>
-          <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-400)" }}>
-            Vehicles are auto-created when you enter a vehicle number on any goods movement
-          </p>
-        </div>
+        query ? (
+          <MobileNoResults title="No vehicles match your search" />
+        ) : (
+          <MobileEmptyState
+            icon={Truck}
+            title="No vehicles yet"
+            hint="Vehicles are auto-created when you enter a vehicle number on any goods movement"
+          />
+        )
       ) : (
         <div className="divide-y" style={{ borderColor: "var(--color-line)" }}>
           {filtered.map((v) => (
@@ -128,8 +131,9 @@ export default function MobileVehiclesPage() {
             >
               {/* Vehicle photo or icon */}
               {v.photoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={v.photoUrl} alt={v.vehicleNumber} className="size-12 rounded-[0.375rem] object-cover shrink-0" />
+                <div className="relative size-12 rounded-[0.375rem] overflow-hidden shrink-0">
+                  <Image src={v.photoUrl} alt={v.vehicleNumber} fill className="object-cover" sizes="48px" />
+                </div>
               ) : (
                 <div className="size-12 rounded-[0.375rem] flex items-center justify-center shrink-0" style={{ backgroundColor: "var(--color-paper-2)" }}>
                   <Truck className="size-5" style={{ color: "var(--color-ink-400)" }} />
@@ -182,8 +186,9 @@ export default function MobileVehiclesPage() {
 
             {/* Photo */}
             {selected.photoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={selected.photoUrl} alt={selected.vehicleNumber} className="w-full h-40 object-cover" />
+              <div className="relative w-full h-40 overflow-hidden">
+                <Image src={selected.photoUrl} alt={selected.vehicleNumber} fill className="object-cover" sizes="(max-width: 768px) 100vw, 400px" />
+              </div>
             ) : (
               <div className="w-full h-32 flex items-center justify-center" style={{ backgroundColor: "var(--color-paper-2)" }}>
                 <Truck className="size-10" style={{ color: "var(--color-ink-300)" }} />

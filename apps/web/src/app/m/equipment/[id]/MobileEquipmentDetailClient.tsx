@@ -12,6 +12,7 @@ import {formatCurrencyCompact, formatDate} from "@/lib/utils";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 type EquipmentStatus = "AVAILABLE" | "ASSIGNED" | "IN_MAINTENANCE" | "RETIRED";
 
@@ -116,22 +117,11 @@ export function MobileEquipmentDetailClient({
   /* ── Not found ── */
   if (notFound || !equipment) {
     return (
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-            Equipment not found
-          </p>
-        </div>
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <Wrench className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            Equipment not found
-          </p>
-        </div>
-      </div>
+      <MobileEmptyState
+        icon={Wrench}
+        title="Equipment not found"
+        description="This equipment may have been archived or doesn't exist."
+      />
     );
   }
 

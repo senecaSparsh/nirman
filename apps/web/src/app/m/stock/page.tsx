@@ -4,15 +4,15 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
-import { MobileStockMovementsList } from "./MobileStockMovementsList";
 import { MobileLocationDetail } from "./MobileLocationDetail";
+import { MobileStockHubTabs } from "./MobileStockHubTabs";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
-import { formatCurrency } from "@/lib/utils";
 
 export default function MobileStockPage({
   searchParams,
 }: {
-  searchParams: Promise<{ materialId?: string; locationId?: string }>;
+  searchParams: Promise<{ materialId?: string; locationId?: string; tab?: string }>;
 }) {
   return (
     <Suspense fallback={<MobileSkeletonList rows={8} />}>
@@ -24,12 +24,13 @@ export default function MobileStockPage({
 async function MobileStockContent({
   searchParams,
 }: {
-  searchParams: Promise<{ materialId?: string; locationId?: string }>;
+  searchParams: Promise<{ materialId?: string; locationId?: string; tab?: string }>;
 }) {
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
   const canManage = hasPermission(role, PERM.INVENTORY_MANAGE);
+  const canTransfer = hasPermission(role, PERM.STOCK_TRANSFER);
   const { materialId, locationId } = await searchParams;
 
   // ── Location detail view: when locationId is set (and no materialId) ──
@@ -83,11 +84,7 @@ async function MobileStockContent({
 
     if (!location) {
       return (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            Location not found
-          </p>
-        </div>
+        <MobileEmptyState title="Location not found" />
       );
     }
 
@@ -145,8 +142,19 @@ async function MobileStockContent({
     );
   }
 
-  // ── Company-wide ledger view (default) ──
-  const [locations, movements, filterMaterial, materialStockItems] = await Promise.all([
+  // ── Fetch data for all hub tabs in parallel ──
+  const BATCH_SIZE = 60;
+  const [
+    locations,
+    movements,
+    filterMaterial,
+    materialStockItems,
+    ledgerCategories,
+    transfers,
+    counts,
+    scraps,
+  ] = await Promise.all([
+    // ── Ledger: locations ──
     prisma.stockLocation.findMany({
       where: { companyId: company.id, deletedAt: null },
       select: {
@@ -157,6 +165,7 @@ async function MobileStockContent({
       },
       orderBy: { name: "asc" },
     }),
+    // ── Ledger: movements ──
     prisma.stockMovement.findMany({
       where: {
         ...(materialId ? { materialId } : {}),
@@ -170,12 +179,14 @@ async function MobileStockContent({
         toLocation: { select: { id: true, name: true } },
       },
     }),
+    // ── Ledger: filter material ──
     materialId
       ? prisma.material.findUnique({
           where: { id: materialId },
           select: { id: true, name: true, unit: true, code: true },
         })
       : null,
+    // ── Ledger: material stock items ──
     materialId
       ? prisma.stockLocationItem.findMany({
           where: { materialId, qty: { not: 0 } },
@@ -183,8 +194,63 @@ async function MobileStockContent({
           orderBy: { location: { name: "asc" } },
         })
       : [],
+    // ── Ledger: categories ──
+    prisma.materialCategory.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true, unit: true },
+      orderBy: { name: "asc" },
+    }),
+    // ── Transfers tab ──
+    prisma.stockTransfer.findMany({
+      where: {
+        OR: [
+          { fromLocation: { companyId: company.id, deletedAt: null } },
+          { toLocation: { companyId: company.id, deletedAt: null } },
+        ],
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: BATCH_SIZE + 1,
+      include: {
+        fromLocation: { select: { id: true, name: true, type: true, companyId: true, company: { select: { name: true } } } },
+        toLocation: { select: { id: true, name: true, type: true, companyId: true, company: { select: { name: true } } } },
+        lines: { include: { material: { select: { name: true, unit: true } } } },
+      },
+    }),
+    // ── Counts tab ──
+    prisma.stockCount.findMany({
+      where: { location: { companyId: company.id, deletedAt: null } },
+      orderBy: { createdAt: "desc" },
+      take: 80,
+      include: {
+        location: { select: { id: true, name: true, type: true } },
+        lines: { select: { variance: true, materialId: true } },
+      },
+    }),
+    // ── Scrap tab ──
+    prisma.scrapGeneration.findMany({
+      where: { companyId: company.id },
+      orderBy: { createdAt: "desc" },
+      take: 80,
+      select: {
+        id: true,
+        scrapNumber: true,
+        generationDate: true,
+        notes: true,
+        toLocation: { select: { name: true } },
+        project: { select: { name: true } },
+        dprAutoScrap: { select: { id: true } },
+        lines: {
+          select: {
+            qty: true,
+            unitCost: true,
+            material: { select: { name: true, unit: true } },
+          },
+        },
+      },
+    }),
   ]);
 
+  // ── Ledger serialization ──
   const totalInventoryValue = locations.reduce(
     (s, l) => s + l.stockItems.reduce((ls, i) => ls + toNum(i.qty) * toNum(i.movingAvgCost), 0),
     0,
@@ -220,7 +286,7 @@ async function MobileStockContent({
     unit: filterMaterial?.unit ?? "",
   }));
 
-  const csvColumns: MobileColumnSpec[] = [
+  const ledgerCsvColumns: MobileColumnSpec[] = [
     { key: "materialName", label: "Material" },
     { key: "materialUnit", label: "Unit" },
     { key: "qty", label: "Quantity" },
@@ -230,19 +296,134 @@ async function MobileStockContent({
     { key: "timestamp", label: "Date", format: "date" },
   ];
 
+  // ── Transfers serialization ──
+  const hasMore = transfers.length > BATCH_SIZE;
+  const batch = hasMore ? transfers.slice(0, BATCH_SIZE) : transfers;
+  const inTransitCount = batch.filter((t) => t.status === "IN_TRANSIT").length;
+  const lastItem = batch[batch.length - 1];
+  const nextCursor = hasMore && lastItem
+    ? `${lastItem.createdAt.toISOString()}|${lastItem.id}`
+    : null;
+
+  const transferItems = batch.map((t) => ({
+    id: t.id,
+    fromLocationName: t.fromLocation.name,
+    fromLocationType: t.fromLocation.type,
+    fromCompanyName: t.fromLocation.company?.name ?? null,
+    fromCompanyId: t.fromLocation.companyId,
+    toLocationName: t.toLocation.name,
+    toLocationType: t.toLocation.type,
+    toCompanyName: t.toLocation.company?.name ?? null,
+    toCompanyId: t.toLocation.companyId,
+    status: t.status,
+    transferDate: t.transferDate.toISOString(),
+    createdAt: t.createdAt.toISOString(),
+    notes: t.notes,
+    lineCount: t.lines.length,
+    totalQty: t.lines.reduce((s, l) => s + toNum(l.qty), 0),
+    materials: t.lines.map((l) => l.material.name),
+    materialsList: t.lines.map((l) => l.material.name).join("; "),
+    isInterCompany: t.isInterCompany,
+    transferPriceTotal: t.transferPriceTotal ? toNum(t.transferPriceTotal) : null,
+  }));
+
+  const transfersCsvColumns: MobileColumnSpec[] = [
+    { key: "fromLocationName", label: "From Location" },
+    { key: "toLocationName", label: "To Location" },
+    { key: "status", label: "Status" },
+    { key: "transferDate", label: "Date", format: "date" },
+    { key: "totalQty", label: "Total Qty" },
+    { key: "lineCount", label: "Lines" },
+    { key: "materialsList", label: "Materials" },
+  ];
+
+  // ── Counts serialization ──
+  const draft = counts.filter((c) => c.status === "DRAFT");
+  const counted = counts.filter((c) => c.status === "COUNTED");
+  const reconciled = counts.filter((c) => c.status === "RECONCILED");
+
+  const countItems = counts.map((c) => {
+    const totalVariance = c.lines.reduce((s, l) => s + toNum(l.variance), 0);
+    const itemsWithVariance = c.lines.filter((l) => {
+      const v = toNum(l.variance);
+      return v > 0.001 || v < -0.001;
+    }).length;
+    return {
+      id: c.id,
+      status: c.status,
+      countDate: c.countDate.toISOString(),
+      createdAt: c.createdAt.toISOString(),
+      locationId: c.location.id,
+      locationName: c.location.name,
+      locationType: c.location.type,
+      lineCount: c.lines.length,
+      totalVariance,
+      itemsWithVariance,
+    };
+  });
+
+  // ── Scrap serialization ──
+  const scrapTotalValue = scraps.reduce(
+    (s, sc) =>
+      s + sc.lines.reduce((ls, l) => ls + toNum(l.qty) * toNum(l.unitCost), 0),
+    0,
+  );
+
+  const scrapItems = scraps.map((sc) => ({
+    id: sc.id,
+    scrapNumber: sc.scrapNumber,
+    generationDate: sc.generationDate.toISOString(),
+    notes: sc.notes,
+    toLocationName: sc.toLocation.name,
+    projectName: sc.project?.name ?? null,
+    isAuto: !!sc.dprAutoScrap,
+    lineCount: sc.lines.length,
+    totalValue: sc.lines.reduce(
+      (s, l) => s + toNum(l.qty) * toNum(l.unitCost),
+      0,
+    ),
+    materials: sc.lines.map((l) => l.material.name).slice(0, 2),
+  }));
+
+  const scrapCsvColumns: MobileColumnSpec[] = [
+    { key: "scrapNumber", label: "Slip No" },
+    { key: "toLocationName", label: "Location" },
+    { key: "projectName", label: "Project" },
+    { key: "generationDate", label: "Date", format: "date" },
+    { key: "lineCount", label: "Items" },
+    { key: "totalValue", label: "Value", format: "currency" },
+  ];
+
   return (
-    <>
-      <MobileStockMovementsList
-        locations={serializedLocations}
-        movements={serializedMovements}
-        totalInventoryValue={totalInventoryValue}
-        filterMaterialName={filterMaterial?.name ?? null}
-        materialStockItems={serializedMaterialStock}
-        exportTitle="Stock Ledger"
-        exportRows={serializedMovements as unknown as Record<string, unknown>[]}
-        exportColumns={csvColumns}
-        exportSummary={`${serializedMovements.length} stock movements · Total value: ${formatCurrency(totalInventoryValue)}`}
-      />
-    </>
+    <MobileStockHubTabs
+      ledgerLocations={serializedLocations}
+      ledgerMovements={serializedMovements}
+      ledgerTotalInventoryValue={totalInventoryValue}
+      ledgerFilterMaterialName={filterMaterial?.name ?? null}
+      ledgerMaterialStockItems={serializedMaterialStock}
+      ledgerExportColumns={ledgerCsvColumns}
+      ledgerCanManage={canManage}
+      ledgerCategories={ledgerCategories.map((c) => ({ id: c.id, name: c.name, unit: c.unit }))}
+      transfersItems={transferItems}
+      transfersCanCreate={canTransfer}
+      transfersCanTransfer={canTransfer}
+      transfersInTransitCount={inTransitCount}
+      transfersCurrentCompanyId={company.id}
+      transfersLoadMoreUrl="/api/mobile/list/transfers"
+      transfersNextCursor={nextCursor}
+      transfersExportColumns={transfersCsvColumns}
+      countsItems={countItems}
+      countsSummary={{
+        total: counts.length,
+        draft: draft.length,
+        counted: counted.length,
+        reconciled: reconciled.length,
+      }}
+      countsCanCreate={canManage}
+      scrapItems={scrapItems}
+      scrapTotalValue={scrapTotalValue}
+      scrapCanCreate={canManage}
+      scrapExportColumns={scrapCsvColumns}
+    />
   );
 }

@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Pencil, Trash2, Milestone, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProjectFormDialog, type ProjectFormValues } from "./project-form-dialog";
-import { ConfirmDelete } from "@/components/confirm-delete";
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 
 export function ProjectDetailActions({
   projectId,
@@ -62,10 +62,10 @@ export function ProjectDetailActions({
         Delete
       </Button>
       <ProjectFormDialog open={open} onOpenChange={onOpenChange} projectId={projectId} initial={initial} />
-      <ConfirmDelete
+      <DeleteConfirmDialog
         open={delOpen}
         onOpenChange={setDelOpen}
-        url={`/api/projects/${projectId}`}
+        endpoint={`/api/projects/${projectId}`}
         title="Delete project"
         description="The project will be archived. Active projects cannot be deleted — complete or put on hold first."
         successMessage="Project archived"

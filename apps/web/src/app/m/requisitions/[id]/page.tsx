@@ -78,7 +78,7 @@ async function MobileRequisitionDetailContent({
       <div>
         <div className="mb-4">
         </div>
-        <MobileEmptyState icon={FileText} title="Requisition not found" />
+        <MobileEmptyState icon={FileText} title="Indent not found" />
       </div>
     );
   }

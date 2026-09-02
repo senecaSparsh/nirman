@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Search, X, Package } from "lucide-react";
+import { MobileNoResults } from "@/components/mobile/v2/scaffold";
 
 /**
  * SearchableMaterialPicker — replaces the plain <Select> dropdown for
@@ -166,15 +167,10 @@ export function SearchableMaterialPicker({
 
       {filtered.length === 0 && (
         <div
-          className="absolute z-50 mt-1 w-full rounded-[0.375rem] border px-3 py-4 text-center text-m-caption"
-          style={{
-            borderColor: "var(--color-line)",
-            backgroundColor: "var(--color-paper)",
-            color: "var(--color-ink-500)",
-            boxShadow: "0 4px 12px rgba(18, 17, 13, 0.12)",
-          }}
+          className="absolute z-50 mt-1 w-full"
+          style={{ boxShadow: "0 4px 12px rgba(18, 17, 13, 0.12)" }}
         >
-          No materials found for &ldquo;{query}&rdquo;
+          <MobileNoResults title="No materials found" query={query} />
         </div>
       )}
     </div>

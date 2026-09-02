@@ -14,6 +14,7 @@ import { BarSeries, AreaSeries } from "./charts";
 export type MonthlyExpenseRow = { label: string; operating: number; project: number };
 export type CategoryRow = { category: string; amount: number; count: number };
 export type ProjectRow = { project: string; amount: number };
+export type VendorRow = { vendor: string; amount: number; count: number };
 
 export function ExpensesReport({
   from,
@@ -21,6 +22,10 @@ export function ExpensesReport({
   monthly,
   categoryRows,
   projectRows,
+  vendorRows,
+  gstItc,
+  tdsTotal,
+  subtotalTotal,
   totalOperating,
   totalProject,
 }: {
@@ -29,6 +34,10 @@ export function ExpensesReport({
   monthly: MonthlyExpenseRow[];
   categoryRows: CategoryRow[];
   projectRows: ProjectRow[];
+  vendorRows: VendorRow[];
+  gstItc: number;
+  tdsTotal: number;
+  subtotalTotal: number;
   totalOperating: number;
   totalProject: number;
 }) {
@@ -96,6 +105,34 @@ export function ExpensesReport({
     },
   ];
 
+  const vendorColumns: Column<VendorRow>[] = [
+    {
+      key: "vendor",
+      label: "Vendor / Payee",
+      sortable: true,
+      filterable: true,
+      render: (v) => <span className="font-medium text-foreground">{v.vendor}</span>,
+      filterValue: (v) => v.vendor,
+      exportValue: (v) => v.vendor,
+    },
+    {
+      key: "count",
+      label: "Entries",
+      align: "right",
+      sortable: true,
+      render: (v) => <span className="tnum">{v.count}</span>,
+      exportValue: (v) => v.count,
+    },
+    {
+      key: "amount",
+      label: "Amount",
+      align: "right",
+      sortable: true,
+      render: (v) => <span className="tnum font-medium">{formatCurrency(v.amount)}</span>,
+      exportValue: (v) => v.amount,
+    },
+  ];
+
   const noMatch = (
     <EmptyState
       size="compact"
@@ -150,6 +187,10 @@ export function ExpensesReport({
             {projectRows.length > 0 && (
               <TabsTrigger value="project" count={projectRows.length}>By Project</TabsTrigger>
             )}
+            {vendorRows.length > 0 && (
+              <TabsTrigger value="vendor" count={vendorRows.length}>By Vendor</TabsTrigger>
+            )}
+            <TabsTrigger value="tax">GST & TDS</TabsTrigger>
           </TabsList>
 
           {/* ── Monthly trend ──────────────────────────────────────── */}
@@ -225,6 +266,67 @@ export function ExpensesReport({
               </div>
             </TabsContent>
           )}
+
+          {/* ── By vendor ──────────────────────────────────────────── */}
+          {vendorRows.length > 0 && (
+            <TabsContent value="vendor">
+              <div className="rounded-xl border border-border bg-card p-4">
+                <h3 className="text-body font-semibold text-foreground">Top Vendors / Payees</h3>
+                <p className="text-meta text-muted-foreground">{vendorRows.length} vendors · {formatCurrency(vendorRows.reduce((s, v) => s + v.amount, 0))} total</p>
+                <div className="mt-3 overflow-hidden rounded-lg border border-border">
+                  <DataTable
+                    data={vendorRows}
+                    columns={vendorColumns}
+                    storageKey="expenses-by-vendor"
+                    hideable
+                    exportFileName="expenses-by-vendor"
+                    initialSort={{ key: "amount", direction: "desc" }}
+                    searchable
+                    searchPlaceholder="Search vendor…"
+                    showTotals
+                    sumColumns={["amount"]}
+                    totalFormat={(_k, sum) => formatCurrency(sum)}
+                    emptyState={noMatch}
+                  />
+                </div>
+              </div>
+            </TabsContent>
+          )}
+
+          {/* ── GST & TDS ──────────────────────────────────────────── */}
+          <TabsContent value="tax">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="rounded-xl border border-border bg-card p-4">
+                <div className="text-caption text-muted-foreground">Subtotal (ex-tax)</div>
+                <div className="tnum text-h2 font-semibold text-foreground">{formatCurrency(subtotalTotal)}</div>
+                <div className="text-meta text-muted-foreground">Pre-tax value of approved expenses</div>
+              </div>
+              <div className="rounded-xl border border-border bg-card p-4">
+                <div className="text-caption text-muted-foreground">GST ITC Claimable</div>
+                <div className="tnum text-h2 font-semibold text-brand">{formatCurrency(gstItc)}</div>
+                <div className="text-meta text-muted-foreground">Input tax credit (CGST + SGST + IGST)</div>
+              </div>
+              <div className="rounded-xl border border-border bg-card p-4">
+                <div className="text-caption text-muted-foreground">TDS Deducted</div>
+                <div className="tnum text-h2 font-semibold text-warning">{formatCurrency(tdsTotal)}</div>
+                <div className="text-meta text-muted-foreground">Tax deducted at source on expenses</div>
+              </div>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4 mt-4">
+              <h3 className="text-body font-semibold text-foreground">GST ITC Reconciliation</h3>
+              <p className="text-meta text-muted-foreground">Input tax credit from approved expenses — available for GSTR-2B matching</p>
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="rounded-lg border border-border/60 p-3">
+                  <div className="text-caption text-muted-foreground">Total with GST</div>
+                  <div className="tnum text-body font-medium text-foreground">{formatCurrency(subtotalTotal + gstItc)}</div>
+                </div>
+                <div className="rounded-lg border border-border/60 p-3">
+                  <div className="text-caption text-muted-foreground">Net Cash Outflow</div>
+                  <div className="tnum text-body font-medium text-foreground">{formatCurrency(subtotalTotal + gstItc - tdsTotal)}</div>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
         </Tabs>
       )}
     </div>

@@ -14,6 +14,9 @@ import {
   type SummaryStat,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileNewSupplierForm } from "./MobileNewSupplierDialog";
 
 type DuesFilter = "ALL" | "DUE" | "CLEAR";
 
@@ -57,6 +60,7 @@ export function MobileSuppliersList({
 }) {
   const [query, setQuery] = useState("");
   const [duesFilter, setDuesFilter] = useState<DuesFilter>("ALL");
+  const fab = useFabModal();
 
   const filtered = useMemo(() => {
     let result = items;
@@ -141,7 +145,17 @@ export function MobileSuppliersList({
 
       {/* ── New supplier FAB ── */}
       {canCreate ? (
-        <MobileFab href="/m/suppliers/new" label="Add supplier" />
+        <>
+          <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="Add supplier" />
+          <MobileFabModal
+            open={fab.isOpen}
+            onClose={fab.close}
+            originRect={fab.originRect}
+            title="Add Supplier"
+          >
+            <MobileNewSupplierForm onClose={fab.close} />
+          </MobileFabModal>
+        </>
       ) : null}
     </div>
   );

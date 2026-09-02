@@ -171,6 +171,6 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     await cancelPurchaseOrder(id, user.id);
   }
   revalidatePath("/m/procurement");
-  revalidatePath("/m/requisitions");
+  revalidatePath("/m/procurement");
   return json({ ok: true });
 });

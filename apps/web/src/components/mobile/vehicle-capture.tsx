@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import {Camera, X, Loader2} from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
@@ -110,16 +111,22 @@ export function VehicleCapture({
     }
   }
 
-  const labelSize = compact ? "text-m-caption" : "text-m-caption";
-  const inputHeight = compact ? "h-8" : "h-9";
-  const fontSize = compact ? "text-m-caption" : "text-m-body";
+  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
+  const inputStyle = {
+    borderColor: "var(--color-line)",
+    backgroundColor: "transparent",
+    color: "var(--color-ink-950)",
+  };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
+  const dividerStyle = { borderColor: "var(--color-line)" };
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-3">
       {/* Vehicle number + type */}
-      <div className="grid grid-cols-2 gap-1.5">
-        <div className="relative">
-          <label className={`${labelSize} font-semibold uppercase tracking-wide block mb-0.5`} style={{ color: "var(--color-ink-500)" }}>
+      <div className="grid grid-cols-2 gap-2 divide-x" style={dividerStyle}>
+        <div className="relative pr-2">
+          <label className={labelClass} style={labelStyle}>
             Vehicle No.
           </label>
           <input
@@ -130,8 +137,8 @@ export function VehicleCapture({
             onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); if (blurTimeout) clearTimeout(blurTimeout); }}
             onBlur={() => { setBlurTimeout(setTimeout(() => setShowSuggestions(false), 200)); }}
             placeholder="MH-12-AB-1234"
-            className={`w-full ${inputHeight} rounded-[0.375rem] border px-1.5 ${fontSize} font-mono outline-none`}
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
+            className={`${inputClass} font-mono`}
+            style={inputStyle}
           />
           {/* Autocomplete suggestions */}
           {showSuggestions && suggestions.length > 0 ? (
@@ -143,7 +150,7 @@ export function VehicleCapture({
                   onMouseDown={(e) => { e.preventDefault(); selectVehicle(s); }}
                   className="w-full text-left px-2 py-1.5 hover:bg-[color-mix(in_srgb,var(--color-signal)_8%,transparent)]"
                 >
-                  <div className={`${fontSize} font-mono font-bold`} style={{ color: "var(--color-ink-950)" }}>{s.vehicleNumber}</div>
+                  <div className="text-m-caption font-mono font-bold" style={{ color: "var(--color-ink-950)" }}>{s.vehicleNumber}</div>
                   <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                     {s.vehicleType}{s.driverName ? ` · ${s.driverName}` : ""}
                   </div>
@@ -152,15 +159,15 @@ export function VehicleCapture({
             </div>
           ) : null}
         </div>
-        <div>
-          <label className={`${labelSize} font-semibold uppercase tracking-wide block mb-0.5`} style={{ color: "var(--color-ink-500)" }}>
+        <div className="pl-2">
+          <label className={labelClass} style={labelStyle}>
             Type
           </label>
           <select
             value={value.vehicleType}
             onChange={(e) => onChange({ ...value, vehicleType: e.target.value })}
-            className={`w-full ${inputHeight} rounded-[0.375rem] border px-1 ${fontSize} outline-none`}
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
+            className={inputClass}
+            style={inputStyle}
           >
             <option value="">Select…</option>
             {VEHICLE_TYPE_OPTIONS.map((o) => (
@@ -171,31 +178,36 @@ export function VehicleCapture({
       </div>
 
       {/* Driver + phone */}
-      <div className="grid grid-cols-2 gap-1.5">
-        <input
-          type="text"
-          value={value.driverName ?? ""}
-          onChange={(e) => onChange({ ...value, driverName: e.target.value })}
-          placeholder="Driver name"
-          className={`w-full ${inputHeight} rounded-[0.375rem] border px-1.5 ${fontSize} outline-none`}
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
-        />
-        <input
-          type="tel"
-          value={value.driverPhone ?? ""}
-          onChange={(e) => onChange({ ...value, driverPhone: e.target.value })}
-          placeholder="Driver phone"
-          className={`w-full ${inputHeight} rounded-[0.375rem] border px-1.5 ${fontSize} outline-none`}
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
-        />
+      <div className="grid grid-cols-2 gap-2 divide-x" style={dividerStyle}>
+        <div className="pr-2">
+          <label className={labelClass} style={labelStyle}>Driver</label>
+          <input
+            type="text"
+            value={value.driverName ?? ""}
+            onChange={(e) => onChange({ ...value, driverName: e.target.value })}
+            placeholder="Driver name"
+            className={inputClass}
+            style={inputStyle}
+          />
+        </div>
+        <div className="pl-2">
+          <label className={labelClass} style={labelStyle}>Phone</label>
+          <input
+            type="tel"
+            value={value.driverPhone ?? ""}
+            onChange={(e) => onChange({ ...value, driverPhone: e.target.value })}
+            placeholder="Driver phone"
+            className={inputClass}
+            style={inputStyle}
+          />
+        </div>
       </div>
 
       {/* Vehicle photo — even for cycle/bike/porter */}
       <div>
         {value.photoUrl ? (
           <div className="relative rounded-[0.375rem] overflow-hidden" style={{ height: compact ? 48 : 64, border: "1px solid var(--color-line)" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={value.photoUrl} alt="vehicle" className="w-full h-full object-cover" />
+            <Image src={value.photoUrl} alt="vehicle" fill className="object-cover" sizes="100px" />
             <button
               type="button"
               onClick={() => { haptic(5); onChange({ ...value, photoUrl: undefined }); }}
@@ -232,7 +244,7 @@ function VehiclePhotoButton({ uploading, onUpload, compact }: { uploading: boole
         ) : (
           <>
             <Camera className="size-3" />
-            <span className={`${compact ? "text-m-caption" : "text-m-caption"} font-semibold`}>Upload vehicle photo</span>
+            <span className="text-m-caption font-semibold">Upload vehicle photo</span>
           </>
         )}
       </button>

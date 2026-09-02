@@ -10,7 +10,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
-import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileNewMaterialDialog } from "../materials/MobileNewMaterialDialog";
 
 export type DetailStockItem = {
   materialId: string;
@@ -118,6 +121,8 @@ export function MobileLocationDetail({
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<"inventory" | "activity" | "transit">("inventory");
+  const fab = useFabModal();
+  const showNewMaterial = fab.isOpen;
 
   const accentColor = typeColor(locationType);
 
@@ -315,13 +320,30 @@ export function MobileLocationDetail({
         <InventoryTab
           items={filteredItems}
           canManage={canManage}
-          categories={categories}
-          onAddMaterial={() => router.refresh()}
+          onAddMaterial={() => fab.open()}
         />
       ) : tab === "activity" ? (
         <ActivityTab groups={groupedMovements} />
       ) : (
         <TransitTab incoming={inTransitIncoming} outgoing={inTransitOutgoing} />
+      )}
+
+      {/* ── FAB: Add material (managers only) ── */}
+      {canManage && (
+        <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="Add Material" icon={Plus} />
+      )}
+
+      {/* ── New material bottom-sheet dialog ── */}
+      {canManage && (
+        <MobileNewMaterialDialog
+          open={showNewMaterial}
+          onClose={fab.close}
+          categories={categories}
+          onCreated={() => {
+            fab.close();
+            router.refresh();
+          }}
+        />
       )}
     </div>
   );
@@ -426,12 +448,11 @@ function TransitTab({ incoming, outgoing }: { incoming: InTransitTransfer[]; out
       )}
 
       {incoming.length === 0 && outgoing.length === 0 && (
-        <div className="text-center py-8">
-          <Truck className="size-8 mx-auto mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-500)" }}>
-            No transfers in transit
-          </p>
-        </div>
+        <MobileEmptyState
+          icon={Truck}
+          title="No transfers in transit"
+          size="compact"
+        />
       )}
     </div>
   );
@@ -441,58 +462,19 @@ function TransitTab({ incoming, outgoing }: { incoming: InTransitTransfer[]; out
 function InventoryTab({
   items,
   canManage = false,
-  categories = [],
   onAddMaterial,
 }: {
   items: DetailStockItem[];
   canManage?: boolean;
-  categories?: { id: string; name: string; unit: string }[];
   onAddMaterial?: () => void;
 }) {
-  const [showCreateMaterial, setShowCreateMaterial] = useState(false);
-
   if (items.length === 0) {
     return (
-      <>
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <Package className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            No materials in stock
-          </p>
-          <p className="text-m-caption mt-1 max-w-[16rem]" style={{ color: "var(--color-ink-500)" }}>
-            Receive stock against a purchase order, transfer from another location, or add a new material to your catalog.
-          </p>
-          {canManage && (
-            <button
-              onClick={() => setShowCreateMaterial(true)}
-              className="mt-3 flex items-center gap-1.5 rounded-[0.5rem] border-2 px-3 py-1.5 text-m-body font-bold text-m-body press"
-              style={{
-                borderColor: "var(--color-signal)",
-                backgroundColor: "var(--color-signal-wash)",
-                color: "var(--color-signal-dark)",
-              }}
-            >
-              <Plus className="size-3.5" />
-              Add Material
-            </button>
-          )}
-        </div>
-
-        {showCreateMaterial ? (
-          <MobileNewMaterialDialog
-            open
-            onClose={() => setShowCreateMaterial(false)}
-            categories={categories}
-            onCreated={() => {
-              setShowCreateMaterial(false);
-              onAddMaterial?.();
-            }}
-          />
-        ) : null}
-      </>
+      <MobileEmptyState
+        icon={Package}
+        title="No materials in stock"
+        description="Receive stock against a purchase order, transfer from another location, or add a new material to your catalog."
+      />
     );
   }
 
@@ -534,15 +516,11 @@ function InventoryTab({
 function ActivityTab({ groups }: { groups: { label: string; items: DetailMovement[] }[] }) {
   if (groups.length === 0) {
     return (
-      <div
-        className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-      >
-        <ArrowLeftRight className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-        <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-          No movements yet
-        </p>
-      </div>
+      <MobileEmptyState
+        icon={ArrowLeftRight}
+        title="No movements yet"
+        size="compact"
+      />
     );
   }
 

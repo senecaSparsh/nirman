@@ -499,7 +499,7 @@ export async function getTaskDetail(taskId: string) {
   return prisma.task.findUnique({
     where: { id: taskId },
     include: {
-      assignedTo: { select: { id: true, name: true, email: true, role: true } },
+      assignedTo: { select: { id: true, name: true, email: true, role: true, employees: { select: { id: true }, take: 1 } } },
       assignedBy: { select: { id: true, name: true } },
       subtasks: { orderBy: { order: "asc" }, include: { completedBy: { select: { name: true } } } },
       comments: {

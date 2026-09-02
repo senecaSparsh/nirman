@@ -321,7 +321,7 @@ async function MobileProjectDetailContent({
             <KpiRow label="Cost" value={totalProjectCost ? formatCurrencyCompact(totalProjectCost) : "—"} />
             <KpiRow label="₹/sqft" value={project.costPerSqft ? formatCurrencyCompact(toNum(project.costPerSqft)) : "—"} />
             <KpiRow label="Land" value={landParcels > 0 ? `${landParcels}` : "—"} sub={landParcels > 0 ? "parcels" : undefined} />
-            <KpiRow label="Reqs" value={String(requisitions)} sub="pending" tone={requisitions > 0 ? "signal" : undefined} />
+            <KpiRow label="Indents" value={String(requisitions)} sub="pending" tone={requisitions > 0 ? "signal" : undefined} />
           </div>
         </div>
 
@@ -367,7 +367,7 @@ async function MobileProjectDetailContent({
       <SectionHead title="Quick actions" />
       <div className="grid grid-cols-4 gap-1.5 mb-3">
         <QuickActionTile href={`/m/site/dpr?project=${id}`} icon={FileText} label="New Daily Progress Report" />
-        <QuickActionTile href={`/m/requisitions?project=${id}`} icon={ClipboardList} label="Requisition" />
+        <QuickActionTile href={`/m/requisitions?project=${id}`} icon={ClipboardList} label="Indent" />
         <QuickActionTile href={`/m/stock-out?mode=issue&project=${id}`} icon={PackageCheck} label="Issue" />
         <QuickActionTile href={`/m/procurement/new?project=${id}`} icon={Truck} label="New Purchase Order" />
         <QuickActionTile href={`/m/units?project=${id}`} icon={Home} label="Add Built Units" />

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Package, Plus } from "lucide-react";
+import { Package } from "lucide-react";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import {
@@ -10,8 +10,8 @@ import {
   MobileCta,
 } from "@/components/mobile/v2/primitives";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
-import { MobileFab } from "@/components/mobile/v2/scaffold";
 import { MobileMaterialsList } from "./MobileMaterialsList";
+import { MobileMaterialsFab } from "./MobileMaterialsFab";
 
 /**
  * /m/materials — mobile material catalogue.
@@ -61,6 +61,14 @@ async function MobileMaterialsContent({
     orderBy: { name: "asc" },
     take: 200,
   });
+
+  const categories = canManage
+    ? await prisma.materialCategory.findMany({
+        where: { deletedAt: null },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, unit: true },
+      })
+    : [];
 
   const rows = materials
     .map((m) => {
@@ -118,19 +126,21 @@ async function MobileMaterialsContent({
           <MobileEmptyState
             icon={Package}
             title="No materials"
-            hint="Materials will appear here once they're added to the system and stock is received."
-            action={canManage ? (
-              <MobileCta href="/m/materials/new" icon={Plus}>Add Material</MobileCta>
-            ) : (
+            description={
+              canManage
+                ? "Tap the + button below to add your first material."
+                : "Materials will appear here once they're added and stock is received."
+            }
+            secondaryAction={!canManage ? (
               <MobileCta href="/m/stock" icon={Package}>View Stock Ledger</MobileCta>
-            )}
+            ) : undefined}
           />
         </>
       )}
 
-      {/* Floating add button */}
-      {canManage && rows.length > 0 && (
-        <MobileFab href="/m/materials/new" label="Add new material" />
+      {/* Floating add button — springs into a modal with the new-material form */}
+      {canManage && (
+        <MobileMaterialsFab categories={categories} />
       )}
     </div>
   );

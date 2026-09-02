@@ -1,11 +1,11 @@
 "use client";
 
-import {useEffect, useState, useRef} from "react";
+import {useEffect, useState, useRef, type ReactNode} from "react";
 import {useRouter} from "next/navigation";
 import {
   ArrowRight, ArrowLeftRight, Package, MapPin, Plus, Trash2,
   Send, Loader2, CheckCircle2, WifiOff, User, Truck,
-  ShieldCheck, Printer, Building2, Clock,
+  ShieldCheck, Printer, Building2, Clock, Check, ChevronDown,
 } from "lucide-react";
 import {formatNumber} from "@/lib/utils";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { DraftBanner } from "@/components/mobile/draft-banner";
 import { useUnsavedGuard } from "@/lib/use-unsaved-guard";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { BottomSheet } from "@/components/mobile/v2/bottom-sheet";
 import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewStockLocationDialog";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
@@ -47,12 +48,128 @@ interface StockOutDraft {
 }
 
 const inputClass =
-  "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+  "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
 const inputStyle = {
-  borderColor: "var(--color-line)",
-  backgroundColor: "var(--color-paper)",
-  color: "var(--color-ink-950)",
-};
+    borderColor: "var(--color-line)",
+    backgroundColor: "transparent",
+    color: "var(--color-ink-950)",
+  };
+
+// ── PickerSheet — a bottom-sheet list picker used by the merged route card.
+//    Tapping a half of the "from → to" card opens this sheet listing all
+//    options. The selected row is highlighted with a check. A "Create new"
+//    button at the bottom opens the parent-supplied creation dialog. ──
+function PickerSheet({
+  title,
+  open,
+  onClose,
+  options,
+  value,
+  onSelect,
+  createLabel,
+  renderCreateDialog,
+}: {
+  title: string;
+  open: boolean;
+  onClose: () => void;
+  options: { value: string; label: string; sublabel?: string }[];
+  value: string;
+  onSelect: (value: string) => void;
+  createLabel: string;
+  renderCreateDialog: (props: {
+    open: boolean;
+    onClose: () => void;
+    onCreated: (value: string, label: string) => void;
+  }) => ReactNode;
+}) {
+  const [showCreate, setShowCreate] = useState(false);
+  if (!open) return null;
+
+  return (
+    <>
+      <BottomSheet title={title} onClose={onClose}>
+        <div className="flex flex-col gap-3">
+          {options.length === 0 ? (
+            <p className="text-m-body py-6 text-center" style={{ color: "var(--color-ink-700)" }}>
+              No options yet — create one below.
+            </p>
+          ) : (
+            options.map((opt) => {
+              const selected = opt.value === value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    haptic(10);
+                    onSelect(opt.value);
+                    onClose();
+                  }}
+                  className="flex items-center gap-1.5 rounded-[0.5rem] px-3 py-2.5 text-left press transition-colors"
+                  style={{
+                    backgroundColor: selected
+                      ? "color-mix(in srgb, var(--color-signal) 10%, transparent)"
+                      : "transparent",
+                  }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="text-m-body font-bold truncate"
+                      style={{ color: "var(--color-ink-500)" }}
+                    >
+                      {opt.label}
+                    </p>
+                    {opt.sublabel ? (
+                      <p
+                        className="text-m-caption truncate"
+                        style={{ color: "var(--color-ink-700)" }}
+                      >
+                        {opt.sublabel}
+                      </p>
+                    ) : null}
+                  </div>
+                  {selected ? (
+                    <Check
+                      className="size-4 shrink-0"
+                      style={{ color: "var(--color-signal-dark)" }}
+                    />
+                  ) : null}
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            haptic(10);
+            setShowCreate(true);
+          }}
+          className="mt-3 flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border border-dashed py-2.5 text-m-body font-bold press"
+          style={{
+            borderColor: "var(--color-signal)",
+            color: "var(--color-signal-dark)",
+            backgroundColor: "var(--color-signal-wash)",
+          }}
+        >
+          <Plus className="size-3.5" />
+          <span>Create new {createLabel}</span>
+        </button>
+      </BottomSheet>
+
+      {renderCreateDialog({
+        open: showCreate,
+        onClose: () => setShowCreate(false),
+        onCreated: (val: string) => {
+          setShowCreate(false);
+          onSelect(val);
+          onClose();
+        },
+      })}
+    </>
+  );
+}
 
 export function MobileStockOutClient({
   canTransfer,
@@ -95,6 +212,11 @@ export function MobileStockOutClient({
   const [vehicle, setVehicle] = useState<VehicleData>({
     vehicleNumber: "", vehicleType: "",
   });
+
+  // ── Route-card picker (merged from/to selector) ──
+  // "from" opens the source-location sheet; "to" opens the destination
+  // sheet (location for transfer mode, project for issue mode).
+  const [picker, setPicker] = useState<"from" | "to" | null>(null);
 
   // ── Success state ──
   const [success, setSuccess] = useState<{
@@ -210,6 +332,7 @@ export function MobileStockOutClient({
     if (newMode === mode) return;
     haptic(5);
     setMode(newMode);
+    setPicker(null);
     // Don't clear shared fields (fromLocationId, lines, notes)
     // Clear destination-specific state to avoid cross-contamination
     if (newMode === "transfer") {
@@ -225,8 +348,8 @@ export function MobileStockOutClient({
 
   // ── Long-press on Transfer/Issue buttons → jump to the full dedicated page ──
   // A quick tap switches mode in-place (the segmented control). A long-press
-  // (≥500ms) navigates to the standalone /m/transfers/new or /m/site/issue
-  // page — useful when you need the full-page form with all options visible.
+  // (≥500ms) navigates to the transfers list or site dashboard — useful when
+  // you need the full-page form with all options visible.
   //
   // We use Pointer Events directly (not the useLongPress hook) because:
   // 1. `touch-action: none` prevents the browser's native long-press
@@ -243,9 +366,9 @@ export function MobileStockOutClient({
       longPressFired.current = true;
       haptic(50);
       // Long-press goes to the LIST page for that entity type:
-      //   Transfer → /m/transfers (all stock transfers)
+      //   Transfer → /m/stock?tab=transfers (all stock transfers)
       //   Issue → /m/site (field dashboard with recent issues)
-      const href = target === "transfer" ? "/m/transfers" : "/m/site";
+      const href = target === "transfer" ? "/m/stock?tab=transfers" : "/m/site";
       toast.message(`Opening ${target === "transfer" ? "Transfers" : "Issues"} list`, { duration: 1200 });
       router.push(href);
     }, 500);
@@ -269,7 +392,7 @@ export function MobileStockOutClient({
 
   // ── Long-press the submit button → go to the list page ──
   const submitLongPress = useLongPressNav(
-    mode === "transfer" ? "/m/transfers" : "/m/site",
+    mode === "transfer" ? "/m/stock?tab=transfers" : "/m/site",
     mode === "transfer" ? "Transfers list" : "Issues list",
   );
 
@@ -404,8 +527,8 @@ export function MobileStockOutClient({
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <Loader2 className="size-6 animate-spin" style={{ color: "var(--color-ink-500)" }} />
-        <p className="text-m-body mt-2" style={{ color: "var(--color-ink-500)" }}>Loading form…</p>
+        <Loader2 className="size-6 animate-spin" style={{ color: "var(--color-ink-700)" }} />
+        <p className="text-m-body mt-2" style={{ color: "var(--color-ink-700)" }}>Loading form…</p>
       </div>
     );
   }
@@ -446,7 +569,7 @@ export function MobileStockOutClient({
         <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
           {label}
         </p>
-        <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-body mb-4" style={{ color: "var(--color-ink-700)" }}>
           {isQueued
             ? "Will sync when back online."
             : isGatePass
@@ -455,7 +578,7 @@ export function MobileStockOutClient({
                 ? "Draft created — dispatch it from the transfer detail page to move stock."
                 : "Materials have been issued to the project."}
         </p>
-        <div className="flex gap-2 flex-wrap justify-center">
+        <div className="flex gap-1 flex-wrap justify-center">
           {!isQueued && !isGatePass && isTransfer && success.id !== "QUEUED" ? (
             <button
               onClick={() => router.push(`/m/transfers/${success.id}`)}
@@ -493,7 +616,7 @@ export function MobileStockOutClient({
               setNotes("");
             }}
             className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
           >
             {isTransfer ? "Add Another Transfer" : "Issue More Materials"}
           </button>
@@ -535,7 +658,7 @@ export function MobileStockOutClient({
       <div className="pb-32">
         {/* ── Mode toggle — segmented control ── */}
         {(canTransfer && canIssue) ? (
-          <div className="grid grid-cols-2 gap-2 mb-3">
+          <div className="grid grid-cols-2 gap-1 mb-3">
             <button
               type="button"
               onClick={() => handleModeTap("transfer")}
@@ -544,7 +667,7 @@ export function MobileStockOutClient({
               onPointerLeave={cancelLongPress}
               onPointerCancel={cancelLongPress}
               onContextMenu={(e) => e.preventDefault()}
-              className="rounded-[0.5rem] border py-2.5 px-2 flex flex-col items-center justify-center gap-0.5 text-m-body press transition-colors select-none"
+              className="rounded-[0.5rem] border py-2.5 px-2 flex flex-col items-center justify-center gap-1.5 text-m-body press transition-colors select-none"
               style={{
                 borderColor: mode === "transfer" ? "var(--color-ink-950)" : "var(--color-line)",
                 backgroundColor: mode === "transfer" ? "var(--color-ink-950)" : "var(--color-paper)",
@@ -557,7 +680,11 @@ export function MobileStockOutClient({
               <span className="text-m-caption font-medium" style={{ opacity: 0.7 }}>
                 Location → Location
               </span>
-              <span className="text-m-caption font-normal" style={{ opacity: 0.5 }}>
+              <span className="hold-label flex items-center justify-center gap-1 text-m-caption font-normal">
+                <span
+                  className="hold-dot inline-block size-1 rounded-full"
+                  style={{ backgroundColor: "currentColor" }}
+                />
                 Hold for list
               </span>
             </button>
@@ -569,7 +696,7 @@ export function MobileStockOutClient({
               onPointerLeave={cancelLongPress}
               onPointerCancel={cancelLongPress}
               onContextMenu={(e) => e.preventDefault()}
-              className="rounded-[0.5rem] border py-2.5 px-2 flex flex-col items-center justify-center gap-0.5 text-m-body press transition-colors select-none"
+              className="rounded-[0.5rem] border py-2.5 px-2 flex flex-col items-center justify-center gap-1.5 text-m-body press transition-colors select-none"
               style={{
                 borderColor: mode === "issue" ? "var(--color-signal)" : "var(--color-line)",
                 backgroundColor: mode === "issue" ? "var(--color-signal)" : "var(--color-paper)",
@@ -582,14 +709,18 @@ export function MobileStockOutClient({
               <span className="text-m-caption font-medium" style={{ opacity: 0.7 }}>
                 Location → Project
               </span>
-              <span className="text-m-caption font-normal" style={{ opacity: 0.5 }}>
+              <span className="hold-label flex items-center justify-center gap-1 text-m-caption font-normal">
+                <span
+                  className="hold-dot inline-block size-1 rounded-full"
+                  style={{ backgroundColor: "currentColor" }}
+                />
                 Hold for list
               </span>
             </button>
           </div>
         ) : (
           <div
-            className="rounded-[0.5rem] border px-3 py-2 mb-3 flex items-center gap-2"
+            className="py-2 mb-3 flex items-center gap-1"
             style={{
               borderColor: mode === "transfer" ? "var(--color-ink-950)" : "var(--color-signal)",
               backgroundColor: mode === "transfer" ? "var(--color-ink-950)" : "var(--color-signal)",
@@ -606,181 +737,173 @@ export function MobileStockOutClient({
           </div>
         )}
 
-        {/* ── Route summary: from → to ── */}
+        {/* ── Merged route card: from → to.
+            Tap either half to open a bottom-sheet picker. This merges the
+            old read-only "route summary" card with the separate From / To
+            <select> dropdowns into one tappable card — the user selects
+            directly in the card showing the from → to flow. ── */}
         <div
-          className="rounded-[0.625rem] border p-3 mb-3 flex items-center gap-2"
+          className="rounded-[0.625rem] border mb-3 overflow-hidden"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
-          <div className="flex-1 min-w-0 text-center">
-            <MapPin className="size-3 mx-auto mb-1" style={{ color: "var(--color-ink-500)" }} />
-            <p className="text-m-caption font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
-              {fromLoc?.name ?? "Select source"}
-            </p>
-            {fromLoc?.companyName ? (
-              <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
-                {fromLoc.companyName}
+          <div className="flex items-stretch">
+            {/* From side */}
+            <button
+              type="button"
+              onClick={() => { haptic(10); setPicker("from"); }}
+              className="flex-1 min-w-0 p-3 text-center press transition-colors"
+              style={{
+                backgroundColor:
+                  fromLocationId
+                    ? "transparent"
+                    : "color-mix(in srgb, var(--color-signal) 6%, transparent)",
+              }}
+            >
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <MapPin className="size-3" style={{ color: "var(--color-ink-700)" }} />
+                <span
+                  className="text-m-section font-extrabold tracking-tight"
+                  style={{ color: "var(--color-ink-700)" }}
+                >
+                  From
+                </span>
+              </div>
+              <p
+                className="text-m-body font-bold truncate"
+                style={{ color: fromLocationId ? "var(--color-ink-950)" : "var(--color-ink-400)" }}
+              >
+                {fromLoc?.name ?? "Select source"}
               </p>
-            ) : null}
-          </div>
-          <ArrowRight className="size-4 shrink-0" style={{ color: "var(--color-signal)" }} />
-          <div className="flex-1 min-w-0 text-center">
-            {mode === "transfer" ? (
-              <>
-                <MapPin className="size-3 mx-auto mb-1" style={{ color: "var(--color-ink-500)" }} />
-                <p className="text-m-caption font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
-                  {toLoc?.name ?? "Select destination"}
+              {fromLoc?.companyName ? (
+                <p className="text-m-caption truncate" style={{ color: "var(--color-ink-700)" }}>
+                  {fromLoc.companyName}
                 </p>
-                {toLoc?.companyName ? (
-                  <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
-                    {toLoc.companyName}
-                  </p>
-                ) : null}
-              </>
-            ) : (
-              <>
-                <Building2 className="size-3 mx-auto mb-1" style={{ color: "var(--color-ink-500)" }} />
-                <p className="text-m-caption font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
-                  {proj?.name ?? "Select project"}
+              ) : null}
+              <ChevronDown
+                className="size-3 mx-auto mt-1"
+                style={{ color: "var(--color-ink-400)" }}
+              />
+            </button>
+
+            {/* Arrow divider */}
+            <div className="flex items-center justify-center px-1 shrink-0">
+              <ArrowRight className="size-4" style={{ color: "var(--color-signal)" }} />
+            </div>
+
+            {/* To side */}
+            <button
+              type="button"
+              onClick={() => { haptic(10); setPicker("to"); }}
+              className="flex-1 min-w-0 p-3 text-center press transition-colors"
+              style={{
+                backgroundColor:
+                  (mode === "transfer" ? toLocationId : projectId)
+                    ? "transparent"
+                    : "color-mix(in srgb, var(--color-signal) 6%, transparent)",
+              }}
+            >
+              <div className="flex items-center justify-center gap-1 mb-1">
+                {mode === "transfer" ? (
+                  <MapPin className="size-3" style={{ color: "var(--color-ink-700)" }} />
+                ) : (
+                  <Building2 className="size-3" style={{ color: "var(--color-ink-700)" }} />
+                )}
+                <span
+                  className="text-m-section font-extrabold tracking-tight"
+                  style={{ color: "var(--color-ink-700)" }}
+                >
+                  To
+                </span>
+              </div>
+              <p
+                className="text-m-body font-bold truncate"
+                style={{
+                  color:
+                    (mode === "transfer" ? toLocationId : projectId)
+                      ? "var(--color-ink-950)"
+                      : "var(--color-ink-400)",
+                }}
+              >
+                {mode === "transfer"
+                  ? (toLoc?.name ?? "Select destination")
+                  : (proj?.name ?? "Select project")}
+              </p>
+              {mode === "transfer" && toLoc?.companyName ? (
+                <p className="text-m-caption truncate" style={{ color: "var(--color-ink-700)" }}>
+                  {toLoc.companyName}
                 </p>
-              </>
-            )}
+              ) : null}
+              <ChevronDown
+                className="size-3 mx-auto mt-1"
+                style={{ color: "var(--color-ink-400)" }}
+              />
+            </button>
           </div>
         </div>
 
+        {/* Inter-company indicator (transfer mode) */}
+        {mode === "transfer" &&
+        fromLoc?.companyId && toLoc?.companyId &&
+        fromLoc.companyId !== toLoc.companyId ? (
+          <div
+            className="rounded-[0.5rem] px-2.5 py-2 mb-3 text-m-caption font-semibold flex items-center gap-1.5"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, transparent)",
+              color: "var(--color-signal-dark, var(--color-signal))",
+            }}
+          >
+            <Truck className="size-3.5 shrink-0" />
+            <span>Inter-company transfer — transfer pricing applies</span>
+          </div>
+        ) : null}
+
+        {/* Built unit (issue mode, if the project has units) */}
+        {mode === "issue" && units.length > 0 ? (
+          <div className="mb-3">
+            <label
+              className="block text-m-caption font-semibold mb-1"
+              style={{ color: "var(--color-ink-700)" }}
+            >
+              Built unit (optional)
+            </label>
+            <select
+              value={builtUnitId}
+              onChange={(e) => setBuiltUnitId(e.target.value)}
+              className={inputClass}
+              style={inputStyle}
+            >
+              <option value="">General project allocation</option>
+              {units.map((u) => (
+                <option key={u.id} value={u.id}>
+                  Unit {u.unitNumber}
+                  {u.builtAreaSqft ? ` (${u.builtAreaSqft} sqft)` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {/* ── Source location (shared) ── */}
-          <MobileSelectWithCreate
-            label="From Location"
-            required
-            value={fromLocationId}
-            onChange={setFromLocationId}
-            options={locations.map((l) => ({
-              value: l.id,
-              label: l.companyName ? `${l.name} · ${l.companyName}` : l.name,
-            }))}
-            inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-            inputStyle={inputStyle}
-            renderDialog={({ open, onClose, onCreated }) => (
-              <MobileNewStockLocationDialog
-                open={open}
-                onClose={onClose}
-                projects={[]}
-                onCreated={(l) => onCreated(l.id, l.name)}
-              />
-            )}
-          />
-
-          {/* ── Destination section (mode-specific) ── */}
-          {mode === "transfer" ? (
+          {mode === "issue" ? (
             <>
-              {/* Transfer: destination location */}
-              <MobileSelectWithCreate
-                label="To Location"
-                required
-                value={toLocationId}
-                onChange={setToLocationId}
-                options={locations.map((l) => ({
-                  value: l.id,
-                  label: l.companyName ? `${l.name} · ${l.companyName}` : l.name,
-                }))}
-                inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-                inputStyle={inputStyle}
-                renderDialog={({ open, onClose, onCreated }) => (
-                  <MobileNewStockLocationDialog
-                    open={open}
-                    onClose={onClose}
-                    projects={[]}
-                    onCreated={(l) => onCreated(l.id, l.name)}
-                  />
-                )}
-              />
-              {/* Inter-company indicator */}
-              {fromLoc?.companyId && toLoc?.companyId && fromLoc.companyId !== toLoc.companyId ? (
-                <div
-                  className="rounded-[0.5rem] px-2.5 py-2 text-m-caption font-semibold flex items-center gap-1.5"
-                  style={{
-                    backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, transparent)",
-                    color: "var(--color-signal-dark, var(--color-signal))",
-                  }}
-                >
-                  <Truck className="size-3.5 shrink-0" />
-                  <span>Inter-company transfer — transfer pricing applies</span>
-                </div>
-              ) : null}
-            </>
-          ) : (
-            <>
-              {/* Issue: project + built unit + receiver + vehicle */}
-              <div
-                className="rounded-[0.625rem] border p-3 space-y-2.5"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              >
-                <div
-                  className="flex items-center gap-1.5 border-b pb-2"
-                  style={{ borderColor: "var(--color-line)" }}
-                >
-                  <Building2 className="size-3.5" style={{ color: "var(--color-steel)" }} />
-                  <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-                    Destination
-                  </span>
-                </div>
-
-                <MobileSelectWithCreate
-                  label="To project"
-                  required
-                  value={projectId}
-                  onChange={setProjectId}
-                  options={projects.map((p) => ({ value: p.id, label: p.name }))}
-                  inputClass={inputClass}
-                  inputStyle={inputStyle}
-                  renderDialog={({ open, onClose, onCreated }) => (
-                    <MobileNewProjectDialog
-                      open={open}
-                      onClose={onClose}
-                      onCreated={(p) => onCreated(p.id, p.name)}
-                    />
-                  )}
-                />
-
-                {units.length > 0 ? (
-                  <div>
-                    <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
-                      Built unit (optional)
-                    </label>
-                    <select
-                      value={builtUnitId}
-                      onChange={(e) => setBuiltUnitId(e.target.value)}
-                      className={inputClass}
-                      style={inputStyle}
-                    >
-                      <option value="">General project allocation</option>
-                      {units.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          Unit {u.unitNumber}{u.builtAreaSqft ? ` (${u.builtAreaSqft} sqft)` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : null}
-              </div>
 
               {/* Receiver */}
               <div
-                className="rounded-[0.625rem] border p-3 space-y-2.5"
+                className="rounded-[0.625rem] border p-3 space-y-3"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               >
                 <div
                   className="flex items-center gap-1.5 border-b pb-2"
                   style={{ borderColor: "var(--color-line)" }}
                 >
-                  <User className="size-3.5" style={{ color: "var(--color-steel)" }} />
-                  <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                  <User className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
+                  <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-700)" }}>
                     Receiver
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
-                    <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+                    <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-700)" }}>
                       Name
                     </label>
                     <input
@@ -793,7 +916,7 @@ export function MobileStockOutClient({
                     />
                   </div>
                   <div>
-                    <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+                    <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-700)" }}>
                       Mobile
                     </label>
                     <input
@@ -809,31 +932,31 @@ export function MobileStockOutClient({
               </div>
 
               {/* Vehicle */}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div
                   className="flex items-center gap-1.5 border-b pb-2"
                   style={{ borderColor: "var(--color-line)" }}
                 >
-                  <Truck className="size-3.5" style={{ color: "var(--color-steel)" }} />
-                  <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                  <Truck className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
+                  <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-700)" }}>
                     Vehicle / Carrier
                   </span>
                 </div>
                 <VehicleCapture value={vehicle} onChange={setVehicle} compact />
               </div>
             </>
-          )}
+          ) : null}
 
           {/* ── Material lines (shared) ── */}
           <div className="flex items-center gap-1.5 mt-1">
-            <Package className="size-3" style={{ color: "var(--color-steel)" }} />
-            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+            <Package className="size-3" style={{ color: "var(--color-ink-500)" }} />
+            <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Items
             </span>
             <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-line)" }} />
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             {lines.map((line, idx) => {
               const mat = materials.find((m) => m.id === line.materialId);
               return (
@@ -846,7 +969,7 @@ export function MobileStockOutClient({
                     className="flex items-center justify-between px-2 py-1"
                     style={{ backgroundColor: "var(--color-paper-2)", borderBottom: "1px solid var(--color-line)" }}
                   >
-                    <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                    <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-700)" }}>
                       Item {idx + 1}
                     </span>
                     {lines.length > 1 && (
@@ -860,7 +983,7 @@ export function MobileStockOutClient({
                       </button>
                     )}
                   </div>
-                  <div className="p-2 flex flex-col gap-1.5">
+                  <div className="p-2 flex flex-col gap-3.5">
                     <MobileSelectWithCreate
                       label=""
                       value={line.materialId}
@@ -890,7 +1013,7 @@ export function MobileStockOutClient({
                         style={inputStyle}
                       />
                       {mat && (
-                        <span className="text-m-caption font-semibold shrink-0" style={{ color: "var(--color-ink-500)" }}>
+                        <span className="text-m-caption font-semibold shrink-0" style={{ color: "var(--color-ink-700)" }}>
                           {mat.unit}
                         </span>
                       )}
@@ -914,7 +1037,7 @@ export function MobileStockOutClient({
 
           {/* Notes (shared) */}
           <div>
-            <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Notes (optional)
             </label>
             <textarea
@@ -924,7 +1047,7 @@ export function MobileStockOutClient({
                 ? "e.g. Moving excess cement to Site B"
                 : "e.g. Issued for Tower A foundation concreting"}
               rows={2}
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none resize-none"
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
               style={inputStyle}
             />
           </div>
@@ -940,9 +1063,9 @@ export function MobileStockOutClient({
           borderColor: "var(--color-line)",
         }}
       >
-        <div className="max-w-md mx-auto px-3.5 py-2 flex items-center gap-3">
+        <div className="max-w-md mx-auto px-3.5 py-2 flex items-center gap-1">
           <div className="shrink-0">
-            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-700)" }}>
               {lines.filter((l) => Number(l.qty) > 0).length} items
             </p>
             <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
@@ -980,6 +1103,85 @@ export function MobileStockOutClient({
           </button>
         </div>
       </div>
+
+      {/* ── Route-card picker sheets (merged from/to selection) ── */}
+      <PickerSheet
+        title="From Location"
+        open={picker === "from"}
+        onClose={() => setPicker(null)}
+        value={fromLocationId}
+        onSelect={setFromLocationId}
+        createLabel="location"
+        options={locations.map((l) => ({
+          value: l.id,
+          label: l.name,
+          sublabel: l.companyName ?? undefined,
+        }))}
+        renderCreateDialog={({ open, onClose, onCreated }) => (
+          <MobileNewStockLocationDialog
+            open={open}
+            onClose={onClose}
+            projects={[]}
+            onCreated={(l) => {
+              setLocations((prev) =>
+                prev.some((x) => x.id === l.id)
+                  ? prev
+                  : [...prev, { id: l.id, name: l.name, type: l.type }],
+              );
+              onCreated(l.id, l.name);
+            }}
+          />
+        )}
+      />
+      <PickerSheet
+        title={mode === "transfer" ? "To Location" : "To Project"}
+        open={picker === "to"}
+        onClose={() => setPicker(null)}
+        value={mode === "transfer" ? toLocationId : projectId}
+        onSelect={mode === "transfer" ? setToLocationId : setProjectId}
+        createLabel={mode === "transfer" ? "location" : "project"}
+        options={
+          mode === "transfer"
+            ? locations.map((l) => ({
+                value: l.id,
+                label: l.name,
+                sublabel: l.companyName ?? undefined,
+              }))
+            : projects.map((p) => ({ value: p.id, label: p.name }))
+        }
+        renderCreateDialog={
+          mode === "transfer"
+            ? ({ open, onClose, onCreated }) => (
+                <MobileNewStockLocationDialog
+                  open={open}
+                  onClose={onClose}
+                  projects={[]}
+                  onCreated={(l) => {
+                    setLocations((prev) =>
+                      prev.some((x) => x.id === l.id)
+                        ? prev
+                        : [...prev, { id: l.id, name: l.name, type: l.type }],
+                    );
+                    onCreated(l.id, l.name);
+                  }}
+                />
+              )
+            : ({ open, onClose, onCreated }) => (
+                <MobileNewProjectDialog
+                  open={open}
+                  onClose={onClose}
+                  onCreated={(p) => {
+                    setProjects((prev) =>
+                      prev.some((x) => x.id === p.id)
+                        ? prev
+                        : [...prev, { id: p.id, name: p.name }],
+                    );
+                    onCreated(p.id, p.name);
+                  }}
+                />
+              )
+        }
+      />
     </>
   );
 }

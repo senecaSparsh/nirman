@@ -17,6 +17,20 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
+    // Password reset flow. In dev (no email provider), the reset URL is
+    // logged to the server console. In production, wire an email provider
+    // (Resend/SES/SendGrid) to actually send the link.
+    sendResetPassword: async ({ user, url }) => {
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[Password Reset] ${user.email} → ${url}`);
+        return;
+      }
+      // TODO: wire an email provider in production.
+      // For now, log so the admin can forward the link manually.
+      console.log(`[Password Reset] ${user.email} → ${url}`);
+    },
+    // Revoke all other sessions when a password is reset (security best practice).
+    revokeSessionsOnPasswordReset: true,
   },
   user: {
     additionalFields: {

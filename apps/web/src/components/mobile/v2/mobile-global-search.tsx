@@ -23,6 +23,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useRecentItems, recordRecentItem, type RecentItem } from "@/lib/use-recent-items";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileNoResults } from "@/components/mobile/v2/scaffold";
 
 /**
  * MobileGlobalSearch — full-screen search overlay.
@@ -67,7 +69,7 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
 
 const TYPE_LABELS: Record<string, string> = {
   po: "Purchase Orders",
-  requisition: "Requisitions",
+  requisition: "Indents",
   project: "Projects",
   material: "Materials",
   supplier: "Suppliers",
@@ -286,14 +288,8 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
 
         {/* No results */}
         {!loading && trimmedQuery && totalResults === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-            <Search className="size-8 mb-3" style={{ color: "var(--color-ink-300)" }} />
-            <p className="text-m-body font-medium" style={{ color: "var(--color-ink-700)" }}>
-              No results for &ldquo;{query}&rdquo;
-            </p>
-            <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-400)" }}>
-              Try searching by name, number, or code
-            </p>
+          <div className="py-16 px-6">
+            <MobileNoResults query={query} />
           </div>
         ) : null}
 
@@ -421,14 +417,12 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
 
         {/* Empty recent state */}
         {!trimmedQuery && recentItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-            <Search className="size-8 mb-3" style={{ color: "var(--color-ink-300)" }} />
-            <p className="text-m-body font-medium" style={{ color: "var(--color-ink-700)" }}>
-              Search anything
-            </p>
-            <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-400)" }}>
-              POs, projects, materials, suppliers, customers, units...
-            </p>
+          <div className="py-16 px-6">
+            <MobileEmptyState
+              icon={Search}
+              title="Search anything"
+              description="POs, projects, materials, suppliers, customers, units..."
+            />
           </div>
         ) : null}
       </div>

@@ -7,20 +7,20 @@ import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 
 /**
- * Mobile bottom-sheet dialog for creating a supplier inline.
+ * Form content for creating a supplier — used inside MobileFabModal
+ * (spring-from-FAB animation) or wrapped by MobileNewSupplierDialog
+ * (legacy bottom-sheet backdrop).
  *
  * POSTs to /api/suppliers { name, gstin, phone, email, address }.
  * On success calls onCreated({ id, name }) so the parent can wire it
  * into its local state without a full page reload.
  */
-export function MobileNewSupplierDialog({
-  open,
+export function MobileNewSupplierForm({
   onClose,
   onCreated,
 }: {
-  open: boolean;
   onClose: () => void;
-  onCreated: (supplier: { id: string; name: string }) => void;
+  onCreated?: (supplier: { id: string; name: string }) => void;
 }) {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -55,7 +55,7 @@ export function MobileNewSupplierDialog({
       haptic([10, 40, 80]);
       toast.success(`${data.name} supplier created`);
       router.refresh();
-      onCreated({ id: data.id, name: data.name });
+      onCreated?.({ id: data.id, name: data.name });
       setName("");
       setGstin("");
       setPhone("");
@@ -70,6 +70,158 @@ export function MobileNewSupplierDialog({
     }
   }
 
+  return (
+    <>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        {/* Name */}
+        <div>
+          <label
+            className="block text-m-caption font-bold mb-0"
+            style={{ color: "var(--color-ink-700)" }}
+          >
+            Name <span style={{ color: "var(--color-stop)" }}>*</span>
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. ABC Cement Suppliers"
+            autoFocus
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{
+              borderColor: "var(--color-line)",
+              backgroundColor: "var(--color-paper)",
+              color: "var(--color-ink-950)",
+            }}
+          />
+        </div>
+
+        {/* GSTIN + Phone */}
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+          <div>
+            <label
+              className="block text-m-caption font-bold mb-0"
+              style={{ color: "var(--color-ink-700)" }}
+            >
+              GSTIN
+            </label>
+            <input
+              type="text"
+              value={gstin}
+              onChange={(e) => setGstin(e.target.value.toUpperCase())}
+              placeholder="22AAAAA0000A1Z5"
+              className="w-full h-7 px-1 text-m-caption font-mono outline-none border-b focus:border-b-2 transition-colors"
+              style={{
+                borderColor: "var(--color-line)",
+                backgroundColor: "transparent",
+                color: "var(--color-ink-950)",
+              }}
+            />
+          </div>
+          <div>
+            <label
+              className="block text-m-caption font-bold mb-0"
+              style={{ color: "var(--color-ink-700)" }}
+            >
+              Phone
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="9876543210"
+              className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+              style={{
+                borderColor: "var(--color-line)",
+                backgroundColor: "transparent",
+                color: "var(--color-ink-950)",
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Email */}
+        <div>
+          <label
+            className="block text-m-caption font-bold mb-0"
+            style={{ color: "var(--color-ink-700)" }}
+          >
+            Email
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="contact@abcsuppliers.com"
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{
+              borderColor: "var(--color-line)",
+              backgroundColor: "var(--color-paper)",
+              color: "var(--color-ink-500)",
+            }}
+          />
+        </div>
+
+        {/* Address */}
+        <div>
+          <label
+            className="block text-m-caption font-bold mb-0"
+            style={{ color: "var(--color-ink-700)" }}
+          >
+            Address
+          </label>
+          <textarea
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Shop 12, Market Road, City"
+            rows={2}
+            className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
+            style={{
+              borderColor: "var(--color-line)",
+              backgroundColor: "var(--color-paper)",
+              color: "var(--color-ink-500)",
+            }}
+          />
+        </div>
+
+        {/* Submit */}
+        <button
+          type="submit"
+          disabled={saving}
+          className="flex items-center justify-center gap-1 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+          style={{
+            backgroundColor: "var(--color-ink-950)",
+            color: "var(--color-paper)",
+          }}
+        >
+          {saving ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <>
+              <Plus className="size-4" />
+              <span>Create Supplier</span>
+            </>
+          )}
+        </button>
+      </form>
+    </>
+  );
+}
+
+/**
+ * Mobile bottom-sheet dialog for creating a supplier inline.
+ * Legacy backdrop version — kept for backward compatibility.
+ * Prefer wrapping <MobileNewSupplierForm> in <MobileFabModal> instead.
+ */
+export function MobileNewSupplierDialog({
+  open,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated: (supplier: { id: string; name: string }) => void;
+}) {
   if (!open) return null;
 
   return (
@@ -95,151 +247,13 @@ export function MobileNewSupplierDialog({
           <button
             onClick={onClose}
             className="touch text-m-body press grid place-items-center rounded-[0.375rem]"
-            style={{ color: "var(--color-ink-500)" }}
+            style={{ color: "var(--color-ink-700)" }}
           >
             <X className="size-4" />
           </button>
         </div>
 
-        <p
-          className="text-m-caption mb-4"
-          style={{ color: "var(--color-ink-500)" }}
-        >
-          Add a vendor you purchase materials from. Only the name is required.
-        </p>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {/* Name */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Name <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. ABC Cement Suppliers"
-              autoFocus
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-
-          {/* GSTIN */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              GSTIN
-            </label>
-            <input
-              type="text"
-              value={gstin}
-              onChange={(e) => setGstin(e.target.value.toUpperCase())}
-              placeholder="22AAAAA0000A1Z5"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-
-          {/* Phone */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Phone
-            </label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="9876543210"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-
-          {/* Email */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="contact@abcsuppliers.com"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-
-          {/* Address */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Address
-            </label>
-            <textarea
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Shop 12, Market Road, City"
-              rows={2}
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section outline-none resize-none"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
-            style={{
-              backgroundColor: "var(--color-ink-950)",
-              color: "var(--color-paper)",
-            }}
-          >
-            {saving ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <>
-                <Plus className="size-4" />
-                <span>Create Supplier</span>
-              </>
-            )}
-          </button>
-        </form>
+        <MobileNewSupplierForm onClose={onClose} onCreated={onCreated} />
       </div>
     </div>
   );

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "NODE_OPTIONS='--max-old-space-size=4096' next build",
+    "analyze": "ANALYZE=true NODE_OPTIONS='--max-old-space-size=4096' next build",
     "start": "next start",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
@@ -29,11 +30,14 @@
     "react-resizable-panels": "^4.12.2",
     "recharts": "^2.15.0",
     "sonner": "^1.7.0",
+    "swr": "^2.5.1",
     "tailwind-merge": "^3.3.1",
+    "twilio": "^6.1.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.6",
+    "@next/bundle-analyzer": "^16.3.4",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

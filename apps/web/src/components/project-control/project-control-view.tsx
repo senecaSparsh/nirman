@@ -133,9 +133,9 @@ export function ProjectControlView({ projects }: { projects: Project[] }) {
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Commitments</h3>
               <div className="grid gap-3 sm:grid-cols-3">
                 <MetricCard
-                  label="Open Requisitions"
+                  label="Open Indents"
                   value={formatCurrency(commitments.openRequisitions.totalEstimated)}
-                  sub={`${commitments.openRequisitions.count} requisitions pending`}
+                  sub={`${commitments.openRequisitions.count} indents pending`}
                   icon={Package}
                 />
                 <MetricCard
@@ -147,7 +147,7 @@ export function ProjectControlView({ projects }: { projects: Project[] }) {
                 <MetricCard
                   label="Total Committed"
                   value={formatCurrency(commitments.totalCommitted)}
-                  sub="Requisitions + POs"
+                  sub="Indents + POs"
                   icon={DollarSign}
                 />
               </div>

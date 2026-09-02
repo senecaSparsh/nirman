@@ -45,12 +45,17 @@ export interface CreateMaterialSaleInput {
   projectId?: string;
   lines: MaterialSaleLineInput[];
   paymentMode?: string;
-  // Vehicle — how the goods were dispatched
+  // Dispatch mode — "VEHICLE" (transport) | "PICKUP" (customer/agent picked up directly)
+  dispatchMode?: string;
+  // Vehicle — how the goods were dispatched (when dispatchMode = VEHICLE)
   vehicleNumber?: string;
   vehicleType?: string;
   vehiclePhotoUrl?: string;
   driverName?: string;
   driverPhone?: string;
+  // Receiver accountability — who picked up the stock (when dispatchMode = PICKUP)
+  receiverName?: string;
+  receiverPhone?: string;
   notes?: string;
   userId?: string;
   roundOff?: Decimal | number | string; // rounding adjustment

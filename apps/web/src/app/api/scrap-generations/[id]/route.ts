@@ -47,7 +47,7 @@ export const PATCH = apiHandler(async (req: NextRequest) => {
     try {
       const result = await cancelScrapGeneration(id, user.id);
       revalidatePath("/scrap-generations");
-      revalidatePath("/m/scrap-generations");
+      revalidatePath("/m/stock");
       revalidatePath("/stock");
       return json({ id: result.id, status: result.status });
     } catch (err: unknown) {
@@ -82,7 +82,7 @@ export const DELETE = apiHandler(async (req: NextRequest) => {
   await prisma.scrapGenerationLine.deleteMany({ where: { scrapGenerationId: id } });
   await prisma.scrapGeneration.delete({ where: { id } });
   revalidatePath("/scrap-generations");
-  revalidatePath("/m/scrap-generations");
+  revalidatePath("/m/stock");
   revalidatePath("/stock");
   return json({ ok: true });
 });

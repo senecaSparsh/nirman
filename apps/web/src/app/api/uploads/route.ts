@@ -146,7 +146,7 @@ export const DELETE = apiHandler(async (req: NextRequest) => {
   const isUploader = upload.uploadedById === user.id;
   const isCompanyAdmin =
     upload.companyId === company.id &&
-    (user.role === "OWNER" || user.role === "ADMIN");
+    (user.role === "OWNER" || user.role === "ADMIN" || user.role === "DEVELOPER");
   const hasManagePerm = await requirePermission(PERM.COMPANY_MANAGE).then(() => true).catch(() => false);
   if (!isUploader && !isCompanyAdmin && !hasManagePerm) {
     return json({ error: "Forbidden — you can only delete your own uploads." }, { status: 403 });

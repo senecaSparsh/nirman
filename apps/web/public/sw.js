@@ -16,11 +16,41 @@
  * fetch logic (with credentials); the SW is just the wake-up trigger.
  */
 
-const SHELL_CACHE = "nirman-shell-v2";
-const ASSET_CACHE = "nirman-assets-v1";
-const API_CACHE = "nirman-api-v1";
+const SHELL_CACHE = "nirman-shell-v3";
+const ASSET_CACHE = "nirman-assets-v2";
+const API_CACHE = "nirman-api-v2";
 
 const SHELL_URLS = ["/", "/manifest.webmanifest", "/icon.svg", "/field", "/m/site/field"];
+
+/**
+ * Returns true for hostnames that point at a local dev server rather than a
+ * production deployment. Used to bypass all SW caching in dev so Turbopack's
+ * content-changing chunk URLs are always fetched fresh from the network.
+ */
+function isDevOrigin(hostname) {
+  if (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "0.0.0.0" ||
+    hostname === "[::1]" ||
+    hostname === "::1"
+  ) {
+    return true;
+  }
+  // Private/LAN IPv4 ranges (RFC 1918) — dev servers accessed over the LAN.
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(hostname);
+  if (m) {
+    const a = +m[1];
+    const b = +m[2];
+    if (a === 10) return true; // 10.0.0.0/8
+    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+    if (a === 192 && b === 168) return true; // 192.168.0.0/16
+    if (a === 127) return true; // 127.0.0.0/8 (loopback, any octet)
+  }
+  // mDNS / .local hostnames commonly used for dev.
+  if (hostname.endsWith(".local")) return true;
+  return false;
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -50,6 +80,18 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
+
+  // Dev mode bypass: never cache anything when the SW is running against a
+  // dev server. Turbopack reuses chunk URLs with changed content, so a
+  // stale-while-revalidate strategy would serve old compiled JS and cause
+  // ReferenceErrors from ghost variables that no longer exist in the source.
+  // Cover all common dev origins: localhost, loopback, 0.0.0.0, IPv6 ::1,
+  // and private/LAN IPv4 ranges (10.x, 172.16-31.x, 192.168.x) plus .local
+  // mDNS hostnames — a leftover prod SW on a phone that previously loaded a
+  // production build will otherwise stale-cache chunks served over the LAN.
+  if (isDevOrigin(url.hostname)) {
+    return; // Let the request go straight to the network.
+  }
 
   // Never intercept non-GET (mutations go through the page's offline queue).
   if (req.method !== "GET") return;

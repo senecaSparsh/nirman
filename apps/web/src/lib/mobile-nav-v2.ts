@@ -40,6 +40,8 @@ import {
   Briefcase,
   Workflow,
   Building2 as BuildingIcon,
+  Phone,
+  PhoneIncoming,
   type LucideIcon,
 } from "lucide-react";
 
@@ -101,7 +103,7 @@ const PROCUREMENT_TAB: ModuleTab = {
   icon: FileText,
   badge: { endpoint: "/api/purchase-orders?status=DRAFT" },
 };
-const TRANSFERS_TAB: ModuleTab = { id: "transfers", label: "Transfers", href: "/m/transfers", icon: ArrowLeftRight };
+const TRANSFERS_TAB: ModuleTab = { id: "transfers", label: "Transfers", href: "/m/stock?tab=transfers", icon: ArrowLeftRight };
 const SALES_TAB: ModuleTab = { id: "sales", label: "Sales", href: "/m/sales", icon: ShoppingCart };
 const CUSTOMERS_TAB: ModuleTab = { id: "customers", label: "Customers", href: "/m/customers", icon: Users };
 const REPORTS_TAB: ModuleTab = { id: "reports", label: "Reports", href: "/m/reports", icon: BarChart3 };
@@ -167,8 +169,10 @@ export function roleToPersona(role: string): Persona {
 const PERSONA_TABS: Record<Persona, ModuleTab[]> = {
   // Executive — dashboards, inventory, search, HR, More (5 tabs)
   executive: [HOME_TAB, INVENTORY_TAB, SEARCH_TAB, HR_TAB, SETTINGS_TAB],
-  // Ops — project management overview (5 tabs + search = 6, but we keep 5 by replacing)
-  ops: [HOME_TAB, INVENTORY_TAB, SEARCH_TAB, SITE_TAB, SETTINGS_TAB],
+  // Ops — inventory, stock ledger, search, site dashboard, More (5 tabs)
+  // PROJECT_MANAGER needs direct stock access at project sites.
+  // Home (orbit) is accessible via NavSheet → Dashboards.
+  ops: [INVENTORY_TAB, STOCK_TAB, SEARCH_TAB, SITE_TAB, SETTINGS_TAB],
   // Procurement — POs, search, stock, transfers, More (5 tabs)
   procurement: [INVENTORY_TAB, PROCUREMENT_TAB, SEARCH_TAB, STOCK_TAB, SETTINGS_TAB],
   // Field — site, DPR, search, tasks, More (5 tabs)
@@ -297,6 +301,8 @@ const PATH_TO_MODULE: Record<string, string> = {
   reports: "home",
   // Settings module
   settings: "settings",
+  // Calls — maps to home (call log link lives in home NavSheet)
+  calls: "home",
 };
 
 export function moduleFromPath(pathname: string): string {
@@ -408,10 +414,11 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
       title: "Inventory & Procurement",
       personas: ["executive", "ops", "procurement", "field"],
       links: [
-        { href: "/m/requisitions", icon: ShoppingCart, label: "Material Indents", subtitle: "Site needs → approve → convert to PO" },
-        { href: "/m/quotations", icon: FileText, label: "Quotation Requests", subtitle: "Compare vendor prices" },
+        { href: "/m/procurement?tab=indents", icon: ShoppingCart, label: "Material Indents", subtitle: "Site needs → approve → convert to PO" },
+        { href: "/m/procurement?tab=quotations", icon: FileText, label: "Quotation Requests", subtitle: "Compare vendor prices" },
         { href: "/m/procurement", icon: FileText, label: "Purchase Orders", subtitle: "Draft, ordered, receive goods" },
         { href: "/m/materials", icon: Boxes, label: "Materials & Stock", subtitle: "Catalogue, current stock by location" },
+        { href: "/m/stock", icon: Package, label: "Stock", subtitle: "Ledger, transfers, counts, scrap" },
         { href: "/m/stock-out", icon: ArrowLeftRight, label: "Move Stock", subtitle: "Transfer or issue stock" },
         { href: "/m/suppliers", icon: Truck, label: "Suppliers", subtitle: "Vendors, balances" },
         { href: "/m/equipment", icon: Wrench, label: "Equipment", subtitle: "Tools, assignments" },
@@ -427,16 +434,16 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
   inventory: [
     {
       // Procurement flow follows the business muscle-memory:
-      // Indent → Quotation → PO → (Receive is inside PO detail)
+      // Indent → Quotation → PO → Returns — all tabs within /m/procurement
       title: "Procurement Flow",
       personas: ["executive", "ops", "procurement", "field"],
       links: [
-        { href: "/m/requisitions", icon: ShoppingCart, label: "Material Indents", subtitle: "Site needs → approve → convert to PO" },
-        { href: "/m/quotations", icon: FileText, label: "Quotation Requests", subtitle: "Compare vendor prices, auto-create PO" },
+        { href: "/m/procurement?tab=indents", icon: ShoppingCart, label: "Material Indents", subtitle: "Site needs → approve → convert to PO" },
+        { href: "/m/procurement?tab=quotations", icon: FileText, label: "Quotation Requests", subtitle: "Compare vendor prices, auto-create PO" },
         { href: "/m/procurement", icon: FileText, label: "Purchase Orders", subtitle: "Draft, ordered, received — receive goods here" },
         { href: "/m/suppliers", icon: Truck, label: "Suppliers", subtitle: "Vendors, ratings, balances" },
         { href: "/m/rate-contracts", icon: FileText, label: "Rate Contracts", subtitle: "Fixed-rate supplier agreements" },
-        { href: "/m/supplier-returns", icon: AlertTriangle, label: "Supplier Returns", subtitle: "Return to vendor" },
+        { href: "/m/procurement?tab=returns", icon: AlertTriangle, label: "Supplier Returns", subtitle: "Return to vendor" },
       ],
     },
     {
@@ -446,11 +453,10 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
       personas: ["executive", "ops", "procurement", "field"],
       links: [
         { href: "/m/materials", icon: Boxes, label: "Materials & Stock", subtitle: "Catalogue, current stock by location" },
+        { href: "/m/stock", icon: Package, label: "Stock", subtitle: "Ledger, transfers, counts, scrap — all in one" },
         { href: "/m/stock-out", icon: ArrowLeftRight, label: "Move Stock", subtitle: "Transfer to location or issue to project" },
         { href: "/m/stock-locations/new", icon: Warehouse, label: "Add Stock Location", subtitle: "New warehouse or project site" },
         { href: "/m/site/stock", icon: Package, label: "Site Stock", subtitle: "Stock by site + movements" },
-        { href: "/m/stock-counts", icon: ClipboardCheck, label: "Stock Counts", subtitle: "Cycle counts, reconciliation" },
-        { href: "/m/scrap-generations", icon: Wrench, label: "Scrap / Create", subtitle: "Internally generated material" },
         { href: "/m/material-sales", icon: TrendingUp, label: "Material Sales", subtitle: "Sell raw material directly" },
         { href: "/m/gate-pass", icon: ShieldCheck, label: "Gate Pass", subtitle: "Approve items leaving the gate" },
         { href: "/m/equipment", icon: Wrench, label: "Equipment", subtitle: "Tools, assignments, maintenance" },
@@ -622,6 +628,8 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
         { href: "/m/settings/export", icon: FileText, label: "Bulk Export", subtitle: "CSV/PDF data export" },
         { href: "/m/settings/notifications", icon: AlertTriangle, label: "Notifications", subtitle: "Alerts, templates, delivery" },
         { href: "/m/settings/project-assignments", icon: ShieldCheck, label: "Project Assignments", subtitle: "Scope user access to specific projects" },
+        { href: "/m/telephony", icon: Phone, label: "Telephony", subtitle: "Phone numbers, providers, consent" },
+        { href: "/m/calls", icon: PhoneIncoming, label: "Call Log", subtitle: "Call history, recordings, tags" },
       ],
     },
   ],

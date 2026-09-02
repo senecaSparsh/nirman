@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {Label, Textarea} from "@/components/ui/input";
@@ -152,10 +153,9 @@ export function GatePassDetailDialog({
                     href={photo.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block rounded border border-border overflow-hidden hover:opacity-80"
+                    className="relative block rounded border border-border overflow-hidden hover:opacity-80 h-16 w-16"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={photo.url} alt={photo.fileName ?? `Photo ${i + 1}`} className="h-16 w-16 object-cover" />
+                    <Image src={photo.url} alt={photo.fileName ?? `Photo ${i + 1}`} fill className="object-cover" sizes="64px" />
                   </a>
                 ))}
               </div>

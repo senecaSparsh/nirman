@@ -11,6 +11,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, cn } from "@/lib/utils";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 export type ProjectOption = { id: string; name: string };
 
@@ -61,15 +62,11 @@ export function MobileProfitCenterClient({ projects }: { projects: ProjectOption
 
   if (projects.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-        <Wallet className="size-8 mb-3" style={{ color: "var(--color-ink-300)" }} />
-        <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-500)" }}>
-          No projects
-        </p>
-        <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-400)" }}>
-          Create a project to see its profit center.
-        </p>
-      </div>
+      <MobileEmptyState
+        icon={Wallet}
+        title="No projects"
+        hint="Create a project to see its profit center."
+      />
     );
   }
 
@@ -237,15 +234,11 @@ export function MobileProfitCenterClient({ projects }: { projects: ProjectOption
           </div>
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-          <Wallet className="size-8 mb-3" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-500)" }}>
-            No data available
-          </p>
-          <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-400)" }}>
-            No profit center data for this project yet.
-          </p>
-        </div>
+        <MobileEmptyState
+          icon={Wallet}
+          title="No data available"
+          hint="No profit center data for this project yet."
+        />
       )}
     </div>
   );

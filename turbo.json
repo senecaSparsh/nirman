@@ -7,6 +7,14 @@
     },
     "build": {
       "dependsOn": ["^generate", "^build"],
+      "env": [
+        "NEXT_PUBLIC_APP_URL",
+        "BETTER_AUTH_URL",
+        "BETTER_AUTH_SECRET",
+        "AUTH_BYPASS",
+        "NEXT_PUBLIC_AUTH_BYPASS",
+        "DATABASE_URL"
+      ],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "lint": {
@@ -19,8 +27,9 @@
       "dependsOn": ["^generate"]
     },
     "generate": {
-      "cache": false,
-      "outputs": ["node_modules/.prisma/**", "src/generated/**"]
+      "cache": true,
+      "inputs": ["prisma/schema.prisma", "prisma/**/*.prisma"],
+      "outputs": ["src/generated/**"]
     }
   }
 }

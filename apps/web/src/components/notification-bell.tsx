@@ -5,6 +5,7 @@ import Link from "next/link";
 import {Bell, Check, CheckCheck} from "lucide-react";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/empty-state";
 
 type Notification = {
   id: string;
@@ -135,10 +136,11 @@ export function NotificationBell({ className }: { className?: string }) {
           </div>
 
           {notifications.length === 0 ? (
-            <div className="px-3 py-8 text-center">
-              <Bell className="mx-auto mb-2 h-5 w-5 text-muted-foreground/40" />
-              <p className="text-meta text-muted-foreground">No notifications yet.</p>
-            </div>
+            <EmptyState
+              icon={<Bell />}
+              title="No notifications yet"
+              size="compact"
+            />
           ) : (
             <div className="max-h-96 overflow-y-auto scrollbar-thin">
               {notifications.map((n) => {

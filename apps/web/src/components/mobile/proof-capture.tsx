@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import {
   Camera, X, CheckCircle2, MapPin, RefreshCw, Loader2,
 } from "lucide-react";
@@ -93,8 +94,7 @@ export function PhotoCapture({
       <div className={compact ? "flex gap-1 flex-wrap rounded-[0.5rem] border-2 border-dashed" : "flex gap-1.5 flex-wrap"} style={compact ? { borderColor: "var(--color-line)", height: "84px", padding: "4px" } : undefined}>
         {photos.map((p, i) => (
           <div key={i} className={compact ? "relative size-14 rounded-[0.375rem] overflow-hidden shrink-0" : "relative size-20 rounded-[0.375rem] overflow-hidden shrink-0"} style={{ border: "1px solid var(--color-line)" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.url} alt={p.fileName ?? "proof"} className="w-full h-full object-cover" />
+            <Image src={p.url} alt={p.fileName ?? "proof"} fill className="object-cover" sizes="80px" />
             {p.lat != null && p.lng != null ? (
               <div className="absolute bottom-0 left-0 right-0 px-0.5 py-0.5 flex items-center gap-0.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 60%, transparent)" }}>
                 <MapPin className="size-2 shrink-0" style={{ color: "var(--color-paper)" }} />
@@ -557,8 +557,7 @@ export function ReceivingPhotoUpload({
   if (photo) {
     return (
       <div className="relative rounded-[0.375rem] overflow-hidden h-8" style={{ border: "1px solid var(--color-line)" }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={photo.url} alt="receiving" className="w-full h-full object-cover" />
+        <Image src={photo.url} alt="receiving" fill className="object-cover" sizes="100px" />
         <button
           type="button"
           onClick={() => { haptic(5); onChange(null); }}

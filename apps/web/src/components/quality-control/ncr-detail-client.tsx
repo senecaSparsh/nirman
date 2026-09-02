@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -207,9 +208,8 @@ export function NcrDetailClient({ ncr, canManage }: { ncr: NcrDetail; canManage:
             <p className="text-xs font-semibold text-muted-foreground mb-2">Photo Evidence</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {ncr.attachments.map((url, i) => (
-                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg border border-border">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded photo */}
-                  <img src={url} alt={`Evidence ${i + 1}`} className="aspect-video w-full object-cover" />
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="relative block overflow-hidden rounded-lg border border-border aspect-video">
+                  <Image src={url} alt={`Evidence ${i + 1}`} fill className="object-cover" sizes="(max-width: 768px) 100vw, 400px" />
                 </a>
               ))}
             </div>

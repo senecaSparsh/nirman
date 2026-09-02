@@ -299,7 +299,7 @@ export function VendorsView({
                     label: "Lead time",
                     align: "right",
                     sortable: true,
-                    hint: "Agreed days from order to delivery — the number a requisition's urgency is judged against.",
+                    hint: "Agreed days from order to delivery — the number an indent's urgency is judged against.",
                     render: (v) =>
                       v.leadTimeDays != null ? (
                         <QtyCell value={v.leadTimeDays} unit="days" />

@@ -18,7 +18,34 @@ export function SwRegister() {
     // Only register in production + secure contexts; in dev the SW caching
     // interferes with HMR and Turbopack. The offline queue still works in dev
     // (it just syncs immediately since navigator.onLine is true).
-    if (process.env.NODE_ENV !== "production") return;
+    if (process.env.NODE_ENV !== "production") {
+      // Dev mode: unregister any stale SW from a previous production build.
+      // A leftover SW will stale-cache _next/static chunks and cause
+      // ReferenceErrors when Turbopack recompiles and changes chunk content
+      // at the same URL. This is especially common when accessing the dev
+      // server from a LAN IP (e.g. 192.168.x.x) on a device that previously
+      // loaded a production build — the SW's own dev bypass only covers
+      // localhost/127.0.0.1, so it will have already served stale chunks for
+      // the current page load by the time this code runs. Force a single
+      // reload (guarded by a URL param so it can't loop) so the page
+      // re-fetches fresh chunks with the SW now gone.
+      const url = new URL(window.location.href);
+      const alreadyCleared = url.searchParams.get("swclear") === "1";
+      navigator.serviceWorker
+        .getRegistrations()
+        .then((regs) => {
+          if (regs.length === 0) return;
+          return Promise.all(regs.map((reg) => reg.unregister().catch(() => {})));
+        })
+        .then((cleared) => {
+          if (cleared && !alreadyCleared) {
+            url.searchParams.set("swclear", "1");
+            window.location.replace(url.toString());
+          }
+        })
+        .catch(() => {});
+      return;
+    }
 
     let cancelled = false;
     navigator.serviceWorker

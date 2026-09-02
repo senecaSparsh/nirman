@@ -119,6 +119,11 @@ async function MobileCustomersContent() {
   const withDues = rows.filter((r) => r.dueCount > 0);
   const pipelineValue = rows.reduce((s, r) => s + r.totalValue, 0);
 
+  // Existing phone numbers for duplicate-check in the new-customer FAB modal
+  const existingPhones = customers
+    .map((c) => c.phone)
+    .filter((p): p is string => p !== null);
+
   // Lead rows for the inline leads tab
   const leadRows = leads.map((l) => ({
     id: l.id,
@@ -155,6 +160,7 @@ async function MobileCustomersContent() {
           pipelineValue,
         }}
         leadCount={leadRows.length}
+        existingPhones={existingPhones}
       />
     </div>
   );

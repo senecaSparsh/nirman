@@ -37,7 +37,7 @@ async function MyTasksContent() {
       where: { assignedTo: { memberships: { some: { companyId: company.id } } } },
       orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
       include: {
-        assignedTo: { select: { id: true, name: true, email: true, role: true } },
+        assignedTo: { select: { id: true, name: true, email: true, role: true, employees: { select: { id: true }, take: 1 } } },
         assignedBy: { select: { id: true, name: true } },
       },
     }),
@@ -60,7 +60,10 @@ async function MyTasksContent() {
         priority: t.priority,
         dueDate: t.dueDate ? formatDate(t.dueDate) : null,
         dueDateRaw: t.dueDate?.toISOString() ?? null,
-        assignedTo: t.assignedTo,
+        assignedTo: {
+          ...t.assignedTo,
+          employeeId: t.assignedTo.employees?.[0]?.id ?? null,
+        },
         assignedBy: t.assignedBy,
         completedAt: t.completedAt ? formatDate(t.completedAt) : null,
         createdAt: formatDate(t.createdAt),

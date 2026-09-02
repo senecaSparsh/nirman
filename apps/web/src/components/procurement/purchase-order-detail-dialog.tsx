@@ -209,7 +209,7 @@ export function PurchaseOrderDetailDialog({
                   onClick={() => onOpenChange(false)}
                 >
                   <Link2 className="h-3 w-3" />
-                  From requisition {detail.sourceRequisition.reqNumber}
+                  From indent {detail.sourceRequisition.reqNumber}
                 </Link>
               )}
               {detail.projectId && detail.projectName && (

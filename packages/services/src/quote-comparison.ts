@@ -136,14 +136,14 @@ export async function createVendorQuote(input: CreateVendorQuoteInput) {
       department: { select: { companyId: true } },
     },
   });
-  if (!req) throw new ServiceError("Requisition not found", 404);
-  if (req.status === "CONVERTED") throw new ServiceError("Cannot add quotes to a converted requisition");
-  if (req.status === "REJECTED") throw new ServiceError("Cannot add quotes to a rejected requisition");
+  if (!req) throw new ServiceError("Indent not found", 404);
+  if (req.status === "CONVERTED") throw new ServiceError("Cannot add quotes to a converted indent");
+  if (req.status === "REJECTED") throw new ServiceError("Cannot add quotes to a rejected indent");
   if (req.quotesLockedAt) throw new ServiceError("Quotes are locked — a winner has already been selected");
 
   // Validate supplier belongs to the same company as the requisition's project/department
   const reqCompanyId = req.project?.companyId ?? req.department?.companyId;
-  if (!reqCompanyId) throw new ServiceError("Requisition has no project or department", 400);
+  if (!reqCompanyId) throw new ServiceError("Indent has no project or department", 400);
   const supplier = await prisma.supplier.findFirst({
     where: { id: input.supplierId, companyId: reqCompanyId, deletedAt: null },
   });
@@ -466,10 +466,10 @@ export async function selectWinningQuote(input: SelectWinnerInput) {
     if (!quote) throw new ServiceError("Quote not found", 404);
     if (quote.status === "SELECTED") throw new ServiceError("This quote is already selected");
     if (!quote.requisitionId || !quote.requisition) {
-      throw new ServiceError("This quote is not linked to a requisition");
+      throw new ServiceError("This quote is not linked to an indent");
     }
     if (quote.requisition.status === "CONVERTED") {
-      throw new ServiceError("Cannot select a quote for an already-converted requisition");
+      throw new ServiceError("Cannot select a quote for an already-converted indent");
     }
 
     // Mark all other quotes for this requisition as REJECTED (including any
@@ -530,8 +530,8 @@ export async function waiveQuoteRequirement(input: WaiveQuotesInput) {
 
   return withSerializableTransaction(async (tx) => {
     const req = await tx.materialRequisition.findUnique({ where: { id: input.requisitionId } });
-    if (!req) throw new ServiceError("Requisition not found", 404);
-    if (req.status === "CONVERTED") throw new ServiceError("Cannot waive quotes on a converted requisition");
+    if (!req) throw new ServiceError("Indent not found", 404);
+    if (req.status === "CONVERTED") throw new ServiceError("Cannot waive quotes on a converted indent");
 
     const updated = await tx.materialRequisition.update({
       where: { id: input.requisitionId },
@@ -571,7 +571,7 @@ export async function getComparativeStatement(requisitionId: string) {
       quotesLockedAt: true,
     },
   });
-  if (!req) throw new ServiceError("Requisition not found", 404);
+  if (!req) throw new ServiceError("Indent not found", 404);
 
   const quotes = await prisma.vendorQuote.findMany({
     where: { requisitionId },

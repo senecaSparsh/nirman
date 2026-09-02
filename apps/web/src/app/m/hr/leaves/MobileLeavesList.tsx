@@ -13,6 +13,7 @@ import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobi
 
 export type LeaveListItem = {
   id: string;
+  employeeId: string;
   employeeName: string;
   employeeTrade: string | null;
   type: string;
@@ -142,7 +143,11 @@ function LeaveCard({ leave: l }: { leave: LeaveListItem }) {
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <div className="flex items-center justify-between mb-1">
-        <p className="text-m-section font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+        <p
+          className="text-m-section font-bold leading-tight truncate"
+          style={{ color: "var(--color-ink-950)", cursor: "pointer" }}
+          data-emp-id={l.employeeId}
+        >
           {l.employeeName}
         </p>
         <MobileStatusBadge status={l.status} />

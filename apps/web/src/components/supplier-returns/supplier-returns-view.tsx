@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { toast } from "sonner";
 import { Plus, Undo2, Check, X, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -445,9 +446,8 @@ function SupplierReturnDetailDialog({
               )}
             </div>
             {ret.vehiclePhotoUrl && (
-              <a href={ret.vehiclePhotoUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={ret.vehiclePhotoUrl} alt="Vehicle" className="h-16 w-16 rounded border border-border object-cover" />
+              <a href={ret.vehiclePhotoUrl} target="_blank" rel="noopener noreferrer" className="relative mt-2 inline-block h-16 w-16 rounded border border-border overflow-hidden">
+                <Image src={ret.vehiclePhotoUrl} alt="Vehicle" fill className="object-cover" sizes="64px" />
               </a>
             )}
           </div>

@@ -44,7 +44,7 @@ services:
       pnpm build &&
       pnpm --filter @nirman/db generate &&
       pnpm --filter @nirman/db migrate:deploy &&
-      pnpm --filter @nirman/web seed:prod
+      pnpm --filter web seed:prod
 
     # Start the production Next.js server
     startCommand: cd apps/web && pnpm start
@@ -64,6 +64,8 @@ services:
       - key: TURBO_TELEMETRY_DISABLED
         value: "1"
       - key: NODE_OPTIONS
+        # 440MB heap cap fits the 512MB free tier. On a paid plan (2GB+),
+        # increase to --max-old-space-size=1536 for headroom under load.
         value: "--max-old-space-size=440"
       - key: BETTER_AUTH_URL
         value: https://nirman-inventory.onrender.com

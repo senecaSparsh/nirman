@@ -92,7 +92,13 @@ interface SaleDraft {
   lines: SaleLine[];
 }
 
-export default function MobileNewMaterialSaleClient() {
+export default function MobileNewMaterialSaleClient({
+  onClose,
+  onCreated,
+}: {
+  onClose?: () => void;
+  onCreated?: () => void;
+} = {}) {
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();
   const [customers, setCustomers] = useState<CustomerItem[]>([]);
@@ -391,6 +397,7 @@ export default function MobileNewMaterialSaleClient() {
         await enqueue("material-sale", salePayload);
         haptic([10, 40, 80]);
         clearDraft();
+        onCreated?.();
         setSuccess({
           saleNumber: "QUEUED",
           totalAmount: total,
@@ -420,6 +427,7 @@ export default function MobileNewMaterialSaleClient() {
       if (data.pending) {
         haptic([10, 40, 80]);
         clearDraft();
+        onCreated?.();
         setSuccess({
           saleNumber: "GATE PASS",
           totalAmount: total,
@@ -479,6 +487,7 @@ export default function MobileNewMaterialSaleClient() {
       // Refresh server-rendered cache so the material sales list
       // shows the new sale when the user navigates back.
       router.refresh();
+      onCreated?.();
       // ── Persist last-used payment mode for next sale ──
       if (validSplits.length > 0) {
         try {
@@ -603,7 +612,7 @@ export default function MobileNewMaterialSaleClient() {
             Unpaid · Credit
           </p>
         )}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           {isGatePass ? (
             <button
               onClick={() => router.push("/m/gate-pass")}
@@ -632,6 +641,7 @@ export default function MobileNewMaterialSaleClient() {
               <button
                 onClick={() => {
                   router.refresh();
+                  onClose?.();
                   router.push("/m/material-sales");
                 }}
                 className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
@@ -663,7 +673,7 @@ export default function MobileNewMaterialSaleClient() {
             className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{
               borderColor: "var(--color-line)",
-              backgroundColor: "var(--color-paper)",
+              backgroundColor: "transparent",
               color: "var(--color-ink-950)",
             }}
           >
@@ -859,63 +869,57 @@ function SaleForm({
   };
 
   return (
-    <div className="pb-32">
+    <div className="pb-16">
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {/* ══════ SECTION: WHO ══════ */}
-        <SectionHeader icon={User} label="Customer" />
+        <SectionHeader icon={User} label="Customer & Project" />
 
-        {/* Customer selector card */}
-        <SelectorCard
-          onClick={() => setModal({ type: "customer" })}
-          icon={User}
-          label="Customer"
-          value={selectedCustomer?.name}
-          subvalue={selectedCustomer?.phone}
-          required
-        />
-
-        {/* Project selector card (optional) */}
-        <SelectorCard
-          onClick={() => setModal({ type: "project" })}
-          icon={Building2}
-          label="Project (optional)"
-          value={projectId ? selectedProject?.name : undefined}
-          placeholder="No project linkage"
-        />
+        {/* Customer + Project selectors — side-by-side (same hierarchy layer) */}
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+          <SelectorCard
+            onClick={() => setModal({ type: "customer" })}
+            icon={User}
+            label="Customer"
+            value={selectedCustomer?.name}
+            subvalue={selectedCustomer?.phone}
+            required
+            compact
+          />
+          <SelectorCard
+            onClick={() => setModal({ type: "project" })}
+            icon={Building2}
+            label="Project (optional)"
+            value={projectId ? selectedProject?.name : undefined}
+            compact
+          />
+        </div>
 
         {/* Party name override — for walk-in / cash customers without a CRM record */}
         <div>
           <label
-            className="text-m-caption font-semibold block mb-1"
-            style={{ color: "var(--color-ink-500)" }}
+            className="block text-m-caption font-bold mb-0"
+            style={{ color: "var(--color-ink-700)" }}
           >
-            Party name (override, optional)
+            Party name (optional)
           </label>
           <input
             type="text"
             value={partyName}
             onChange={(e) => setPartyName(e.target.value)}
             placeholder="Walk-in customer name on invoice"
-            className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
             style={{
               borderColor: "var(--color-line)",
-              backgroundColor: "var(--color-paper)",
+              backgroundColor: "transparent",
               color: "var(--color-ink-950)",
             }}
           />
-          <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-400)" }}>
-            Overrides the customer name on the printed invoice — for walk-in sales without a CRM record.
-          </p>
         </div>
 
         {/* ══════ SECTION: WHAT ══════ */}
         <SectionHeader icon={Package} label="Line Items" />
 
-        <div
-          className={
-            lines.length > 1 ? "grid grid-cols-2 gap-2" : "flex flex-col gap-2"
-          }
-        >
+        <div className={lines.length > 1 ? "grid grid-cols-2 gap-2" : "flex flex-col gap-3"}>
           {lines.map((line, idx) => {
             const mat = materials.find((m) => m.id === line.materialId);
             const loc = locations.find((l) => l.id === line.locationId);
@@ -930,7 +934,7 @@ function SaleForm({
                   backgroundColor: "var(--color-paper)",
                 }}
               >
-                {/* Line header with number + remove */}
+                {/* Line header with number + add/remove */}
                 <div
                   className="flex items-center justify-between px-2 py-1"
                   style={{
@@ -939,54 +943,64 @@ function SaleForm({
                   }}
                 >
                   <span
-                    className="text-m-caption font-bold uppercase tracking-wide"
-                    style={{ color: "var(--color-ink-500)" }}
+                    className="text-m-caption font-bold"
+                    style={{ color: "var(--color-ink-950)" }}
                   >
                     Item {idx + 1}
                   </span>
-                  {lines.length > 1 ? (
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => onRemoveLine(idx)}
-                      className="flex items-center gap-0.5 text-m-caption font-semibold text-m-body press"
-                      style={{ color: "var(--color-stop)" }}
+                      onClick={onAddLine}
+                      className="flex items-center text-m-caption press"
+                      style={{ color: "var(--color-ink-700)" }}
                     >
-                      <Trash2 className="size-2.5" />
+                      <Plus className="size-3" />
                     </button>
-                  ) : null}
+                    {lines.length > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => onRemoveLine(idx)}
+                        className="flex items-center text-m-caption press"
+                        style={{ color: "var(--color-stop)" }}
+                      >
+                        <Trash2 className="size-2.5" />
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div className="p-1.5 flex flex-col gap-1.5 flex-1">
-                  {/* Material selector */}
-                  <SelectorRow
-                    onClick={() =>
-                      setModal({ type: "material", lineIndex: idx })
-                    }
-                    icon={Package}
-                    label="Material"
-                    value={mat ? mat.name : undefined}
-                    subvalue={mat ? `${mat.code} · ${mat.unit}` : undefined}
-                    required
-                    compact
-                  />
+                  {/* Material + From selectors — side-by-side (same hierarchy layer) */}
+                  <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                    <SelectorRow
+                      onClick={() =>
+                        setModal({ type: "material", lineIndex: idx })
+                      }
+                      icon={Package}
+                      label="Material"
+                      value={mat ? mat.name : undefined}
+                      subvalue={mat ? `${mat.code} · ${mat.unit}` : undefined}
+                      required
+                      compact
+                    />
+                    <SelectorRow
+                      onClick={() =>
+                        setModal({ type: "location", lineIndex: idx })
+                      }
+                      icon={MapPin}
+                      label="From"
+                      value={loc?.name}
+                      compact
+                    />
+                  </div>
 
-                  {/* Location selector */}
-                  <SelectorRow
-                    onClick={() =>
-                      setModal({ type: "location", lineIndex: idx })
-                    }
-                    icon={MapPin}
-                    label="From"
-                    value={loc?.name}
-                    compact
-                  />
-
-                  {/* Qty + Price inputs */}
+                  {/* Qty + Price inputs — side-by-side (same hierarchy layer) */}
                   <div className="grid grid-cols-2 gap-1.5 mt-0.5">
                     <div>
                       <label
-                        className="text-m-caption font-semibold uppercase block mb-0.5"
-                        style={{ color: "var(--color-ink-500)" }}
+                        className="block text-m-caption font-bold mb-0"
+                        style={{ color: "var(--color-ink-700)" }}
                       >
                         Qty{mat ? ` (${mat.unit})` : ""}
                       </label>
@@ -1001,18 +1015,18 @@ function SaleForm({
                           onLineChange(idx, "qty", e.target.value)
                         }
                         placeholder="0"
-                        className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
+                        className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
                         style={{
                           borderColor: "var(--color-line)",
-                          backgroundColor: "var(--color-paper)",
+                          backgroundColor: "transparent",
                           color: "var(--color-ink-950)",
                         }}
                       />
                     </div>
                     <div>
                       <label
-                        className="text-m-caption font-semibold uppercase block mb-0.5"
-                        style={{ color: "var(--color-ink-500)" }}
+                        className="block text-m-caption font-bold mb-0"
+                        style={{ color: "var(--color-ink-700)" }}
                       >
                         Price
                       </label>
@@ -1027,40 +1041,34 @@ function SaleForm({
                           onLineChange(idx, "unitPrice", e.target.value)
                         }
                         placeholder="0"
-                        className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
+                        className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
                         style={{
                           borderColor: "var(--color-line)",
-                          backgroundColor: "var(--color-paper)",
+                          backgroundColor: "transparent",
                           color: "var(--color-ink-950)",
                         }}
                       />
                     </div>
                   </div>
 
-                  {/* Line total — pinned to bottom */}
-                  <div
-                    className="flex items-center justify-between rounded-[0.375rem] px-1.5 py-1 mt-auto"
-                    style={{
-                      backgroundColor:
-                        "color-mix(in srgb, var(--color-go) 6%, transparent)",
-                    }}
-                  >
+                  {/* Line total */}
+                  <div className="flex items-center justify-between pt-0.5">
                     <span
-                      className="text-m-caption font-semibold uppercase"
-                      style={{ color: "var(--color-ink-500)" }}
+                      className="text-m-caption font-bold"
+                      style={{ color: "var(--color-ink-700)" }}
                     >
                       Total
                     </span>
                     <div className="flex items-center gap-1">
                       <span
-                        className="text-m-label font-bold tabular-nums"
+                        className="text-m-caption font-bold tabular-nums"
                         style={{ color: "var(--color-ink-950)" }}
                       >
                         {formatCurrency(lineTotal)}
                       </span>
                       {mat && mat.gstRate > 0 ? (
                         <span
-                          className="text-m-caption font-semibold"
+                          className="text-m-caption font-normal"
                           style={{ color: "var(--color-ink-500)" }}
                         >
                           +{mat.gstRate}%
@@ -1074,25 +1082,11 @@ function SaleForm({
           })}
         </div>
 
-        {/* Add line button */}
-        <button
-          type="button"
-          onClick={onAddLine}
-          className="flex items-center justify-center gap-1 w-full rounded-[0.5rem] border border-dashed py-2.5 text-m-body press"
-          style={{
-            borderColor: "var(--color-line)",
-            color: "var(--color-ink-700)",
-          }}
-        >
-          <Plus className="size-3.5" />
-          <span className="text-m-body font-bold">Add another item</span>
-        </button>
-
         {/* ══════ SECTION: HOW ══════ */}
         <SectionHeader icon={Wallet} label="Payment" />
 
         {/* Payment type selector — 2 options */}
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="grid grid-cols-2 gap-2">
           <PaymentTypeCard
             active={paymentType === "credit"}
             onClick={() => setPaymentType("credit")}
@@ -1118,22 +1112,15 @@ function SaleForm({
 
         {/* Payment splits (only for "paid") */}
         {paymentType === "paid" ? (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             {paymentSplits.map((split, idx) => {
               return (
-                <div
-                  key={split.id}
-                  className="rounded-[0.5rem] border p-2"
-                  style={{
-                    borderColor: "var(--color-line)",
-                    backgroundColor: "var(--color-paper)",
-                  }}
-                >
+                <div key={split.id} className="space-y-3">
                   {/* Split header */}
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center justify-between">
                     <span
-                      className="text-m-caption font-bold uppercase tracking-wide"
-                      style={{ color: "var(--color-ink-500)" }}
+                      className="text-m-caption font-bold"
+                      style={{ color: "var(--color-ink-950)" }}
                     >
                       Payment {idx + 1}
                     </span>
@@ -1145,7 +1132,7 @@ function SaleForm({
                             prev.filter((s) => s.id !== split.id),
                           )
                         }
-                        className="flex items-center gap-0.5 text-m-caption font-semibold text-m-body press"
+                        className="flex items-center gap-1.5 text-m-caption font-semibold text-m-body press"
                         style={{ color: "var(--color-stop)" }}
                       >
                         <Trash2 className="size-2.5" />
@@ -1178,10 +1165,10 @@ function SaleForm({
                           )
                         }
                         placeholder="0"
-                        className="w-full rounded-[0.375rem] border pl-6 pr-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
+                        className="w-full h-7 pl-6 pr-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
                         style={{
                           borderColor: "var(--color-line)",
-                          backgroundColor: "var(--color-paper)",
+                          backgroundColor: "transparent",
                           color: "var(--color-ink-950)",
                         }}
                       />
@@ -1189,7 +1176,7 @@ function SaleForm({
                   </div>
 
                   {/* Mode chips */}
-                  <div className="grid grid-cols-4 gap-1 mt-1.5">
+                  <div className="grid grid-cols-4 gap-1">
                     {PAYMENT_MODES.map((mode) => {
                       const active = split.mode === mode;
                       return (
@@ -1213,7 +1200,7 @@ function SaleForm({
                               ),
                             )
                           }
-                          className="rounded-[0.375rem] py-1 text-m-caption font-bold transition-colors text-m-body press"
+                          className="rounded-[0.25rem] py-0.5 text-m-caption font-bold transition-colors press"
                           style={
                             active
                               ? {
@@ -1223,7 +1210,6 @@ function SaleForm({
                               : {
                                   backgroundColor: "var(--color-paper-2)",
                                   color: "var(--color-ink-700)",
-                                  border: "1px solid var(--color-line)",
                                 }
                           }
                         >
@@ -1281,7 +1267,7 @@ function SaleForm({
               const overpaid = totalPaid > total + 0.01;
               return (
                 <div
-                  className="rounded-[0.375rem] px-2.5 py-1.5 flex flex-col gap-0.5"
+                  className="rounded-[0.375rem] px-2.5 py-1.5 flex flex-col gap-1.5"
                   style={{
                     backgroundColor: overpaid
                       ? "color-mix(in srgb, var(--color-stop) 8%, transparent)"
@@ -1333,7 +1319,7 @@ function SaleForm({
         ) : (
           /* Credit info banner */
           <div
-            className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2"
+            className="flex items-center gap-1 rounded-[0.5rem] border px-3 py-2"
             style={{
               borderColor:
                 "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
@@ -1357,22 +1343,19 @@ function SaleForm({
           </div>
         )}
 
+        {/* ══════ SECTION: DETAILS ══════ */}
+        <SectionHeader icon={Send} label="Dispatch Details" />
+
         {/* Vehicle / Carrier — how goods are dispatched */}
         <div>
-          <label
-            className="text-m-caption font-semibold block mb-1.5"
-            style={{ color: "var(--color-ink-500)" }}
-          >
-            Vehicle / Carrier
-          </label>
           <VehicleCapture value={vehicle} onChange={setVehicle} compact />
         </div>
 
         {/* Notes */}
         <div>
           <label
-            className="text-m-caption font-semibold block mb-1"
-            style={{ color: "var(--color-ink-500)" }}
+            className="block text-m-caption font-bold mb-0"
+            style={{ color: "var(--color-ink-700)" }}
           >
             Notes (optional)
           </label>
@@ -1381,10 +1364,10 @@ function SaleForm({
             onChange={(e) => setNotes(e.target.value)}
             placeholder="e.g. Surplus cement sold to local contractor"
             rows={2}
-            className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none resize-none"
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
             style={{
               borderColor: "var(--color-line)",
-              backgroundColor: "var(--color-paper)",
+              backgroundColor: "transparent",
               color: "var(--color-ink-950)",
             }}
           />
@@ -1392,17 +1375,16 @@ function SaleForm({
       </form>
 
       {/* ══════ STICKY BOTTOM BAR: total + submit ══════ */}
-      {/* Positioned above the mobile shell's bottom nav (56px + safe area) */}
       <div
-        className="fixed left-0 right-0 z-30 border-t backdrop-blur-sm"
+        className="sticky bottom-0 left-0 right-0 z-30 border-t backdrop-blur-sm"
         style={{
-          bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px))",
           backgroundColor:
             "color-mix(in srgb, var(--color-paper) 97%, transparent)",
           borderColor: "var(--color-line)",
+          paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))",
         }}
       >
-        <div className="max-w-md mx-auto px-3.5 py-2 flex items-center gap-3">
+        <div className="max-w-md mx-auto px-3.5 py-2 flex items-center gap-1">
           {/* Total + payment status */}
           <div className="shrink-0">
             <p
@@ -1462,10 +1444,7 @@ function SaleForm({
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
-              <>
-                <Send className="size-3.5" />
-                <span>Create Sale</span>
-              </>
+              <span>Create Sale</span>
             )}
           </button>
         </div>
@@ -1595,10 +1574,9 @@ function SectionHeader({
 }) {
   return (
     <div className="flex items-center gap-1.5 mt-1">
-      <Icon className="size-3" style={{ color: "var(--color-steel)" }} />
       <span
-        className="text-m-caption font-bold uppercase tracking-wide"
-        style={{ color: "var(--color-steel)" }}
+        className="text-m-section font-extrabold tracking-tight"
+        style={{ color: "var(--color-ink-950)" }}
       >
         {label}
       </span>
@@ -1628,29 +1606,29 @@ function PaymentTypeCard({
     <button
       type="button"
       onClick={onClick}
-      className="rounded-[0.5rem] border py-2 px-2 flex flex-col items-center text-m-body press transition-colors"
+      className="border-b-2 px-1 py-1 flex flex-col items-center text-m-body press transition-colors"
       style={
         active
           ? {
               borderColor: "var(--color-ink-950)",
-              backgroundColor: "var(--color-ink-950)",
-              color: "var(--color-paper)",
+              backgroundColor: "transparent",
+              color: "var(--color-ink-950)",
             }
           : {
               borderColor: "var(--color-line)",
-              backgroundColor: "var(--color-paper)",
-              color: "var(--color-ink-700)",
+              backgroundColor: "transparent",
+              color: "var(--color-ink-500)",
             }
       }
     >
-      <span className="text-m-body font-bold">{label}</span>
+      <span className="text-m-caption font-bold">{label}</span>
       {sublabel ? (
         <span
-          className="text-m-caption font-semibold truncate w-full text-center"
+          className="text-m-caption font-normal truncate w-full text-center"
           style={
             active
-              ? { color: "color-mix(in srgb, #fff 70%, transparent)" }
-              : { color: "var(--color-ink-500)" }
+              ? { color: "var(--color-ink-700)" }
+              : { color: "var(--color-ink-400)" }
           }
         >
           {sublabel}
@@ -1671,6 +1649,7 @@ function SelectorCard({
   subvalue,
   placeholder,
   required,
+  compact,
 }: {
   onClick: () => void;
   icon: React.ComponentType<{
@@ -1682,39 +1661,23 @@ function SelectorCard({
   subvalue?: string | null;
   placeholder?: string;
   required?: boolean;
+  compact?: boolean;
 }) {
   const hasValue = !!value;
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 text-m-body press text-left"
+      className="w-full flex items-center gap-1.5 text-m-body press text-left border-b focus:border-b-2 transition-colors pb-0.5"
       style={{
-        borderColor: hasValue
-          ? "var(--color-line)"
-          : "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
-        backgroundColor: "var(--color-paper)",
+        borderColor: "var(--color-line)",
+        backgroundColor: "transparent",
       }}
     >
-      <span
-        className="grid place-items-center size-8 rounded-[0.5rem] shrink-0"
-        style={{
-          backgroundColor: hasValue
-            ? "var(--color-paper-2)"
-            : "color-mix(in srgb, var(--color-signal) 8%, transparent)",
-        }}
-      >
-        <Icon
-          className="size-4"
-          style={{
-            color: hasValue ? "var(--color-ink-700)" : "var(--color-signal)",
-          }}
-        />
-      </span>
       <div className="min-w-0 flex-1">
         <p
-          className="text-m-caption font-semibold uppercase tracking-wide"
-          style={{ color: "var(--color-ink-500)" }}
+          className="block text-m-caption font-bold mb-0"
+          style={{ color: "var(--color-ink-700)" }}
         >
           {label}
           {required ? (
@@ -1722,35 +1685,22 @@ function SelectorCard({
           ) : null}
         </p>
         {hasValue ? (
-          <>
-            <p
-              className="text-m-section font-bold truncate"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              {value}
-            </p>
-            {subvalue ? (
-              <p
-                className="text-m-caption truncate"
+          <p
+            className="text-m-caption font-bold truncate"
+            style={{ color: "var(--color-ink-950)" }}
+          >
+            {value}
+            {subvalue && !compact ? (
+              <span
+                className="font-normal"
                 style={{ color: "var(--color-ink-500)" }}
               >
-                {subvalue}
-              </p>
+                {" "}{subvalue}
+              </span>
             ) : null}
-          </>
-        ) : (
-          <p
-            className="text-m-section font-medium"
-            style={{ color: "var(--color-ink-500)" }}
-          >
-            {placeholder ?? "Tap to select…"}
           </p>
-        )}
+        ) : null}
       </div>
-      <ChevronRight
-        className="size-4 shrink-0"
-        style={{ color: "var(--color-ink-500)" }}
-      />
     </button>
   );
 }
@@ -1783,26 +1733,16 @@ function SelectorRow({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full flex items-center gap-1.5 rounded-[0.375rem] border press text-left ${compact ? "px-1.5 py-1" : "px-2 py-1.5"}`}
+      className="w-full flex items-center gap-1.5 press text-left border-b focus:border-b-2 transition-colors pb-0.5"
       style={{
-        borderColor: hasValue
-          ? "var(--color-line)"
-          : "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
-        backgroundColor: hasValue
-          ? "var(--color-paper)"
-          : "color-mix(in srgb, var(--color-signal) 4%, var(--color-paper))",
+        borderColor: "var(--color-line)",
+        backgroundColor: "transparent",
       }}
     >
-      <Icon
-        className={`shrink-0 ${compact ? "size-2.5" : "size-3"}`}
-        style={{
-          color: hasValue ? "var(--color-ink-700)" : "var(--color-signal)",
-        }}
-      />
       <div className="min-w-0 flex-1">
         <span
-          className={`font-semibold uppercase ${compact ? "text-m-caption" : "text-m-caption"}`}
-          style={{ color: "var(--color-ink-500)" }}
+          className="block text-m-caption font-bold mb-0"
+          style={{ color: "var(--color-ink-700)" }}
         >
           {label}
           {required ? (
@@ -1811,7 +1751,7 @@ function SelectorRow({
         </span>
         {hasValue ? (
           <p
-            className={`font-bold truncate ${compact ? "text-m-caption" : "text-m-body"}`}
+            className="text-m-caption font-bold truncate"
             style={{ color: "var(--color-ink-950)" }}
           >
             {value}
@@ -1825,19 +1765,8 @@ function SelectorRow({
               </span>
             ) : null}
           </p>
-        ) : (
-          <p
-            className={`text-m-caption`}
-            style={{ color: "var(--color-ink-500)" }}
-          >
-            Tap to select…
-          </p>
-        )}
+        ) : null}
       </div>
-      <ChevronRight
-        className={`shrink-0 ${compact ? "size-2.5" : "size-3"}`}
-        style={{ color: "var(--color-ink-500)" }}
-      />
     </button>
   );
 }
@@ -1953,7 +1882,7 @@ function SelectorModal({
                 <button
                   key={item.id || i}
                   onClick={() => onSelect(item.id)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-m-body press text-left"
+                  className="w-full flex items-center gap-1 px-3 py-2.5 text-m-body press text-left"
                   style={{
                     backgroundColor: isSelected
                       ? "color-mix(in srgb, var(--color-ink-950) 5%, transparent)"

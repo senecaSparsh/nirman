@@ -8,7 +8,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 interface ReportType {
   id: string;
@@ -246,8 +248,10 @@ export default function MobileExportPage() {
                   inputClass="w-full rounded-[0.375rem] border pl-8 pr-2 py-1.5 text-m-body outline-none appearance-none"
                   inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                   labelClass="hidden"
-                  renderDialog={({ open, onClose, onCreated }) => (
-                    <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+                  renderDialog={({ open, onClose, onCreated, originRect }) => (
+                    <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+                      <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+                    </MobileFabModal>
                   )}
                 />
               </div>
@@ -290,15 +294,11 @@ export default function MobileExportPage() {
           ) : null}
         </div>
       ) : (
-        <div
-          className="rounded-[0.625rem] border p-6 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-        >
-          <FileText className="size-8 mx-auto mb-2" style={{ color: "var(--color-ink-500)" }} />
-          <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
-            Pick a report above to start export
-          </p>
-        </div>
+        <MobileEmptyState
+          icon={FileText}
+          title="Pick a report above to start export"
+          size="compact"
+        />
       )}
     </div>
   );

@@ -38,7 +38,17 @@ async function MeContent() {
     ? { id: "dev", name: currentUser.name, email: currentUser.email, phone: null, image: null }
     : await prisma.user.findUnique({
         where: { id: currentUser.id },
-        select: { id: true, name: true, email: true, phone: true, image: true },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          image: true,
+          assignedCompanyPhones: {
+            where: { companyId: company.id, deletedAt: null, status: "ACTIVE" },
+            select: { id: true, phoneNumber: true, label: true, provider: true },
+          },
+        },
       });
 
   if (!dbUser) {
@@ -68,6 +78,7 @@ async function MeContent() {
         email: dbUser.email,
         phone: dbUser.phone,
         image: dbUser.image,
+        assignedCompanyPhones: "assignedCompanyPhones" in dbUser ? dbUser.assignedCompanyPhones : [],
       }}
       roleLabel={roleDef.label}
       roleDescription={roleDef.description}

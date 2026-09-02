@@ -11,6 +11,9 @@ import {
   MobileSummaryStrip,
   type SummaryStat,
 } from "@/components/mobile/v2/scaffold";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { MobileNewBrokerClient } from "./new/MobileNewBrokerClient";
 import { haptic } from "@/lib/haptic";
 import { formatNumber } from "@/lib/utils";
 
@@ -41,7 +44,7 @@ export function MobileBrokersList({
 }) {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<BrokerListItem | null>(null);
-  const [creating, _setCreating] = useState(false);
+  const fab = useFabModal();
 
   const filtered = useMemo(() => {
     if (!query.trim()) return items;
@@ -88,7 +91,16 @@ export function MobileBrokersList({
       )}
 
       {canCreate ? (
-        <MobileFab href="/m/brokers/new" label="Add broker" />
+        <MobileFab onClick={fab.toggle} label="Add broker" isOpen={fab.isOpen} />
+      ) : null}
+
+      {canCreate ? (
+        <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="New Broker">
+          <MobileNewBrokerClient
+            onClose={fab.close}
+            onCreated={() => window.location.reload()}
+          />
+        </MobileFabModal>
       ) : null}
 
       {editing ? (
@@ -98,8 +110,6 @@ export function MobileBrokersList({
           onClose={() => setEditing(null)}
         />
       ) : null}
-
-      {creating ? null : null}
     </div>
   );
 }

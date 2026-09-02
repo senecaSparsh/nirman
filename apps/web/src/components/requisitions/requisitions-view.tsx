@@ -323,7 +323,7 @@ export function RequisitionsView({
                 totalFormat={(_key, sum) => formatNumber(sum, 3)}
                 hideable
                 pageSize={50}
-                exportFileName="requisitions"
+                exportFileName="indents"
                 onAddRow={canCreate && projects.length > 0 ? () => setFormOpen(true) : undefined}
                 addRowLabel="New Indent"
                 selectable
@@ -894,14 +894,14 @@ function ConvertDialog({
     fetch(`/api/requisitions/${requisition.id}`)
       .then((r) => r.json())
       .then((d) => { if (!d.error) setDetail(d); })
-      .catch(() => toast.error("Failed to load requisition details"));
+      .catch(() => toast.error("Failed to load indent details"));
   }, [requisition.id]);
 
   async function convert(e: React.FormEvent) {
     e.preventDefault();
     if (!form.supplierId) return toast.error("Supplier is required");
     if (!form.destinationLocationId) return toast.error("Destination location is required");
-    if (!detail) return toast.error("Loading requisition details…");
+    if (!detail) return toast.error("Loading indent details…");
     const costs: Record<string, number> = {};
     for (const line of detail.lines) {
       const cost = Number(lineCosts[line.materialId] ?? 0);
@@ -939,7 +939,7 @@ function ConvertDialog({
     <Dialog
       open
       onOpenChange={onOpenChange}
-      title="Convert Requisition to PO"
+      title="Convert Indent to PO"
       description={`${requisition.reqNumber} · ${requisition.projectName}`}
       className="max-w-2xl"
     >

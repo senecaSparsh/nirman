@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { Building2, FileText } from "lucide-react";
 import type { PortalCustomer } from "@/lib/portal-auth";
+import { EmptyState } from "@/components/empty-state";
 
 interface PortalSale {
   id: string;
@@ -168,10 +171,11 @@ export function PortalDashboard({ customer }: { customer: PortalCustomer }) {
       {tab === "bookings" && (loading ? (
         <div className="portal-card text-center text-sm text-slate-400">Loading your bookings…</div>
       ) : sales.length === 0 ? (
-        <div className="portal-card text-center py-12">
-          <p className="text-slate-500">No active bookings found.</p>
-          <p className="mt-1 text-xs text-slate-400">Contact your sales representative if this seems incorrect.</p>
-        </div>
+        <EmptyState
+          icon={<FileText className="h-5 w-5" />}
+          title="No active bookings found"
+          description="Contact your sales representative if this seems incorrect."
+        />
       ) : (
         <div className="space-y-3">
           {sales.map((sale) => (
@@ -220,9 +224,10 @@ export function PortalDashboard({ customer }: { customer: PortalCustomer }) {
       {tab === "construction" && (loading ? (
         <div className="portal-card text-center text-sm text-slate-400">Loading construction updates…</div>
       ) : projects.length === 0 ? (
-        <div className="portal-card text-center py-12">
-          <p className="text-slate-500">No construction updates available yet.</p>
-        </div>
+        <EmptyState
+          icon={<Building2 className="h-5 w-5" />}
+          title="No construction updates available yet"
+        />
       ) : (
         <div className="space-y-4">
           {projects.map((project) => (
@@ -267,7 +272,9 @@ export function PortalDashboard({ customer }: { customer: PortalCustomer }) {
                       {update.photos.length > 0 && (
                         <div className="mt-2 flex gap-2">
                           {update.photos.map((photo, i) => (
-                            <img key={i} src={photo} alt={`Update ${i + 1}`} className="h-16 w-16 rounded-lg object-cover" />
+                            <div key={i} className="relative h-16 w-16 overflow-hidden rounded-lg">
+                              <Image src={photo} alt={`Update ${i + 1}`} fill className="object-cover" sizes="64px" />
+                            </div>
                           ))}
                         </div>
                       )}

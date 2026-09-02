@@ -44,10 +44,16 @@ export function MobileNewLeadClient({
   projects,
   units,
   assignees,
+  onClose,
+  onCreated,
 }: {
   projects: ProjectItem[];
   units: UnitItem[];
   assignees: AssigneeItem[];
+  /** When provided, the form closes this modal on success instead of navigating. */
+  onClose?: () => void;
+  /** Called with the newly created lead before closing (optional). */
+  onCreated?: (lead: { id: string }) => void;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -105,8 +111,13 @@ export function MobileNewLeadClient({
       if (!res.ok) throw new Error(data.error ?? "Failed to add lead");
       haptic([10, 40, 80]);
       toast.success("Lead added to the pipeline");
-      router.push("/m/leads");
-      router.refresh();
+      if (onClose) {
+        onCreated?.({ id: data.id });
+        onClose();
+      } else {
+        router.push("/m/leads");
+        router.refresh();
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
@@ -114,21 +125,21 @@ export function MobileNewLeadClient({
     }
   }
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
     <div className="pb-32">
       {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-1 mb-3">
         <button
-          onClick={() => router.back()}
+          onClick={() => (onClose ? onClose() : router.back())}
           className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
           style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
         >
@@ -140,8 +151,8 @@ export function MobileNewLeadClient({
           </p>
         </div>
         <span
-          className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
-          style={{ color: "var(--color-steel)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
+          className="flex items-center gap-1.5 text-m-section font-extrabold tracking-tight px-2 py-0.5 rounded-full shrink-0"
+          style={{ color: "var(--color-ink-500)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
         >
           <ContactRound className="size-2.5" />
           Pipeline
@@ -162,7 +173,7 @@ export function MobileNewLeadClient({
             required
           />
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <div>
             <label className={labelClass} style={labelStyle}>Phone *</label>
             <input
@@ -190,7 +201,7 @@ export function MobileNewLeadClient({
         </div>
 
         {/* Source + Priority */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <div>
             <label className={labelClass} style={labelStyle}>Source *</label>
             <select
@@ -228,7 +239,7 @@ export function MobileNewLeadClient({
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <div>
             <label className={labelClass} style={labelStyle}>Interested unit</label>
             <select
@@ -255,7 +266,7 @@ export function MobileNewLeadClient({
         </div>
 
         {/* Budget + Owner */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <div>
             <label className={labelClass} style={labelStyle}>Budget from (₹)</label>
             <input
@@ -318,16 +329,16 @@ export function MobileNewLeadClient({
             value={form.notes}
             onChange={(e) => set("notes", e.target.value)}
             placeholder="Any context about this lead…"
-            className="w-full rounded-[0.5rem] border px-2.5 py-2 text-m-section resize-none outline-none"
+            className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
             style={inputStyle}
           />
         </div>
 
         {/* Submit */}
-        <div className="flex gap-2 pt-2">
+        <div className="flex gap-1 pt-2">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => (onClose ? onClose() : router.back())}
             disabled={saving}
             className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}

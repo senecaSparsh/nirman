@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {formatDate, formatRelativeTime} from "@/lib/utils";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 export type WorkflowDetail = {
   id: string;
@@ -200,11 +201,12 @@ export function MobileWorkflowDetailClient({
             Run History ({runs.length})
           </p>
           {runs.length === 0 ? (
-            <div className="rounded-[0.625rem] border p-4 text-center" style={{ borderColor: "var(--color-line)" }}>
-              <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
-                No runs yet
-              </p>
-            </div>
+            <MobileEmptyState
+              icon={Clock}
+              title="No runs yet"
+              description="This workflow hasn't been executed yet."
+              size="compact"
+            />
           ) : (
             <div className="space-y-2">
               {runs.map((r) => (

@@ -932,14 +932,71 @@ export type ProjectCostRow = {
   receiptUrl: string | null;
 };
 
+export type LandCostComponentRow = {
+  id: string;
+  landPurchaseId: string;
+  label: string;
+  amount: number;
+  frequency: "ONE_TIME" | "RECURRING";
+  interval: "MONTHLY" | "QUARTERLY" | "HALF_YEARLY" | "YEARLY" | null;
+  startDate: string;
+  endDate: string | null;
+  occurrences: number | null;
+  postedAmount: number;
+  scheduledTotal: number;
+  notes: string | null;
+};
+
 export type ExpenseRow = {
   id: string;
   projectId: string | null;
   projectName: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
   category: string;
   amount: number;
+  subtotal: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  tdsAmount: number;
+  supplierId: string | null;
+  supplierName: string | null;
+  payeeName: string | null;
+  paymentMode: string | null;
+  bankAccount: string | null;
+  chequeNo: string | null;
+  chequeDate: string | null;
+  chequePhotoUrl: string | null;
+  referenceNo: string | null;
+  receiptUrl: string | null;
+  status: "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
+  submittedById: string | null;
+  submittedByName: string | null;
+  submittedAt: string | null;
+  approvedById: string | null;
+  approvedByName: string | null;
+  approvedAt: string | null;
+  rejectedReason: string | null;
+  glPostedAt: string | null;
+  createdByName?: string | null;
   date: string;
   notes: string | null;
+};
+
+export type ExpenseCategoryRow = {
+  id: string;
+  name: string;
+  glAccountCode: string;
+  description: string | null;
+  isActive: boolean;
+};
+
+export type GlAccountOption = {
+  code: string;
+  name: string;
+  type: string;
+  isSystem: boolean;
 };
 
 export type SellableAssetRow = {
@@ -1325,6 +1382,28 @@ export type ApprovalReqRow = {
   urgency: string;
   // Line-level stock/rate context for the approver
   lineDetails: ApprovalReqLineDetail[];
+};
+
+export type ApprovalExpenseRow = {
+  id: string;
+  category: string;
+  categoryName: string | null;
+  amount: number;
+  subtotal: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  tdsAmount: number;
+  projectName: string | null;
+  payeeName: string | null;
+  supplierName: string | null;
+  paymentMode: string | null;
+  receiptUrl: string | null;
+  submittedByName: string | null;
+  submittedAt: string | null;
+  date: string;
+  notes: string | null;
+  canApprove: boolean;
 };
 
 

@@ -34,7 +34,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       },
     },
   });
-  if (!req) return json({ error: "Requisition not found" }, { status: 404 });
+  if (!req) return json({ error: "Indent not found" }, { status: 404 });
 
   const lines = req.lines.map((l) => ({
     id: l.id,
@@ -125,21 +125,21 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
       await submitRequisition(id, user.id);
       revalidatePath("/requisitions");
-      revalidatePath("/m/requisitions");
+      revalidatePath("/m/procurement");
       return json({ ok: true });
     }
     if (action === "approve") {
       const user = await requirePermission(PERM.REQUISITION_APPROVE);
       await approveRequisition(id, user.id);
       revalidatePath("/requisitions");
-      revalidatePath("/m/requisitions");
+      revalidatePath("/m/procurement");
       return json({ ok: true });
     }
     if (action === "reject") {
       const user = await requirePermission(PERM.REQUISITION_APPROVE);
       await rejectRequisition(id, user.id, body?.rejectReason);
       revalidatePath("/requisitions");
-      revalidatePath("/m/requisitions");
+      revalidatePath("/m/procurement");
       return json({ ok: true });
     }
     if (action === "waiveQuotes") {
@@ -148,7 +148,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       if (!reason?.trim()) return json({ error: "A waiver reason is required" }, { status: 400 });
       await waiveQuoteRequirement({ requisitionId: id, waivedById: user.id, reason });
       revalidatePath("/requisitions");
-      revalidatePath("/m/requisitions");
+      revalidatePath("/m/procurement");
       return json({ ok: true });
     }
     if (action === "convert") {
@@ -168,7 +168,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
         userId: user.id,
       });
       revalidatePath("/requisitions");
-      revalidatePath("/m/requisitions");
+      revalidatePath("/m/procurement");
       return json({ ok: true, poId: po.id, poNumber: po.poNumber }, { status: 201 });
     }
     return json({ error: "Invalid action. Use submit, approve, reject, waiveQuotes, or convert." }, { status: 400 });
@@ -186,10 +186,10 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const req = await prisma.materialRequisition.findFirst({
     where: { id, project: { companyId: company.id } },
   });
-  if (!req) return json({ error: "Requisition not found" }, { status: 404 });
+  if (!req) return json({ error: "Indent not found" }, { status: 404 });
   // Only allow deleting draft or rejected requisitions
   if (!["DRAFT", "REJECTED"].includes(req.status)) {
-    return json({ error: "Only draft or rejected requisitions can be deleted" }, { status: 400 });
+    return json({ error: "Only draft or rejected indents can be deleted" }, { status: 400 });
   }
   // Delete lines first, then the requisition — with audit log
   await withSerializableTransaction(async (tx) => {
@@ -204,6 +204,6 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     });
   });
   revalidatePath("/requisitions");
-  revalidatePath("/m/requisitions");
+  revalidatePath("/m/procurement");
   return json({ ok: true });
 });

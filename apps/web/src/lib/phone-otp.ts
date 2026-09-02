@@ -1,5 +1,5 @@
 import { createHmac, randomBytes } from "node:crypto";
-import { auth } from "@/lib/auth";
+import { prisma } from "@nirman/db";
 
 /**
  * Phone-OTP login helpers.
@@ -9,10 +9,9 @@ import { auth } from "@/lib/auth";
  * `getSession()`, middleware, `/api/me`, and company selection all work the
  * same as email+password login.
  *
- * The session is created via `auth.$context.internalAdapter.createSession()`
- * (the same internal call Better-Auth's own sign-in route uses), and the
- * session cookie is signed with the same HMAC-SHA256 algorithm that
- * `better-call`'s `setSignedCookie` uses.
+ * The session is created directly in the DB (same table Better-Auth uses),
+ * and the session cookie is signed with the same HMAC-SHA256 algorithm that
+ * Better-Auth's `setSignedCookie` uses.
  */
 
 /** Strip everything except digits — normalises +91, spaces, dashes, etc. */
@@ -37,10 +36,8 @@ export const OTP_CONFIG = {
  * Create a real Better-Auth session for the given user ID and return a
  * ready-to-use `Set-Cookie` header value for the session token cookie.
  *
- * This replicates what Better-Auth's sign-in route does:
- *   1. `auth.$context.internalAdapter.createSession(userId)` → DB session row
- *   2. Sign the token: `encodeURIComponent(token + "." + base64(HMAC-SHA256(token, secret)))`
- *   3. Build the `Set-Cookie` header with the cookie name + attributes
+ * This creates a Session row directly in the DB (same table Better-Auth uses),
+ * then signs the token cookie with HMAC-SHA256 using the same secret.
  *
  * The cookie name is `better-auth.session_token` (or `__Secure-` prefixed in
  * HTTPS production). The attributes match the auth config: HttpOnly, Path=/,
@@ -50,24 +47,17 @@ export async function createPhoneSession(userId: string): Promise<{
   setCookieHeader: string;
   session: { id: string; token: string; userId: string; expiresAt: Date };
 }> {
-  // 1. Create the session via Better-Auth's internal adapter — same call the
-  //    sign-in route makes. This creates a Session row in the DB.
-  // Better-Auth's internal adapter is not part of the public typed API;
-  // we cast to the minimal shape we need.
-  const authInternal = auth as unknown as {
-    $context: {
-      internalAdapter: {
-        createSession: (userId: string) => Promise<{
-          id: string;
-          token: string;
-          userId: string;
-          expiresAt: Date;
-        } | null>;
-      };
-    };
-  };
-  const session = await authInternal.$context.internalAdapter.createSession(userId);
-  if (!session) throw new Error("Failed to create session");
+  // 1. Create the session directly in the DB — same table Better-Auth uses.
+  const token = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 60 * 60 * 24 * 365 * 1000); // 365 days
+
+  const session = await prisma.session.create({
+    data: {
+      token,
+      userId,
+      expiresAt,
+    },
+  });
 
   // 2. Determine the cookie name + attributes from the auth config.
   const secret = process.env.BETTER_AUTH_SECRET ?? "dev-only-fallback-secret-not-for-production-use-32chars";

@@ -1,9 +1,10 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
 import type { Prisma } from "@nirman/db";
 import { recordAttendance, bulkRecordAttendance, combineTimeWithDate, computeAttendanceTier } from "@nirman/services";
 import { apiHandler, getCompany, json, attendanceSchema, bulkAttendanceSchema, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.HR_VIEW);
@@ -14,6 +15,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const endDate = url.searchParams.get("endDate");
   const projectId = url.searchParams.get("projectId");
   const employeeId = url.searchParams.get("employeeId");
+
+  // Cursor pagination — backward compatible. If `cursor` param is present,
+  // return { items, nextCursor, hasMore }. Otherwise return flat array.
+  const { take, cursor, skip } = parseCursorParams(req);
+  const usePagination = url.searchParams.has("cursor") || url.searchParams.has("take");
 
   const where: Record<string, unknown> = { companyId: company.id };
   if (date) {
@@ -34,11 +40,15 @@ export const GET = apiHandler(async (req: NextRequest) => {
   }
   if (projectId) where.projectId = projectId;
   if (employeeId) where.employeeId = employeeId;
+  // Apply cursor filter (uses "date" field for ordering)
+  const cursorFilter = cursorToWhere(cursor, "date");
+  if (cursorFilter) Object.assign(where, cursorFilter);
 
   const records = await prisma.workerAttendance.findMany({
     where: where as Prisma.WorkerAttendanceWhereInput,
     orderBy: { date: "desc" },
-    take: 500,
+    take: usePagination ? take + 1 : 500,
+    skip: usePagination ? skip : undefined,
     include: {
       employee: { select: { id: true, name: true, trade: true } },
       project: { select: { id: true, name: true } },
@@ -58,24 +68,29 @@ export const GET = apiHandler(async (req: NextRequest) => {
   );
   const dprApprovalMap = new Map<string, boolean>();
   if (projectDateKeys.size > 0) {
+    // Build a targeted OR clause from the actual project+date pairs we need,
+    // instead of fetching ALL company DPRs and filtering in JS.
+    // This uses the existing @@index([projectId, date]) for fast lookups.
+    const projectDatePairs = Array.from(projectDateKeys).map((key) => {
+      const [projId, dateStr] = key.split("|");
+      const dayStart = new Date(dateStr + "T00:00:00.000Z");
+      const dayEnd = new Date(dateStr + "T23:59:59.999Z");
+      return { projectId: projId, date: { gte: dayStart, lte: dayEnd } };
+    });
     const dprs = await prisma.dailyProgressReport.findMany({
       where: {
         companyId: company.id,
-        // We'll filter by project+date in JS since the composite lookup
-        // is simpler than building a complex OR clause
+        OR: projectDatePairs,
       },
       select: { projectId: true, date: true, approvalStatus: true },
     });
     for (const dpr of dprs) {
       const key = `${dpr.projectId}|${dpr.date.toISOString().slice(0, 10)}`;
-      if (projectDateKeys.has(key)) {
-        dprApprovalMap.set(key, dpr.approvalStatus === "APPROVED");
-      }
+      dprApprovalMap.set(key, dpr.approvalStatus === "APPROVED");
     }
   }
 
-  return json(
-    records.map((r) => {
+  const mapped = records.map((r) => {
       const dprKey = r.projectId ? `${r.projectId}|${r.date.toISOString().slice(0, 10)}` : null;
       const dprApproved = dprKey ? (dprApprovalMap.get(dprKey) ?? false) : false;
       const hasGpsCheckIn = r.checkInLat != null && r.checkInLng != null;
@@ -109,8 +124,16 @@ export const GET = apiHandler(async (req: NextRequest) => {
         geoFenceOk: r.geoFenceOk,
         geoFenceDistance: r.geoFenceDistance,
       };
-    }),
-  );
+    });
+
+  if (usePagination) {
+    const { items, nextCursor, hasMore } = buildCursorResponse(mapped, take, (r) => ({
+      createdAt: r.date instanceof Date ? r.date.toISOString() : r.date,
+      id: r.id,
+    }));
+    return NextResponse.json({ items, nextCursor, hasMore });
+  }
+  return json(mapped);
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {

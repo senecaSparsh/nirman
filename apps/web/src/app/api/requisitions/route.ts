@@ -72,9 +72,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
       })),
     });
     revalidatePath("/requisitions");
-    revalidatePath("/m/requisitions");
+    revalidatePath("/m/procurement");
     return json({ ok: true, id: req.id, reqNumber: req.reqNumber }, { status: 201 });
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to create requisition") }, { status: 400 });
+    return json({ error: (err instanceof Error ? err.message : "Failed to create indent") }, { status: 400 });
   }
 });

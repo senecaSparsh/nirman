@@ -8,6 +8,7 @@ import {
   ChevronRight,
   ExternalLink,
 } from "lucide-react";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ORBIT NAVIGATOR — circular orbit layout with rich cards
@@ -505,12 +506,7 @@ export function OrbitNavigator({
                     ))}
                   </div>
                 ) : children && children.length === 0 ? (
-                  <p
-                    className="text-center text-m-caption py-4"
-                    style={{ color: "var(--color-ink-500)" }}
-                  >
-                    No items found
-                  </p>
+                  <MobileEmptyState title="No items found" size="compact" />
                 ) : null}
               </div>
             )}

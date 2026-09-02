@@ -195,6 +195,7 @@ function EmployeeRow({ e }: { e: EmployeeListItem }) {
       href={`/m/hr/employees/${e.id}`}
       icon={Users}
       title={e.name}
+      empId={e.id}
       subtitle={`${e.designation ?? "—"} · ${e.activeProjectName ?? "No project"}${e.phone ? ` · ${e.phone}` : ""}`}
       meta={wage}
       badge={<MobileStatusBadge status={e.wageType} />}

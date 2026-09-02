@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import { prisma } from "@nirman/db";
 import { computeAttendanceTier } from "@nirman/services";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, getCurrentUser, toNum } from "@/lib/server";
+import { migrateRole, ROLES } from "@/lib/roles";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -29,6 +30,11 @@ import {
   type TradeNode,
   type SitePresenceNode,
 } from "./WorkforceBreakdown";
+import {
+  OrgHierarchy,
+  type OrgTreeData,
+} from "./OrgHierarchy";
+import { buildOrgTree } from "@/lib/org-tree-builder";
 
 /**
  * HR module home — the second tab.
@@ -55,6 +61,7 @@ export default function HrHomePage() {
 async function HrContent() {
   await connection();
   const company = await getCompany();
+  const currentUser = await getCurrentUser();
 
   const today = new Date();
   const todayDateOnly = new Date(
@@ -73,6 +80,7 @@ async function HrContent() {
     draftPayroll,
     _crewCount,
     todayProjectAttendance,
+    orgTree,
   ] = await Promise.all([
     prisma.dailyProgressReport
       .findMany({
@@ -154,6 +162,7 @@ async function HrContent() {
         include: { project: { select: { name: true } } },
       })
       .catch(() => []),
+    loadOrgTree(company.id, company.name, currentUser?.id ?? null),
   ]);
 
   // Fetch ALL today's attendance records (not just PRESENT/OVERTIME) for tier computation
@@ -353,7 +362,11 @@ async function HrContent() {
       {/* ── 2. Field / People toggle + quick actions ── */}
       <HrInteractive />
 
-      {/* ── 3. Traffic-light attendance summary (D10) ── */}
+      {/* ── 3. Organization tree — reporting line + scope assignments ── */}
+      <SectionHead title="Organization" />
+      <OrgHierarchy tree={orgTree} />
+
+      {/* ── 4. Traffic-light attendance summary (D10) ── */}
       {(tierStats.red + tierStats.yellow + tierStats.green) > 0 ? (
         <div className="mb-3">
           <MobileSectionTitle>Today&apos;s Attendance Status</MobileSectionTitle>
@@ -428,7 +441,7 @@ async function HrContent() {
         </div>
       ) : null}
 
-      {/* ── 4. Workforce breakdown — trade + site presence ── */}
+      {/* ── 5. Workforce breakdown — trade + site presence ── */}
       <SectionHead title="Workforce" />
       <WorkforceBreakdown
         trades={tradeBreakdown}
@@ -436,7 +449,7 @@ async function HrContent() {
         totalHeadcount={employees}
       />
 
-      {/* ── 5. Pending approvals queue ── */}
+      {/* ── 6. Pending approvals queue ── */}
       {totalPending > 0 ? (
         <>
           <MobileSectionTitle>Pending approvals</MobileSectionTitle>
@@ -494,7 +507,7 @@ async function HrContent() {
         </>
       ) : null}
 
-      {/* ── 6. Recent DPRs ── */}
+      {/* ── 7. Recent DPRs ── */}
       {recentDprs.length > 0 ? (
         <>
           <MobileSectionTitle
@@ -555,4 +568,198 @@ async function HrContent() {
       )}
     </div>
   );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ORG TREE LOADER — builds the people hierarchy for the OrgHierarchy tree.
+
+   Fetches every membership in the company with their reporting line, scope
+   assignments (projects/departments), open tasks, and recent DPRs — then
+   assembles two views:
+     1. Reporting tree  — roots = memberships with no in-company reportsTo
+     2. Assignment tree — people grouped by project / department (+ unassigned)
+   ═══════════════════════════════════════════════════════════════════════════ */
+async function loadOrgTree(
+  companyId: string,
+  companyName: string,
+  currentUserId: string | null,
+): Promise<OrgTreeData> {
+  const today = new Date();
+  const todayDateOnly = new Date(
+    Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
+  );
+
+  // ── Fetch all memberships with user info, scopes, and reporting line ──
+  const memberships = await prisma.userCompany.findMany({
+    where: { companyId },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          active: true,
+          designation: true,
+          department: true,
+          employeeCode: true,
+        },
+      },
+      scopes: {
+        include: {
+          department: { select: { name: true } },
+          project: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: { user: { name: "asc" } },
+  });
+
+  if (memberships.length === 0) {
+    return {
+      companyName,
+      peopleCount: 0,
+      projectCount: 0,
+      roots: [],
+      unassigned: [],
+      projects: [],
+      departments: [],
+      labourByTrade: [],
+      labourCount: 0,
+    };
+  }
+
+  const userIds = memberships.map((m) => m.userId);
+
+  // ── Open tasks + ALL tasks + recent DPRs + crews + unassigned employees
+  //    + today's attendance + leave requests ──
+  const [tasks, allTasks, dprs, crews, unassignedEmployees, todayAttendanceRows, leaveRows] = await Promise.all([
+    prisma.task.findMany({
+      where: { assignedToId: { in: userIds }, status: { in: ["PENDING", "IN_PROGRESS"] } },
+      select: { id: true, title: true, status: true, priority: true, dueDate: true, assignedToId: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    // ALL tasks (including COMPLETED) for the task summary breakdown
+    prisma.task.findMany({
+      where: { assignedToId: { in: userIds } },
+      select: { id: true, title: true, status: true, priority: true, dueDate: true, assignedToId: true },
+      orderBy: { createdAt: "desc" },
+      take: 500, // cap to avoid huge payloads
+    }),
+    prisma.dailyProgressReport.findMany({
+      where: { submittedById: { in: userIds } },
+      orderBy: { date: "desc" },
+      take: userIds.length * 5,
+      select: { id: true, date: true, approvalStatus: true, submittedById: true, project: { select: { name: true } } },
+    }),
+    // Crews with their supervisor (→ Employee → userId) and members
+    prisma.crew.findMany({
+      where: { companyId, active: true },
+      include: {
+        supervisor: { select: { userId: true } },
+        project: { select: { name: true } },
+        members: {
+          where: { deletedAt: null, active: true },
+          select: {
+            id: true,
+            name: true,
+            trade: true,
+            designation: true,
+            wageType: true,
+            dailyRate: true,
+            monthlySalary: true,
+            active: true,
+            crewId: true,
+            phone: true,
+            activeProject: { select: { name: true } },
+          },
+        },
+      },
+    }),
+    // Employees not in any crew (field labour without a formal team)
+    prisma.employee.findMany({
+      where: { companyId, deletedAt: null, crewId: null },
+      select: {
+        id: true,
+        name: true,
+        trade: true,
+        designation: true,
+        wageType: true,
+        dailyRate: true,
+        monthlySalary: true,
+        active: true,
+        crewId: true,
+        phone: true,
+        activeProject: { select: { name: true } },
+      },
+    }),
+    // Today's attendance for employees linked to these users
+    prisma.workerAttendance.findMany({
+      where: {
+        company: { id: companyId },
+        date: todayDateOnly,
+        employee: { userId: { in: userIds } },
+      },
+      select: {
+        employeeId: true,
+        status: true,
+        checkIn: true,
+        checkOut: true,
+        employee: { select: { userId: true } },
+        project: { select: { name: true } },
+      },
+    }).catch(() => []),
+    // Leave requests for employees linked to these users (pending + approved-today)
+    prisma.leaveRequest.findMany({
+      where: {
+        company: { id: companyId },
+        employee: { userId: { in: userIds } },
+        status: { in: ["PENDING", "APPROVED"] },
+      },
+      select: {
+        id: true,
+        employeeId: true,
+        status: true,
+        startDate: true,
+        endDate: true,
+        employee: { select: { userId: true } },
+      },
+    }).catch(() => []),
+  ]);
+
+  // ── Build the tree (shared logic with tier-based inference + teams) ──
+  const roleTierFn = (role: string): number => {
+    const r = migrateRole(role) ?? "SUPERVISOR";
+    return ROLES[r]?.tier ?? 5;
+  };
+  const roleLabelFn = (role: string): string => {
+    const r = migrateRole(role) ?? "SUPERVISOR";
+    return ROLES[r]?.label ?? r;
+  };
+
+  const { roots, unassigned, projects, departments, labourByTrade, labourCount } = buildOrgTree(
+    memberships as unknown as Parameters<typeof buildOrgTree>[0],
+    tasks as unknown as Parameters<typeof buildOrgTree>[1],
+    dprs as unknown as Parameters<typeof buildOrgTree>[2],
+    crews as unknown as Parameters<typeof buildOrgTree>[3],
+    unassignedEmployees as unknown as Parameters<typeof buildOrgTree>[4],
+    currentUserId,
+    roleTierFn,
+    roleLabelFn,
+    allTasks as unknown as Parameters<typeof buildOrgTree>[8],
+    todayAttendanceRows as unknown as Parameters<typeof buildOrgTree>[9],
+    leaveRows as unknown as Parameters<typeof buildOrgTree>[10],
+  );
+
+  return {
+    companyName,
+    peopleCount: memberships.length,
+    projectCount: projects.length,
+    roots,
+    unassigned,
+    projects,
+    departments,
+    labourByTrade,
+    labourCount,
+  };
 }

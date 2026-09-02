@@ -66,8 +66,8 @@ export function PurchaserPerformanceReport({ report }: { report: PurchaserPerfor
       { key: "email", label: "Email" },
       { key: "role", label: "Role" },
       { key: "quotesUploaded", label: "Quotes Uploaded" },
-      { key: "requisitionsHandled", label: "Requisitions Handled" },
-      { key: "avgQuotesPerRequisition", label: "Avg Quotes/Req" },
+      { key: "requisitionsHandled", label: "Indents Handled" },
+      { key: "avgQuotesPerRequisition", label: "Avg Quotes/Indent" },
       { key: "cheapestSelected", label: "Cheapest Selected" },
       { key: "cheapestSelectionRate", label: "Cheapest Selection Rate" },
       { key: "totalSpend", label: "Total Spend", format: (v) => formatCurrency(Number(v)) },
@@ -129,7 +129,7 @@ export function PurchaserPerformanceReport({ report }: { report: PurchaserPerfor
                 <TH>Purchaser</TH>
                 <TH className="w-28">Role</TH>
                 <THNum className="w-32">Quotes Uploaded</THNum>
-                <THNum className="w-32">Requisitions</THNum>
+                <THNum className="w-32">Indents</THNum>
                 <THNum className="w-32">Avg Quotes/Req</THNum>
                 <THNum className="w-32">Cheapest Selected</THNum>
                 <THNum className="w-32">Selection Rate</THNum>

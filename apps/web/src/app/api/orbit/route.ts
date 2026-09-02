@@ -277,8 +277,8 @@ async function getCompanyNode(id: string, currentCompanyId: string): Promise<Orb
       { id: "expenses", type: "category", label: "Expenses", subtitle: "Direct costs", count: c._count.expenses, href: "/m/expenses" },
       { id: "leads", type: "category", label: "Leads", subtitle: "Sales pipeline", count: c._count.leads, href: "/m/leads" },
       { id: "tasks", type: "category", label: "Tasks", subtitle: "Open work items", count: taskCount, href: "/m/tasks" },
-      { id: "scrapGenerations", type: "category", label: "Scrap", subtitle: "Generated material", count: c._count.scrapGenerations, href: "/m/scrap-generations" },
-      { id: "stockTransfers", type: "category", label: "Transfers", subtitle: "Inter-location moves", count: stockTransferCount, href: "/m/transfers" },
+      { id: "scrapGenerations", type: "category", label: "Scrap", subtitle: "Generated material", count: c._count.scrapGenerations, href: "/m/stock?tab=scrap" },
+      { id: "stockTransfers", type: "category", label: "Transfers", subtitle: "Inter-location moves", count: stockTransferCount, href: "/m/stock?tab=transfers" },
     ],
   };
 }
@@ -330,7 +330,7 @@ async function getProjectNode(id: string, _companyId: string): Promise<OrbitNode
     orbits: [
       { id: "builtUnits", type: "category", label: "Built Units", subtitle: "Units & apartments", count: p._count.builtUnits, href: "" },
       { id: "landParcels", type: "category", label: "Land Parcels", subtitle: "Plots & partitions", count: p._count.landParcels, href: "" },
-      { id: "requisitions", type: "category", label: "Requisitions", subtitle: "Material requests", count: p._count.materialRequisitions, href: "" },
+      { id: "requisitions", type: "category", label: "Indents", subtitle: "Material requests", count: p._count.materialRequisitions, href: "" },
       { id: "purchaseOrders", type: "category", label: "Purchase Orders", subtitle: "Procurement", count: p._count.purchaseOrders, href: "" },
       { id: "materialIssues", type: "category", label: "Material Issues", subtitle: "Materials consumed", count: p._count.materialIssues, href: "" },
       { id: "dprs", type: "category", label: "DPRs", subtitle: "Daily progress reports", count: p._count.dailyProgressReports, href: "" },

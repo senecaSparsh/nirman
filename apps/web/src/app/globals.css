@@ -1115,6 +1115,21 @@ input[type="number"] {
 }
 .card-pulse { animation: card-pulse 2s ease-in-out infinite; }
 
+/* ── Hold hint — gentle breathing that signals "press & hold" affordance
+   on mode-toggle buttons without changing their layout. The dot scales
+   softly (like a held breath) while the label fades in/out. Vestibular-
+   safe: only opacity + a tiny 1px scale on a 4px dot. ── */
+@keyframes hold-breathe {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50%      { opacity: 0.9;  transform: scale(1.1); }
+}
+@keyframes hold-label-fade {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 0.75; }
+}
+.hold-dot    { animation: hold-breathe 2.2s ease-in-out infinite; }
+.hold-label  { animation: hold-label-fade 2.2s ease-in-out infinite; }
+
 /* ── Respect the user's motion preference ──
    Apple §14: reduced motion ≠ no feedback. It means a gentler,
    non-vestibular equivalent. Kill transforms/springs/parallax (the
@@ -1312,3 +1327,33 @@ input[type="number"] {
   }
 }
 .divide-line > * + * { border-color: var(--color-line); }
+
+/* ── Company switch transition ──────────────────────────────────
+   When the user switches company, the content area dims + blurs
+   briefly while router.refresh() fetches the new company's data.
+   This eliminates the visual gap where the header says "Company B"
+   but the page still shows Company A's data. The shell sets
+   `data-switching="true"` on the main wrapper during the switch.
+
+   The transition is fast (150ms) so it feels snappy, not sluggish.
+   ──────────────────────────────────────────────────────────────── */
+.nav-main > main {
+  transition: opacity 150ms ease, filter 150ms ease;
+}
+[data-switching="true"] .nav-main > main {
+  opacity: 0.45;
+  filter: blur(2px);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Mobile content dim during switch */
+.m-shell-content {
+  transition: opacity 150ms ease, filter 150ms ease;
+}
+.m-shell-content[data-switching="true"] {
+  opacity: 0.45;
+  filter: blur(2px);
+  pointer-events: none;
+  user-select: none;
+}

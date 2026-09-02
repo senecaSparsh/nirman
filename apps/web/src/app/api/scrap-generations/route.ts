@@ -82,6 +82,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
     })),
   });
 
-  revalidatePath("/m/scrap-generations");
+  revalidatePath("/m/stock");
   return json({ id: scrap.id, scrapNumber: scrap.scrapNumber }, { status: 201 });
 });

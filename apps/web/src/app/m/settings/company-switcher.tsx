@@ -1,19 +1,20 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
-import { startTransition } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Loader2 } from "lucide-react";
+import { useCompanySwitch } from "@/lib/use-company-switch";
+import { toast } from "sonner";
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   COMPANY SWITCHER / HEADER
+   COMPANY SWITCHER / HEADER (mobile settings page)
 
    Renders as the company context header (avatar + name + currency/role).
    When there are multiple companies, the header is tappable and opens a
    dropdown to switch. When there's only one company, it renders as a
    static header (no chevron, no dropdown).
 
-   Sets the nirman-company-id cookie and refreshes the page on switch.
+   Uses useCompanySwitch for optimistic UI + generation-counter race
+   protection + event-with-data. The header updates instantly on click.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 export function CompanySwitcher({
@@ -29,7 +30,6 @@ export function CompanySwitcher({
   role: string;
   parentCompanyId: string | null;
 }) {
-  const router = useRouter();
   // Switching is only for OWNER/ADMIN at the top of the hierarchy (no parent).
   // Child company users see a static header — they can't switch to siblings.
   const canSwitch =
@@ -38,8 +38,24 @@ export function CompanySwitcher({
     companies.length > 1;
   const hasMultiple = canSwitch;
   const [open, setOpen] = React.useState(false);
-  const [switching, setSwitching] = React.useState(false);
+  // Optimistic selection — moves the checkmark instantly on click
+  const [activeId, setActiveId] = React.useState<string | null>(null);
   const ref = React.useRef<HTMLDivElement>(null);
+
+  // Previous state for rollback on failure
+  const prevIdRef = React.useRef<string | null>(null);
+
+  const { switchCompany, isSwitching, switchingToId } = useCompanySwitch({
+    endpoint: "/api/company/switch",
+    onOptimisticSwitch: (target) => {
+      prevIdRef.current = currentCompanyId;
+      setActiveId(target.id);
+    },
+    onRevert: () => {
+      setActiveId(prevIdRef.current);
+      toast.error("Failed to switch company. Please try again.");
+    },
+  });
 
   // Close on outside click
   React.useEffect(() => {
@@ -53,26 +69,19 @@ export function CompanySwitcher({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  async function switchCompany(id: string) {
-    if (id === currentCompanyId) {
+  async function switchTo(id: string) {
+    if (id === (activeId ?? currentCompanyId)) {
       setOpen(false);
       return;
     }
-    setSwitching(true);
-    await fetch("/api/company/switch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ companyId: id }),
-    }).catch(() => {});
-    window.dispatchEvent(new CustomEvent("nirman-company-switched"));
-    startTransition(() => {
-      router.refresh();
-    });
-    setSwitching(false);
+    const target = companies.find((c) => c.id === id);
+    if (!target) return;
     setOpen(false);
+    await switchCompany({ id: target.id, name: target.name });
   }
 
-  const current = companies.find((c) => c.id === currentCompanyId);
+  const currentId = activeId ?? currentCompanyId;
+  const current = companies.find((c) => c.id === currentId);
   const displayName = current?.name ?? companies[0]?.name ?? "—";
 
   const headerContent = (
@@ -93,7 +102,14 @@ export function CompanySwitcher({
           className="font-bold text-m-section truncate"
           style={{ color: "var(--color-ink-950)" }}
         >
-          {displayName}
+          {isSwitching ? (
+            <span className="flex items-center gap-1.5">
+              <Loader2 className="size-3.5 animate-spin" style={{ color: "var(--color-ink-500)" }} />
+              Switching…
+            </span>
+          ) : (
+            displayName
+          )}
         </p>
         <p
           className="text-m-caption mt-0.5"
@@ -127,7 +143,8 @@ export function CompanySwitcher({
       {hasMultiple ? (
         <button
           onClick={() => setOpen(!open)}
-          className={`${headerCls} press`}
+          disabled={isSwitching}
+          className={`${headerCls} press disabled:opacity-60`}
           style={headerStyle}
         >
           {headerContent}
@@ -150,12 +167,12 @@ export function CompanySwitcher({
           {companies.map((c) => (
             <button
               key={c.id}
-              onClick={() => switchCompany(c.id)}
-              disabled={switching}
+              onClick={() => switchTo(c.id)}
+              disabled={isSwitching}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-m-body press disabled:opacity-50"
               style={{
                 backgroundColor:
-                  c.id === currentCompanyId
+                  c.id === currentId
                     ? "var(--color-concrete)"
                     : "transparent",
               }}
@@ -183,11 +200,13 @@ export function CompanySwitcher({
                   {c.role}
                 </p>
               </div>
-              {c.id === currentCompanyId ? (
+              {c.id === currentId ? (
                 <Check
                   className="size-3.5 shrink-0"
                   style={{ color: "var(--color-go)" }}
                 />
+              ) : switchingToId === c.id ? (
+                <Loader2 className="size-3.5 shrink-0 animate-spin" style={{ color: "var(--color-ink-500)" }} />
               ) : null}
             </button>
           ))}

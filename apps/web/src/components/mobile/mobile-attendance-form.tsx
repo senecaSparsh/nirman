@@ -10,6 +10,8 @@ import { useDrafts } from "@/lib/offline/use-drafts";
 import { DraftBanner } from "@/components/mobile/draft-banner";
 import { useSmartDefaults } from "@/lib/use-smart-defaults";
 import { useNearestProject } from "@/lib/use-nearest-project";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileNoResults } from "@/components/mobile/v2/scaffold";
 
 type AttendanceStatus = "PRESENT" | "ABSENT" | "HALF_DAY" | "OVERTIME" | "LEAVE" | "LATE" | "PAID_LEAVE" | "NON_PAID_LEAVE";
 
@@ -523,10 +525,16 @@ export function MobileAttendanceForm({
           );
         })}
         {filteredEmployees.length === 0 && (
-          <div className="flex flex-col items-center py-8 text-center">
-            <Users className="mb-2 size-7" style={{ color: "var(--color-ink-300)" }} />
-            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>No workers found</p>
-          </div>
+          search ? (
+            <MobileNoResults query={search} />
+          ) : (
+            <MobileEmptyState
+              icon={Users}
+              title="No workers yet"
+              description="Add workers in the HR module to start marking attendance."
+              size="compact"
+            />
+          )
         )}
       </div>
 

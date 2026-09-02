@@ -44,6 +44,20 @@ model Company {
   // an ADMIN; at or above the admin threshold require the OWNER.
   poApprovalThresholdManager Decimal? @db.Decimal(14, 2) // default 50,000
   poApprovalThresholdAdmin   Decimal? @db.Decimal(14, 2) // default 500,000
+  // ── Call recording config ──
+  recordingConsentBeep       Boolean @default(true)   // play "calls may be recorded" beep
+  recordingRetentionDays     Int     @default(365)     // how long to keep recordings
+  recordingAutoDelete        Boolean @default(false)   // auto-delete after retention period
+  recordingStorageProvider   String  @default("local") // local | s3 | provider
+  // Who gets recorded: ALL = everyone, SELECTED = only users with
+  // UserCompany.recordCalls=true, NONE = recording disabled entirely.
+  recordingMode              String  @default("ALL")   // ALL | SELECTED | NONE
+  // ── Password policy ──
+  passwordMinLength          Int     @default(8)
+  passwordRequireSpecial     Boolean @default(false)   // for field staff, keep simple
+  passwordExpiryDays         Int?                        // null = never expires
+  accountLockoutThreshold    Int     @default(5)        // failed attempts before lockout
+  accountLockoutDurationMin  Int     @default(30)       // lockout duration in minutes
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
@@ -107,6 +121,20 @@ model Company {
   bankSms                BankSms[]
   uploads                Upload[]
   entityAttachments      EntityAttachment[]
+  // ── Expenses module ──
+  expenseCategories      ExpenseCategory[]
+  expenseClaims          ExpenseClaim[]
+  pettyCashFloats        PettyCashFloat[]
+  recurringExpenses      RecurringExpense[]
+  expenseBudgets         ExpenseBudget[]
+  feedbacks              Feedback[]
+  // ── Call tracking ──
+  companyPhones          CompanyPhone[]
+  callLogs               CallLog[]
+  callTags               CallTag[]
+  smsLogs                SmsLog[]
+  telephonyProviderConfigs TelephonyProviderConfig[]
+  consentPolicies        ConsentPolicy[]
 
   @@index([parentCompanyId])
 }
@@ -140,6 +168,11 @@ model UserCompany {
   // When null, defaults by role: OWNER/ADMIN → COMPANY, MANAGER → COMPANY
   // (regional heads set DEPARTMENT explicitly), SUPERVISOR → PROJECT.
   scopeType String? // COMPANY | DEPARTMENT | PROJECT
+  // ── Call recording selection ──
+  // When the company's recordingMode is "SELECTED", only memberships with
+  // recordCalls=true will have their calls recorded. Ignored when mode is
+  // ALL (everyone recorded) or NONE (no one recorded).
+  recordCalls Boolean @default(false)
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -201,6 +234,40 @@ enum WageType {
   FIXED    // piece-rate / fixed contract amount (monthlySalary as the agreed amount)
 }
 
+// ── Employment type — drives contract terms, benefits eligibility, notice period ──
+enum EmploymentType {
+  PERMANENT   // on the company payroll indefinitely
+  CONTRACT    // fixed-term contract (contractStartDate → contractEndDate)
+  CASUAL      // daily-wage / ad-hoc worker (no job security, paid per day)
+  PROBATION   // under probation (probationEndDate → confirmation or exit)
+  INTERN      // temporary trainee (stipend, not full salary)
+}
+
+// ── Benefit types — what the employer provides beyond base wage ──
+enum BenefitType {
+  PF                // Provident Fund (employer contribution, 12% of basic)
+  ESI               // Employee State Insurance (for workers < ₹21k/month)
+  HEALTH_INSURANCE  // group mediclaim
+  ACCIDENT_INSURANCE // personal accident cover (critical for construction)
+  BONUS             // statutory (8.33%) or performance bonus
+  LEAVE_ENCASHMENT  // cash in lieu of unused leave
+  ACCOMMODATION     // site accommodation / housing
+  TRAVEL_ALLOWANCE  // commute / travel reimbursement
+  FOOD_ALLOWANCE    // meals / food coupon
+  UNIFORM           // uniform provision
+  PPE               // Personal Protective Equipment (helmet, boots, harness)
+  OTHER             // anything not in the above list
+}
+
+// ── Benefit frequency — how often the benefit is provided/accrued ──
+enum BenefitFrequency {
+  ONE_TIME    // one-time provision (e.g. joining bonus, uniform kit)
+  MONTHLY     // recurring monthly (e.g. PF, ESI, food allowance)
+  QUARTERLY   // every 3 months
+  YEARLY      // annual (e.g. health insurance premium, PPE kit replacement)
+  ON_DEMAND   // provided when needed (e.g. accommodation, leave encashment)
+}
+
 model Employee {
   id        String   @id @default(cuid())
   name      String
@@ -227,6 +294,34 @@ model Employee {
   // e.g. H1=Management, H2=Manager, H3=Engineer, H4=Supervisor, H5=Skilled Labor, H6=Labor
   hierarchyLevel Int? // 1-6, null = unassigned
   active    Boolean  @default(true)
+  // ── Employment terms ──
+  employmentType     EmploymentType? // permanent / contract / casual / probation / intern
+  probationEndDate  DateTime?       // when probation ends (if employmentType = PROBATION)
+  confirmationDate  DateTime?       // when confirmed as permanent
+  noticePeriodDays  Int?            // notice period in days (e.g. 30, 60, 90)
+  contractStartDate DateTime?       // contract start (if employmentType = CONTRACT)
+  contractEndDate   DateTime?       // contract end / renewal date
+  // ── Pay day — day of month salary is credited (e.g. 7th) ──
+  payDay            Int?            // 1-31, null = not set
+  // ── Bank account — for salary credit ──
+  bankAccountHolder String?         // name as per bank record
+  bankAccountNumber String?         // account number
+  bankIfsc          String?         // IFSC code
+  bankName          String?         // bank name (HDFC, SBI, etc.)
+  bankBranch        String?         // branch name
+  // ── Tax / statutory IDs ──
+  panNumber         String?         // PAN (for TDS)
+  aadhaarNumber     String?         // Aadhaar (masked in UI)
+  pfNumber          String?         // PF account number
+  esiNumber         String?         // ESI dispensary/IP number
+  uan               String?         // Universal Account Number (PF portal)
+  // ── Emergency contact ──
+  emergencyContactName     String?  // contact person name
+  emergencyContactPhone    String?  // contact person phone
+  emergencyContactRelation String?  // relationship (spouse, parent, sibling)
+  // ── Address ──
+  permanentAddress  String?         // permanent/home address
+  currentAddress    String?         // current/stay address (may differ for migrant workers)
   companyId String
   userId    String?  // link to auth User — lets site workers log in (self-service attendance, DPR, tasks)
   company   Company  @relation(fields: [companyId], references: [id])
@@ -245,12 +340,39 @@ model Employee {
   payrollLines    PayrollLine[]
   dprLaborLines   DPRLaborLine[]
   leaveRequests   LeaveRequest[]
+  benefits        EmployeeBenefit[]
 
   @@index([companyId])
   @@index([deletedAt])
   @@index([userId])
   @@index([crewId])
   @@index([activeProjectId])
+  @@index([employmentType])
+}
+
+// ───────────────────────────────────────────────────────────────
+//  EmployeeBenefit — what the employer provides beyond base wage.
+//  PF, ESI, insurance, allowances, accommodation, PPE, bonus, etc.
+//  Linked to Employee; each benefit has a type, amount, frequency,
+//  and optional date range (startDate → endDate).
+// ───────────────────────────────────────────────────────────────
+model EmployeeBenefit {
+  id          String           @id @default(cuid())
+  employeeId  String
+  type        BenefitType
+  amount      Decimal?         @db.Decimal(14, 2) // monthly/one-time amount (null = non-monetary, e.g. PPE, accommodation)
+  frequency   BenefitFrequency @default(MONTHLY)
+  startDate   DateTime?        // when the benefit starts
+  endDate     DateTime?        // when it ends (null = ongoing)
+  notes       String?          // e.g. "HDFC Ergo group mediclaim, ₹5L cover"
+  active      Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  employee    Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([type])
 }
 
 // User is shared with Better-Auth (prisma adapter). Required auth fields:
@@ -270,11 +392,22 @@ model User {
   designation   String?   // "Site Engineer", "Store Keeper", etc.
   department    String?   // "Construction", "Procurement", "Finance", "HR"
   joiningDate   DateTime? // official joining date
+  employmentEndDate DateTime? // contract/temporary staff auto-deactivation date
   // Default company scope (nullable so a user can exist before being
   // assigned to a company; resolved into a UserCompany membership on
   // first login or via the settings UI). UserCompany.role takes
   // precedence over this default when operating within a company.
   companyId     String?
+  // ── Phone+password auth fields ──
+  mustChangePassword Boolean   @default(false) // force password change on next login
+  passwordChangedAt  DateTime?                  // when the user last changed their password
+  failedLoginAttempts Int      @default(0)      // counter for lockout
+  lockedUntil        DateTime?                  // lockout expiry timestamp
+  lastLoginAt        DateTime?                  // last successful login
+  lastLoginIp        String?                    // last login IP (audit)
+  // ── Call monitoring consent ──
+  monitoringConsentAcceptedAt DateTime?         // when staff accepted the call-monitoring policy
+  monitoringConsentPolicyId   String?           // which version of the policy they accepted
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -304,7 +437,7 @@ model User {
   requestedRequisitions  MaterialRequisition[] @relation("ReqRequester")
   approvedRequisitions   MaterialRequisition[] @relation("ReqApprover")
   rejectedRequisitions   MaterialRequisition[] @relation("ReqRejecter")
-  createdExpenses        Expense[]
+  createdExpenses        Expense[]              @relation("ExpenseCreator")
   createdProjectCosts    ProjectCost[]
   createdAssetSales      AssetSale[]
   createdMaterialSales   MaterialSale[]
@@ -366,6 +499,7 @@ model User {
   supplierPayments     SupplierPayment[]       @relation("SupplierPaymentCreator")
   salePayments         MaterialSalePayment[]   @relation("SalePaymentCreator")
   landPurchasePayments LandPurchasePayment[]   @relation("LandPurchasePaymentCreator")
+  landCostComponents   LandCostComponent[]     @relation("LandCostComponentCreator")
   receivedSupplierInvoices  SupplierInvoice[]  @relation("SupplierInvoiceReceiver")
   approvedSupplierInvoices  SupplierInvoice[]  @relation("SupplierInvoiceApprover")
   // Notification system — preferences + in-app notifications
@@ -386,8 +520,90 @@ model User {
   createdLegalDocuments LegalDocument[]         @relation("LegalDocCreatedBy")
   uploadedFiles     Upload[]                   @relation("UploadUploader")
   createdEntityAttachments EntityAttachment[]   @relation("EntityAttachmentCreatedBy")
+  // ── Expenses module — approval + claim + petty cash + recurring ──
+  submittedExpenses      Expense[]              @relation("ExpenseSubmitter")
+  approvedExpenses       Expense[]              @relation("ExpenseApprover")
+  expenseClaimants       ExpenseClaim[]         @relation("ExpenseClaimClaimant")
+  submittedExpenseClaims ExpenseClaim[]         @relation("ExpenseClaimSubmitter")
+  approvedExpenseClaims  ExpenseClaim[]         @relation("ExpenseClaimApprover")
+  pettyCashCustodied     PettyCashFloat[]       @relation("PettyCashCustodian")
+  createdPettyCashTopUps PettyCashTopUp[]       @relation("PettyCashTopUpCreator")
+  createdRecurringExpenses RecurringExpense[]   @relation("RecurringExpenseCreator")
+  // ── Instant Feedback — user-submitted feedback with screenshot + voice ──
+  submittedFeedback     Feedback[]              @relation("FeedbackSubmitter")
+  resolvedFeedback      Feedback[]              @relation("FeedbackResolver")
+  // ── Call tracking — company phone assignments + call parties ──
+  assignedCompanyPhones  CompanyPhone[]          @relation("CompanyPhoneAssignee")
+  phoneAssignments       PhoneAssignment[]       @relation("PhoneAssignmentUser")
+  phoneAssignmentActions PhoneAssignment[]       @relation("PhoneAssignmentAssigner")
+  callLogsAsCaller       CallLog[]               @relation("CallLogCaller")
+  callLogsAsCallee       CallLog[]               @relation("CallLogCallee")
+  callNotes              CallNote[]
+  recordingAccessLogs    RecordingAccessLog[]
+  voicemailsListened     Voicemail[]             @relation("VoicemailListener")
+  consentAcceptances     ConsentAcceptance[]
 
   @@index([phoneNormalized])
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Feedback — instant in-app feedback from any user, anywhere.
+//  Users capture a screenshot (auto-grabbed via html-to-image),
+//  optionally record a voice note (MediaRecorder API), and write
+//  free-text. All feedback is routed to the DEVELOPER (god-mode)
+//  + OWNER accounts for triage. Includes the page URL + user agent
+//  for context so the developer can reproduce the issue.
+// ───────────────────────────────────────────────────────────────
+
+enum FeedbackStatus {
+  NEW       // just submitted, not yet viewed
+  READ      // opened by the developer/owner
+  RESOLVED  // triaged and closed
+  ARCHIVED  // archived (kept for history)
+}
+
+enum FeedbackCategory {
+  BUG         // something is broken
+  FEATURE     // request a new feature
+  UX          // usability / design feedback
+  PRAISE      // positive feedback
+  QUESTION    // user has a question
+  OTHER       // uncategorized
+}
+
+model Feedback {
+  id              String           @id @default(cuid())
+  userId          String           // who submitted the feedback
+  companyId       String?          // their company at time of submission
+  message         String           // free-text feedback
+  category        FeedbackCategory @default(OTHER)
+  // Screenshot — stored as an Upload (auth-gated). Auto-captured from
+  // the current page via html-to-image when the user opens the dialog.
+  screenshotUploadId String?
+  // Voice note — stored as an Upload (audio/webm). Recorded via
+  // MediaRecorder API in the feedback dialog.
+  voiceUploadId      String?
+  // Context for the developer — where was the user + what browser?
+  currentUrl      String           // the page URL when feedback was submitted
+  userAgent       String?          // browser/device info
+  // Status tracking
+  status          FeedbackStatus   @default(NEW)
+  resolvedById    String?
+  resolvedAt      DateTime?
+  resolutionNote  String?          // optional note from the resolver
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  user            User             @relation("FeedbackSubmitter", fields: [userId], references: [id], onDelete: Cascade)
+  company         Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  screenshotUpload Upload?         @relation("FeedbackScreenshot", fields: [screenshotUploadId], references: [id], onDelete: SetNull)
+  voiceUpload      Upload?         @relation("FeedbackVoice", fields: [voiceUploadId], references: [id], onDelete: SetNull)
+  resolvedBy      User?            @relation("FeedbackResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -573,6 +789,11 @@ model Project {
   safetyHazards    SafetyHazard[]
   safetyInspections SafetyInspection[]
   legalDocuments   LegalDocument[] @relation("LegalDocsProject")
+  // ── Expenses module ──
+  expenseClaims     ExpenseClaim[]
+  pettyCashFloats   PettyCashFloat[]
+  recurringExpenses RecurringExpense[]
+  expenseBudgets    ExpenseBudget[]
 
   @@index([companyId])
   @@index([status])
@@ -908,6 +1129,8 @@ model Supplier {
   supplierPayments SupplierPayment[]
   supplierInvoices SupplierInvoice[]
   materialLots     MaterialLot[]
+  expenses         Expense[]              @relation("ExpenseSupplier")
+  recurringExpenses RecurringExpense[]    @relation("RecurringExpenseSupplier")
 
   @@index([companyId])
   @@index([companyId, deletedAt])
@@ -1281,6 +1504,7 @@ model PurchaseOrder {
   @@index([supplierId])
   @@index([status])
   @@index([approvedById])
+  @@index([companyId, status, createdAt])
 }
 
 model SupplierPayment {
@@ -2012,12 +2236,66 @@ model LandPurchase {
   legalDocuments LegalDocument[] @relation("LegalDocsLand")
   payments LandPurchasePayment[]
   paymentSchedule LandPurchasePaymentSchedule?
+  costComponents LandCostComponent[]
 
   @@index([companyId])
   @@index([projectId])
   @@index([createdById])
   @@index([sellerId])
   @@index([purchaseStage])
+}
+
+// ───────────────────────────────────────────────────────────
+//  LAND COST COMPONENTS — arbitrary / recurring / future costs
+//  that add to the land's totalCost over time.
+//
+//  The fixed cost breakup (baseCost, leaseRent, GST, registration,
+//  stamp duty, transfer duty, brokerage, legal, other) lives as
+//  columns on LandPurchase. This child model lets the owner add
+//  ANY additional cost at ANY time — one-off (EDC/IDC, conversion,
+//  a future-dated charge) or recurring (yearly lease rent, monthly
+//  maintenance) — and it accrues into LandPurchase.totalCost as
+//  occurrences elapse, keeping the breakdown, parcel acquisition
+//  cost, GL and project reallocation all in sync.
+//
+//  postedAmount = the portion incurred/capitalised so far.
+//  recomputeLandTotalCost() advances postedAmount as time passes
+//  and posts the delta to the GL.
+// ───────────────────────────────────────────────────────────
+
+enum LandCostFrequency {
+  ONE_TIME     // single charge (brokerage, legal, EDC/IDC, future dated)
+  RECURRING    // repeats on a schedule (yearly lease rent, monthly maintenance)
+}
+
+enum LandCostRecurrenceInterval {
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+}
+
+model LandCostComponent {
+  id             String   @id @default(cuid())
+  landPurchaseId String
+  label          String                          // "Yearly Lease Rent", "Maintenance", "EDC/IDC"
+  amount         Decimal  @db.Decimal(14, 2)     // per-occurrence amount
+  frequency      LandCostFrequency @default(ONE_TIME)
+  interval       LandCostRecurrenceInterval?     // only for RECURRING
+  startDate      DateTime  @default(now())       // when it begins applying
+  endDate        DateTime?                        // recurring stop (null = indefinite, or use occurrences)
+  occurrences    Int?                             // fixed count (e.g. 10); null = until endDate
+  postedAmount   Decimal  @default(0) @db.Decimal(14, 2)  // incurred/capitalised so far
+  notes          String?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  landPurchase LandPurchase @relation(fields: [landPurchaseId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("LandCostComponentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([landPurchaseId])
+  @@index([createdById])
 }
 
 // ───────────────────────────────────────────────────────────
@@ -3198,6 +3476,8 @@ model AssetSale {
   @@index([brokerId])
   @@index([landParcelId])
   @@index([irnStatus])
+  @@index([companyId, saleDate])
+  @@index([companyId, status, saleDate])
 }
 
 model AssetSalePayment {
@@ -3343,12 +3623,98 @@ model ProjectCost {
   @@index([sourceLegalDocId])
 }
 
+// ───────────────────────────────────────────────────────────
+//  EXPENSES MODULE
+//  A full expense-booking system: category master, approval workflow,
+//  GST/tax breakdown, vendor/payee, payment mode, receipts, employee
+//  reimbursement claims, petty cash floats, recurring expenses, and
+//  budgets. GL posts on APPROVAL (drafts don't hit the books).
+// ───────────────────────────────────────────────────────────
+
+enum ExpenseStatus {
+  DRAFT       // created, not yet submitted for approval
+  PENDING     // submitted, awaiting approver
+  APPROVED    // approved → GL posted
+  REJECTED    // rejected by approver (can be edited & resubmitted)
+}
+
+enum ExpenseClaimStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum RecurringExpenseFrequency {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+/// Master expense category — maps a category to a GL expense account so
+/// postings hit the right ledger line instead of always 6000 Operating
+/// Expenses. Free-text `category` on Expense remains as a fallback for
+/// backward compatibility and ad-hoc categories.
+model ExpenseCategory {
+  id            String   @id @default(cuid())
+  companyId     String
+  name          String
+  glAccountCode String   // e.g. "6000", "6100" — must exist in GlAccount
+  description   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  expenses  Expense[]
+  claimLines ExpenseClaimLine[]
+  recurringExpenses RecurringExpense[]
+  budgets   ExpenseBudget[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
 model Expense {
-  id        String   @id @default(cuid())
-  companyId String
-  projectId String?
-  category  String
-  amount    Decimal  @db.Decimal(14, 2)
+  id          String   @id @default(cuid())
+  companyId   String
+  projectId   String?
+  // Category — linked master (preferred) + free-text fallback (backward compat)
+  categoryId  String?
+  category    String
+  // Amount — `amount` is the grand total (subtotal + GST). Breakdown below
+  // is for tax-aware posting (Input GST/ITC debit). For legacy rows the
+  // breakdown defaults to 0 and `amount` is treated as the subtotal.
+  amount      Decimal  @db.Decimal(14, 2)
+  subtotal    Decimal  @default(0) @db.Decimal(14, 2)
+  cgst        Decimal  @default(0) @db.Decimal(14, 2)
+  sgst        Decimal  @default(0) @db.Decimal(14, 2)
+  igst        Decimal  @default(0) @db.Decimal(14, 2)
+  tdsAmount   Decimal  @default(0) @db.Decimal(14, 2)
+  // Payee / vendor
+  supplierId  String?
+  payeeName   String?  // free-text payee for non-supplier (electricity board, etc.)
+  // Payment details
+  paymentMode String?  // "CASH" | "UPI" | "CHEQUE" | "NEFT" | "BANK"
+  bankAccount String?
+  chequeNo    String?
+  chequeDate  DateTime?
+  chequePhotoUrl String?
+  referenceNo String?  // UTR, transaction id
+  receiptUrl  String?  // bill/receipt attachment (auth-gated /api/uploads/<id>)
+  // Approval workflow — DRAFT → PENDING → APPROVED | REJECTED
+  status        ExpenseStatus @default(DRAFT)
+  submittedById String?
+  submittedAt   DateTime?
+  approvedById  String?
+  approvedAt    DateTime?
+  rejectedReason String?
+  glPostedAt    DateTime?  // set when the GL entry is posted (on approval)
+  // Recurring + claim links
+  recurringExpenseId String?
+  expenseClaimId String?
   date      DateTime @default(now())
   notes     String?
   createdById String?
@@ -3356,11 +3722,172 @@ model Expense {
 
   company Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
   project Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  createdBy User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  categoryMaster ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  supplier Supplier? @relation("ExpenseSupplier", fields: [supplierId], references: [id], onDelete: SetNull)
+  createdBy User?   @relation("ExpenseCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  submittedBy User? @relation("ExpenseSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  approvedBy User?  @relation("ExpenseApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  recurringExpense RecurringExpense? @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
+  expenseClaim ExpenseClaim? @relation(fields: [expenseClaimId], references: [id], onDelete: SetNull)
 
   @@index([companyId])
   @@index([projectId])
   @@index([createdById])
+  @@index([companyId, date])
+  @@index([companyId, projectId, date])
+  @@index([companyId, status])
+  @@index([categoryId])
+  @@index([supplierId])
+}
+
+/// Employee-submitted expense claim (reimbursement request). A claim
+/// bundles multiple expense lines (travel, site expenses, etc.) into one
+/// approval + payment cycle. On approval, the claim can be converted into
+/// individual Expense rows (one per line) or paid out directly.
+model ExpenseClaim {
+  id          String   @id @default(cuid())
+  companyId   String
+  claimantId  String   // the employee/user seeking reimbursement
+  projectId   String?
+  status      ExpenseClaimStatus @default(DRAFT)
+  totalAmount Decimal  @db.Decimal(14, 2)
+  description String?
+  submittedAt DateTime?
+  approvedById String?
+  approvedAt  DateTime?
+  rejectedReason String?
+  paidAt      DateTime?
+  paymentMode String?
+  referenceNo String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  claimant User   @relation("ExpenseClaimClaimant", fields: [claimantId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  approvedBy User? @relation("ExpenseClaimApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  createdBy User?  @relation("ExpenseClaimSubmitter", fields: [createdById], references: [id], onDelete: SetNull)
+  lines    ExpenseClaimLine[]
+  expenses Expense[]
+
+  @@index([companyId])
+  @@index([claimantId])
+  @@index([status])
+}
+
+model ExpenseClaimLine {
+  id          String   @id @default(cuid())
+  claimId     String
+  categoryId  String?
+  category    String   // free-text fallback
+  amount      Decimal  @db.Decimal(14, 2)
+  date        DateTime @default(now())
+  receiptUrl  String?
+  notes       String?
+
+  claim ExpenseClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  categoryMaster ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([claimId])
+}
+
+/// Petty cash float — a small cash reserve held at a site/office for
+/// day-to-day minor expenses. Top-ups increase the float; expenses paid
+/// from petty cash decrease it (linked via paymentMode = "CASH" + a
+/// convention, or explicitly tracked here via spentTotal).
+model PettyCashFloat {
+  id          String   @id @default(cuid())
+  companyId   String
+  projectId   String?
+  name        String   // e.g. "Site Office Petty Cash"
+  floatAmount Decimal  @db.Decimal(14, 2)  // current balance
+  topUpTotal  Decimal  @default(0) @db.Decimal(14, 2)
+  spentTotal  Decimal  @default(0) @db.Decimal(14, 2)
+  custodianId String?  // who holds the cash
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  custodian User? @relation("PettyCashCustodian", fields: [custodianId], references: [id], onDelete: SetNull)
+  topUps PettyCashTopUp[]
+
+  @@index([companyId])
+  @@index([projectId])
+}
+
+model PettyCashTopUp {
+  id          String   @id @default(cuid())
+  floatId     String
+  amount      Decimal  @db.Decimal(14, 2)
+  date        DateTime @default(now())
+  paymentMode String?
+  referenceNo String?
+  notes       String?
+  createdById String?
+
+  float PettyCashFloat @relation(fields: [floatId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("PettyCashTopUpCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([floatId])
+}
+
+/// Recurring expense template — e.g. monthly rent, salaries, AMC.
+/// A scheduler generates DRAFT Expense rows on each `nextRunDate`.
+model RecurringExpense {
+  id          String   @id @default(cuid())
+  companyId   String
+  projectId   String?
+  categoryId  String?
+  category    String
+  amount      Decimal  @db.Decimal(14, 2)
+  frequency   RecurringExpenseFrequency
+  startDate   DateTime
+  endDate     DateTime?
+  nextRunDate DateTime
+  payeeName   String?
+  supplierId  String?
+  paymentMode String?
+  notes       String?
+  isActive    Boolean  @default(true)
+  lastRunDate DateTime?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  categoryMaster ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  supplier Supplier? @relation("RecurringExpenseSupplier", fields: [supplierId], references: [id], onDelete: SetNull)
+  createdBy User? @relation("RecurringExpenseCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  expenses Expense[]
+
+  @@index([companyId])
+  @@index([nextRunDate])
+}
+
+/// Budget per category (optionally per project) for a period. Used for
+/// budget-vs-actuals variance reporting.
+model ExpenseBudget {
+  id          String   @id @default(cuid())
+  companyId   String
+  projectId   String?
+  categoryId  String?
+  category    String
+  amount      Decimal  @db.Decimal(14, 2)
+  periodStart DateTime
+  periodEnd   DateTime
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  categoryMaster ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@unique([companyId, projectId, categoryId, periodStart])
+  @@index([companyId])
+  @@index([projectId])
 }
 
 model AuditLog {
@@ -3444,6 +3971,7 @@ model JournalEntry {
   @@index([companyId])
   @@index([sourceType, sourceId])
   @@index([entryDate])
+  @@index([companyId, entryDate])
 }
 
 model JournalLine {
@@ -3462,6 +3990,7 @@ model JournalLine {
 
   @@index([journalEntryId])
   @@index([accountCode])
+  @@index([journalEntryId, accountCode])
   @@index([entityType, entityId])
 }
 
@@ -5569,6 +6098,8 @@ model Upload {
   company         Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
   uploadedBy      User?    @relation("UploadUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
   entityAttachments EntityAttachment[]
+  feedbackScreenshots Feedback[] @relation("FeedbackScreenshot")
+  feedbackVoiceNotes   Feedback[] @relation("FeedbackVoice")
 
   @@index([companyId])
   @@index([uploadedById])
@@ -5606,6 +6137,311 @@ model EntityAttachment {
   @@index([companyId])
   @@index([entityType, entityId])
   @@index([uploadId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CALL TRACKING & RECORDING SYSTEM
+//  Company-issued phone numbers, call logs, recordings, SMS logs,
+//  telephony provider config, consent management, voicemail, IVR.
+//  See docs/CALL-TRACKING-AND-PHONE-AUTH.md for the full design.
+// ═══════════════════════════════════════════════════════════════
+
+// ───────────────────────────────────────────────────────────
+//  COMPANY PHONE NUMBERS — numbers owned/issued by the company
+// ───────────────────────────────────────────────────────────
+model CompanyPhone {
+  id              String   @id @default(cuid())
+  companyId       String
+  phoneNumber     String                    // display: +91 98765 43210
+  phoneNormalized String                    // 919876543210 — indexed for lookup
+  numberType      String   @default("VIRTUAL") // VIRTUAL | MOBILE | LANDLINE | TOLL_FREE
+  provider        String?                   // EXOTEL | KNOWLARITY | TWILIO | MANUAL
+  providerNumberId String?                  // provider's internal ID for this number
+  department      String?                   // "Sales", "Procurement", "Reception"
+  label           String?                   // "Main reception", "Site office - Project A"
+  // Assignment — who currently has this number
+  assignedToUserId String?
+  assignedAt      DateTime?
+  // Status
+  status          String   @default("ACTIVE") // ACTIVE | INACTIVE | RECYCLED | SUSPENDED
+  monthlyCost     Decimal? @db.Decimal(14, 2)
+  acquiredAt      DateTime @default(now())
+  // Consent beep config override (null = use company default)
+  consentBeep     Boolean?
+  deletedAt       DateTime?
+
+  company         Company  @relation(fields: [companyId], references: [id])
+  assignedTo      User?    @relation("CompanyPhoneAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  assignments     PhoneAssignment[]
+  calls           CallLog[]
+  smsLogs         SmsLog[]
+
+  @@index([companyId])
+  @@index([phoneNormalized])
+  @@index([assignedToUserId])
+}
+
+// ── Assignment history — who had which number, when, why ──
+model PhoneAssignment {
+  id              String   @id @default(cuid())
+  companyPhoneId  String
+  userId          String
+  assignedAt      DateTime @default(now())
+  returnedAt      DateTime?
+  reason          String?  // "Staff joined", "Staff left", "Number recycled"
+  assignedById    String?
+
+  companyPhone    CompanyPhone @relation(fields: [companyPhoneId], references: [id], onDelete: Cascade)
+  user            User         @relation("PhoneAssignmentUser", fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy      User?        @relation("PhoneAssignmentAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@index([companyPhoneId])
+  @@index([userId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  CALL LOG — every call event (automatic or manual)
+// ───────────────────────────────────────────────────────────
+model CallLog {
+  id              String   @id @default(cuid())
+  companyId       String
+  // Direction
+  direction       String   // INBOUND | OUTBOUND | INTERNAL (staff-to-staff)
+  // Parties
+  fromNumber      String                    // caller's number (normalized)
+  toNumber        String                    // callee's number (normalized)
+  companyPhoneId  String?                   // which company number was involved
+  callerUserId    String?                   // staff member who made/received the call
+  calleeUserId    String?                   // if the other party is also staff
+  // Linked business entities (auto-matched by number, or manually linked)
+  relatedCustomerId   String?
+  relatedSupplierId   String?
+  relatedProjectId    String?
+  // Call status & timing
+  status          String   // RINGING | ANSWERED | MISSED | BUSY | REJECTED | FAILED | VOICEMAIL
+  startedAt       DateTime                  // when the call attempt began
+  connectedAt     DateTime?                 // when the call was answered
+  endedAt         DateTime?                 // when the call ended
+  durationSec     Int      @default(0)      // talk time (connected → ended)
+  ringDurationSec Int      @default(0)      // ringing time (start → connect)
+  // Recording
+  recordingId     String?                   // FK to CallRecording (if recorded)
+  recordingConsent Boolean @default(false)  // was consent beep played / policy in effect
+  // Staff disposition & notes
+  disposition     String?                   // CONNECTED | VOICEMAIL_LEFT | CALLBACK_REQUESTED | FOLLOW_UP | DEAL_CLOSED | COMPLAINT | INQUIRY | OTHER
+  notes           String?                   // free-text call notes (primary note)
+  // Cost
+  callCost        Decimal? @db.Decimal(14, 2) // telecom charge for this call
+  // Provider reference
+  provider        String?                   // EXOTEL | KNOWLARITY | MANUAL
+  providerCallId  String?                   // provider's call ID for cross-reference
+  // Source
+  source          String   @default("AUTO") // AUTO (webhook) | MANUAL (staff entered) | APP (mobile app)
+  // Conference linking (future — multiple legs share a conferenceId)
+  conferenceId    String?
+  // Soft delete (for GDPR/right-to-be-forgotten on customer request)
+  deletedAt       DateTime?
+  // Legal hold — prevents auto-deletion even after retention expires
+  legalHold       Boolean  @default(false)
+
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyPhone    CompanyPhone? @relation(fields: [companyPhoneId], references: [id], onDelete: SetNull)
+  caller          User?    @relation("CallLogCaller", fields: [callerUserId], references: [id], onDelete: SetNull)
+  callee          User?    @relation("CallLogCallee", fields: [calleeUserId], references: [id], onDelete: SetNull)
+  recording       CallRecording?
+  callNotes       CallNote[]
+  tags            CallLogTag[]
+  voicemail       Voicemail?
+
+  @@index([companyId, startedAt])
+  @@index([companyPhoneId])
+  @@index([callerUserId])
+  @@index([fromNumber])
+  @@index([toNumber])
+  @@index([status])
+  @@index([relatedProjectId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  CALL RECORDING — audio file metadata + storage
+// ───────────────────────────────────────────────────────────
+model CallRecording {
+  id              String   @id @default(cuid())
+  callLogId       String   @unique
+  // Storage
+  storageUrl      String                    // /data/recordings/file.mp3 or s3://bucket/path
+  storageProvider String   @default("local") // local | s3 | provider
+  fileSizeBytes   Int?
+  format          String   @default("mp3")  // mp3 | wav | ogg
+  durationSec     Int
+  checksum        String?                   // for integrity verification
+  encryptionKeyRef String?                  // KMS key ID if encrypted
+  // Lifecycle
+  uploadedAt      DateTime  @default(now())
+  expiresAt       DateTime?                 // retention expiry (auto-delete after)
+  deletedAt       DateTime?                 // soft-deleted (purged from storage)
+  // Transcription (optional, AI)
+  transcriptUrl   String?
+  transcriptText  String?                   // full text (if small enough)
+  transcriptStatus String  @default("NONE") // NONE | PENDING | COMPLETED | FAILED
+  // Access tracking
+  accessCount     Int      @default(0)
+
+  callLog         CallLog  @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  accessLogs      RecordingAccessLog[]
+
+  @@index([expiresAt])
+}
+
+// ── Who listened to / downloaded a recording (compliance audit) ──
+model RecordingAccessLog {
+  id          String   @id @default(cuid())
+  recordingId String
+  userId      String
+  action      String   // PLAYED | DOWNLOADED | DELETED | SHARED
+  accessedAt  DateTime @default(now())
+  ipAddress   String?
+  userAgent   String?
+
+  recording   CallRecording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([recordingId, accessedAt])
+}
+
+// ───────────────────────────────────────────────────────────
+//  CALL NOTES, TAGS
+// ───────────────────────────────────────────────────────────
+model CallNote {
+  id          String   @id @default(cuid())
+  callLogId   String
+  userId      String
+  note        String
+  createdAt   DateTime @default(now())
+
+  callLog     CallLog  @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([callLogId])
+}
+
+model CallTag {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  color       String   @default("#6b7280") // hex color for UI badge
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  callLogs    CallLogTag[]
+
+  @@unique([companyId, name])
+}
+
+model CallLogTag {
+  id          String   @id @default(cuid())
+  callLogId   String
+  callTagId   String
+
+  callLog     CallLog  @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  callTag     CallTag  @relation(fields: [callTagId], references: [id], onDelete: Cascade)
+
+  @@unique([callLogId, callTagId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  VOICEMAIL
+// ───────────────────────────────────────────────────────────
+model Voicemail {
+  id          String   @id @default(cuid())
+  callLogId   String   @unique
+  audioUrl    String
+  durationSec Int
+  transcription String?                  // AI transcription of voicemail
+  listenedAt  DateTime?                  // when staff first listened
+  listenedById String?
+  createdAt   DateTime @default(now())
+
+  callLog     CallLog  @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+  listenedBy  User?    @relation("VoicemailListener", fields: [listenedById], references: [id], onDelete: SetNull)
+}
+
+// ───────────────────────────────────────────────────────────
+//  SMS / WHATSAPP LOG — messages via company numbers
+// ───────────────────────────────────────────────────────────
+model SmsLog {
+  id              String   @id @default(cuid())
+  companyId       String
+  channel         String   @default("SMS") // SMS | WHATSAPP
+  direction       String   // INBOUND | OUTBOUND
+  fromNumber      String
+  toNumber        String
+  companyPhoneId  String?
+  body            String
+  status          String   @default("SENT") // SENT | DELIVERED | FAILED | RECEIVED | READ
+  sentAt          DateTime @default(now())
+  deliveredAt     DateTime?
+  providerMessageId String?
+  relatedCallLogId String?                 // if SMS is a follow-up to a call
+  dltTemplateId   String?                  // India DLT compliance
+
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyPhone    CompanyPhone? @relation(fields: [companyPhoneId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, sentAt])
+  @@index([companyPhoneId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  TELEPHONY PROVIDER CONFIG — per-company provider settings
+// ───────────────────────────────────────────────────────────
+model TelephonyProviderConfig {
+  id          String   @id @default(cuid())
+  companyId   String
+  provider    String   // EXOTEL | KNOWLARITY | TWILIO
+  apiKeyRef   String                     // encrypted reference (not the raw key)
+  apiSecretRef String                    // encrypted reference
+  webhookUrl  String                     // our webhook URL for this provider
+  settings    Json?                      // provider-specific config
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  CONSENT — call monitoring policy + staff acceptance
+// ───────────────────────────────────────────────────────────
+model ConsentPolicy {
+  id          String   @id @default(cuid())
+  companyId   String
+  version     Int      @default(1)        // incremented on each revision
+  policyText  String                      // the full policy text
+  effectiveAt DateTime @default(now())
+  retiredAt   DateTime?                   // when superseded by a new version
+  createdById String?
+
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  acceptances ConsentAcceptance[]
+
+  @@index([companyId, effectiveAt])
+}
+
+model ConsentAcceptance {
+  id              String   @id @default(cuid())
+  consentPolicyId String
+  userId          String
+  acceptedAt      DateTime @default(now())
+  ipAddress       String?
+  userAgent       String?
+
+  consentPolicy   ConsentPolicy @relation(fields: [consentPolicyId], references: [id], onDelete: Cascade)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([consentPolicyId, userId])
 }
 
 

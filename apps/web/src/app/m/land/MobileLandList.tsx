@@ -149,22 +149,49 @@ export function MobileLandList({
 
   if (items.length === 0) {
     return (
-      <MobileEmptyState
-        icon={MapPin}
-        title="No land purchases yet"
-        hint="Record a land purchase to start development"
-        action={
-          canManage ? (
-            <Link
-              href="/land"
-              className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-            >
-              <Plus className="size-3.5" /> Add Land Purchase
-            </Link>
-          ) : undefined
-        }
-      />
+      <>
+        <MobileEmptyState
+          icon={MapPin}
+          title="No land purchases yet"
+          hint="Record a land purchase to start development"
+          action={
+            canManage ? (
+              <button
+                type="button"
+                onClick={() => setShowWizard(true)}
+                className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press"
+                style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+              >
+                <Plus className="size-3.5" /> Add Land Purchase
+              </button>
+            ) : undefined
+          }
+        />
+        {showWizard && (
+          <MobileLandWizard
+            open={showWizard}
+            onClose={() => setShowWizard(false)}
+            projects={projects}
+            sellers={sellers ?? []}
+            company={company}
+          />
+        )}
+        {showNew && (
+          <MobileNewLandDialog
+            open={showNew}
+            onClose={() => setShowNew(false)}
+            projects={projects}
+          />
+        )}
+        {showBook && (
+          <MobileLandPurchaseOrderDialog
+            open={showBook}
+            onClose={() => setShowBook(false)}
+            projects={projects}
+            sellers={sellers ?? []}
+          />
+        )}
+      </>
     );
   }
 
@@ -443,15 +470,11 @@ function ColumnHeader({
 /* ─── Column empty state ─── */
 function ColumnEmpty({ icon: Icon, label }: { icon: typeof Maximize; label: string }) {
   return (
-    <div
-      className="flex flex-col items-center justify-center rounded-[0.5rem] border py-6 text-center"
-      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-    >
-      <Icon className="size-4 mb-1" style={{ color: "var(--color-ink-300)" }} />
-      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-        {label}
-      </p>
-    </div>
+    <MobileEmptyState
+      icon={Icon}
+      title={label}
+      size="compact"
+    />
   );
 }
 

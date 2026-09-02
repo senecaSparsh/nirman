@@ -583,6 +583,18 @@ export const landPurchaseEditSchema = z.object({
   otherCharges: z.coerce.number().finite().nonnegative().optional().nullable(),
 });
 
+// ── Land cost components (arbitrary / recurring / future costs) ──
+export const landCostComponentSchema = z.object({
+  label: z.string().min(1, "Label is required").max(120),
+  amount: z.coerce.number().finite().positive("Amount must be > 0"),
+  frequency: z.enum(["ONE_TIME", "RECURRING"]).default("ONE_TIME"),
+  interval: z.enum(["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY"]).optional().nullable(),
+  startDate: z.string().optional().nullable(),
+  endDate: z.string().optional().nullable(),
+  occurrences: z.coerce.number().finite().positive().optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
+});
+
 // ── Land Seller ──
 export const landSellerSchema = z.object({
   name: z.string().min(1, "Name is required").max(160),
@@ -1222,7 +1234,7 @@ export const workflowScheduleSchema = z.object({
 
 // ── User role management ──
 export const userRoleSchema = z.object({
-  role: z.enum(["OWNER","ADMIN","PROJECT_DIRECTOR","FINANCE_HEAD","PROJECT_MANAGER","PROCUREMENT_MANAGER","HR_MANAGER","SITE_ENGINEER","STORE_KEEPER","ACCOUNTANT","SALES_MANAGER","SUPERVISOR","QAQC_ENGINEER"]).optional(),
+  role: z.enum(["OWNER","ADMIN","DEVELOPER","PROJECT_DIRECTOR","FINANCE_HEAD","PROJECT_MANAGER","PROCUREMENT_MANAGER","HR_MANAGER","SITE_ENGINEER","STORE_KEEPER","ACCOUNTANT","SALES_MANAGER","SUPERVISOR","QAQC_ENGINEER"]).optional(),
   active: z.boolean().optional(),
   name: z.string().min(1).max(100).optional(),
   phone: z.string().max(20).nullable().optional(),
@@ -1260,7 +1272,7 @@ async function getDevBypassUser() {
   if (_devUser) return _devUser;
   // Prefer the first OWNER (full permissions); fall back to ADMIN, then any
   // user; fall back to synthetic "dev" only if the DB has no users at all.
-  const rolePriority = ["OWNER","ADMIN","PROJECT_DIRECTOR","FINANCE_HEAD","PROJECT_MANAGER","PROCUREMENT_MANAGER","HR_MANAGER","SITE_ENGINEER","STORE_KEEPER","ACCOUNTANT","SALES_MANAGER","SUPERVISOR","QAQC_ENGINEER"];
+  const rolePriority = ["OWNER","ADMIN","DEVELOPER","PROJECT_DIRECTOR","FINANCE_HEAD","PROJECT_MANAGER","PROCUREMENT_MANAGER","HR_MANAGER","SITE_ENGINEER","STORE_KEEPER","ACCOUNTANT","SALES_MANAGER","SUPERVISOR","QAQC_ENGINEER"];
   let u = null;
   for (const role of rolePriority) {
     u = await prisma.user.findFirst({
@@ -1402,8 +1414,8 @@ export async function getUserRole(): Promise<string> {
 export async function getAssignedProjectIds(): Promise<string[] | null> {
   const user = await getCurrentUser();
   if (!user) return null;
-  // OWNER, ADMIN, MANAGER are unscoped — they see all projects
-  if (user.role === "OWNER" || user.role === "ADMIN" || user.role === "PROJECT_DIRECTOR" || user.role === "PROJECT_MANAGER") {
+  // OWNER, ADMIN, DEVELOPER, MANAGER are unscoped — they see all projects
+  if (user.role === "OWNER" || user.role === "ADMIN" || user.role === "DEVELOPER" || user.role === "PROJECT_DIRECTOR" || user.role === "PROJECT_MANAGER") {
     return null; // null = unscoped (all projects)
   }
   // SUPERVISOR, SALES, ACCOUNTANT are scoped to their assigned projects.
@@ -1524,7 +1536,7 @@ export async function requireRole(...allowed: Role[]): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) throw new UnauthorizedError();
   if (!user.active) throw new ForbiddenError("Your account is inactive.");
-  if (user.role === "OWNER" || user.role === "ADMIN") return user;
+  if (user.role === "OWNER" || user.role === "ADMIN" || user.role === "DEVELOPER") return user;
   if (!allowed.includes(user.role)) throw new ForbiddenError();
   return user;
 }

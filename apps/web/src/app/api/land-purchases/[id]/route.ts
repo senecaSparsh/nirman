@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { softDelete, logAction, reallocateProjectCosts, postLandPurchase, reverseJournalEntry, ServiceError } from "@nirman/services";
+import { softDelete, logAction, reallocateProjectCosts, postLandPurchase, reverseJournalEntry, refreshLandTotalCost, recomputeLandTotalCost, scheduledTotal, ServiceError } from "@nirman/services";
+import Decimal from "decimal.js";
 import { apiHandler, getCompany, json, requirePermission, toNum, landPurchaseEditSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
@@ -20,9 +21,40 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
         include: { _count: { select: { children: true } }, project: { select: { name: true } }, parentParcel: { select: { number: true } } },
       },
       payments: { orderBy: { paymentDate: "asc" } },
+      costComponents: { orderBy: { createdAt: "asc" } },
     },
   });
   if (!lp) return json({ error: "Land purchase not found" }, { status: 404 });
+
+  // Lazy recompute — advance recurring accruals as time passes so the
+  // breakdown + totalCost stay current whenever the detail is viewed.
+  // Idempotent: writes nothing if no occurrence has fallen due.
+  try {
+    await refreshLandTotalCost(id);
+  } catch {
+    // non-fatal — return the persisted state if recompute fails
+  }
+  // Re-fetch after recompute so the response reflects any accrual.
+  const lpFresh = await prisma.landPurchase.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
+    include: { costComponents: { orderBy: { createdAt: "asc" } } },
+  });
+  const totalCost = lpFresh ? toNum(lpFresh.totalCost) : toNum(lp.totalCost);
+  const components = (lpFresh?.costComponents ?? lp.costComponents).map((c) => ({
+    id: c.id,
+    landPurchaseId: c.landPurchaseId,
+    label: c.label,
+    amount: toNum(c.amount),
+    frequency: c.frequency,
+    interval: c.interval,
+    startDate: c.startDate.toISOString(),
+    endDate: c.endDate ? c.endDate.toISOString() : null,
+    occurrences: c.occurrences,
+    postedAmount: toNum(c.postedAmount),
+    scheduledTotal: toNum(scheduledTotal(c)),
+    notes: c.notes,
+  }));
+
   const totalPaid = lp.payments.reduce((s, p) => s + toNum(p.amount), 0);
   return json({
     id: lp.id,
@@ -33,7 +65,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
     purchaseDate: lp.purchaseDate.toISOString(),
     totalArea: toNum(lp.totalArea),
     areaUnit: lp.areaUnit,
-    totalCost: toNum(lp.totalCost),
+    totalCost,
     registryNo: lp.registryNo,
     location: lp.location,
     documentUrl: lp.documentUrl,
@@ -49,7 +81,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
     registryDocumentName: lp.registryDocumentName,
     // Payments
     totalPaid,
-    balanceDue: toNum(lp.totalCost) - totalPaid,
+    balanceDue: totalCost - totalPaid,
     payments: lp.payments.map((p) => ({
       id: p.id,
       amount: toNum(p.amount),
@@ -96,6 +128,8 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
       projectName: p.project?.name ?? null,
       childCount: p._count.children,
     })),
+    // Cost components (arbitrary / recurring / future costs)
+    costComponents: components,
   });
 });
 
@@ -124,7 +158,21 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   }
   if (parsed.data.totalArea !== undefined) data.totalArea = parsed.data.totalArea;
   if (parsed.data.areaUnit !== undefined) data.areaUnit = parsed.data.areaUnit;
-  if (parsed.data.totalCost !== undefined) data.totalCost = parsed.data.totalCost;
+  // NOTE: totalCost is NOT set directly — it's computed by recomputeLandTotalCost
+  // from the fixed cost-breakup columns + Σ component postedAmount.
+  // If the caller sends only `totalCost` (no breakup fields), we adjust `baseCost`
+  // by the delta so the recompute produces the desired total.
+  const sentTotalCost = parsed.data.totalCost;
+  const hasBreakupFields =
+    parsed.data.baseCost !== undefined ||
+    parsed.data.stampDutyAmount !== undefined ||
+    parsed.data.registrationAmount !== undefined ||
+    parsed.data.transferDutyAmount !== undefined ||
+    parsed.data.brokerageAmount !== undefined ||
+    parsed.data.legalFees !== undefined ||
+    parsed.data.otherCharges !== undefined ||
+    parsed.data.leaseRentAmount !== undefined ||
+    parsed.data.gstAmount !== undefined;
   if (parsed.data.registryNo !== undefined) data.registryNo = parsed.data.registryNo;
   if (parsed.data.location !== undefined) data.location = parsed.data.location;
   if (parsed.data.documentUrl !== undefined) data.documentUrl = parsed.data.documentUrl;
@@ -165,80 +213,70 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   if (parsed.data.legalFees !== undefined) data.legalFees = parsed.data.legalFees;
   if (parsed.data.otherCharges !== undefined) data.otherCharges = parsed.data.otherCharges;
 
-  // Detect totalCost change — if so, we need to update parcel acquisitionCost,
-  // reverse/re-post GL, and reallocate project costs.
-  const totalCostChanged = parsed.data.totalCost !== undefined;
+  // Detect whether fixed cost columns or totalCost changed — either way we need
+  // to reverse/re-post the LAND_PURCHASE GL entry (which covers fixed cols only)
+  // and recompute totalCost = fixedCols + components.
+  const fixedColsChanged = hasBreakupFields;
+  const totalCostOverridden = sentTotalCost !== undefined && !hasBreakupFields;
   // Detect projectId change — if the land is re-linked to a different project,
   // we need to reallocate costs for both the old and new project.
   const projectIdChanged = parsed.data.projectId !== undefined;
 
   const updated = await withSerializableTransaction(async (tx) => {
-    // Fetch the existing land purchase (need old totalCost + companyId for GL reversal)
+    // Fetch the existing land purchase (need old totalCost + baseCost for delta calc)
     const existing = await tx.landPurchase.findFirst({
       where: { id, companyId: company.id, deletedAt: null },
       include: { parcels: { where: { deletedAt: null, parentParcelId: null } } },
     });
     if (!existing) throw new ServiceError("Land purchase not found", 404);
 
+    // If the caller sent only `totalCost` (no breakup fields), adjust `baseCost`
+    // by the delta so recomputeLandTotalCost produces the desired total.
+    // totalCost = baseCost + otherFixedCols + componentsTotal
+    // → newBaseCost = oldBaseCost + (sentTotalCost - oldTotalCost)
+    if (totalCostOverridden && sentTotalCost != null) {
+      const oldTotal = new Decimal(existing.totalCost);
+      const oldBase = new Decimal(existing.baseCost ?? 0);
+      const delta = new Decimal(sentTotalCost).minus(oldTotal);
+      data.baseCost = oldBase.plus(delta);
+    }
+
     const lp = await tx.landPurchase.update({ where: { id }, data });
 
-    // If totalCost changed, update parcel acquisitionCost + reverse/re-post GL
-    if (totalCostChanged) {
-      const newTotalCostStr = lp.totalCost.toString();
-      const oldTotalCostStr = existing.totalCost.toString();
+    // If fixed cost columns changed (or totalCost was overridden → baseCost changed),
+    // reverse the old LAND_PURCHASE GL entry and re-post with the new fixed-cols total.
+    // The LAND_PURCHASE entry covers fixed cols only; component accruals have their
+    // own LAND_COST_COMPONENT entries managed by recomputeLandTotalCost.
+    if (fixedColsChanged || totalCostOverridden) {
+      const fixedColsTotal: Decimal = [
+        lp.baseCost, lp.leaseRentAmount, lp.gstAmount,
+        lp.registrationAmount, lp.stampDutyAmount, lp.transferDutyAmount,
+        lp.brokerageAmount, lp.legalFees, lp.otherCharges,
+      ].reduce<Decimal>((sum, v) => sum.plus(v ? new Decimal(v) : new Decimal(0)), new Decimal(0));
 
-      if (newTotalCostStr !== oldTotalCostStr) {
-        // 1. Update the root parcel's acquisitionCost (pro-rata if subdivided)
-        //    For WHOLE mode (single root parcel): set acquisitionCost = newTotalCost
-        //    For SUBDIVIDED mode: the root parcel is PARTITIONED, so we update
-        //    child parcels pro-rata based on their area share.
-        const rootParcel = existing.parcels.find((p) => p.parentParcelId === null);
-        if (rootParcel && rootParcel.status !== "PARTITIONED") {
-          // WHOLE mode — single parcel, update directly
-          await tx.landParcel.update({
-            where: { id: rootParcel.id },
-            data: { acquisitionCost: lp.totalCost },
-          });
-        } else {
-          // SUBDIVIDED mode — update child parcels pro-rata by area
-          const childParcels = await tx.landParcel.findMany({
-            where: { landPurchaseId: id, deletedAt: null, parentParcelId: { not: null } },
-          });
-          const totalChildArea = childParcels.reduce((sum, p) => sum + toNum(p.area), 0);
-          if (totalChildArea > 0) {
-            for (const child of childParcels) {
-              const share = toNum(child.area) / totalChildArea;
-              const newAcqCost = toNum(lp.totalCost) * share;
-              await tx.landParcel.update({
-                where: { id: child.id },
-                data: { acquisitionCost: newAcqCost },
-              });
-            }
-          }
-        }
-
-        // 2. Reverse the original GL entry and post a new one
-        const originalEntry = await tx.journalEntry.findFirst({
-          where: { sourceType: "LAND_PURCHASE", sourceId: id },
-        });
-        if (originalEntry) {
-          await reverseJournalEntry(tx, originalEntry.id, {
-            postedById: user.id,
-            memo: "Reversal: land purchase totalCost edited",
-          });
-        }
-        await postLandPurchase(tx, {
-          companyId: lp.companyId,
-          landPurchaseId: id,
-          totalCost: lp.totalCost,
+      const originalEntry = await tx.journalEntry.findFirst({
+        where: { sourceType: "LAND_PURCHASE", sourceId: id },
+      });
+      if (originalEntry) {
+        await reverseJournalEntry(tx, originalEntry.id, {
           postedById: user.id,
+          memo: "Reversal: land purchase cost breakup edited",
         });
-
-        // 3. Reallocate project costs if linked to a project
-        if (lp.projectId) {
-          await reallocateProjectCosts(tx, lp.projectId);
-        }
       }
+      await postLandPurchase(tx, {
+        companyId: lp.companyId,
+        landPurchaseId: id,
+        totalCost: fixedColsTotal,
+        postedById: user.id,
+      });
+    }
+
+    // Recompute totalCost = fixedCols + Σ component postedAmount.
+    // This updates totalCost, parcel acquisitionCost (pro-rata), and project
+    // reallocation. It also posts GL deltas for any component accruals.
+    // Skip if neither fixed cols nor totalCost changed (nothing to recompute).
+    if (fixedColsChanged || totalCostOverridden) {
+      await recomputeLandTotalCost(tx, id, user.id);
     }
 
     // If projectId changed, reallocate costs for both old and new projects

@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import {
   Users, Phone,
-  UserPlus, Plus,
+  UserPlus,
   AlertCircle, ChevronRight,
 } from "lucide-react";
 import {formatCurrencyCompact} from "@/lib/utils";
@@ -16,6 +16,9 @@ import {
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { MobileCustomerForm } from "@/components/mobile/mobile-customer-form";
 
 /* ─── Types ─── */
 
@@ -64,6 +67,7 @@ export function MobileCustomersList({
   exportRows,
   exportColumns,
   exportSummary,
+  existingPhones = [],
 }: {
   items: CustomerListItem[];
   stats: Stats;
@@ -74,9 +78,12 @@ export function MobileCustomersList({
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
   exportSummary?: string;
+  /** Existing phone numbers for duplicate-check in the new-customer FAB modal. */
+  existingPhones?: string[];
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const fab = useFabModal();
 
   const filtered = useMemo(() => {
     let result = items;
@@ -108,18 +115,7 @@ export function MobileCustomersList({
       <MobileEmptyState
         icon={Users}
         title="No customers yet"
-        hint="Add your first customer to start recording sales"
-        action={
-          canCreate ? (
-            <Link
-              href="/m/customers/new"
-              className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-            >
-              <Plus className="size-3.5" /> Add Customer
-            </Link>
-          ) : undefined
-        }
+        description={canCreate ? "Tap the + button below to add your first customer." : "Customers will appear here once added."}
       />
     );
   }
@@ -169,7 +165,17 @@ export function MobileCustomersList({
 
       {/* ── New Customer FAB ── */}
       {canCreate ? (
-        <MobileFab href="/m/customers/new" label="New customer" icon={UserPlus} />
+        <MobileFab onClick={fab.toggle} label="New customer" icon={UserPlus} isOpen={fab.isOpen} />
+      ) : null}
+
+      {canCreate ? (
+        <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="New Customer">
+          <MobileCustomerForm
+            existingPhones={existingPhones}
+            onClose={fab.close}
+            onCreated={() => window.location.reload()}
+          />
+        </MobileFabModal>
       ) : null}
 
       {/* ── Search + filter ── */}

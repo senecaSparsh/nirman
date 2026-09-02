@@ -1,12 +1,16 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, json, requireUser } from "@/lib/server";
+import { normalizePhone } from "@/lib/phone-otp";
 import { z } from "zod";
 
 /**
  * PATCH /api/me/profile — update the current user's profile (phone, name).
  * This is for personal settings — the user editing their own info.
  * Password changes go through Better-Auth's changePassword, not here.
+ *
+ * When the phone number changes, `phoneNormalized` is kept in sync so
+ * phone-OTP login continues to work after a number change.
  */
 const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -24,7 +28,10 @@ export const PATCH = apiHandler(async (req: NextRequest) => {
 
   const data: Record<string, unknown> = {};
   if (parsed.data.name !== undefined) data.name = parsed.data.name;
-  if (parsed.data.phone !== undefined) data.phone = parsed.data.phone;
+  if (parsed.data.phone !== undefined) {
+    data.phone = parsed.data.phone;
+    data.phoneNormalized = parsed.data.phone ? normalizePhone(parsed.data.phone) : null;
+  }
   if (parsed.data.image !== undefined) data.image = parsed.data.image;
 
   if (Object.keys(data).length === 0) {

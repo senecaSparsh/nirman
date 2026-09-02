@@ -14,11 +14,11 @@ import {
   RefreshCw,
   Loader2,
   Clock,
-  Sun,
   CheckCheck,
 } from "lucide-react";
 import { formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
+import { useAutoScroll } from "@/lib/use-auto-scroll";
 
 type BriefingData = {
   date: string;
@@ -91,109 +91,85 @@ export function MorningBriefing() {
   const isManager = data.approvals.total > 0 || data.lowStock.length > 0 || data.deliveriesToday.length > 0 || data.paymentsDue.length > 0;
   const isFieldWorker = data.myAttendance.status !== null || data.myTasks.length > 0;
 
-  // Greeting based on time of day
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const firstName = data.user.name.split(" ")[0];
+  // ── Build the manager briefing cards as a list so they can be rendered
+  //    in a horizontal auto-scrolling carousel. ──
+  type CardProps = {
+    icon: typeof AlertTriangle;
+    iconBg: string;
+    title: string;
+    count: number;
+    href: string;
+    items: { label: string; href: string }[];
+  };
+  const managerCards: CardProps[] = [];
+  if (data.approvals.total > 0) {
+    managerCards.push({
+      icon: ClipboardCheck,
+      iconBg: "var(--color-signal)",
+      title: "Approvals waiting on you",
+      count: data.approvals.total,
+      href: "/m/pulse/approvals",
+      items: [
+        data.approvals.canApprovePo && data.approvals.poCount > 0
+          ? { label: `${data.approvals.poCount} Purchase Order${data.approvals.poCount === 1 ? "" : "s"}`, href: "/m/pulse/approvals" }
+          : null,
+        data.approvals.canApproveReq && data.approvals.reqCount > 0
+          ? { label: `${data.approvals.reqCount} Indent${data.approvals.reqCount === 1 ? "" : "s"}`, href: "/m/pulse/approvals" }
+          : null,
+        data.approvals.canApproveGp && data.approvals.gpCount > 0
+          ? { label: `${data.approvals.gpCount} Gate Pass${data.approvals.gpCount === 1 ? "" : "es"}`, href: "/m/pulse/approvals" }
+          : null,
+        data.approvals.canApproveDpr && data.approvals.dprCount > 0
+          ? { label: `${data.approvals.dprCount} DPR${data.approvals.dprCount === 1 ? "" : "s"}`, href: "/m/pulse/approvals" }
+          : null,
+      ].filter(Boolean) as { label: string; href: string }[],
+    });
+  }
+  if (data.lowStock.length > 0) {
+    managerCards.push({
+      icon: PackageX,
+      iconBg: "#d97706",
+      title: "Low stock alerts",
+      count: data.lowStock.length,
+      href: "/m/inventory",
+      items: data.lowStock.map((s) => ({
+        label: `${s.materialName} — ${s.qty} ${s.unit} left (reorder at ${s.reorderPoint})`,
+        href: "/m/inventory",
+      })),
+    });
+  }
+  if (data.deliveriesToday.length > 0) {
+    managerCards.push({
+      icon: Truck,
+      iconBg: "#2d5a8c",
+      title: "Deliveries expected today",
+      count: data.deliveriesToday.length,
+      href: "/m/procurement",
+      items: data.deliveriesToday.map((d) => ({
+        label: `${d.poNumber} — ${d.supplierName} (${formatCurrencyCompact(d.total)})`,
+        href: "/m/procurement",
+      })),
+    });
+  }
+  if (data.paymentsDue.length > 0) {
+    managerCards.push({
+      icon: CalendarClock,
+      iconBg: "#b91c1c",
+      title: "Payments overdue",
+      count: data.paymentsDue.length,
+      href: "/m/books/finance",
+      items: data.paymentsDue.map((p) => ({
+        label: `${p.description} — ${formatCurrencyCompact(p.amount)}`,
+        href: "/m/books/finance",
+      })),
+    });
+  }
 
   return (
-    <div className="space-y-3">
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-1">
-        <div className="flex items-center gap-2">
-          <Sun className="size-4" style={{ color: "var(--color-signal)" }} />
-          <div>
-            <div className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-              {greeting}, {firstName}
-            </div>
-            <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-              {formatDate(new Date(data.date))}
-            </div>
-          </div>
-        </div>
-        <button
-          onClick={() => fetchBriefing(true)}
-          disabled={refreshing}
-          className="grid place-items-center size-7 rounded-full press disabled:opacity-50"
-          style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}
-        >
-          {refreshing ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
-        </button>
-      </div>
-
-      {/* ── Manager briefing: approvals + alerts ── */}
+    <div className="space-y-2">
+      {/* ── Manager briefing: approvals + alerts (horizontal auto-scroll) ── */}
       {isManager && (
-        <>
-          {/* Approvals summary */}
-          {data.approvals.total > 0 && (
-            <BriefingCard
-              icon={ClipboardCheck}
-              iconBg="var(--color-signal)"
-              title="Approvals waiting on you"
-              count={data.approvals.total}
-              href="/m/pulse/approvals"
-              items={[
-                data.approvals.canApprovePo && data.approvals.poCount > 0
-                  ? { label: `${data.approvals.poCount} Purchase Order${data.approvals.poCount === 1 ? "" : "s"}`, href: "/m/pulse/approvals" }
-                  : null,
-                data.approvals.canApproveReq && data.approvals.reqCount > 0
-                  ? { label: `${data.approvals.reqCount} Indent${data.approvals.reqCount === 1 ? "" : "s"}`, href: "/m/pulse/approvals" }
-                  : null,
-                data.approvals.canApproveGp && data.approvals.gpCount > 0
-                  ? { label: `${data.approvals.gpCount} Gate Pass${data.approvals.gpCount === 1 ? "" : "es"}`, href: "/m/pulse/approvals" }
-                  : null,
-                data.approvals.canApproveDpr && data.approvals.dprCount > 0
-                  ? { label: `${data.approvals.dprCount} DPR${data.approvals.dprCount === 1 ? "" : "s"}`, href: "/m/pulse/approvals" }
-                  : null,
-              ].filter(Boolean) as { label: string; href: string }[]}
-            />
-          )}
-
-          {/* Low stock alerts */}
-          {data.lowStock.length > 0 && (
-            <BriefingCard
-              icon={PackageX}
-              iconBg="#d97706"
-              title="Low stock alerts"
-              count={data.lowStock.length}
-              href="/m/inventory"
-              items={data.lowStock.map((s) => ({
-                label: `${s.materialName} — ${s.qty} ${s.unit} left (reorder at ${s.reorderPoint})`,
-                href: "/m/inventory",
-              }))}
-            />
-          )}
-
-          {/* Deliveries expected today */}
-          {data.deliveriesToday.length > 0 && (
-            <BriefingCard
-              icon={Truck}
-              iconBg="#2d5a8c"
-              title="Deliveries expected today"
-              count={data.deliveriesToday.length}
-              href="/m/procurement"
-              items={data.deliveriesToday.map((d) => ({
-                label: `${d.poNumber} — ${d.supplierName} (${formatCurrencyCompact(d.total)})`,
-                href: "/m/procurement",
-              }))}
-            />
-          )}
-
-          {/* Payments due */}
-          {data.paymentsDue.length > 0 && (
-            <BriefingCard
-              icon={CalendarClock}
-              iconBg="#b91c1c"
-              title="Payments overdue"
-              count={data.paymentsDue.length}
-              href="/m/books/finance"
-              items={data.paymentsDue.map((p) => ({
-                label: `${p.description} — ${formatCurrencyCompact(p.amount)}`,
-                href: "/m/books/finance",
-              }))}
-            />
-          )}
-        </>
+        <ManagerBriefingCarousel cards={managerCards} onRefresh={() => fetchBriefing(true)} refreshing={refreshing} />
       )}
 
       {/* ── Field worker briefing: attendance + DPR + tasks ── */}
@@ -276,6 +252,51 @@ export function MorningBriefing() {
   );
 }
 
+// ── Manager briefing carousel (horizontal auto-scroll) ───────────
+
+function ManagerBriefingCarousel({
+  cards,
+  onRefresh,
+  refreshing,
+}: {
+  cards: {
+    icon: typeof AlertTriangle;
+    iconBg: string;
+    title: string;
+    count: number;
+    href: string;
+    items: { label: string; href: string }[];
+  }[];
+  onRefresh: () => void;
+  refreshing: boolean;
+}) {
+  const scrollerRef = useAutoScroll<HTMLDivElement>([cards.length]);
+
+  return (
+    <div className="px-4 -mx-4">
+      <div className="flex items-center justify-end mb-1">
+        <button
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="grid place-items-center size-6 rounded-full press disabled:opacity-50"
+          style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}
+        >
+          {refreshing ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
+        </button>
+      </div>
+      <div
+        ref={scrollerRef}
+        className="flex gap-2.5 overflow-x-auto pb-0.5 snap-x snap-mandatory"
+        style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
+      >
+        {cards.map((card, i) => (
+          <BriefingCard key={i} {...card} inCarousel />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Reusable briefing card ──────────────────────────────────────
 
 function BriefingCard({
@@ -285,6 +306,7 @@ function BriefingCard({
   count,
   href,
   items,
+  inCarousel = false,
 }: {
   icon: typeof AlertTriangle;
   iconBg: string;
@@ -292,13 +314,22 @@ function BriefingCard({
   count: number;
   href: string;
   items: { label: string; href: string }[];
+  inCarousel?: boolean;
 }) {
   return (
-    <Link href={href} className="block mx-4 text-m-body press">
-      <div className="rounded-[0.75rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <div className="flex items-center gap-2 mb-2">
-          <div className="grid place-items-center size-7 rounded-full" style={{ backgroundColor: iconBg }}>
-            <Icon className="size-3.5" style={{ color: "var(--color-paper)" }} />
+    <Link
+      href={href}
+      className={
+        inCarousel
+          ? "block text-m-body press shrink-0 snap-start"
+          : "block mx-4 text-m-body press"
+      }
+      style={inCarousel ? { width: "80vw", maxWidth: "21rem" } : undefined}
+    >
+      <div className="rounded-[0.625rem] border p-2.5 h-full" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <div className="flex items-center gap-2 mb-1.5">
+          <div className="grid place-items-center size-6 rounded-full" style={{ backgroundColor: iconBg }}>
+            <Icon className="size-3" style={{ color: "var(--color-paper)" }} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
@@ -308,9 +339,9 @@ function BriefingCard({
               {count} item{count === 1 ? "" : "s"}
             </div>
           </div>
-          <ArrowRight className="size-3.5 shrink-0" style={{ color: "var(--color-ink-400)" }} />
+          <ArrowRight className="size-3 shrink-0" style={{ color: "var(--color-ink-400)" }} />
         </div>
-        <div className="space-y-1">
+        <div className="space-y-0.5">
           {items.slice(0, 3).map((item, i) => (
             <div key={i} className="flex items-center gap-1.5 text-m-caption" style={{ color: "var(--color-ink-700)" }}>
               <div className="size-1 rounded-full shrink-0" style={{ backgroundColor: "var(--color-ink-300)" }} />

@@ -2,9 +2,10 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight,
-  type LucideIcon,
+  Plus, type LucideIcon,
 } from "lucide-react";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
 import {
@@ -12,9 +13,12 @@ import {
   MobileFilterIcon,
   MobileSummaryStrip,
   MobileNoResults,
+  MobileFab,
   type SummaryStat,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileNewMaterialDialog } from "../materials/MobileNewMaterialDialog";
 
 export type StockLocation = {
   id: string;
@@ -106,6 +110,8 @@ export function MobileStockMovementsList({
   exportRows,
   exportColumns,
   exportSummary,
+  canManage = false,
+  categories = [],
 }: {
   locations: StockLocation[];
   movements: StockMovementItem[];
@@ -116,9 +122,14 @@ export function MobileStockMovementsList({
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
   exportSummary?: string;
+  canManage?: boolean;
+  categories?: { id: string; name: string; unit: string }[];
 }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<MovementFilter>("ALL");
+  const fab = useFabModal();
+  const showNewMaterial = fab.isOpen;
 
   const filtered = useMemo(() => {
     let result = movements;
@@ -300,6 +311,24 @@ export function MobileStockMovementsList({
             </div>
           ))}
         </div>
+      )}
+
+      {/* ── FAB: Add material (managers only) ── */}
+      {canManage && (
+        <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="Add Material" icon={Plus} />
+      )}
+
+      {/* ── New material bottom-sheet dialog ── */}
+      {canManage && (
+        <MobileNewMaterialDialog
+          open={showNewMaterial}
+          onClose={fab.close}
+          categories={categories}
+          onCreated={() => {
+            fab.close();
+            router.refresh();
+          }}
+        />
       )}
     </div>
   );

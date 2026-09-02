@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    WORKFORCE BREAKDOWN — the HR module's analogue to the inventory tree.
@@ -64,12 +65,10 @@ export function WorkforceBreakdown({
         </div>
 
         {sortedTrades.length === 0 ? (
-          <p
-            className="py-3 text-center text-m-body"
-            style={{ color: "var(--color-ink-300)" }}
-          >
-            No trade data yet
-          </p>
+          <MobileEmptyState
+            title="No trade data yet"
+            size="compact"
+          />
         ) : (
           <div className="flex flex-col gap-1.5">
             {sortedTrades.map((t) => {
@@ -145,12 +144,10 @@ export function WorkforceBreakdown({
         </div>
 
         {sitePresence.length === 0 ? (
-          <p
-            className="py-3 text-center text-m-body"
-            style={{ color: "var(--color-ink-300)" }}
-          >
-            No site attendance logged today
-          </p>
+          <MobileEmptyState
+            title="No site attendance logged today"
+            size="compact"
+          />
         ) : (
           <div className="flex flex-col gap-1.5">
             {sitePresence.map((s) => {

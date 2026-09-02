@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { linksFor, settingsLinksFor, WORLD_BY_KEY, type NavLink, type WorldKey } from "@/lib/nav";
 import { useRecentlyViewed, type RecentItem } from "@/lib/use-recently-viewed";
+import { EmptyState } from "@/components/empty-state";
 
 type PageLink = NavLink & { world: WorldKey };
 
@@ -43,7 +44,7 @@ interface ActionItem {
 
 const ACTIONS: ActionItem[] = [
   { label: "Receive goods", hint: "Field receiving", icon: ScanLine, href: "/field", keywords: ["receive", "goods receipt", "delivery", "shipment", "field"] },
-  { label: "Create requisition", hint: "Request materials", icon: ClipboardList, href: "/requisitions", keywords: ["requisition", "request", "indent"] },
+  { label: "Create indent", hint: "Request materials", icon: ClipboardList, href: "/requisitions", keywords: ["requisition", "request", "indent"] },
   { label: "Create purchase order", hint: "Procurement", icon: Truck, href: "/procurement", keywords: ["purchase", "order", "po", "procure", "buy"] },
   { label: "Issue materials to project", hint: "Stock consumption", icon: Package, href: "/stock?tab=issues", keywords: ["issue", "consume", "material issue", "dispatch"] },
   { label: "Partition land parcel", hint: "CAD canvas", icon: LandPlot, href: "/land", keywords: ["partition", "split", "subdivide", "plot", "land", "canvas"] },
@@ -58,7 +59,7 @@ const ACTIONS: ActionItem[] = [
   { label: "Submit DPR", hint: "Daily progress report", icon: ClipboardList, href: "/hr/dprs", keywords: ["dpr", "daily progress", "daily report", "site report", "work done", "progress"] },
   { label: "Sell scrap or surplus", hint: "Material sale with cost recovery", icon: Recycle, href: "/material-sales", keywords: ["scrap", "surplus", "material sale", "cost recovery", "by-product", "resale"] },
   { label: "List unit on portal", hint: "99acres / MagicBricks sync", icon: Globe, href: "/portal-listings", keywords: ["portal", "listing", "99acres", "magicbricks", "housing", "marketplace", "property portal"] },
-  { label: "Generate auto-requisition", hint: "Reorder low-stock materials", icon: Zap, href: "/requisitions?auto=1", keywords: ["auto requisition", "reorder", "low stock", "eoq", "automatic", "generate requisition"] },
+  { label: "Generate auto-indent", hint: "Reorder low-stock materials", icon: Zap, href: "/requisitions?auto=1", keywords: ["auto requisition", "auto indent", "reorder", "low stock", "eoq", "automatic", "generate requisition", "generate indent"] },
   { label: "Run payroll", hint: "Attendance to salary", icon: HardHat, href: "/hr/payroll", keywords: ["payroll", "salary", "wage", "pay", "tankha", "run"] },
 
   /**
@@ -101,64 +102,62 @@ interface EntityResult {
   href: string;
 }
 
-const ENTITY_SEARCHES: { type: string; endpoint: string; label: string; href: (id: string) => string; extract: (d: unknown) => EntityResult[] }[] = [
-  {
-    type: "material",
-    endpoint: "/api/materials?q=",
-    label: "Materials",
-    href: (id) => `/materials/${id}`,
-    extract: (data) =>
-      (Array.isArray(data) ? data : (data as { rows?: Record<string, unknown>[] })?.rows ?? []).slice(0, 4).map((m: Record<string, unknown>) => ({
-        id: String(m.id),
-        label: String(m.name ?? ""),
-        sublabel: `${m.code ?? ""} · ${m.unit ?? ""}`,
-        type: "Material",
-        href: `/materials/${m.id}`,
-      })),
-  },
-  {
-    type: "project",
-    endpoint: "/api/projects?q=",
-    label: "Projects",
-    href: (id) => `/projects/${id}`,
-    extract: (data) =>
-      (Array.isArray(data) ? data : []).slice(0, 4).map((p: Record<string, unknown>) => ({
-        id: String(p.id),
-        label: String(p.name ?? ""),
-        sublabel: String(p.type ?? "Project"),
-        type: "Project",
-        href: `/projects/${p.id}`,
-      })),
-  },
-  {
-    type: "supplier",
-    endpoint: "/api/suppliers?q=",
-    label: "Suppliers",
-    href: (id) => `/suppliers/${id}`,
-    extract: (data) =>
-      (Array.isArray(data) ? data : []).slice(0, 4).map((s: Record<string, unknown>) => ({
-        id: String(s.id),
-        label: String(s.name ?? ""),
-        sublabel: `${s.gstin ?? "No GSTIN"} · ${s.phone ?? "No phone"}`,
-        type: "Supplier",
-        href: `/suppliers/${s.id}`,
-      })),
-  },
-  {
-    type: "po",
-    endpoint: "/api/purchase-orders?q=",
-    label: "Purchase Orders",
-    href: (id) => `/procurement/${id}`,
-    extract: (data) =>
-      (Array.isArray(data) ? data : []).slice(0, 4).map((p: Record<string, unknown>) => ({
-        id: String(p.id),
-        label: String(p.poNumber ?? ""),
-        sublabel: `${p.supplierName ?? "Supplier"} · ${p.status}`,
-        type: "Purchase Order",
-        href: `/procurement/${p.id}`,
-      })),
-  },
-];
+/**
+ * Unified search response from GET /api/search?q=… — one round-trip instead
+ * of the four separate fetches the palette used to fire per keystroke.
+ * Each entity array is capped at 5 rows server-side.
+ */
+interface SearchResponse {
+  materials: { id: string; name: string; code: string | null; unit: string | null }[];
+  projects: { id: string; name: string }[];
+  suppliers: { id: string; name: string }[];
+  purchaseOrders: { id: string; poNumber: string; status: string }[];
+}
+
+/**
+ * Map the unified search payload into the flat `EntityResult[]` the UI renders.
+ * Kept as a pure function so it's easy to reason about and test.
+ */
+function extractEntities(data: SearchResponse): EntityResult[] {
+  const out: EntityResult[] = [];
+  for (const m of data.materials ?? []) {
+    out.push({
+      id: m.id,
+      label: m.name,
+      sublabel: `${m.code ?? ""} · ${m.unit ?? ""}`,
+      type: "Material",
+      href: `/materials/${m.id}`,
+    });
+  }
+  for (const p of data.projects ?? []) {
+    out.push({
+      id: p.id,
+      label: p.name,
+      sublabel: "Project",
+      type: "Project",
+      href: `/projects/${p.id}`,
+    });
+  }
+  for (const s of data.suppliers ?? []) {
+    out.push({
+      id: s.id,
+      label: s.name,
+      sublabel: "Supplier",
+      type: "Supplier",
+      href: `/suppliers/${s.id}`,
+    });
+  }
+  for (const po of data.purchaseOrders ?? []) {
+    out.push({
+      id: po.id,
+      label: po.poNumber,
+      sublabel: po.status,
+      type: "Purchase Order",
+      href: `/procurement/${po.id}`,
+    });
+  }
+  return out.slice(0, 6);
+}
 
 // ── Recently viewed icon mapping ────────────────────────────────
 
@@ -277,33 +276,43 @@ export function CommandPalette({ userRole = "PROJECT_MANAGER" }: { userRole?: st
   }, [open]);
 
   // ── Debounced entity search ───────────────────────────────────
+  // Single round-trip to /api/search (runs 4 DB queries in parallel server-side).
+  // An AbortController cancels the in-flight request when a new keystroke arrives
+  // so we never render stale results from an older query.
   useEffect(() => {
-    if (!query || query.length < 2) {
+    if (query.trim().length < 2) {
       setEntities([]);
       setEntityLoading(false);
       return;
     }
+    const controller = new AbortController();
     setEntityLoading(true);
     const timer = setTimeout(async () => {
       try {
-        const results = await Promise.all(
-          ENTITY_SEARCHES.map(async (search) => {
-            try {
-              const res = await fetch(`${search.endpoint}${encodeURIComponent(query)}`);
-              if (!res.ok) return [];
-              const data = await res.json();
-              return search.extract(data);
-            } catch {
-              return [];
-            }
-          }),
-        );
-        setEntities(results.flat().slice(0, 6));
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          setEntities([]);
+          return;
+        }
+        const data = (await res.json()) as SearchResponse;
+        setEntities(extractEntities(data));
+      } catch (err) {
+        // AbortError is expected when a newer keystroke cancels us.
+        if ((err as Error).name !== "AbortError") {
+          setEntities([]);
+        }
       } finally {
-        setEntityLoading(false);
+        if (!controller.signal.aborted) {
+          setEntityLoading(false);
+        }
       }
-    }, 200);
-    return () => clearTimeout(timer);
+    }, 350);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
   }, [query]);
 
   // ── Build results list ────────────────────────────────────────
@@ -411,9 +420,12 @@ export function CommandPalette({ userRole = "PROJECT_MANAGER" }: { userRole?: st
 
         <div ref={resultsRef} className="max-h-[50vh] overflow-y-auto p-1.5">
           {results.length === 0 && !entityLoading && (
-            <div className="py-8 text-center text-body text-muted-foreground">
-              No results for &quot;{query}&quot;
-            </div>
+            <EmptyState
+              icon={<Search />}
+              title="No results"
+              description="Try a different search."
+              size="compact"
+            />
           )}
 
           {results.map((result, idx) => {

@@ -106,14 +106,14 @@ export function MobileNewRateContractDialog({
   if (!open) return null;
 
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
     <div
@@ -130,7 +130,7 @@ export function MobileNewRateContractDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <span
               className="grid place-items-center size-7 rounded-[0.375rem]"
               style={{ backgroundColor: "var(--color-concrete)" }}
@@ -150,7 +150,7 @@ export function MobileNewRateContractDialog({
           <button
             onClick={onClose}
             className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-500)" }}
+            style={{ color: "var(--color-ink-700)" }}
             aria-label="Close"
           >
             <X className="size-4" />
@@ -216,7 +216,7 @@ export function MobileNewRateContractDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
               <label className={labelClass} style={labelStyle}>
                 Valid From <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -243,7 +243,7 @@ export function MobileNewRateContractDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
               <label className={labelClass} style={labelStyle}>
                 Min Qty (optional)
@@ -287,12 +287,12 @@ export function MobileNewRateContractDialog({
               onChange={(e) => set("notes", e.target.value)}
               rows={2}
               placeholder="Additional terms…"
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section outline-none resize-none"
+              className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
               style={inputStyle}
             />
           </div>
 
-          <div className="flex flex-col gap-2 pt-1">
+          <div className="flex flex-col gap-3 ">
             <button
               type="button"
               onClick={onClose}
@@ -300,8 +300,8 @@ export function MobileNewRateContractDialog({
               className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
               style={{
                 borderColor: "var(--color-line)",
-                color: "var(--color-ink-500)",
-                backgroundColor: "transparent",
+                color: "var(--color-ink-700)",
+                backgroundColor: "var(--color-paper)",
               }}
             >
               Cancel

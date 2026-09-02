@@ -39,8 +39,8 @@ export function usePermissions() {
     loading,
     can: (perm: string) => hasPermission(role, perm),
     isManagerOrAbove: () => isManagerOrAbove(role),
-    isOwnerOrAdmin: () => role === "OWNER" || role === "ADMIN",
-    canManageUsers: () => role === "OWNER" || role === "ADMIN",
+    isOwnerOrAdmin: () => role === "OWNER" || role === "ADMIN" || role === "DEVELOPER",
+    canManageUsers: () => role === "OWNER" || role === "ADMIN" || role === "DEVELOPER",
     canAssignTasks: () => isManagerOrAbove(role),
     canManageWorkflows: () => isManagerOrAbove(role),
     canApproveProcurement: () =>

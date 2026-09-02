@@ -20,6 +20,7 @@ import { cn, formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { useSnooze } from "@/lib/use-snooze";
 import { SnoozeButton } from "@/components/mobile/v2/snooze-button";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 // ── Types (mirrors the server-component payload) ───────────────
 
@@ -287,7 +288,7 @@ export function MobileApprovalsQueue({
  body: JSON.stringify({ action: "approve" }),
  });
  const data = await res.json();
- if (!res.ok) throw new Error(data.error ?? "Failed to approve requisition");
+ if (!res.ok) throw new Error(data.error ?? "Failed to approve indent");
  toast.success(`Indent ${req.requisitionNumber} approved`);
  setReqStates((s) => ({ ...s, [req.id]: "approved" }));
  router.refresh();
@@ -307,7 +308,7 @@ export function MobileApprovalsQueue({
  body: JSON.stringify({ action: "reject" }),
  });
  const data = await res.json();
- if (!res.ok) throw new Error(data.error ?? "Failed to reject requisition");
+ if (!res.ok) throw new Error(data.error ?? "Failed to reject indent");
  toast.success(`Indent ${req.requisitionNumber} rejected`);
  setReqStates((s) => ({ ...s, [req.id]: "rejected" }));
  router.refresh();
@@ -477,17 +478,14 @@ export function MobileApprovalsQueue({
  );
  })}
  {purchaseOrders.length > 0 && visiblePOs.length === 0 && (
- <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
- <CheckCircle2 className="mb-2 h-8 w-8" style={{ color: "color-mix(in srgb, var(--color-go) 60%, transparent)" }} />
- <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>All POs reviewed</p>
- </div>
+ <MobileEmptyState icon={CheckCircle2} title="All POs reviewed" size="compact" />
  )}
 
- {/* ── Requisitions ─────────────────────────────────────── */}
+ {/* ── Indents ─────────────────────────────────────── */}
  {requisitions.length > 0 && (
  <div className="flex items-center justify-between px-4 pb-1.5 pt-5">
  <h2 className="text-m-caption " style={{ color: "var(--color-ink-500)" }}>
- Requisitions ({visibleReqs.length})
+ Indents ({visibleReqs.length})
  </h2>
  {visibleReqs.length > 1 && (
  <button
@@ -512,13 +510,13 @@ export function MobileApprovalsQueue({
  onToggle={() => setExpanded(isOpen ? null : `req:${req.id}`)}
  icon={ClipboardList}
  title={req.projectName ?? "N/A"}
- subtitle={`Req ${req.requisitionNumber} · ${formatDate(req.createdAt)}`}
+ subtitle={`Indent ${req.requisitionNumber} · ${formatDate(req.createdAt)}`}
  meta={`${req.lines.length} lines`}
  state={state}
  onApprove={() => approveReq(req)}
  onReject={() => rejectReq(req)}
  snoozeId={`approval:req:${req.id}`}
- snoozeLabel={`Req ${req.requisitionNumber}`}
+ snoozeLabel={`Indent ${req.requisitionNumber}`}
  >
  <div className="space-y-1.5">
  {req.lines.map((l, i) => (
@@ -537,10 +535,7 @@ export function MobileApprovalsQueue({
  );
  })}
  {requisitions.length > 0 && visibleReqs.length === 0 && (
- <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
- <CheckCircle2 className="mb-2 h-8 w-8" style={{ color: "color-mix(in srgb, var(--color-go) 60%, transparent)" }} />
- <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>All requisitions reviewed</p>
- </div>
+ <MobileEmptyState icon={CheckCircle2} title="All indents reviewed" size="compact" />
  )}
 
  {/* ── Gate Passes ──────────────────────────────────────── */}
@@ -609,10 +604,7 @@ export function MobileApprovalsQueue({
  );
  })}
  {gatePasses.length > 0 && visibleGps.length === 0 && (
- <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
- <CheckCircle2 className="mb-2 h-8 w-8" style={{ color: "color-mix(in srgb, var(--color-go) 60%, transparent)" }} />
- <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>All gate passes reviewed</p>
- </div>
+ <MobileEmptyState icon={CheckCircle2} title="All gate passes reviewed" size="compact" />
  )}
 
  {/* ── DPRs ─────────────────────────────────────────────── */}
@@ -674,20 +666,15 @@ export function MobileApprovalsQueue({
  );
  })}
  {dprs.length > 0 && visibleDprs.length === 0 && (
- <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
- <CheckCircle2 className="mb-2 h-8 w-8" style={{ color: "color-mix(in srgb, var(--color-go) 60%, transparent)" }} />
- <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>All DPRs reviewed</p>
- </div>
+ <MobileEmptyState icon={CheckCircle2} title="All DPRs reviewed" size="compact" />
  )}
 
  {purchaseOrders.length === 0 && requisitions.length === 0 && gatePasses.length === 0 && dprs.length === 0 && (
- <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
- <ClipboardCheck className="mb-3 h-10 w-10" style={{ color: "color-mix(in srgb, var(--color-ink-500) 55%, transparent)" }} />
- <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>Nothing to approve</p>
- <p className="mt-1 max-w-xs text-m-caption leading-relaxed" style={{ color: "var(--color-ink-500)" }}>
- Draft purchase orders, submitted requisitions, pending gate passes, and pending DPRs appear here.
- </p>
- </div>
+ <MobileEmptyState
+ icon={ClipboardCheck}
+ title="Nothing to approve"
+ description="Draft purchase orders, submitted indents, pending gate passes, and pending DPRs appear here."
+ />
  )}
 
  {/* ── Gate pass reject dialog ──────────────────────────── */}

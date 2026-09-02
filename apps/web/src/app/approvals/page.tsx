@@ -7,7 +7,11 @@ import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { ApprovalsView } from "@/components/approvals/approvals-view";
-import type { ApprovalPORow, ApprovalReqRow, ApprovalReqLineDetail } from "@/lib/types";
+import { ExpenseApprovalList } from "@/components/approvals/expense-approval-list";
+import { ClaimApprovalList, type ApprovalClaimRow } from "@/components/approvals/claim-approval-list";
+import { EmptyState } from "@/components/empty-state";
+import { Inbox } from "lucide-react";
+import type { ApprovalPORow, ApprovalReqRow, ApprovalReqLineDetail, ApprovalExpenseRow } from "@/lib/types";
 
 import { NoAccess } from "@/components/no-access";
 
@@ -57,7 +61,8 @@ async function ApprovalsContent() {
   const canApprovePo = perms.includes(PERM.PO_APPROVE);
   const canApproveReq = perms.includes(PERM.REQUISITION_APPROVE);
   const canApproveGatePass = perms.includes(PERM.GATE_PASS_APPROVE);
-  if (!canApprovePo && !canApproveReq && !canApproveGatePass) {
+  const canApproveExpense = perms.includes(PERM.EXPENSE_APPROVE);
+  if (!canApprovePo && !canApproveReq && !canApproveGatePass && !canApproveExpense) {
     return (
       <NoAccess what="the approval queue" />
     );
@@ -80,7 +85,7 @@ async function ApprovalsContent() {
       ? { projectId: { in: scope.projectIds } }
       : {};
 
-  const [purchaseOrders, requisitions, gatePasses] = await Promise.all([
+  const [purchaseOrders, requisitions, gatePasses, pendingExpenses, pendingClaims] = await Promise.all([
     canApprovePo
       ? prisma.purchaseOrder.findMany({
           take: 500,
@@ -124,6 +129,31 @@ async function ApprovalsContent() {
             lines: { select: { qty: true } },
             location: { select: { name: true } },
             createdBy: { select: { name: true } },
+          },
+        })
+      : [],
+    canApproveExpense
+      ? prisma.expense.findMany({
+          take: 200,
+          where: { companyId: company.id, status: "PENDING" },
+          orderBy: { submittedAt: "desc" },
+          include: {
+            project: { select: { id: true, name: true } },
+            categoryMaster: { select: { id: true, name: true } },
+            supplier: { select: { id: true, name: true } },
+            submittedBy: { select: { id: true, name: true } },
+          },
+        })
+      : [],
+    canApproveExpense
+      ? prisma.expenseClaim.findMany({
+          take: 200,
+          where: { companyId: company.id, status: "SUBMITTED" },
+          orderBy: { submittedAt: "desc" },
+          include: {
+            claimant: { select: { id: true, name: true } },
+            project: { select: { id: true, name: true } },
+            lines: { select: { id: true, amount: true } },
           },
         })
       : [],
@@ -242,23 +272,75 @@ async function ApprovalsContent() {
   poRows.sort((a, b) => urgencyRank(a.urgency) - urgencyRank(b.urgency));
   reqRows.sort((a, b) => urgencyRank(a.urgency) - urgencyRank(b.urgency));
 
-  const totalCount = poRows.length + reqRows.length + gatePasses.length;
+  const expenseRows: ApprovalExpenseRow[] = pendingExpenses.map((e) => ({
+    id: e.id,
+    category: e.category,
+    categoryName: e.categoryMaster?.name ?? null,
+    amount: toNum(e.amount),
+    subtotal: toNum(e.subtotal),
+    cgst: toNum(e.cgst),
+    sgst: toNum(e.sgst),
+    igst: toNum(e.igst),
+    tdsAmount: toNum(e.tdsAmount),
+    projectName: e.project?.name ?? null,
+    payeeName: e.payeeName,
+    supplierName: e.supplier?.name ?? null,
+    paymentMode: e.paymentMode,
+    receiptUrl: e.receiptUrl,
+    submittedByName: e.submittedBy?.name ?? null,
+    submittedAt: e.submittedAt?.toISOString() ?? null,
+    date: e.date.toISOString(),
+    notes: e.notes,
+    canApprove: canApproveExpense && e.submittedById !== user.id,
+  }));
+
+  const claimRows: ApprovalClaimRow[] = pendingClaims.map((c) => ({
+    id: c.id,
+    claimantName: c.claimant.name,
+    projectName: c.project?.name ?? null,
+    totalAmount: toNum(c.totalAmount),
+    lineCount: c.lines.length,
+    description: c.description,
+    submittedAt: c.submittedAt?.toISOString() ?? null,
+    canApprove: canApproveExpense && c.claimantId !== user.id,
+  }));
+
+  const totalCount = poRows.length + reqRows.length + gatePasses.length + expenseRows.length + claimRows.length;
   const overdueCount = [...poRows, ...reqRows].filter((r) => r.urgency === "overdue").length;
 
   return (
     <>
       <PageHeader
         title="Approvals"
-        description="Purchase orders, material indents, and gate passes awaiting your approval."
+        description="Purchase orders, material indents, expenses, and gate passes awaiting your approval."
         stats={[
-          { label: "Pending", value: totalCount, tone: totalCount > 0 ? "warning" : "muted", hint: "Total items awaiting your approval — purchase orders, indents, and gate passes." },
+          { label: "Pending", value: totalCount, tone: totalCount > 0 ? "warning" : "muted", hint: "Total items awaiting your approval — purchase orders, indents, expenses, and gate passes." },
           { label: "Overdue", value: overdueCount, tone: overdueCount > 0 ? "danger" : "muted", hint: "Items past their expected or needed-by date." },
           { label: "POs", value: poRows.length, hint: "Draft purchase orders pending your approval before they can be ordered." },
           { label: "Indents", value: reqRows.length, hint: "Submitted material indents pending your approval before conversion to a PO." },
+          ...(canApproveExpense ? [
+            { label: "Expenses", value: expenseRows.length, hint: "Submitted expenses pending your approval. GL posts on approval." },
+            { label: "Claims", value: claimRows.length, hint: "Submitted expense claims pending your approval. Each line becomes an expense on approval." },
+          ] : []),
           ...(canApproveGatePass ? [{ label: "Gate Passes", value: gatePasses.length, hint: "Gate passes pending approval before items can leave the gate." }] : []),
         ]}
       />
-      <ApprovalsView purchaseOrders={poRows} requisitions={reqRows} />
+      {(poRows.length > 0 || reqRows.length > 0) && (
+        <ApprovalsView purchaseOrders={poRows} requisitions={reqRows} />
+      )}
+      {canApproveExpense && expenseRows.length > 0 && (
+        <ExpenseApprovalList expenses={expenseRows} />
+      )}
+      {canApproveExpense && claimRows.length > 0 && (
+        <ClaimApprovalList claims={claimRows} />
+      )}
+      {totalCount === 0 && (
+        <EmptyState
+          icon={<Inbox className="h-5 w-5" />}
+          title="Nothing to approve"
+          description="Items awaiting your sign-off will appear here."
+        />
+      )}
       {canApproveGatePass && gatePasses.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-4">
           <div className="flex items-center justify-between mb-3">

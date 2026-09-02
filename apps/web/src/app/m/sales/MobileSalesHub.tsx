@@ -5,10 +5,13 @@ import { useSearchParams } from "next/navigation";
 import {CalendarClock, ContactRound, Flame, Phone, UserRoundCheck} from "lucide-react";
 import {type MobileColumnSpec} from "@/components/mobile/v2/export-share-bar";
 import { formatCurrencyCompact, formatDate } from "@/lib/utils";
-import { LeadFormDialog } from "@/components/sales/lead-form-dialog";
+import { LeadForm } from "@/components/sales/lead-form-dialog";
 import { LeadDetailDialog } from "@/components/sales/lead-detail-dialog";
 import type { LeadRow, LeadStage } from "@/lib/types";
-import { MobileSearchHeader, MobileFilterIcon, MobileFab } from "@/components/mobile/v2/scaffold";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { MobileSearchHeader, MobileFilterIcon, MobileFab, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileSalesCollection, type CollectionStats, type SaleItem } from "./MobileSalesCollection";
 
 const STAGES: { value: "OPEN" | LeadStage; label: string }[] = [
@@ -107,7 +110,7 @@ function MobileLeadPipeline({
   const [stage, setStage] = useState<"OPEN" | LeadStage>("OPEN");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<LeadRow | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
+  const fab = useFabModal();
   const [now] = useState(() => Date.now());
 
   const filtered = useMemo(() => {
@@ -151,7 +154,7 @@ function MobileLeadPipeline({
       </div>
 
       {canManage && (
-        <MobileFab onClick={() => setFormOpen(true)} label="Add lead" />
+        <MobileFab onClick={fab.toggle} label="Add lead" isOpen={fab.isOpen} />
       )}
 
       <MobileSearchHeader
@@ -223,14 +226,25 @@ function MobileLeadPipeline({
       </div>
 
       {filtered.length === 0 && (
-        <div className="flex flex-col items-center rounded-[0.625rem] border px-4 py-10 text-center" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <ContactRound className="mb-2 size-6" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{leads.length ? "No leads match this view" : "No leads yet"}</p>
-          <p className="mt-1 text-m-caption" style={{ color: "var(--color-ink-500)" }}>Add the enquiry once, then keep every follow-up and site visit attached.</p>
-        </div>
+        leads.length === 0 ? (
+          <MobileEmptyState
+            icon={ContactRound}
+            title="No leads yet"
+            description="Add the enquiry once, then keep every follow-up and site visit attached."
+          />
+        ) : (
+          <MobileNoResults
+            title="No leads match this view"
+            hint="Try a different search or filter."
+          />
+        )
       )}
 
-      <LeadFormDialog open={formOpen} onOpenChange={setFormOpen} projects={projects} units={units} assignees={assignees} />
+      {canManage && (
+        <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="New lead">
+          <LeadForm projects={projects} units={units} assignees={assignees} onDone={fab.close} />
+        </MobileFabModal>
+      )}
       <LeadDetailDialog lead={selected} open={selected != null} onOpenChange={(value) => !value && setSelected(null)} canManage={canManage} bookingHref="/m/sales/new" />
     </>
   );

@@ -44,7 +44,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     revalidatePath("/stock");
     revalidatePath("/m/inventory");
     revalidatePath("/scrap-generations");
-    revalidatePath("/m/scrap-generations");
+    revalidatePath("/m/stock");
   }
 
   return json({

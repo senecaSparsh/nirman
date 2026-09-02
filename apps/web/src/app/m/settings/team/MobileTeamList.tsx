@@ -14,6 +14,7 @@ import {
   UserPlus,
   X,
   Pencil,
+  Code,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ROLES, roleTier, type Role } from "@/lib/roles";
@@ -27,6 +28,8 @@ import {
   MobileExportShareIcons,
   type MobileColumnSpec,
 } from "@/components/mobile/v2/export-share-bar";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 
 interface TeamMember {
   id: string;
@@ -53,8 +56,9 @@ const ROLE_META: Record<
   Role,
   { color: string; label: string; icon: typeof Crown }
 > = {
-  OWNER: { color: "var(--color-ink-950)", label: "Owner", icon: Crown },
-  ADMIN: { color: "var(--color-steel)", label: "Admin", icon: Shield },
+  OWNER: { color: "var(--color-ink-500)", label: "Owner", icon: Crown },
+  ADMIN: { color: "var(--color-ink-500)", label: "Admin", icon: Shield },
+  DEVELOPER: { color: "var(--color-ink-500)", label: "Developer", icon: Code },
   PROJECT_DIRECTOR: {
     color: "var(--color-go)",
     label: "Project Director",
@@ -138,7 +142,7 @@ export function MobileTeamList({
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [showAddForm, setShowAddForm] = useState(false);
+  const fab = useFabModal();
 
   const filtered = search.trim()
     ? team.filter((m) => {
@@ -168,7 +172,7 @@ export function MobileTeamList({
           backgroundColor: "var(--color-paper)",
         }}
       >
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-1 mb-2">
           <div
             className="grid place-items-center size-8 rounded-full shrink-0"
             style={{ backgroundColor: "var(--color-concrete)" }}
@@ -187,7 +191,7 @@ export function MobileTeamList({
             </p>
             <p
               className="text-m-caption"
-              style={{ color: "var(--color-ink-500)" }}
+              style={{ color: "var(--color-ink-700)" }}
             >
               {activeCount} active · {inactiveCount} inactive
             </p>
@@ -224,7 +228,7 @@ export function MobileTeamList({
           style={{
             borderColor: "var(--color-line)",
             backgroundColor: "var(--color-concrete)",
-            color: "var(--color-ink-500)",
+            color: "var(--color-ink-700)",
           }}
         >
           You have read-only access. Only owners and admins can change roles or
@@ -234,20 +238,20 @@ export function MobileTeamList({
 
       {/* ── Add member FAB (managers only) ── */}
       {canManage && (
-        <MobileFab onClick={() => setShowAddForm(true)} label="Add team member" icon={UserPlus} />
+        <MobileFab onClick={fab.toggle} label="Add team member" icon={UserPlus} isOpen={fab.isOpen} />
       )}
 
       {/* ── Add member form dialog ── */}
-      {showAddForm && (
-        <AddMemberDialog
+      <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="Add Team Member">
+        <AddMemberForm
           assignableRoles={assignableRoles}
-          onClose={() => setShowAddForm(false)}
+          onClose={fab.close}
           onAdded={() => {
-            setShowAddForm(false);
+            fab.close();
             router.refresh();
           }}
         />
-      )}
+      </MobileFabModal>
 
       {/* ── Search ── */}
       <MobileSearchHeader
@@ -275,13 +279,13 @@ export function MobileTeamList({
         <div className="flex items-center justify-end mb-1.5">
           <span
             className="text-m-label font-semibold"
-            style={{ color: "var(--color-ink-500)" }}
+            style={{ color: "var(--color-ink-700)" }}
           >
             {sorted.length} member{sorted.length !== 1 ? "s" : ""}
           </span>
         </div>
       )}
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-3">
         {sorted.map((member) => (
           <MemberCard
             key={member.id}
@@ -305,12 +309,12 @@ export function MobileTeamList({
 
       {/* ── Role reference ── */}
       <p
-        className="text-m-caption font-bold uppercase tracking-wide mb-2 mt-5 px-1"
-        style={{ color: "var(--color-ink-500)" }}
+        className="text-m-section font-extrabold tracking-tight mb-2 mt-5 px-1"
+        style={{ color: "var(--color-ink-700)" }}
       >
         Role Permissions
       </p>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-3.5">
         {(Object.values(ROLES) as (typeof ROLES)[Role][]).map((r) => {
           const meta = ROLE_META[r.key];
           const Icon = meta.icon;
@@ -324,21 +328,21 @@ export function MobileTeamList({
                 backgroundColor: "var(--color-paper)",
               }}
             >
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-1 mb-1">
                 <Icon
                   className="size-3 shrink-0"
                   style={{ color: meta.color }}
                 />
                 <p
                   className="text-m-body font-bold"
-                  style={{ color: "var(--color-ink-950)" }}
+                  style={{ color: "var(--color-ink-500)" }}
                 >
                   {meta.label}
                 </p>
                 {count > 0 && (
                   <span
                     className="text-m-caption font-bold tabular-nums ml-auto"
-                    style={{ color: "var(--color-ink-500)" }}
+                    style={{ color: "var(--color-ink-700)" }}
                   >
                     {count} {count === 1 ? "person" : "people"}
                   </span>
@@ -346,7 +350,7 @@ export function MobileTeamList({
               </div>
               <p
                 className="text-m-caption leading-relaxed"
-                style={{ color: "var(--color-ink-500)" }}
+                style={{ color: "var(--color-ink-700)" }}
               >
                 {r.description}
               </p>
@@ -445,7 +449,7 @@ function MemberCard({
         disabled={changing}
         className="w-full text-left p-2.5 active:scale-[0.99] transition-transform press"
       >
-        <div className="flex items-center gap-2 mb-1">
+        <div className="flex items-center gap-1 mb-1">
           <div
             className="grid place-items-center size-7 rounded-full shrink-0"
             style={{
@@ -458,7 +462,7 @@ function MemberCard({
             <div className="flex items-center gap-1.5">
               <p
                 className="text-m-section font-bold truncate"
-                style={{ color: "var(--color-ink-950)" }}
+                style={{ color: "var(--color-ink-500)" }}
               >
                 {member.name}
               </p>
@@ -466,7 +470,7 @@ function MemberCard({
                 <span
                   className="text-m-caption font-bold px-1 py-0.5 rounded"
                   style={{
-                    color: "var(--color-ink-500)",
+                    color: "var(--color-ink-700)",
                     backgroundColor: "var(--color-concrete)",
                   }}
                 >
@@ -476,7 +480,7 @@ function MemberCard({
             </div>
             <p
               className="text-m-caption truncate"
-              style={{ color: "var(--color-ink-500)" }}
+              style={{ color: "var(--color-ink-700)" }}
             >
               {member.email}
             </p>
@@ -495,13 +499,13 @@ function MemberCard({
         {/* Designation + department + employee code */}
         {(member.designation || member.department || member.employeeCode) && (
           <div
-            className="flex items-center gap-2 text-m-caption mt-1"
-            style={{ color: "var(--color-ink-500)" }}
+            className="flex items-center gap-1 text-m-caption mt-1"
+            style={{ color: "var(--color-ink-700)" }}
           >
             {member.employeeCode && (
               <span
                 className="font-mono font-bold"
-                style={{ color: "var(--color-steel)" }}
+                style={{ color: "var(--color-ink-500)" }}
               >
                 {member.employeeCode}
               </span>
@@ -520,14 +524,14 @@ function MemberCard({
 
         {/* Contact + reports to */}
         <div
-          className="flex items-center gap-3 text-m-caption mt-0.5"
-          style={{ color: "var(--color-ink-500)" }}
+          className="flex items-center gap-1 text-m-caption mt-0.5"
+          style={{ color: "var(--color-ink-700)" }}
         >
           {member.phone && (
             <a
               href={`tel:${member.phone}`}
               onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-0.5 text-m-body press"
+              className="flex items-center gap-1.5 text-m-body press"
             >
               <Phone className="size-2.5" />
               {member.phone}
@@ -579,7 +583,7 @@ function MemberCard({
               onClick={() => setShowEdit(true)}
               className="flex w-full items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press mb-2"
               style={{
-                color: "var(--color-ink-950)",
+                color: "var(--color-ink-500)",
                 backgroundColor: "var(--color-concrete)",
               }}
             >
@@ -592,8 +596,8 @@ function MemberCard({
           {canManage && (
             <>
               <p
-                className="text-m-caption font-bold uppercase tracking-wide mb-1.5"
-                style={{ color: "var(--color-ink-500)" }}
+                className="text-m-section font-extrabold tracking-tight mb-1.5"
+                style={{ color: "var(--color-ink-700)" }}
               >
                 Change Role
               </p>
@@ -656,8 +660,8 @@ function MemberCard({
   );
 }
 
-/* ─── Add Member Dialog ─── */
-function AddMemberDialog({
+/* ─── Add Member Form (rendered inside MobileFabModal) ─── */
+function AddMemberForm({
   assignableRoles,
   onClose,
   onAdded,
@@ -722,321 +726,287 @@ function AddMemberDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[85vh] overflow-y-auto"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <p
-            className="text-m-section font-bold"
-            style={{ color: "var(--color-ink-950)" }}
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      {/* Name + Email */}
+      <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+        <div>
+          <label
+            className="block text-m-caption font-bold mb-0"
+            style={{ color: "var(--color-ink-700)" }}
           >
-            Add Team Member
-          </p>
-          <button
-            onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-500)" }}
-            aria-label="Close"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {/* Name */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Full Name <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Rajesh Sharma"
-              autoComplete="name"
-              enterKeyHint="next"
-              autoFocus
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-
-          {/* Email */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Email <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="member@company.com"
-              autoComplete="email"
-              enterKeyHint="next"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-
-          {/* Phone */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Phone (optional)
-            </label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="98765 43210"
-              autoComplete="tel"
-              enterKeyHint="next"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-
-          {/* Employee Code + Designation */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label
-                className="text-m-caption font-semibold block mb-1"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                Employee Code
-              </label>
-              <input
-                type="text"
-                value={employeeCode}
-                onChange={(e) => setEmployeeCode(e.target.value)}
-                placeholder="EMP-001"
-                enterKeyHint="next"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none font-mono"
-                style={{
-                  borderColor: "var(--color-line)",
-                  backgroundColor: "var(--color-paper)",
-                  color: "var(--color-ink-950)",
-                }}
-              />
-            </div>
-            <div>
-              <label
-                className="text-m-caption font-semibold block mb-1"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                Designation
-              </label>
-              <input
-                type="text"
-                value={designation}
-                onChange={(e) => setDesignation(e.target.value)}
-                placeholder="Site Engineer"
-                enterKeyHint="next"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-                style={{
-                  borderColor: "var(--color-line)",
-                  backgroundColor: "var(--color-paper)",
-                  color: "var(--color-ink-950)",
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Department + Joining Date */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label
-                className="text-m-caption font-semibold block mb-1"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                Department
-              </label>
-              <select
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-                style={{
-                  borderColor: "var(--color-line)",
-                  backgroundColor: "var(--color-paper)",
-                  color: "var(--color-ink-950)",
-                }}
-              >
-                <option value="">Select…</option>
-                <option value="Construction">Construction</option>
-                <option value="Procurement">Procurement</option>
-                <option value="Finance">Finance</option>
-                <option value="HR">HR</option>
-                <option value="Sales">Sales</option>
-                <option value="Administration">Administration</option>
-                <option value="Quality">Quality</option>
-                <option value="Stores">Stores</option>
-              </select>
-            </div>
-            <div>
-              <label
-                className="text-m-caption font-semibold block mb-1"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                Joining Date
-              </label>
-              <input
-                type="date"
-                value={joiningDate}
-                onChange={(e) => setJoiningDate(e.target.value)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-                style={{
-                  borderColor: "var(--color-line)",
-                  backgroundColor: "var(--color-paper)",
-                  color: "var(--color-ink-950)",
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Role — grouped by category */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Role <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <div className="flex flex-col gap-2">
-              {Object.entries(
-                assignableRoles.reduce(
-                  (acc, r) => {
-                    const cat = ROLES[r.key].category;
-                    if (!acc[cat]) acc[cat] = [];
-                    acc[cat].push(r);
-                    return acc;
-                  },
-                  {} as Record<string, AssignableRole[]>,
-                ),
-              ).map(([category, roles]) => (
-                <div key={category}>
-                  <p
-                    className="text-m-caption font-bold uppercase tracking-wide mb-1"
-                    style={{ color: "var(--color-ink-400)" }}
-                  >
-                    {category}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {roles.map((r) => {
-                      const meta = ROLE_META[r.key];
-                      const isCurrent = r.key === role;
-                      return (
-                        <button
-                          key={r.key}
-                          type="button"
-                          onClick={() => {
-                            setRole(r.key);
-                            haptic(10);
-                          }}
-                          className="flex items-center gap-1 h-8 px-2.5 rounded-[0.375rem] text-m-caption font-semibold text-m-body press"
-                          style={{
-                            color: isCurrent ? "#fff" : meta.color,
-                            backgroundColor: isCurrent
-                              ? meta.color
-                              : `color-mix(in srgb, ${meta.color} 8%, transparent)`,
-                            border: isCurrent
-                              ? "none"
-                              : `1px solid color-mix(in srgb, ${meta.color} 20%, transparent)`,
-                          }}
-                        >
-                          {isCurrent && <Check className="size-3" />}
-                          {r.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Password */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Password (optional)
-            </label>
-            <input
-              type="text"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Default: nirman123"
-              enterKeyHint="done"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            />
-            <p
-              className="text-m-caption mt-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Leave blank to use the default password. The member can change it
-              after signing in.
-            </p>
-          </div>
-
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex items-center justify-center gap-1.5 w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 mt-1"
+            Full Name <span style={{ color: "var(--color-stop)" }}>*</span>
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Rajesh Sharma"
+            autoComplete="name"
+            enterKeyHint="next"
+            autoFocus
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
             style={{
-              backgroundColor: "var(--color-ink-950)",
-              color: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+              backgroundColor: "var(--color-paper)",
+              color: "var(--color-ink-950)",
+            }}
+          />
+        </div>
+        <div>
+          <label
+            className="block text-m-caption font-bold mb-0"
+            style={{ color: "var(--color-ink-700)" }}
+          >
+            Email <span style={{ color: "var(--color-stop)" }}>*</span>
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="member@company.com"
+            autoComplete="email"
+            enterKeyHint="next"
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{
+              borderColor: "var(--color-line)",
+              backgroundColor: "var(--color-paper)",
+              color: "var(--color-ink-950)",
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Phone + Employee Code */}
+      <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+        <div>
+          <label
+            className="block text-m-caption font-bold mb-0"
+            style={{ color: "var(--color-ink-700)" }}
+          >
+            Phone
+          </label>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="98765 43210"
+            autoComplete="tel"
+            enterKeyHint="next"
+            className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+            style={{
+              borderColor: "var(--color-line)",
+              backgroundColor: "var(--color-paper)",
+              color: "var(--color-ink-500)",
+            }}
+          />
+        </div>
+        <div>
+          <label
+            className="block text-m-caption font-bold mb-0"
+            style={{ color: "var(--color-ink-700)" }}
+          >
+            Employee Code
+          </label>
+          <input
+            type="text"
+            value={employeeCode}
+            onChange={(e) => setEmployeeCode(e.target.value)}
+            placeholder="EMP-001"
+            enterKeyHint="next"
+            className="w-full h-7 px-1 text-m-caption font-mono outline-none border-b focus:border-b-2 transition-colors"
+            style={{
+              borderColor: "var(--color-line)",
+              backgroundColor: "var(--color-paper)",
+              color: "var(--color-ink-500)",
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Designation + Department */}
+      <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+        <div>
+          <label
+            className="block text-m-caption font-bold mb-0"
+            style={{ color: "var(--color-ink-700)" }}
+          >
+            Designation
+          </label>
+          <input
+            type="text"
+            value={designation}
+            onChange={(e) => setDesignation(e.target.value)}
+            placeholder="Site Engineer"
+            enterKeyHint="next"
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{
+              borderColor: "var(--color-line)",
+              backgroundColor: "var(--color-paper)",
+              color: "var(--color-ink-500)",
+            }}
+          />
+        </div>
+        <div>
+          <label
+            className="block text-m-caption font-bold mb-0"
+            style={{ color: "var(--color-ink-700)" }}
+          >
+            Department
+          </label>
+          <select
+            value={department}
+            onChange={(e) => setDepartment(e.target.value)}
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{
+              borderColor: "var(--color-line)",
+              backgroundColor: "var(--color-paper)",
+              color: "var(--color-ink-500)",
             }}
           >
-            {submitting ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <>
-                <UserPlus className="size-4" />
-                Add Member
-              </>
-            )}
-          </button>
-        </form>
+            <option value="">Select…</option>
+            <option value="Construction">Construction</option>
+            <option value="Procurement">Procurement</option>
+            <option value="Finance">Finance</option>
+            <option value="HR">HR</option>
+            <option value="Sales">Sales</option>
+            <option value="Administration">Administration</option>
+            <option value="Quality">Quality</option>
+            <option value="Stores">Stores</option>
+          </select>
+        </div>
       </div>
-    </div>
+
+      {/* Joining Date */}
+      <div>
+        <label
+          className="block text-m-caption font-bold mb-0"
+          style={{ color: "var(--color-ink-700)" }}
+        >
+          Joining Date
+        </label>
+        <input
+          type="date"
+          value={joiningDate}
+          onChange={(e) => setJoiningDate(e.target.value)}
+          className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+          style={{
+            borderColor: "var(--color-line)",
+            backgroundColor: "var(--color-paper)",
+            color: "var(--color-ink-500)",
+          }}
+        />
+      </div>
+
+      {/* Role — grouped by category */}
+      <div>
+        <label
+          className="block text-m-caption font-bold mb-0"
+          style={{ color: "var(--color-ink-700)" }}
+        >
+          Role <span style={{ color: "var(--color-stop)" }}>*</span>
+        </label>
+        <div className="flex flex-col gap-3">
+          {Object.entries(
+            assignableRoles.reduce(
+              (acc, r) => {
+                const cat = ROLES[r.key].category;
+                if (!acc[cat]) acc[cat] = [];
+                acc[cat].push(r);
+                return acc;
+              },
+              {} as Record<string, AssignableRole[]>,
+            ),
+          ).map(([category, roles]) => (
+            <div key={category}>
+              <p
+                className="text-m-section font-extrabold tracking-tight mb-1"
+                style={{ color: "var(--color-ink-400)" }}
+              >
+                {category}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {roles.map((r) => {
+                  const meta = ROLE_META[r.key];
+                  const isCurrent = r.key === role;
+                  return (
+                    <button
+                      key={r.key}
+                      type="button"
+                      onClick={() => {
+                        setRole(r.key);
+                        haptic(10);
+                      }}
+                      className="flex items-center gap-1 h-8 px-2.5 rounded-[0.375rem] text-m-caption font-semibold text-m-body press"
+                      style={{
+                        color: isCurrent ? "#fff" : meta.color,
+                        backgroundColor: isCurrent
+                          ? meta.color
+                          : `color-mix(in srgb, ${meta.color} 8%, transparent)`,
+                        border: isCurrent
+                          ? "none"
+                          : `1px solid color-mix(in srgb, ${meta.color} 20%, transparent)`,
+                      }}
+                    >
+                      {isCurrent && <Check className="size-3" />}
+                      {r.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Password */}
+      <div>
+        <label
+          className="block text-m-caption font-bold mb-0"
+          style={{ color: "var(--color-ink-700)" }}
+        >
+          Password (optional)
+        </label>
+        <input
+          type="text"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Default: nirman123"
+          enterKeyHint="done"
+          className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+          style={{
+            borderColor: "var(--color-line)",
+            backgroundColor: "var(--color-paper)",
+            color: "var(--color-ink-500)",
+          }}
+        />
+        <p
+          className="text-m-caption mt-1"
+          style={{ color: "var(--color-ink-700)" }}
+        >
+          Leave blank to use the default password — member can change it after signing in.
+        </p>
+      </div>
+
+      {/* Submit */}
+      <button
+        type="submit"
+        disabled={submitting}
+        className="flex items-center justify-center gap-1.5 w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 mt-1"
+        style={{
+          backgroundColor: "var(--color-ink-950)",
+          color: "var(--color-paper)",
+        }}
+      >
+        {submitting ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <>
+            <UserPlus className="size-4" />
+            Add Member
+          </>
+        )}
+      </button>
+    </form>
   );
 }
 
@@ -1110,7 +1080,7 @@ function EditMemberDialog({
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <span
               className="grid place-items-center size-7 rounded-[0.375rem]"
               style={{ backgroundColor: "var(--color-concrete)" }}
@@ -1130,7 +1100,7 @@ function EditMemberDialog({
           <button
             onClick={onClose}
             className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-500)" }}
+            style={{ color: "var(--color-ink-700)" }}
             aria-label="Close"
           >
             <X className="size-4" />
@@ -1141,8 +1111,8 @@ function EditMemberDialog({
           {/* Email (read-only) */}
           <div>
             <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
+              className="block text-m-caption font-bold mb-0"
+              style={{ color: "var(--color-ink-700)" }}
             >
               Email
             </label>
@@ -1150,16 +1120,16 @@ function EditMemberDialog({
               type="email"
               value={member.email}
               disabled
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none opacity-60"
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors opacity-60"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "var(--color-concrete)",
-                color: "var(--color-ink-500)",
+                color: "var(--color-ink-700)",
               }}
             />
             <p
               className="text-m-caption mt-1"
-              style={{ color: "var(--color-ink-500)" }}
+              style={{ color: "var(--color-ink-700)" }}
             >
               Email cannot be changed.
             </p>
@@ -1168,8 +1138,8 @@ function EditMemberDialog({
           {/* Name */}
           <div>
             <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
+              className="block text-m-caption font-bold mb-0"
+              style={{ color: "var(--color-ink-700)" }}
             >
               Full Name <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
@@ -1181,10 +1151,10 @@ function EditMemberDialog({
               autoComplete="name"
               enterKeyHint="next"
               autoFocus
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
               style={{
                 borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
+                backgroundColor: "transparent",
                 color: "var(--color-ink-950)",
               }}
             />
@@ -1193,8 +1163,8 @@ function EditMemberDialog({
           {/* Phone */}
           <div>
             <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
+              className="block text-m-caption font-bold mb-0"
+              style={{ color: "var(--color-ink-700)" }}
             >
               Phone (optional)
             </label>
@@ -1205,21 +1175,21 @@ function EditMemberDialog({
               placeholder="98765 43210"
               autoComplete="tel"
               enterKeyHint="done"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
               style={{
                 borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
+                backgroundColor: "transparent",
                 color: "var(--color-ink-950)",
               }}
             />
           </div>
 
           {/* Employee Code + Designation */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
               <label
-                className="text-m-caption font-semibold block mb-1"
-                style={{ color: "var(--color-ink-500)" }}
+                className="block text-m-caption font-bold mb-0"
+                style={{ color: "var(--color-ink-700)" }}
               >
                 Employee Code
               </label>
@@ -1228,18 +1198,18 @@ function EditMemberDialog({
                 value={employeeCode}
                 onChange={(e) => setEmployeeCode(e.target.value)}
                 placeholder="EMP-001"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none font-mono"
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors font-mono"
                 style={{
                   borderColor: "var(--color-line)",
-                  backgroundColor: "var(--color-paper)",
+                  backgroundColor: "transparent",
                   color: "var(--color-ink-950)",
                 }}
               />
             </div>
             <div>
               <label
-                className="text-m-caption font-semibold block mb-1"
-                style={{ color: "var(--color-ink-500)" }}
+                className="block text-m-caption font-bold mb-0"
+                style={{ color: "var(--color-ink-700)" }}
               >
                 Designation
               </label>
@@ -1248,10 +1218,10 @@ function EditMemberDialog({
                 value={designation}
                 onChange={(e) => setDesignation(e.target.value)}
                 placeholder="Site Engineer"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
                 style={{
                   borderColor: "var(--color-line)",
-                  backgroundColor: "var(--color-paper)",
+                  backgroundColor: "transparent",
                   color: "var(--color-ink-950)",
                 }}
               />
@@ -1259,21 +1229,21 @@ function EditMemberDialog({
           </div>
 
           {/* Department + Joining Date */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
               <label
-                className="text-m-caption font-semibold block mb-1"
-                style={{ color: "var(--color-ink-500)" }}
+                className="block text-m-caption font-bold mb-0"
+                style={{ color: "var(--color-ink-700)" }}
               >
                 Department
               </label>
               <select
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
                 style={{
                   borderColor: "var(--color-line)",
-                  backgroundColor: "var(--color-paper)",
+                  backgroundColor: "transparent",
                   color: "var(--color-ink-950)",
                 }}
               >
@@ -1290,8 +1260,8 @@ function EditMemberDialog({
             </div>
             <div>
               <label
-                className="text-m-caption font-semibold block mb-1"
-                style={{ color: "var(--color-ink-500)" }}
+                className="block text-m-caption font-bold mb-0"
+                style={{ color: "var(--color-ink-700)" }}
               >
                 Joining Date
               </label>
@@ -1299,10 +1269,10 @@ function EditMemberDialog({
                 type="date"
                 value={joiningDate}
                 onChange={(e) => setJoiningDate(e.target.value)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
                 style={{
                   borderColor: "var(--color-line)",
-                  backgroundColor: "var(--color-paper)",
+                  backgroundColor: "transparent",
                   color: "var(--color-ink-950)",
                 }}
               />
@@ -1310,15 +1280,15 @@ function EditMemberDialog({
           </div>
 
           {/* Submit */}
-          <div className="flex gap-2 mt-1">
+          <div className="flex gap-1 mt-1">
             <button
               type="button"
               onClick={onClose}
               className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press"
               style={{
                 borderColor: "var(--color-line)",
-                color: "var(--color-ink-500)",
-                backgroundColor: "transparent",
+                color: "var(--color-ink-700)",
+                backgroundColor: "var(--color-paper)",
               }}
             >
               Cancel

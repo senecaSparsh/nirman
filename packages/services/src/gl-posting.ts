@@ -862,10 +862,18 @@ export async function postRenovationCost(
 }
 
 /**
- * Operating Expense: expense it (not capitalised), credit cash.
+ * Operating Expense: expense it (not capitalised), credit cash or AP.
  *
- *   Dr Operating Expenses  (amount)
- *   Cr Cash / Bank          (amount)
+ * Tax-aware, category-aware posting:
+ *   Dr <expenseAccount>           (subtotal)        — defaults to 6000 Operating Expenses
+ *   Dr Input GST / ITC  (1400)    (gstTotal)        — if GST present (recoverable)
+ *   Cr Cash / Bank     (1000)     (paidAmount)      — when paid via cash/bank
+ *   Cr Accounts Payable (2000)    (payableAmount)   — when on credit (payViaAp)
+ *   Cr TDS Payable     (2400)     (tdsAmount)       — if TDS deducted from vendor payment
+ *
+ * `amount` is the grand total (subtotal + gst). For backward compatibility,
+ * if subtotal/gst/tds are omitted, the entire `amount` is expensed and paid
+ * in cash (the original behaviour).
  */
 export async function postExpense(
   tx: Prisma.TransactionClient,
@@ -873,19 +881,47 @@ export async function postExpense(
     companyId: string;
     expenseId: string;
     amount: Decimal | number | string;
+    /** Subtotal (ex-tax) portion. Defaults to `amount` (legacy behaviour). */
+    subtotal?: Decimal | number | string;
+    /** Total GST (CGST+SGST+IGST). Defaults to 0. Debited to Input GST/ITC. */
+    gstTotal?: Decimal | number | string;
+    /** TDS deducted. Defaults to 0. Credited to TDS Payable. */
+    tdsAmount?: Decimal | number | string;
+    /** GL expense account code for the subtotal. Defaults to 6000 Operating Expenses. */
+    expenseAccountCode?: string;
+    /** When true, credit Accounts Payable instead of Cash (vendor on credit). */
+    payViaAp?: boolean;
     postedById?: string;
   },
 ) {
+  const total = new Decimal(opts.amount);
+  const subtotal = opts.subtotal != null ? new Decimal(opts.subtotal) : total;
+  const gstTotal = opts.gstTotal != null ? new Decimal(opts.gstTotal) : new Decimal(0);
+  const tdsAmount = opts.tdsAmount != null ? new Decimal(opts.tdsAmount) : new Decimal(0);
+  const expenseAccount = opts.expenseAccountCode ?? ACCT.OPERATING_EXPENSE;
+
+  // The credit (cash or AP) = total - tds. TDS goes to TDS Payable.
+  const creditTotal = total.minus(tdsAmount);
+  const creditAccount = opts.payViaAp ? ACCT.AP : ACCT.CASH;
+
+  const lines: JournalLineInput[] = [
+    { accountCode: expenseAccount, debit: subtotal, credit: 0, entityType: "Expense", entityId: opts.expenseId },
+  ];
+  if (gstTotal.gt(0)) {
+    lines.push({ accountCode: ACCT.INPUT_GST, debit: gstTotal, credit: 0, entityType: "Expense", entityId: opts.expenseId });
+  }
+  if (tdsAmount.gt(0)) {
+    lines.push({ accountCode: ACCT.TDS_PAYABLE, debit: 0, credit: tdsAmount, entityType: "Expense", entityId: opts.expenseId });
+  }
+  lines.push({ accountCode: creditAccount, debit: 0, credit: creditTotal, entityType: "Expense", entityId: opts.expenseId });
+
   return postJournalEntry(tx, {
     companyId: opts.companyId,
     sourceType: "EXPENSE",
     sourceId: opts.expenseId,
-    memo: "Operating expense",
+    memo: opts.payViaAp ? "Operating expense (on credit)" : "Operating expense",
     postedById: opts.postedById,
-    lines: [
-      { accountCode: ACCT.OPERATING_EXPENSE, debit: opts.amount, credit: 0, entityType: "Expense", entityId: opts.expenseId },
-      { accountCode: ACCT.CASH, debit: 0, credit: opts.amount, entityType: "Expense", entityId: opts.expenseId },
-    ],
+    lines,
   });
 }
 
@@ -1014,6 +1050,41 @@ export async function postLandPurchase(
     memo: payable.gt(0) ? "Land acquisition capitalised (staged — token paid, balance on AP)" : "Land acquisition capitalised",
     postedById: opts.postedById,
     lines,
+  });
+}
+
+/**
+ * Land Cost Component accrual — capitalise an additional land cost
+ * (one-off or a recurring occurrence that has fallen due) into the
+ * Land Asset account, crediting Cash. Called with the DELTA only
+ * (the amount by which postedAmount increased since last posting),
+ * so each occurrence posts its own balanced entry as it accrues.
+ *
+ *   Dr Unsold Assets - Land   (delta)
+ *   Cr Cash / Bank             (delta)
+ */
+export async function postLandCostComponent(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    landCostComponentId: string;
+    landPurchaseId: string;
+    amount: Decimal | number | string;
+    postedById?: string;
+  },
+) {
+  const amount = new Decimal(opts.amount);
+  if (amount.lte(0)) return null;
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "LAND_COST_COMPONENT",
+    sourceId: opts.landCostComponentId,
+    memo: "Land cost component accrual capitalised",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.LAND_ASSET, debit: amount, credit: 0, entityType: "LandPurchase", entityId: opts.landPurchaseId, memo: "Additional land cost capitalised" },
+      { accountCode: ACCT.CASH, debit: 0, credit: amount, entityType: "LandCostComponent", entityId: opts.landCostComponentId, memo: "Cash paid for land cost" },
+    ],
   });
 }
 

@@ -31,7 +31,7 @@ import {
   ShieldCheck,
   Check,
 } from "lucide-react";
-import { MobileStatusBadge, ActionBar } from "@/components/mobile/v2/primitives";
+import { MobileStatusBadge, ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
@@ -188,7 +188,7 @@ export function MobileTransferDetailClient({
       // the detail page re-fetches heavy data and the old transfer may not
       // even be visible under the new company context.
       startTransition(() => {
-        router.replace("/m/transfers");
+        router.replace("/m/stock?tab=transfers");
       });
     } catch {
       toast.error("Failed to switch company");
@@ -950,24 +950,11 @@ export function MobileTransferDetailClient({
       </div>
 
       {transfer.lines.length === 0 ? (
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-6 text-center"
-          style={{
-            borderColor: "var(--color-line)",
-            backgroundColor: "var(--color-paper-2)",
-          }}
-        >
-          <Package
-            className="size-5 mb-1.5"
-            style={{ color: "var(--color-ink-300)" }}
-          />
-          <p
-            className="text-m-body font-semibold"
-            style={{ color: "var(--color-ink-700)" }}
-          >
-            No items in this transfer
-          </p>
-        </div>
+        <MobileEmptyState
+          icon={Package}
+          title="No items in this transfer"
+          size="compact"
+        />
       ) : (
         <div className="flex flex-col gap-1.5">
           {transfer.lines.map((l, idx) => {

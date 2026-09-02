@@ -44,7 +44,7 @@ export const GET = async (
   // otherwise the file must belong to the user's current company.
   const isUploader = upload.uploadedById === user.id;
   const sameCompany = upload.companyId === company.id;
-  const isSuperuser = user.role === "OWNER" || user.role === "ADMIN";
+  const isSuperuser = user.role === "OWNER" || user.role === "ADMIN" || user.role === "DEVELOPER";
   if (!isUploader && !sameCompany && !isSuperuser) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }

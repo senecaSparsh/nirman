@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
-import { Phone, Calendar, Flame, TrendingUp, UserPlus, Plus } from "lucide-react";
+import { Phone, Calendar, Flame, TrendingUp, UserPlus } from "lucide-react";
 import {formatDate} from "@/lib/utils";
 import {
   MobileSearchHeader,
@@ -15,6 +16,9 @@ import {
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { MobileNewLeadClient } from "./new/MobileNewLeadClient";
 
 type StageFilter = "ALL" | "NEW" | "CONTACTED" | "SITE_VISIT" | "NEGOTIATION" | "BOOKED" | "LOST";
 
@@ -87,6 +91,9 @@ export function MobileLeadsList({
   exportRows,
   exportColumns,
   exportSummary,
+  newLeadProjects,
+  newLeadUnits,
+  newLeadAssignees,
 }: {
   items: LeadListItem[];
   hotCount: number;
@@ -97,7 +104,13 @@ export function MobileLeadsList({
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
   exportSummary?: string;
+  /** Dropdown data for the inline new-lead modal (FAB). */
+  newLeadProjects?: { id: string; name: string }[];
+  newLeadUnits?: { id: string; projectId: string; projectName: string; label: string }[];
+  newLeadAssignees?: { id: string; name: string }[];
 }) {
+  const fab = useFabModal();
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [stageFilter, setStageFilter] = useState<StageFilter>("ALL");
 
@@ -139,18 +152,7 @@ export function MobileLeadsList({
       <MobileEmptyState
         icon={UserPlus}
         title="No leads yet"
-        hint="Create a lead to track potential customers"
-        action={
-          canCreate ? (
-            <Link
-              href="/m/leads/new"
-              className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-            >
-              <Plus className="size-3.5" /> Add Lead
-            </Link>
-          ) : undefined
-        }
+        description={canCreate ? "Tap the + button below to create your first lead." : "Leads will appear here once created."}
       />
     );
   }
@@ -207,7 +209,23 @@ export function MobileLeadsList({
 
       {/* ── New lead FAB ── */}
       {canCreate ? (
-        <MobileFab href="/m/leads/new" label="Add lead" />
+        <>
+          <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="Add lead" />
+          <MobileFabModal
+            open={fab.isOpen}
+            onClose={fab.close}
+            originRect={fab.originRect}
+            title="New Lead"
+          >
+            <MobileNewLeadClient
+              projects={newLeadProjects ?? []}
+              units={newLeadUnits ?? []}
+              assignees={newLeadAssignees ?? []}
+              onClose={fab.close}
+              onCreated={() => router.refresh()}
+            />
+          </MobileFabModal>
+        </>
       ) : null}
     </div>
   );

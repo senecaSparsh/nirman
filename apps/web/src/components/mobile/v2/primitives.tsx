@@ -218,6 +218,7 @@ export function MobileRow({
   metaSub,
   badge,
   tone = "default",
+  empId,
 }: {
   href?: string;
   icon?: LucideIcon;
@@ -227,6 +228,8 @@ export function MobileRow({
   metaSub?: string;
   badge?: React.ReactNode;
   tone?: "default" | "warning" | "danger" | "success";
+  /** Employee ID — when set, the title gets `data-emp-id` so double-click navigates to the profile. */
+  empId?: string;
 }) {
   const toneColor = {
     default: "var(--color-ink-500)",
@@ -243,7 +246,11 @@ export function MobileRow({
         </span>
       )}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-m-strong" style={{ color: "var(--color-ink-950)" }}>
+        <p
+          className="truncate text-m-strong"
+          style={{ color: "var(--color-ink-950)", ...(empId ? { cursor: "pointer" } : {}) }}
+          {...(empId ? { "data-emp-id": empId } : {})}
+        >
           {title}
         </p>
         {subtitle && (
@@ -356,27 +363,93 @@ export function MobileSectionTitle({
   );
 }
 
-// ─── Mobile empty state (warm style — matches Nirman OS EmptyState) ────────
+// ─── Mobile empty state (warm style — matches desktop EmptyState) ──────────
+//
+// The single canonical mobile empty state.  Feature-parity with the
+// desktop `EmptyState` (components/empty-state.tsx): icon plate, title,
+// description, hint, primary + secondary action, and a contact-hint
+// fallback for roles that can't create the thing.
+//
+// Uses the warm /m palette tokens (--color-ink-*, --color-concrete).
 
 export function MobileEmptyState({
   icon: Icon,
   title,
+  description,
   hint,
   action,
+  secondaryAction,
+  contactHint,
+  size = "default",
+  className,
 }: {
-  icon: LucideIcon;
+  icon?: LucideIcon;
   title: string;
+  /** Primary explanatory line below the title. */
+  description?: string;
+  /** Secondary guidance line — smaller, quieter. */
   hint?: string;
   action?: React.ReactNode;
+  /** A quieter alternative next to the primary action. */
+  secondaryAction?: React.ReactNode;
+  /** Shown when the user's role can't create the thing — replaces the action. */
+  contactHint?: string;
+  /** `compact` for empty states inside a card or a smaller panel. */
+  size?: "default" | "compact";
+  className?: string;
 }) {
+  const compact = size === "compact";
   return (
-    <div className="flex flex-col items-center text-center px-4 py-7">
-      <div className="grid place-items-center w-11 h-11 rounded-full mb-2.5" style={{ backgroundColor: "var(--color-concrete)" }}>
-        <Icon className="size-5" style={{ color: "var(--color-ink-300)" }} />
-      </div>
-      <p className="text-m-section" style={{ color: "var(--color-ink-950)" }}>{title}</p>
-      {hint && <p className="text-m-caption mt-1.5 max-w-[18rem]" style={{ color: "var(--color-ink-500)" }}>{hint}</p>}
-      {action && <div className="mt-3">{action}</div>}
+    <div
+      className={`flex flex-col items-center text-center ${compact ? "px-4 py-7" : "px-6 py-16"} ${className ?? ""}`}
+    >
+      {Icon && (
+        <div
+          className={`grid place-items-center rounded-2xl mb-3 ${compact ? "size-9" : "size-12"}`}
+          style={{ backgroundColor: "var(--color-concrete)" }}
+        >
+          <Icon
+            className={compact ? "size-4" : "size-5"}
+            style={{ color: "var(--color-ink-300)" }}
+          />
+        </div>
+      )}
+      <p
+        className={compact ? "text-m-body font-semibold" : "text-m-section font-semibold"}
+        style={{ color: "var(--color-ink-950)" }}
+      >
+        {title}
+      </p>
+      {description && (
+        <p
+          className="mt-1.5 max-w-[20rem] text-m-caption leading-relaxed"
+          style={{ color: "var(--color-ink-500)" }}
+        >
+          {description}
+        </p>
+      )}
+      {hint && (
+        <p
+          className="mt-1 max-w-[20rem] text-m-caption leading-relaxed"
+          style={{ color: "var(--color-ink-400)" }}
+        >
+          {hint}
+        </p>
+      )}
+      {(action || secondaryAction) && (
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          {secondaryAction}
+          {action}
+        </div>
+      )}
+      {!action && contactHint && (
+        <p
+          className="mt-3 text-m-caption"
+          style={{ color: "var(--color-ink-400)" }}
+        >
+          {contactHint}
+        </p>
+      )}
     </div>
   );
 }
@@ -533,6 +606,75 @@ export function mobileStatusColor(status: string, variant: "base" | "wash" | "da
   const entry = MEANING_TO_COLOR[meaning] ?? MEANING_TO_COLOR.neutral;
   if (!entry) return "var(--color-ink-400)";
   return entry[variant] ?? "var(--color-ink-400)";
+}
+
+// ─── Mobile page header ────────────────────────────────────────────────────
+
+/**
+ * Page-level header for mobile list/index pages. Title + optional subtitle
+ * on the left, an optional action slot on the right, and an optional stats
+ * band below. This is the server-component version (no client hooks).
+ */
+export function MobilePageHeader({
+  title,
+  subtitle,
+  right,
+  stats,
+}: {
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+  stats?: { label: string; value: string; tone?: "default" | "warning" | "danger" | "success" }[];
+}) {
+  return (
+    <div
+      className="border-b"
+      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+    >
+      <div className="flex items-start justify-between gap-3 px-4 py-3">
+        <div className="min-w-0">
+          <h1
+            className="truncate text-m-section font-bold leading-tight tracking-[-0.02em]"
+            style={{ color: "var(--color-ink-950)" }}
+          >
+            {title}
+          </h1>
+          {subtitle && (
+            <p className="mt-1 text-m-caption leading-snug" style={{ color: "var(--color-ink-500)" }}>{subtitle}</p>
+          )}
+        </div>
+        {right && <div className="shrink-0">{right}</div>}
+      </div>
+      {stats && stats.length > 0 && (
+        <dl
+          className="flex items-stretch border-t"
+          style={{ borderColor: "var(--color-line)" }}
+        >
+          {stats.map((s, i) => (
+            <div
+              key={s.label}
+              className="min-w-0 flex-1 px-4 py-2.5"
+              style={i > 0 ? { borderLeft: "1px solid var(--color-line)" } : undefined}
+            >
+              <dt className="truncate text-m-caption" style={{ color: "var(--color-ink-500)" }}>{s.label}</dt>
+              <dd
+                className="mt-1 truncate text-m-section font-semibold leading-none tnum"
+                style={{
+                  color:
+                    s.tone === "warning" ? "var(--color-warn)" :
+                    s.tone === "danger" ? "var(--color-stop)" :
+                    s.tone === "success" ? "var(--color-go)" :
+                    "var(--color-ink-950)",
+                }}
+              >
+                {s.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
+  );
 }
 
 // ─── Mobile pipeline stepper (warm palette) ───────────────────────────────

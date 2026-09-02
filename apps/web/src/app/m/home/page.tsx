@@ -6,7 +6,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { getUserRole } from "@/lib/server";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import { MobileSelfCheckIn } from "@/components/mobile/mobile-self-check-in";
-import { MorningBriefing } from "@/components/mobile/morning-briefing";
+import { HomeTree } from "./home-tree";
 import { MobileHomeClient, type CompanyCardData } from "./home-client";
 
 /**
@@ -141,8 +141,8 @@ async function HomeContent() {
 
   return (
     <>
-      {/* ── Morning briefing — glanceable summary of what needs attention today ── */}
-      <MorningBriefing />
+      {/* ── Home tree — briefing + recent in a file-system tree ── */}
+      <HomeTree userName={user?.name ?? null} />
 
       {/* ── Self-check-in widget (only for employees with an employee record) ── */}
       {myEmployee && (

@@ -7,7 +7,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusPill } from "@/components/page";
 import { EmptyState } from "@/components/empty-state";
 import { PhaseFormDialog, type PhaseFormValues } from "./phase-form-dialog";
-import { ConfirmDelete } from "@/components/confirm-delete";
+import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export type PhaseRow = {
@@ -130,10 +130,10 @@ export function PhasesSection({ projectId, phases }: { projectId: string; phases
       )}
 
       {delTarget && (
-        <ConfirmDelete
+        <DeleteConfirmDialog
           open={Boolean(delTarget)}
           onOpenChange={(o) => !o && setDelTarget(null)}
-          url={`/api/projects/${projectId}/phases/${delTarget.id}`}
+          endpoint={`/api/projects/${projectId}/phases/${delTarget.id}`}
           title="Delete phase"
           description={`Delete “${delTarget.name}”? Phases linked to locations, units or issues cannot be deleted.`}
           successMessage="Phase deleted"

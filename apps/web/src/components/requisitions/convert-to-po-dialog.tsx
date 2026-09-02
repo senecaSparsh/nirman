@@ -159,7 +159,7 @@ export function ConvertToPoDialog({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to convert requisition");
+      if (!res.ok) throw new Error(data.error ?? "Failed to convert indent");
       toast.success(`PO ${data.poNumber} created from indent ${requisition.reqNumber}`, {
         description: "Approve the PO to send it to the supplier.",
         action: {

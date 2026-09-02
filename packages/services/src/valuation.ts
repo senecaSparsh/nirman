@@ -120,10 +120,12 @@ export async function projectTotalCost(projectId: string): Promise<{
   costRecovery: Decimal;
   total: Decimal;
 }> {
-  const [materialIssues, projectCosts, landPurchases] = await Promise.all([
-    prisma.materialIssueLine.aggregate({
+  const [lines, projectCosts, landPurchases] = await Promise.all([
+    // Materials: Σ (qty × unitCost) per line — Prisma can't multiply in aggregate,
+    // so fetch lines and compute. For large datasets this could be a raw SQL query.
+    prisma.materialIssueLine.findMany({
       where: { materialIssue: { projectId } },
-      _sum: { qty: true, unitCost: true },
+      select: { qty: true, unitCost: true },
     }),
     // ProjectCost doesn't have a single "amount" aggregate easily since costType varies;
     // sum all amounts
@@ -137,12 +139,6 @@ export async function projectTotalCost(projectId: string): Promise<{
     }),
   ]);
 
-  // Materials: Σ (qty × unitCost) per line — Prisma can't multiply in aggregate,
-  // so fetch lines and compute. For large datasets this could be a raw SQL query.
-  const lines = await prisma.materialIssueLine.findMany({
-    where: { materialIssue: { projectId } },
-    select: { qty: true, unitCost: true },
-  });
   const materials = lines.reduce(
     (sum, l) => sum.plus(new Decimal(l.qty).times(new Decimal(l.unitCost))),
     new Decimal(0),
@@ -313,15 +309,17 @@ export async function reallocateProjectCosts(
   const costPerSqft = totalArea.gt(0) ? poolToAllocate.div(totalArea) : new Decimal(0);
 
   // 4. Write allocation back to each unit + project cache
-  for (const unit of units) {
-    const areaAllocated = costPerSqft.times(new Decimal(unit.area));
-    const directCost = unitDirectCostMap.get(unit.id) ?? new Decimal(0);
-    const totalUnitCost = areaAllocated.plus(directCost);
-    await tx.builtUnit.update({
-      where: { id: unit.id },
-      data: { productionCost: totalUnitCost },
-    });
-  }
+  await Promise.all(
+    units.map((unit) => {
+      const areaAllocated = costPerSqft.times(new Decimal(unit.area));
+      const directCost = unitDirectCostMap.get(unit.id) ?? new Decimal(0);
+      const totalUnitCost = areaAllocated.plus(directCost);
+      return tx.builtUnit.update({
+        where: { id: unit.id },
+        data: { productionCost: totalUnitCost },
+      });
+    }),
+  );
 
   await tx.project.update({
     where: { id: projectId },

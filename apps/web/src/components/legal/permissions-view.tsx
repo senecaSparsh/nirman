@@ -15,6 +15,7 @@ import {
   daysUntilExpiry, getExpiryStatus,
 } from "@/lib/legal-doc-flow";
 import type { LegalDocStatus } from "@/components/legal/legal-docs-section";
+import { EmptyState } from "@/components/empty-state";
 
 export type PermissionRow = {
   id: string;
@@ -220,15 +221,15 @@ export function PermissionsView({ docs, canManage }: { docs: PermissionRow[]; ca
 
       {/* Results by stage */}
       {filtered.length === 0 ? (
-        <div className="rounded-lg border border-border bg-card p-8 text-center">
-          <ShieldCheck className="mx-auto h-8 w-8 text-muted-foreground/40" />
-          <p className="mt-2 text-body font-medium text-foreground">No permissions found</p>
-          <p className="text-caption text-muted-foreground">
-            {docs.length === 0
+        <EmptyState
+          icon={<ShieldCheck />}
+          title="No permissions found"
+          description={
+            docs.length === 0
               ? "Permissions, NOCs, and certificates will appear here once you add them to a project or land parcel."
-              : "No documents match the current filters."}
-          </p>
-        </div>
+              : "No documents match the current filters."
+          }
+        />
       ) : (
         <div className="space-y-4">
           {STAGE_ORDER.map((stage) => {

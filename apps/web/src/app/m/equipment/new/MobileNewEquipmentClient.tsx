@@ -16,7 +16,15 @@ import { DraftBanner } from "@/components/mobile/draft-banner";
  * /m/equipment/new — mobile form to register new equipment.
  * Fields: asset tag, name, model, serial, category, cost, date, notes.
  */
-export default function MobileNewEquipmentClient() {
+export default function MobileNewEquipmentClient({
+  onClose,
+  onCreated,
+}: {
+  /** When provided, the form closes this modal on success instead of navigating. */
+  onClose?: () => void;
+  /** Called with the newly created equipment before closing (optional). */
+  onCreated?: (equipment: { id: string }) => void;
+}) {
   const router = useRouter();
   const submitLongPress = useLongPressNav("/m/equipment", "Equipment list");
   const [submitting, setSubmitting] = useState(false);
@@ -94,6 +102,11 @@ export default function MobileNewEquipmentClient() {
 
       const data = await res.json();
       clearDraft();
+      if (onClose) {
+        onCreated?.({ id: data.id });
+        onClose();
+        return;
+      }
       setSuccess({ id: data.id });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create equipment");
@@ -115,10 +128,10 @@ export default function MobileNewEquipmentClient() {
         <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
           Equipment Registered
         </p>
-        <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-body mb-4" style={{ color: "var(--color-ink-700)" }}>
           {assetTag} · {name}
         </p>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           <button
             onClick={() => {
               router.refresh();
@@ -142,7 +155,7 @@ export default function MobileNewEquipmentClient() {
               setNotes("");
             }}
             className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
           >
             Add Another
           </button>
@@ -165,15 +178,15 @@ export default function MobileNewEquipmentClient() {
       {/* ── Section: Identity ── */}
       <SectionHeader icon={Tag} label="Identity" />
 
-      <div className="flex flex-col gap-2 mb-3">
+      <div className="flex flex-col gap-3 mb-3">
         <Field label="Asset Tag" required>
           <input
             type="text"
             value={assetTag}
             onChange={(e) => setAssetTag(e.target.value)}
             placeholder="e.g. EQ-001"
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-mono font-bold outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full px-1 py-1 text-m-caption font-mono font-bold outline-none border-b focus:border-b-2 transition-colors"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
           />
         </Field>
 
@@ -183,8 +196,8 @@ export default function MobileNewEquipmentClient() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Concrete Mixer 1"
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-bold outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full px-1 py-1 text-m-caption font-bold outline-none border-b focus:border-b-2 transition-colors"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
           />
         </Field>
 
@@ -194,8 +207,8 @@ export default function MobileNewEquipmentClient() {
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             placeholder="e.g. Mixer, Vehicle, Tool"
-            className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
           />
         </Field>
       </div>
@@ -203,15 +216,15 @@ export default function MobileNewEquipmentClient() {
       {/* ── Section: Specs ── */}
       <SectionHeader icon={Package} label="Specifications" />
 
-      <div className="flex flex-col gap-2 mb-3">
+      <div className="flex flex-col gap-3 mb-3">
         <Field label="Model">
           <input
             type="text"
             value={model}
             onChange={(e) => setModel(e.target.value)}
             placeholder="e.g. BMX-500"
-            className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
           />
         </Field>
 
@@ -221,8 +234,8 @@ export default function MobileNewEquipmentClient() {
             value={serialNumber}
             onChange={(e) => setSerialNumber(e.target.value)}
             placeholder="e.g. SN-12345-ABC"
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-mono font-medium outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full px-1 py-1 text-m-caption font-mono font-medium outline-none border-b focus:border-b-2 transition-colors"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
           />
         </Field>
       </div>
@@ -230,12 +243,12 @@ export default function MobileNewEquipmentClient() {
       {/* ── Section: Valuation ── */}
       <SectionHeader icon={IndianRupee} label="Valuation" />
 
-      <div className="flex flex-col gap-2 mb-3">
+      <div className="flex flex-col gap-3 mb-3">
         <Field label="Acquisition Cost">
           <div className="relative">
             <IndianRupee
               className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
-              style={{ color: "var(--color-ink-500)" }}
+              style={{ color: "var(--color-ink-700)" }}
             />
             <input
               type="text" inputMode="decimal"
@@ -244,8 +257,8 @@ export default function MobileNewEquipmentClient() {
               value={acquisitionCost}
               onChange={(e) => setAcquisitionCost(e.target.value)}
               placeholder="0"
-              className="w-full rounded-[0.375rem] border pl-7 pr-2.5 py-2 text-m-section font-bold tabular-nums outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              className="w-full pl-7 pr-1 py-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
             />
           </div>
         </Field>
@@ -255,8 +268,8 @@ export default function MobileNewEquipmentClient() {
             type="date"
             value={purchaseDate}
             onChange={(e) => setPurchaseDate(e.target.value)}
-            className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
           />
         </Field>
       </div>
@@ -270,8 +283,8 @@ export default function MobileNewEquipmentClient() {
           onChange={(e) => setNotes(e.target.value)}
           placeholder="e.g. Purchased from ABC Suppliers, warranty 2 years"
           rows={3}
-          className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none resize-none"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
         />
       </div>
 
@@ -284,10 +297,10 @@ export default function MobileNewEquipmentClient() {
           borderColor: "var(--color-line)",
         }}
       >
-        <div className="max-w-md mx-auto px-3.5 py-2 flex items-center gap-3">
+        <div className="max-w-md mx-auto px-3.5 py-2 flex items-center gap-1">
           {/* Summary */}
           <div className="shrink-0">
-            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-700)" }}>
               Value
             </p>
             <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
@@ -328,8 +341,8 @@ function SectionHeader({
 }) {
   return (
     <div className="flex items-center gap-1.5 mb-2">
-      <Icon className="size-3" style={{ color: "var(--color-steel)" }} />
-      <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+      <Icon className="size-3" style={{ color: "var(--color-ink-500)" }} />
+      <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
         {label}
       </span>
       <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-line)" }} />
@@ -347,7 +360,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+      <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
         {label}{required ? " *" : ""}
       </label>
       {children}

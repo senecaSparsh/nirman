@@ -35,6 +35,35 @@ async function MobileLeadsContent() {
     },
   });
 
+  // Dropdown data for the inline new-lead FAB modal.
+  const [newLeadProjects, newLeadUnits, newLeadAssignees] = canCreate
+    ? await Promise.all([
+        prisma.project.findMany({
+          where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true },
+        }),
+        prisma.builtUnit.findMany({
+          where: {
+            deletedAt: null,
+            status: { in: ["AVAILABLE", "HOLD"] },
+            project: { companyId: company.id, deletedAt: null },
+          },
+          orderBy: [{ project: { name: "asc" } }, { unitNumber: "asc" }],
+          select: { id: true, unitNumber: true, unitType: true, projectId: true, project: { select: { name: true } } },
+        }),
+        prisma.userCompany.findMany({
+          where: {
+            companyId: company.id,
+            role: { in: ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "SALES_MANAGER"] },
+            user: { active: true },
+          },
+          orderBy: { user: { name: "asc" } },
+          select: { user: { select: { id: true, name: true } } },
+        }),
+      ])
+    : [[], [], []];
+
   const now = new Date();
 
   const rows: LeadListItem[] = leads.map((l) => ({
@@ -90,6 +119,14 @@ async function MobileLeadsContent() {
         exportRows={rows as unknown as Record<string, unknown>[]}
         exportColumns={exportColumns}
         exportSummary={`${rows.length} leads · ${hotCount} hot · ${bookedCount} booked`}
+        newLeadProjects={newLeadProjects as { id: string; name: string }[]}
+        newLeadUnits={(newLeadUnits as { id: string; unitNumber: string; unitType: string; projectId: string; project: { name: string } }[]).map((u) => ({
+          id: u.id,
+          projectId: u.projectId,
+          projectName: u.project.name,
+          label: `${u.unitNumber} · ${u.unitType.replace(/_/g, " ")}`,
+        }))}
+        newLeadAssignees={(newLeadAssignees as { user: { id: string; name: string } }[]).map((a) => ({ id: a.user.id, name: a.user.name }))}
       />
     </div>
   );

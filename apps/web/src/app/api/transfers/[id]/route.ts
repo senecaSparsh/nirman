@@ -181,7 +181,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
       }
 
       revalidatePath("/transfers");
-      revalidatePath("/m/transfers");
+      revalidatePath("/m/stock");
       return json(t);
     }
     if (action === "complete") {
@@ -204,19 +204,19 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
         lineReceipts: body.lineReceipts,
       });
       revalidatePath("/transfers");
-      revalidatePath("/m/transfers");
+      revalidatePath("/m/stock");
       return json(t);
     }
     if (action === "returnToSource") {
       const t = await returnTransferToSource(id, user.id, body.reason);
       revalidatePath("/transfers");
-      revalidatePath("/m/transfers");
+      revalidatePath("/m/stock");
       return json(t);
     }
     if (action === "cancel") {
       const t = await cancelTransfer(id, user.id);
       revalidatePath("/transfers");
-      revalidatePath("/m/transfers");
+      revalidatePath("/m/stock");
       return json(t);
     }
     return json({ error: "Unknown action" }, { status: 400 });

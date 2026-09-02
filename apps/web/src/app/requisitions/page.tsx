@@ -12,7 +12,7 @@ import { NoAccess } from "@/components/no-access";
 export default function RequisitionsPage() {
   return (
     <div className="space-y-6">
-      <Suspense fallback={<PageLoading label="Loading requisitions…" />}>
+      <Suspense fallback={<PageLoading label="Loading indents…" />}>
         <RequisitionsContent />
       </Suspense>
     </div>

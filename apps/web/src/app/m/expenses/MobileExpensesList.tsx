@@ -22,6 +22,11 @@ export type ExpenseListItem = {
   date: string;
   projectName: string | null;
   notes: string | null;
+  status: string;
+  paymentMode: string | null;
+  payeeName: string | null;
+  supplierName: string | null;
+  receiptUrl: string | null;
 };
 
 /**
@@ -167,7 +172,16 @@ export function MobileExpensesList({
 }
 
 /* ─── Expense card — finance-style with amount accent ─── */
+
+const STATUS_COLOR: Record<string, string> = {
+  DRAFT: "var(--color-ink-500)",
+  PENDING: "var(--color-hold)",
+  APPROVED: "var(--color-go)",
+  REJECTED: "var(--color-stop)",
+};
+
 function ExpenseCard({ e }: { e: ExpenseListItem }) {
+  const statusColor = STATUS_COLOR[e.status] ?? "var(--color-ink-500)";
   return (
     <div
       className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden"
@@ -176,8 +190,8 @@ function ExpenseCard({ e }: { e: ExpenseListItem }) {
         backgroundColor: "var(--color-paper)",
       }}
     >
-      {/* Top accent strip */}
-      <div className="h-0.5 w-full" style={{ backgroundColor: "var(--color-steel)" }} />
+      {/* Top accent strip — colored by status */}
+      <div className="h-0.5 w-full" style={{ backgroundColor: statusColor }} />
 
       <div className="p-2 flex flex-col gap-1 flex-1">
         {/* Row 1: Category + amount */}
@@ -193,19 +207,39 @@ function ExpenseCard({ e }: { e: ExpenseListItem }) {
           </span>
         </div>
 
-        {/* Row 2: Date */}
-        <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
-          {formatDate(e.date)}
-        </span>
+        {/* Row 2: Date + status dot */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
+            {formatDate(e.date)}
+          </span>
+          <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: statusColor }} />
+          <span className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: statusColor }}>
+            {e.status}
+          </span>
+        </div>
 
-        {/* Row 3: Project name */}
+        {/* Row 3: Payee / vendor */}
+        {(e.supplierName || e.payeeName) && (
+          <span className="text-m-caption font-semibold truncate" style={{ color: "var(--color-steel)" }}>
+            {e.supplierName ?? e.payeeName}
+          </span>
+        )}
+
+        {/* Row 4: Project name */}
         {e.projectName ? (
           <span className="text-m-caption font-semibold truncate" style={{ color: "var(--color-steel)" }}>
             {e.projectName}
           </span>
         ) : null}
 
-        {/* Row 4: Notes (truncated) */}
+        {/* Row 5: Payment mode */}
+        {e.paymentMode && (
+          <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-400)" }}>
+            {e.paymentMode}
+          </span>
+        )}
+
+        {/* Row 6: Notes (truncated) */}
         <div className="mt-auto pt-1 min-h-[0.875rem] flex items-center">
           {e.notes ? (
             <span className="text-m-caption leading-tight line-clamp-2" style={{ color: "var(--color-ink-500)" }}>

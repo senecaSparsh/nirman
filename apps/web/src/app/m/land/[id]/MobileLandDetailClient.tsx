@@ -12,15 +12,23 @@ import {
   Banknote, KeyRound, CalendarClock,
 } from "lucide-react";
 import { MobileLandEditForm } from "./MobileLandEditForm";
+import { MobileLandCostComponentDialog } from "./MobileLandCostComponentDialog";
 import { MobileLegalDocsSection } from "@/components/legal/mobile-legal-docs-section";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../../sales/MobileChequeFields";
 import { MobileDocUploader } from "../../MobileDocUploader";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
-import { mobileStatusColor, ActionBar } from "@/components/mobile/v2/primitives";
+import { mobileStatusColor, ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { useConfirm } from "@/lib/use-confirm";
 import { toast } from "sonner";
 
 /* ─── Types ─── */
+
+const MOBILE_INTERVAL_LABELS: Record<string, string> = {
+  MONTHLY: "Monthly",
+  QUARTERLY: "Quarterly",
+  HALF_YEARLY: "Half-Yearly",
+  YEARLY: "Yearly",
+};
 
 interface Parcel {
   id: string;
@@ -76,6 +84,21 @@ interface BuiltUnit {
   projectName: string;
 }
 
+interface CostComponent {
+  id: string;
+  landPurchaseId: string;
+  label: string;
+  amount: number;
+  frequency: "ONE_TIME" | "RECURRING";
+  interval: "MONTHLY" | "QUARTERLY" | "HALF_YEARLY" | "YEARLY" | null;
+  startDate: string;
+  endDate: string | null;
+  occurrences: number | null;
+  postedAmount: number;
+  scheduledTotal: number;
+  notes: string | null;
+}
+
 interface LandData {
   id: string;
   sellerName: string;
@@ -109,6 +132,8 @@ interface LandData {
   brokerageAmount?: number | null;
   legalFees?: number | null;
   otherCharges?: number | null;
+  // Cost components (arbitrary / recurring / future costs)
+  costComponents?: CostComponent[];
   costPerUnit: number;
   parcels: Parcel[];
   sales: Sale[];
@@ -241,6 +266,8 @@ export function MobileLandDetailClient({
 }) {
   const router = useRouter();
   const [showEdit, setShowEdit] = useState(false);
+  const [costCompOpen, setCostCompOpen] = useState(false);
+  const [editingCostComp, setEditingCostComp] = useState<CostComponent | null>(null);
   const [view, setView] = useState<"parcels" | "units">("parcels");
   const [cadastreZoom, setCadastreZoom] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
@@ -441,22 +468,11 @@ export function MobileLandDetailClient({
 
   if (notFound || !data) {
     return (
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-            Land purchase not found
-          </p>
-        </div>
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-8 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <MapPin className="size-6 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            Land purchase not found
-          </p>
-        </div>
-      </div>
+      <MobileEmptyState
+        icon={MapPin}
+        title="Land purchase not found"
+        description="This land purchase may have been deleted or doesn't exist."
+      />
     );
   }
 
@@ -890,11 +906,42 @@ export function MobileLandDetailClient({
                   <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.otherCharges)}</strong>
                 </div>
               )}
+              {/* Cost components — arbitrary / recurring / future costs */}
+              {data.costComponents?.map((c) => (
+                <div
+                  key={c.id}
+                  className="flex justify-between text-m-caption cursor-pointer"
+                  onClick={() => { if (canManage) { setEditingCostComp(c); setCostCompOpen(true); } }}
+                >
+                  <span style={{ color: "var(--color-ink-500)" }}>
+                    {c.label}
+                    {c.frequency === "RECURRING" && c.interval && (
+                      <span style={{ color: "var(--color-ink-400)" }}> ({MOBILE_INTERVAL_LABELS[c.interval]})</span>
+                    )}
+                  </span>
+                  <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">
+                    {formatCurrency(c.postedAmount)}
+                    {c.frequency === "RECURRING" && c.scheduledTotal > 0 && c.postedAmount !== c.scheduledTotal && (
+                      <span style={{ color: "var(--color-ink-400)" }} className="font-normal"> / {formatCurrency(c.scheduledTotal)}</span>
+                    )}
+                  </strong>
+                </div>
+              ))}
               <div className="flex justify-between text-m-caption font-bold pt-1 mt-0.5"
                 style={{ borderTop: "1px solid var(--color-line)" }}>
                 <span style={{ color: "var(--color-ink-950)" }}>Total Land Cost</span>
                 <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.totalCost)}</strong>
               </div>
+              {canManage && (
+                <button
+                  type="button"
+                  className="mt-1 flex items-center gap-1 text-m-caption font-medium"
+                  style={{ color: "var(--color-brand)" }}
+                  onClick={() => { setEditingCostComp(null); setCostCompOpen(true); }}
+                >
+                  <Plus className="size-3" /> Add Cost
+                </button>
+              )}
             </div>
           )}
 
@@ -1056,15 +1103,11 @@ export function MobileLandDetailClient({
           ) : null}
 
           {sortedParcels.length === 0 ? (
-            <div
-              className="flex flex-col items-center justify-center rounded-[0.5rem] border py-6 text-center"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-            >
-              <Layers className="size-5 mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-              <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-700)" }}>
-                No parcels
-              </p>
-            </div>
+            <MobileEmptyState
+              icon={Layers}
+              title="No parcels"
+              size="compact"
+            />
           ) : (
             <div className="flex flex-col gap-2">
               {sortedParcels.map((p) => (
@@ -1087,15 +1130,11 @@ export function MobileLandDetailClient({
       {view === "units" && hasBuiltUnits ? (
         <div className="mb-4">
           {sortedUnits.length === 0 ? (
-            <div
-              className="flex flex-col items-center justify-center rounded-[0.5rem] border py-6 text-center"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-            >
-              <Home className="size-5 mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-              <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-700)" }}>
-                No built units
-              </p>
-            </div>
+            <MobileEmptyState
+              icon={Home}
+              title="No built units"
+              size="compact"
+            />
           ) : (
             <div className="flex flex-col gap-2">
               {sortedUnits.map((u) => (
@@ -1377,6 +1416,15 @@ export function MobileLandDetailClient({
           onClose={() => setShowEdit(false)}
         />
       ) : null}
+
+      {/* ── Cost component dialog ── */}
+      {costCompOpen && (
+        <MobileLandCostComponentDialog
+          landPurchaseId={data.id}
+          editing={editingCostComp}
+          onClose={() => { setCostCompOpen(false); setEditingCostComp(null); }}
+        />
+      )}
 
       {/* ── Payment modal ── */}
       {showPayment ? (

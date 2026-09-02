@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
+import { scheduledTotal, refreshLandTotalCost } from "@nirman/services";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
@@ -32,6 +33,9 @@ async function MobileLandDetailContent({ params }: { params: Promise<{ id: strin
   const canSell = hasPermission(role, PERM.SALE_CREATE);
   const canManageLegal = hasPermission(role, PERM.LEGAL_MANAGE);
 
+  // Lazy recompute — advance recurring cost accruals as time passes.
+  try { await refreshLandTotalCost(id); } catch { /* non-fatal */ }
+
   const purchase = await prisma.landPurchase.findFirst({
     where: { id, companyId: company.id, deletedAt: null },
     include: {
@@ -46,6 +50,7 @@ async function MobileLandDetailContent({ params }: { params: Promise<{ id: strin
       },
       payments: { orderBy: { paymentDate: "desc" } },
       paymentSchedule: { include: { items: { orderBy: { installmentNo: "asc" } } } },
+      costComponents: { orderBy: { createdAt: "asc" } },
     },
   });
 
@@ -179,6 +184,21 @@ async function MobileLandDetailContent({ params }: { params: Promise<{ id: strin
     brokerageAmount: purchase.brokerageAmount ? toNum(purchase.brokerageAmount) : null,
     legalFees: purchase.legalFees ? toNum(purchase.legalFees) : null,
     otherCharges: purchase.otherCharges ? toNum(purchase.otherCharges) : null,
+    // Cost components (arbitrary / recurring / future costs)
+    costComponents: purchase.costComponents.map((c) => ({
+      id: c.id,
+      landPurchaseId: c.landPurchaseId,
+      label: c.label,
+      amount: toNum(c.amount),
+      frequency: c.frequency,
+      interval: c.interval,
+      startDate: c.startDate.toISOString(),
+      endDate: c.endDate ? c.endDate.toISOString() : null,
+      occurrences: c.occurrences,
+      postedAmount: toNum(c.postedAmount),
+      scheduledTotal: toNum(scheduledTotal(c)),
+      notes: c.notes,
+    })),
     costPerUnit,
     parcels,
     // Staged purchase

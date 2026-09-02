@@ -82,11 +82,6 @@ export async function getProjectProfitCenter(projectId: string): Promise<Project
   );
 
   // Material cost: sum of MaterialIssueLine.unitCost × qty for this project
-  const materialIssues = await prisma.materialIssueLine.aggregate({
-    where: { materialIssue: { projectId } },
-    _sum: { unitCost: true },
-  });
-  // Actually we need qty × unitCost, not just unitCost sum
   const issueLines = await prisma.materialIssueLine.findMany({
     where: { materialIssue: { projectId } },
     select: { qty: true, unitCost: true },

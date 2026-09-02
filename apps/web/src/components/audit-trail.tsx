@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, XCircle, Plus, Truck, IndianRupee, FileText, Clock } from "lucide-react";
+import { CheckCircle2, XCircle, Plus, Truck, IndianRupee, FileText, Clock, History } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { EmptyState } from "@/components/empty-state";
 
 const ACTION_LABELS: Record<string, string> = {
   PURCHASE_ORDER_CREATE: "PO Created",
@@ -10,10 +11,10 @@ const ACTION_LABELS: Record<string, string> = {
   PURCHASE_ORDER_ORDER: "Marked as Ordered",
   PURCHASE_ORDER_CANCEL: "PO Cancelled",
   PURCHASE_ORDER_RECEIVE: "Goods Received",
-  REQUISITION_CREATE: "Requisition Created",
-  REQUISITION_SUBMIT: "Requisition Submitted",
-  REQUISITION_APPROVE: "Requisition Approved",
-  REQUISITION_REJECT: "Requisition Rejected",
+  REQUISITION_CREATE: "Indent Created",
+  REQUISITION_SUBMIT: "Indent Submitted",
+  REQUISITION_APPROVE: "Indent Approved",
+  REQUISITION_REJECT: "Indent Rejected",
   REQUISITION_CONVERT: "Converted to PO",
   EQUIPMENT_CREATE: "Equipment Added",
   EQUIPMENT_ASSIGN: "Equipment Assigned",
@@ -68,8 +69,13 @@ export function AuditTrail({ entityType, entityId }: { entityType: string; entit
   if (entries.length === 0) {
     return (
       <div>
-        <p className="text-body font-medium">Activity</p>
-        <p className="mt-1 text-caption text-muted-foreground">No activity recorded yet.</p>
+        <p className="mb-2 text-body font-medium">Activity</p>
+        <EmptyState
+          icon={<History />}
+          title="No activity recorded yet"
+          description="Actions on this record will appear here as they happen."
+          size="compact"
+        />
       </div>
     );
   }

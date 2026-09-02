@@ -74,7 +74,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       lines: parsed.data.lines,
     });
     revalidatePath("/transfers");
-    revalidatePath("/m/transfers");
+    revalidatePath("/m/stock");
     return json(transfer, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to create transfer") }, { status: 400 });

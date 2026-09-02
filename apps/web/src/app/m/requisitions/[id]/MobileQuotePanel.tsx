@@ -19,6 +19,7 @@ import {
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import type { ComparativeStatement, VendorQuoteRow } from "@/lib/types";
 
 type SupplierOption = { id: string; name: string };
@@ -478,21 +479,13 @@ export function MobileQuotePanel({
           })}
         </div>
       ) : (
-        <div
-          className="rounded-[0.5rem] border border-dashed p-4 text-center mb-3"
-          style={{
-            borderColor: "var(--color-line)",
-            color: "var(--color-ink-500)",
-          }}
-        >
-          <p className="text-m-body font-semibold mb-1">
-            No quotes uploaded yet
-          </p>
-          <p className="text-m-caption">
-            {minRequired} vendor quote{minRequired > 1 ? "s" : ""} required to
-            convert to PO. Upload quote files from suppliers with pricing.
-          </p>
-        </div>
+        <MobileEmptyState
+          icon={FileText}
+          title="No quotes uploaded yet"
+          description={`${minRequired} vendor quote${minRequired > 1 ? "s" : ""} required to convert to PO. Upload quote files from suppliers with pricing.`}
+          size="compact"
+          className="mb-3"
+        />
       )}
 
       {/* ── Action buttons ── */}

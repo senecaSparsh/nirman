@@ -12,8 +12,10 @@ import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { DraftBanner } from "@/components/mobile/draft-banner";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { useSmartDefaults } from "@/lib/use-smart-defaults";
 import { SmartDefaultsBadge } from "@/components/mobile/v2/smart-defaults-badge";
 
@@ -42,21 +44,21 @@ interface ReqDraft {
 }
 
 const inputClass =
-  "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2";
+  "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors focus:ring-2";
 const inputStyle = {
-  borderColor: "var(--color-line)",
-  backgroundColor: "var(--color-paper)",
-  color: "var(--color-ink-950)",
-};
+    borderColor: "var(--color-line)",
+    backgroundColor: "transparent",
+    color: "var(--color-ink-950)",
+  };
 
 /**
  * Mobile material indent (requisition) creation form.
  * Site users request materials → approver reviews → PO conversion.
  */
-export function MobileNewRequisitionClient({ data }: { data: FormData }) {
+export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data: FormData; onClose?: () => void; onCreated?: (id: string) => void }) {
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();
-  const submitLongPress = useLongPressNav("/m/requisitions", "Indents list");
+  const submitLongPress = useLongPressNav("/m/procurement?tab=indents", "Indents list");
   const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<ReqDraft>("requisition", "requisition-new");
   const [draftRestored, setDraftRestored] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -146,8 +148,12 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
           description: "Will sync when back online",
         });
         clearDraft();
-        router.push("/m/requisitions");
-        router.refresh();
+        if (onCreated) {
+          onCreated("");
+        } else {
+          router.push("/m/procurement?tab=indents");
+          router.refresh();
+        }
         return;
       }
 
@@ -160,10 +166,12 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
       if (!res.ok) throw new Error(result.error ?? "Failed to create indent");
       toast.success(`Indent ${result.reqNumber ?? "created"} submitted`);
       clearDraft();
-      if (result.id) {
+      if (onCreated) {
+        onCreated(result.id);
+      } else if (result.id) {
         router.push(`/m/requisitions/${result.id}`);
       } else {
-        router.push("/m/requisitions");
+        router.push("/m/procurement?tab=indents");
         router.refresh();
       }
     } catch (err: unknown) {
@@ -175,20 +183,11 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
 
   if (data.projects.length === 0) {
     return (
-      <div>
-        <div className="mb-4">
-        </div>
-        <div
-          className="flex flex-col items-center justify-center rounded-[0.5rem] border py-12 text-center"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-        >
-          <ShoppingCart className="size-8 mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-700)" }}>
-            No projects available
-          </p>
-          <p className="text-m-body mt-1 mb-4" style={{ color: "var(--color-ink-500)" }}>
-            Create a project first to raise material indents
-          </p>
+      <MobileEmptyState
+        icon={ShoppingCart}
+        title="No projects available"
+        description="Create a project first to raise material indents"
+        action={
           <Link
             href="/m/projects"
             className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed px-6 py-2.5 text-m-body font-bold text-m-body press"
@@ -197,8 +196,8 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
             <Plus className="size-3.5" />
             Go to Projects
           </Link>
-        </div>
-      </div>
+        }
+      />
     );
   }
 
@@ -219,12 +218,12 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
       <form onSubmit={handleSubmit} className="space-y-3">
         {/* ── Project + date ── */}
         <div
-          className="rounded-[0.625rem] border p-3 space-y-2.5"
+          className="rounded-[0.625rem] border p-3 space-y-3"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <div className="flex items-center gap-1.5 border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
-            <ShoppingCart className="size-3.5" style={{ color: "var(--color-steel)" }} />
-            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <ShoppingCart className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
+            <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-700)" }}>
               Indent Details
             </span>
           </div>
@@ -237,17 +236,19 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
             options={data.projects.map((p) => ({ value: p.id, label: p.name }))}
             inputClass={inputClass}
             inputStyle={inputStyle}
-            renderDialog={({ open, onClose, onCreated }) => (
-              <MobileNewProjectDialog
-                open={open}
-                onClose={onClose}
-                onCreated={(p) => onCreated(p.id, p.name)}
-              />
+            renderDialog={({ open, onClose, onCreated, originRect }) => (
+              <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+                <MobileNewProjectDialog
+                  open={open}
+                  onClose={onClose}
+                  onCreated={(p) => onCreated(p.id, p.name)}
+                />
+              </MobileFabModal>
             )}
           />
 
           <div>
-            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-700)" }}>
               Needed by date
             </label>
             <input
@@ -262,34 +263,34 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
 
         {/* ── Material lines ── */}
         <div
-          className="rounded-[0.625rem] border p-3 space-y-2.5"
+          className="rounded-[0.625rem] border p-3 space-y-3"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
-            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-700)" }}>
               Materials
             </span>
             <button
               type="button"
               onClick={addLine}
               className="flex items-center gap-1 rounded-[0.375rem] px-2 py-1 text-m-caption font-bold text-m-body press active:scale-95"
-              style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-steel)" }}
+              style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}
             >
               <Plus className="size-3" />
               <span>Add</span>
             </button>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             {lines.map((line, idx) => {
               const mat = data.materials.find((m) => m.id === line.materialId);
               return (
                 <div
                   key={idx}
-                  className="rounded-[0.5rem] border p-2 space-y-1.5"
+                  className="rounded-[0.5rem] border p-2 space-y-3.5"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
                 >
-                  <div className="flex items-start gap-2">
+                  <div className="flex items-start gap-1">
                     <div className="min-w-0 flex-1">
                       <MobileSelectWithCreate
                         label=""
@@ -315,14 +316,14 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
                         type="button"
                         onClick={() => removeLine(idx)}
                         className="p-1.5 text-m-body press active:scale-95 shrink-0"
-                        style={{ color: "var(--color-ink-500)" }}
+                        style={{ color: "var(--color-ink-700)" }}
                       >
                         <Trash2 className="size-4" />
                       </button>
                     ) : null}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <input
                       type="text"
                       inputMode="decimal"
@@ -330,10 +331,10 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
                       value={line.qty}
                       onChange={(e) => updateLine(idx, "qty", e.target.value)}
                       placeholder="Qty"
-                      className="w-20 rounded-[0.375rem] border px-2 py-1 text-m-body font-mono font-bold outline-none"
+                      className="w-20 rounded-[0.375rem] border px-2 py-1 text-m-caption font-mono font-bold outline-none"
                       style={inputStyle}
                     />
-                    <span className="text-m-caption font-medium truncate" style={{ color: "var(--color-ink-500)" }}>
+                    <span className="text-m-caption font-medium truncate" style={{ color: "var(--color-ink-700)" }}>
                       {mat?.unit || "units"}
                     </span>
                   </div>
@@ -368,7 +369,7 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
 
         {/* ── Notes ── */}
         <div>
-          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-700)" }}>
             Indent notes
           </label>
           <textarea
@@ -398,7 +399,7 @@ export function MobileNewRequisitionClient({ data }: { data: FormData }) {
             onClick={(e) => { if (submitLongPress.wasLongPress()) return; handleSubmit(e as unknown as React.FormEvent); }}
             disabled={submitting}
             {...submitLongPress.longPressProps}
-            className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3 text-m-section font-bold text-m-body press transition-transform active:scale-95 disabled:opacity-50 select-none"
+            className="flex w-full items-center justify-center gap-1 rounded-[0.625rem] py-3 text-m-section font-bold text-m-body press transition-transform active:scale-95 disabled:opacity-50 select-none"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", touchAction: "none" }}
           >
             {submitting ? (

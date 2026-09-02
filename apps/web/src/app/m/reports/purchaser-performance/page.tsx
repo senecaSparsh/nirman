@@ -69,7 +69,7 @@ async function MobilePurchaserPerformanceContent({
     { key: "userEmail", label: "Email" },
     { key: "role", label: "Role" },
     { key: "quotesUploaded", label: "Quotes Uploaded" },
-    { key: "requisitionsHandled", label: "Requisitions Handled" },
+    { key: "requisitionsHandled", label: "Indents Handled" },
     { key: "totalSpend", label: "Total Spend", format: "currency" },
     { key: "potentialSavings", label: "Potential Savings", format: "currency" },
     { key: "cheapestSelectionRate", label: "Cheapest Selection Rate", format: "percent" },
@@ -79,7 +79,7 @@ async function MobilePurchaserPerformanceContent({
     <div>
       <MobileReportHeader
         title="Purchaser Performance"
-        subtitle="Quote uploads, requisitions handled, and savings per purchaser"
+        subtitle="Quote uploads, indents handled, and savings per purchaser"
         icon={Users}
         period="FY 2025-26"
       />
@@ -123,7 +123,7 @@ async function MobilePurchaserPerformanceContent({
             key={r.userId}
             icon={Users}
             title={r.userName}
-            subtitle={`${r.quotesUploaded} quotes · ${r.requisitionsHandled} reqs`}
+            subtitle={`${r.quotesUploaded} quotes · ${r.requisitionsHandled} indents`}
             meta={formatCurrencyCompact(r.totalSpend)}
             metaSub={`Saved ${formatCurrency(r.potentialSavings)}`}
             tone="default"

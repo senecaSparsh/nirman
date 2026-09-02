@@ -47,6 +47,24 @@
   COMPANY → receive into a company warehouse location; PROJECT → receive into a project site.
 - **Land partition**: atomic transaction — validate Σ child area = parent area, create children,
   set parent `status = PARTITIONED`, record `LandPartition`.
+- **Land cost components (recurring/future costs)**: `@nirman/services`/`land-cost-component.ts` —
+  lets the owner add ANY cost to a land purchase at ANY time, one-off (EDC/IDC, conversion, a
+  future-dated charge) or recurring (yearly lease rent, monthly maintenance). Schema:
+  `LandCostComponent` (label, amount, frequency ONE_TIME/RECURRING, interval, startDate, endDate,
+  occurrences, postedAmount) hanging off `LandPurchase`. Accrual model: `effectivePostedAmount()`
+  computes the incurred amount as of now (ONE_TIME = full amount once startDate elapses; RECURRING =
+  elapsed occurrences × amount, capped by `occurrences`/`endDate`). `recomputeLandTotalCost()`
+  advances `postedAmount` as time passes, posts the GL delta (`postLandCostComponent` → Dr Land
+  Asset / Cr Cash), updates `LandPurchase.totalCost`, reprices parcel `acquisitionCost` pro-rata
+  (WHOLE vs SUBDIVIDED), and re-runs `reallocateProjectCosts()` if linked. `totalCost` = fixed
+  cost-breakup columns + Σ `postedAmount`. Lazy recompute on land detail GET keeps recurring
+  accruals current whenever the page is viewed. `scheduledTotal()` returns the full future
+  commitment for display. Service: `addLandCostComponent`, `updateLandCostComponent`,
+  `deleteLandCostComponent`, `recomputeLandTotalCost`, `refreshLandTotalCost`. API at
+  `GET/POST /api/land-purchases/[id]/cost-components`, `GET/PATCH/DELETE /api/land-purchases/[id]/cost-components/[cid]`.
+  UI: `LandCostComponentDialog` (desktop) + `MobileLandCostComponentDialog` (mobile) — rows in the
+  Cost Breakup panel show `{label}: {postedAmount} / {scheduledTotal}` for recurring; "Add Cost"
+  button below the panel. Pure helpers unit-tested (14 tests).
 - **UI**: shadcn-style primitives in `apps/web/src/components/ui/`. Use `cn()` from `@/lib/utils`.
   Tailwind v4 with theme tokens in `globals.css` (`@theme`). Sidebar nav config in `src/lib/nav.ts`.
 - **API**: Route Handlers under `apps/web/src/app/api/`. Auth via Better-Auth
@@ -764,3 +782,43 @@ construction-industry ERP. The expansion is organized into workstreams H1–H8:
     severe) at the top; everything else is row-level. The procurement
     list already does this on its custom `PoCard` (overdue accent
     strip) — extend the pattern to other lists that use `MobileRow`.
+
+## Instant Feedback (screenshot + voice + text)
+
+A floating feedback button on **every page** (desktop + mobile) lets any user
+send instant feedback to the developer/owner. When clicked, the dialog
+auto-captures a screenshot of the current page (via `html-to-image`), lets the
+user record a voice note (MediaRecorder API), and write free-text. All
+feedback is routed to the DEVELOPER (god-mode) + OWNER + ADMIN accounts.
+
+- **DEVELOPER role (god mode)**: a new tier-1 role (like OWNER/ADMIN) with
+  `permissions: "*"`, full access to everything, plus exclusive access to the
+  feedback inbox. Added to `ALL_ROLES`, `ROLE_TIER`, `ROLES` in `@/lib/roles`.
+  Demo login: `sparsh@nirman.in` / `nirman123` (one-click button on `/sign-in`).
+- **Schema**: `Feedback` model (userId, companyId, message, category
+  BUG/FEATURE/UX/PRAISE/QUESTION/OTHER, screenshotUploadId, voiceUploadId,
+  currentUrl, userAgent, status NEW/READ/RESOLVED/ARCHIVED, resolvedById,
+  resolvedAt, resolutionNote). `FeedbackStatus` + `FeedbackCategory` enums.
+  Relations on `User` (`submittedFeedback`, `resolvedFeedback`) + `Upload`
+  (`feedbackScreenshots`, `feedbackVoiceNotes`).
+- **Service**: `@nirman/services`/`feedback.ts` — `createFeedback()`,
+  `listFeedback()`, `getFeedback()`, `markFeedbackRead()`, `resolveFeedback()`,
+  `archiveFeedback()`, `reopenFeedback()`, `getFeedbackStats()`. Each mutation
+  logs an `AuditLog` entry (`FEEDBACK_CREATE`, `FEEDBACK_RESOLVE`).
+- **API**: `POST /api/feedback` (any authenticated user — submits feedback),
+  `GET /api/feedback` (DEVELOPER/OWNER/ADMIN — list with status/category
+  filters), `GET /api/feedback/[id]` (detail, auto-marks NEW→READ),
+  `PATCH /api/feedback/[id]` (resolve/archive/reopen/markRead),
+  `GET /api/feedback/stats` (counts by status for the inbox header + badge).
+- **UI**: `FeedbackButton` (floating, bottom-right, in root layout — visible
+  on every page except auth/print). `FeedbackDialog` — auto-captures
+  screenshot on open, category selector (6 categories with icons), voice
+  recording with live timer + playback, text area (max 5000 chars), context
+  info (page URL). For DEVELOPER/OWNER/ADMIN, the button shows an unread
+  count badge + a "N new feedback" pill linking to `/feedback`.
+- **Feedback inbox**: `/feedback` page (PPR + Suspense pattern) with
+  `FeedbackInbox` client component — list/detail split view, status filter
+  tabs (All/New/Read/Resolved/Archived), screenshot display, voice note
+  playback, user info (name/email/role/company), page URL link, resolve/
+  archive/reopen actions. Nav: Settings gear → "Feedback Inbox" link
+  (OWNERS only = OWNER/ADMIN/DEVELOPER).

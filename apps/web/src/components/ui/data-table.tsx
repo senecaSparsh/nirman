@@ -12,6 +12,7 @@ import {
   Columns3,
   Download,
   Filter,
+  Inbox,
   Minus,
   Plus,
   Rows3,
@@ -1139,27 +1140,34 @@ export function DataTable<T>({
           <tbody ref={bodyRef}>
             {paged.length === 0 && (
               <tr>
-                <td colSpan={colCount} className="px-3 py-12 text-center">
-                  <p className="text-body font-medium text-foreground">
-                    {data.length === 0 ? "No rows yet" : "No matching rows"}
-                  </p>
-                  <p className="mt-1 text-meta text-muted-foreground">
-                    {search ? (
-                      <>
-                        Nothing matches “{search}”.{" "}
-                        <button
-                          onClick={() => setSearch("")}
-                          className="font-medium text-brand-strong underline-offset-2 hover:underline"
-                        >
-                          Clear the search
-                        </button>
-                      </>
-                    ) : data.length === 0 ? (
-                      onAddRow ? "Click below to add the first row." : "Adjust the filters above to widen the result."
-                    ) : (
-                      "Adjust the filters above to widen the result."
-                    )}
-                  </p>
+                <td colSpan={colCount} className="px-3 py-12">
+                  <div className="flex flex-col items-center justify-center gap-3 text-center">
+                    <div className="flex size-11 items-center justify-center rounded-xl border border-dashed border-border-strong bg-subtle text-faint">
+                      <Inbox className="size-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-body font-semibold text-foreground">
+                        {data.length === 0 ? "No rows yet" : "No matching rows"}
+                      </p>
+                      <p className="mx-auto max-w-sm text-meta leading-relaxed text-muted-foreground">
+                        {search ? (
+                          <>
+                            Nothing matches “{search}”.{" "}
+                            <button
+                              onClick={() => setSearch("")}
+                              className="font-medium text-brand-strong underline-offset-2 hover:underline"
+                            >
+                              Clear the search
+                            </button>
+                          </>
+                        ) : data.length === 0 ? (
+                          onAddRow ? "Click below to add the first row." : "Adjust the filters above to widen the result."
+                        ) : (
+                          "Adjust the filters above to widen the result."
+                        )}
+                      </p>
+                    </div>
+                  </div>
                 </td>
               </tr>
             )}

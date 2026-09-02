@@ -35,6 +35,13 @@ const STAGE_ICONS: Record<string, typeof MapPin> = {
   POST_COMPLETION: ShieldCheck,
 };
 
+// ── Stage header style (tree-hierarchy visual language) ──
+const STAGE_HEADER_STYLE: Record<string, { bg: string; fg: string }> = {
+  FEASIBILITY: { bg: "var(--color-ink-950)", fg: "var(--color-paper)" },
+  SANCTION: { bg: "var(--color-steel)", fg: "#fff" },
+  POST_COMPLETION: { bg: "var(--color-signal)", fg: "var(--color-ink-950)" },
+};
+
 /**
  * MobileLegalDocsSection — mobile-optimized legal documents section.
  * Used on both /m/land/[id] and /m/projects/[id] pages.
@@ -206,22 +213,42 @@ export function MobileLegalDocsSection({
         </p>
       </div>
 
-      {/* Guided checklist by stage */}
+      {/* Guided checklist by stage — tree-hierarchy style */}
       <div className="space-y-3">
         {STAGE_ORDER.map((stage) => {
           const steps = stepsByStage[stage];
           if (!steps || steps.length === 0) return null;
           const StageIcon = STAGE_ICONS[stage] ?? FileText;
+          const headerStyle = STAGE_HEADER_STYLE[stage] ?? STAGE_HEADER_STYLE.SANCTION!;
+          const stageObtained = steps.filter((s) => {
+            const d = docsByType[s.type];
+            return d?.obtained && d?.status === "APPROVED";
+          }).length;
 
           return (
             <div key={stage}>
-              <div className="flex items-center gap-1.5 mb-1.5 pb-1" style={{ borderBottom: "1px solid var(--color-line)" }}>
-                <StageIcon className="size-3" style={{ color: "var(--color-ink-500)" }} />
-                <p className="text-m-label font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              {/* ── Stage header — tree-row style (icon in rounded square + label + count) ── */}
+              <div className="flex items-center gap-1.5 mb-2">
+                <span
+                  className="grid place-items-center size-4 rounded-[0.1875rem] shrink-0"
+                  style={{ backgroundColor: headerStyle.bg }}
+                >
+                  <StageIcon className="size-2.5" style={{ color: headerStyle.fg }} />
+                </span>
+                <p
+                  className="text-m-caption font-bold uppercase tracking-wide"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
                   {STAGE_LABELS[stage]}
                 </p>
+                <span
+                  className="text-m-caption font-semibold shrink-0"
+                  style={{ color: "var(--color-ink-400)" }}
+                >
+                  {stageObtained}/{steps.length}
+                </span>
               </div>
-              <div className="space-y-2">
+              <div className="flex flex-col">
                 {steps.map((step) => {
                   const doc = docsByType[step.type];
                   const prereqMet = isPrerequisiteMet(step.prerequisite, docs, context);
@@ -292,123 +319,170 @@ function MobileChecklistRow({
   const isPending = doc && !isObtained && !isNotRequired;
   const statusStyle = doc ? STATUS_STYLE[doc.status] : null;
 
+  // ── Status → icon + color for the tree-row icon (matches HR tree) ──
+  const iconConfig = isLocked
+    ? { Icon: Lock, bg: "var(--color-concrete)", fg: "var(--color-ink-400)" }
+    : isObtained
+      ? { Icon: CheckCircle2, bg: "var(--color-go-wash)", fg: "var(--color-go)" }
+      : isNotRequired
+        ? { Icon: CircleDot, bg: "var(--color-concrete)", fg: "var(--color-ink-400)" }
+        : isPending
+          ? { Icon: Clock, bg: "var(--color-signal-wash)", fg: "var(--color-signal-dark)" }
+          : { Icon: CircleDot, bg: "var(--color-concrete)", fg: "var(--color-ink-400)" };
+  const { Icon: StatusIcon, bg: iconBg, fg: iconFg } = iconConfig;
+
+  // ── Right content: expiry alert or status count ──
+  const rightContent = expiryStatus === "expired" ? (
+    <span className="text-m-caption font-bold shrink-0" style={{ color: "var(--color-stop)" }}>
+      {Math.abs(expiryDays!)}d ago
+    </span>
+  ) : expiryStatus === "expiring" ? (
+    <span className="text-m-caption font-bold shrink-0" style={{ color: "var(--color-stop)" }}>
+      {expiryDays}d
+    </span>
+  ) : isLocked ? (
+    <span className="text-m-caption font-medium shrink-0" style={{ color: "var(--color-ink-400)" }}>
+      <Lock className="inline size-2.5" />
+    </span>
+  ) : null;
+
+  // ── Sub-label (inline, like HR tree's designation · code) ──
+  const sub = isLocked && step.prerequisite
+    ? `Needs ${LEGAL_DOC_FLOW_MAP[step.prerequisite]?.label ?? step.prerequisite}`
+    : doc?.docNumber
+      ? `#${doc.docNumber}`
+      : undefined;
+
   return (
-    <div
-      className="rounded-[0.5rem] border overflow-hidden"
-      style={{
-        backgroundColor: isLocked ? "var(--color-paper-2)" : "var(--color-paper)",
-        borderColor: isObtained ? "rgba(34,197,94,0.3)" : "var(--color-line)",
-        opacity: isLocked ? 0.6 : 1,
-      }}
-    >
-      {/* Row header */}
-      <div className="flex items-start gap-1.5 p-2.5">
-        <button
-          onClick={onToggleExpand}
-          disabled={isLocked}
-          className="mt-0.5 shrink-0 press"
-          style={{ opacity: isLocked ? 0.3 : 1 }}
+    <div>
+      {/* ── Tree row — flat, 24px height, matches HR tree exactly ── */}
+      <div className="flex items-center" style={{ height: 24 }}>
+        {/* Chevron — always shown, even for locked items (so you can see what's needed) */}
+        <div className="shrink-0 w-4 flex items-center justify-center">
+          <button type="button" onClick={onToggleExpand} className="text-m-body press">
+            <ChevronRight
+              className="size-3 transition-transform"
+              style={{
+                color: "var(--color-ink-500)",
+                transform: isExpanded ? "rotate(90deg)" : "none",
+              }}
+            />
+          </button>
+        </div>
+
+        {/* Status icon in rounded square (tree-hierarchy style) */}
+        <span
+          className="grid place-items-center size-4 rounded-[0.1875rem] shrink-0"
+          style={{ backgroundColor: iconBg }}
         >
-          {isExpanded ? <ChevronDown className="size-3.5" style={{ color: "var(--color-ink-500)" }} /> : <ChevronRight className="size-3.5" style={{ color: "var(--color-ink-500)" }} />}
+          <StatusIcon className="size-2.5" style={{ color: iconFg }} />
+        </span>
+
+        {/* Name + status badge (inline, like HR tree's name + role tag) */}
+        <button
+          type="button"
+          onClick={onToggleExpand}
+          className="min-w-0 truncate text-left press ml-1.5 text-m-label font-semibold"
+          style={{ color: "var(--color-ink-950)" }}
+        >
+          <span className="truncate">{step.label}</span>
+          {/* REQ badge (like HR tree's role tag) */}
+          {!step.isOptional && !isObtained && !isNotRequired && !isLocked && (
+            <span
+              className="ml-1 inline-block rounded px-1 py-px text-m-caption font-bold uppercase align-middle shrink-0"
+              style={{ backgroundColor: "var(--color-stop-wash)", color: "var(--color-stop)" }}
+            >
+              REQ
+            </span>
+          )}
+          {/* Status badge (like HR tree's role tag) */}
+          {statusStyle && doc && (
+            <span
+              className="ml-1 inline-block rounded px-1 py-px text-m-caption font-bold uppercase align-middle shrink-0"
+              style={{ backgroundColor: statusStyle.bg, color: statusStyle.fg }}
+            >
+              {statusStyle.label}
+            </span>
+          )}
         </button>
 
-        {/* Status icon */}
-        <div className="mt-0.5 shrink-0">
-          {isLocked ? (
-            <Lock className="size-3.5" style={{ color: "var(--color-ink-400)" }} />
-          ) : isObtained ? (
-            <CheckCircle2 className="size-3.5" style={{ color: "var(--color-go)" }} />
-          ) : isNotRequired ? (
-            <CircleDot className="size-3.5" style={{ color: "var(--color-ink-400)" }} />
-          ) : isPending ? (
-            <Clock className="size-3.5" style={{ color: "var(--color-signal-dark)" }} />
-          ) : (
-            <div className="size-3.5 rounded-full border-2" style={{ borderColor: "var(--color-line)" }} />
-          )}
-        </div>
+        {/* Sub-label (inline, like HR tree's designation · code) */}
+        {sub ? (
+          <span className="text-m-caption shrink-0 ml-1 truncate max-w-[30%]" style={{ color: "var(--color-ink-400)" }}>
+            {sub}
+          </span>
+        ) : null}
 
-        {/* Title */}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1 flex-wrap">
-            <p className="text-m-section font-semibold leading-tight" style={{ color: "var(--color-ink-950)" }}>
-              {step.label}
-            </p>
-            {!step.isOptional && !isObtained && !isNotRequired && !isLocked && (
-              <span className="rounded px-1 text-m-caption font-bold" style={{ backgroundColor: "var(--color-stop-wash)", color: "var(--color-stop)" }}>REQ</span>
-            )}
-            {statusStyle && doc && (
-              <span className="rounded-full px-1.5 py-0.5 text-m-caption font-semibold" style={{ backgroundColor: statusStyle.bg, color: statusStyle.fg }}>
-                {statusStyle.label}
-              </span>
-            )}
-          </div>
-          {!isExpanded && (
-            <p className="text-m-label line-clamp-1 mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-              {doc ? doc.title : step.description}
-            </p>
-          )}
-          {/* Expiry warning */}
-          {expiryStatus === "expired" && (
-            <p className="text-m-caption font-semibold mt-0.5" style={{ color: "var(--color-stop)" }}>
-              Expired {Math.abs(expiryDays!)}d ago
-            </p>
-          )}
-          {expiryStatus === "expiring" && (
-            <p className="text-m-caption font-semibold mt-0.5" style={{ color: "var(--color-stop)" }}>
-              Expires in {expiryDays}d
-            </p>
-          )}
-          {/* Prerequisite lock */}
-          {isLocked && step.prerequisite && (
-            <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-400)" }}>
-              <Lock className="inline size-2.5 mr-0.5" />
-              Needs {LEGAL_DOC_FLOW_MAP[step.prerequisite]?.label ?? step.prerequisite}
-            </p>
-          )}
-        </div>
-
-        {/* Yes/No/N/A buttons */}
-        {canManage && !isLocked && (
-          <div className="flex items-center gap-0.5 shrink-0">
-            <button
-              onClick={() => onToggleObtained(true)}
-              className="rounded px-1.5 py-0.5 text-m-caption font-bold press"
-              style={{
-                backgroundColor: isObtained ? "rgba(34,197,94,0.15)" : "var(--color-paper-2)",
-                color: isObtained ? "var(--color-go)" : "var(--color-ink-500)",
-              }}
-            >Yes</button>
-            <button
-              onClick={() => onToggleObtained(false)}
-              className="rounded px-1.5 py-0.5 text-m-caption font-bold press"
-              style={{
-                backgroundColor: isPending && !isObtained ? "rgba(245,158,11,0.15)" : "var(--color-paper-2)",
-                color: isPending && !isObtained ? "#b45309" : "var(--color-ink-500)",
-              }}
-            >No</button>
-            {step.isOptional && (
-              <button
-                onClick={onMarkNotRequired}
-                className="rounded px-1.5 py-0.5 text-m-caption font-bold press"
-                style={{
-                  backgroundColor: isNotRequired ? "rgba(107,114,128,0.15)" : "var(--color-paper-2)",
-                  color: isNotRequired ? "#4b5563" : "var(--color-ink-500)",
-                }}
-              >N/A</button>
-            )}
-          </div>
-        )}
+        {/* Right content (expiry alert / lock icon) */}
+        {rightContent ? <div className="shrink-0 ml-1.5">{rightContent}</div> : null}
       </div>
 
-      {/* Expanded details */}
-      {isExpanded && !isLocked && (
-        <div className="px-2.5 pb-2.5 pt-1 border-t" style={{ borderColor: "var(--color-line)" }}>
-          <p className="text-m-label mb-1.5" style={{ color: "var(--color-ink-500)" }}>{step.description}</p>
-          <p className="text-m-caption mb-2" style={{ color: "var(--color-ink-400)" }}>
+      {/* ── Expanded details panel (below the tree row) — works even when locked ── */}
+      {isExpanded && (
+        <div
+          className="ml-1 mb-1 rounded-[0.375rem] border p-2 space-y-2"
+          style={{
+            marginLeft: 24,
+            borderColor: "var(--color-line)",
+            backgroundColor: "var(--color-paper-2)",
+          }}
+        >
+          {/* Lock warning for locked items */}
+          {isLocked && step.prerequisite && (
+            <div
+              className="flex items-center gap-1.5 rounded-[0.25rem] px-2 py-1"
+              style={{ backgroundColor: "var(--color-concrete)" }}
+            >
+              <Lock className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+              <p className="text-m-caption font-medium" style={{ color: "var(--color-ink-600)" }}>
+                Needs {LEGAL_DOC_FLOW_MAP[step.prerequisite]?.label ?? step.prerequisite} first
+              </p>
+            </div>
+          )}
+
+          {/* Description */}
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>{step.description}</p>
+          <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
             Authority: {step.defaultAuthority}
             {step.typicalValidityMonths && ` · Validity: ${step.typicalValidityMonths}mo`}
           </p>
 
+          {/* Yes/No/N/A buttons — disabled when locked */}
+          {canManage && !isLocked && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => onToggleObtained(true)}
+                className="rounded px-2 py-0.5 text-m-caption font-bold press"
+                style={{
+                  backgroundColor: isObtained ? "rgba(34,197,94,0.15)" : "var(--color-paper)",
+                  color: isObtained ? "var(--color-go)" : "var(--color-ink-500)",
+                  border: "1px solid var(--color-line)",
+                }}
+              >Yes</button>
+              <button
+                onClick={() => onToggleObtained(false)}
+                className="rounded px-2 py-0.5 text-m-caption font-bold press"
+                style={{
+                  backgroundColor: isPending && !isObtained ? "rgba(245,158,11,0.15)" : "var(--color-paper)",
+                  color: isPending && !isObtained ? "#b45309" : "var(--color-ink-500)",
+                  border: "1px solid var(--color-line)",
+                }}
+              >No</button>
+              {step.isOptional && (
+                <button
+                  onClick={onMarkNotRequired}
+                  className="rounded px-2 py-0.5 text-m-caption font-bold press"
+                  style={{
+                    backgroundColor: isNotRequired ? "rgba(107,114,128,0.15)" : "var(--color-paper)",
+                    color: isNotRequired ? "#4b5563" : "var(--color-ink-500)",
+                    border: "1px solid var(--color-line)",
+                  }}
+                >N/A</button>
+              )}
+            </div>
+          )}
+
+          {/* Doc details */}
           {doc ? (
             <>
               <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-m-label" style={{ color: "var(--color-ink-600)" }}>
@@ -420,19 +494,19 @@ function MobileChecklistRow({
                 {doc.amount != null && <div><span style={{ color: "var(--color-ink-400)" }}>{step.amountLabel ?? "Amt"}: </span><span className="font-medium" style={{ color: "var(--color-ink-900)" }}>{formatCurrencyCompact(doc.amount)}</span></div>}
                 {doc.expectedRegistryDate && <div><span style={{ color: "var(--color-ink-400)" }}>Registry: </span><span className="font-medium" style={{ color: "var(--color-ink-900)" }}>{formatDate(doc.expectedRegistryDate)}</span></div>}
               </div>
-              {doc.notes && <p className="text-m-label italic mt-1" style={{ color: "var(--color-ink-500)" }}>{doc.notes}</p>}
+              {doc.notes && <p className="text-m-label italic" style={{ color: "var(--color-ink-500)" }}>{doc.notes}</p>}
               {/* Transfer duty → project cost bridge indicator */}
               {step.type === "TRANSFER_DUTY" && doc.amount != null && doc.amount > 0 && doc.projectId && isObtained && (
-                <p className="text-m-caption font-medium mt-1 flex items-center gap-1" style={{ color: "var(--color-go)" }}>
+                <p className="text-m-caption font-medium flex items-center gap-1" style={{ color: "var(--color-go)" }}>
                   <CheckCircle2 className="size-2.5" /> Transfer duty {formatCurrencyCompact(doc.amount)} auto-logged as project cost.
                 </p>
               )}
               {step.type === "TRANSFER_DUTY" && doc.amount != null && doc.amount > 0 && !doc.projectId && (
-                <p className="text-m-caption font-medium mt-1 flex items-center gap-1" style={{ color: "#b45309" }}>
+                <p className="text-m-caption font-medium flex items-center gap-1" style={{ color: "#b45309" }}>
                   <AlertCircle className="size-2.5" /> Link land to a project to auto-log the duty as a cost.
                 </p>
               )}
-              <div className="flex items-center gap-2 mt-2 pt-1.5 border-t" style={{ borderColor: "var(--color-line)" }}>
+              <div className="flex items-center gap-2 pt-1.5 border-t" style={{ borderColor: "var(--color-line)" }}>
                 {doc.documentUrl && (
                   <a href={doc.documentUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-m-label font-medium" style={{ color: "var(--color-brand)" }}>
                     <Download className="size-3" /> {doc.documentName ?? "View"}

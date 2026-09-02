@@ -199,8 +199,8 @@ export async function evaluateRequisitionRouting(
     where: { id: requisitionId },
     include: { lines: true, project: { include: { company: true } }, department: { include: { company: true } } },
   });
-  if (!req) throw new ServiceError("Requisition not found", 404);
-  if (!req.project && !req.department) throw new ServiceError("Requisition has no project or department");
+  if (!req) throw new ServiceError("Indent not found", 404);
+  if (!req.project && !req.department) throw new ServiceError("Indent has no project or department");
 
   const company = req.project?.company ?? req.department?.company;
   const weights = opts.weights ?? parseLciWeights(company?.lciWeights);

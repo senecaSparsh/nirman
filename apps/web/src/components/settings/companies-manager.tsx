@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Building2, ChevronRight, Trash2, UserPlus, X } from "lucide-react";
+import { Plus, Building2, ChevronRight, Trash2, UserPlus, X, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { ROLE_LIST, assignableRoles, canAssignRole, type Role } from "@/lib/roles";
 import { usePermissions } from "@/lib/permissions";
 import { useConfirm } from "@/lib/use-confirm";
+import { EmptyState } from "@/components/empty-state";
 
 export type CompanyRow = {
   id: string;
@@ -358,7 +359,7 @@ export function CompaniesManager({
                       );
                     })}
                     {(!members[c.id] || members[c.id]!.length === 0) && (
-                      <TR><TD colSpan={5} className="text-center text-muted-foreground">No members yet</TD></TR>
+                      <TR><TD colSpan={5}><EmptyState icon={<Users />} title="No members yet" size="compact" /></TD></TR>
                     )}
                   </TBody>
                 </Table>
@@ -417,7 +418,7 @@ export function CompaniesManager({
       <Card>
         <CardContent className="p-2">
           {companies.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">No companies yet</div>
+            <EmptyState icon={<Building2 />} title="No companies yet" />
           ) : (
             roots.map((c) => renderRow(c, 0))
           )}

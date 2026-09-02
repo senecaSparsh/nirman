@@ -44,6 +44,9 @@ import {
   recordPayment,
   reallocateProjectCosts,
   seedChartOfAccounts,
+  createMaterialSale,
+  createMaterialSalePayment,
+  createScrapGeneration,
 } from "../src";
 import Decimal from "decimal.js";
 
@@ -2624,8 +2627,774 @@ async function main() {
     data: { status: "RENTED" },
   });
 
+  // ═══════════════════════════════════════════════════════════════
+  // BULK DATA — volume for stress-testing lists, pagination, filters
+  // ═══════════════════════════════════════════════════════════════
+  console.log("Seeding bulk data…");
+
+  // ── B1. Additional material categories ──────────────────────
+  const bulkCategories = [
+    { name: "Hardware & Fittings", unit: "NOS", class: "RAW_MATERIAL" as const },
+    { name: "Roofing & Cladding", unit: "SQM", class: "RAW_MATERIAL" as const },
+    { name: "Waterproofing", unit: "KG", class: "RAW_MATERIAL" as const },
+    { name: "Flooring & Tiling", unit: "SQM", class: "RAW_MATERIAL" as const },
+    { name: "Doors & Windows", unit: "NOS", class: "RAW_MATERIAL" as const },
+    { name: "Welding & Gas", unit: "NOS", class: "CONSUMABLE" as const },
+    { name: "Tools & Hardware", unit: "NOS", class: "CONSUMABLE" as const },
+    { name: "Adhesives & Sealants", unit: "NOS", class: "RAW_MATERIAL" as const },
+  ];
+  for (const c of bulkCategories) {
+    const row = await ensure("materialCategory", { name: c.name }, c);
+    catMap[c.name] = row.id;
+  }
+
+  // ── B2. Additional materials (30+ more for a fuller catalog) ──
+  const bulkMaterials = [
+    // Steel & Rebar — more sizes
+    { code: "STL-TMT08", name: "TMT Steel Rebar 8mm", categoryId: catMap["Steel & Rebar"], unit: "KG", standardCost: 82, gstRate: 18, minStock: 2000, reorderPoint: 4000, economicOrderQty: 8000, hsnCode: "72142090", grade: "Fe500D", specification: "IS 1786" },
+    { code: "STL-TMT10", name: "TMT Steel Rebar 10mm", categoryId: catMap["Steel & Rebar"], unit: "KG", standardCost: 80, gstRate: 18, minStock: 3000, reorderPoint: 5000, economicOrderQty: 8000, hsnCode: "72142090", grade: "Fe500D", specification: "IS 1786" },
+    { code: "STL-TMT20", name: "TMT Steel Rebar 20mm", categoryId: catMap["Steel & Rebar"], unit: "KG", standardCost: 79, gstRate: 18, minStock: 2000, reorderPoint: 4000, economicOrderQty: 6000, hsnCode: "72142090", grade: "Fe500D", specification: "IS 1786" },
+    { code: "STL-TMT25", name: "TMT Steel Rebar 25mm", categoryId: catMap["Steel & Rebar"], unit: "KG", standardCost: 78, gstRate: 18, minStock: 1000, reorderPoint: 2500, economicOrderQty: 5000, hsnCode: "72142090", grade: "Fe500D", specification: "IS 1786" },
+    // Cement — more variants
+    { code: "CEM-OPC43", name: "Cement OPC 43 Grade (50kg)", categoryId: catMap["Cement & Binding"], unit: "BAG", standardCost: 360, gstRate: 28, minStock: 150, reorderPoint: 250, economicOrderQty: 500, hsnCode: "25232900", grade: "OPC 43", specification: "IS 269" },
+    { code: "CEM-SRC", name: "Sulphate Resistant Cement (50kg)", categoryId: catMap["Cement & Binding"], unit: "BAG", standardCost: 420, gstRate: 28, minStock: 50, reorderPoint: 100, economicOrderQty: 300, hsnCode: "25232900", grade: "SRC", specification: "IS 12330" },
+    { code: "CEM-WHITE", name: "White Cement (40kg)", categoryId: catMap["Cement & Binding"], unit: "BAG", standardCost: 550, gstRate: 28, minStock: 30, reorderPoint: 60, economicOrderQty: 150, hsnCode: "25232100" },
+    // Sand & Aggregate — more
+    { code: "SND-M", name: "M-Sand (Manufactured)", categoryId: catMap["Sand & Aggregate"], unit: "CFT", standardCost: 38, gstRate: 5, minStock: 1500, reorderPoint: 2500, economicOrderQty: 5000, hsnCode: "25051000" },
+    { code: "AGG-10MM", name: "10mm Aggregate", categoryId: catMap["Sand & Aggregate"], unit: "CFT", standardCost: 58, gstRate: 5, minStock: 800, reorderPoint: 1200, economicOrderQty: 3000, hsnCode: "25171000" },
+    { code: "AGG-40MM", name: "40mm Aggregate", categoryId: catMap["Sand & Aggregate"], unit: "CFT", standardCost: 50, gstRate: 5, minStock: 500, reorderPoint: 800, economicOrderQty: 2000, hsnCode: "25171000" },
+    { code: "SND-CONC", name: "Concrete Sand (Grade II)", categoryId: catMap["Sand & Aggregate"], unit: "CFT", standardCost: 42, gstRate: 5, minStock: 1000, reorderPoint: 1800, economicOrderQty: 4000, hsnCode: "25051000" },
+    // Bricks & Blocks — more
+    { code: "BLK-FlyAsh", name: "Fly Ash Brick 230x110x75", categoryId: catMap["Bricks & Blocks"], unit: "NOS", standardCost: 6.5, gstRate: 5, minStock: 10000, reorderPoint: 20000, economicOrderQty: 50000, hsnCode: "68151000" },
+    { code: "BLK-AAC100", name: "AAC Block 600x200x100", categoryId: catMap["Bricks & Blocks"], unit: "NOS", standardCost: 38, gstRate: 18, minStock: 3000, reorderPoint: 5000, economicOrderQty: 10000, hsnCode: "68151000" },
+    { code: "BLK-AAC200", name: "AAC Block 600x200x200", categoryId: catMap["Bricks & Blocks"], unit: "NOS", standardCost: 52, gstRate: 18, minStock: 2000, reorderPoint: 4000, economicOrderQty: 8000, hsnCode: "68151000" },
+    // Electrical — more
+    { code: "ELC-WIRE4", name: "Electrical Wire 4sqmm", categoryId: catMap["Electrical"], unit: "MTR", standardCost: 32, gstRate: 18, minStock: 1000, reorderPoint: 2000, economicOrderQty: 4000, hsnCode: "85444290" },
+    { code: "ELC-WIRE6", name: "Electrical Wire 6sqmm", categoryId: catMap["Electrical"], unit: "MTR", standardCost: 48, gstRate: 18, minStock: 500, reorderPoint: 1000, economicOrderQty: 3000, hsnCode: "85444290" },
+    { code: "ELC-CONDUIT25", name: "PVC Conduit 25mm", categoryId: catMap["Electrical"], unit: "MTR", standardCost: 38, gstRate: 18, minStock: 400, reorderPoint: 700, economicOrderQty: 2000, hsnCode: "39171090" },
+    { code: "ELC-SWITCH", name: "Modular Switch 16A", categoryId: catMap["Electrical"], unit: "NOS", standardCost: 45, gstRate: 18, minStock: 200, reorderPoint: 400, economicOrderQty: 1000, hsnCode: "85365090" },
+    { code: "ELC-SOCKET", name: "Modular Socket 16A", categoryId: catMap["Electrical"], unit: "NOS", standardCost: 50, gstRate: 18, minStock: 200, reorderPoint: 400, economicOrderQty: 1000, hsnCode: "85366990" },
+    { code: "ELC-MCB32", name: "MCB 32A Single Pole", categoryId: catMap["Electrical"], unit: "NOS", standardCost: 280, gstRate: 18, minStock: 50, reorderPoint: 100, economicOrderQty: 300, hsnCode: "85362090" },
+    // Plumbing — more
+    { code: "PLB-PIPE6", name: "PVC Pipe 6 inch", categoryId: catMap["Plumbing & Sanitary"], unit: "MTR", standardCost: 320, gstRate: 18, minStock: 150, reorderPoint: 250, economicOrderQty: 500, hsnCode: "39171090" },
+    { code: "PLB-ELBOW", name: "PVC Elbow 4 inch", categoryId: catMap["Plumbing & Sanitary"], unit: "NOS", standardCost: 35, gstRate: 18, minStock: 300, reorderPoint: 500, economicOrderQty: 1500, hsnCode: "39171090" },
+    { code: "PLB-WC", name: "Western Toilet Commode", categoryId: catMap["Plumbing & Sanitary"], unit: "NOS", standardCost: 3500, gstRate: 18, minStock: 20, reorderPoint: 40, economicOrderQty: 100, hsnCode: "69101000" },
+    { code: "PLB-WASH", name: "Wash Basin 24inch", categoryId: catMap["Plumbing & Sanitary"], unit: "NOS", standardCost: 2200, gstRate: 18, minStock: 15, reorderPoint: 30, economicOrderQty: 80, hsnCode: "69101000" },
+    // Paint & Finishes — more
+    { code: "PNT-PUTTY", name: "Wall Putty 40kg", categoryId: catMap["Paint & Finishes"], unit: "BAG", standardCost: 850, gstRate: 18, minStock: 50, reorderPoint: 100, economicOrderQty: 250, hsnCode: "32149000" },
+    { code: "PNT-ENAMEL", name: "Synthetic Enamel Paint Grey", categoryId: catMap["Paint & Finishes"], unit: "LTR", standardCost: 280, gstRate: 18, minStock: 50, reorderPoint: 80, economicOrderQty: 200, hsnCode: "32089090" },
+    { code: "PNT-WEATHER", name: "Weatherproof Exterior Paint", categoryId: catMap["Paint & Finishes"], unit: "LTR", standardCost: 320, gstRate: 18, minStock: 60, reorderPoint: 100, economicOrderQty: 250, hsnCode: "32089090" },
+    // Hardware & Fittings
+    { code: "HDW-HINGE4", name: "SS Hinge 4 inch (Pair)", categoryId: catMap["Hardware & Fittings"], unit: "NOS", standardCost: 85, gstRate: 18, minStock: 200, reorderPoint: 400, economicOrderQty: 1000, hsnCode: "83021000" },
+    { code: "HDW-LOCK", name: "Mortice Door Lock", categoryId: catMap["Hardware & Fittings"], unit: "NOS", standardCost: 650, gstRate: 18, minStock: 30, reorderPoint: 60, economicOrderQty: 150, hsnCode: "83014000" },
+    { code: "HDW-HANDLE", name: "Door Handle SS", categoryId: catMap["Hardware & Fittings"], unit: "NOS", standardCost: 120, gstRate: 18, minStock: 100, reorderPoint: 200, economicOrderQty: 500, hsnCode: "83024100" },
+    // Roofing & Cladding
+    { code: "ROF-SHEET", name: "GI Corrugated Sheet 3m", categoryId: catMap["Roofing & Cladding"], unit: "NOS", standardCost: 850, gstRate: 18, minStock: 50, reorderPoint: 100, economicOrderQty: 300, hsnCode: "72107000" },
+    { code: "ROF-INSUL", name: "Roof Insulation 50mm", categoryId: catMap["Roofing & Cladding"], unit: "SQM", standardCost: 280, gstRate: 18, minStock: 200, reorderPoint: 400, economicOrderQty: 1000, hsnCode: "68061000" },
+    // Waterproofing
+    { code: "WPR-MEMBRANE", name: "Waterproofing Membrane 4mm", categoryId: catMap["Waterproofing"], unit: "SQM", standardCost: 180, gstRate: 18, minStock: 500, reorderPoint: 1000, economicOrderQty: 3000, hsnCode: "68071000" },
+    { code: "WPR-COATING", name: "Cementitious Waterproof Coating 25kg", categoryId: catMap["Waterproofing"], unit: "NOS", standardCost: 1800, gstRate: 18, minStock: 30, reorderPoint: 60, economicOrderQty: 150, hsnCode: "32149000" },
+    // Flooring & Tiling
+    { code: "FLR-VITRIFIED", name: "Vitrified Tile 600x600", categoryId: catMap["Flooring & Tiling"], unit: "SQM", standardCost: 220, gstRate: 18, minStock: 500, reorderPoint: 1000, economicOrderQty: 3000, hsnCode: "69079000" },
+    { code: "FLR-GRANITE", name: "Granite Tile 600x600", categoryId: catMap["Flooring & Tiling"], unit: "SQM", standardCost: 450, gstRate: 18, minStock: 200, reorderPoint: 400, economicOrderQty: 1000, hsnCode: "68010000" },
+    { code: "FLR-MARBLE", name: "Italian Marble Slab", categoryId: catMap["Flooring & Tiling"], unit: "SQM", standardCost: 1200, gstRate: 18, minStock: 50, reorderPoint: 100, economicOrderQty: 300, hsnCode: "68010000" },
+    // Doors & Windows
+    { code: "DR-WOODEN", name: "Flush Door 35x2100x900", categoryId: catMap["Doors & Windows"], unit: "NOS", standardCost: 2800, gstRate: 18, minStock: 20, reorderPoint: 40, economicOrderQty: 100, hsnCode: "44182000" },
+    { code: "DR-ALUMINIUM", name: "Aluminium Sliding Window 1200x1500", categoryId: catMap["Doors & Windows"], unit: "NOS", standardCost: 4500, gstRate: 18, minStock: 15, reorderPoint: 30, economicOrderQty: 80, hsnCode: "76101000" },
+    // Welding & Gas
+    { code: "WLD-E6013", name: "Welding Electrode E6013 3.2mm", categoryId: catMap["Welding & Gas"], unit: "KG", standardCost: 180, gstRate: 18, minStock: 100, reorderPoint: 200, economicOrderQty: 500, hsnCode: "83111000" },
+    { code: "WLD-OXYGEN", name: "Oxygen Cylinder 7m³", categoryId: catMap["Welding & Gas"], unit: "NOS", standardCost: 850, gstRate: 18, minStock: 10, reorderPoint: 20, economicOrderQty: 50, hsnCode: "28044000" },
+    // Adhesives & Sealants
+    { code: "ADH-TILE", name: "Tile Adhesive 25kg", categoryId: catMap["Adhesives & Sealants"], unit: "BAG", standardCost: 480, gstRate: 18, minStock: 50, reorderPoint: 100, economicOrderQty: 250, hsnCode: "32149000" },
+    { code: "ADH-SEALANT", name: "Silicone Sealant 280ml", categoryId: catMap["Adhesives & Sealants"], unit: "NOS", standardCost: 220, gstRate: 18, minStock: 80, reorderPoint: 150, economicOrderQty: 400, hsnCode: "35061000" },
+    // Safety & Consumables — more
+    { code: "SAF-VEST", name: "Safety Reflective Vest", categoryId: catMap["Safety & Consumables"], unit: "NOS", standardCost: 120, gstRate: 18, minStock: 50, reorderPoint: 100, economicOrderQty: 250, hsnCode: "61172000" },
+    { code: "SAF-GLOVES", name: "Safety Gloves (Pair)", categoryId: catMap["Safety & Consumables"], unit: "NOS", standardCost: 80, gstRate: 18, minStock: 100, reorderPoint: 200, economicOrderQty: 500, hsnCode: "61161000" },
+    { code: "SAF-BOOTS", name: "Safety Steel Toe Boots", categoryId: catMap["Safety & Consumables"], unit: "NOS", standardCost: 850, gstRate: 18, minStock: 30, reorderPoint: 60, economicOrderQty: 150, hsnCode: "64011000" },
+    { code: "SAF-GOGGLES", name: "Safety Goggles Clear", categoryId: catMap["Safety & Consumables"], unit: "NOS", standardCost: 65, gstRate: 18, minStock: 80, reorderPoint: 150, economicOrderQty: 400, hsnCode: "90049000" },
+    // Scrap material
+    { code: "SCR-STEEL", name: "Steel Scrap (Cut Pieces)", categoryId: catMap["Steel & Rebar"], unit: "KG", standardCost: 35, gstRate: 18, minStock: 0, reorderPoint: 0, economicOrderQty: 0, isScrap: true },
+    { code: "SCR-WOOD", name: "Wood Scrap (Formwork)", categoryId: catMap["Formwork & Scaffolding"], unit: "NOS", standardCost: 200, gstRate: 18, minStock: 0, reorderPoint: 0, economicOrderQty: 0, isScrap: true },
+  ];
+  for (const m of bulkMaterials) {
+    const row = await ensure("material", { code: m.code }, m);
+    matMap[m.code] = row.id;
+  }
+
+  // ── B3. Opening stock for a selection of new materials ──────
+  const bulkOpeningStock = [
+    { code: "STL-TMT08", loc: warehouse.id, qty: 3000, cost: 82 },
+    { code: "STL-TMT10", loc: warehouse.id, qty: 4000, cost: 80 },
+    { code: "STL-TMT20", loc: warehouse.id, qty: 4000, cost: 79 },
+    { code: "CEM-OPC43", loc: warehouse.id, qty: 300, cost: 360 },
+    { code: "SND-M", loc: warehouse.id, qty: 1500, cost: 38 },
+    { code: "AGG-10MM", loc: warehouse.id, qty: 1200, cost: 58 },
+    { code: "BLK-FlyAsh", loc: site1.id, qty: 15000, cost: 6.5 },
+    { code: "BLK-AAC100", loc: site1.id, qty: 2500, cost: 38 },
+    { code: "ELC-WIRE4", loc: warehouse.id, qty: 1500, cost: 32 },
+    { code: "ELC-SWITCH", loc: warehouse.id, qty: 300, cost: 45 },
+    { code: "ELC-SOCKET", loc: warehouse.id, qty: 300, cost: 50 },
+    { code: "PLB-WC", loc: warehouse.id, qty: 30, cost: 3500 },
+    { code: "PNT-PUTTY", loc: warehouse.id, qty: 80, cost: 850 },
+    { code: "FLR-VITRIFIED", loc: warehouse.id, qty: 1200, cost: 220 },
+    { code: "HDW-HINGE4", loc: warehouse.id, qty: 300, cost: 85 },
+    { code: "HDW-LOCK", loc: warehouse.id, qty: 50, cost: 650 },
+    { code: "HDW-HANDLE", loc: warehouse.id, qty: 100, cost: 120 },
+    { code: "DR-WOODEN", loc: warehouse.id, qty: 30, cost: 2800 },
+    { code: "WLD-E6013", loc: warehouse.id, qty: 150, cost: 180 },
+    { code: "ADH-TILE", loc: warehouse.id, qty: 80, cost: 480 },
+    { code: "SAF-VEST", loc: warehouse.id, qty: 80, cost: 120 },
+    { code: "SAF-GLOVES", loc: warehouse.id, qty: 150, cost: 80 },
+    { code: "SAF-BOOTS", loc: warehouse.id, qty: 40, cost: 850 },
+    { code: "WPR-MEMBRANE", loc: warehouse.id, qty: 1000, cost: 180 },
+    { code: "WPR-COATING", loc: warehouse.id, qty: 30, cost: 1800 },
+    { code: "STL-TMT25", loc: warehouse.id, qty: 3000, cost: 78 },
+    { code: "ADH-TILE", loc: warehouse.id, qty: 100, cost: 480 },
+  ];
+  for (const s of bulkOpeningStock) {
+    const mid = matMap[s.code];
+    if (!mid) continue;
+    await withStockTransaction(async (tx) => {
+      await recordMovement(tx, {
+        materialId: mid,
+        movementType: "PURCHASE_RECEIPT",
+        toLocationId: s.loc,
+        qty: new Decimal(s.qty),
+        unitCost: new Decimal(s.cost),
+        reason: "Bulk opening stock",
+        refType: "SEED",
+      });
+    });
+  }
+
+  // ── B4. Additional suppliers (15 more for a fuller vendor list) ──
+  const bulkSuppliers = [
+    { name: "ACC Cement Distributor", gstin: "27AAACC2001F1Z2", phone: "+91 98220 10001", email: "orders@accdist.in", address: "Chakan, Pune", leadTimeDays: 3 },
+    { name: "Dalmia Cement Supply", gstin: "27AAACD3002F1Z3", phone: "+91 98220 10002", email: "sales@dalmiasupply.in", address: "Nigdi, Pune", leadTimeDays: 4 },
+    { name: "SAIL Steel Direct", gstin: "27AAACS4003K1Z4", phone: "+91 98220 10003", email: "b2b@saildirect.in", address: "BKC, Mumbai", leadTimeDays: 12 },
+    { name: "Vizag Steel Supplies", gstin: "27AAACV5004K1Z5", phone: "+91 98220 10004", email: "sales@vizagsteel.in", address: "Turbhe, Navi Mumbai", leadTimeDays: 14 },
+    { name: "Bharat Brick Industries", phone: "+91 98220 10005", address: "Shirur, Pune", leadTimeDays: 3 },
+    { name: "Modern Block Works", gstin: "27AAACM6007B1Z6", phone: "+91 98220 10006", email: "modern.blocks@gmail.com", address: "Rajgurunagar, Pune", leadTimeDays: 5 },
+    { name: "Narmada Sand Suppliers", phone: "+91 98220 10007", address: "Manchar, Pune", leadTimeDays: 2 },
+    { name: "Aggregate Direct", phone: "+91 98220 10008", address: "Wagholi, Pune", leadTimeDays: 1 },
+    { name: "Anchor Electricals", gstin: "27AAACA7008E1Z7", phone: "+91 98220 10009", email: "b2b@anchorelec.in", address: "Mumbai, Pune", leadTimeDays: 6 },
+    { name: "Havells Wholesale", gstin: "27AAACH7009E1Z8", phone: "+91 98220 10010", email: "wholesale@havells.in", address: "Pimpri, Pune", leadTimeDays: 5 },
+    { name: "Jaquar Sanitary Ware", gstin: "27AAACJ8010S1Z9", phone: "+91 98220 10011", email: "b2b@jaquar.in", address: "Chinchwad, Pune", leadTimeDays: 7 },
+    { name: "Kajaria Tiles Depot", gstin: "27AAACK9011T1Z0", phone: "+91 98220 10012", email: "depot@kajaria.in", address: "Market Yard, Pune", leadTimeDays: 6 },
+    { name: "Godrej Locks & Hardware", gstin: "27AAACG0112H1Z1", phone: "+91 98220 10013", email: "b2b@godrejlocks.in", address: "Vikhroli, Mumbai", leadTimeDays: 8 },
+    { name: "Tata Bluescope Steel", gstin: "27AAACT2113S1Z2", phone: "+91 98220 10014", email: "b2b@bluescope.in", address: "Talegaon, Pune", leadTimeDays: 10 },
+    { name: "Dr Fixit Waterproofing", gstin: "27AAACD3114W1Z3", phone: "+91 98220 10015", email: "b2b@drfixit.in", address: "Andheri, Mumbai", leadTimeDays: 5 },
+    { name: "Century Plywood Distributors", gstin: "27AAACC4115P1Z4", phone: "+91 98220 10016", email: "century.plydist@gmail.com", address: "Bhosari, Pune", leadTimeDays: 4 },
+    { name: "Aditya Birla Roofing", gstin: "27AAACA5116R1Z5", phone: "+91 98220 10017", email: "roofing@birla.in", address: "Taloja, Navi Mumbai", leadTimeDays: 9 },
+    { name: "Esab Welding Supplies", gstin: "27AAACE6117W1Z6", phone: "+91 98220 10018", email: "b2b@esab.in", address: "Bhosari, Pune", leadTimeDays: 6 },
+    { name: "Fosroc Adhesives India", gstin: "27AAACF7118A1Z7", phone: "+91 98220 10019", email: "b2b@fosroc.in", address: "Chennai (via Pune)", leadTimeDays: 12 },
+    { name: "Udyog Safety Equipment", gstin: "27AAACU8119S1Z8", phone: "+91 98220 10020", email: "orders@udyogsafety.in", address: "Bhosari, Pune", leadTimeDays: 3 },
+  ];
+  for (const s of bulkSuppliers) {
+    const row = await ensure("supplier", { name: s.name, companyId: company.id }, { ...s, companyId: company.id } as any);
+    supplierMap[s.name] = row.id;
+  }
+
+  // ── B5. Additional customers (15 more) ──────────────────────
+  const bulkCustomers = [
+    { name: "Suresh Kulkarni", phone: "+91 98220 20001", email: "suresh.k@gmail.com", address: "Aundh, Pune" },
+    { name: "Lakshmi Enterprises", phone: "+91 98220 20002", email: "accounts@lakshmient.in", gstin: "27AAACL2003L1Z1", address: "Kharadi, Pune" },
+    { name: "Rohit Patil", phone: "+91 98220 20003", email: "rohit.patil@gmail.com", address: "Baner, Pune" },
+    { name: "Sharma Construction Co", phone: "+91 98220 20004", email: "info@sharmaconstr.in", gstin: "27AAACS2004C1Z2", address: "Hadapsar, Pune" },
+    { name: "Anjali Desai", phone: "+91 98220 20005", email: "anjali.desai@gmail.com", address: "Kothrud, Pune" },
+    { name: "Pinnacle Builders", phone: "+91 98220 20006", email: "purchase@pinnaclebuilders.in", gstin: "27AAACP2005B1Z3", address: "Viman Nagar, Pune" },
+    { name: "Vikram Singh", phone: "+91 98220 20007", email: "vikram.singh@gmail.com", address: "Wagholi, Pune" },
+    { name: "Maheshwari Traders", phone: "+91 98220 20008", email: "contact@maheshwaritraders.in", gstin: "27AAACM2006T1Z4", address: "Raviwar Peth, Pune" },
+    { name: "Deepak Agarwal", phone: "+91 98220 20009", email: "deepak.agarwal@gmail.com", address: "Camp, Pune" },
+    { name: "Sai Krupa Enterprises", phone: "+91 98220 20010", email: "saikrupa.ent@gmail.com", gstin: "27AAACS2007E1Z5", address: "Bhosari, Pune" },
+    { name: "Nilesh Shah", phone: "+91 98220 20011", email: "nilesh.shah@gmail.com", address: "Model Colony, Pune" },
+    { name: "Green Valley Resorts", phone: "+91 98220 20012", email: "purchase@greenvalley.in", gstin: "27AAACG2008R1Z6", address: "Lonavala, Pune" },
+    { name: "Patil Family Trust", phone: "+91 98220 20013", email: "trust@patilfamily.in", address: "Shivajinagar, Pune" },
+    { name: "Kumar Infra Projects", phone: "+91 98220 20014", email: "procurement@kumarinfra.in", gstin: "27AAACK2009I1Z7", address: "Hinjewadi, Pune" },
+    { name: "Sneha Constructions", phone: "+91 98220 20015", email: "info@snehaconstr.in", gstin: "27AAACS2010C1Z8", address: "Wakad, Pune" },
+  ];
+  for (const c of bulkCustomers) {
+    const row = await ensure("customer", { name: c.name, companyId: company.id }, { ...c, companyId: company.id });
+    customerMap[c.name] = row.id;
+  }
+
+  // ── B6. Additional requisitions (10 more across projects + statuses) ──
+  const bulkReqDefs = [
+    { num: "REQ-2024-0008", project: "Greenfield Residency", phase: "Tower A", status: "APPROVED", date: "2024-06-01", needed: "2024-06-15", notes: "Blockwork AAC — Tower A floors 1-2", lines: [["BLK-AAC100", 2000, "AAC 100mm walls"], ["CEM-PPC", 200, "Mortar for blockwork"]] },
+    { num: "REQ-2024-0009", project: "Greenfield Residency", phase: "Tower A", status: "SUBMITTED", date: "2024-06-05", needed: "2024-06-20", notes: "Plastering materials — Tower A GF", lines: [["SND-M", 1500, "M-sand for plaster"], ["PNT-PUTTY", 60, "Wall putty for finishing"]] },
+    { num: "REQ-2024-0010", project: "Greenfield Residency", phase: "Tower B", status: "APPROVED", date: "2024-06-10", needed: "2024-06-25", notes: "Tower B foundation — steel + cement", lines: [["STL-TMT16", 3000, "Footing reinforcement"], ["CEM-OPC53", 500, "Foundation PCC"], ["AGG-20MM", 1500, "Aggregate for PCC"]] },
+    { num: "REQ-2024-0011", project: "Hillview Corporate Park", status: "SUBMITTED", date: "2024-06-12", needed: "2024-06-30", notes: "Block 1 — structural steel", lines: [["STL-TMT20", 4000, "Column reinforcement"], ["STL-TMT25", 2000, "Beam reinforcement"]] },
+    { num: "REQ-2024-0012", project: "Greenfield Residency", phase: "Tower A", status: "APPROVED", date: "2024-06-15", needed: "2024-07-01", notes: "Flooring — vitrified tiles for A-101", lines: [["FLR-VITRIFIED", 600, "Living + bedroom flooring"], ["ADH-TILE", 40, "Tile adhesive"]] },
+    { num: "REQ-2024-0013", project: "Greenfield Residency", phase: "Tower A", status: "REJECTED", date: "2024-06-18", needed: "2024-07-05", notes: "Rejected — excessive qty, revise", lines: [["CEM-OPC53", 2000, "Over-estimated"]] },
+    { num: "REQ-2024-0014", project: "Greenfield Residency", phase: "Tower A", status: "SUBMITTED", date: "2024-06-20", needed: "2024-07-10", notes: "Door + hardware for A-101 + A-102", lines: [["DR-WOODEN", 8, "Internal doors"], ["HDW-HINGE4", 50, "Hinges"], ["HDW-LOCK", 8, "Door locks"]] },
+    { num: "REQ-2024-0015", project: "Hillview Corporate Park", status: "APPROVED", date: "2024-06-22", needed: "2024-07-12", notes: "Waterproofing for basement", lines: [["WPR-MEMBRANE", 800, "Basement membrane"], ["WPR-COATING", 20, "Coating for tanking"]] },
+    { num: "REQ-2024-0016", project: "Greenfield Residency", phase: "Tower A", status: "SUBMITTED", date: "2024-06-25", needed: "2024-07-15", notes: "Electrical fittings — switches + sockets", lines: [["ELC-SWITCH", 200, "Modular switches"], ["ELC-SOCKET", 200, "Modular sockets"], ["ELC-MCB32", 20, "MCBs for sub-panel"]] },
+    { num: "REQ-2024-0017", project: "Greenfield Residency", phase: "Tower A", status: "APPROVED", date: "2024-06-28", needed: "2024-07-18", notes: "Plumbing — WC + basin for 4 units", lines: [["PLB-WC", 8, "Western commodes"], ["PLB-WASH", 8, "Wash basins"], ["PLB-PIPE6", 200, "6-inch drainage"]] },
+  ];
+  const bulkReqIds: Record<string, string> = {};
+  for (const r of bulkReqDefs) {
+    const projectId = r.project === "Greenfield Residency" ? project1.id : project2.id;
+    const phaseId = r.phase === "Tower A" ? phase1A.id : r.phase === "Tower B" ? phase1B.id : undefined;
+    const req = await prisma.materialRequisition.create({
+      data: {
+        reqNumber: r.num,
+        projectId,
+        phaseId,
+        requestedById: U.supervisor,
+        status: r.status as any,
+        requestDate: new Date(r.date),
+        neededByDate: new Date(r.needed),
+        notes: r.notes,
+        lines: { create: r.lines.map(([code, qty, notes]) => ({ materialId: matMap[code as string], qtyRequested: qty as number, notes: notes as string })) },
+      },
+    });
+    bulkReqIds[r.num] = req.id;
+  }
+
+  // ── B7. Additional Purchase Orders (15 more — mix of statuses) ──
+  const bulkPoDefs: { supplier: string; scope: "PROJECT" | "COMPANY"; project?: string; dest: string; expected: string; notes: string; lines: [string, number, number, number][]; status: "DRAFT" | "ORDERED" | "PARTIAL" | "RECEIVED"; receive?: number }[] = [
+    { supplier: "ACC Cement Distributor", scope: "PROJECT", project: "Greenfield Residency", dest: "site1", expected: "2024-07-05", notes: "AAC blocks + PPC for Tower A blockwork", lines: [["BLK-AAC100", 2000, 38, 18], ["CEM-PPC", 200, 340, 28]], status: "RECEIVED", receive: 1 },
+    { supplier: "Modern Block Works", scope: "COMPANY", dest: "warehouse", expected: "2024-07-10", notes: "Fly ash bricks + AAC 200mm", lines: [["BLK-FlyAsh", 30000, 6.5, 5], ["BLK-AAC200", 3000, 52, 18]], status: "ORDERED" },
+    { supplier: "Narmada Sand Suppliers", scope: "PROJECT", project: "Greenfield Residency", dest: "site1", expected: "2024-07-08", notes: "M-sand for plastering", lines: [["SND-M", 3000, 38, 5]], status: "RECEIVED", receive: 1 },
+    { supplier: "Aggregate Direct", scope: "PROJECT", project: "Hillview Corporate Park", dest: "site2", expected: "2024-07-12", notes: "10mm + 40mm aggregate for concrete", lines: [["AGG-10MM", 2000, 58, 5], ["AGG-40MM", 1000, 50, 5]], status: "PARTIAL", receive: 0.6 },
+    { supplier: "SAIL Steel Direct", scope: "COMPANY", dest: "warehouse", expected: "2024-07-20", notes: "20mm + 25mm rebar for Hillview columns", lines: [["STL-TMT20", 4000, 79, 18], ["STL-TMT25", 2000, 78, 18]], status: "ORDERED" },
+    { supplier: "Havells Wholesale", scope: "PROJECT", project: "Greenfield Residency", dest: "site1", expected: "2024-07-15", notes: "Switches + sockets + MCBs", lines: [["ELC-SWITCH", 200, 42, 18], ["ELC-SOCKET", 200, 47, 18], ["ELC-MCB32", 20, 270, 18]], status: "RECEIVED", receive: 1 },
+    { supplier: "Jaquar Sanitary Ware", scope: "PROJECT", project: "Greenfield Residency", dest: "site1", expected: "2024-07-18", notes: "WCs + wash basins for 4 units", lines: [["PLB-WC", 8, 3400, 18], ["PLB-WASH", 8, 2100, 18], ["PLB-PIPE6", 200, 310, 18]], status: "ORDERED" },
+    { supplier: "Kajaria Tiles Depot", scope: "PROJECT", project: "Greenfield Residency", dest: "site1", expected: "2024-07-22", notes: "Vitrified tiles + adhesive for A-101", lines: [["FLR-VITRIFIED", 600, 215, 18], ["ADH-TILE", 40, 470, 18]], status: "DRAFT" },
+    { supplier: "Godrej Locks & Hardware", scope: "PROJECT", project: "Greenfield Residency", dest: "site1", expected: "2024-07-25", notes: "Doors + hardware for A-101 + A-102", lines: [["DR-WOODEN", 8, 2750, 18], ["HDW-HINGE4", 50, 82, 18], ["HDW-LOCK", 8, 630, 18]], status: "DRAFT" },
+    { supplier: "Dr Fixit Waterproofing", scope: "PROJECT", project: "Hillview Corporate Park", dest: "site2", expected: "2024-07-28", notes: "Basement waterproofing", lines: [["WPR-MEMBRANE", 800, 175, 18], ["WPR-COATING", 20, 1750, 18]], status: "ORDERED" },
+    { supplier: "Berger Paints Wholesale", scope: "PROJECT", project: "Greenfield Residency", dest: "site1", expected: "2024-08-01", notes: "Putty + enamel for finishing", lines: [["PNT-PUTTY", 100, 830, 18], ["PNT-ENAMEL", 50, 275, 18]], status: "PARTIAL", receive: 0.5 },
+    { supplier: "Esab Welding Supplies", scope: "COMPANY", dest: "warehouse", expected: "2024-08-05", notes: "Welding electrodes + oxygen", lines: [["WLD-E6013", 200, 175, 18], ["WLD-OXYGEN", 15, 820, 18]], status: "RECEIVED", receive: 1 },
+    { supplier: "Udyog Safety Equipment", scope: "COMPANY", dest: "warehouse", expected: "2024-08-08", notes: "Safety gear bulk — vests + gloves + boots", lines: [["SAF-VEST", 100, 115, 18], ["SAF-GLOVES", 200, 78, 18], ["SAF-BOOTS", 50, 820, 18], ["SAF-GOGGLES", 100, 62, 18]], status: "RECEIVED", receive: 1 },
+    { supplier: "Dalmia Cement Supply", scope: "COMPANY", dest: "warehouse", expected: "2024-08-12", notes: "OPC 43 + SRC for specialized pours", lines: [["CEM-OPC43", 400, 355, 28], ["CEM-SRC", 100, 415, 28]], status: "ORDERED" },
+    { supplier: "Vizag Steel Supplies", scope: "COMPANY", dest: "warehouse", expected: "2024-08-15", notes: "8mm + 10mm rebar restock", lines: [["STL-TMT08", 3000, 80, 18], ["STL-TMT10", 4000, 78, 18]], status: "DRAFT" },
+  ];
+
+  const locMap: Record<string, string> = { warehouse: warehouse.id, site1: site1.id, site2: site2.id };
+  for (const p of bulkPoDefs) {
+    const projectId = p.project === "Greenfield Residency" ? project1.id : p.project === "Hillview Corporate Park" ? project2.id : undefined;
+    const po = await createPurchaseOrder({
+      supplierId: supplierMap[p.supplier],
+      procurementScope: p.scope,
+      companyId: company.id,
+      projectId,
+      destinationLocationId: locMap[p.dest],
+      expectedDate: new Date(p.expected),
+      notes: p.notes,
+      lines: p.lines.map(([code, qty, cost, gst]) => ({ materialId: matMap[code], qtyOrdered: qty, unitCost: cost, gstRate: gst })),
+    });
+    if (p.status !== "DRAFT") {
+      await approvePurchaseOrder(po.id, "OWNER");
+      await orderPurchaseOrder(po.id);
+      const daysBack = 30 + Math.floor(Math.random() * 30);
+      await prisma.purchaseOrder.update({ where: { id: po.id }, data: { orderDate: new Date(`2024-06-${20 + Math.floor(Math.random() * 10)}`), createdAt: new Date(`2024-06-${15 + Math.floor(Math.random() * 10)}`) } });
+      if (p.receive) {
+        const poLines = await prisma.purchaseOrderLine.findMany({ where: { purchaseOrderId: po.id } });
+        await receiveGoods({
+          purchaseOrderId: po.id,
+          locationId: locMap[p.dest],
+          receivedById: U.supervisor,
+          notes: p.receive === 1 ? "Full delivery" : "Partial delivery",
+          lines: poLines.map((l) => ({
+            purchaseOrderLineId: l.id,
+            materialId: l.materialId,
+            qtyReceived: new Decimal(l.qtyOrdered).times(p.receive!),
+            unitCost: l.unitCost,
+          })),
+        });
+        const gr = await prisma.goodsReceipt.findFirstOrThrow({ where: { purchaseOrderId: po.id } });
+        await prisma.goodsReceipt.update({
+          where: { id: gr.id },
+          data: { inspectionStatus: p.receive === 1 ? "PASSED" : "PENDING", inspectionNotes: p.receive === 1 ? "Quality OK" : "Awaiting QC", inspectedById: p.receive === 1 ? U.manager : null, inspectedAt: p.receive === 1 ? new Date(p.expected) : null },
+        });
+      }
+    }
+  }
+
+  // ── B8. Additional stock transfers (5 more) ─────────────────
+  const bulkTransfers = [
+    { from: "warehouse", to: "site1", date: "2024-07-05", material: "STL-TMT10", qty: 2000, notes: "10mm rebar to site for slab" },
+    { from: "warehouse", to: "site1", date: "2024-07-08", material: "CEM-OPC43", qty: 150, notes: "OPC 43 to site for plastering" },
+    { from: "warehouse", to: "site2", date: "2024-07-12", material: "STL-TMT20", qty: 1500, notes: "20mm to Hillview for columns" },
+    { from: "warehouse", to: "site1", date: "2024-07-15", material: "ELC-SWITCH", qty: 150, notes: "Switches to site for Tower A" },
+    { from: "warehouse", to: "site1", date: "2024-07-18", material: "FLR-VITRIFIED", qty: 400, notes: "Tiles to site for A-101 flooring" },
+  ];
+  for (const t of bulkTransfers) {
+    const fromLoc = locMap[t.from];
+    const toLoc = locMap[t.to];
+    const transfer = await prisma.stockTransfer.create({
+      data: {
+        fromLocationId: fromLoc,
+        toLocationId: toLoc,
+        transferDate: new Date(t.date),
+        status: "COMPLETED",
+        notes: t.notes,
+        lines: { create: [{ materialId: matMap[t.material], qty: t.qty }] },
+      },
+    });
+    await withStockTransaction(async (tx) => {
+      await recordTransfer(tx, {
+        materialId: matMap[t.material],
+        fromLocationId: fromLoc,
+        toLocationId: toLoc,
+        qty: new Decimal(t.qty),
+        reason: t.notes,
+        refType: "STOCK_TRANSFER",
+        refId: transfer.id,
+        userId: U.supervisor,
+      });
+    });
+  }
+
+  // ── B9. Additional material issues (8 more) ─────────────────
+  const bulkIssues = [
+    { from: "warehouse", project: "Greenfield Residency", notes: "Tower A slab 1 — cement + steel", lines: [["CEM-OPC53", 300], ["STL-TMT12", 2000], ["AGG-20MM", 400]] },
+    { from: "site1", project: "Greenfield Residency", notes: "Tower A blockwork — AAC + mortar", lines: [["BLK-AAC100", 1500], ["CEM-PPC", 150]] },
+    { from: "warehouse", project: "Greenfield Residency", notes: "Tower A flooring — tiles + adhesive", lines: [["FLR-VITRIFIED", 350], ["ADH-TILE", 30]] },
+    { from: "warehouse", project: "Greenfield Residency", notes: "Tower A electrical — switches + sockets", lines: [["ELC-SWITCH", 150], ["ELC-SOCKET", 150]] },
+    { from: "warehouse", project: "Greenfield Residency", notes: "Tower A doors + hardware", lines: [["DR-WOODEN", 6], ["HDW-HINGE4", 36], ["HDW-LOCK", 6]] },
+    { from: "warehouse", project: "Hillview Corporate Park", notes: "Hillview — waterproofing", lines: [["WPR-MEMBRANE", 500], ["WPR-COATING", 12]] },
+    { from: "warehouse", project: "Hillview Corporate Park", notes: "Hillview — steel for columns", lines: [["STL-TMT20", 2000], ["STL-TMT25", 1000]] },
+    { from: "warehouse", project: "Greenfield Residency", notes: "Safety gear issue to site team", lines: [["SAF-VEST", 50], ["SAF-GLOVES", 100], ["SAF-BOOTS", 20], ["SAF-GOGGLES", 50]] },
+  ];
+  for (const iss of bulkIssues) {
+    await issueMaterialsToProject({
+      projectId: iss.project === "Greenfield Residency" ? project1.id : project2.id,
+      fromLocationId: locMap[iss.from],
+      issuedById: U.supervisor,
+      notes: iss.notes,
+      lines: iss.lines.map(([code, qty]) => ({ materialId: matMap[code as string], qty: qty as number })),
+    });
+  }
+
+  // ── B10. Additional stock counts (3 more) ───────────────────
+  const bulkCounts = [
+    { loc: "warehouse", date: "2024-07-15", notes: "Monthly warehouse count — July", lines: [["CEM-OPC53", 950, 980], ["STL-TMT12", 4500, 4400], ["SND-M", 1400, 1500], ["ELC-WIRE25", 1700, 1800]] },
+    { loc: "site1", date: "2024-07-20", notes: "Site yard count — Tower A materials", lines: [["BRK-RED", 32000, 33000], ["BLK-AAC", 2800, 3000], ["CEM-OPC53", 250, 240]] },
+    { loc: "warehouse", date: "2024-08-15", notes: "Monthly warehouse count — August", lines: [["CEM-OPC43", 280, 300], ["STL-TMT08", 2800, 3000], ["SAF-HELMET", 95, 100], ["WLD-E6013", 140, 150]] },
+  ];
+  for (const c of bulkCounts) {
+    await prisma.stockCount.create({
+      data: {
+        locationId: locMap[c.loc],
+        countDate: new Date(c.date),
+        status: "COUNTED",
+        notes: c.notes,
+        lines: {
+          create: c.lines.map(([code, counted, system]) => ({
+            materialId: matMap[code as string],
+            countedQty: counted as number,
+            systemQty: system as number,
+            variance: (counted as number) - (system as number),
+          })),
+        },
+      },
+    });
+  }
+
+  // ── B11. Additional supplier returns (3 more) ───────────────
+  const bulkReturns = [
+    { num: "RET-2024-0004", supplier: "Havells Wholesale", loc: "site1", date: "2024-07-20", notes: "10 defective switches", lines: [["ELC-SWITCH", 10, 42, "Contact spring failure"]] },
+    { num: "RET-2024-0005", supplier: "Kajaria Tiles Depot", loc: "site1", date: "2024-07-25", notes: "20 tiles chipped in transit", lines: [["FLR-VITRIFIED", 20, 215, "Chipped edges in transit"]] },
+    { num: "RET-2024-0006", supplier: "Jaquar Sanitary Ware", loc: "site1", date: "2024-08-02", notes: "2 WCs with hairline cracks", lines: [["PLB-WC", 2, 3400, "Hairline crack in bowl"]] },
+  ];
+  for (const r of bulkReturns) {
+    await prisma.supplierReturn.create({
+      data: {
+        returnNumber: r.num,
+        supplierId: supplierMap[r.supplier],
+        companyId: company.id,
+        locationId: locMap[r.loc],
+        status: "COMPLETED",
+        returnDate: new Date(r.date),
+        creditNoteNo: `CN-2024-${r.num.slice(-3)}`,
+        notes: r.notes,
+        lines: {
+          create: r.lines.map(([code, qty, cost, reason]) => ({
+            materialId: matMap[code as string],
+            qty: qty as number,
+            unitCost: cost as number,
+            reason: reason as string,
+          })),
+        },
+      },
+    });
+  }
+
+  // ── B12. Additional equipment (10 more) ─────────────────────
+  const bulkEquipment = [
+    { assetTag: "JCB-002", name: "JCB 2DX Backhoe Loader", model: "2DX", serialNumber: "JCB2DX2024002", category: "Heavy Machinery", acquisitionCost: 2200000, currentValue: 1800000, purchaseDate: new Date("2023-09-15") },
+    { assetTag: "MIX-002", name: "Concrete Mixer 350L", model: "CM-350", serialNumber: "CM350002", category: "Heavy Machinery", acquisitionCost: 65000, currentValue: 48000, purchaseDate: new Date("2023-11-01") },
+    { assetTag: "BAR-001", name: "Bar Bending Machine", model: "BBM-32", serialNumber: "BBM32001", category: "Power Tool", acquisitionCost: 95000, currentValue: 72000, purchaseDate: new Date("2023-08-01") },
+    { assetTag: "BAR-002", name: "Bar Cutting Machine", model: "BCM-40", serialNumber: "BCM40001", category: "Power Tool", acquisitionCost: 110000, currentValue: 85000, purchaseDate: new Date("2023-08-15") },
+    { assetTag: "TRL-002", name: "Tipper Truck 6T", model: "Tata 610", serialNumber: "TA610002", category: "Vehicle", acquisitionCost: 1200000, currentValue: 950000, purchaseDate: new Date("2023-10-01") },
+    { assetTag: "TRL-003", name: "Water Tanker 5000L", model: "WT-5000", serialNumber: "WT5000001", category: "Vehicle", acquisitionCost: 450000, currentValue: 380000, purchaseDate: new Date("2023-12-01") },
+    { assetTag: "CMP-001", name: "Plate Compactor", model: "PC-90", serialNumber: "PC90001", category: "Heavy Machinery", acquisitionCost: 85000, currentValue: 62000, purchaseDate: new Date("2023-07-15") },
+    { assetTag: "TRL-004", name: "Mini Tipper 3T", model: "Tata 407", serialNumber: "TA407003", category: "Vehicle", acquisitionCost: 850000, currentValue: 680000, purchaseDate: new Date("2024-01-10") },
+    { assetTag: "PWR-002", name: "Diesel Generator 25kVA", model: "DG-25", serialNumber: "DG25002", category: "Power Tool", acquisitionCost: 280000, currentValue: 230000, purchaseDate: new Date("2023-06-20") },
+    { assetTag: "WLD-001", name: "Welding Machine 400A", model: "WM-400", serialNumber: "WM400001", category: "Power Tool", acquisitionCost: 65000, currentValue: 48000, purchaseDate: new Date("2023-09-01") },
+  ];
+  for (const e of bulkEquipment) {
+    const row = await ensure("equipment", { assetTag: e.assetTag }, { ...e, companyId: company.id });
+    equipmentMap[e.assetTag] = row.id;
+  }
+  // Assign some equipment to sites
+  await prisma.equipmentAssignment.create({ data: { equipmentId: equipmentMap["JCB-002"], locationId: site2.id, projectId: project2.id, status: "ACTIVE", assignedAt: new Date("2024-04-15") } });
+  await prisma.equipment.update({ where: { id: equipmentMap["JCB-002"] }, data: { status: "ASSIGNED" } });
+  await prisma.equipmentAssignment.create({ data: { equipmentId: equipmentMap["BAR-001"], locationId: site1.id, projectId: project1.id, status: "ACTIVE", assignedAt: new Date("2024-05-01") } });
+  await prisma.equipment.update({ where: { id: equipmentMap["BAR-001"] }, data: { status: "ASSIGNED" } });
+  await prisma.equipmentAssignment.create({ data: { equipmentId: equipmentMap["TRL-002"], locationId: site1.id, projectId: project1.id, status: "ACTIVE", assignedAt: new Date("2024-05-10") } });
+  await prisma.equipment.update({ where: { id: equipmentMap["TRL-002"] }, data: { status: "ASSIGNED" } });
+  // Maintenance for some
+  await prisma.equipmentMaintenance.create({ data: { equipmentId: equipmentMap["BAR-002"], type: "REPAIR", startDate: new Date("2024-07-01"), endDate: new Date("2024-07-03"), cost: 6500, vendor: "Premier Motors", notes: "Blade replacement" } });
+  await prisma.equipment.update({ where: { id: equipmentMap["BAR-002"] }, data: { status: "IN_MAINTENANCE" } });
+  await prisma.equipmentMaintenance.create({ data: { equipmentId: equipmentMap["PWR-002"], type: "SCHEDULED", startDate: new Date("2024-08-01"), cost: 5500, vendor: "Premier Motors", notes: "Quarterly service" } });
+  await prisma.equipmentMaintenance.create({ data: { equipmentId: equipmentMap["CMP-001"], type: "REPAIR", startDate: new Date("2024-06-15"), endDate: new Date("2024-06-16"), cost: 3200, vendor: "Local Mechanic", notes: "Engine oil leak" } });
+
+  // ── B13. Additional employees (10 more) ─────────────────────
+  const bulkEmployees = [
+    { name: "Sachin Patil", trade: "Masonry", phone: "+91 98220 46001", dailyRate: 880 },
+    { name: "Rajesh Verma", trade: "Electrical", phone: "+91 98220 46002", dailyRate: 980 },
+    { name: "Imran Khan", trade: "Plumbing", phone: "+91 98220 46003", dailyRate: 820 },
+    { name: "Vijay Salunkhe", trade: "Welding", phone: "+91 98220 46004", dailyRate: 1150 },
+    { name: "Nitin Pawar", trade: "Carpentry", phone: "+91 98220 46005", dailyRate: 920 },
+    { name: "Akash Jadhav", trade: "Painting", phone: "+91 98220 46006", dailyRate: 800 },
+    { name: "Manoj Shinde", trade: "Bar Bending", phone: "+91 98220 46007", dailyRate: 850 },
+    { name: "Pravin Kale", trade: "Supervisor", phone: "+91 98220 46008", dailyRate: 1300 },
+    { name: "Sandesh More", trade: "Heavy Equipment", phone: "+91 98220 46009", dailyRate: 1400 },
+    { name: "Tushar Gaikwad", trade: "Surveying", phone: "+91 98220 46010", dailyRate: 1100 },
+  ];
+  for (const e of bulkEmployees) {
+    const row = await ensure("employee", { name: e.name, companyId: company.id }, { ...e, companyId: company.id });
+    empMap[e.name] = row.id;
+  }
+
+  // ── B14. Additional DPRs (10 more across dates + statuses) ──
+  const bulkDprDefs = [
+    { date: "2024-08-19", summary: "First floor slab shuttering — 60% complete. Rebar tying ongoing.", pct: 32, weather: "Sunny, 30°C", blockers: null, tomorrow: "Complete shuttering, pour slab tomorrow", status: "APPROVED" as const, workType: "RCC", materials: [["STL-TMT16", 450], ["FRM-PLY18", 25]], labour: [["Suresh Kale", 9, "Slab shuttering"], ["Deepak More", 8, "Rebar tying"]] },
+    { date: "2024-08-20", summary: "First floor slab cast — 1200 sqft poured. Concrete pumping used.", pct: 35, weather: "Cloudy, 28°C", blockers: "Concrete pump breakdown delayed pour by 2 hrs", tomorrow: "Cure slab, start 2nd floor shuttering", status: "SUB_ADMIN_APPROVED" as const, workType: "RCC", materials: [["CEM-OPC53", 65], ["AGG-20MM", 30], ["SND-RIVER", 18], ["STL-TMT16", 200]], labour: [["Suresh Kale", 10, "Slab casting + finishing"], ["Ramesh Gaikwad", 8, "Formwork removal prep"]] },
+    { date: "2024-08-22", summary: "Slab curing Day 2. Started 2nd floor column reinforcement.", pct: 38, weather: "Sunny, 31°C", blockers: null, tomorrow: "Complete column rebar, start shuttering", status: "SUBMITTED" as const, workType: "RCC", materials: [["STL-TMT12", 380], ["STL-TMT16", 220]], labour: [["Deepak More", 9, "Column rebar tying"], ["Vijay Salunkhe", 7, "Welding for column cages"]] },
+    { date: "2024-08-26", summary: "2nd floor columns cast — 6 columns. Plastering GF continued.", pct: 42, weather: "Light rain, 27°C", blockers: "Rain slowed plastering", tomorrow: "Start 2nd floor slab shuttering", status: "APPROVED" as const, workType: "RCC", materials: [["CEM-OPC53", 48], ["AGG-20MM", 22], ["STL-TMT16", 580]], labour: [["Suresh Kale", 9, "Column casting"], ["Akash Jadhav", 6, "GF plastering"]] },
+    { date: "2024-08-28", summary: "2nd floor slab shuttering 80%. Electrical conduit rough-in for 1st floor.", pct: 45, weather: "Sunny, 29°C", blockers: null, tomorrow: "Complete shuttering, pour 2nd floor slab", status: "SUB_ADMIN_APPROVED" as const, workType: "RCC", materials: [["FRM-PLY18", 30], ["ELC-CONDUIT", 180]], labour: [["Ramesh Gaikwad", 9, "Slab shuttering"], ["Rajesh Verma", 8, "Electrical conduit 1st floor"]] },
+    { date: "2024-08-29", summary: "2nd floor slab cast — 1200 sqft. Blockwork 1st floor started.", pct: 48, weather: "Sunny, 30°C", blockers: null, tomorrow: "Continue blockwork, start plastering 1st floor", status: "SUBMITTED" as const, workType: "Masonry", materials: [["CEM-OPC53", 60], ["AGG-20MM", 28], ["BLK-AAC100", 450], ["CEM-PPC", 40]], labour: [["Suresh Kale", 9, "Slab cast"], ["Sachin Patil", 8, "Blockwork 1st floor"]] },
+    { date: "2024-09-02", summary: "Blockwork 1st floor 70% complete. Plumbing rough-in 1st floor started.", pct: 52, weather: "Cloudy, 28°C", blockers: "Plumbing material delayed by 1 day", tomorrow: "Complete blockwork, continue plumbing", status: "APPROVED" as const, workType: "Masonry", materials: [["BLK-AAC100", 600], ["CEM-PPC", 55], ["PLB-PIPE4", 80]], labour: [["Sachin Patil", 9, "Blockwork"], ["Imran Khan", 8, "Plumbing rough-in"]] },
+    { date: "2024-09-04", summary: "Blockwork 1st floor complete. Painting prep — putty application started.", pct: 55, weather: "Sunny, 31°C", blockers: null, tomorrow: "Continue putty, start electrical 2nd floor", status: "SUB_ADMIN_APPROVED" as const, workType: "Finishing", materials: [["PNT-PUTTY", 25], ["SND-M", 200]], labour: [["Akash Jadhav", 9, "Putty application"], ["Nitin Pawar", 7, "Door frame fixing"]] },
+    { date: "2024-09-06", summary: "Putty GF + 1st floor 50%. Flooring A-101 started — vitrified tiles.", pct: 58, weather: "Sunny, 32°C", blockers: "Tile adhesive stock low — ordered", tomorrow: "Continue flooring, receive adhesive", status: "SUBMITTED" as const, workType: "Finishing", materials: [["PNT-PUTTY", 30], ["FLR-VITRIFIED", 250], ["ADH-TILE", 15]], labour: [["Akash Jadhav", 9, "Putty"], ["Manoj Shinde", 8, "Tile laying A-101"]] },
+    { date: "2024-09-09", summary: "Flooring A-101 complete. Door installation started. Electrical 2nd floor ongoing.", pct: 62, weather: "Rainy, 26°C", blockers: "Heavy rain — outdoor work halted after 3pm", tomorrow: "Continue doors + electrical, start painting", status: "APPROVED" as const, workType: "Finishing", materials: [["DR-WOODEN", 4], ["HDW-HINGE4", 24], ["ELC-WIRE25", 300], ["ELC-SWITCH", 80]], labour: [["Nitin Pawar", 9, "Door installation"], ["Rajesh Verma", 8, "Electrical 2nd floor"]] },
+  ];
+  for (const d of bulkDprDefs) {
+    const dpr = await prisma.dailyProgressReport.create({
+      data: {
+        companyId: company.id,
+        projectId: project1.id,
+        date: new Date(d.date),
+        submittedById: U.supervisor,
+        weather: d.weather,
+        workSummary: d.summary,
+        progressPct: new Decimal(d.pct),
+        blockers: d.blockers,
+        tomorrowPlan: d.tomorrow,
+        approvalStatus: d.status,
+        subAdminApprovedById: d.status === "SUB_ADMIN_APPROVED" || d.status === "APPROVED" ? U.manager : null,
+        subAdminApprovedAt: d.status === "SUB_ADMIN_APPROVED" || d.status === "APPROVED" ? new Date(d.date) : null,
+        adminApprovedById: d.status === "APPROVED" ? U.admin : null,
+        adminApprovedAt: d.status === "APPROVED" ? new Date(d.date) : null,
+        workType: d.workType,
+      },
+    });
+    for (const m of d.materials) {
+      const matKey = m[0] as string;
+      await prisma.dPRMaterialLine.create({ data: { dprId: dpr.id, materialId: matMap[matKey], qty: new Decimal(m[1]), unitCost: new Decimal(0) } });
+    }
+    for (const l of d.labour) {
+      const empId = empMap[l[0] as string];
+      if (empId) {
+        await prisma.dPRLaborLine.create({ data: { dprId: dpr.id, employeeId: empId, hoursWorked: new Decimal(l[1]), taskDescription: l[2] as string } });
+      }
+    }
+  }
+
+  // ── B15. Additional attendance (10 more days × all employees) ──
+  const bulkAttendanceDates: Date[] = [];
+  for (let day = 19; day <= 30; day++) {
+    bulkAttendanceDates.push(new Date(`2024-08-${String(day).padStart(2, "0")}`));
+  }
+  for (let day = 2; day <= 10; day++) {
+    bulkAttendanceDates.push(new Date(`2024-09-${String(day).padStart(2, "0")}`));
+  }
+  const allEmpNames = Object.keys(empMap);
+  for (let di = 0; di < bulkAttendanceDates.length; di++) {
+    const date = bulkAttendanceDates[di];
+    for (let ei = 0; ei < allEmpNames.length; ei++) {
+      const name = allEmpNames[ei];
+      // Skip if already has attendance for this date (original 7 emps on Aug 12-16)
+      if (di < 5 && ei < 7) continue;
+      let status: "PRESENT" | "LATE" | "ABSENT" | "PAID_LEAVE" | "HALF_DAY" | "OVERTIME" = "PRESENT";
+      if ((ei + di) % 11 === 0) status = "LATE";
+      else if ((ei + di) % 17 === 0) status = "ABSENT";
+      else if ((ei + di) % 13 === 0) status = "PAID_LEAVE";
+      else if ((ei + di) % 7 === 0) status = "HALF_DAY";
+      else if ((ei + di) % 19 === 0) status = "OVERTIME";
+
+      const checkIn = status === "ABSENT" || status === "PAID_LEAVE" ? null : new Date(`${date.toISOString().split("T")[0]}T09:${status === "LATE" ? "30" : "00"}:00`);
+      const checkOut = status === "ABSENT" || status === "PAID_LEAVE" ? null : new Date(`${date.toISOString().split("T")[0]}T${status === "OVERTIME" ? "19" : "18"}:00:00`);
+      const hours = status === "ABSENT" || status === "PAID_LEAVE" ? null : status === "OVERTIME" ? 10 : status === "HALF_DAY" ? 4 : status === "LATE" ? 7.5 : 9;
+
+      await prisma.workerAttendance.create({
+        data: {
+          companyId: company.id,
+          employeeId: empMap[name],
+          date,
+          projectId: project1.id,
+          checkIn,
+          checkOut,
+          hoursWorked: hours ? new Decimal(hours) : null,
+          status,
+          recordedById: U.supervisor,
+        },
+      });
+    }
+  }
+
+  // ── B16. Additional payroll period (Sep 2024) ───────────────
+  const payrollPeriod2 = await prisma.payrollPeriod.create({
+    data: {
+      companyId: company.id,
+      month: 9,
+      year: 2024,
+      startDate: new Date("2024-09-01"),
+      endDate: new Date("2024-09-30"),
+      status: "DRAFT",
+      processedById: U.accountant,
+    },
+  });
+  // Don't process lines for draft — just create the period so the list has 2 periods
+
+  // ── B17. Additional project costs (10 more) ─────────────────
+  const bulkProjectCosts = [
+    { projectId: project1.id, costType: "LABOUR" as const, amount: 1800000, date: new Date("2024-07-31"), vendor: "Sai Labour Contractors", notes: "Tower A slab labour — July" },
+    { projectId: project1.id, costType: "LABOUR" as const, amount: 2100000, date: new Date("2024-08-31"), vendor: "Sai Labour Contractors", notes: "Tower A slab + blockwork — August" },
+    { projectId: project1.id, costType: "OVERHEAD" as const, amount: 850000, date: new Date("2024-07-15"), notes: "Site office + security Q3" },
+    { projectId: project1.id, costType: "EQUIPMENT" as const, amount: 180000, date: new Date("2024-07-20"), notes: "JCB + mixer diesel + operator" },
+    { projectId: project1.id, costType: "CONTRACTOR" as const, amount: 520000, date: new Date("2024-08-10"), subcontractorId: subMap["Marathon Masonry"], notes: "Blockwork Tower A floors 1-2" },
+    { projectId: project1.id, costType: "CONTRACTOR" as const, amount: 420000, date: new Date("2024-08-25"), subcontractorId: subMap["Apex Painters"], notes: "Primer + putty Tower A GF" },
+    { projectId: project2.id, costType: "LABOUR" as const, amount: 1500000, date: new Date("2024-07-15"), vendor: "Hillview Labour Co", notes: "Block 1 foundation labour" },
+    { projectId: project2.id, costType: "EQUIPMENT" as const, amount: 220000, date: new Date("2024-07-20"), notes: "Excavator + compactor charges" },
+    { projectId: project2.id, costType: "CONTRACTOR" as const, amount: 680000, date: new Date("2024-08-05"), notes: "Waterproofing subcontract" },
+    { projectId: project2.id, costType: "PERMIT" as const, amount: 350000, date: new Date("2024-08-15"), vendor: "PMC", notes: "Additional environmental clearance" },
+  ];
+  await prisma.projectCost.createMany({ data: bulkProjectCosts });
+
+  // ── B18. Additional expenses (10 more) ──────────────────────
+  const bulkExpenses = [
+    { companyId: company.id, category: "Office Rent", amount: 85000, date: new Date("2024-07-01"), notes: "Monthly office rent — July" },
+    { companyId: company.id, category: "Office Rent", amount: 85000, date: new Date("2024-08-01"), notes: "Monthly office rent — August" },
+    { companyId: company.id, category: "Utilities", amount: 24000, date: new Date("2024-07-05"), notes: "Electricity + internet — July" },
+    { companyId: company.id, category: "Utilities", amount: 26000, date: new Date("2024-08-05"), notes: "Electricity + internet — August" },
+    { companyId: company.id, projectId: project1.id, category: "Travel", amount: 18000, date: new Date("2024-07-12"), notes: "Site visits + client meetings" },
+    { companyId: company.id, projectId: project1.id, category: "Consultancy", amount: 85000, date: new Date("2024-08-10"), notes: "Structural consultant — slab design review" },
+    { companyId: company.id, projectId: project2.id, category: "Travel", amount: 12000, date: new Date("2024-07-18"), notes: "Hillview site visits" },
+    { companyId: company.id, category: "Office Supplies", amount: 9500, date: new Date("2024-07-18"), notes: "Stationery + printing Q3" },
+    { companyId: company.id, category: "Marketing", amount: 45000, date: new Date("2024-08-01"), notes: "Brochure printing + digital ads" },
+    { companyId: company.id, category: "Insurance", amount: 120000, date: new Date("2024-08-15"), notes: "Project insurance premium — annual" },
+  ];
+  await prisma.expense.createMany({ data: bulkExpenses });
+
+  // ── B19. Additional asset sales (5 more — mix of unit + land) ──
+  // Sell a few more units in Greenfield to have more sales data
+  const bulkSaleDefs = [
+    { unit: "A-102", customer: "Priya Deshpande", price: 21000000, mode: "Home Loan (HDFC)", notes: "Booking + 1 installment", payments: [2100000, 4000000] },
+    { unit: "A-202", customer: "Sunil Joshi", price: 21000000, mode: "Bank Transfer", notes: "Full payment", payments: [21000000] },
+    { unit: "A-301", customer: "Suresh Kulkarni", price: 15000000, mode: "Home Loan (SBI)", notes: "Booking amount only", payments: [1500000] },
+    { unit: "A-401", customer: "Rohit Patil", price: 15000000, mode: "Home Loan (ICICI)", notes: "Booking + 2 installments", payments: [1500000, 3000000] },
+  ];
+  for (const s of bulkSaleDefs) {
+    const unit = await prisma.builtUnit.findFirst({ where: { projectId: project1.id, unitNumber: s.unit } });
+    if (!unit || unit.status === "SOLD") continue;
+    const sale = await sellAsset({
+      assetType: "BUILT_UNIT",
+      builtUnitId: unit.id,
+      customerId: customerMap[s.customer],
+      companyId: company.id,
+      salePrice: s.price,
+      paymentMode: s.mode,
+      notes: s.notes,
+    });
+    for (const amt of s.payments) {
+      await recordPayment({ assetSaleId: sale.id, amount: amt, mode: "RTGS", reference: `UTR-${s.unit}-${amt}` });
+    }
+  }
+
+  // ── B20. Additional audit logs (15 more) ────────────────────
+  const bulkAuditLogs = [
+    { userId: U.supervisor, action: "ISSUE", entityType: "MaterialIssue", entityId: "Tower A blockwork", after: { project: "Greenfield Residency" } as any, timestamp: new Date("2024-07-05") },
+    { userId: U.supervisor, action: "ISSUE", entityType: "MaterialIssue", entityId: "Tower A flooring", after: { project: "Greenfield Residency" } as any, timestamp: new Date("2024-07-10") },
+    { userId: U.supervisor, action: "ISSUE", entityType: "MaterialIssue", entityId: "Tower A electrical", after: { project: "Greenfield Residency" } as any, timestamp: new Date("2024-07-15") },
+    { userId: U.manager, action: "CREATE", entityType: "StockTransfer", entityId: "Transfer 10mm to site", after: { status: "COMPLETED" } as any, timestamp: new Date("2024-07-05") },
+    { userId: U.manager, action: "CREATE", entityType: "StockTransfer", entityId: "Transfer tiles to site", after: { status: "COMPLETED" } as any, timestamp: new Date("2024-07-18") },
+    { userId: U.supervisor, action: "COUNT", entityType: "StockCount", entityId: "Warehouse July count", after: { status: "COUNTED" } as any, timestamp: new Date("2024-07-15") },
+    { userId: U.supervisor, action: "COUNT", entityType: "StockCount", entityId: "Site yard count", after: { status: "COUNTED" } as any, timestamp: new Date("2024-07-20") },
+    { userId: U.accountant, action: "CREATE", entityType: "Expense", entityId: "Office rent July", after: { amount: 85000 } as any, timestamp: new Date("2024-07-01") },
+    { userId: U.accountant, action: "CREATE", entityType: "Expense", entityId: "Project insurance", after: { amount: 120000 } as any, timestamp: new Date("2024-08-15") },
+    { userId: U.sales, action: "CREATE", entityType: "AssetSale", entityId: "A-102 sale", after: { saleNumber: "A-102", assetType: "BUILT_UNIT" } as any, timestamp: new Date("2024-07-20") },
+    { userId: U.sales, action: "CREATE", entityType: "AssetSale", entityId: "A-201 sale", after: { saleNumber: "A-201", assetType: "BUILT_UNIT" } as any, timestamp: new Date("2024-08-01") },
+    { userId: U.manager, action: "CREATE", entityType: "ProjectCost", entityId: "Tower A slab labour July", after: { amount: 1800000 } as any, timestamp: new Date("2024-07-31") },
+    { userId: U.manager, action: "CREATE", entityType: "ProjectCost", entityId: "Tower A blockwork contractor", after: { amount: 520000 } as any, timestamp: new Date("2024-08-10") },
+    { userId: U.supervisor, action: "CREATE", entityType: "DailyProgressReport", entityId: "DPR 2024-08-19", after: { status: "SUBMITTED" } as any, timestamp: new Date("2024-08-19") },
+    { userId: U.manager, action: "APPROVE", entityType: "DailyProgressReport", entityId: "DPR 2024-08-19", after: { status: "APPROVED" } as any, timestamp: new Date("2024-08-20") },
+  ];
+  await prisma.auditLog.createMany({ data: bulkAuditLogs });
+
+  // ── B21. Material sales (5 — sell excess stock to walk-in customers) ──
+  const bulkMaterialSales = [
+    { customer: "Lakshmi Enterprises", lines: [["CEM-PPC", 50, 350, 28]], loc: "warehouse", notes: "Walk-in cement sale", vehicle: "MH12 AB 1234" },
+    { customer: "Sharma Construction Co", lines: [["STL-TMT08", 500, 85, 18], ["STL-TMT10", 500, 83, 18]], loc: "warehouse", notes: "Steel sale to local contractor", vehicle: "MH14 CD 5678" },
+    { customer: "Sai Krupa Enterprises", lines: [["SND-M", 200, 42, 5], ["AGG-10MM", 150, 60, 5]], loc: "warehouse", notes: "Sand + aggregate sale", vehicle: "MH12 EF 9012" },
+    { customer: "Maheshwari Traders", lines: [["PNT-EMULSION", 20, 190, 18], ["PNT-PUTTY", 10, 880, 18]], loc: "warehouse", notes: "Paint sale", vehicle: "MH14 GH 3456" },
+    { customer: "Kumar Infra Projects", lines: [["ELC-WIRE25", 300, 20, 18], ["ELC-CONDUIT", 100, 34, 18]], loc: "warehouse", notes: "Electrical materials sale", vehicle: "MH12 IJ 7890" },
+  ];
+  for (const ms of bulkMaterialSales) {
+    try {
+      const sale = await createMaterialSale({
+        companyId: company.id,
+        customerId: customerMap[ms.customer],
+        lines: ms.lines.map(([code, qty, price, gst]) => ({ materialId: matMap[code as string], locationId: locMap[ms.loc], qty: qty as number, unitPrice: price as number, gstRate: gst as number })),
+        paymentMode: "Cash",
+        vehicleNumber: ms.vehicle,
+        notes: ms.notes,
+        userId: U.sales,
+      });
+      // Record a payment for each
+      await createMaterialSalePayment({ saleId: sale.id, companyId: company.id, amount: sale.totalAmount, paymentMode: "Cash", userId: U.sales });
+    } catch (e) {
+      // Skip if insufficient stock — not fatal
+      console.log(`  Skipping material sale to ${ms.customer}: ${(e as Error).message}`);
+    }
+  }
+
+  // ── B22. Scrap generations (3 — steel + wood scrap from site) ──
+  const bulkScraps = [
+    { loc: "site1", notes: "Steel cut-piece scrap from Tower A slab reinforcement", lines: [["SCR-STEEL", 150, 35]] },
+    { loc: "site1", notes: "Wood scrap from formwork dismantling", lines: [["SCR-WOOD", 8, 200]] },
+    { loc: "site2", notes: "Steel scrap from Hillview column fabrication", lines: [["SCR-STEEL", 80, 35]] },
+  ];
+  for (const sg of bulkScraps) {
+    try {
+      await createScrapGeneration({
+        companyId: company.id,
+        toLocationId: locMap[sg.loc],
+        projectId: sg.loc === "site1" ? project1.id : project2.id,
+        notes: sg.notes,
+        createdById: U.supervisor,
+        lines: sg.lines.map(([code, qty, cost]) => ({ materialId: matMap[code as string], qty: qty as number, unitCost: cost as number })),
+      });
+    } catch (e) {
+      console.log(`  Skipping scrap generation: ${(e as Error).message}`);
+    }
+  }
+
+  // ── B23. Additional brokers (3 more) ────────────────────────
+  const bulkBrokers = [
+    { name: "Shree Properties", phone: "+91 98220 77003", agency: "Shree Real Estate", commission: 2.5 },
+    { name: "Metro Realty Advisors", phone: "+91 98220 77004", agency: "Metro Property Solutions", commission: 1.8 },
+    { name: "Pune Property Connect", phone: "+91 98220 77005", agency: "PPC Real Estate", commission: 2.0 },
+  ];
+  for (const b of bulkBrokers) {
+    await ensure("broker", { companyId: company.id, name: b.name }, {
+      companyId: company.id,
+      name: b.name,
+      phone: b.phone,
+      agency: b.agency,
+      defaultCommissionPercent: new Decimal(b.commission),
+      createdById: U.sales,
+    });
+  }
+
+  // ── B24. Additional tenancy (1 more — shop S-01 rented) ─────
+  // Wait — S-01 is already sold. Let's rent a different available shop.
+  // Actually S-02 is rented. Let's create a new shop unit and rent it.
+  // Instead, let's rent an available unit in Hillview.
+  const hillviewUnit = await prisma.builtUnit.findFirst({ where: { projectId: project2.id, status: "UNDER_CONSTRUCTION" } });
+  if (hillviewUnit) {
+    await prisma.tenancy.create({
+      data: {
+        companyId: company.id,
+        assetType: "BUILT_UNIT",
+        builtUnitId: hillviewUnit.id,
+        projectId: project2.id,
+        tenantName: "Cafe Coffee Day",
+        tenantPhone: "+91 98220 66010",
+        tenantEmail: "operations@ccd.in",
+        startDate: new Date("2024-08-01"),
+        endDate: new Date("2027-07-31"),
+        monthlyRent: new Decimal(45000),
+        baseRent: new Decimal(45000),
+        securityDeposit: new Decimal(200000),
+        rentAgreementNo: "RA-2024-002",
+        sacCode: "997212",
+        escalationPercent: new Decimal(5),
+        escalationIntervalMonths: 12,
+        nextEscalationDate: new Date("2025-08-01"),
+        rentFreeDays: 30,
+        status: "ACTIVE",
+        notes: "Ground floor commercial space at Hillview",
+        createdById: U.sales,
+      },
+    });
+  }
+
+  // ── B25. Additional vendor quotes (3 more against bulk requisitions) ──
+  const bulkReqForQuotes = await prisma.materialRequisition.findFirst({ where: { reqNumber: "REQ-2024-0012" } });
+  if (bulkReqForQuotes) {
+    const tileQuotes = [
+      { supplier: "Kajaria Tiles Depot", lines: [{ material: "FLR-VITRIFIED", qty: 600, unitPrice: 215 }, { material: "ADH-TILE", qty: 40, unitPrice: 470 }], validUntil: new Date("2024-07-15") },
+      { supplier: "Asian Paints Depot", lines: [{ material: "FLR-VITRIFIED", qty: 600, unitPrice: 220 }, { material: "ADH-TILE", qty: 40, unitPrice: 460 }], validUntil: new Date("2024-07-12") },
+      { supplier: "Maha Lakshmi Hardware", lines: [{ material: "FLR-VITRIFIED", qty: 600, unitPrice: 210 }, { material: "ADH-TILE", qty: 40, unitPrice: 480 }], validUntil: new Date("2024-07-10") },
+    ];
+    for (const qd of tileQuotes) {
+      const lineFields = qd.lines.map((l) => computeQuoteLineFields(l.qty, l.unitPrice));
+      const subtotal = lineFields.reduce((s, f) => s + f.lineSubtotal, 0);
+      const gstTotal = lineFields.reduce((s, f) => s + f.gstAmount, 0);
+      const landedTotal = subtotal + gstTotal;
+      const vq = await prisma.vendorQuote.create({
+        data: {
+          requisitionId: bulkReqForQuotes.id,
+          supplierId: supplierMap[qd.supplier],
+          fileUrl: `/uploads/quotes/quote-tiles-${qd.supplier.replace(/[^a-zA-Z]/g, "")}.pdf`,
+          fileName: `Quote-Tiles-${qd.supplier.replace(/\s+/g, "-")}.pdf`,
+          mimeType: "application/pdf",
+          landedTotal: new Decimal(landedTotal),
+          subtotal: new Decimal(subtotal),
+          gstTotal: new Decimal(gstTotal),
+          validUntil: qd.validUntil,
+          submittedById: U.manager,
+          notes: `Tile quote from ${qd.supplier}`,
+          status: "PENDING",
+          lines: {
+            create: qd.lines.map((l, i) => ({
+              materialId: matMap[l.material],
+              qty: new Decimal(l.qty),
+              unitPrice: new Decimal(l.unitPrice),
+              gstRate: new Decimal(lineFields[i].gstRate),
+              gstAmount: new Decimal(lineFields[i].gstAmount),
+              taxableValue: new Decimal(lineFields[i].taxableValue),
+              lineSubtotal: new Decimal(lineFields[i].lineSubtotal),
+              unitLandedCost: new Decimal(lineFields[i].unitLandedCost),
+              lineTotal: new Decimal(lineFields[i].lineTotal),
+            })),
+          },
+        },
+      });
+      // Kajaria is cheapest: 600×215 + 40×470 = 129000+18800 = 147800
+      // Maha Lakshmi: 600×210 + 40×480 = 126000+19200 = 145200 (actually cheaper!)
+      // Asian: 600×220 + 40×460 = 132000+18400 = 150400
+      if (qd.supplier === "Maha Lakshmi Hardware") {
+        await prisma.vendorQuote.update({ where: { id: vq.id }, data: { isCheapest: true } });
+      }
+    }
+  }
+
   // ── Summary ─────────────────────────────────────────────────
-  const unitCount = await prisma.builtUnit.count({ where: { projectId: project1.id } });
   const totalUnits = await prisma.builtUnit.count();
   const totalProjects = await prisma.project.count({ where: { deletedAt: null } });
   const totalCompanies = await prisma.company.count({ where: { deletedAt: null } });
@@ -2644,20 +3413,34 @@ async function main() {
   const tenancyCount = await prisma.tenancy.count();
   const brokerCount = await prisma.broker.count();
   const scheduleCount = await prisma.paymentSchedule.count();
+  const materialCount = await prisma.material.count({ where: { deletedAt: null } });
+  const categoryCount = await prisma.materialCategory.count({ where: { deletedAt: null } });
+  const supplierCount = await prisma.supplier.count({ where: { deletedAt: null } });
+  const customerCount = await prisma.customer.count({ where: { deletedAt: null } });
+  const employeeCount = await prisma.employee.count();
+  const transferCount = await prisma.stockTransfer.count();
+  const stockCountCount = await prisma.stockCount.count();
+  const equipMaintCount = await prisma.equipmentMaintenance.count();
+  const expenseCount = await prisma.expense.count();
+  const projectCostCount = await prisma.projectCost.count();
+  const auditCount = await prisma.auditLog.count();
+  const materialSaleCount = await prisma.materialSale.count();
+  const scrapCount = await prisma.scrapGeneration.count();
   console.log("Seed complete.");
   console.log(`  Companies: ${totalCompanies} (1 parent group + 3 children + 1 standalone)`);
-  console.log(`  Users: ${Object.keys(userMap).length} · Employees: ${Object.keys(empMap).length + realtyEmps.length + infraEmps.length + interiorsEmps.length}`);
+  console.log(`  Users: ${Object.keys(userMap).length} · Employees: ${employeeCount}`);
   console.log(`  Projects: ${totalProjects} · Phases: 9 · Locations: 11`);
-  console.log(`  Categories: ${categories.length} · Materials: ${materials.length}`);
-  console.log(`  Suppliers: ${suppliers.length + realtySuppliers.length + infraSuppliers.length + interiorsSuppliers.length} · Subcontractors: ${subcontractors.length}`);
+  console.log(`  Categories: ${categoryCount} · Materials: ${materialCount}`);
+  console.log(`  Suppliers: ${supplierCount} · Subcontractors: ${subcontractors.length}`);
   console.log(`  Requisitions: ${reqCount} · Purchase Orders: ${poCount} · Goods Receipts: ${grCount}`);
   console.log(`  Vendor Quotes: ${quoteCount} · Supplier Returns: ${returnCount}`);
   console.log(`  Material Issues: ${issueCount} · Stock Movements: ${movementCount}`);
-  console.log(`  Stock Transfers: 2 · Stock Counts: 1`);
-  console.log(`  Equipment: ${equipCount} · Maintenance: 2`);
-  console.log(`  Land: 2 parcels · Built Units: ${totalUnits} (across all companies)`);
-  console.log(`  Customers: ${customers.length + realtyCustomers.length + interiorsCustomers.length} · Asset Sales: ${saleCount}`);
-  console.log(`  Project Costs: 16 · Expenses: 5 · Audit Logs: 21`);
+  console.log(`  Stock Transfers: ${transferCount} · Stock Counts: ${stockCountCount}`);
+  console.log(`  Equipment: ${equipCount} · Maintenance: ${equipMaintCount}`);
+  console.log(`  Built Units: ${totalUnits} (across all companies)`);
+  console.log(`  Customers: ${customerCount} · Asset Sales: ${saleCount} · Material Sales: ${materialSaleCount}`);
+  console.log(`  Project Costs: ${projectCostCount} · Expenses: ${expenseCount} · Audit Logs: ${auditCount}`);
+  console.log(`  Scrap Generations: ${scrapCount}`);
   console.log(`  Consumption Benchmarks: ${benchmarks.length}`);
   console.log(`  BOQ Items: ${boqSections.length + boqLines.length} · MB Entries: ${mbEntries.length}`);
   console.log(`  DPRs: ${dprCount} · Attendance: ${attendanceCount} · Payroll Periods: ${payrollCount}`);
