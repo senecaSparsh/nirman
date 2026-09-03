@@ -174,8 +174,35 @@ export function MobileStockMovementsList({
 
   return (
     <div>
-      {/* ── Inventory summary strip ── */}
+      {/* ── Inventory summary strip (same position across all tabs) ── */}
       <MobileSummaryStrip stats={summaryStats} />
+
+      {/* ── Sticky search header (same position across all tabs) ── */}
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search material, type, location…"
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={FILTER_CHIPS}
+              active={filter}
+              defaultValue="ALL"
+              onChange={setFilter}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
+        }
+        showClear={filter !== "ALL" || !!query}
+        onClear={() => { setQuery(""); setFilter("ALL"); }}
+      />
 
       {/* ── Material filter label (when deep-linked) ── */}
       {filterMaterialName ? (
@@ -215,33 +242,6 @@ export function MobileStockMovementsList({
           </div>
         </div>
       ) : null}
-
-      {/* ── Sticky search header ── */}
-      <MobileSearchHeader
-        query={query}
-        onQueryChange={setQuery}
-        placeholder="Search material, type, location…"
-        action={
-          <div className="flex items-center gap-1 shrink-0">
-            <MobileFilterIcon
-              options={FILTER_CHIPS}
-              active={filter}
-              defaultValue="ALL"
-              onChange={setFilter}
-            />
-            {exportTitle && exportRows && exportColumns ? (
-              <MobileExportShareIcons
-                title={exportTitle}
-                rows={exportRows}
-                columns={exportColumns}
-                summary={exportSummary}
-              />
-            ) : null}
-          </div>
-        }
-        showClear={filter !== "ALL" || !!query}
-        onClear={() => { setQuery(""); setFilter("ALL"); }}
-      />
 
       {/* ── Movement ledger ── */}
       {filtered.length === 0 ? (

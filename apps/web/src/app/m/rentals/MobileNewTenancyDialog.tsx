@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { X, Loader2, KeyRound, ChevronDown, ChevronRight } from "lucide-react";
+import { X, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
@@ -194,23 +194,12 @@ export function MobileNewTenancyDialog({
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1">
-            <span
-              className="grid place-items-center size-7 rounded-[0.375rem]"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              <KeyRound
-                className="size-3.5"
-                style={{ color: "var(--color-ink-600)" }}
-              />
-            </span>
-            <p
-              className="text-m-section font-bold"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              New Tenancy
-            </p>
-          </div>
+          <p
+            className="text-m-section font-extrabold tracking-tight"
+            style={{ color: "var(--color-ink-950)" }}
+          >
+            New Tenancy
+          </p>
           <button
             onClick={onClose}
             className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
@@ -222,6 +211,9 @@ export function MobileNewTenancyDialog({
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {/* ── Asset ── */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Asset</p>
           {/* Asset Type Toggle — horizontal */}
           <div>
             <label className={labelClass} style={labelStyle}>
@@ -317,7 +309,11 @@ export function MobileNewTenancyDialog({
               </p>
             )}
           </div>
+          </div>
 
+          {/* ── Tenant ── */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Tenant</p>
           {/* Tenant Name */}
           <div>
             <label className={labelClass} style={labelStyle}>
@@ -366,7 +362,11 @@ export function MobileNewTenancyDialog({
               />
             </div>
           </div>
+          </div>
 
+          {/* ── Linkages ── */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Linkages</p>
           {/* Project (optional, shows for both asset types) */}
           <MobileSelectWithCreate
             label="Link to Project (optional)"
@@ -408,7 +408,11 @@ export function MobileNewTenancyDialog({
               )}
             />
           )}
+          </div>
 
+          {/* ── Terms ── */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Terms</p>
           {/* Dates */}
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
@@ -588,13 +592,16 @@ export function MobileNewTenancyDialog({
               SAC (Service Accounting Code) determines the GST rate on rental income.
             </p>
           </div>
+          </div>
 
+          {/* ── Draft / LOI ── */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           {/* Draft / LOI — collapsible */}
           <button
             type="button"
             onClick={() => { setShowDraftLoi((v) => !v); haptic(10); }}
             className="flex items-center gap-1.5 text-m-section font-extrabold tracking-tight press"
-            style={{ color: "var(--color-ink-700)" }}
+            style={{ color: "var(--color-ink-950)" }}
           >
             {showDraftLoi ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
             Draft / LOI {form.draftDate || form.draftNotes ? "· has data" : "(optional)"}
@@ -640,6 +647,7 @@ export function MobileNewTenancyDialog({
               </div>
             </>
           )}
+          </div>
 
           {/* Actions */}
           <div className="flex flex-col gap-3 ">

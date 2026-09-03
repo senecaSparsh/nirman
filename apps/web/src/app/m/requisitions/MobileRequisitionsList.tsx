@@ -17,6 +17,7 @@ import {
   MobileFilterIcon,
   MobileCardGrid,
   MobileNoResults,
+  MobileSummaryStrip,
 } from "@/components/mobile/v2/scaffold";
 import {
   MobileExportShareIcons,
@@ -134,7 +135,17 @@ export function MobileRequisitionsList({
 
   return (
     <div>
-      {/* ── Sticky search header ── */}
+      {/* ── Summary strip (same position across all procurement tabs) ── */}
+      <MobileSummaryStrip
+        stats={[
+          { label: "Total", value: String(items.length) },
+          { label: "Draft", value: String(items.filter((r) => r.status === "DRAFT").length) },
+          { label: "Submitted", value: String(items.filter((r) => r.status === "SUBMITTED").length) },
+          { label: "Approved", value: String(items.filter((r) => r.status === "APPROVED").length) },
+        ]}
+      />
+
+      {/* ── Sticky search header (same position across all procurement tabs) ── */}
       <MobileSearchHeader
         query={query}
         onQueryChange={setQuery}
@@ -164,7 +175,8 @@ export function MobileRequisitionsList({
         }}
       />
 
-      {/* ── Orientation: what is this page + what to do next ── */}
+      {/* ── Orientation: what is this page + what to do next (below search
+          so search + summary strip stay in the same position across tabs) ── */}
       <PageLead flow="requisition" />
       <NextActionCard
         flow="requisition"

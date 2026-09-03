@@ -452,44 +452,64 @@ function ReturnForm({
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {/* ══════ SECTION: WHO ══════ */}
-        <SectionHeader icon={Truck} label="Supplier" />
+        <div
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Supplier
+          </p>
 
-        <SelectorCard
-          onClick={() => setModal({ type: "supplier" })}
-          icon={Truck}
-          label="Supplier"
-          value={selectedSupplier?.name}
-          required
-        />
-
-        {/* Optional PO linkage */}
-        {supplierId && availablePOs.length > 0 ? (
           <SelectorCard
-            onClick={() => setModal({ type: "po" })}
-            icon={FileText}
-            label="Original Purchase Order (optional)"
-            value={purchaseOrderId ? selectedPO?.poNumber : undefined}
-            placeholder="Return without Purchase Order linkage"
+            onClick={() => setModal({ type: "supplier" })}
+            icon={Truck}
+            label="Supplier"
+            value={selectedSupplier?.name}
+            required
           />
-        ) : null}
+
+          {/* Optional PO linkage */}
+          {supplierId && availablePOs.length > 0 ? (
+            <SelectorCard
+              onClick={() => setModal({ type: "po" })}
+              icon={FileText}
+              label="Original Purchase Order (optional)"
+              value={purchaseOrderId ? selectedPO?.poNumber : undefined}
+              placeholder="Return without Purchase Order linkage"
+            />
+          ) : null}
+        </div>
 
         {/* ══════ SECTION: FROM ══════ */}
-        <SectionHeader icon={MapPin} label="Source Location" />
+        <div
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Source Location
+          </p>
 
-        <SelectorCard
-          onClick={() => setModal({ type: "location" })}
-          icon={MapPin}
-          label="From Location"
-          value={selectedLocation?.name}
-          subvalue={selectedLocation?.type.replace(/_/g, " ").toLowerCase()}
-          required
-        />
+          <SelectorCard
+            onClick={() => setModal({ type: "location" })}
+            icon={MapPin}
+            label="From Location"
+            value={selectedLocation?.name}
+            subvalue={selectedLocation?.type.replace(/_/g, " ").toLowerCase()}
+            required
+          />
+        </div>
 
         {/* ══════ SECTION: WHAT ══════ */}
-        <SectionHeader icon={Package} label="Return Items" />
+        <div
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Return Items
+          </p>
 
-        <div className="flex flex-col gap-3">
-          {lines.map((line, idx) => {
+          <div className="flex flex-col gap-3">
+            {lines.map((line, idx) => {
             const mat = materials.find((m) => m.id === line.materialId);
             const lineTotal = (Number(line.qty) || 0) * (Number(line.unitCost) || 0);
             return (
@@ -614,34 +634,45 @@ function ReturnForm({
           <Plus className="size-3.5" />
           <span className="text-m-body font-bold">Add another item</span>
         </button>
-
-        {/* Vehicle / Carrier — how returned goods are transported back */}
-        <div>
-          <div
-            className="flex items-center gap-1.5 border-b pb-2"
-            style={{ borderColor: "var(--color-line)" }}
-          >
-            <Truck className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
-            <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-700)" }}>
-              Vehicle / Carrier
-            </span>
-          </div>
-          <VehicleCapture value={vehicle} onChange={setVehicle} compact />
         </div>
 
-        {/* Notes */}
-        <div>
-          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-            Notes (optional)
-          </label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="e.g. Goods damaged in transit"
-            rows={2}
-            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-          />
+        {/* ══════ SECTION: DISPATCH ══════ */}
+        <div
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Dispatch
+          </p>
+
+          {/* Vehicle / Carrier — how returned goods are transported back */}
+          <div>
+            <div
+              className="flex items-center gap-1.5 border-b pb-2"
+              style={{ borderColor: "var(--color-line)" }}
+            >
+              <Truck className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
+              <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-700)" }}>
+                Vehicle / Carrier
+              </span>
+            </div>
+            <VehicleCapture value={vehicle} onChange={setVehicle} compact />
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Notes (optional)
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. Goods damaged in transit"
+              rows={2}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+            />
+          </div>
         </div>
       </form>
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, FileText, ShieldCheck, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 
@@ -427,9 +427,8 @@ export function MobileNewProjectDialog({
               backgroundColor: "transparent",
             }}
           >
-            <ShieldCheck className="size-4 shrink-0" style={{ color: showRera ? "var(--color-steel-dark)" : "var(--color-ink-500)" }} />
             <div className="flex-1 min-w-0">
-              <div className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
+              <div className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                 RERA Registration
               </div>
               <div className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
@@ -511,9 +510,8 @@ export function MobileNewProjectDialog({
               backgroundColor: "transparent",
             }}
           >
-            <FileText className="size-4 shrink-0" style={{ color: showAts ? "var(--color-steel-dark)" : "var(--color-ink-500)" }} />
             <div className="flex-1 min-w-0">
-              <div className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
+              <div className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                 Agreement to Sell (ATS)
               </div>
               <div className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>

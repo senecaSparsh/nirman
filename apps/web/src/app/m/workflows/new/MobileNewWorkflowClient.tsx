@@ -133,7 +133,7 @@ export function MobileNewWorkflowClient() {
             <ChevronLeft className="size-5" style={{ color: "var(--color-ink-500)" }} />
           </button>
           <div className="flex-1">
-            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               New Workflow
             </p>
             <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
@@ -164,107 +164,125 @@ export function MobileNewWorkflowClient() {
 
       {/* ── Step 1: Template selection ── */}
       {step === "template" && (
-        <div className="p-3 space-y-2">
-          <p className="text-m-caption font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-steel)" }}>
-            Choose a Template
-          </p>
-          {WORKFLOW_TEMPLATES.map((t) => {
-            const Icon = TEMPLATE_ICONS[t.icon] ?? WorkflowIcon;
-            return (
-              <button
-                key={t.key}
-                onClick={() => selectTemplate(t)}
-                className="w-full text-left rounded-[0.625rem] border p-3 active:scale-[0.98] transition-transform press"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              >
-                <div className="flex items-start gap-2.5">
-                  <div
-                    className="size-9 rounded-[0.5rem] text-m-body flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: "color-mix(in srgb, var(--color-steel) 10%, transparent)" }}
+        <div className="p-3 space-y-3">
+          <div
+            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Choose a Template
+            </p>
+            <div className="flex flex-col gap-2">
+              {WORKFLOW_TEMPLATES.map((t) => {
+                const Icon = TEMPLATE_ICONS[t.icon] ?? WorkflowIcon;
+                return (
+                  <button
+                    key={t.key}
+                    onClick={() => selectTemplate(t)}
+                    className="w-full text-left rounded-[0.625rem] border p-3 active:scale-[0.98] transition-transform press"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                   >
-                    <Icon className="size-4" style={{ color: "var(--color-steel)" }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-                      {t.label}
-                    </p>
-                    <p className="text-m-caption mt-0.5 leading-snug" style={{ color: "var(--color-ink-500)" }}>
-                      {t.description}
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-1.5">
-                      {t.graph.steps.map((s, i) => (
-                        <span
-                          key={i}
-                          className="text-m-caption font-semibold px-1.5 py-0.5 rounded-[0.25rem]"
-                          style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}
-                        >
-                          {s.type.replace(/_/g, " ")}
-                        </span>
-                      ))}
+                    <div className="flex items-start gap-2.5">
+                      <div
+                        className="size-9 rounded-[0.5rem] text-m-body flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: "color-mix(in srgb, var(--color-steel) 10%, transparent)" }}
+                      >
+                        <Icon className="size-4" style={{ color: "var(--color-steel)" }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                          {t.label}
+                        </p>
+                        <p className="text-m-caption mt-0.5 leading-snug" style={{ color: "var(--color-ink-500)" }}>
+                          {t.description}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-1.5">
+                          {t.graph.steps.map((s, i) => (
+                            <span
+                              key={i}
+                              className="text-m-caption font-semibold px-1.5 py-0.5 rounded-[0.25rem]"
+                              style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}
+                            >
+                              {s.type.replace(/_/g, " ")}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <ChevronRight className="size-4 shrink-0 self-center" style={{ color: "var(--color-ink-300)" }} />
                     </div>
-                  </div>
-                  <ChevronRight className="size-4 shrink-0 self-center" style={{ color: "var(--color-ink-300)" }} />
-                </div>
-              </button>
-            );
-          })}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
       {/* ── Step 2: Details ── */}
       {step === "details" && selectedTemplate && (
-        <div className="p-3 space-y-4">
+        <div className="p-3 space-y-3">
           {/* Selected template summary */}
           <div
-            className="rounded-[0.625rem] border p-3"
-            style={{ borderColor: "color-mix(in srgb, var(--color-steel) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-steel) 5%, transparent)" }}
+            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
-            <p className="text-m-caption font-bold uppercase tracking-wide mb-1" style={{ color: "var(--color-steel)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Selected Template
             </p>
-            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-              {selectedTemplate.label}
-            </p>
-            <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-              {selectedTemplate.description}
-            </p>
+            <div className="flex flex-col gap-1">
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                {selectedTemplate.label}
+              </p>
+              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                {selectedTemplate.description}
+              </p>
+            </div>
           </div>
 
-          {/* Name */}
-          <div>
-            <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-700)" }}>
-              Workflow Name *
-            </label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Weekly Site Inspection"
-              className="w-full h-11 rounded-[0.5rem] border px-3 text-m-section outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
-            />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-700)" }}>
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              placeholder="What this workflow does…"
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section outline-none resize-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
-            />
+          {/* Details: name & description */}
+          <div
+            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Details
+            </p>
+            <div>
+              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                Workflow Name *
+              </label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Weekly Site Inspection"
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+              />
+            </div>
+            <div>
+              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                Description
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                placeholder="What this workflow does…"
+                className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+              />
+            </div>
           </div>
 
           {/* Steps preview */}
-          <div>
-            <p className="text-m-caption font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-steel)" }}>
+          <div
+            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Steps ({selectedTemplate.graph.steps.length})
             </p>
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-1.5">
               {selectedTemplate.graph.steps.map((s, i) => {
                 const StepIcon = getStepIcon(s.type);
                 return (
@@ -307,15 +325,18 @@ export function MobileNewWorkflowClient() {
 
       {/* ── Step 3: Schedule ── */}
       {step === "schedule" && (
-        <div className="p-3 space-y-4">
-          <div>
-            <p className="text-m-caption font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-steel)" }}>
+        <div className="p-3 space-y-3">
+          <div
+            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Schedule
             </p>
-            <p className="text-m-caption mb-3" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
               How often should this workflow run automatically? You can always run it manually too.
             </p>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               {SCHEDULE_OPTIONS.map((opt) => {
                 const isSelected = scheduleInterval === opt.value;
                 return (
@@ -329,7 +350,7 @@ export function MobileNewWorkflowClient() {
                     }}
                   >
                     <div className="flex-1">
-                      <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
+                      <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                         {opt.label}
                       </p>
                       <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-400)" }}>

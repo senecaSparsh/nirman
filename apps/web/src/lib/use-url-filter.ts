@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 /**
@@ -11,6 +11,17 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
  * "never lose place" requirement — a manager filtering to "pending
  * approvals", approving one, and returning to the list still sees the
  * pending approvals filter active.
+ *
+ * Derives the value directly from `searchParams` during render (no
+ * `useEffect` sync loop), which avoids a cascading render on every
+ * filter change. A small piece of local "pending" state holds the
+ * optimistic value between the user's click and `router.replace`
+ * propagating back to `useSearchParams` — typically one render cycle.
+ *
+ * Uses React's "adjust state during render" pattern (calling setState
+ * conditionally during render when a prop changed) instead of an effect,
+ * per https://react.dev/learn/you-might-not-need-an-effect — this
+ * re-renders immediately without committing, so there's no flash.
  *
  * Usage:
  *   const [status, setStatus] = useUrlFilter("status", "ALL");
@@ -29,16 +40,23 @@ export function useUrlFilter<T extends string>(
   const pathname = usePathname();
 
   const urlValue = searchParams.get(key) as T | null;
-  const [value, setValue] = useState<T>(urlValue ?? defaultValue);
+  const [pending, setPending] = useState<T | null>(null);
+  const [prevUrlValue, setPrevUrlValue] = useState<T | null | undefined>(urlValue);
 
-  // Sync from URL → state (handles back/forward navigation)
-  useEffect(() => {
-    setValue(urlValue ?? defaultValue);
-  }, [urlValue, defaultValue]);
+  // Clear the optimistic override once the URL has caught up so the
+  // value reverts to being URL-derived (handles back/forward navigation
+  // and external URL changes). This is the documented "adjust state
+  // when a prop changes" pattern — not an effect, so no cascading render.
+  if (urlValue !== prevUrlValue) {
+    setPrevUrlValue(urlValue);
+    setPending(null);
+  }
+
+  const value: T = pending ?? (urlValue ?? defaultValue);
 
   const update = useCallback(
     (newValue: T) => {
-      setValue(newValue);
+      setPending(newValue);
       const params = new URLSearchParams(searchParams.toString());
       if (newValue === defaultValue || !newValue) {
         params.delete(key);
@@ -68,16 +86,20 @@ export function useUrlQuery(
   const pathname = usePathname();
 
   const urlValue = searchParams.get(key) ?? defaultValue;
-  const [value, setValue] = useState<string>(urlValue);
+  const [pending, setPending] = useState<string | null>(null);
+  const [prevUrlValue, setPrevUrlValue] = useState<string | undefined>(urlValue);
 
-  // Sync from URL → state (handles back/forward navigation)
-  useEffect(() => {
-    setValue(searchParams.get(key) ?? defaultValue);
-  }, [searchParams, key, defaultValue]);
+  // Clear the optimistic override once the URL has caught up.
+  if (urlValue !== prevUrlValue) {
+    setPrevUrlValue(urlValue);
+    setPending(null);
+  }
+
+  const value: string = pending ?? urlValue;
 
   const update = useCallback(
     (newValue: string) => {
-      setValue(newValue);
+      setPending(newValue);
       // Debounce the URL update
       const timeout = setTimeout(() => {
         const params = new URLSearchParams(searchParams.toString());

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, FileText } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
@@ -130,23 +130,12 @@ export function MobileNewRateContractDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1">
-            <span
-              className="grid place-items-center size-7 rounded-[0.375rem]"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              <FileText
-                className="size-3.5"
-                style={{ color: "var(--color-ink-600)" }}
-              />
-            </span>
-            <p
-              className="text-m-section font-bold"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              New Rate Contract
-            </p>
-          </div>
+          <p
+            className="text-m-section font-extrabold tracking-tight"
+            style={{ color: "var(--color-ink-950)" }}
+          >
+            New Rate Contract
+          </p>
           <button
             onClick={onClose}
             className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
@@ -158,138 +147,143 @@ export function MobileNewRateContractDialog({
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <MobileSelectWithCreate
-            label="Supplier"
-            required
-            value={form.supplierId}
-            onChange={(v) => set("supplierId", v)}
-            placeholder="— Select supplier —"
-            options={suppliers.map((s) => ({ value: s.id, label: s.name }))}
-            inputClass={inputClass}
-            inputStyle={inputStyle}
-            renderDialog={({ open, onClose, onCreated }) => (
-              <MobileNewSupplierDialog
-                open={open}
-                onClose={onClose}
-                onCreated={(s) => onCreated(s.id, s.name)}
-              />
-            )}
-          />
+          {/* Contract Details */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Contract Details</p>
 
-          <MobileSelectWithCreate
-            label="Material"
-            required
-            value={form.materialId}
-            onChange={(v) => set("materialId", v)}
-            placeholder="— Select material —"
-            options={materials.map((m) => ({
-              value: m.id,
-              label: `${m.name} (${m.unit})`,
-            }))}
-            inputClass={inputClass}
-            inputStyle={inputStyle}
-            renderDialog={({ open, onClose, onCreated }) => (
-              <MobileNewMaterialDialog
-                open={open}
-                onClose={onClose}
-                categories={[]}
-                onCreated={(m) => onCreated(m.id, m.name)}
-              />
-            )}
-          />
-
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Agreed Rate (₹){" "}
-              <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="number"
-              min={0.01}
-              step="any"
-              value={form.agreedRate}
-              onChange={(e) => set("agreedRate", e.target.value)}
-              placeholder="0"
-              inputMode="decimal"
-              className={inputClass}
-              style={inputStyle}
+            <MobileSelectWithCreate
+              label="Supplier"
+              required
+              value={form.supplierId}
+              onChange={(v) => set("supplierId", v)}
+              placeholder="— Select supplier —"
+              options={suppliers.map((s) => ({ value: s.id, label: s.name }))}
+              inputClass={inputClass}
+              inputStyle={inputStyle}
+              renderDialog={({ open, onClose, onCreated }) => (
+                <MobileNewSupplierDialog
+                  open={open}
+                  onClose={onClose}
+                  onCreated={(s) => onCreated(s.id, s.name)}
+                />
+              )}
             />
-          </div>
 
-          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Valid From <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <input
-                type="date"
-                value={form.validFrom}
-                onChange={(e) => set("validFrom", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Valid To <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <input
-                type="date"
-                value={form.validTo}
-                onChange={(e) => set("validTo", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-          </div>
+            <MobileSelectWithCreate
+              label="Material"
+              required
+              value={form.materialId}
+              onChange={(v) => set("materialId", v)}
+              placeholder="— Select material —"
+              options={materials.map((m) => ({
+                value: m.id,
+                label: `${m.name} (${m.unit})`,
+              }))}
+              inputClass={inputClass}
+              inputStyle={inputStyle}
+              renderDialog={({ open, onClose, onCreated }) => (
+                <MobileNewMaterialDialog
+                  open={open}
+                  onClose={onClose}
+                  categories={[]}
+                  onCreated={(m) => onCreated(m.id, m.name)}
+                />
+              )}
+            />
 
-          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
               <label className={labelClass} style={labelStyle}>
-                Min Qty (optional)
+                Agreed Rate (₹){" "}
+                <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
               <input
                 type="number"
-                min={0}
+                min={0.01}
                 step="any"
-                value={form.minQty}
-                onChange={(e) => set("minQty", e.target.value)}
+                value={form.agreedRate}
+                onChange={(e) => set("agreedRate", e.target.value)}
                 placeholder="0"
                 inputMode="decimal"
                 className={inputClass}
                 style={inputStyle}
               />
             </div>
+
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Valid From <span style={{ color: "var(--color-stop)" }}>*</span>
+                </label>
+                <input
+                  type="date"
+                  value={form.validFrom}
+                  onChange={(e) => set("validFrom", e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Valid To <span style={{ color: "var(--color-stop)" }}>*</span>
+                </label>
+                <input
+                  type="date"
+                  value={form.validTo}
+                  onChange={(e) => set("validTo", e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Min Qty (optional)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={form.minQty}
+                  onChange={(e) => set("minQty", e.target.value)}
+                  placeholder="0"
+                  inputMode="decimal"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Max Qty (optional)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={form.maxQty}
+                  onChange={(e) => set("maxQty", e.target.value)}
+                  placeholder="0"
+                  inputMode="decimal"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
             <div>
               <label className={labelClass} style={labelStyle}>
-                Max Qty (optional)
+                Notes (optional)
               </label>
-              <input
-                type="number"
-                min={0}
-                step="any"
-                value={form.maxQty}
-                onChange={(e) => set("maxQty", e.target.value)}
-                placeholder="0"
-                inputMode="decimal"
-                className={inputClass}
+              <textarea
+                value={form.notes}
+                onChange={(e) => set("notes", e.target.value)}
+                rows={2}
+                placeholder="Additional terms…"
+                className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
                 style={inputStyle}
               />
             </div>
-          </div>
-
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Notes (optional)
-            </label>
-            <textarea
-              value={form.notes}
-              onChange={(e) => set("notes", e.target.value)}
-              rows={2}
-              placeholder="Additional terms…"
-              className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
-              style={inputStyle}
-            />
           </div>
 
           <div className="flex flex-col gap-3 ">

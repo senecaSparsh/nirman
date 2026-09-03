@@ -13,6 +13,7 @@ import { PageLead, NextActionCard } from "@/components/mobile/v2/guidance";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
+  MobileSummaryStrip,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
@@ -124,38 +125,17 @@ export function MobileTransfersList({
 
   return (
     <div className="pb-6">
-      {/* ── Orientation: what is this page + what to do next ── */}
-      <PageLead flow="stockTransfer" />
-      <NextActionCard
-        flow="stockTransfer"
-        count={inTransitCount}
-        can={(perm) => perm === "STOCK_TRANSFER" ? !!canTransfer : false}
+      {/* ── Summary strip (same position across all hub tabs) ── */}
+      <MobileSummaryStrip
+        stats={[
+          { label: "Total", value: String(items.length) },
+          { label: "Pending", value: String(counts.pending) },
+          { label: "In Transit", value: String(counts.inTransit) },
+          { label: "Received", value: String(counts.received) },
+        ]}
       />
 
-      {/* ── Summary ── */}
-      <div
-        className="rounded-[0.625rem] border p-3 mb-3"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <div className="flex items-center gap-2 mb-2">
-          <div
-            className="grid place-items-center size-8 rounded-full shrink-0"
-            style={{ backgroundColor: "var(--color-concrete)" }}
-          >
-            <ArrowRight className="size-4" style={{ color: "var(--color-ink-600)" }} />
-          </div>
-          <div>
-            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-              {items.length} {items.length === 1 ? "transfer" : "transfers"}
-            </p>
-            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-              {counts.pending} pending · {counts.inTransit} in transit · {counts.received} received
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Search + filters ── */}
+      {/* ── Sticky search header (same position across all hub tabs) ── */}
       <MobileSearchHeader
         query={query}
         onQueryChange={setQuery}
@@ -186,6 +166,15 @@ export function MobileTransfersList({
         }
         showClear={!!query || filter !== "ALL" || dirFilter !== "ALL"}
         onClear={() => { setQuery(""); setFilter("ALL"); setDirFilter("ALL"); }}
+      />
+
+      {/* ── Orientation + next action (kept, but below search so the
+          search + summary strip stay in the same position across tabs) ── */}
+      <PageLead flow="stockTransfer" />
+      <NextActionCard
+        flow="stockTransfer"
+        count={inTransitCount}
+        can={(perm) => perm === "STOCK_TRANSFER" ? !!canTransfer : false}
       />
 
       {/* ── Result count ── */}

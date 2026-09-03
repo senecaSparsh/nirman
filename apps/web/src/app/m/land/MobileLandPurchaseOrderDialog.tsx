@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, Trash2, Plus, CalendarClock } from "lucide-react";
+import { X, Loader2, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../sales/MobileChequeFields";
 import { MobileDocUploader } from "../MobileDocUploader";
@@ -156,10 +156,14 @@ export function MobileLandPurchaseOrderDialog({
     }
   }
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
-  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" };
-  const labelClass = "text-m-caption font-semibold uppercase tracking-wide block mb-0.5";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
+  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
+  const sectionBoxClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
+  const sectionBoxStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" };
+  const sectionHeadingClass = "text-m-section font-extrabold tracking-tight";
+  const sectionHeadingStyle = { color: "var(--color-ink-950)" };
 
   return (
     <div
@@ -186,148 +190,140 @@ export function MobileLandPurchaseOrderDialog({
           </p>
 
           {/* Seller */}
-          <div>
-            <label className={labelClass} style={labelStyle}>Seller *</label>
-            {sellers.length > 0 ? (
-              <select
-                value={sellerId}
-                onChange={(e) => {
-                  setSellerId(e.target.value);
-                  const s = sellers.find((s) => s.id === e.target.value);
-                  if (s) { setSellerName(s.name); setSellerContact(s.phone ?? ""); }
-                }}
-                className={inputClass}
-                style={inputStyle}
-              >
-                <option value="">— Select seller —</option>
-                {sellers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            ) : null}
-            <input
-              type="text"
-              value={sellerName}
-              onChange={(e) => { setSellerName(e.target.value); setSellerId(""); }}
-              placeholder="Seller name"
-              className={`${inputClass} mt-1`}
-              style={inputStyle}
-              required
-            />
-          </div>
-
-          <div>
-            <label className={labelClass} style={labelStyle}>Seller Contact</label>
-            <input
-              type="text"
-              value={sellerContact}
-              onChange={(e) => setSellerContact(e.target.value)}
-              placeholder="Phone / address"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Project */}
-          {projects.length > 0 && (
+          <div className={sectionBoxClass} style={sectionBoxStyle}>
+            <p className={sectionHeadingClass} style={sectionHeadingStyle}>Seller</p>
             <div>
-              <label className={labelClass} style={labelStyle}>Project</label>
-              <select
-                value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                <option value="">— None —</option>
-                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </div>
-          )}
-
-          {/* Date */}
-          <div>
-            <label className={labelClass} style={labelStyle}>Purchase Date *</label>
-            <input
-              type="date"
-              value={purchaseDate}
-              onChange={(e) => setPurchaseDate(e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-              required
-            />
-          </div>
-
-          {/* Area + Unit */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="col-span-2">
-              <label className={labelClass} style={labelStyle}>Total Area *</label>
+              <label className={labelClass} style={labelStyle}>Seller *</label>
+              {sellers.length > 0 ? (
+                <select
+                  value={sellerId}
+                  onChange={(e) => {
+                    setSellerId(e.target.value);
+                    const s = sellers.find((s) => s.id === e.target.value);
+                    if (s) { setSellerName(s.name); setSellerContact(s.phone ?? ""); }
+                  }}
+                  className={inputClass}
+                  style={inputStyle}
+                >
+                  <option value="">— Select seller —</option>
+                  {sellers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              ) : null}
               <input
-                type="number" inputMode="decimal" step="0.01" min="0"
-                value={totalArea}
-                onChange={(e) => setTotalArea(e.target.value)}
-                placeholder="0"
-                className={inputClass}
+                type="text"
+                value={sellerName}
+                onChange={(e) => { setSellerName(e.target.value); setSellerId(""); }}
+                placeholder="Seller name"
+                className={`${inputClass} mt-1`}
                 style={inputStyle}
                 required
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>Unit</label>
-              <select
-                value={areaUnit}
-                onChange={(e) => setAreaUnit(e.target.value as (typeof AREA_UNITS)[number])}
+              <label className={labelClass} style={labelStyle}>Seller Contact</label>
+              <input
+                type="text"
+                value={sellerContact}
+                onChange={(e) => setSellerContact(e.target.value)}
+                placeholder="Phone / address"
                 className={inputClass}
                 style={inputStyle}
-              >
-                {AREA_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
+              />
+            </div>
+            {projects.length > 0 && (
+              <div>
+                <label className={labelClass} style={labelStyle}>Project</label>
+                <select
+                  value={projectId}
+                  onChange={(e) => setProjectId(e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                >
+                  <option value="">— None —</option>
+                  {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* Purchase Details */}
+          <div className={sectionBoxClass} style={sectionBoxStyle}>
+            <p className={sectionHeadingClass} style={sectionHeadingStyle}>Purchase Details</p>
+            <div>
+              <label className={labelClass} style={labelStyle}>Purchase Date *</label>
+              <input
+                type="date"
+                value={purchaseDate}
+                onChange={(e) => setPurchaseDate(e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+                required
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-2">
+                <label className={labelClass} style={labelStyle}>Total Area *</label>
+                <input
+                  type="number" inputMode="decimal" step="0.01" min="0"
+                  value={totalArea}
+                  onChange={(e) => setTotalArea(e.target.value)}
+                  placeholder="0"
+                  className={inputClass}
+                  style={inputStyle}
+                  required
+                />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>Unit</label>
+                <select
+                  value={areaUnit}
+                  onChange={(e) => setAreaUnit(e.target.value as (typeof AREA_UNITS)[number])}
+                  className={inputClass}
+                  style={inputStyle}
+                >
+                  {AREA_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className={labelClass} style={labelStyle}>Total Cost (₹) *</label>
+              <input
+                type="number" inputMode="decimal" step="0.01" min="0"
+                value={totalCost}
+                onChange={(e) => setTotalCost(e.target.value)}
+                placeholder="0"
+                className={`${inputClass} font-bold tabular-nums`}
+                style={inputStyle}
+                required
+              />
+            </div>
+            <div>
+              <label className={labelClass} style={labelStyle}>Location</label>
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="Village, city, district"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label className={labelClass} style={labelStyle}>Registry No.</label>
+              <input
+                type="text"
+                value={registryNo}
+                onChange={(e) => setRegistryNo(e.target.value)}
+                placeholder="e.g. SR-1234/2025"
+                className={inputClass}
+                style={inputStyle}
+              />
             </div>
           </div>
 
-          {/* Total cost */}
-          <div>
-            <label className={labelClass} style={labelStyle}>Total Cost (₹) *</label>
-            <input
-              type="number" inputMode="decimal" step="0.01" min="0"
-              value={totalCost}
-              onChange={(e) => setTotalCost(e.target.value)}
-              placeholder="0"
-              className={`${inputClass} font-bold tabular-nums`}
-              style={inputStyle}
-              required
-            />
-          </div>
-
-          {/* Location + Registry */}
-          <div>
-            <label className={labelClass} style={labelStyle}>Location</label>
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Village, city, district"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <label className={labelClass} style={labelStyle}>Registry No.</label>
-            <input
-              type="text"
-              value={registryNo}
-              onChange={(e) => setRegistryNo(e.target.value)}
-              placeholder="e.g. SR-1234/2025"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
           {/* Token payment section */}
-          <div
-            className="rounded-[0.375rem] border p-2.5 space-y-2.5"
-            style={{ borderColor: "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-signal) 4%, var(--color-paper))" }}
-          >
-            <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-signal)" }}>
-              Token Payment
-            </p>
+          <div className={sectionBoxClass} style={sectionBoxStyle}>
+            <p className={sectionHeadingClass} style={sectionHeadingStyle}>Token Payment</p>
             <div>
               <label className={labelClass} style={labelStyle}>Token Amount (₹) *</label>
               <input
@@ -361,113 +357,116 @@ export function MobileLandPurchaseOrderDialog({
             )}
           </div>
 
-          {/* ATS document */}
-          <div>
-            <label className={labelClass} style={labelStyle}>Agreement to Sell (ATS) — optional</label>
-            <MobileDocUploader
-              url={atsDocUrl}
-              fileName={atsDocName}
-              label="Upload ATS"
-              onUpload={(url, name) => { setAtsDocUrl(url); setAtsDocName(name); }}
-              onRemove={() => { setAtsDocUrl(""); setAtsDocName(""); }}
-            />
+          {/* Documents */}
+          <div className={sectionBoxClass} style={sectionBoxStyle}>
+            <p className={sectionHeadingClass} style={sectionHeadingStyle}>Documents</p>
+            <div>
+              <label className={labelClass} style={labelStyle}>Agreement to Sell (ATS) — optional</label>
+              <MobileDocUploader
+                url={atsDocUrl}
+                fileName={atsDocName}
+                label="Upload ATS"
+                onUpload={(url, name) => { setAtsDocUrl(url); setAtsDocName(name); }}
+                onRemove={() => { setAtsDocUrl(""); setAtsDocName(""); }}
+              />
+            </div>
+            <label className="flex items-center gap-2" >
+              <input
+                type="checkbox"
+                checked={partialRegistry}
+                onChange={(e) => setPartialRegistry(e.target.checked)}
+                className="size-3.5"
+              />
+              <span className="text-m-caption" style={{ color: "var(--color-ink-700)" }}>
+                Allow registry before full payment
+              </span>
+            </label>
           </div>
-
-          {/* Partial registry toggle */}
-          <label className="flex items-center gap-2 rounded-[0.375rem] border px-2.5 py-2" style={{ borderColor: "var(--color-line)" }}>
-            <input
-              type="checkbox"
-              checked={partialRegistry}
-              onChange={(e) => setPartialRegistry(e.target.checked)}
-              className="size-3.5"
-            />
-            <span className="text-m-caption" style={{ color: "var(--color-ink-700)" }}>
-              Allow registry before full payment
-            </span>
-          </label>
 
           {/* Payment Plan (optional) */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setShowPlan(!showPlan)}
-              className="w-full flex items-center justify-center gap-1.5 rounded-[0.5rem] border border-dashed py-2 text-m-label font-bold text-m-body press"
-              style={{ borderColor: "var(--color-line)", color: "var(--color-ink-600)" }}
-            >
-              <CalendarClock className="size-3.5" />
-              {showPlan ? "Hide Payment Plan" : "Add Payment Plan (optional)"}
-            </button>
-          </div>
-          {showPlan && (
-            <div className="space-y-2">
-              {totalCost && tokenAmount && Number(totalCost) > Number(tokenAmount) && (
-                <p className="text-m-caption rounded-[0.375rem] px-2.5 py-1.5" style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-600)" }}>
-                  Balance to schedule: <span className="font-bold">{formatCurrency(Number(totalCost) - Number(tokenAmount))}</span>
-                </p>
-              )}
-              {planItems.map((item, idx) => {
-                const balance = Number(totalCost) - Number(tokenAmount || 0);
-                const amount = (balance * (parseFloat(item.percentage) || 0)) / 100;
-                return (
-                  <div key={idx} className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)" }}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-m-caption font-bold" style={{ color: "var(--color-steel)" }}>Installment {idx + 1}</span>
-                      <button type="button" onClick={() => setPlanItems(planItems.filter((_, i) => i !== idx))} className="text-m-body press">
-                        <Trash2 className="size-3" style={{ color: "var(--color-stop)" }} />
-                      </button>
-                    </div>
-                    <input
-                      type="text"
-                      value={item.description}
-                      onChange={(e) => setPlanItems(planItems.map((it, i) => i === idx ? { ...it, description: e.target.value } : it))}
-                      placeholder="Description (e.g. On ATS, On Registry)"
-                      className={`${inputClass} mb-1.5`}
-                      style={inputStyle}
-                    />
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <label className={labelClass} style={labelStyle}>% of Balance</label>
-                        <input
-                          type="number"
-                          value={item.percentage}
-                          onChange={(e) => setPlanItems(planItems.map((it, i) => i === idx ? { ...it, percentage: e.target.value } : it))}
-                          className={`${inputClass} tabular-nums`}
-                          style={inputStyle}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <label className={labelClass} style={labelStyle}>Due Date</label>
-                        <input
-                          type="date"
-                          value={item.dueDate}
-                          onChange={(e) => setPlanItems(planItems.map((it, i) => i === idx ? { ...it, dueDate: e.target.value } : it))}
-                          className={inputClass}
-                          style={inputStyle}
-                        />
-                      </div>
-                    </div>
-                    <p className="text-m-caption mt-1 tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-                      = {formatCurrency(amount)}
-                    </p>
-                  </div>
-                );
-              })}
+          <div className={sectionBoxClass} style={sectionBoxStyle}>
+            <p className={sectionHeadingClass} style={sectionHeadingStyle}>Payment Plan</p>
+            <div>
               <button
                 type="button"
-                onClick={() => setPlanItems([...planItems, { description: "", percentage: "0", dueDate: "" }])}
-                className="w-full rounded-[0.375rem] border border-dashed py-1.5 text-m-caption font-bold text-m-body press"
+                onClick={() => setShowPlan(!showPlan)}
+                className="w-full flex items-center justify-center gap-1.5 rounded-[0.5rem] border border-dashed py-2 text-m-label font-bold text-m-body press"
                 style={{ borderColor: "var(--color-line)", color: "var(--color-ink-600)" }}
               >
-                <Plus className="size-3 inline" /> Add Installment
+                {showPlan ? "Hide Payment Plan" : "Add Payment Plan (optional)"}
               </button>
-              {planItems.length > 0 && (
-                <p className="text-m-caption text-center" style={{ color: "var(--color-ink-500)" }}>
-                  Total: {planItems.reduce((s, i) => s + (parseFloat(i.percentage) || 0), 0).toFixed(0)}%
-                  {Math.abs(planItems.reduce((s, i) => s + (parseFloat(i.percentage) || 0), 0) - 100) < 0.01 ? " ✓" : " (must be 100%)"}
-                </p>
-              )}
             </div>
-          )}
+            {showPlan && (
+              <div className="space-y-2">
+                {totalCost && tokenAmount && Number(totalCost) > Number(tokenAmount) && (
+                  <p className="text-m-caption rounded-[0.375rem] px-2.5 py-1.5" style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-600)" }}>
+                    Balance to schedule: <span className="font-bold">{formatCurrency(Number(totalCost) - Number(tokenAmount))}</span>
+                  </p>
+                )}
+                {planItems.map((item, idx) => {
+                  const balance = Number(totalCost) - Number(tokenAmount || 0);
+                  const amount = (balance * (parseFloat(item.percentage) || 0)) / 100;
+                  return (
+                    <div key={idx} className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)" }}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-m-caption font-bold" style={{ color: "var(--color-steel)" }}>Installment {idx + 1}</span>
+                        <button type="button" onClick={() => setPlanItems(planItems.filter((_, i) => i !== idx))} className="text-m-body press">
+                          <Trash2 className="size-3" style={{ color: "var(--color-stop)" }} />
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        value={item.description}
+                        onChange={(e) => setPlanItems(planItems.map((it, i) => i === idx ? { ...it, description: e.target.value } : it))}
+                        placeholder="Description (e.g. On ATS, On Registry)"
+                        className={`${inputClass} mb-1.5`}
+                        style={inputStyle}
+                      />
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <label className={labelClass} style={labelStyle}>% of Balance</label>
+                          <input
+                            type="number"
+                            value={item.percentage}
+                            onChange={(e) => setPlanItems(planItems.map((it, i) => i === idx ? { ...it, percentage: e.target.value } : it))}
+                            className={`${inputClass} tabular-nums`}
+                            style={inputStyle}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className={labelClass} style={labelStyle}>Due Date</label>
+                          <input
+                            type="date"
+                            value={item.dueDate}
+                            onChange={(e) => setPlanItems(planItems.map((it, i) => i === idx ? { ...it, dueDate: e.target.value } : it))}
+                            className={inputClass}
+                            style={inputStyle}
+                          />
+                        </div>
+                      </div>
+                      <p className="text-m-caption mt-1 tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                        = {formatCurrency(amount)}
+                      </p>
+                    </div>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => setPlanItems([...planItems, { description: "", percentage: "0", dueDate: "" }])}
+                  className="w-full rounded-[0.375rem] border border-dashed py-1.5 text-m-caption font-bold text-m-body press"
+                  style={{ borderColor: "var(--color-line)", color: "var(--color-ink-600)" }}
+                >
+                  <Plus className="size-3 inline" /> Add Installment
+                </button>
+                {planItems.length > 0 && (
+                  <p className="text-m-caption text-center" style={{ color: "var(--color-ink-500)" }}>
+                    Total: {planItems.reduce((s, i) => s + (parseFloat(i.percentage) || 0), 0).toFixed(0)}%
+                    {Math.abs(planItems.reduce((s, i) => s + (parseFloat(i.percentage) || 0), 0) - 100) < 0.01 ? " ✓" : " (must be 100%)"}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Actions */}
           <div className="flex flex-col gap-2 pt-1">

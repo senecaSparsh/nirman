@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Loader2, CheckCircle2, Plus, Warehouse, MapPin,
+  Loader2, CheckCircle2, Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
@@ -108,13 +108,13 @@ export default function MobileNewStockLocationClient({
 
   return (
     <div className="pb-32">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         {/* Type selector */}
-        <div
-          className="rounded-[0.625rem] border p-3"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-        >
-          <label className="text-m-caption font-semibold block mb-2" style={{ color: "var(--color-ink-500)" }}>
+        <div className="flex flex-col gap-2">
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Type
+          </p>
+          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
             Location Type <span style={{ color: "var(--color-stop)" }}>*</span>
           </label>
           <div className="grid grid-cols-2 gap-2">
@@ -127,10 +127,6 @@ export default function MobileNewStockLocationClient({
                 backgroundColor: type === "COMPANY_WAREHOUSE" ? "var(--color-concrete)" : "var(--color-paper)",
               }}
             >
-              <Warehouse
-                className="size-5"
-                style={{ color: type === "COMPANY_WAREHOUSE" ? "var(--color-ink-950)" : "var(--color-ink-400)" }}
-              />
               <span
                 className="text-m-caption font-bold"
                 style={{ color: type === "COMPANY_WAREHOUSE" ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
@@ -147,10 +143,6 @@ export default function MobileNewStockLocationClient({
                 backgroundColor: type === "PROJECT_SITE" ? "var(--color-concrete)" : "var(--color-paper)",
               }}
             >
-              <MapPin
-                className="size-5"
-                style={{ color: type === "PROJECT_SITE" ? "var(--color-ink-950)" : "var(--color-ink-400)" }}
-              />
               <span
                 className="text-m-caption font-bold"
                 style={{ color: type === "PROJECT_SITE" ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
@@ -161,12 +153,12 @@ export default function MobileNewStockLocationClient({
           </div>
         </div>
 
-        {/* Name */}
-        <div
-          className="rounded-[0.625rem] border p-3"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-        >
-          <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+        {/* Details */}
+        <div className="flex flex-col gap-2">
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Details
+          </p>
+          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
             Location Name <span style={{ color: "var(--color-stop)" }}>*</span>
           </label>
           <input
@@ -175,17 +167,14 @@ export default function MobileNewStockLocationClient({
             onChange={(e) => setName(e.target.value)}
             placeholder={type === "COMPANY_WAREHOUSE" ? "e.g. Central Warehouse Pune" : "e.g. Site B - Kharadi"}
             enterKeyHint="next"
-            className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
           />
         </div>
 
         {/* Project (only for PROJECT_SITE) */}
         {type === "PROJECT_SITE" && (
-          <div
-            className="rounded-[0.625rem] border p-3"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          >
+          <div className="flex flex-col gap-2">
             <MobileSelectWithCreate
               label="Project"
               required
@@ -193,8 +182,8 @@ export default function MobileNewStockLocationClient({
               onChange={setProjectId}
               placeholder="Select project…"
               options={projects.map((p) => ({ value: p.id, label: p.name }))}
-              inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-              inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              inputClass="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
               renderDialog={({ open, onClose, onCreated, originRect }) => (
                 <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
                   <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
@@ -205,11 +194,11 @@ export default function MobileNewStockLocationClient({
         )}
 
         {/* Address */}
-        <div
-          className="rounded-[0.625rem] border p-3"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-        >
-          <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+        <div className="flex flex-col gap-2">
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Address
+          </p>
+          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
             Address (optional)
           </label>
           <textarea
@@ -218,17 +207,17 @@ export default function MobileNewStockLocationClient({
             placeholder="Street, city, landmark…"
             rows={2}
             enterKeyHint="done"
-            className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none resize-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
           />
         </div>
 
         {/* Geo-fence (GPS receipt validation) */}
-        <div
-          className="rounded-[0.625rem] border p-3"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-        >
-          <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
+        <div className="flex flex-col gap-2">
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Geo-fence
+          </p>
+          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
             Geo-fence (optional)
           </label>
           <p className="text-m-caption mb-2" style={{ color: "var(--color-ink-400)" }}>
@@ -242,8 +231,8 @@ export default function MobileNewStockLocationClient({
               onChange={(e) => setLat(e.target.value)}
               placeholder="Latitude"
               enterKeyHint="next"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
             />
             <input
               type="number"
@@ -252,8 +241,8 @@ export default function MobileNewStockLocationClient({
               onChange={(e) => setLng(e.target.value)}
               placeholder="Longitude"
               enterKeyHint="next"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
             />
           </div>
           <input
@@ -262,8 +251,8 @@ export default function MobileNewStockLocationClient({
             onChange={(e) => setGeoRadius(e.target.value)}
             placeholder="Radius (metres, default 500)"
             enterKeyHint="done"
-            className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none mt-2"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors mt-2"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
           />
         </div>
       </form>

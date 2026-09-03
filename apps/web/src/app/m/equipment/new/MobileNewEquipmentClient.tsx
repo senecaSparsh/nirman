@@ -176,116 +176,140 @@ export default function MobileNewEquipmentClient({
       ) : null}
 
       {/* ── Section: Identity ── */}
-      <SectionHeader icon={Tag} label="Identity" />
+      <div
+        className="rounded-[0.625rem] border p-3 flex flex-col gap-3 mb-3"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      >
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+          Identity
+        </p>
+        <div className="flex flex-col gap-3">
+          <Field label="Asset Tag" required>
+            <input
+              type="text"
+              value={assetTag}
+              onChange={(e) => setAssetTag(e.target.value)}
+              placeholder="e.g. EQ-001"
+              className="w-full px-1 py-1 text-m-caption font-mono font-bold outline-none border-b focus:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+            />
+          </Field>
 
-      <div className="flex flex-col gap-3 mb-3">
-        <Field label="Asset Tag" required>
-          <input
-            type="text"
-            value={assetTag}
-            onChange={(e) => setAssetTag(e.target.value)}
-            placeholder="e.g. EQ-001"
-            className="w-full px-1 py-1 text-m-caption font-mono font-bold outline-none border-b focus:border-b-2 transition-colors"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-          />
-        </Field>
+          <Field label="Equipment Name" required>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Concrete Mixer 1"
+              className="w-full px-1 py-1 text-m-caption font-bold outline-none border-b focus:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+            />
+          </Field>
 
-        <Field label="Equipment Name" required>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Concrete Mixer 1"
-            className="w-full px-1 py-1 text-m-caption font-bold outline-none border-b focus:border-b-2 transition-colors"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-          />
-        </Field>
-
-        <Field label="Category">
-          <input
-            type="text"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            placeholder="e.g. Mixer, Vehicle, Tool"
-            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-          />
-        </Field>
+          <Field label="Category">
+            <input
+              type="text"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="e.g. Mixer, Vehicle, Tool"
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+            />
+          </Field>
+        </div>
       </div>
 
       {/* ── Section: Specs ── */}
-      <SectionHeader icon={Package} label="Specifications" />
+      <div
+        className="rounded-[0.625rem] border p-3 flex flex-col gap-3 mb-3"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      >
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+          Specifications
+        </p>
+        <div className="flex flex-col gap-3">
+          <Field label="Model">
+            <input
+              type="text"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              placeholder="e.g. BMX-500"
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+            />
+          </Field>
 
-      <div className="flex flex-col gap-3 mb-3">
-        <Field label="Model">
-          <input
-            type="text"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            placeholder="e.g. BMX-500"
-            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-          />
-        </Field>
-
-        <Field label="Serial Number">
-          <input
-            type="text"
-            value={serialNumber}
-            onChange={(e) => setSerialNumber(e.target.value)}
-            placeholder="e.g. SN-12345-ABC"
-            className="w-full px-1 py-1 text-m-caption font-mono font-medium outline-none border-b focus:border-b-2 transition-colors"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-          />
-        </Field>
+          <Field label="Serial Number">
+            <input
+              type="text"
+              value={serialNumber}
+              onChange={(e) => setSerialNumber(e.target.value)}
+              placeholder="e.g. SN-12345-ABC"
+              className="w-full px-1 py-1 text-m-caption font-mono font-medium outline-none border-b focus:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+            />
+          </Field>
+        </div>
       </div>
 
       {/* ── Section: Valuation ── */}
-      <SectionHeader icon={IndianRupee} label="Valuation" />
+      <div
+        className="rounded-[0.625rem] border p-3 flex flex-col gap-3 mb-3"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      >
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+          Valuation
+        </p>
+        <div className="flex flex-col gap-3">
+          <Field label="Acquisition Cost">
+            <div className="relative">
+              <IndianRupee
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
+                style={{ color: "var(--color-ink-700)" }}
+              />
+              <input
+                type="text" inputMode="decimal"
+                step="any"
+                min="0"
+                value={acquisitionCost}
+                onChange={(e) => setAcquisitionCost(e.target.value)}
+                placeholder="0"
+                className="w-full pl-7 pr-1 py-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+              />
+            </div>
+          </Field>
 
-      <div className="flex flex-col gap-3 mb-3">
-        <Field label="Acquisition Cost">
-          <div className="relative">
-            <IndianRupee
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
-              style={{ color: "var(--color-ink-700)" }}
-            />
+          <Field label="Purchase Date">
             <input
-              type="text" inputMode="decimal"
-              step="any"
-              min="0"
-              value={acquisitionCost}
-              onChange={(e) => setAcquisitionCost(e.target.value)}
-              placeholder="0"
-              className="w-full pl-7 pr-1 py-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+              type="date"
+              value={purchaseDate}
+              onChange={(e) => setPurchaseDate(e.target.value)}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
               style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
             />
-          </div>
-        </Field>
-
-        <Field label="Purchase Date">
-          <input
-            type="date"
-            value={purchaseDate}
-            onChange={(e) => setPurchaseDate(e.target.value)}
-            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-          />
-        </Field>
+          </Field>
+        </div>
       </div>
 
       {/* ── Section: Notes ── */}
-      <SectionHeader icon={FileText} label="Notes" />
-
-      <div className="mb-3">
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="e.g. Purchased from ABC Suppliers, warranty 2 years"
-          rows={3}
-          className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-        />
+      <div
+        className="rounded-[0.625rem] border p-3 flex flex-col gap-3 mb-3"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      >
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+          Notes
+        </p>
+        <div>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="e.g. Purchased from ABC Suppliers, warranty 2 years"
+            rows={3}
+            className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+          />
+        </div>
       </div>
 
       {/* ── STICKY BOTTOM BAR ── */}

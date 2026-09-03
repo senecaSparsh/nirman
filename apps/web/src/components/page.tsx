@@ -53,7 +53,7 @@ export function Page({
   wide?: boolean;
 }) {
   return (
-    <div className={cn("min-w-0 space-y-6", wide && "max-w-none", className)}>{children}</div>
+    <div className={cn("min-w-0 space-y-6 fade-in", wide && "max-w-none", className)}>{children}</div>
   );
 }
 
@@ -529,8 +529,11 @@ export function StatusPill({
         className,
       )}
     >
-      {/* A dot as well as colour — colour alone fails for ~8% of men */}
-      <span className="size-[5px] shrink-0 rounded-full bg-current" />
+      {/* A dot as well as colour — colour alone fails for ~8% of men.
+          Alert-meaning statuses (overdue, blocked, critical…) get a
+          gentle pulse to draw the eye; reuses the existing badge-pulse
+          keyframe and is nuked under prefers-reduced-motion. */}
+      <span className={cn("size-[5px] shrink-0 rounded-full bg-current", meaning === "alert" && "badge-pulse")} />
       {humanStatus(status)}
     </span>
   );
@@ -637,7 +640,7 @@ export function SkeletonRows({ rows = 6, cols = 4 }: { rows?: number; cols?: num
           {Array.from({ length: cols }).map((_, c) => (
             <div
               key={c}
-              className="skeleton h-3.5"
+              className="skeleton h-3.5 rounded-md"
               style={{
                 width: c === 0 ? "28%" : `${Math.max(9, 18 - c * 2)}%`,
                 // Stagger the sweep so the rows don't pulse in lockstep,
@@ -657,8 +660,8 @@ export function SkeletonMetrics({ cols = 4 }: { cols?: 2 | 3 | 4 | 5 }) {
     <MetricGrid cols={cols}>
       {Array.from({ length: cols }).map((_, i) => (
         <div key={i} className="flex flex-col gap-2.5 p-4">
-          <div className="skeleton h-2.5 w-20" />
-          <div className="skeleton h-6 w-28" style={{ animationDelay: `${i * 80}ms` }} />
+          <div className="skeleton h-2.5 w-20 rounded-md" />
+          <div className="skeleton h-6 w-28 rounded-md" style={{ animationDelay: `${i * 80}ms` }} />
         </div>
       ))}
     </MetricGrid>

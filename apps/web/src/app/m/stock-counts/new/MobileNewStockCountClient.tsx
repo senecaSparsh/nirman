@@ -384,59 +384,60 @@ export default function MobileNewStockCountClient({ onClose, onCreated }: { onCl
       <div className="pb-32">
 
       {/* ── Location selector ── */}
-      <div className="flex items-center gap-1.5 mb-2">
-        <MapPin className="size-3" style={{ color: "var(--color-ink-500)" }} />
-        <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-          Location
-        </span>
-        <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-line)" }} />
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setShowLocationModal(true)}
-        className="w-full flex items-center gap-1.5 rounded-[0.625rem] border p-2.5 text-m-body press text-left mb-3"
-        style={{
-          borderColor: selectedLocation ? "var(--color-line)" : "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
-          backgroundColor: "var(--color-paper)",
-        }}
+      <div
+        className="rounded-[0.625rem] border p-3 flex flex-col gap-3 mb-3"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
-        <span
-          className="grid place-items-center size-8 rounded-[0.5rem] shrink-0"
-          style={{ backgroundColor: selectedLocation ? "var(--color-paper-2)" : "color-mix(in srgb, var(--color-signal) 8%, transparent)" }}
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+          Location
+        </p>
+
+        <button
+          type="button"
+          onClick={() => setShowLocationModal(true)}
+          className="w-full flex items-center gap-1.5 rounded-[0.625rem] border p-2.5 text-m-body press text-left"
+          style={{
+            borderColor: selectedLocation ? "var(--color-line)" : "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
+            backgroundColor: "var(--color-paper)",
+          }}
         >
-          <MapPin
-            className="size-4"
-            style={{ color: selectedLocation ? "var(--color-ink-700)" : "var(--color-signal)" }}
-          />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-700)" }}>
-            Stock Location
-          </p>
-          {selectedLocation ? (
-            <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
-              {selectedLocation.name}
+          <span
+            className="grid place-items-center size-8 rounded-[0.5rem] shrink-0"
+            style={{ backgroundColor: selectedLocation ? "var(--color-paper-2)" : "color-mix(in srgb, var(--color-signal) 8%, transparent)" }}
+          >
+            <MapPin
+              className="size-4"
+              style={{ color: selectedLocation ? "var(--color-ink-700)" : "var(--color-signal)" }}
+            />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-700)" }}>
+              Stock Location
             </p>
-          ) : (
-            <p className="text-m-body font-medium" style={{ color: "var(--color-ink-700)" }}>
-              Tap to select…
-            </p>
-          )}
-        </div>
-        <ChevronRight className="size-4 shrink-0" style={{ color: "var(--color-ink-700)" }} />
-      </button>
+            {selectedLocation ? (
+              <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                {selectedLocation.name}
+              </p>
+            ) : (
+              <p className="text-m-body font-medium" style={{ color: "var(--color-ink-700)" }}>
+                Tap to select…
+              </p>
+            )}
+          </div>
+          <ChevronRight className="size-4 shrink-0" style={{ color: "var(--color-ink-700)" }} />
+        </button>
+      </div>
 
       {/* ── Line items ── */}
-      <div className="flex items-center gap-1.5 mb-2">
-        <Package className="size-3" style={{ color: "var(--color-ink-500)" }} />
-        <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+      <div
+        className="rounded-[0.625rem] border p-3 flex flex-col gap-3 mb-3"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      >
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
           Count Items ({lines.length})
-        </span>
-        <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-line)" }} />
-      </div>
+        </p>
 
-      {stockLoading ? (
+        {stockLoading ? (
         <div className="flex flex-col items-center justify-center py-6">
           <Loader2 className="size-5 animate-spin" style={{ color: "var(--color-ink-700)" }} />
           <p className="text-m-body mt-2" style={{ color: "var(--color-ink-700)" }}>Loading stock…</p>
@@ -557,6 +558,7 @@ export default function MobileNewStockCountClient({ onClose, onCreated }: { onCl
           className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
           style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
         />
+      </div>
       </div>
 
       {/* ── STICKY BOTTOM BAR: summary + submit ── */}

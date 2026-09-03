@@ -13,6 +13,7 @@ import {
   MobileSearchHeader,
   MobileFilterIcon,
   MobileNoResults,
+  MobileSummaryStrip,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
@@ -42,12 +43,16 @@ const FILTER_CHIPS: { label: string; value: ReturnStatus }[] = [
  */
 export function MobileSupplierReturnsList({
   items,
+  totalValue = 0,
+  pendingCount = 0,
   exportTitle,
   exportRows,
   exportColumns,
   exportSummary,
 }: {
   items: SupplierReturnItem[];
+  totalValue?: number;
+  pendingCount?: number;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
@@ -86,6 +91,17 @@ export function MobileSupplierReturnsList({
 
   return (
     <div>
+      {/* ── Summary strip (same position across all procurement tabs) ── */}
+      <MobileSummaryStrip
+        stats={[
+          { label: "Return Value", value: formatCurrency(totalValue), tone: "signal" },
+          { label: "Pending", value: String(pendingCount), tone: "signal" },
+          { label: "Total", value: String(items.length) },
+          { label: "Completed", value: String(items.filter((r) => r.status === "COMPLETED").length) },
+        ]}
+      />
+
+      {/* ── Sticky search header (same position across all procurement tabs) ── */}
       <MobileSearchHeader
         query={query}
         onQueryChange={setQuery}

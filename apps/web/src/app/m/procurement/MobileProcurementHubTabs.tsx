@@ -11,7 +11,7 @@ import { MobileProcurementList, type ProcurementListItem, type DirectPurchaseLis
 import { MobileRequisitionsList, type RequisitionListItem } from "../requisitions/MobileRequisitionsList";
 import { MobileQuotationsList, type QuotationListItem } from "../quotations/MobileQuotationsList";
 import { MobileSupplierReturnsList, type SupplierReturnItem } from "../supplier-returns/MobileSupplierReturnsList";
-import { MobileStatCard, MobileEmptyState, MobileSectionTitle } from "@/components/mobile/v2/primitives";
+import { MobileEmptyState, MobileSectionTitle } from "@/components/mobile/v2/primitives";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { formatCurrency } from "@/lib/utils";
 import { MobileNewRequisitionClient } from "../requisitions/new/MobileNewRequisitionClient";
@@ -263,23 +263,10 @@ export function MobileProcurementHubTabs({
 
       {tab === "returns" && (
         <div>
-          <div className="grid grid-cols-2 gap-1.5 mb-4">
-            <MobileStatCard
-              label="Return Value"
-              value={formatCurrency(returnTotalValue)}
-              icon={Undo2}
-              tone="signal"
-            />
-            <MobileStatCard
-              label="Pending"
-              value={String(returnPendingCount)}
-              icon={Undo2}
-              tone={returnPendingCount > 0 ? "signal" : "neutral"}
-            />
-          </div>
-
           <MobileSupplierReturnsList
             items={returnItems}
+            totalValue={returnTotalValue}
+            pendingCount={returnPendingCount}
             exportTitle="Supplier Returns"
             exportRows={returnItems as unknown as Record<string, unknown>[]}
             exportColumns={returnExportColumns}

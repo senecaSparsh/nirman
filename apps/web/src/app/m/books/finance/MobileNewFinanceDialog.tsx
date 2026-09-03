@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, Wallet, Building2, Plus } from "lucide-react";
+import { X, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
@@ -244,30 +244,12 @@ export function MobileNewFinanceDialog({
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1">
-            <span
-              className="grid place-items-center size-7 rounded-[0.375rem]"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              {tab === "expense" ? (
-                <Wallet
-                  className="size-3.5"
-                  style={{ color: "var(--color-ink-600)" }}
-                />
-              ) : (
-                <Building2
-                  className="size-3.5"
-                  style={{ color: "var(--color-ink-600)" }}
-                />
-              )}
-            </span>
-            <p
-              className="text-m-section font-bold"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              {tab === "expense" ? "New Expense" : "New Project Cost"}
-            </p>
-          </div>
+          <p
+            className="text-m-section font-extrabold tracking-tight"
+            style={{ color: "var(--color-ink-950)" }}
+          >
+            {tab === "expense" ? "New Expense" : "New Project Cost"}
+          </p>
           <button
             onClick={onClose}
             className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
@@ -335,254 +317,264 @@ export function MobileNewFinanceDialog({
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {tab === "expense" ? (
             <>
-              {/* Project (optional for expenses) */}
-              <MobileSelectWithCreate
-                label="Project (optional)"
-                value={expenseForm.projectId}
-                onChange={(v) => setExpense("projectId", v)}
-                placeholder="— General (no project) —"
-                options={projects.map((p) => ({ value: p.id, label: p.name }))}
-                inputClass={inputClass}
-                inputStyle={inputStyle}
-                renderDialog={({ open, onClose, onCreated, originRect }) => (
-                  <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
-                    <MobileNewProjectDialog
-                      open={open}
-                      onClose={onClose}
-                      onCreated={(p) => onCreated(p.id, p.name)}
+              {/* Expense Details */}
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Expense Details</p>
+
+                {/* Project (optional for expenses) */}
+                <MobileSelectWithCreate
+                  label="Project (optional)"
+                  value={expenseForm.projectId}
+                  onChange={(v) => setExpense("projectId", v)}
+                  placeholder="— General (no project) —"
+                  options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                  inputClass={inputClass}
+                  inputStyle={inputStyle}
+                  renderDialog={({ open, onClose, onCreated, originRect }) => (
+                    <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+                      <MobileNewProjectDialog
+                        open={open}
+                        onClose={onClose}
+                        onCreated={(p) => onCreated(p.id, p.name)}
+                      />
+                    </MobileFabModal>
+                  )}
+                />
+
+                {/* Category */}
+                <div>
+                  <label className={labelClass} style={labelStyle}>
+                    Category <span style={{ color: "var(--color-stop)" }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    list="expense-categories"
+                    value={expenseForm.category}
+                    onChange={(e) => setExpense("category", e.target.value)}
+                    placeholder="e.g. Office Supplies"
+                    autoFocus
+                    enterKeyHint="next"
+                    className={inputClass}
+                    style={inputStyle}
+                  />
+                  <datalist id="expense-categories">
+                    {EXPENSE_CATEGORIES.map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
+                </div>
+
+                {/* Amount + Date */}
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>
+                      Amount (₹){" "}
+                      <span style={{ color: "var(--color-stop)" }}>*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={0.01}
+                      step="any"
+                      value={expenseForm.amount}
+                      onChange={(e) => setExpense("amount", e.target.value)}
+                      placeholder="0"
+                      inputMode="decimal"
+                      className={inputClass}
+                      style={inputStyle}
                     />
-                  </MobileFabModal>
-                )}
-              />
+                  </div>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      value={expenseForm.date}
+                      onChange={(e) => setExpense("date", e.target.value)}
+                      className={inputClass}
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
 
-              {/* Category */}
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Category <span style={{ color: "var(--color-stop)" }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  list="expense-categories"
-                  value={expenseForm.category}
-                  onChange={(e) => setExpense("category", e.target.value)}
-                  placeholder="e.g. Office Supplies"
-                  autoFocus
-                  enterKeyHint="next"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-                <datalist id="expense-categories">
-                  {EXPENSE_CATEGORIES.map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
-              </div>
-
-              {/* Amount + Date */}
-              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                {/* Notes */}
                 <div>
                   <label className={labelClass} style={labelStyle}>
-                    Amount (₹){" "}
-                    <span style={{ color: "var(--color-stop)" }}>*</span>
+                    Notes (optional)
                   </label>
-                  <input
-                    type="number"
-                    min={0.01}
-                    step="any"
-                    value={expenseForm.amount}
-                    onChange={(e) => setExpense("amount", e.target.value)}
-                    placeholder="0"
-                    inputMode="decimal"
-                    className={inputClass}
+                  <textarea
+                    value={expenseForm.notes}
+                    onChange={(e) => setExpense("notes", e.target.value)}
+                    rows={2}
+                    placeholder="Additional context…"
+                    className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
                     style={inputStyle}
                   />
                 </div>
-                <div>
-                  <label className={labelClass} style={labelStyle}>
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    value={expenseForm.date}
-                    onChange={(e) => setExpense("date", e.target.value)}
-                    className={inputClass}
-                    style={inputStyle}
-                  />
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Notes (optional)
-                </label>
-                <textarea
-                  value={expenseForm.notes}
-                  onChange={(e) => setExpense("notes", e.target.value)}
-                  rows={2}
-                  placeholder="Additional context…"
-                  className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
-                  style={inputStyle}
-                />
               </div>
             </>
           ) : (
             <>
-              {/* Project (required for project costs) */}
-              <MobileSelectWithCreate
-                label="Project"
-                required
-                value={costForm.projectId}
-                onChange={(v) => setCost("projectId", v)}
-                placeholder="— Select project —"
-                options={projects.map((p) => ({ value: p.id, label: p.name }))}
-                inputClass={inputClass}
-                inputStyle={inputStyle}
-                renderDialog={({ open, onClose, onCreated, originRect }) => (
-                  <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
-                    <MobileNewProjectDialog
-                      open={open}
-                      onClose={onClose}
-                      onCreated={(p) => onCreated(p.id, p.name)}
-                    />
-                  </MobileFabModal>
-                )}
-              />
+              {/* Project Cost Details */}
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Project Cost Details</p>
 
-              {/* Cost Type */}
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Cost Type{" "}
-                  <span style={{ color: "var(--color-stop)" }}>*</span>
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {(
-                    Object.keys(
-                      COST_TYPE_LABELS,
-                    ) as ProjectCostForm["costType"][]
-                  ).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => {
-                        setCost("costType", t);
-                        haptic(10);
-                      }}
-                      className="h-8 px-3 rounded-[0.375rem] border-2 text-m-caption font-bold text-m-body press"
-                      style={{
-                        borderColor:
-                          costForm.costType === t
-                            ? "var(--color-ink-950)"
-                            : "var(--color-line)",
-                        backgroundColor:
-                          costForm.costType === t
-                            ? "var(--color-ink-950)"
-                            : "var(--color-paper)",
-                        color:
-                          costForm.costType === t
-                            ? "var(--color-paper)"
-                            : "var(--color-ink-500)",
-                      }}
-                    >
-                      {COST_TYPE_LABELS[t]}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                {/* Project (required for project costs) */}
+                <MobileSelectWithCreate
+                  label="Project"
+                  required
+                  value={costForm.projectId}
+                  onChange={(v) => setCost("projectId", v)}
+                  placeholder="— Select project —"
+                  options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                  inputClass={inputClass}
+                  inputStyle={inputStyle}
+                  renderDialog={({ open, onClose, onCreated, originRect }) => (
+                    <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+                      <MobileNewProjectDialog
+                        open={open}
+                        onClose={onClose}
+                        onCreated={(p) => onCreated(p.id, p.name)}
+                      />
+                    </MobileFabModal>
+                  )}
+                />
 
-              {/* Amount + Date */}
-              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                {/* Cost Type */}
                 <div>
                   <label className={labelClass} style={labelStyle}>
-                    Amount (₹){" "}
+                    Cost Type{" "}
                     <span style={{ color: "var(--color-stop)" }}>*</span>
                   </label>
-                  <input
-                    type="number"
-                    min={0.01}
-                    step="any"
-                    value={costForm.amount}
-                    onChange={(e) => setCost("amount", e.target.value)}
-                    placeholder="0"
-                    inputMode="decimal"
-                    autoFocus
-                    className={inputClass}
-                    style={inputStyle}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass} style={labelStyle}>
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    value={costForm.date}
-                    onChange={(e) => setCost("date", e.target.value)}
-                    className={inputClass}
-                    style={inputStyle}
-                  />
-                </div>
-              </div>
-
-              {/* Vendor */}
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Vendor (optional)
-                </label>
-                <input
-                  type="text"
-                  value={costForm.vendor}
-                  onChange={(e) => setCost("vendor", e.target.value)}
-                  placeholder="e.g. ABC Contractors"
-                  enterKeyHint="next"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
-
-              {/* Subcontractor (from master) */}
-              {subcontractors.length > 0 && (
-                <div>
-                  <label className={labelClass} style={labelStyle}>
-                    Subcontractor (optional)
-                  </label>
-                  <select
-                    value={costForm.subcontractorId}
-                    onChange={(e) => setCost("subcontractorId", e.target.value)}
-                    className={inputClass}
-                    style={inputStyle}
-                  >
-                    <option value="">— None —</option>
-                    {subcontractors.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}{s.trade ? ` (${s.trade})` : ""}
-                      </option>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(
+                      Object.keys(
+                        COST_TYPE_LABELS,
+                      ) as ProjectCostForm["costType"][]
+                    ).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => {
+                          setCost("costType", t);
+                          haptic(10);
+                        }}
+                        className="h-8 px-3 rounded-[0.375rem] border-2 text-m-caption font-bold text-m-body press"
+                        style={{
+                          borderColor:
+                            costForm.costType === t
+                              ? "var(--color-ink-950)"
+                              : "var(--color-line)",
+                          backgroundColor:
+                            costForm.costType === t
+                              ? "var(--color-ink-950)"
+                              : "var(--color-paper)",
+                          color:
+                            costForm.costType === t
+                              ? "var(--color-paper)"
+                              : "var(--color-ink-500)",
+                        }}
+                      >
+                        {COST_TYPE_LABELS[t]}
+                      </button>
                     ))}
-                  </select>
+                  </div>
                 </div>
-              )}
 
-              {/* Notes */}
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Notes (optional)
-                </label>
-                <textarea
-                  value={costForm.notes}
-                  onChange={(e) => setCost("notes", e.target.value)}
-                  rows={2}
-                  placeholder="Additional context…"
-                  className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
-                  style={inputStyle}
-                />
-              </div>
+                {/* Amount + Date */}
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>
+                      Amount (₹){" "}
+                      <span style={{ color: "var(--color-stop)" }}>*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={0.01}
+                      step="any"
+                      value={costForm.amount}
+                      onChange={(e) => setCost("amount", e.target.value)}
+                      placeholder="0"
+                      inputMode="decimal"
+                      autoFocus
+                      className={inputClass}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      value={costForm.date}
+                      onChange={(e) => setCost("date", e.target.value)}
+                      className={inputClass}
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
 
-              {/* Receipt photo */}
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Receipt Photo (optional)
-                </label>
-                <PhotoUploader photos={receiptPhotos} onChange={setReceiptPhotos} maxPhotos={1} />
+                {/* Vendor */}
+                <div>
+                  <label className={labelClass} style={labelStyle}>
+                    Vendor (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={costForm.vendor}
+                    onChange={(e) => setCost("vendor", e.target.value)}
+                    placeholder="e.g. ABC Contractors"
+                    enterKeyHint="next"
+                    className={inputClass}
+                    style={inputStyle}
+                  />
+                </div>
+
+                {/* Subcontractor (from master) */}
+                {subcontractors.length > 0 && (
+                  <div>
+                    <label className={labelClass} style={labelStyle}>
+                      Subcontractor (optional)
+                    </label>
+                    <select
+                      value={costForm.subcontractorId}
+                      onChange={(e) => setCost("subcontractorId", e.target.value)}
+                      className={inputClass}
+                      style={inputStyle}
+                    >
+                      <option value="">— None —</option>
+                      {subcontractors.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}{s.trade ? ` (${s.trade})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Notes */}
+                <div>
+                  <label className={labelClass} style={labelStyle}>
+                    Notes (optional)
+                  </label>
+                  <textarea
+                    value={costForm.notes}
+                    onChange={(e) => setCost("notes", e.target.value)}
+                    rows={2}
+                    placeholder="Additional context…"
+                    className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
+                    style={inputStyle}
+                  />
+                </div>
+
+                {/* Receipt photo */}
+                <div>
+                  <label className={labelClass} style={labelStyle}>
+                    Receipt Photo (optional)
+                  </label>
+                  <PhotoUploader photos={receiptPhotos} onChange={setReceiptPhotos} maxPhotos={1} />
+                </div>
               </div>
             </>
           )}

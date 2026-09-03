@@ -9,6 +9,7 @@ import {
   MobileSearchHeader,
   MobileFilterIcon,
   MobileNoResults,
+  MobileSummaryStrip,
 } from "@/components/mobile/v2/scaffold";
 import {
   MobileExportShareIcons,
@@ -114,6 +115,53 @@ export function MobileQuotationsList({
 
   return (
     <div>
+      {/* ── Summary strip (same position across all procurement tabs) ── */}
+      <MobileSummaryStrip
+        stats={[
+          { label: "Total", value: String(items.length) },
+          { label: "Open", value: String(items.filter((r) => r.status === "OPEN").length) },
+          { label: "Pending", value: String(pendingCount) },
+          { label: "Closed", value: String(items.filter((r) => r.status === "CLOSED").length) },
+        ]}
+      />
+
+      {/* ── Sticky search header (same position across all procurement tabs) ── */}
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search quote no, title, project…"
+        action={
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={[
+                { label: "All", value: "all" },
+                { label: "Mine", value: "mine" },
+                {
+                  label: `Pending Approval${pendingCount > 0 ? ` (${pendingCount})` : ""}`,
+                  value: "pending",
+                },
+              ]}
+              active={tab}
+              defaultValue="all"
+              onChange={(v) => setTab(v as TabKey)}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+                summary={exportSummary}
+              />
+            ) : null}
+          </div>
+        }
+        showClear={query !== "" || tab !== "all"}
+        onClear={() => {
+          setQuery("");
+          setTab("all");
+        }}
+      />
+
       {items.length === 0 ? (
         <MobileEmptyState
           icon={FileText}
@@ -126,41 +174,6 @@ export function MobileQuotationsList({
         />
       ) : (
         <>
-          <MobileSearchHeader
-            query={query}
-            onQueryChange={setQuery}
-            placeholder="Search quote no, title, project…"
-            action={
-              <div className="flex items-center gap-1 shrink-0">
-                <MobileFilterIcon
-                  options={[
-                    { label: "All", value: "all" },
-                    { label: "Mine", value: "mine" },
-                    {
-                      label: `Pending Approval${pendingCount > 0 ? ` (${pendingCount})` : ""}`,
-                      value: "pending",
-                    },
-                  ]}
-                  active={tab}
-                  defaultValue="all"
-                  onChange={(v) => setTab(v as TabKey)}
-                />
-                {exportTitle && exportRows && exportColumns ? (
-                  <MobileExportShareIcons
-                    title={exportTitle}
-                    rows={exportRows}
-                    columns={exportColumns}
-                    summary={exportSummary}
-                  />
-                ) : null}
-              </div>
-            }
-            showClear={query !== "" || tab !== "all"}
-            onClear={() => {
-              setQuery("");
-              setTab("all");
-            }}
-          />
 
           {filtered.length === 0 ? (
             <MobileNoResults

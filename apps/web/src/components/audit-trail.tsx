@@ -60,7 +60,7 @@ export function AuditTrail({ entityType, entityId }: { entityType: string; entit
       <div className="space-y-2">
         <p className="text-body font-medium">Activity</p>
         {[1, 2, 3].map(i => (
-          <div key={i} className="h-4 animate-pulse rounded bg-muted" />
+          <div key={i} className="skeleton h-4 rounded" />
         ))}
       </div>
     );

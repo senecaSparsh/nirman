@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, UserPlus } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 
@@ -158,23 +158,12 @@ export function MobileNewEmployeeDialog({
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1">
-            <span
-              className="grid place-items-center size-7 rounded-[0.375rem]"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              <UserPlus
-                className="size-3.5"
-                style={{ color: "var(--color-ink-600)" }}
-              />
-            </span>
-            <p
-              className="text-m-section font-bold"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              New Employee
-            </p>
-          </div>
+          <p
+            className="text-m-section font-extrabold tracking-tight"
+            style={{ color: "var(--color-ink-950)" }}
+          >
+            New Employee
+          </p>
           <button
             onClick={onClose}
             className="touch grid place-items-center rounded-[0.375rem] text-m-body press"

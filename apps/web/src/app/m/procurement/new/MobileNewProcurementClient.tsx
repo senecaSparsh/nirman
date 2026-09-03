@@ -616,175 +616,196 @@ function PoForm({
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {/* ══════ SECTION: WHO ══════ */}
-        <SectionHeader icon={Truck} label="Supplier" />
+        <div
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Supplier
+          </p>
 
-        <SelectorCard
-          onClick={() => setModal({ type: "supplier" })}
-          icon={Truck}
-          label="Supplier"
-          value={selectedSupplier?.name}
-          subvalue={selectedSupplier?.phone}
-          required
-        />
-
-        {/* ══════ SECTION: SCOPE ══════ */}
-        <SectionHeader icon={Building2} label="Procurement Scope" />
-
-        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <ScopeCard
-            active={scope === "COMPANY"}
-            onClick={() => setScope("COMPANY")}
-            label="Company"
-            sublabel="Warehouse"
-          />
-          <ScopeCard
-            active={scope === "PROJECT"}
-            onClick={() => setScope("PROJECT")}
-            label="Project"
-            sublabel="Site"
+          <SelectorCard
+            onClick={() => setModal({ type: "supplier" })}
+            icon={Truck}
+            label="Supplier"
+            value={selectedSupplier?.name}
+            subvalue={selectedSupplier?.phone}
+            required
           />
         </div>
 
-        {scope === "PROJECT" ? (
+        {/* ══════ SECTION: SCOPE ══════ */}
+        <div
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Procurement Scope
+          </p>
+
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <ScopeCard
+              active={scope === "COMPANY"}
+              onClick={() => setScope("COMPANY")}
+              label="Company"
+              sublabel="Warehouse"
+            />
+            <ScopeCard
+              active={scope === "PROJECT"}
+              onClick={() => setScope("PROJECT")}
+              label="Project"
+              sublabel="Site"
+            />
+          </div>
+
+          {scope === "PROJECT" ? (
+            <SelectorCard
+              onClick={() => setModal({ type: "project" })}
+              icon={Building2}
+              label="Project"
+              value={projectId ? selectedProject?.name : undefined}
+              required
+            />
+          ) : null}
+
           <SelectorCard
-            onClick={() => setModal({ type: "project" })}
-            icon={Building2}
-            label="Project"
-            value={projectId ? selectedProject?.name : undefined}
+            onClick={() => availableLocations.length > 0 ? setModal({ type: "location" }) : toast.error("No locations available for this scope")}
+            icon={MapPin}
+            label="Destination Location"
+            value={selectedLocation?.name}
+            subvalue={selectedLocation?.type.replace(/_/g, " ").toLowerCase()}
             required
           />
-        ) : null}
-
-        <SelectorCard
-          onClick={() => availableLocations.length > 0 ? setModal({ type: "location" }) : toast.error("No locations available for this scope")}
-          icon={MapPin}
-          label="Destination Location"
-          value={selectedLocation?.name}
-          subvalue={selectedLocation?.type.replace(/_/g, " ").toLowerCase()}
-          required
-        />
+        </div>
 
         {/* ══════ SECTION: WHAT ══════ */}
-        <SectionHeader icon={Package} label="Line Items" />
+        <div
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Line Items
+          </p>
 
-        <div className={lines.length > 1 ? "grid grid-cols-2 gap-2 divide-x" : "flex flex-col gap-3"} style={{ borderColor: "var(--color-line)" }}>
-          {lines.map((line, idx) => {
-            const mat = materials.find((m) => m.id === line.materialId);
-            const lineTotal = (Number(line.qty) || 0) * (Number(line.unitCost) || 0);
-            const lineGstRate = Number(line.gstRate) || 0;
-            const lineGst = lineTotal * lineGstRate / 100;
-            return (
-              <div
-                key={idx}
-                className="rounded-[0.5rem] border overflow-hidden flex flex-col"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              >
+          <div className={lines.length > 1 ? "grid grid-cols-2 gap-2 divide-x" : "flex flex-col gap-3"} style={{ borderColor: "var(--color-line)" }}>
+            {lines.map((line, idx) => {
+              const mat = materials.find((m) => m.id === line.materialId);
+              const lineTotal = (Number(line.qty) || 0) * (Number(line.unitCost) || 0);
+              const lineGstRate = Number(line.gstRate) || 0;
+              const lineGst = lineTotal * lineGstRate / 100;
+              return (
                 <div
-                  className="flex items-center justify-between px-2 py-1"
-                  style={{ backgroundColor: "var(--color-paper-2)", borderBottom: "1px solid var(--color-line)" }}
+                  key={idx}
+                  className="rounded-[0.5rem] border overflow-hidden flex flex-col"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                 >
-                  <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-700)" }}>
-                    Item {idx + 1}
-                  </span>
-                  {lines.length > 1 ? (
-                    <button
-                      type="button"
-                      onClick={() => onRemoveLine(idx)}
-                      className="flex items-center gap-1.5 text-m-caption font-semibold text-m-body press"
-                      style={{ color: "var(--color-stop)" }}
-                    >
-                      <Trash2 className="size-2.5" />
-                    </button>
-                  ) : null}
-                </div>
-
-                <div className="p-1.5 flex flex-col gap-3.5 flex-1">
-                  <SelectorRow
-                    onClick={() => setModal({ type: "material", lineIndex: idx })}
-                    icon={Package}
-                    label="Material"
-                    value={mat ? mat.name : undefined}
-                    subvalue={mat ? `${mat.code} · ${mat.unit}` : undefined}
-                    required
-                    compact
-                  />
-
-                  <div className="grid grid-cols-2 gap-1.5 mt-0.5">
-                    <div>
-                      <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-                        Qty{mat ? ` (${mat.unit})` : ""}
-                      </label>
-                      <input
-                        type="text" inputMode="decimal"
-                        step="any"
-                        min="0"
-                        value={line.qty}
-                        onChange={(e) => onLineChange(idx, "qty", e.target.value)}
-                        placeholder="0"
-                        className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
-                        style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-                        Unit Cost
-                      </label>
-                      <input
-                        type="text" inputMode="decimal"
-                        step="any"
-                        min="0"
-                        value={line.unitCost}
-                        onChange={(e) => onLineChange(idx, "unitCost", e.target.value)}
-                        placeholder="0"
-                        className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
-                        style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-                      />
-                      {lastPriceHint[idx] ? (
-                        <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-                          From {lastPriceHint[idx]!.poNumber}
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="mt-1.5">
-                    <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-                      GST Rate %
-                    </label>
-                    <input
-                      type="text" inputMode="decimal"
-                      step="any"
-                      min="0"
-                      value={line.gstRate}
-                      onChange={(e) => onLineChange(idx, "gstRate", e.target.value)}
-                      placeholder="0"
-                      className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
-                      style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-                    />
-                  </div>
-
                   <div
-                    className="flex items-center justify-between rounded-[0.375rem] px-1.5 py-1 mt-auto"
-                    style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 6%, transparent)" }}
+                    className="flex items-center justify-between px-2 py-1"
+                    style={{ backgroundColor: "var(--color-paper-2)", borderBottom: "1px solid var(--color-line)" }}
                   >
-                    <span className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-700)" }}>
-                      Total
+                    <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-700)" }}>
+                      Item {idx + 1}
                     </span>
-                    <div className="flex items-center gap-1">
-                      <span className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-                        {formatCurrency(lineTotal + lineGst)}
+                    {lines.length > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => onRemoveLine(idx)}
+                        className="flex items-center gap-1.5 text-m-caption font-semibold text-m-body press"
+                        style={{ color: "var(--color-stop)" }}
+                      >
+                        <Trash2 className="size-2.5" />
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="p-1.5 flex flex-col gap-3.5 flex-1">
+                    <SelectorRow
+                      onClick={() => setModal({ type: "material", lineIndex: idx })}
+                      icon={Package}
+                      label="Material"
+                      value={mat ? mat.name : undefined}
+                      subvalue={mat ? `${mat.code} · ${mat.unit}` : undefined}
+                      required
+                      compact
+                    />
+
+                    <div className="grid grid-cols-2 gap-1.5 mt-0.5">
+                      <div>
+                        <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                          Qty{mat ? ` (${mat.unit})` : ""}
+                        </label>
+                        <input
+                          type="text" inputMode="decimal"
+                          step="any"
+                          min="0"
+                          value={line.qty}
+                          onChange={(e) => onLineChange(idx, "qty", e.target.value)}
+                          placeholder="0"
+                          className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
+                          style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                          Unit Cost
+                        </label>
+                        <input
+                          type="text" inputMode="decimal"
+                          step="any"
+                          min="0"
+                          value={line.unitCost}
+                          onChange={(e) => onLineChange(idx, "unitCost", e.target.value)}
+                          placeholder="0"
+                          className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
+                          style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                        />
+                        {lastPriceHint[idx] ? (
+                          <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+                            From {lastPriceHint[idx]!.poNumber}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="mt-1.5">
+                      <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                        GST Rate %
+                      </label>
+                      <input
+                        type="text" inputMode="decimal"
+                        step="any"
+                        min="0"
+                        value={line.gstRate}
+                        onChange={(e) => onLineChange(idx, "gstRate", e.target.value)}
+                        placeholder="0"
+                        className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
+                        style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                      />
+                    </div>
+
+                    <div
+                      className="flex items-center justify-between rounded-[0.375rem] px-1.5 py-1 mt-auto"
+                      style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 6%, transparent)" }}
+                    >
+                      <span className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-700)" }}>
+                        Total
                       </span>
-                      {lineGstRate > 0 ? (
-                        <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-700)" }}>
-                          +{lineGstRate}%
+                      <div className="flex items-center gap-1">
+                        <span className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                          {formatCurrency(lineTotal + lineGst)}
                         </span>
-                      ) : null}
+                        {lineGstRate > 0 ? (
+                          <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-700)" }}>
+                            +{lineGstRate}%
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
         <div className="flex items-center gap-1">
@@ -801,96 +822,110 @@ function PoForm({
         </div>
 
         {/* ══════ SECTION: CHARGES (Freight, Loading, Misc) ══════ */}
-        <SectionHeader icon={Truck} label="Charges & Freight" />
+        <div
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Charges & Freight
+          </p>
 
-        <div className="flex flex-col gap-3">
-          {charges.map((charge, idx) => (
-            <div
-              key={idx}
-              className="rounded-[0.5rem] border p-2 flex flex-col gap-3.5"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          <div className="flex flex-col gap-3">
+            {charges.map((charge, idx) => (
+              <div
+                key={idx}
+                className="rounded-[0.5rem] border p-2 flex flex-col gap-3.5"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              >
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={charge.heading}
+                    onChange={(e) => {
+                      const next = [...charges];
+                      next[idx] = { ...next[idx]!, heading: e.target.value };
+                      setCharges(next);
+                    }}
+                    placeholder="Heading (e.g. Loading, Freight, Fuel Charge)"
+                    className="flex-1 rounded-[0.375rem] border px-2 py-1.5 text-m-body font-semibold outline-none"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setCharges(charges.filter((_, i) => i !== idx))}
+                    className="shrink-0 grid place-items-center size-7 rounded-[0.375rem] press"
+                    style={{ color: "var(--color-stop)" }}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-700)" }}>₹</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={charge.amount}
+                    onChange={(e) => {
+                      const next = [...charges];
+                      next[idx] = { ...next[idx]!, amount: e.target.value };
+                      setCharges(next);
+                    }}
+                    placeholder="0"
+                    className="flex-1 rounded-[0.375rem] border px-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                  />
+                </div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => setCharges([...charges, { heading: "", amount: "", notes: "" }])}
+              className="flex items-center justify-center gap-1 w-full rounded-[0.5rem] border border-dashed py-2 text-m-body press"
+              style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
             >
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="text"
-                  value={charge.heading}
-                  onChange={(e) => {
-                    const next = [...charges];
-                    next[idx] = { ...next[idx]!, heading: e.target.value };
-                    setCharges(next);
-                  }}
-                  placeholder="Heading (e.g. Loading, Freight, Fuel Charge)"
-                  className="flex-1 rounded-[0.375rem] border px-2 py-1.5 text-m-body font-semibold outline-none"
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setCharges(charges.filter((_, i) => i !== idx))}
-                  className="shrink-0 grid place-items-center size-7 rounded-[0.375rem] press"
-                  style={{ color: "var(--color-stop)" }}
-                >
-                  <Trash2 className="size-3.5" />
-                </button>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-700)" }}>₹</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={charge.amount}
-                  onChange={(e) => {
-                    const next = [...charges];
-                    next[idx] = { ...next[idx]!, amount: e.target.value };
-                    setCharges(next);
-                  }}
-                  placeholder="0"
-                  className="flex-1 rounded-[0.375rem] border px-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-                />
-              </div>
-            </div>
-          ))}
-
-          <button
-            type="button"
-            onClick={() => setCharges([...charges, { heading: "", amount: "", notes: "" }])}
-            className="flex items-center justify-center gap-1 w-full rounded-[0.5rem] border border-dashed py-2 text-m-body press"
-            style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
-          >
-            <Plus className="size-3" />
-            <span className="text-m-label font-bold">Add charge (freight, loading, fuel…)</span>
-          </button>
+              <Plus className="size-3" />
+              <span className="text-m-label font-bold">Add charge (freight, loading, fuel…)</span>
+            </button>
+          </div>
         </div>
 
         {/* ══════ SECTION: WHEN ══════ */}
-        <SectionHeader icon={Calendar} label="Delivery" />
+        <div
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Delivery
+          </p>
 
-        <div>
-          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-            Expected Date (optional)
-          </label>
-          <input
-            type="date"
-            value={expectedDate}
-            onChange={(e) => setExpectedDate(e.target.value)}
-            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-          />
-        </div>
+          <div>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Expected Date (optional)
+            </label>
+            <input
+              type="date"
+              value={expectedDate}
+              onChange={(e) => setExpectedDate(e.target.value)}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+            />
+          </div>
 
-        {/* Notes */}
-        <div>
-          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-            Notes (optional)
-          </label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="e.g. Urgent delivery for foundation work"
-            rows={2}
-            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-          />
+          {/* Notes */}
+          <div>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Notes (optional)
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. Urgent delivery for foundation work"
+              rows={2}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+            />
+          </div>
         </div>
       </form>
 

@@ -44,7 +44,7 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center px-6 text-center",
+        "flex flex-col items-center justify-center px-6 text-center fade-in",
         compact ? "gap-3 py-12" : "gap-4 py-24",
         className,
       )}

@@ -7,10 +7,10 @@ import {
   Trash2,
   Loader2,
   CheckCircle2,
-  IndianRupee,
   Search,
   X,
   ChevronRight,
+  ChevronDown,
   User,
   MapPin,
   Package,
@@ -869,13 +869,19 @@ function SaleForm({
   };
 
   return (
-    <div className="pb-16">
+    <div className="pb-4">
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
-        {/* ══════ SECTION: WHO ══════ */}
-        <SectionHeader icon={User} label="Customer & Project" />
+        {/* ══════ SECTION: WHO — big border box ══════ */}
+        <div
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Customer & Project
+          </p>
 
-        {/* Customer + Project selectors — side-by-side (same hierarchy layer) */}
-        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+          {/* Customer + Project selectors — side-by-side */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <SelectorCard
             onClick={() => setModal({ type: "customer" })}
             icon={User}
@@ -916,8 +922,12 @@ function SaleForm({
           />
         </div>
 
-        {/* ══════ SECTION: WHAT ══════ */}
-        <SectionHeader icon={Package} label="Line Items" />
+        </div>
+
+        {/* ══════ SECTION: WHAT — Line Items ══════ */}
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+          Line Items
+        </p>
 
         <div className={lines.length > 1 ? "grid grid-cols-2 gap-2" : "flex flex-col gap-3"}>
           {lines.map((line, idx) => {
@@ -995,55 +1005,59 @@ function SaleForm({
                     />
                   </div>
 
-                  {/* Qty + Price inputs — side-by-side (same hierarchy layer) */}
-                  <div className="grid grid-cols-2 gap-1.5 mt-0.5">
-                    <div>
-                      <label
-                        className="block text-m-caption font-bold mb-0"
-                        style={{ color: "var(--color-ink-700)" }}
-                      >
-                        Qty{mat ? ` (${mat.unit})` : ""}
-                      </label>
+                  {/* Qty + Price inputs — label left, number right */}
+                  <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                    <div
+                      className="relative pr-2 pb-0.5 border-b focus-within:border-b-2 transition-colors"
+                      style={{ borderColor: "var(--color-line)" }}
+                    >
+                      {!line.qty && (
+                        <span
+                          className="absolute left-0 top-1/2 -translate-y-1/2 text-m-caption font-normal pointer-events-none"
+                          style={{ color: "var(--color-ink-500)" }}
+                        >
+                          {`Qty${mat ? ` (${mat.unit})` : ""}`}
+                        </span>
+                      )}
                       <input
                         type="text"
                         inputMode="decimal"
                         enterKeyHint="next"
-                        step="any"
-                        min="0"
                         value={line.qty}
-                        onChange={(e) =>
-                          onLineChange(idx, "qty", e.target.value)
-                        }
-                        placeholder="0"
-                        className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9.]/g, "");
+                          onLineChange(idx, "qty", v);
+                        }}
+                        className="w-full h-7 px-1 text-m-caption font-bold tabular-nums text-right outline-none"
                         style={{
-                          borderColor: "var(--color-line)",
                           backgroundColor: "transparent",
                           color: "var(--color-ink-950)",
                         }}
                       />
                     </div>
-                    <div>
-                      <label
-                        className="block text-m-caption font-bold mb-0"
-                        style={{ color: "var(--color-ink-700)" }}
-                      >
-                        Price
-                      </label>
+                    <div
+                      className="relative pl-2 pb-0.5 border-b focus-within:border-b-2 transition-colors"
+                      style={{ borderColor: "var(--color-line)" }}
+                    >
+                      {!line.unitPrice && (
+                        <span
+                          className="absolute left-0 top-1/2 -translate-y-1/2 text-m-caption font-normal pointer-events-none"
+                          style={{ color: "var(--color-ink-500)" }}
+                        >
+                          Price
+                        </span>
+                      )}
                       <input
                         type="text"
                         inputMode="decimal"
                         enterKeyHint="next"
-                        step="any"
-                        min="0"
                         value={line.unitPrice}
-                        onChange={(e) =>
-                          onLineChange(idx, "unitPrice", e.target.value)
-                        }
-                        placeholder="0"
-                        className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9.]/g, "");
+                          onLineChange(idx, "unitPrice", v);
+                        }}
+                        className="w-full h-7 px-1 text-m-caption font-bold tabular-nums text-right outline-none"
                         style={{
-                          borderColor: "var(--color-line)",
                           backgroundColor: "transparent",
                           color: "var(--color-ink-950)",
                         }}
@@ -1082,16 +1096,21 @@ function SaleForm({
           })}
         </div>
 
-        {/* ══════ SECTION: HOW ══════ */}
-        <SectionHeader icon={Wallet} label="Payment" />
+        {/* ══════ SECTION: HOW — Payment — big border box ══════ */}
+        <div
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Payment
+          </p>
 
-        {/* Payment type selector — 2 options */}
-        <div className="grid grid-cols-2 gap-2">
+          {/* Payment type selector — 2 options */}
+          <div className="grid grid-cols-2 gap-2">
           <PaymentTypeCard
             active={paymentType === "credit"}
             onClick={() => setPaymentType("credit")}
             label="Credit"
-            sublabel="Pay later"
           />
           <PaymentTypeCard
             active={paymentType === "paid"}
@@ -1106,24 +1125,105 @@ function SaleForm({
               });
             }}
             label="Pay Now"
-            sublabel={formatCurrency(total)}
           />
         </div>
 
         {/* Payment splits (only for "paid") */}
         {paymentType === "paid" ? (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             {paymentSplits.map((split, idx) => {
               return (
-                <div key={split.id} className="space-y-3">
-                  {/* Split header */}
-                  <div className="flex items-center justify-between">
+                <div key={split.id} className="space-y-1.5">
+                  {/* Payment label + amount + mode selector + add/remove — all on one line */}
+                  <div
+                    className="flex items-center gap-1.5 pb-0.5 border-b focus-within:border-b-2 transition-colors"
+                    style={{ borderColor: "var(--color-line)" }}
+                  >
                     <span
-                      className="text-m-caption font-bold"
-                      style={{ color: "var(--color-ink-950)" }}
+                      className="text-m-caption font-bold shrink-0"
+                      style={{ color: "var(--color-ink-700)" }}
                     >
-                      Payment {idx + 1}
+                      Payment{paymentSplits.length > 1 ? ` ${idx + 1}` : ""}:
                     </span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      enterKeyHint="done"
+                      value={split.amount}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/[^0-9.]/g, "");
+                        setPaymentSplits((prev) =>
+                          prev.map((s) =>
+                            s.id === split.id
+                              ? { ...s, amount: v }
+                              : s,
+                          ),
+                        )
+                      }}
+                      placeholder="0"
+                      className="flex-1 min-w-0 h-7 px-1 text-m-caption font-bold tabular-nums text-right outline-none w-full"
+                      style={{
+                        backgroundColor: "transparent",
+                        color: "var(--color-ink-950)",
+                      }}
+                    />
+                    <div
+                      className="flex items-center gap-0.5 rounded-[0.25rem] px-1.5 h-5 press shrink-0"
+                      style={{
+                        backgroundColor: "var(--color-paper-2)",
+                      }}
+                    >
+                      <select
+                        value={split.mode}
+                        onChange={(e) => {
+                          const mode = e.target.value as PaymentMode;
+                          setPaymentSplits((prev) =>
+                            prev.map((s) =>
+                              s.id === split.id
+                                ? {
+                                    ...s,
+                                    mode,
+                                    ...(mode !== "CHEQUE"
+                                      ? { cheque: undefined }
+                                      : !s.cheque
+                                        ? { cheque: EMPTY_MOBILE_CHEQUE }
+                                        : {}),
+                                  }
+                                : s,
+                            ),
+                          );
+                        }}
+                        className="text-m-caption font-bold outline-none cursor-pointer appearance-none bg-transparent"
+                        style={{
+                          color: "var(--color-ink-950)",
+                        }}
+                      >
+                        {PAYMENT_MODES.map((mode) => (
+                          <option key={mode} value={mode}>{mode}</option>
+                        ))}
+                      </select>
+                      <ChevronDown
+                        className="size-2.5 shrink-0 pointer-events-none"
+                        style={{ color: "var(--color-ink-500)" }}
+                      />
+                    </div>
+                    {/* Add payment — plus button next to selector */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPaymentSplits((prev) => [
+                          ...prev,
+                          { id: crypto.randomUUID(), amount: "", mode: "CASH" },
+                        ])
+                      }
+                      className="flex items-center justify-center rounded-[0.25rem] h-5 w-5 press shrink-0"
+                      style={{
+                        backgroundColor: "var(--color-ink-950)",
+                        color: "var(--color-paper)",
+                      }}
+                    >
+                      <Plus className="size-2.5" />
+                    </button>
                     {paymentSplits.length > 1 ? (
                       <button
                         type="button"
@@ -1132,91 +1232,12 @@ function SaleForm({
                             prev.filter((s) => s.id !== split.id),
                           )
                         }
-                        className="flex items-center gap-1.5 text-m-caption font-semibold text-m-body press"
+                        className="flex items-center text-m-caption press shrink-0"
                         style={{ color: "var(--color-stop)" }}
                       >
                         <Trash2 className="size-2.5" />
                       </button>
                     ) : null}
-                  </div>
-
-                  {/* Amount + mode row */}
-                  <div className="flex gap-1.5">
-                    {/* Amount */}
-                    <div className="relative flex-1">
-                      <IndianRupee
-                        className="absolute left-2 top-1/2 -translate-y-1/2 size-3"
-                        style={{ color: "var(--color-ink-500)" }}
-                      />
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        enterKeyHint="done"
-                        step="any"
-                        min="0"
-                        value={split.amount}
-                        onChange={(e) =>
-                          setPaymentSplits((prev) =>
-                            prev.map((s) =>
-                              s.id === split.id
-                                ? { ...s, amount: e.target.value }
-                                : s,
-                            ),
-                          )
-                        }
-                        placeholder="0"
-                        className="w-full h-7 pl-6 pr-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
-                        style={{
-                          borderColor: "var(--color-line)",
-                          backgroundColor: "transparent",
-                          color: "var(--color-ink-950)",
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Mode chips */}
-                  <div className="grid grid-cols-4 gap-1">
-                    {PAYMENT_MODES.map((mode) => {
-                      const active = split.mode === mode;
-                      return (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() =>
-                            setPaymentSplits((prev) =>
-                              prev.map((s) =>
-                                s.id === split.id
-                                  ? {
-                                      ...s,
-                                      mode,
-                                      ...(mode !== "CHEQUE"
-                                        ? { cheque: undefined }
-                                        : !s.cheque
-                                          ? { cheque: EMPTY_MOBILE_CHEQUE }
-                                          : {}),
-                                    }
-                                  : s,
-                              ),
-                            )
-                          }
-                          className="rounded-[0.25rem] py-0.5 text-m-caption font-bold transition-colors press"
-                          style={
-                            active
-                              ? {
-                                  backgroundColor: "var(--color-ink-950)",
-                                  color: "var(--color-paper)",
-                                }
-                              : {
-                                  backgroundColor: "var(--color-paper-2)",
-                                  color: "var(--color-ink-700)",
-                                }
-                          }
-                        >
-                          {mode}
-                        </button>
-                      );
-                    })}
                   </div>
 
                   {/* Cheque fields when CHEQUE mode selected */}
@@ -1236,27 +1257,6 @@ function SaleForm({
               );
             })}
 
-            {/* Add split button */}
-            <button
-              type="button"
-              onClick={() =>
-                setPaymentSplits((prev) => [
-                  ...prev,
-                  { id: crypto.randomUUID(), amount: "", mode: "CASH" },
-                ])
-              }
-              className="flex items-center justify-center gap-1 w-full rounded-[0.375rem] border border-dashed py-1.5 text-m-body press"
-              style={{
-                borderColor: "var(--color-line)",
-                color: "var(--color-ink-700)",
-              }}
-            >
-              <Plus className="size-3" />
-              <span className="text-m-caption font-semibold">
-                Add another payment
-              </span>
-            </button>
-
             {/* Payment summary */}
             {(() => {
               const totalPaid = paymentSplits.reduce(
@@ -1265,17 +1265,9 @@ function SaleForm({
               );
               const balance = total - totalPaid;
               const overpaid = totalPaid > total + 0.01;
+              const fullyPaid = total > 0 && Math.abs(balance) <= 0.01;
               return (
-                <div
-                  className="rounded-[0.375rem] px-2.5 py-1.5 flex flex-col gap-1.5"
-                  style={{
-                    backgroundColor: overpaid
-                      ? "color-mix(in srgb, var(--color-stop) 8%, transparent)"
-                      : balance < -0.01
-                        ? "color-mix(in srgb, var(--color-go) 6%, transparent)"
-                        : "color-mix(in srgb, var(--color-go) 6%, transparent)",
-                  }}
-                >
+                <div className="flex flex-col gap-1">
                   <div className="flex items-center justify-between text-m-caption">
                     <span style={{ color: "var(--color-ink-500)" }}>
                       Total paying
@@ -1291,25 +1283,25 @@ function SaleForm({
                     <span style={{ color: "var(--color-ink-500)" }}>
                       {overpaid
                         ? "Overpaid by"
-                        : balance > 0.01
-                          ? "Balance due"
-                          : "Status"}
+                        : fullyPaid
+                          ? "Status"
+                          : "Balance due"}
                     </span>
                     <span
                       className="font-bold tabular-nums"
                       style={{
                         color: overpaid
                           ? "var(--color-stop)"
-                          : balance > 0.01
-                            ? "var(--color-signal)"
-                            : "var(--color-go)",
+                          : fullyPaid
+                            ? "var(--color-go)"
+                            : "var(--color-signal)",
                       }}
                     >
                       {overpaid
                         ? formatCurrency(totalPaid - total)
-                        : balance > 0.01
-                          ? formatCurrency(balance)
-                          : "Fully paid"}
+                        : fullyPaid
+                          ? "Fully paid"
+                          : formatCurrency(balance)}
                     </span>
                   </div>
                 </div>
@@ -1342,71 +1334,70 @@ function SaleForm({
             </span>
           </div>
         )}
-
-        {/* ══════ SECTION: DETAILS ══════ */}
-        <SectionHeader icon={Send} label="Dispatch Details" />
-
-        {/* Vehicle / Carrier — how goods are dispatched */}
-        <div>
-          <VehicleCapture value={vehicle} onChange={setVehicle} compact />
         </div>
 
-        {/* Notes */}
-        <div>
-          <label
-            className="block text-m-caption font-bold mb-0"
+        {/* ══════ SECTION: DETAILS — Dispatch — big border box ══════ */}
+        <div
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Dispatch Details
+          </p>
+
+          {/* Vehicle / Carrier — how goods are dispatched */}
+          <div>
+            <VehicleCapture value={vehicle} onChange={setVehicle} compact />
+          </div>
+
+        {/* Notes — inline label, full-width underline */}
+        <div
+          className="flex items-center gap-1 pb-0.5 border-b focus-within:border-b-2 transition-colors"
+          style={{ borderColor: "var(--color-line)" }}
+        >
+          <span
+            className="text-m-caption font-bold shrink-0 h-7 leading-7"
             style={{ color: "var(--color-ink-700)" }}
           >
-            Notes (optional)
-          </label>
+            Notes:
+          </span>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="e.g. Surplus cement sold to local contractor"
-            rows={2}
-            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+            rows={1}
+            className="flex-1 min-w-0 h-7 px-1 text-m-caption leading-7 outline-none resize-none"
             style={{
-              borderColor: "var(--color-line)",
               backgroundColor: "transparent",
               color: "var(--color-ink-950)",
             }}
           />
         </div>
+        </div>
       </form>
 
-      {/* ══════ STICKY BOTTOM BAR: total + submit ══════ */}
+      {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
       <div
-        className="sticky bottom-0 left-0 right-0 z-30 border-t backdrop-blur-sm"
+        className="sticky bottom-0 left-0 right-0 z-20 border-t"
         style={{
-          backgroundColor:
-            "color-mix(in srgb, var(--color-paper) 97%, transparent)",
+          backgroundColor: "var(--color-paper)",
           borderColor: "var(--color-line)",
-          paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))",
         }}
       >
-        <div className="max-w-md mx-auto px-3.5 py-2 flex items-center gap-1">
-          {/* Total + payment status */}
+        <div className="max-w-md mx-auto px-3.5 py-2 flex items-center justify-between gap-3">
+          {/* Total summary */}
           <div className="shrink-0">
             <p
               className="text-m-caption font-semibold uppercase tracking-wide"
               style={{ color: "var(--color-ink-500)" }}
             >
-              {paymentType === "paid"
-                ? `${formatCurrency(total)} · ${paymentSplits.length} ${paymentSplits.length === 1 ? "payment" : "payments"}`
-                : `${formatCurrency(total)} · Credit`}
+              {paymentType === "paid" ? "Paid" : "Credit"}
             </p>
             <p
               className="text-m-section font-bold tabular-nums"
-              style={{ color: "var(--color-go)" }}
+              style={{ color: "var(--color-ink-950)" }}
             >
-              {paymentType === "paid"
-                ? formatCurrency(
-                    paymentSplits.reduce(
-                      (s, sp) => s + (Number(sp.amount) || 0),
-                      0,
-                    ),
-                  )
-                : formatCurrency(total)}
+              {formatCurrency(total)}
             </p>
             {paymentType === "paid" ? (
               <p
@@ -1675,15 +1666,6 @@ function SelectorCard({
       }}
     >
       <div className="min-w-0 flex-1">
-        <p
-          className="block text-m-caption font-bold mb-0"
-          style={{ color: "var(--color-ink-700)" }}
-        >
-          {label}
-          {required ? (
-            <span style={{ color: "var(--color-stop)" }}> *</span>
-          ) : null}
-        </p>
         {hasValue ? (
           <p
             className="text-m-caption font-bold truncate"
@@ -1699,8 +1681,22 @@ function SelectorCard({
               </span>
             ) : null}
           </p>
-        ) : null}
+        ) : (
+          <p
+            className="block text-m-caption font-bold mb-0"
+            style={{ color: "var(--color-ink-700)" }}
+          >
+            {label}
+            {required ? (
+              <span style={{ color: "var(--color-stop)" }}> *</span>
+            ) : null}
+          </p>
+        )}
       </div>
+      <ChevronRight
+        className={`shrink-0 ${compact ? "size-3" : "size-3.5"}`}
+        style={{ color: "var(--color-ink-500)" }}
+      />
     </button>
   );
 }
@@ -1740,15 +1736,6 @@ function SelectorRow({
       }}
     >
       <div className="min-w-0 flex-1">
-        <span
-          className="block text-m-caption font-bold mb-0"
-          style={{ color: "var(--color-ink-700)" }}
-        >
-          {label}
-          {required ? (
-            <span style={{ color: "var(--color-stop)" }}> *</span>
-          ) : null}
-        </span>
         {hasValue ? (
           <p
             className="text-m-caption font-bold truncate"
@@ -1765,8 +1752,22 @@ function SelectorRow({
               </span>
             ) : null}
           </p>
-        ) : null}
+        ) : (
+          <span
+            className="block text-m-caption font-bold mb-0"
+            style={{ color: "var(--color-ink-700)" }}
+          >
+            {label}
+            {required ? (
+              <span style={{ color: "var(--color-stop)" }}> *</span>
+            ) : null}
+          </span>
+        )}
       </div>
+      <ChevronRight
+        className={`shrink-0 ${compact ? "size-2.5" : "size-3"}`}
+        style={{ color: "var(--color-ink-500)" }}
+      />
     </button>
   );
 }

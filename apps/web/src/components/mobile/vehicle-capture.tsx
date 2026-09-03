@@ -123,23 +123,28 @@ export function VehicleCapture({
 
   return (
     <div className="space-y-3">
-      {/* Vehicle number + type */}
+      {/* Vehicle number + type — inline label + input, full-width underline */}
       <div className="grid grid-cols-2 gap-2 divide-x" style={dividerStyle}>
         <div className="relative pr-2">
-          <label className={labelClass} style={labelStyle}>
-            Vehicle No.
-          </label>
-          <input
-            ref={inputRef}
-            type="text"
-            value={value.vehicleNumber}
-            onChange={(e) => onChange({ ...value, vehicleNumber: e.target.value })}
-            onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); if (blurTimeout) clearTimeout(blurTimeout); }}
-            onBlur={() => { setBlurTimeout(setTimeout(() => setShowSuggestions(false), 200)); }}
-            placeholder="MH-12-AB-1234"
-            className={`${inputClass} font-mono`}
-            style={inputStyle}
-          />
+          <div
+            className="flex items-center justify-between gap-1 pb-0.5 border-b focus-within:border-b-2 transition-colors"
+            style={{ borderColor: "var(--color-line)" }}
+          >
+            <span className="text-m-caption font-bold shrink-0" style={labelStyle}>
+              Vehicle No.:
+            </span>
+            <input
+              ref={inputRef}
+              type="text"
+              value={value.vehicleNumber}
+              onChange={(e) => onChange({ ...value, vehicleNumber: e.target.value })}
+              onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); if (blurTimeout) clearTimeout(blurTimeout); }}
+              onBlur={() => { setBlurTimeout(setTimeout(() => setShowSuggestions(false), 200)); }}
+              placeholder="MH-12-AB-1234"
+              className="flex-1 min-w-0 h-7 px-1 text-m-caption font-mono text-right outline-none"
+              style={{ backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+            />
+          </div>
           {/* Autocomplete suggestions */}
           {showSuggestions && suggestions.length > 0 ? (
             <div className="absolute z-20 left-0 right-0 mt-0.5 rounded-[0.375rem] border shadow-lg overflow-hidden" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
@@ -160,46 +165,65 @@ export function VehicleCapture({
           ) : null}
         </div>
         <div className="pl-2">
-          <label className={labelClass} style={labelStyle}>
-            Type
-          </label>
-          <select
-            value={value.vehicleType}
-            onChange={(e) => onChange({ ...value, vehicleType: e.target.value })}
-            className={inputClass}
-            style={inputStyle}
+          <div
+            className="flex items-center justify-between gap-1 pb-0.5 border-b focus-within:border-b-2 transition-colors"
+            style={{ borderColor: "var(--color-line)" }}
           >
-            <option value="">Select…</option>
-            {VEHICLE_TYPE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+            <span className="text-m-caption font-bold shrink-0" style={labelStyle}>
+              Type:
+            </span>
+            <select
+              value={value.vehicleType}
+              onChange={(e) => onChange({ ...value, vehicleType: e.target.value })}
+              className="flex-1 min-w-0 h-7 px-1 text-m-caption text-right outline-none"
+              style={{ backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+            >
+              <option value="">Select…</option>
+              {VEHICLE_TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* Driver + phone */}
+      {/* Driver + phone — inline label + input, full-width underline */}
       <div className="grid grid-cols-2 gap-2 divide-x" style={dividerStyle}>
         <div className="pr-2">
-          <label className={labelClass} style={labelStyle}>Driver</label>
-          <input
-            type="text"
-            value={value.driverName ?? ""}
-            onChange={(e) => onChange({ ...value, driverName: e.target.value })}
-            placeholder="Driver name"
-            className={inputClass}
-            style={inputStyle}
-          />
+          <div
+            className="flex items-center justify-between gap-1 pb-0.5 border-b focus-within:border-b-2 transition-colors"
+            style={{ borderColor: "var(--color-line)" }}
+          >
+            <span className="text-m-caption font-bold shrink-0" style={labelStyle}>
+              Driver:
+            </span>
+            <input
+              type="text"
+              value={value.driverName ?? ""}
+              onChange={(e) => onChange({ ...value, driverName: e.target.value })}
+              placeholder="Name"
+              className="flex-1 min-w-0 h-7 px-1 text-m-caption text-right outline-none"
+              style={{ backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+            />
+          </div>
         </div>
         <div className="pl-2">
-          <label className={labelClass} style={labelStyle}>Phone</label>
-          <input
-            type="tel"
-            value={value.driverPhone ?? ""}
-            onChange={(e) => onChange({ ...value, driverPhone: e.target.value })}
-            placeholder="Driver phone"
-            className={inputClass}
-            style={inputStyle}
-          />
+          <div
+            className="flex items-center justify-between gap-1 pb-0.5 border-b focus-within:border-b-2 transition-colors"
+            style={{ borderColor: "var(--color-line)" }}
+          >
+            <span className="text-m-caption font-bold shrink-0" style={labelStyle}>
+              Phone:
+            </span>
+            <input
+              type="tel"
+              value={value.driverPhone ?? ""}
+              onChange={(e) => onChange({ ...value, driverPhone: e.target.value })}
+              placeholder="Number"
+              className="flex-1 min-w-0 h-7 px-1 text-m-caption text-right outline-none"
+              style={{ backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+            />
+          </div>
         </div>
       </div>
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Briefcase } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { haptic } from "@/lib/haptic";
 
 export function MobileNewBrokerClient({
@@ -80,7 +80,7 @@ export function MobileNewBrokerClient({
           <ArrowLeft className="size-3.5" />
         </button>
         <div className="flex-1 min-w-0">
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
             New Broker
           </p>
         </div>
@@ -88,85 +88,89 @@ export function MobileNewBrokerClient({
           className="flex items-center gap-1.5 text-m-section font-extrabold tracking-tight px-2 py-0.5 rounded-full shrink-0"
           style={{ color: "var(--color-ink-500)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
         >
-          <Briefcase className="size-2.5" />
           Master
         </span>
       </div>
       )}
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
-        {/* Name */}
-        <div>
-          <label className={labelClass} style={labelStyle}>Name *</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Rajesh Sharma"
-            className={inputClass}
-            style={inputStyle}
-            required
-          />
-        </div>
+        {/* Broker Details */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Broker Details</p>
 
-        {/* Phone + Agency */}
-        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+          {/* Name */}
           <div>
-            <label className={labelClass} style={labelStyle}>Phone</label>
+            <label className={labelClass} style={labelStyle}>Name *</label>
             <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="9876543210"
-              inputMode="tel"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Rajesh Sharma"
+              className={inputClass}
+              style={inputStyle}
+              required
+            />
+          </div>
+
+          {/* Phone + Agency */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <label className={labelClass} style={labelStyle}>Phone</label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="9876543210"
+                inputMode="tel"
+                className={`${inputClass} tabular-nums`}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label className={labelClass} style={labelStyle}>Agency</label>
+              <input
+                type="text"
+                value={agency}
+                onChange={(e) => setAgency(e.target.value)}
+                placeholder="Sharma Properties"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          {/* Commission */}
+          <div>
+            <label className={labelClass} style={labelStyle}>Default Commission %</label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              inputMode="decimal"
+              value={commission}
+              onChange={(e) => setCommission(e.target.value)}
+              placeholder="e.g. 2.5"
               className={`${inputClass} tabular-nums`}
               style={inputStyle}
             />
+            <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-700)" }}>
+              Auto-fills commission on new deals using this broker.
+            </p>
           </div>
+
+          {/* Notes */}
           <div>
-            <label className={labelClass} style={labelStyle}>Agency</label>
-            <input
-              type="text"
-              value={agency}
-              onChange={(e) => setAgency(e.target.value)}
-              placeholder="Sharma Properties"
-              className={inputClass}
+            <label className={labelClass} style={labelStyle}>Notes</label>
+            <textarea
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Any notes about this broker…"
+              className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
               style={inputStyle}
             />
           </div>
-        </div>
-
-        {/* Commission */}
-        <div>
-          <label className={labelClass} style={labelStyle}>Default Commission %</label>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            step="0.01"
-            inputMode="decimal"
-            value={commission}
-            onChange={(e) => setCommission(e.target.value)}
-            placeholder="e.g. 2.5"
-            className={`${inputClass} tabular-nums`}
-            style={inputStyle}
-          />
-          <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-700)" }}>
-            Auto-fills commission on new deals using this broker.
-          </p>
-        </div>
-
-        {/* Notes */}
-        <div>
-          <label className={labelClass} style={labelStyle}>Notes</label>
-          <textarea
-            rows={2}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Any notes about this broker…"
-            className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
-            style={inputStyle}
-          />
         </div>
 
         {/* Submit */}

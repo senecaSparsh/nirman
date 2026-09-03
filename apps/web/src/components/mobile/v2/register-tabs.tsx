@@ -4,18 +4,20 @@ import type { LucideIcon } from "lucide-react";
 
 /**
  * ═══════════════════════════════════════════════════════════════════
- * RegisterTabs — physical register/binder bookmark tabs.
+ * RegisterTabs — Uiverse-inspired minimal pill tab bar.
  *
- * Inspired by the carved vertical tab dividers in a physical register:
- *  · Each tab is a trapezoidal "page divider" sticking up from the page.
- *  · The active tab is flush with the content — same paper colour,
- *    connected, with a subtle shadow beneath the neighbouring tabs
- *    to create the illusion that the active page is pulled forward.
- *  · Inactive tabs sit slightly back (concrete-coloured, no shadow).
+ * Adapted from the Adir-SL "warm-falcon-58" switch on Uiverse.io.
+ *  · The strip is one soft, rounded track sitting on the page
+ *    background.
+ *  · Each tab is a flex-1 pill trigger.
+ *  · The active tab becomes a white pill with a 1px inner hairline
+ *    (the Adir-SL `0 0 0 1px rgba(0,0,0,0.05) inset` shadow), giving
+ *    it a subtle pressed, physical feel.
+ *  · Inactive tabs sit transparent on the track, so they melt into
+ *    the background.
+ *  · No clip-path, no trapezoid, no merge logic, no outer shadow —
+ *    just clean pill shapes, subtle colour, and soft transitions.
  *  · Tabs flex to fill the viewport equally — no horizontal scroll.
- *
- * The component is self-contained — pass it the list of tabs and the
- * current value + setter, and it renders the bookmark strip.
  * ═══════════════════════════════════════════════════════════════════
  */
 export function RegisterTabs<T extends string>({
@@ -39,61 +41,57 @@ export function RegisterTabs<T extends string>({
         backgroundColor: "var(--color-paper-2)",
       }}
     >
-      {/* The tab strip — a row of carved bookmark shapes.
-          gap-0 so tab bottoms touch seamlessly; the trapezoid clip-path
-          creates natural visual separation at the top. */}
-      <div className="flex pt-1.5 gap-0">
-        {tabs.map((tab, i) => {
+      {/* Pill track — the soft well behind all tabs.
+          A single rounded container in concrete, with a tiny bit of
+          padding so the active white pill can float inside it. */}
+      <div
+        className="flex p-1 rounded-[0.625rem]"
+        style={{
+          gap: "2px",
+          backgroundColor:
+            "color-mix(in srgb, var(--color-concrete) 60%, var(--color-paper-2))",
+          /* Subtle 1px inset hairline — the Uiverse switch's
+             signature clean depth. */
+          boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.04)",
+        }}
+      >
+        {tabs.map((tab) => {
           const active = tab.value === value;
           const Icon = tab.icon;
           return (
             <button
               key={tab.value}
               onClick={() => onChange(tab.value)}
-              className="relative flex items-center justify-center gap-1 flex-1 min-w-0 pt-2 pb-2 text-m-body font-bold transition-all press"
+              data-focus-ring="none"
+              className="relative flex items-center justify-center gap-1 flex-1 min-w-0 py-2 text-m-body font-bold transition-all press"
               style={{
-                /* Trapezoidal shape: narrower at top, wider at bottom.
-                   This is the "carved bookmark" silhouette — achieved
-                   with clip-path so the whole button is the tab shape.
-                   The 4% inset at top creates the die-cut angle. */
-                clipPath:
-                  "polygon(4% 0%, 96% 0%, 100% 100%, 0% 100%)",
-                /* Active tab: paper-coloured (flush with content below),
-                   inactive: concrete (recessed). */
+                outline: "none",
+                outlineOffset: "0px",
+                /* Pill shape for every tab. */
+                borderRadius: "0.5rem",
+                /* Active tab: white pill (paper) with the Uiverse
+                   switch's subtle 1px inset hairline. Inactive: fully
+                   transparent so it shows the concrete track. */
                 backgroundColor: active
                   ? "var(--color-paper)"
-                  : "var(--color-concrete)",
+                  : "transparent",
                 color: active
                   ? "var(--color-ink-950)"
                   : "var(--color-ink-500)",
-                /* Active tab sits forward (shadow beneath neighbours),
-                   inactive tabs are flat. */
+                /* The Uiverse switch feel — a 1px inner edge that
+                   makes the active pill look physically inset. */
                 boxShadow: active
-                  ? "0 -2px 4px rgba(0,0,0,0.03), inset 0 2px 0 0 rgba(0,0,0,0.02)"
-                  : "inset 0 1px 0 0 rgba(0,0,0,0.03)",
-                /* Slight upward lift on the active tab — like a real
-                   register page that's been pulled out. */
-                marginTop: active ? 0 : "0.125rem",
-                /* Active tab overlaps the hairline below by 2px so its
-                   bottom edge connects seamlessly to the page content. */
-                marginBottom: active ? "-2px" : 0,
-                /* Rounded top corners for a softer die-cut feel */
-                borderTopLeftRadius: "0.375rem",
-                borderTopRightRadius: "0.375rem",
-                /* Thin separator between tabs — a right border on all
-                   but the last tab, matching the page-2 background so
-                   it reads as a hairline gap between divider pages. */
-                borderRight:
-                  i < tabs.length - 1
-                    ? "1px solid var(--color-paper-2)"
-                    : "none",
+                  ? "0 0 0 1px rgba(0,0,0,0.05) inset"
+                  : "none",
+                /* No borders — clean pill edges only. */
+                border: "none",
               }}
             >
               {Icon ? (
                 <Icon
                   className="size-3.5 shrink-0"
                   style={{
-                    opacity: active ? 1 : 0.6,
+                    opacity: active ? 1 : 0.55,
                   }}
                 />
               ) : null}
@@ -104,7 +102,7 @@ export function RegisterTabs<T extends string>({
                   style={{
                     backgroundColor: active
                       ? "var(--color-concrete)"
-                      : "color-mix(in srgb, var(--color-paper) 50%, transparent)",
+                      : "color-mix(in srgb, var(--color-paper) 45%, transparent)",
                     color: active
                       ? "var(--color-ink-700)"
                       : "var(--color-ink-400)",
@@ -117,17 +115,6 @@ export function RegisterTabs<T extends string>({
           );
         })}
       </div>
-
-      {/* Hairline beneath the strip — the "page edge" that the active
-          tab connects to. The active tab's -2px bottom margin makes it
-          overlap this line, so the active tab appears connected to the
-          page content below. */}
-      <div
-        style={{
-          height: "1px",
-          backgroundColor: "var(--color-line)",
-        }}
-      />
     </div>
   );
 }

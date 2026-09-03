@@ -4,8 +4,13 @@ import { cn } from "@/lib/utils";
  * Skeleton loading fallback for Suspense boundaries.
  *
  * Instead of a spinner, shows the SHAPE of the content that's loading —
- * pulsing bars that match the layout. This makes the loading feel faster
+ * shimmering bars that match the layout. This makes the loading feel faster
  * and less jarring (no layout shift when content arrives).
+ *
+ * Uses the shared `.skeleton` gradient-sweep utility (same one as
+ * `SkeletonRows` / `SkeletonMetrics` in page.tsx) so every loading surface
+ * in the app shimmers with one consistent motion — no mix of opacity-blink
+ * and gradient-sweep depending on which page you landed on.
  *
  * Variants:
  * - "list" — for table/list pages (rows of varying width)
@@ -28,14 +33,14 @@ export function PageLoading({
         {/* Header skeleton */}
         <div className="flex gap-4 px-4 py-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-3 flex-1 animate-pulse rounded bg-muted" style={{ maxWidth: `${60 + (i % 3) * 40}px` }} />
+            <div key={i} className="skeleton h-3 flex-1 rounded" style={{ maxWidth: `${60 + (i % 3) * 40}px` }} />
           ))}
         </div>
         {/* Row skeletons */}
         {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="flex gap-4 px-4 py-2.5">
             {Array.from({ length: 5 }).map((_, j) => (
-              <div key={j} className="h-3 flex-1 animate-pulse rounded bg-muted/70" style={{ maxWidth: `${50 + ((i + j) % 4) * 30}px`, animationDelay: `${i * 50}ms` }} />
+              <div key={j} className="skeleton h-3 flex-1 rounded" style={{ maxWidth: `${50 + ((i + j) % 4) * 30}px`, animationDelay: `${i * 50}ms` }} />
             ))}
           </div>
         ))}
@@ -50,13 +55,13 @@ export function PageLoading({
           <div key={i} className="rounded-lg border border-border bg-card p-2.5">
             <div className="flex items-start justify-between gap-2">
               <div className="w-2/3">
-                <div className="mb-1 h-2.5 w-14 animate-pulse rounded bg-muted" style={{ animationDelay: `${i * 50}ms` }} />
-                <div className="h-3 w-20 animate-pulse rounded bg-muted" style={{ animationDelay: `${i * 50 + 50}ms` }} />
+                <div className="skeleton mb-1 h-2.5 w-14 rounded" style={{ animationDelay: `${i * 50}ms` }} />
+                <div className="skeleton h-3 w-20 rounded" style={{ animationDelay: `${i * 50 + 50}ms` }} />
               </div>
-              <div className="h-2 w-2 animate-pulse rounded-full bg-muted" />
+              <div className="skeleton h-2 w-2 rounded-full" />
             </div>
-            <div className="mt-2 h-3 w-16 animate-pulse rounded bg-muted" style={{ animationDelay: `${i * 50 + 100}ms` }} />
-            <div className="mt-1.5 h-2 w-12 animate-pulse rounded bg-muted" style={{ animationDelay: `${i * 50 + 150}ms` }} />
+            <div className="skeleton mt-2 h-3 w-16 rounded" style={{ animationDelay: `${i * 50 + 100}ms` }} />
+            <div className="skeleton mt-1.5 h-2 w-12 rounded" style={{ animationDelay: `${i * 50 + 150}ms` }} />
           </div>
         ))}
       </div>
@@ -69,15 +74,15 @@ export function PageLoading({
         {Array.from({ length: 4 }).map((_, col) => (
           <div key={col} className="flex w-64 shrink-0 flex-col">
             <div className="mb-2 flex items-center gap-2 px-1">
-              <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted" style={{ animationDelay: `${col * 80}ms` }} />
-              <div className="h-2.5 w-20 animate-pulse rounded bg-muted" style={{ animationDelay: `${col * 80 + 40}ms` }} />
+              <div className="skeleton h-1.5 w-1.5 rounded-full" style={{ animationDelay: `${col * 80}ms` }} />
+              <div className="skeleton h-2.5 w-20 rounded" style={{ animationDelay: `${col * 80 + 40}ms` }} />
             </div>
             <div className="space-y-2">
               {Array.from({ length: 3 }).map((_, row) => (
                 <div key={row} className="rounded-lg border border-border bg-card p-3">
-                  <div className="mb-1 h-2 w-12 animate-pulse rounded bg-muted" style={{ animationDelay: `${(col * 3 + row) * 60}ms` }} />
-                  <div className="mb-2 h-3.5 w-32 animate-pulse rounded bg-muted" style={{ animationDelay: `${(col * 3 + row) * 60 + 30}ms` }} />
-                  <div className="h-3 w-20 animate-pulse rounded bg-muted" style={{ animationDelay: `${(col * 3 + row) * 60 + 60}ms` }} />
+                  <div className="skeleton mb-1 h-2 w-12 rounded" style={{ animationDelay: `${(col * 3 + row) * 60}ms` }} />
+                  <div className="skeleton mb-2 h-3.5 w-32 rounded" style={{ animationDelay: `${(col * 3 + row) * 60 + 30}ms` }} />
+                  <div className="skeleton h-3 w-20 rounded" style={{ animationDelay: `${(col * 3 + row) * 60 + 60}ms` }} />
                 </div>
               ))}
             </div>

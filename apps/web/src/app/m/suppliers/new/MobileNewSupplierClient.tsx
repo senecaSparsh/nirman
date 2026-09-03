@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Truck, Loader2, Check, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, Check, AlertCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { useDrafts } from "@/lib/offline/use-drafts";
@@ -146,12 +146,14 @@ export function MobileNewSupplierClient({
   }
 
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
     <div className="space-y-3">
@@ -165,19 +167,16 @@ export function MobileNewSupplierClient({
       ) : null}
       <form onSubmit={onSubmit} className="space-y-3">
         <div
-          className="rounded-[0.625rem] border p-3 space-y-2.5"
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
-          <div className="flex items-center gap-1.5 border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
-            <Truck className="size-3.5" style={{ color: "var(--color-steel)" }} />
-            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-              Supplier Details
-            </span>
-          </div>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Supplier Details
+          </p>
 
           {/* Name */}
           <div>
-            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className={labelClass} style={labelStyle}>
               Name <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
             <input
@@ -200,7 +199,7 @@ export function MobileNewSupplierClient({
 
           {/* GSTIN */}
           <div>
-            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className={labelClass} style={labelStyle}>
               GSTIN
             </label>
             <input
@@ -217,7 +216,7 @@ export function MobileNewSupplierClient({
 
           {/* Phone */}
           <div>
-            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className={labelClass} style={labelStyle}>
               Phone
             </label>
             <input
@@ -238,7 +237,7 @@ export function MobileNewSupplierClient({
 
           {/* Email */}
           <div>
-            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className={labelClass} style={labelStyle}>
               Email
             </label>
             <input
@@ -253,7 +252,7 @@ export function MobileNewSupplierClient({
 
           {/* Address */}
           <div>
-            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className={labelClass} style={labelStyle}>
               Address
             </label>
             <textarea
@@ -268,7 +267,7 @@ export function MobileNewSupplierClient({
 
           {/* Lead time */}
           <div>
-            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className={labelClass} style={labelStyle}>
               Lead time (days)
             </label>
             <input

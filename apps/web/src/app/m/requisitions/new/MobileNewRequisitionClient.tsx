@@ -44,7 +44,7 @@ interface ReqDraft {
 }
 
 const inputClass =
-  "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors focus:ring-2";
+  "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
 const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "transparent",
@@ -223,7 +223,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
         >
           <div className="flex items-center gap-1.5 border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
             <ShoppingCart className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
-            <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-700)" }}>
+            <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Indent Details
             </span>
           </div>
@@ -267,7 +267,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
-            <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-700)" }}>
+            <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Materials
             </span>
             <button

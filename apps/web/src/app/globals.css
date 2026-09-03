@@ -951,7 +951,10 @@ input[type="number"] {
 .panel-in  { animation: panel-in  220ms cubic-bezier(0.16, 1, 0.3, 1); }
 .panel-out { animation: panel-out 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
-/* ── Skeleton — loading is a shape, not a spinner ───────────────── */
+/* ── Skeleton — loading is a shape, not a spinner ─────────────────
+   Gradient + sweep only. Border-radius is intentionally NOT set here so
+   consumers control it (bars want `rounded`, dots want `rounded-full`) —
+   a hardcoded radius would force `!rounded-full` overrides everywhere. */
 @utility skeleton {
   background: linear-gradient(
     90deg,
@@ -961,7 +964,6 @@ input[type="number"] {
   );
   background-size: 200% 100%;
   animation: skeleton-sweep 1.4s ease-in-out infinite;
-  border-radius: var(--radius-md);
 }
 
 @keyframes skeleton-sweep {

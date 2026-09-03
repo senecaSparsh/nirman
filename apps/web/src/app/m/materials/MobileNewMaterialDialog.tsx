@@ -239,6 +239,9 @@ export function MobileNewMaterialForm({
   return (
     <>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        {/* Details */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Details</p>
         {/* Name + Code */}
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <div>
@@ -338,7 +341,11 @@ export function MobileNewMaterialForm({
             />
           </div>
         </div>
+        </div>
 
+        {/* Classification */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Classification</p>
         {/* Category + Unit (side by side) */}
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <div>
@@ -390,7 +397,11 @@ export function MobileNewMaterialForm({
             />
           </div>
         </div>
+        </div>
 
+        {/* Tax */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Tax</p>
         {/* HSN Code + GST Rate (side by side) */}
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <div>
@@ -508,7 +519,11 @@ export function MobileNewMaterialForm({
             ))}
           </div>
         )}
+        </div>
 
+        {/* Pricing */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Pricing</p>
         {/* Standard Cost */}
         <div>
           <label
@@ -532,7 +547,7 @@ export function MobileNewMaterialForm({
             className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
             style={{
               borderColor: "var(--color-line)",
-              backgroundColor: "var(--color-paper)",
+              backgroundColor: "transparent",
               color: "var(--color-ink-500)",
             }}
           />
@@ -550,6 +565,7 @@ export function MobileNewMaterialForm({
               </span>
             </p>
           ) : null}
+        </div>
         </div>
 
         {/* Submit */}
@@ -727,7 +743,7 @@ export function MobileNewMaterialDialog({
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <h2
-            className="text-m-section font-bold"
+            className="text-m-section font-extrabold tracking-tight"
             style={{ color: "var(--color-ink-950)" }}
           >
             New Material

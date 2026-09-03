@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, FileText, Plus } from "lucide-react";
+import { X, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
@@ -177,23 +177,12 @@ export function MobileNewBoqItemDialog({
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1">
-            <span
-              className="grid place-items-center size-7 rounded-[0.375rem]"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              <FileText
-                className="size-3.5"
-                style={{ color: "var(--color-ink-600)" }}
-              />
-            </span>
-            <p
-              className="text-m-section font-bold"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              Add Bill of Quantities Item
-            </p>
-          </div>
+          <p
+            className="text-m-section font-extrabold tracking-tight"
+            style={{ color: "var(--color-ink-950)" }}
+          >
+            Add Bill of Quantities Item
+          </p>
           <button
             onClick={onClose}
             className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
@@ -205,191 +194,196 @@ export function MobileNewBoqItemDialog({
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {/* Type selector — horizontal */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Item Type
-            </label>
-            <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-              {(Object.keys(TYPE_LABELS) as BoqItemType[]).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => {
-                    set("type", t);
-                    haptic(10);
-                  }}
-                  className="h-9 rounded-[0.375rem] border-2 text-m-caption font-bold text-m-body press"
-                  style={{
-                    borderColor:
-                      form.type === t
-                        ? "var(--color-ink-950)"
-                        : "var(--color-line)",
-                    backgroundColor:
-                      form.type === t
-                        ? "var(--color-ink-950)"
-                        : "var(--color-paper)",
-                    color:
-                      form.type === t
-                        ? "var(--color-paper)"
-                        : "var(--color-ink-500)",
-                  }}
-                >
-                  {TYPE_LABELS[t]}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Item Details */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Item Details</p>
 
-          {/* Parent (optional) */}
-          {parentItems.length > 0 && (
+            {/* Type selector — horizontal */}
             <div>
               <label className={labelClass} style={labelStyle}>
-                Parent (optional)
+                Item Type
               </label>
-              <select
-                value={form.parentId}
-                onChange={(e) => set("parentId", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                <option value="">— Top-level (no parent) —</option>
-                {parentItems.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.serialNo} · {p.description}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Serial No + Description */}
-          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Serial No. <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={form.serialNo}
-                onChange={(e) => set("serialNo", e.target.value)}
-                placeholder="e.g. 1.1.1"
-                autoFocus
-                enterKeyHint="next"
-                className={`${inputClass} font-mono`}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Description <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={form.description}
-                onChange={(e) => set("description", e.target.value)}
-                placeholder="e.g. Concrete PCC"
-                enterKeyHint="next"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          {/* Line item specific fields */}
-          {isLineItem && (
-            <>
-              {/* Material link (optional) */}
-              {materials.length > 0 && (
-                <MobileSelectWithCreate
-                  label="Link to Material (optional)"
-                  required={false}
-                  value={form.materialId}
-                  onChange={(v) => onMaterialChange(v)}
-                  placeholder="— None —"
-                  options={materials.map((m) => ({
-                    value: m.id,
-                    label: `${m.name} (${m.unit})`,
-                  }))}
-                  inputClass={inputClass}
-                  inputStyle={inputStyle}
-                  renderDialog={({ open, onClose, onCreated }) => (
-                    <MobileNewMaterialDialog
-                      open={open}
-                      onClose={onClose}
-                      categories={[]}
-                      onCreated={(m) => onCreated(m.id, m.name)}
-                    />
-                  )}
-                />
-              )}
-
-              {/* Unit + Qty + Rate */}
               <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-                <div>
-                  <label className={labelClass} style={labelStyle}>
-                    Unit <span style={{ color: "var(--color-stop)" }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={form.unit}
-                    onChange={(e) => set("unit", e.target.value)}
-                    placeholder="CUM"
-                    enterKeyHint="next"
-                    className={inputClass}
-                    style={inputStyle}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass} style={labelStyle}>
-                    Qty <span style={{ color: "var(--color-stop)" }}>*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min={0.001}
-                    step="any"
-                    value={form.estimatedQty}
-                    onChange={(e) => set("estimatedQty", e.target.value)}
-                    placeholder="0"
-                    inputMode="decimal"
-                    className={inputClass}
-                    style={inputStyle}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass} style={labelStyle}>
-                    Rate (₹){" "}
-                    <span style={{ color: "var(--color-stop)" }}>*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step="any"
-                    value={form.rate}
-                    onChange={(e) => set("rate", e.target.value)}
-                    placeholder="0"
-                    inputMode="decimal"
-                    className={inputClass}
-                    style={inputStyle}
-                  />
-                </div>
+                {(Object.keys(TYPE_LABELS) as BoqItemType[]).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => {
+                      set("type", t);
+                      haptic(10);
+                    }}
+                    className="h-9 rounded-[0.375rem] border-2 text-m-caption font-bold text-m-body press"
+                    style={{
+                      borderColor:
+                        form.type === t
+                          ? "var(--color-ink-950)"
+                          : "var(--color-line)",
+                      backgroundColor:
+                        form.type === t
+                          ? "var(--color-ink-950)"
+                          : "var(--color-paper)",
+                      color:
+                        form.type === t
+                          ? "var(--color-paper)"
+                          : "var(--color-ink-500)",
+                    }}
+                  >
+                    {TYPE_LABELS[t]}
+                  </button>
+                ))}
               </div>
-            </>
-          )}
+            </div>
 
-          {/* Notes */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Notes (optional)
-            </label>
-            <textarea
-              value={form.notes}
-              onChange={(e) => set("notes", e.target.value)}
-              rows={2}
-              placeholder="Additional context…"
-              className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
-              style={inputStyle}
-            />
+            {/* Parent (optional) */}
+            {parentItems.length > 0 && (
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Parent (optional)
+                </label>
+                <select
+                  value={form.parentId}
+                  onChange={(e) => set("parentId", e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                >
+                  <option value="">— Top-level (no parent) —</option>
+                  {parentItems.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.serialNo} · {p.description}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Serial No + Description */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Serial No. <span style={{ color: "var(--color-stop)" }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.serialNo}
+                  onChange={(e) => set("serialNo", e.target.value)}
+                  placeholder="e.g. 1.1.1"
+                  autoFocus
+                  enterKeyHint="next"
+                  className={`${inputClass} font-mono`}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Description <span style={{ color: "var(--color-stop)" }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.description}
+                  onChange={(e) => set("description", e.target.value)}
+                  placeholder="e.g. Concrete PCC"
+                  enterKeyHint="next"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            {/* Line item specific fields */}
+            {isLineItem && (
+              <>
+                {/* Material link (optional) */}
+                {materials.length > 0 && (
+                  <MobileSelectWithCreate
+                    label="Link to Material (optional)"
+                    required={false}
+                    value={form.materialId}
+                    onChange={(v) => onMaterialChange(v)}
+                    placeholder="— None —"
+                    options={materials.map((m) => ({
+                      value: m.id,
+                      label: `${m.name} (${m.unit})`,
+                    }))}
+                    inputClass={inputClass}
+                    inputStyle={inputStyle}
+                    renderDialog={({ open, onClose, onCreated }) => (
+                      <MobileNewMaterialDialog
+                        open={open}
+                        onClose={onClose}
+                        categories={[]}
+                        onCreated={(m) => onCreated(m.id, m.name)}
+                      />
+                    )}
+                  />
+                )}
+
+                {/* Unit + Qty + Rate */}
+                <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>
+                      Unit <span style={{ color: "var(--color-stop)" }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={form.unit}
+                      onChange={(e) => set("unit", e.target.value)}
+                      placeholder="CUM"
+                      enterKeyHint="next"
+                      className={inputClass}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>
+                      Qty <span style={{ color: "var(--color-stop)" }}>*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={0.001}
+                      step="any"
+                      value={form.estimatedQty}
+                      onChange={(e) => set("estimatedQty", e.target.value)}
+                      placeholder="0"
+                      inputMode="decimal"
+                      className={inputClass}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>
+                      Rate (₹){" "}
+                      <span style={{ color: "var(--color-stop)" }}>*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={form.rate}
+                      onChange={(e) => set("rate", e.target.value)}
+                      placeholder="0"
+                      inputMode="decimal"
+                      className={inputClass}
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Notes */}
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Notes (optional)
+              </label>
+              <textarea
+                value={form.notes}
+                onChange={(e) => set("notes", e.target.value)}
+                rows={2}
+                placeholder="Additional context…"
+                className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
+                style={inputStyle}
+              />
+            </div>
           </div>
 
           {/* Actions */}

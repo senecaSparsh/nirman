@@ -628,30 +628,19 @@ export function MobileLandWizard({
             borderBottom: "1px solid var(--color-line)",
           }}
         >
-          <div className="flex items-center gap-1">
-            <span
-              className="grid place-items-center size-7 rounded-[0.375rem]"
-              style={{ backgroundColor: "var(--color-concrete)" }}
+          <div>
+            <p
+              className="text-m-section font-extrabold tracking-tight"
+              style={{ color: "var(--color-ink-950)" }}
             >
-              <MapPin
-                className="size-3.5"
-                style={{ color: "var(--color-ink-600)" }}
-              />
-            </span>
-            <div>
-              <p
-                className="text-m-section font-bold"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                Record Land Purchase
-              </p>
-              <p
-                className="text-m-caption"
-                style={{ color: "var(--color-ink-700)" }}
-              >
-                Step {step} of 4
-              </p>
-            </div>
+              Record Land Purchase
+            </p>
+            <p
+              className="text-m-caption"
+              style={{ color: "var(--color-ink-700)" }}
+            >
+              Step {step} of 4
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -716,13 +705,12 @@ export function MobileLandWizard({
             <>
               {company && (
                 <div
-                  className="rounded-[0.5rem] px-3 py-2 text-m-caption flex items-center gap-1.5"
+                  className="rounded-[0.5rem] px-3 py-2 text-m-caption"
                   style={{
                     backgroundColor: "var(--color-concrete)",
                     color: "var(--color-ink-700)",
                   }}
                 >
-                  <Building2 className="size-3" />
                   Land will be recorded under{" "}
                   <strong style={{ color: "var(--color-ink-500)" }}>
                     {company.name}

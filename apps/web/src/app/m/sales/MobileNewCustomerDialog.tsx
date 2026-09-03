@@ -89,7 +89,7 @@ export function MobileNewCustomerDialog({
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <h2
-            className="text-m-section font-bold"
+            className="text-m-section font-extrabold tracking-tight"
             style={{ color: "var(--color-ink-950)" }}
           >
             New Customer
@@ -104,6 +104,9 @@ export function MobileNewCustomerDialog({
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {/* Details */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Details</p>
           {/* Name */}
           <div>
             <label
@@ -170,7 +173,11 @@ export function MobileNewCustomerDialog({
               />
             </div>
           </div>
+          </div>
 
+          {/* Tax & Billing */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Tax & Billing</p>
           {/* GSTIN */}
           <div>
             <label
@@ -213,6 +220,7 @@ export function MobileNewCustomerDialog({
                 color: "var(--color-ink-950)",
               }}
             />
+          </div>
           </div>
 
           {/* Submit */}
