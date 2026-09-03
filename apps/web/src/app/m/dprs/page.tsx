@@ -77,7 +77,7 @@ async function MobileDprsContent() {
         canSubmit={canSubmit}
         canApproveSubAdmin={canApproveSubAdmin}
         submittedCount={submittedCount}
-        loadMoreUrl="/api/mobile/list/dprs"
+        loadMoreUrl="/api/dprs"
         nextCursor={nextCursor}
         exportTitle="Daily Progress Reports"
         exportRows={serialized as unknown as Record<string, unknown>[]}

@@ -61,7 +61,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       year: parsed.data.year,
       userId: user.id,
     });
-    revalidatePath("/payroll");
+    revalidatePath("/hr/payroll");
     revalidatePath("/m/hr");
     return json({ ok: true, id: period?.id }, { status: 201 });
   } catch (err: unknown) {

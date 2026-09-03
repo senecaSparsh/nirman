@@ -73,6 +73,7 @@ export async function recordLandPurchase(input: RecordLandPurchaseInput) {
         totalArea,
         areaUnit: input.areaUnit ?? "SQFT",
         totalCost,
+        baseCost: totalCost, // ensure baseCost is set so recomputeLandTotalCost doesn't reset totalCost to 0
         registryNo: input.registryNo,
         location: input.location,
         documentUrl: input.documentUrl,
@@ -650,6 +651,7 @@ export async function recordLandPurchaseOrder(input: LandPurchaseOrderInput) {
         totalArea,
         areaUnit: input.areaUnit ?? "SQFT",
         totalCost,
+        baseCost: totalCost, // ensure baseCost is set so recomputeLandTotalCost doesn't reset totalCost to 0
         registryNo: input.registryNo,
         location: input.location,
         documentUrl: input.documentUrl,
@@ -909,9 +911,14 @@ export async function completeLandPurchase(input: CompleteLandPurchaseInput) {
     }
 
     // Payment check: unless partialRegistryAllowed, full payment is required
+    // Only count cleared payments — pending/bounced cheques are NOT counted as paid
     const allowPartial = lp.partialRegistryAllowed || input.partialRegistryAllowed;
     if (!allowPartial) {
-      const totalPaid = lp.payments.reduce((s, p) => s.plus(p.amount), new Decimal(0));
+      const totalPaid = lp.payments.reduce((s, p) => {
+        // Skip pending or bounced cheques
+        if (p.paymentMode === "CHEQUE" && p.chequeStatus && p.chequeStatus !== "CLEARED") return s;
+        return s.plus(p.amount);
+      }, new Decimal(0));
       const balance = new Decimal(lp.totalCost).minus(totalPaid);
       if (balance.gt(0)) {
         throw new ServiceError(

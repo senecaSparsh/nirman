@@ -137,6 +137,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
           type: s.paymentSchedule.type,
           totalAmount: toNum(s.paymentSchedule.totalAmount),
           items: s.paymentSchedule.items.map((item) => ({
+            id: item.id,
             installmentNo: item.installmentNo,
             description: item.description,
             percentage: toNum(item.percentage),

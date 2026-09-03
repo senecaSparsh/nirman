@@ -390,6 +390,11 @@ export async function completeTransfer(transferId: string, userId?: string, proo
       throw new ServiceError(`Cannot complete transfer in status ${transfer.status}`);
     }
 
+    // If completing directly from DRAFT (legacy atomic flow), ensure gate pass is approved
+    if (transfer.status === "DRAFT") {
+      await assertGatePassApproved("StockTransfer", transferId);
+    }
+
     const wasDispatched = transfer.status === "IN_TRANSIT";
 
     // Helper: get received qty for a line (supports partial receipt)

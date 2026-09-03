@@ -90,7 +90,6 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   revalidatePath("/gate-passes");
   revalidatePath("/m/gate-pass");
-  revalidatePath(`/api/gate-passes/${id}`);
   return json({ ok: true });
 });
 

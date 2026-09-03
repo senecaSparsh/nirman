@@ -389,8 +389,10 @@ export async function recomputeLandTotalCost(
         data: { acquisitionCost: newTotal },
       });
     } else {
+      // Only reprice leaf parcels (parcels with no children of their own)
+      // to avoid double-counting intermediate parents that are themselves PARTITIONED
       const childParcels = await tx.landParcel.findMany({
-        where: { landPurchaseId, deletedAt: null, parentParcelId: { not: null } },
+        where: { landPurchaseId, deletedAt: null, parentParcelId: { not: null }, children: { none: {} } },
       });
       const totalChildArea = childParcels.reduce((s, p) => s.plus(new Decimal(p.area)), new Decimal(0));
       if (totalChildArea.gt(0)) {

@@ -450,7 +450,7 @@ export async function addLineToPurchaseOrder(input: {
     // companyId here, matching the createPurchaseOrderTx validation.)
     const material = await tx.material.findFirst({
       where: { id: input.materialId, deletedAt: null },
-      select: { id: true, code: true, name: true, unit: true },
+      select: { id: true, code: true, name: true, unit: true, gstRate: true },
     });
     if (!material) throw new ServiceError("Material not found or deleted", 404);
 
@@ -469,7 +469,9 @@ export async function addLineToPurchaseOrder(input: {
     if (!qty.gt(0)) throw new ServiceError("qtyOrdered must be > 0");
     if (cost.lt(0)) throw new ServiceError("unitCost must be >= 0");
 
+    const gstRate = new Decimal(material.gstRate ?? 0);
     const lineTotal = qty.times(cost);
+    const lineGstTotal = lineTotal.times(gstRate).div(100);
 
     const line = await tx.purchaseOrderLine.create({
       data: {
@@ -477,9 +479,27 @@ export async function addLineToPurchaseOrder(input: {
         materialId: input.materialId,
         qtyOrdered: qty,
         unitCost: cost,
+        gstRate,
         qtyReceived: 0,
         lineTotal,
       },
+    });
+
+    // Recompute PO header totals so they stay in sync with lines
+    const allLines = await tx.purchaseOrderLine.findMany({
+      where: { purchaseOrderId: input.poId },
+      select: { qtyOrdered: true, unitCost: true, gstRate: true, lineTotal: true },
+    });
+    const subtotal = allLines.reduce((s, l) => s.plus(new Decimal(l.lineTotal)), new Decimal(0));
+    const gstTotal = allLines.reduce((s, l) => {
+      const lt = new Decimal(l.lineTotal);
+      const gr = new Decimal(l.gstRate);
+      return s.plus(lt.times(gr).div(100));
+    }, new Decimal(0));
+    const total = subtotal.plus(gstTotal);
+    await tx.purchaseOrder.update({
+      where: { id: input.poId },
+      data: { subtotal, gstTotal, total },
     });
 
     await logAction(tx, {
@@ -782,6 +802,23 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
       await tx.supplier.update({
         where: { id: po.supplierId },
         data: { balanceOwed: newBalance },
+      });
+    }
+
+    // Audit log for goods receipt
+    if (input.receivedById) {
+      await logAction(tx, {
+        userId: input.receivedById,
+        companyId: po.companyId,
+        action: "PURCHASE_ORDER_RECEIVE",
+        entityType: "PurchaseOrder",
+        entityId: input.purchaseOrderId,
+        after: {
+          goodsReceiptId: goodsReceipt.id,
+          receiptSubtotal: receiptSubtotal.toString(),
+          receiptGst: receiptGst.toString(),
+          newStatus,
+        },
       });
     }
 

@@ -70,7 +70,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     const user = await requirePermission(PERM.PAYROLL_MANAGE);
     try {
       await processPayroll({ payrollPeriodId: id, userId: user.id });
-      revalidatePath("/payroll");
+      revalidatePath("/hr/payroll");
       revalidatePath("/m/hr");
       return json({ ok: true });
     } catch (err: unknown) {
@@ -82,7 +82,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     const user = await requirePermission(PERM.PAYROLL_MANAGE);
     try {
       await payPayroll({ payrollPeriodId: id, userId: user.id });
-      revalidatePath("/payroll");
+      revalidatePath("/hr/payroll");
       revalidatePath("/m/hr");
       return json({ ok: true });
     } catch (err: unknown) {

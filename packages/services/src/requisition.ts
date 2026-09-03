@@ -415,6 +415,7 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
     _count: true,
   });
   const totalQuoteCount = quoteSummary
+    .filter((q) => q.status !== "REJECTED")
     .reduce((s, q) => s + q._count, 0);
   const reqForGate = await prisma.materialRequisition.findUnique({
     where: { id: input.requisitionId },

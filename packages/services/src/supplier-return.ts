@@ -189,6 +189,7 @@ export async function completeSupplierReturn(input: CompleteSupplierReturnInput)
         refType: "SUPPLIER_RETURN",
         refId: ret.id,
         userId: input.userId,
+        companyId: ret.companyId, // required for FIFO lot selection on lot-tracked materials
       });
     }
 
@@ -212,6 +213,18 @@ export async function completeSupplierReturn(input: CompleteSupplierReturnInput)
         gstRate: gstByMaterial.get(l.materialId) ?? new Decimal(0),
       })),
     });
+
+    // Reduce supplier balanceOwed by the return total
+    const returnTotal = ret.lines.reduce(
+      (s, l) => s.plus(new Decimal(l.qty).times(new Decimal(l.unitCost))),
+      new Decimal(0),
+    );
+    if (ret.supplierId) {
+      await tx.supplier.update({
+        where: { id: ret.supplierId },
+        data: { balanceOwed: { decrement: returnTotal } },
+      });
+    }
 
     const updated = await tx.supplierReturn.update({
       where: { id: input.returnId },

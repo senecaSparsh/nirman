@@ -58,10 +58,12 @@ export const CHART_OF_ACCOUNTS = [
   { code: "2500", name: "Customer Deposits - Unearned Revenue", type: "LIABILITY" as const },
   { code: "2600", name: "Retention Payable - Subcontractor", type: "LIABILITY" as const },
   { code: "2700", name: "Broker Commission Payable", type: "LIABILITY" as const },
+  { code: "2800", name: "Reimbursements Payable", type: "LIABILITY" as const },
   { code: "3000", name: "Retained Earnings", type: "EQUITY" as const },
   { code: "4000", name: "Sales Revenue", type: "REVENUE" as const },
   { code: "4100", name: "Cost Recovery - Scrap Sales", type: "CONTRA_EXPENSE" as const },
   { code: "4200", name: "Inter-Company Sales Revenue", type: "REVENUE" as const },
+  { code: "4300", name: "Round-Off Income/Expense", type: "REVENUE" as const },
   { code: "5000", name: "Cost of Goods Sold", type: "EXPENSE" as const },
   { code: "5500", name: "Inventory Shrinkage Expense", type: "EXPENSE" as const },
   { code: "6000", name: "Operating Expenses", type: "EXPENSE" as const },
@@ -94,9 +96,11 @@ export const ACCT = {
   CUSTOMER_DEPOSIT: "2500",
   RETENTION_PAYABLE: "2600",
   BROKER_PAYABLE: "2700",
+  REIMBURSEMENTS_PAYABLE: "2800",
   RETAINED_EARNINGS: "3000",
   SALES_REVENUE: "4000",
   COST_RECOVERY: "4100",
+  ROUND_OFF: "4300",
   COGS: "5000",
   INVENTORY_SHRINKAGE: "5500",
   OPERATING_EXPENSE: "6000",
@@ -113,7 +117,7 @@ export async function seedChartOfAccounts() {
     await prisma.glAccount.upsert({
       where: { code: a.code },
       create: { code: a.code, name: a.name, type: a.type, isSystem: true },
-      update: { name: a.name, type: a.type },
+      update: { name: a.name, type: a.type, isSystem: true },
     });
   }
 }
@@ -713,6 +717,14 @@ export async function postMaterialSale(
   }
   if (gst.gt(0)) {
     revenueLines.push({ accountCode: ACCT.OUTPUT_GST, debit: 0, credit: gst, entityType: "MaterialSale", entityId: opts.materialSaleId, memo: "Output GST on material sale" });
+  }
+  if (!roundOff.isZero()) {
+    // Positive roundOff → credit round-off income; negative → debit round-off expense
+    if (roundOff.gt(0)) {
+      revenueLines.push({ accountCode: ACCT.ROUND_OFF, debit: 0, credit: roundOff, memo: "Round-off on material sale" });
+    } else {
+      revenueLines.push({ accountCode: ACCT.ROUND_OFF, debit: roundOff.abs(), credit: 0, memo: "Round-off on material sale" });
+    }
   }
   await postJournalEntry(tx, {
     companyId: opts.companyId,

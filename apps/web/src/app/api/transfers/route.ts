@@ -55,7 +55,7 @@ export const GET = apiHandler(async () => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.STOCK_TRANSFER);
+  const user = await requirePermission(PERM.STOCK_TRANSFER);
   const body = await req.json();
   const parsed = transferSchema.safeParse(body);
   if (!parsed.success) {
@@ -72,6 +72,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       handlingFee: parsed.data.handlingFee,
       markupPct: parsed.data.markupPct,
       lines: parsed.data.lines,
+      userId: user.id,
     });
     revalidatePath("/transfers");
     revalidatePath("/m/stock");

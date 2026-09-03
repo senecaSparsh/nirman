@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { LandParcelStatus } from "@nirman/db";
 import { partitionLandParcel, unpartitionLandParcel, setParcelStatus, updateParcelValuation, updateParcelDetails } from "@nirman/services";
@@ -99,6 +100,14 @@ export const POST = apiHandler(async (req: NextRequest) => {
         allocationModel: parsed.data.allocationModel,
         developmentCost: parsed.data.developmentCost,
       });
+      // Revalidate land pages so partition changes are visible
+      const parent = await prisma.landParcel.findUnique({ where: { id: parsed.data.parentParcelId }, select: { landPurchaseId: true } });
+      if (parent) {
+        revalidatePath("/land");
+        revalidatePath(`/land/${parent.landPurchaseId}`);
+        revalidatePath("/m/land");
+        revalidatePath(`/m/land/${parent.landPurchaseId}`);
+      }
       return json(
         { ok: true, parentId: result.parent.id, children: result.children.map((c) => c.id) },
         { status: 201 },
@@ -117,6 +126,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
     }
     try {
       const result = await unpartitionLandParcel(parentParcelId, user.id);
+      const parent = await prisma.landParcel.findUnique({ where: { id: parentParcelId }, select: { landPurchaseId: true } });
+      if (parent) {
+        revalidatePath("/land");
+        revalidatePath(`/land/${parent.landPurchaseId}`);
+        revalidatePath("/m/land");
+        revalidatePath(`/m/land/${parent.landPurchaseId}`);
+      }
       return json({ ok: true, parentId: result.parent.id, removedChildren: result.removedChildren });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Unpartition failed") }, { status: 400 });
@@ -132,6 +148,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
     }
     try {
       await setParcelStatus(parcelId, status, user.id);
+      const parcel = await prisma.landParcel.findUnique({ where: { id: parcelId }, select: { landPurchaseId: true } });
+      if (parcel) {
+        revalidatePath("/land");
+        revalidatePath(`/land/${parcel.landPurchaseId}`);
+        revalidatePath("/m/land");
+        revalidatePath(`/m/land/${parcel.landPurchaseId}`);
+      }
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Status change failed") }, { status: 400 });
@@ -156,6 +179,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
         },
         user.id,
       );
+      const parcel = await prisma.landParcel.findUnique({ where: { id: parcelId }, select: { landPurchaseId: true } });
+      if (parcel) {
+        revalidatePath("/land");
+        revalidatePath(`/land/${parcel.landPurchaseId}`);
+        revalidatePath("/m/land");
+        revalidatePath(`/m/land/${parcel.landPurchaseId}`);
+      }
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Valuation update failed") }, { status: 400 });
@@ -179,6 +209,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
         },
         user.id,
       );
+      const parcel = await prisma.landParcel.findUnique({ where: { id: parcelId }, select: { landPurchaseId: true } });
+      if (parcel) {
+        revalidatePath("/land");
+        revalidatePath(`/land/${parcel.landPurchaseId}`);
+        revalidatePath("/m/land");
+        revalidatePath(`/m/land/${parcel.landPurchaseId}`);
+      }
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Update failed") }, { status: 400 });

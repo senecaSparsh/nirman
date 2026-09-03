@@ -300,7 +300,10 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     });
     return lp;
   });
+  revalidatePath("/land");
+  revalidatePath(`/land/${id}`);
   revalidatePath("/m/land");
+  revalidatePath(`/m/land/${id}`);
   return json({ ok: true, id: updated.id });
 });
 
@@ -309,7 +312,10 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   const { id } = await ctx.params;
   try {
     await softDelete("LandPurchase", id);
+    revalidatePath("/land");
+    revalidatePath(`/land/${id}`);
     revalidatePath("/m/land");
+    revalidatePath(`/m/land/${id}`);
     return json({ ok: true });
   } catch (err: unknown) {
     if (err instanceof ServiceError) {

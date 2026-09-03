@@ -12,7 +12,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const equipmentId = searchParams.get("equipmentId");
 
   const records = await prisma.equipmentMaintenance.findMany({
-    where: { equipment: { companyId: company.id }, ...(equipmentId ? { equipmentId } : {}) },
+    where: { equipment: { companyId: company.id, deletedAt: null }, ...(equipmentId ? { equipmentId } : {}) },
     orderBy: { startDate: "desc" },
     take: 50,
     include: { equipment: { select: { name: true, assetTag: true } } },

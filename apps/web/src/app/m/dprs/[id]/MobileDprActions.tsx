@@ -39,6 +39,7 @@ export function MobileDprActions({
   const router = useRouter();
   const [visibleStatus, setVisibleStatus] = useState(status);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
   const [showDelete, setShowDelete] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -250,6 +251,13 @@ export function MobileDprActions({
               </div>
             </div>
             <div className="flex flex-col gap-2">
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Reason for rejection (required)..."
+                className="w-full min-h-[80px] rounded-[0.5rem] border p-3 text-m-body mb-2"
+                style={{ borderColor: "var(--color-line)", color: "var(--color-ink-950)", backgroundColor: "var(--color-paper)" }}
+              />
               <button
                 onClick={() => setShowRejectConfirm(false)}
                 disabled={rejectAction.isPending}
@@ -261,7 +269,8 @@ export function MobileDprActions({
               <button
                 onClick={() => {
                   setShowRejectConfirm(false);
-                  rejectAction.execute();
+                  rejectAction.execute({ action: "reject", reason: rejectReason || undefined });
+                  setRejectReason("");
                 }}
                 disabled={rejectAction.isPending}
                 className="flex-1 h-10 rounded-[0.5rem] font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"

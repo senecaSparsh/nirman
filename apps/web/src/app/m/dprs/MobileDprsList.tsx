@@ -288,11 +288,16 @@ function DprStrip({
 
   const handleReject = useCallback(async () => {
     haptic(10);
+    const reason = window.prompt("Reason for rejection (required):");
+    if (!reason?.trim()) {
+      if (reason !== null) toast.error("Rejection reason is required");
+      return;
+    }
     try {
       const res = await fetch(`/api/dprs/${dpr.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reject" }),
+        body: JSON.stringify({ action: "reject", reason }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to reject");

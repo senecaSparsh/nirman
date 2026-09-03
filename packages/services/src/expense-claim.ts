@@ -146,7 +146,7 @@ export async function approveExpenseClaim(claimId: string, companyId: string, us
   return withSerializableTransaction(async (tx) => {
     const claim = await tx.expenseClaim.findFirst({
       where: { id: claimId, companyId },
-      include: { lines: true },
+      include: { lines: true, claimant: true },
     });
     if (!claim) throw new ServiceError("Claim not found", 404);
     if (claim.status !== "SUBMITTED") throw new ServiceError(`Only SUBMITTED claims can be approved (current: ${claim.status})`, 409);
@@ -178,14 +178,14 @@ export async function approveExpenseClaim(claimId: string, companyId: string, us
           approvedById: userId ?? null,
           approvedAt: new Date(),
           glPostedAt: new Date(),
-          payeeName: claim.claimantId, // the claimant is the payee for reimbursement
+          payeeName: claim.claimant?.name ?? claim.claimant?.email ?? claim.claimantId,
           paymentMode: "REIMBURSEMENT",
           createdById: userId ?? null,
         },
       });
       createdExpenseIds.push(expense.id);
 
-      // Post GL for each line: Dr <expense account>, Cr Cash (reimbursement)
+      // Post GL for each line: Dr <expense account>, Dr Input GST (ITC), Cr Reimbursements Payable
       let accountCode: string = ACCT.OPERATING_EXPENSE;
       if (line.categoryId) {
         const cat = await tx.expenseCategory.findUnique({ where: { id: line.categoryId } });
@@ -194,10 +194,10 @@ export async function approveExpenseClaim(claimId: string, companyId: string, us
       const lineGst = line.gstAmount ? new Decimal(line.gstAmount) : new Decimal(0);
       const totalLineAmount = (line.amount as Decimal).plus(lineGst);
       // Post GL: Dr <expense account> for base amount, Dr Input GST (ITC) for GST,
-      // Cr Cash for total (base + GST)
+      // Cr Reimbursements Payable for total (base + GST) — accrued until paid
       const glLines = [
         { accountCode, debit: line.amount as Decimal, credit: 0, entityType: "Expense" as const, entityId: expense.id },
-        { accountCode: ACCT.CASH, debit: 0, credit: totalLineAmount, entityType: "Expense" as const, entityId: expense.id },
+        { accountCode: ACCT.REIMBURSEMENTS_PAYABLE, debit: 0, credit: totalLineAmount, entityType: "Expense" as const, entityId: expense.id },
       ];
       if (lineGst.gt(0)) {
         glLines.splice(1, 0, {
@@ -240,7 +240,7 @@ export async function rejectExpenseClaim(claimId: string, companyId: string, rea
     if (claim.status !== "SUBMITTED") throw new ServiceError(`Only SUBMITTED claims can be rejected (current: ${claim.status})`, 409);
     const updated = await tx.expenseClaim.update({
       where: { id: claimId },
-      data: { status: "REJECTED", approvedById: userId ?? null, approvedAt: new Date() },
+      data: { status: "REJECTED", rejectedReason: reason, approvedById: null, approvedAt: null },
     });
     await logAction(tx, {
       userId, companyId, action: "EXPENSE_CLAIM_REJECT",
@@ -253,9 +253,7 @@ export async function rejectExpenseClaim(claimId: string, companyId: string, rea
 
 /**
  * Mark an approved claim as paid, recording the payment details.
- * The GL was already posted on approval (each line became an APPROVED
- * Expense with its own journal entry), so payment just records the
- * payment mode + reference and flips the status to PAID.
+ * Posts the settlement entry: Dr Reimbursements Payable / Cr Cash.
  */
 export async function payExpenseClaim(
   claimId: string,
@@ -266,9 +264,29 @@ export async function payExpenseClaim(
   return withSerializableTransaction(async (tx) => {
     const claim = await tx.expenseClaim.findFirst({
       where: { id: claimId, companyId },
+      include: { lines: true },
     });
     if (!claim) throw new ServiceError("Claim not found", 404);
     if (claim.status !== "APPROVED") throw new ServiceError(`Only APPROVED claims can be paid (current: ${claim.status})`, 409);
+
+    // Compute total payable = sum of (line amount + line GST)
+    const totalPayable = claim.lines.reduce(
+      (sum, l) => sum.plus(new Decimal(l.amount as Decimal)).plus(new Decimal(l.gstAmount ?? 0)),
+      new Decimal(0),
+    );
+
+    // Post settlement: Dr Reimbursements Payable / Cr Cash
+    await postJournalEntry(tx, {
+      companyId,
+      sourceType: "EXPENSE_CLAIM_PAYMENT",
+      sourceId: claimId,
+      memo: `Expense claim payment — ${claim.description ?? claim.id}`,
+      postedById: userId,
+      lines: [
+        { accountCode: ACCT.REIMBURSEMENTS_PAYABLE, debit: totalPayable, credit: 0, entityType: "ExpenseClaim", entityId: claimId },
+        { accountCode: ACCT.CASH, debit: 0, credit: totalPayable, entityType: "ExpenseClaim", entityId: claimId },
+      ],
+    });
 
     const updated = await tx.expenseClaim.update({
       where: { id: claimId },
@@ -282,7 +300,7 @@ export async function payExpenseClaim(
     await logAction(tx, {
       userId, companyId, action: "EXPENSE_CLAIM_PAY",
       entityType: "ExpenseClaim", entityId: claimId,
-      after: { status: "PAID", paymentMode: payment.paymentMode },
+      after: { status: "PAID", paymentMode: payment.paymentMode, totalPayable: totalPayable.toString() },
     });
     return updated;
   });

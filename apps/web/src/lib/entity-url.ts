@@ -15,6 +15,8 @@ export function entityUrl(entityType: string | null, entityId: string | null): s
     MaterialRequisition: () => `/requisitions`,
     Customer: () => `/sales`,
     Supplier: () => `/procurement`,
+    SupplierPayment: () => `/finance`,
+    SupplierInvoice: () => `/finance`,
     Material: () => `/materials`,
     ProjectCost: () => `/finance`,
     Expense: () => `/finance`,

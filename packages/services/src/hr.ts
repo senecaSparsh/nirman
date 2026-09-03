@@ -1357,6 +1357,13 @@ export async function submitDPR(input: SubmitDprInput) {
 
     let dpr;
     if (existing) {
+      // Block editing of approved DPRs — only SUBMITTED or REJECTED DPRs can be re-submitted
+      if (existing.approvalStatus === "APPROVED" || existing.approvalStatus === "SUB_ADMIN_APPROVED") {
+        throw new HrError(
+          `Cannot edit a DPR that has been approved (current status: ${existing.approvalStatus}). Reject it first if changes are needed.`,
+          409,
+        );
+      }
       // Replace child lines and reset approval status to SUBMITTED on re-submission
       await tx.dPRMaterialLine.deleteMany({ where: { dprId: existing.id } });
       await tx.dPRLaborLine.deleteMany({ where: { dprId: existing.id } });

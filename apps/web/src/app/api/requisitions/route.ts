@@ -14,7 +14,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const statusFilter = statusParam ? { status: { in: statusParam.split(",") as RequisitionStatus[] } } : {};
 
   const reqs = await prisma.materialRequisition.findMany({
-    where: { project: { companyId: company.id }, ...statusFilter },
+    where: { project: { companyId: company.id, deletedAt: null }, ...statusFilter },
     orderBy: { createdAt: "desc" },
     take: 200,
     include: {

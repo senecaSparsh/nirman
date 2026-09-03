@@ -128,12 +128,32 @@ export async function recordMovement(
           },
         },
       });
-      if (!lot || lot.deletedAt) {
+      if (lot && !lot.deletedAt) {
+        lotId = lot.id;
+      } else if (direction === "IN") {
+        // Auto-create the lot on receipt (IN movement) instead of throwing
+        const recvCost = new Decimal(input.unitCost ?? 0);
+        const created = await tx.materialLot.create({
+          data: {
+            materialId: input.materialId,
+            companyId: input.companyId,
+            lotNumber: input.lotNumber,
+            receivedDate: new Date(),
+            initialQty: moveQty,
+            currentQty: moveQty,
+            unitCost: recvCost,
+          },
+        });
+        lotId = created.id;
+      } else if (lot && lot.deletedAt) {
+        throw new ServiceError(
+          `Lot ${input.lotNumber} is deleted for material ${input.materialId}`,
+        );
+      } else {
         throw new ServiceError(
           `Lot ${input.lotNumber} not found for material ${input.materialId}`,
         );
       }
-      lotId = lot.id;
     }
 
     // ── Update the MaterialLot balance ──

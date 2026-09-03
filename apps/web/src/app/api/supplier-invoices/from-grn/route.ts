@@ -119,7 +119,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       userId: user.id,
     });
 
-    revalidatePath("/supplier-invoices");
+    revalidatePath("/finance");
     revalidatePath("/m/suppliers");
     return json({
       id: invoice.id,

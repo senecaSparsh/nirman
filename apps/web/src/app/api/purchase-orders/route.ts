@@ -26,7 +26,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const usePagination = searchParams.has("cursor") || searchParams.has("take");
 
   const pos = await prisma.purchaseOrder.findMany({
-    where: { companyId: { in: groupCompanyIds }, ...statusFilter, ...(cursorToWhere(cursor) ?? {}) },
+    where: { companyId: { in: groupCompanyIds }, supplier: { deletedAt: null }, ...statusFilter, ...(cursorToWhere(cursor) ?? {}) },
     orderBy: { createdAt: "desc" },
     take: usePagination ? take + 1 : 200,
     skip: usePagination ? skip : undefined,

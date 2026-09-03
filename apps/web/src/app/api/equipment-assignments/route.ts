@@ -12,7 +12,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const status = searchParams.get("status") ?? "ACTIVE";
 
   const assignments = await prisma.equipmentAssignment.findMany({
-    where: { equipment: { companyId: company.id }, ...(status ? { status: status as EquipmentAssignmentStatus } : {}) },
+    where: { equipment: { companyId: company.id, deletedAt: null }, ...(status ? { status: status as EquipmentAssignmentStatus } : {}) },
     orderBy: { assignedAt: "desc" },
     include: {
       equipment: { select: { id: true, name: true, assetTag: true } },

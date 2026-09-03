@@ -31,7 +31,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
  * Use after db:push or database reset to ensure all system accounts exist.
  */
 export const POST = apiHandler(async (_req: NextRequest) => {
-  await requirePermission(PERM.FINANCE_VIEW);
+  await requirePermission(PERM.FINANCE_MANAGE);
   await seedChartOfAccounts();
   const accounts = await prisma.glAccount.findMany({
     orderBy: { code: "asc" },

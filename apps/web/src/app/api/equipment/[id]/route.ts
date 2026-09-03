@@ -149,17 +149,26 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requirePermission(PERM.ASSETS_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   // Verify company ownership before soft-deleting
   const existing = await prisma.equipment.findFirst({
-    where: { id, companyId: company.id },
-    select: { id: true },
+    where: { id, companyId: company.id, deletedAt: null },
+    select: { id: true, name: true, assetTag: true },
   });
   if (!existing) return json({ error: "Equipment not found" }, { status: 404 });
   try {
     await softDelete("Equipment", id);
+    await logAction(prisma, {
+      userId: user.id,
+      companyId: company.id,
+      action: "EQUIPMENT_DELETE",
+      entityType: "Equipment",
+      entityId: id,
+      before: { name: existing.name, assetTag: existing.assetTag },
+      after: { deletedAt: new Date().toISOString() },
+    });
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to delete equipment") }, { status: 400 });
