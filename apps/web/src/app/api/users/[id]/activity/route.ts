@@ -12,6 +12,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
   const company = await getCompany();
   const { id: userId } = await params;
   const limit = Math.min(Number(req.nextUrl.searchParams.get("limit") ?? "50"), 200);
+  const offset = Math.max(Number(req.nextUrl.searchParams.get("offset") ?? "0"), 0);
 
   const entries = await prisma.auditLog.findMany({
     where: {
@@ -23,6 +24,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
       ],
     },
     orderBy: { timestamp: "desc" },
+    skip: offset,
     take: limit,
     select: {
       id: true,

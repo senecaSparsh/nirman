@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Loader2, History } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Loader2, History, ChevronDown } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 type AuditEntry = {
   id: string;
@@ -12,13 +13,17 @@ type AuditEntry = {
   entityId: string;
   before: unknown;
   after: unknown;
-  createdAt: string;
+  timestamp: string;
 };
 
+const PAGE_SIZE = 50;
+
 /**
- * UserActivityDialog — shows the recent audit trail for a specific user.
+ * UserActivityDialog — shows the audit trail for a specific user.
  * Displays actions performed by or on this user (role changes, scope
  * changes, permission updates, password resets, etc.)
+ *
+ * Paginated with "Load more" — fetches PAGE_SIZE entries at a time.
  */
 export function UserActivityDialog({
   userId,
@@ -30,16 +35,24 @@ export function UserActivityDialog({
   onClose: () => void;
 }) {
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [entries, setEntries] = useState<AuditEntry[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+
+  const loadEntries = useCallback(async (limit: number, offset: number) => {
+    const res = await fetch(`/api/users/${userId}/activity?limit=${limit}&offset=${offset}`);
+    const data = await res.json();
+    return (data.entries ?? []) as AuditEntry[];
+  }, [userId]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/users/${userId}/activity?limit=50`);
-        const data = await res.json();
+        const initial = await loadEntries(PAGE_SIZE, 0);
         if (cancelled) return;
-        setEntries(data.entries ?? []);
+        setEntries(initial);
+        setHasMore(initial.length === PAGE_SIZE);
       } catch {
         // silent fail
       } finally {
@@ -47,13 +60,27 @@ export function UserActivityDialog({
       }
     })();
     return () => { cancelled = true; };
-  }, [userId]);
+  }, [loadEntries]);
+
+  async function handleLoadMore() {
+    setLoadingMore(true);
+    try {
+      const more = await loadEntries(PAGE_SIZE, entries.length);
+      setEntries((prev) => [...prev, ...more]);
+      setHasMore(more.length === PAGE_SIZE);
+    } catch {
+      // silent fail
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   function formatAction(action: string): { label: string; variant: "default" | "outline" | "success" | "warning" | "danger" | "muted" } {
     if (action.includes("CREATE")) return { label: action, variant: "success" };
-    if (action.includes("DELETE") || action.includes("DEACTIVATE") || action.includes("REJECT")) return { label: action, variant: "danger" };
+    if (action.includes("DELETE") || action.includes("DEACTIVATE") || action.includes("REJECT") || action.includes("CANCEL")) return { label: action, variant: "danger" };
     if (action.includes("UPDATE") || action.includes("CHANGE") || action.includes("ASSIGN")) return { label: action, variant: "warning" };
-    if (action.includes("APPROVE")) return { label: action, variant: "success" };
+    if (action.includes("APPROVE") || action.includes("ACTIVATE")) return { label: action, variant: "success" };
+    if (action.includes("CLEANUP") || action.includes("AUTO")) return { label: action, variant: "outline" };
     return { label: action, variant: "muted" };
   }
 
@@ -75,7 +102,6 @@ export function UserActivityDialog({
     const before = entry.before as Record<string, unknown> | null;
     const after = entry.after as Record<string, unknown> | null;
     if (!after) return "";
-    // Common patterns
     if (after.role && before?.role) return `${before.role} → ${after.role}`;
     if (after.scopeType) return `scope: ${after.scopeType}`;
     if (after.active !== undefined && before?.active !== undefined) {
@@ -84,6 +110,10 @@ export function UserActivityDialog({
     if (Array.isArray(after.permissions)) return `${after.permissions.length} permission(s)`;
     if (after.permissions !== undefined) return "permissions updated";
     if (after.scopeEntryCount) return `${after.scopeEntryCount} scope entries`;
+    if (after.sessionsRevoked) return `${after.sessionsRevoked} sessions revoked`;
+    if (after.tasksCancelled) return `${after.tasksCancelled} tasks cancelled`;
+    if (after.projectAssignmentsRemoved) return `${after.projectAssignmentsRemoved} assignments removed`;
+    if (after.unassignedCount) return `${after.unassignedCount} items unassigned`;
     return "";
   }
 
@@ -92,7 +122,7 @@ export function UserActivityDialog({
       open
       onOpenChange={(open) => { if (!open) onClose(); }}
       title={`Activity Log — ${userName}`}
-      description="Recent actions performed by or on this user. Most recent first."
+      description={`${entries.length} action${entries.length !== 1 ? "s" : ""} shown. Most recent first.`}
       className="max-w-lg"
     >
       {loading ? (
@@ -105,26 +135,36 @@ export function UserActivityDialog({
           <p className="text-body text-muted-foreground">No activity recorded yet.</p>
         </div>
       ) : (
-        <div className="space-y-1.5 max-h-[60vh] overflow-y-auto">
-          {entries.map((entry) => {
-            const { label, variant } = formatAction(entry.action);
-            const change = summarizeChange(entry);
-            return (
-              <div key={entry.id} className="flex items-start gap-3 rounded-md border border-border p-2.5">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant={variant} className="text-[10px] py-0 px-1.5">{label}</Badge>
-                    <span className="text-caption text-muted-foreground">{entry.entityType}</span>
+        <>
+          <div className="space-y-1.5 max-h-[60vh] overflow-y-auto">
+            {entries.map((entry) => {
+              const { label, variant } = formatAction(entry.action);
+              const change = summarizeChange(entry);
+              return (
+                <div key={entry.id} className="flex items-start gap-3 rounded-md border border-border p-2.5">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant={variant} className="text-[10px] py-0 px-1.5">{label}</Badge>
+                      <span className="text-caption text-muted-foreground">{entry.entityType}</span>
+                    </div>
+                    {change && (
+                      <p className="text-caption text-foreground mt-1 font-mono">{change}</p>
+                    )}
                   </div>
-                  {change && (
-                    <p className="text-caption text-foreground mt-1 font-mono">{change}</p>
-                  )}
+                  <span className="text-caption text-muted-foreground shrink-0">{formatTime(entry.timestamp)}</span>
                 </div>
-                <span className="text-caption text-muted-foreground shrink-0">{formatTime(entry.createdAt)}</span>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+          {hasMore && (
+            <div className="flex justify-center pt-3">
+              <Button variant="outline" size="sm" onClick={handleLoadMore} disabled={loadingMore}>
+                {loadingMore ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                Load more
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </Dialog>
   );

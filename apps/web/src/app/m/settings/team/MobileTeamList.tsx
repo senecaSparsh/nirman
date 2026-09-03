@@ -32,6 +32,7 @@ import {
 } from "@/components/mobile/v2/export-share-bar";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { Button } from "@/components/mobile/v2/primitives";
 import { ScopeEditorDialog } from "@/components/settings/scope-editor-dialog";
 import { PermissionsEditorDialog } from "@/components/settings/permissions-editor-dialog";
 import { ResetPasswordDialog } from "@/components/settings/reset-password-dialog";
@@ -408,6 +409,7 @@ function MemberCard({
   const [showScope, setShowScope] = useState(false);
   const [showPerms, setShowPerms] = useState(false);
   const [showResetPwd, setShowResetPwd] = useState(false);
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const meta = ROLE_META[member.role];
   const Icon = meta.icon;
 
@@ -432,6 +434,15 @@ function MemberCard({
   }
 
   async function toggleActive() {
+    // Deactivation is destructive — show confirmation first
+    if (member.active) {
+      setConfirmDeactivate(true);
+      return;
+    }
+    await doToggleActive();
+  }
+
+  async function doToggleActive() {
     setChanging(true);
     try {
       const res = await fetch(`/api/users/${member.id}`, {
@@ -763,6 +774,49 @@ function MemberCard({
             onChanged();
           }}
         />
+      )}
+
+      {/* Deactivation confirmation bottom sheet */}
+      {confirmDeactivate && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
+          onClick={() => setConfirmDeactivate(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe"
+            style={{
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-m-section font-bold mb-2" style={{ color: "var(--color-ink-950)" }}>
+              Deactivate {member.name}?
+            </p>
+            <p className="text-m-body mb-3" style={{ color: "var(--color-ink-700)" }}>
+              This will log them out, clear pending approvals, cancel tasks, and remove project assignments. They can be reactivated later.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button variant="secondary" size="md" fullWidth onClick={() => setConfirmDeactivate(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="md"
+                fullWidth
+                disabled={changing}
+                onClick={() => {
+                  setConfirmDeactivate(false);
+                  void doToggleActive();
+                }}
+              >
+                {changing ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                Deactivate
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

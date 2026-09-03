@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, UserPlus, X, Plug, Pencil, Layers, Warehouse, Lock, KeyRound, History } from "lucide-react";
+import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, UserPlus, X, Plug, Pencil, Layers, Warehouse, Lock, KeyRound, History, Upload, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +30,7 @@ import { CreateUserDialog } from "@/components/settings/create-user-dialog";
 import { ResetPasswordDialog } from "@/components/settings/reset-password-dialog";
 import { RolePermissionsDialog } from "@/components/settings/role-permissions-dialog";
 import { UserActivityDialog } from "@/components/settings/user-activity-dialog";
+import { BulkImportDialog } from "@/components/settings/bulk-import-dialog";
 import type { StockLocationRow, DepartmentRow } from "@/lib/types";
 import { useTabParam } from "@/lib/use-tab-param";
 
@@ -71,6 +72,7 @@ export function SettingsView({
   departments,
   canManageCompanies,
   actorRole,
+  managers,
 }: {
   company: CompanyInfo;
   users: UserRow[];
@@ -82,6 +84,7 @@ export function SettingsView({
   departments: DepartmentRow[];
   canManageCompanies: boolean;
   actorRole: string;
+  managers: { membershipId: string; userId: string; name: string; role: string }[];
 }) {
   const [tab, setTab] = useTabParam(
     ["company","users","locations","cost-centres","people","companies","integrations"] as const,
@@ -459,7 +462,7 @@ export function SettingsView({
         </TabsContent>
 
         <TabsContent value="users">
-          <UsersManager users={users} actorRole={actorRole} companyId={company.id} projects={projects} departments={departments} />
+          <UsersManager users={users} actorRole={actorRole} companyId={company.id} projects={projects} departments={departments} managers={managers} />
         </TabsContent>
 
         <TabsContent value="locations">
@@ -795,7 +798,7 @@ function LocationsTab({
 
 // ── Users Manager — role + active status management ──────────
 
-function UsersManager({ users, actorRole, companyId, projects, departments }: { users: UserRow[]; actorRole: string; companyId: string; projects: { id: string; name: string }[]; departments: DepartmentRow[] }) {
+function UsersManager({ users, actorRole, companyId, projects, departments, managers }: { users: UserRow[]; actorRole: string; companyId: string; projects: { id: string; name: string }[]; departments: DepartmentRow[]; managers: { membershipId: string; userId: string; name: string; role: string }[] }) {
   const router = useRouter();
   const { canManageUsers, userId: currentUserId } = usePermissions();
   const canManage = canManageUsers();
@@ -805,10 +808,27 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
   const [permsUser, setPermsUser] = useState<UserRow | null>(null);
   const [resetUser, setResetUser] = useState<UserRow | null>(null);
   const [showCreateUser, setShowCreateUser] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [showRolePerms, setShowRolePerms] = useState(false);
   const [activityUser, setActivityUser] = useState<UserRow | null>(null);
+  const [userSearch, setUserSearch] = useState("");
+  const [confirmDeactivate, setConfirmDeactivate] = useState<UserRow | null>(null);
 
   const assignable = assignableRoles(actorRole);
+
+  const filteredUsers = userSearch.trim()
+    ? users.filter((u) => {
+        const q = userSearch.toLowerCase();
+        return (
+          u.name.toLowerCase().includes(q) ||
+          u.email.toLowerCase().includes(q) ||
+          u.role.toLowerCase().includes(q) ||
+          (u.department ?? "").toLowerCase().includes(q) ||
+          (u.designation ?? "").toLowerCase().includes(q) ||
+          (u.employeeCode ?? "").toLowerCase().includes(q)
+        );
+      })
+    : users;
 
   const handleRoleChange = async (userId: string, newRole: Role) => {
     setSaving(userId);
@@ -833,6 +853,18 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
   };
 
   const handleActiveToggle = async (userId: string, active: boolean) => {
+    // Deactivation is destructive — requires confirmation
+    if (!active) {
+      const user = users.find((u) => u.id === userId);
+      if (user) {
+        setConfirmDeactivate(user);
+        return;
+      }
+    }
+    await doToggleActive(userId, active);
+  };
+
+  const doToggleActive = async (userId: string, active: boolean) => {
     setSaving(userId);
     try {
       const res = await fetch(`/api/users/${userId}`, {
@@ -888,6 +920,9 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
             <Button size="sm" variant="outline" onClick={() => setShowRolePerms(true)}>
               <Shield className="h-3.5 w-3.5" /> Role Permissions
             </Button>
+            <Button size="sm" variant="outline" onClick={() => setShowBulkImport(true)}>
+              <Upload className="h-3.5 w-3.5" /> Bulk Import
+            </Button>
             {assignable.length > 0 && (
               <Button size="sm" onClick={() => setShowCreateUser(true)}>
                 <Plus className="h-3.5 w-3.5" /> Add User
@@ -896,6 +931,20 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
           </div>
         )}
       </div>
+
+      {/* Search */}
+      {users.length > 10 && (
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search by name, email, role, department…"
+            value={userSearch}
+            onChange={(e) => setUserSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-0">
@@ -912,7 +961,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
               </TR>
             </THead>
             <TBody>
-              {users.map((u) => (
+              {filteredUsers.map((u) => (
                 <TR key={u.id}>
                   <TD className="font-medium">
                     <div className="flex flex-col">
@@ -1093,6 +1142,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
           actorRole={actorRole}
           projects={projects}
           departments={departments}
+          managers={managers}
           onClose={() => setShowCreateUser(false)}
         />
       )}
@@ -1112,6 +1162,50 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
           userName={activityUser.name}
           onClose={() => setActivityUser(null)}
         />
+      )}
+
+      {/* Bulk import dialog */}
+      {showBulkImport && (
+        <BulkImportDialog
+          onClose={() => setShowBulkImport(false)}
+        />
+      )}
+
+      {/* Deactivation confirmation dialog */}
+      {confirmDeactivate && (
+        <Dialog open onOpenChange={(o) => { if (!o) setConfirmDeactivate(null); }} title={`Deactivate ${confirmDeactivate.name}?`} className="max-w-md">
+          <div className="mb-4">
+            <p className="text-body text-muted-foreground mt-2">
+              This will immediately:
+            </p>
+            <ul className="text-caption text-muted-foreground mt-2 space-y-1 list-disc list-inside">
+              <li>Log them out of all active sessions</li>
+              <li>Clear their pending approvals (POs, requisitions, DPRs, expenses)</li>
+              <li>Cancel their open tasks</li>
+              <li>Remove their project assignments</li>
+              <li>Unassign their phone numbers and sales leads</li>
+              <li>Clear their reporting line</li>
+            </ul>
+            <p className="text-caption text-muted-foreground mt-3">
+              This action cannot be undone. You can reactivate them later, but their pending work will need to be reassigned manually.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setConfirmDeactivate(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={saving === confirmDeactivate.id}
+              onClick={() => {
+                const user = confirmDeactivate;
+                setConfirmDeactivate(null);
+                void doToggleActive(user.id, false);
+              }}
+            >
+              {saving === confirmDeactivate.id && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Deactivate
+            </Button>
+          </div>
+        </Dialog>
       )}
     </div>
   );

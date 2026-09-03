@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, UserPlus, ChevronRight, ChevronLeft, Check, Shield, Lock } from "lucide-react";
+import { Loader2, UserPlus, ChevronRight, ChevronLeft, Check, Shield, Lock, Network } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
@@ -29,11 +29,13 @@ export function CreateUserDialog({
   actorRole,
   projects,
   departments,
+  managers,
   onClose,
 }: {
   actorRole: string;
   projects: ProjectOption[];
   departments: DepartmentRow[];
+  managers: { membershipId: string; userId: string; name: string; role: string }[];
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -53,6 +55,7 @@ export function CreateUserDialog({
   // Step 2: Scope
   const [scopeType, setScopeType] = useState<"COMPANY" | "DEPARTMENT" | "PROJECT">("COMPANY");
   const [scopeEntries, setScopeEntries] = useState<{ departmentId?: string; projectId?: string }[]>([]);
+  const [reportsTo, setReportsTo] = useState<string>(""); // membershipId of the manager
 
   // Step 3: Permissions (optional — skip if empty)
   // We don't load the permissions editor here; the user can do it later.
@@ -106,7 +109,7 @@ export function CreateUserDialog({
           designation: designation.trim() || undefined,
           department: department.trim() || undefined,
           joiningDate: joiningDate || undefined,
-          mustChangePassword: true,
+          mustChangePassword: false,
         }),
       });
       const createData = await createRes.json();
@@ -114,27 +117,32 @@ export function CreateUserDialog({
       const userId = createData.id ?? createData.user?.id;
       if (!userId) throw new Error("User created but ID not returned");
 
-      // Step 2: Set scope (if not COMPANY default)
-      if (scopeType !== "COMPANY") {
-        const cleanEntries = scopeEntries
-          .filter((e) => scopeType === "DEPARTMENT" ? !!e.departmentId : !!e.projectId)
-          .map((e) =>
-            scopeType === "DEPARTMENT"
-              ? { departmentId: e.departmentId! }
-              : { projectId: e.projectId! },
-          );
-        if (cleanEntries.length > 0) {
-          const scopeRes = await fetch(`/api/users/${userId}/scope`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ role, scopeType, scopeEntries: cleanEntries }),
+      // Step 2: Set scope (if not COMPANY default) and/or reportsTo
+      if (scopeType !== "COMPANY" || reportsTo) {
+        const cleanEntries = scopeType === "DEPARTMENT" || scopeType === "PROJECT"
+          ? scopeEntries
+              .filter((e) => scopeType === "DEPARTMENT" ? !!e.departmentId : !!e.projectId)
+              .map((e) =>
+                scopeType === "DEPARTMENT"
+                  ? { departmentId: e.departmentId! }
+                  : { projectId: e.projectId! },
+              )
+          : [];
+        const scopeRes = await fetch(`/api/users/${userId}/scope`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            role,
+            scopeType,
+            scopeEntries: cleanEntries,
+            reportsToUserCompanyId: reportsTo || null,
+          }),
+        });
+        if (!scopeRes.ok) {
+          const scopeData = await scopeRes.json();
+          toast.warning("User created, but scope/reports-to setup failed", {
+            description: scopeData.error ?? "Set manually later.",
           });
-          if (!scopeRes.ok) {
-            const scopeData = await scopeRes.json();
-            toast.warning("User created, but scope setup failed", {
-              description: scopeData.error ?? "Set scope manually later.",
-            });
-          }
         }
       }
 
@@ -336,6 +344,24 @@ export function CreateUserDialog({
             </div>
           )}
 
+          {/* Reports To selector */}
+          {managers.length > 0 && (
+            <div className="space-y-2">
+              <Label>Reports To (optional)</Label>
+              <Select value={reportsTo} onChange={(e) => setReportsTo(e.target.value)}>
+                <option value="">No manager — top of chain</option>
+                {managers.map((m) => (
+                  <option key={m.membershipId} value={m.membershipId}>
+                    {m.name} ({m.role})
+                  </option>
+                ))}
+              </Select>
+              <p className="text-[10px] text-muted-foreground">
+                The manager who approves this user&apos;s work and appears in the org hierarchy.
+              </p>
+            </div>
+          )}
+
           <div className="flex justify-between gap-2 pt-2">
             <Button variant="outline" size="sm" onClick={() => setStep(1)}>
               <ChevronLeft className="size-3.5" /> Back
@@ -373,6 +399,11 @@ export function CreateUserDialog({
                 scopeType === "DEPARTMENT" ? `${scopeEntries.filter((e) => e.departmentId).length} department(s)` :
                 `${scopeEntries.filter((e) => e.projectId).length} project(s)`}
             </p>
+            {reportsTo && (
+              <p className="text-caption text-muted-foreground flex items-center gap-1">
+                <Network className="size-3" /> Reports to: {managers.find((m) => m.membershipId === reportsTo)?.name ?? "—"}
+              </p>
+            )}
           </div>
 
           <div className="rounded-md border border-border bg-muted/30 p-3 space-y-1.5">
@@ -388,7 +419,7 @@ export function CreateUserDialog({
           <div className="rounded-md border border-warning/40 bg-warning/5 p-3">
             <p className="text-caption text-foreground">
               <span className="font-semibold">Default password:</span> nirman123
-              <br />The user will be prompted to change it on first login.
+              <br />The user can sign in immediately. Reset their password from the team page if needed.
             </p>
           </div>
 

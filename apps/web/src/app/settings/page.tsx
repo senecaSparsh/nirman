@@ -41,7 +41,7 @@ async function SettingsContent() {
   const isSuperuser = role === "OWNER" || role === "ADMIN";
   const isDevBypass = user?.id === "dev";
 
-  const [users, locations, projects, subcontractors, employees, companies, departments] = await Promise.all([
+  const [users, locations, projects, subcontractors, employees, companies, departments, memberships] = await Promise.all([
     prisma.user.findMany({
       take: 200,
       where: { memberships: { some: { companyId: company.id } } },
@@ -98,6 +98,17 @@ async function SettingsContent() {
         stockLocation: { select: { id: true, name: true } },
         _count: { select: { materialIssues: true } },
       },
+    }),
+    // Fetch memberships for the reportsTo selector (create user wizard)
+    prisma.userCompany.findMany({
+      where: { companyId: company.id, user: { active: true } },
+      select: {
+        id: true,
+        userId: true,
+        role: true,
+        user: { select: { name: true, email: true } },
+      },
+      orderBy: { user: { name: "asc" } },
     }),
   ]);
 
@@ -179,6 +190,7 @@ async function SettingsContent() {
       canManageCompanies={isSuperuser}
       actorRole={role}
       departments={departmentRows}
+      managers={memberships.map((m) => ({ membershipId: m.id, userId: m.userId, name: m.user.name, role: m.role }))}
     />
       {hasPermission(role, PERM.FINANCE_MANAGE) && (
         <div className="mt-6">
