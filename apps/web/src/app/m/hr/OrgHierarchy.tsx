@@ -730,7 +730,7 @@ function MemberNode({
      2. Task summary — chips: pending, in-progress, overdue, due today, done
      3. Assignment — scope chips (project / department) + today's site
      4. Resources — crews/teams led with member counts
-     5. Open tasks — list of active tasks (links to /m/my-tasks)
+     5. Open tasks — list of active tasks (links to /m/site/tasks)
      6. Recent DPRs — last 3 submitted reports
      7. Contact — email + phone
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -931,7 +931,7 @@ function PersonDetail({ person, depth }: { person: OrgPersonNode; depth: number 
           {person.openTasks.slice(0, 4).map((t) => (
             <Link
               key={t.id}
-              href="/m/my-tasks"
+              href="/m/site/tasks"
               className="flex items-center gap-1.5 text-m-label press"
             >
               <ClipboardList className="size-2.5 shrink-0" style={{ color: "var(--color-ink-400)" }} />
