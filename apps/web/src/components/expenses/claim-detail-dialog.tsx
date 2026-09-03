@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, Loader2, FileText, Receipt } from "lucide-react";
+import { Plus, Trash2, Loader2, FileText, Receipt, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -18,6 +18,8 @@ type ClaimLine = {
   categoryName: string | null;
   category: string;
   amount: number;
+  gstRate: number | null;
+  gstAmount: number | null;
   date: string;
   receiptUrl: string | null;
   notes: string | null;
@@ -65,9 +67,12 @@ export function ClaimDetailDialog({
     categoryId: "",
     category: "",
     amount: "",
+    gstRate: "",
     date: new Date().toISOString().slice(0, 10),
     notes: "",
+    receiptUrl: "",
   });
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (open && claimId) {
@@ -90,6 +95,23 @@ export function ClaimDetailDialog({
     }
   }
 
+  async function uploadReceipt(file: File): Promise<string | null> {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/uploads", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      return data.url ?? null;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function addLine() {
     if (!claimId) return;
     if (!lineForm.category.trim() || !lineForm.amount) {
@@ -98,6 +120,13 @@ export function ClaimDetailDialog({
     }
     setAdding(true);
     try {
+      let receiptUrl = lineForm.receiptUrl || null;
+      // If a file was selected, upload it first
+      const fileInput = document.getElementById("cl-line-receipt") as HTMLInputElement | null;
+      if (fileInput?.files?.[0]) {
+        const uploaded = await uploadReceipt(fileInput.files[0]);
+        if (uploaded) receiptUrl = uploaded;
+      }
       const res = await fetch(`/api/expense-claims/${claimId}/lines`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -105,14 +134,17 @@ export function ClaimDetailDialog({
           categoryId: lineForm.categoryId || null,
           category: lineForm.category.trim(),
           amount: Number(lineForm.amount),
+          gstRate: lineForm.gstRate ? Number(lineForm.gstRate) : null,
           date: lineForm.date,
+          receiptUrl,
           notes: lineForm.notes || null,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to add line");
       toast.success("Line added");
-      setLineForm({ categoryId: "", category: "", amount: "", date: new Date().toISOString().slice(0, 10), notes: "" });
+      setLineForm({ categoryId: "", category: "", amount: "", gstRate: "", date: new Date().toISOString().slice(0, 10), notes: "", receiptUrl: "" });
+      if (fileInput) fileInput.value = "";
       await fetchDetail();
       router.refresh();
     } catch (err) {
@@ -202,6 +234,9 @@ export function ClaimDetailDialog({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-foreground truncate">{line.category}</span>
+                        {line.gstRate != null && line.gstRate > 0 && (
+                          <Badge variant="outline" className="text-[10px] py-0 px-1.5">GST {line.gstRate}%</Badge>
+                        )}
                         {line.receiptUrl && (
                           <a href={line.receiptUrl} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground" title="View receipt">
                             <FileText className="h-3.5 w-3.5" />
@@ -210,10 +245,11 @@ export function ClaimDetailDialog({
                       </div>
                       <div className="text-caption text-muted-foreground">
                         {formatDate(line.date)}{line.notes ? ` · ${line.notes}` : ""}
+                        {line.gstAmount != null && line.gstAmount > 0 && ` · GST: ${formatCurrency(line.gstAmount)}`}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="tnum font-medium text-foreground">{formatCurrency(line.amount)}</span>
+                      <span className="tnum font-medium text-foreground">{formatCurrency(line.amount + (line.gstAmount ?? 0))}</span>
                       {canEdit && isDraft && (
                         <button
                           type="button"
@@ -280,7 +316,20 @@ export function ClaimDetailDialog({
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="cl-line-gst">GST %</Label>
+                  <Input
+                    id="cl-line-gst"
+                    type="number"
+                    min="0"
+                    max="28"
+                    step="0.01"
+                    value={lineForm.gstRate}
+                    onChange={(e) => setLineForm((f) => ({ ...f, gstRate: e.target.value }))}
+                    placeholder="e.g. 18"
+                  />
+                </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="cl-line-date">Date</Label>
                   <Input
@@ -298,6 +347,19 @@ export function ClaimDetailDialog({
                     onChange={(e) => setLineForm((f) => ({ ...f, notes: e.target.value }))}
                     placeholder="Optional"
                   />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="cl-line-receipt">Receipt Photo / Bill</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="cl-line-receipt"
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="text-caption text-muted-foreground file:mr-2 file:rounded file:border-0 file:bg-primary file:px-2 file:py-1 file:text-primary-foreground"
+                    disabled={uploading}
+                  />
+                  {uploading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
                 </div>
               </div>
               <div className="flex justify-end">

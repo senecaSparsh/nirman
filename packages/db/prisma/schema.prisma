@@ -1539,6 +1539,7 @@ model SupplierPayment {
   paymentDate   DateTime @default(now())
   paymentMode   String   // "BANK" | "CASH" | "UPI" | "CHEQUE" | "NEFT"
   referenceNo   String?  // cheque no, UTR, transaction ID
+  chequePhotoUrl String? // photo of the cheque (for CHEQUE payments)
   notes         String?
   createdById   String?
   createdAt     DateTime @default(now())
@@ -3800,6 +3801,8 @@ model ExpenseClaimLine {
   categoryId  String?
   category    String   // free-text fallback
   amount      Decimal  @db.Decimal(14, 2)
+  gstRate     Decimal? @db.Decimal(5, 2) // GST % on this line (e.g. 18 for 18%)
+  gstAmount   Decimal? @db.Decimal(14, 2) // computed GST amount
   date        DateTime @default(now())
   receiptUrl  String?
   notes       String?

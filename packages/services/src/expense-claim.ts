@@ -54,6 +54,7 @@ export interface AddClaimLineInput {
   categoryId?: string | null;
   category: string;
   amount: Decimal | number | string;
+  gstRate?: Decimal | number | string | null;
   date?: Date;
   receiptUrl?: string | null;
   notes?: string | null;
@@ -63,6 +64,8 @@ export interface AddClaimLineInput {
 export async function addClaimLine(input: AddClaimLineInput) {
   const amount = new Decimal(input.amount);
   if (!amount.gt(0)) throw new ServiceError("Line amount must be > 0");
+  const gstRate = input.gstRate != null ? new Decimal(input.gstRate) : null;
+  const gstAmount = gstRate ? amount.mul(gstRate).div(100) : null;
   return withSerializableTransaction(async (tx) => {
     const claim = await tx.expenseClaim.findFirst({ where: { id: input.claimId, companyId: input.companyId } });
     if (!claim) throw new ServiceError("Claim not found", 404);
@@ -74,6 +77,8 @@ export async function addClaimLine(input: AddClaimLineInput) {
         categoryId: input.categoryId ?? null,
         category: input.category,
         amount,
+        gstRate: gstRate ?? null,
+        gstAmount: gstAmount ?? null,
         date: input.date ?? new Date(),
         receiptUrl: input.receiptUrl ?? null,
         notes: input.notes ?? null,
@@ -82,7 +87,7 @@ export async function addClaimLine(input: AddClaimLineInput) {
     // Update claim total
     await tx.expenseClaim.update({
       where: { id: input.claimId },
-      data: { totalAmount: (claim.totalAmount as Decimal).plus(amount) },
+      data: { totalAmount: (claim.totalAmount as Decimal).plus(amount).plus(gstAmount ?? 0) },
     });
     await logAction(tx, {
       userId: input.userId,

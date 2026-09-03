@@ -15,6 +15,7 @@ const paymentSchema = z.object({
   paymentDate: z.string().optional(),
   paymentMode: z.string().min(1, "paymentMode is required"),
   referenceNo: z.string().optional(),
+  chequePhotoUrl: z.string().optional().nullable(),
   notes: z.string().optional(),
 });
 
@@ -48,6 +49,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       paymentDate: p.paymentDate.toISOString(),
       paymentMode: p.paymentMode,
       referenceNo: p.referenceNo,
+      chequePhotoUrl: p.chequePhotoUrl,
       notes: p.notes,
       createdByName: p.createdBy?.name ?? null,
     })),
@@ -81,6 +83,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       paymentDate: data.paymentDate ? new Date(data.paymentDate) : undefined,
       paymentMode: data.paymentMode,
       referenceNo: data.referenceNo,
+      chequePhotoUrl: data.chequePhotoUrl ?? null,
       notes: data.notes,
       userId: user.id,
     });
@@ -104,6 +107,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         paymentDate: payment.paymentDate.toISOString(),
         paymentMode: payment.paymentMode,
         referenceNo: payment.referenceNo,
+        chequePhotoUrl: payment.chequePhotoUrl,
         notes: payment.notes,
       },
       { status: 201 },

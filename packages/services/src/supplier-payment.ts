@@ -39,6 +39,7 @@ export async function createSupplierPayment(input: {
   paymentDate?: Date;
   paymentMode: string;
   referenceNo?: string;
+  chequePhotoUrl?: string | null;
   notes?: string;
   userId?: string;
 }) {
@@ -110,6 +111,7 @@ export async function createSupplierPayment(input: {
         paymentDate: input.paymentDate ?? new Date(),
         paymentMode: input.paymentMode,
         referenceNo: input.referenceNo,
+        chequePhotoUrl: input.chequePhotoUrl ?? null,
         notes: input.notes,
         createdById: input.userId,
       },

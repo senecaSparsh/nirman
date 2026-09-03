@@ -316,13 +316,23 @@ ${ledgerEntries}
 
 /**
  * Get all unsynced journal entries for a company.
+ * Includes entries that have never been synced (tallySyncLog: null)
+ * AND entries whose last sync attempt FAILED or is still PENDING
+ * (so they can be retried).
  */
 export async function getUnsyncedEntries(companyId: string) {
   const entries = await prisma.journalEntry.findMany({
     where: {
       companyId,
       status: "POSTED",
-      tallySyncLog: null,
+      OR: [
+        // Never attempted
+        { tallySyncLog: null },
+        // Last attempt failed — retry
+        { tallySyncLog: { syncStatus: "FAILED" } },
+        // Last attempt still pending (interrupted sync)
+        { tallySyncLog: { syncStatus: "PENDING" } },
+      ],
     },
     include: {
       lines: {
@@ -330,6 +340,7 @@ export async function getUnsyncedEntries(companyId: string) {
           account: { select: { code: true, name: true } },
         },
       },
+      tallySyncLog: { select: { syncStatus: true, errorMessage: true, updatedAt: true } },
     },
     orderBy: { entryDate: "asc" },
   });

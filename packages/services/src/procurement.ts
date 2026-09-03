@@ -29,10 +29,22 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 /** Role hierarchy for value-based approval routing (higher index = more authority). */
 const ROLE_RANK: Record<string, number> = {
   SUPERVISOR: 0,
+  QAQC_ENGINEER: 0,
+  SALES_MANAGER: 0,
   SALES: 0,
   ACCOUNTANT: 0,
-  MANAGER: 1,
-  ADMIN: 2,
+  SITE_ENGINEER: 0,
+  STORE_KEEPER: 0,
+  // Tier 3 — Middle Mgmt: can approve low-value POs (< manager threshold)
+  PROJECT_MANAGER: 1,
+  PROCUREMENT_MANAGER: 1,
+  HR_MANAGER: 1,
+  MANAGER: 1, // legacy alias
+  // Tier 2 — Senior Mgmt
+  PROJECT_DIRECTOR: 2,
+  FINANCE_HEAD: 2,
+  // Tier 1 — Executive (always pass — superusers)
+  ADMIN: 3,
   OWNER: 3,
 };
 
@@ -624,6 +636,7 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
 
       // 1. Create GoodsReceiptLine (GoodsReceipt header created once below)
       // 2. Record stock movement (PURCHASE_RECEIPT) — updates StockLocationItem + MAC
+      //    Pass lotNumber + companyId so lot-tracked materials auto-create a MaterialLot.
       await recordMovement(tx, {
         materialId: line.materialId,
         movementType: "PURCHASE_RECEIPT",
@@ -633,6 +646,8 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
         refType: "PURCHASE_ORDER",
         refId: input.purchaseOrderId,
         userId: input.receivedById,
+        lotNumber: line.lotNumber,
+        companyId: po.companyId,
       });
 
       // 3. Update PO line qtyReceived

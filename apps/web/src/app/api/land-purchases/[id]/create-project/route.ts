@@ -45,6 +45,15 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     return json({ error: "This land is already linked to a project" }, { status: 400 });
   }
 
+  // Gate: subdivided land must have at least one parcel available before
+  // creating a project. BOOKED land must be completed (registry uploaded).
+  if (landPurchase.mode === "BOOKED" && !landPurchase.registryDocumentUrl) {
+    return json({ error: "Cannot create project from booked land until registry is complete" }, { status: 400 });
+  }
+  if (landPurchase.mode === "SUBDIVIDED" && landPurchase.parcels.length === 0) {
+    return json({ error: "Cannot create project from subdivided land with no parcels" }, { status: 400 });
+  }
+
   // Create the project and link the land purchase in a transaction
   const project = await withSerializableTransaction(async (tx) => {
     const proj = await tx.project.create({

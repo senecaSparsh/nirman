@@ -1148,6 +1148,9 @@ export function homeWorldFor(role: string): World {
     ACCOUNTANT: "finance",
     FINANCE_HEAD: "finance",
     PROCUREMENT_MANAGER: "build",
+    PROJECT_MANAGER: "build",
+    HR_MANAGER: "hr",
+    PROJECT_DIRECTOR: "build",
   };
   const key = map[role];
   if (key) {
