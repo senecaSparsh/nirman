@@ -26,7 +26,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       rejectedBy: { select: { id: true, name: true } },
       lines: {
         include: {
-          material: { select: { id: true, code: true, name: true, unit: true } },
+          material: { select: { id: true, code: true, name: true, unit: true, baseUnit: true, secondaryUnit: true, uomConversionFactor: true, isLotTracked: true } },
         },
         orderBy: { material: { name: "asc" } },
       },
@@ -50,6 +50,10 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     materialCode: l.material.code,
     materialName: l.material.name,
     unit: l.material.unit,
+    baseUnit: l.material.baseUnit ?? l.material.unit,
+    secondaryUnit: l.material.secondaryUnit,
+    uomConversionFactor: l.material.uomConversionFactor ? toNum(l.material.uomConversionFactor) : null,
+    isLotTracked: l.material.isLotTracked,
     qtyOrdered: toNum(l.qtyOrdered),
     qtyReceived: toNum(l.qtyReceived),
     unitCost: toNum(l.unitCost),

@@ -185,6 +185,7 @@ export type PurchaseOrderDetail = {
     baseUnit: string;
     secondaryUnit: string | null;
     uomConversionFactor: number | null;
+    isLotTracked: boolean;
     qtyOrdered: number;
     qtyReceived: number;
     unitCost: number;

@@ -18,6 +18,7 @@ type RecvLine = {
   unit: string;
   baseUnit: string;
   uomConversionFactor: number | null;
+  isLotTracked: boolean;
   qtyOrdered: number;
   qtyReceived: number;
   remaining: number;
@@ -25,6 +26,7 @@ type RecvLine = {
   qtyToReceive: string;
   unitCost: string;
   weightReceived: string;
+  lotNumber: string;
 };
 
 /** Column definitions for the receive-goods editable grid. */
@@ -143,6 +145,7 @@ export function ReceiveGoodsDialog({
             unit: l.unit,
             baseUnit: l.baseUnit,
             uomConversionFactor: l.uomConversionFactor,
+            isLotTracked: l.isLotTracked,
             qtyOrdered: l.qtyOrdered,
             qtyReceived: l.qtyReceived,
             remaining: l.remaining,
@@ -150,6 +153,7 @@ export function ReceiveGoodsDialog({
             qtyToReceive: "",
             unitCost: String(l.unitCost),
             weightReceived: "",
+            lotNumber: "",
           })),
       );
     }
@@ -179,6 +183,10 @@ export function ReceiveGoodsDialog({
       if (Number(l.qtyToReceive) > l.remaining) {
         return toast.error(`Cannot receive ${l.qtyToReceive} ${l.unit} of ${l.materialName} — only ${l.remaining} remaining`);
       }
+      // Lot-tracked materials must have a lot number
+      if (l.isLotTracked && !l.lotNumber.trim()) {
+        return toast.error(`Lot/Batch number required for ${l.materialName} (lot-tracked material)`);
+      }
     }
 
     // Validate weighbridge consistency
@@ -203,6 +211,7 @@ export function ReceiveGoodsDialog({
             materialId: l.materialId,
             qtyReceived: Number(l.qtyToReceive),
             unitCost: Number(l.unitCost) || 0,
+            lotNumber: l.lotNumber.trim() || undefined,
           })),
           // Gate entry / dispatch docs
           gatePassNo: gateEntryNo.trim() || undefined,
@@ -327,6 +336,29 @@ export function ReceiveGoodsDialog({
                 <p className="text-xs text-muted-foreground">
                   💡 Enter weight in the &quot;Weight&quot; column — qty auto-calculates from the material&apos;s UOM conversion factor (e.g., 5000 KG ÷ 50 = 100 BAG).
                 </p>
+              )}
+              {/* Lot/Batch numbers for lot-tracked materials */}
+              {lines.filter((l) => l.isLotTracked && Number(l.qtyToReceive) > 0).length > 0 && (
+                <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-2">
+                  <div className="flex items-center gap-1.5 text-sm font-medium">
+                    <Package className="size-3.5 text-muted-foreground" />
+                    Lot / Batch Numbers
+                  </div>
+                  <p className="text-xs text-muted-foreground">Required for lot-tracked materials — used for expiry tracking and FIFO issuance.</p>
+                  {lines.filter((l) => l.isLotTracked && Number(l.qtyToReceive) > 0).map((l) => (
+                    <div key={l.lineId} className="flex items-center gap-2">
+                      <span className="text-sm text-foreground min-w-0 flex-1 truncate">{l.materialName}</span>
+                      <span className="text-xs text-muted-foreground tnum">{l.qtyToReceive} {l.unit}</span>
+                      <Input
+                        type="text"
+                        placeholder="Lot/Batch #"
+                        value={l.lotNumber}
+                        onChange={(e) => setLines((ls) => ls.map((rl) => rl.lineId === l.lineId ? { ...rl, lotNumber: e.target.value } : rl))}
+                        className="font-mono text-sm w-40"
+                      />
+                    </div>
+                  ))}
+                </div>
               )}
               {/* Compact impact strip — receiving value + GST at a glance */}
               {(() => {

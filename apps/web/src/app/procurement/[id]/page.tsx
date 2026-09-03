@@ -58,7 +58,7 @@ async function PoDetailContent({
       approvedBy: { select: { id: true, name: true } },
       rejectedBy: { select: { id: true, name: true } },
       lines: {
-        include: { material: { select: { id: true, code: true, name: true, unit: true, baseUnit: true, secondaryUnit: true, uomConversionFactor: true } } },
+        include: { material: { select: { id: true, code: true, name: true, unit: true, baseUnit: true, secondaryUnit: true, uomConversionFactor: true, isLotTracked: true } } },
         orderBy: { material: { name: "asc" } },
       },
       charges: { orderBy: { createdAt: "asc" } },
@@ -138,6 +138,7 @@ async function PoDetailContent({
       baseUnit: l.material.baseUnit,
       secondaryUnit: l.material.secondaryUnit,
       uomConversionFactor: l.material.uomConversionFactor ? Number(l.material.uomConversionFactor) : null,
+      isLotTracked: l.material.isLotTracked,
       qtyOrdered: toNum(l.qtyOrdered),
       qtyReceived: toNum(l.qtyReceived),
       unitCost: toNum(l.unitCost),
