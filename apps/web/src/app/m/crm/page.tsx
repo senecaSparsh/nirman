@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
-import { Users, Phone, UserPlus, TrendingUp, FileText } from "lucide-react";
+import { Users, Phone, UserPlus, TrendingUp } from "lucide-react";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -25,7 +25,7 @@ export default async function MobileCrmPage() {
   if (!canSales) {
     return (
       <div className="p-4 text-center text-muted-foreground">
-        You don't have access to CRM.
+        You don&apos;t have access to CRM.
       </div>
     );
   }

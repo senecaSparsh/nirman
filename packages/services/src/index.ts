@@ -333,8 +333,10 @@ export {
   createMaterialSaleRequest,
   executeMaterialSale,
   cancelMaterialSale,
+  createMaterialSaleReturn,
   type CreateMaterialSaleInput,
   type MaterialSaleLineInput,
+  type MaterialSaleReturnLineInput,
 } from "./material-sale";
 
 // Material Sale Payment — partial / additional payments against material sales

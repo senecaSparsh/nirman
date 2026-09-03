@@ -576,3 +576,178 @@ export async function cancelMaterialSale(id: string, companyId: string, userId?:
     return updated;
   });
 }
+
+// ───────────────────────────────────────────────────────────────
+//  SALES RETURNS / CREDIT NOTES
+//  When a customer returns material sold via MaterialSale.
+//  Stock comes back (ADJUSTMENT_IN), revenue is reversed via
+//  reverseJournalEntry, and a credit note number is recorded.
+// ───────────────────────────────────────────────────────────────
+
+async function generateCreditNoteNumber(tx: Prisma.TransactionClient): Promise<string> {
+  const d = new Date();
+  const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  const prefix = `CN-${ymd}-`;
+  const count = await tx.materialSaleReturn.count({ where: { returnNumber: { startsWith: prefix } } });
+  return `${prefix}${String(count + 1).padStart(4, "0")}`;
+}
+
+export interface MaterialSaleReturnLineInput {
+  materialSaleLineId: string;
+  qty: Decimal | number | string;
+  reason?: string;
+}
+
+/**
+ * Create a material sale return (credit note).
+ * - Validates that the sale is ACTIVE
+ * - Validates that return qty ≤ original line qty (minus already-returned qty)
+ * - Puts stock back via ADJUSTMENT_IN at the original MAC
+ * - Reverses the relevant portion of the sale's GL entries
+ * - Records the credit note with a CN- number
+ */
+export async function createMaterialSaleReturn(
+  saleId: string,
+  input: {
+    companyId: string;
+    lines: MaterialSaleReturnLineInput[];
+    creditNoteNo?: string;
+    reason?: string;
+    notes?: string;
+    userId?: string;
+  },
+) {
+  return withStockTransaction(async (tx) => {
+    const sale = await tx.materialSale.findFirst({
+      where: { id: saleId, companyId: input.companyId },
+      include: { lines: true, returns: { where: { status: "COMPLETED" }, include: { lines: true } } },
+    });
+    if (!sale) throw new ServiceError("Material sale not found", 404);
+    if (sale.status !== "ACTIVE") throw new ServiceError("Can only return items from an active sale");
+
+    // Validate return lines and compute already-returned quantities
+    const returnedQtyByLine = new Map<string, number>();
+    for (const ret of sale.returns) {
+      for (const rl of ret.lines) {
+        returnedQtyByLine.set(rl.materialSaleLineId, (returnedQtyByLine.get(rl.materialSaleLineId) ?? 0) + Number(rl.qty));
+      }
+    }
+
+    const returnLines: {
+      saleLine: typeof sale.lines[0];
+      qty: Decimal;
+      unitPrice: Decimal;
+      unitCost: Decimal;
+      gstRate: Decimal;
+      gstAmount: Decimal;
+      lineTotal: Decimal;
+      reason?: string;
+    }[] = [];
+
+    for (const inputLine of input.lines) {
+      const saleLine = sale.lines.find((l) => l.id === inputLine.materialSaleLineId);
+      if (!saleLine) throw new ServiceError("Return line does not belong to this sale", 400);
+      const qty = new Decimal(inputLine.qty);
+      if (qty.lte(0)) throw new ServiceError("Return quantity must be positive", 400);
+      const alreadyReturned = returnedQtyByLine.get(saleLine.id) ?? 0;
+      if (qty.plus(alreadyReturned).gt(saleLine.qty)) {
+        throw new ServiceError(`Cannot return more than ${saleLine.qty} units (already returned: ${alreadyReturned})`, 400);
+      }
+      const unitPrice = new Decimal(saleLine.unitPrice);
+      const unitCost = new Decimal(saleLine.unitCost);
+      const gstRate = new Decimal(saleLine.gstRate);
+      const gstAmount = unitPrice.mul(qty).mul(gstRate).div(100);
+      const lineTotal = unitPrice.mul(qty).plus(gstAmount);
+      returnLines.push({ saleLine, qty, unitPrice, unitCost, gstRate, gstAmount, lineTotal, reason: inputLine.reason });
+    }
+
+    const subtotal = returnLines.reduce((sum, l) => sum.plus(l.unitPrice.mul(l.qty)), new Decimal(0));
+    const gstTotal = returnLines.reduce((sum, l) => sum.plus(l.gstAmount), new Decimal(0));
+    const totalAmount = subtotal.plus(gstTotal);
+
+    const returnNumber = await generateCreditNoteNumber(tx);
+
+    // Create the return record
+    const saleReturn = await tx.materialSaleReturn.create({
+      data: {
+        returnNumber,
+        materialSaleId: sale.id,
+        companyId: sale.companyId,
+        customerId: sale.customerId,
+        status: "COMPLETED",
+        returnDate: new Date(),
+        subtotal,
+        gstTotal,
+        totalAmount,
+        creditNoteNo: input.creditNoteNo ?? returnNumber,
+        reason: input.reason,
+        notes: input.notes,
+        createdById: input.userId,
+        lines: {
+          create: returnLines.map((l) => ({
+            materialSaleLineId: l.saleLine.id,
+            materialId: l.saleLine.materialId,
+            locationId: l.saleLine.locationId,
+            qty: l.qty,
+            unitPrice: l.unitPrice,
+            unitCost: l.unitCost,
+            gstRate: l.gstRate,
+            gstAmount: l.gstAmount,
+            lineTotal: l.lineTotal,
+            reason: l.reason,
+          })),
+        },
+      },
+    });
+
+    // Put stock back — ADJUSTMENT_IN at the original MAC
+    for (const l of returnLines) {
+      await recordMovement(tx, {
+        materialId: l.saleLine.materialId,
+        movementType: "ADJUSTMENT_IN",
+        toLocationId: l.saleLine.locationId,
+        qty: l.qty,
+        unitCost: l.unitCost,
+        reason: `Sales return ${returnNumber} for sale ${sale.saleNumber}`,
+        refType: "MATERIAL_SALE_RETURN",
+        refId: saleReturn.id,
+        userId: input.userId,
+      });
+    }
+
+    // Refresh MAC for returned materials
+    const returnedMaterials = returnLines.map((l) => l.saleLine.materialId);
+    if (returnedMaterials.length > 0) {
+      await refreshMaterialCurrentCost(tx, returnedMaterials);
+    }
+
+    // Reverse the GL entries for the returned portion
+    const journalEntries = await tx.journalEntry.findMany({
+      where: { sourceId: sale.id, sourceType: { in: ["MATERIAL_SALE", "MATERIAL_SALE_COGS"] } },
+    });
+    for (const je of journalEntries) {
+      await reverseJournalEntry(tx, je.id, {
+        postedById: input.userId,
+        memo: `Reversal for sales return ${returnNumber}`,
+      });
+    }
+
+    // Re-run project cost reallocation if the sale was linked to a project
+    if (sale.projectId) {
+      await reallocateProjectCosts(tx, sale.projectId);
+    }
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        companyId: sale.companyId,
+        action: "MATERIAL_SALE_RETURN",
+        entityType: "MaterialSaleReturn",
+        entityId: saleReturn.id,
+        after: { returnNumber, totalAmount: totalAmount.toString(), saleId: sale.id },
+      });
+    }
+
+    return saleReturn;
+  });
+}

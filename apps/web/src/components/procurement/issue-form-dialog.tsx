@@ -364,7 +364,7 @@ export function IssueFormDialog({
               ))}
             </Select>
             <p className="text-caption text-muted-foreground">
-              Selecting a unit sends the cost directly to that unit's production cost instead of area-allocating across all units.
+              Selecting a unit sends the cost directly to that unit&apos;s production cost instead of area-allocating across all units.
             </p>
           </div>
         )}

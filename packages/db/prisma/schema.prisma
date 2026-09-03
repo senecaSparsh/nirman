@@ -69,6 +69,7 @@ model Company {
   landSellers    LandSeller[]
   assetSales     AssetSale[]
   materialSales  MaterialSale[]
+  materialSaleReturns MaterialSaleReturn[]
   changeOrders   ChangeOrder[]
   ncrs           NonConformanceReport[]
   capas          Capa[]
@@ -458,6 +459,7 @@ model User {
   createdProjectCosts    ProjectCost[]
   createdAssetSales      AssetSale[]
   createdMaterialSales   MaterialSale[]
+  createdMaterialSaleReturns MaterialSaleReturn[]
   createdRenovations     RenovationProject[]
   createdRenovationCosts RenovationCost[]
   createdStockTransfers  StockTransfer[]
@@ -960,6 +962,7 @@ model StockLocation {
   equipmentAssignments EquipmentAssignment[]
   supplierReturns SupplierReturn[]
   materialSaleLines MaterialSaleLine[]
+  materialSaleReturnLines MaterialSaleReturnLine[]
   directPurchases  DirectPurchase[]
   quotationRequestDestinations QuotationRequest[] @relation("QuotationRequestDestination")
   gatePasses       GatePass[]
@@ -1050,6 +1053,7 @@ model Material {
   supplierReturnLines SupplierReturnLine[]
   dprMaterialLines  DPRMaterialLine[]
   materialSaleLines  MaterialSaleLine[]
+  materialSaleReturnLines MaterialSaleReturnLine[]
   directPurchaseLines DirectPurchaseLine[]
   vendorQuoteLines  VendorQuoteLine[]
   quotationRequestLines QuotationRequestLine[]
@@ -3319,6 +3323,7 @@ model Customer {
   company        Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
   assetSales     AssetSale[]
   materialSales  MaterialSale[]
+  materialSaleReturns MaterialSaleReturn[]
   tenancies      Tenancy[]
   convertedLeads Lead[]
 
@@ -4647,6 +4652,7 @@ model MaterialSale {
   createdBy  User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
   lines      MaterialSaleLine[]
   payments   MaterialSalePayment[]
+  returns    MaterialSaleReturn[]
 
   @@index([companyId])
   @@index([customerId])
@@ -4696,10 +4702,78 @@ model MaterialSaleLine {
   materialSale MaterialSale @relation(fields: [materialSaleId], references: [id], onDelete: Cascade)
   material     Material     @relation(fields: [materialId], references: [id])
   location     StockLocation @relation(fields: [locationId], references: [id])
+  returnLines  MaterialSaleReturnLine[]
 
   @@index([materialSaleId])
   @@index([materialId])
   @@index([locationId])
+}
+
+// ───────────────────────────────────────────────────────────────
+//  SALES RETURNS / CREDIT NOTES — when a customer returns material
+//  sold via MaterialSale. Stock comes back, revenue is reversed,
+//  and a credit note is issued. Partial returns supported.
+// ───────────────────────────────────────────────────────────────
+
+enum MaterialSaleReturnStatus {
+  DRAFT
+  COMPLETED  // stock received back, credit note issued, GL reversed
+  CANCELLED
+}
+
+model MaterialSaleReturn {
+  id             String                   @id @default(cuid())
+  returnNumber   String                   @unique  // CN-YYMMDD-NNNN
+  materialSaleId String
+  companyId      String
+  customerId     String
+  status         MaterialSaleReturnStatus @default(DRAFT)
+  returnDate     DateTime                 @default(now())
+  // Financial totals (the credit note amount)
+  subtotal       Decimal                  @default(0) @db.Decimal(14, 2)
+  gstTotal       Decimal                  @default(0) @db.Decimal(14, 2)
+  totalAmount    Decimal                  @default(0) @db.Decimal(14, 2)
+  // Credit note details
+  creditNoteNo   String?
+  reason         String?
+  notes          String?
+  createdById    String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  materialSale MaterialSale @relation(fields: [materialSaleId], references: [id])
+  company      Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  customer     Customer     @relation(fields: [customerId], references: [id])
+  createdBy    User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  lines        MaterialSaleReturnLine[]
+
+  @@index([materialSaleId])
+  @@index([companyId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model MaterialSaleReturnLine {
+  id                   String  @id @default(cuid())
+  materialSaleReturnId String
+  materialSaleLineId   String  // original sale line being returned
+  materialId           String
+  locationId           String  // where stock is being received back
+  qty                  Decimal @db.Decimal(14, 3)
+  unitPrice            Decimal @db.Decimal(14, 2) // selling price at time of sale
+  unitCost             Decimal @db.Decimal(14, 2) // MAC at time of sale
+  gstRate              Decimal @default(0) @db.Decimal(5, 2)
+  gstAmount            Decimal @default(0) @db.Decimal(14, 2)
+  lineTotal            Decimal @default(0) @db.Decimal(14, 2)
+  reason               String?  // "Defective", "Wrong item", "Customer cancelled"
+
+  materialSaleReturn MaterialSaleReturn @relation(fields: [materialSaleReturnId], references: [id], onDelete: Cascade)
+  materialSaleLine   MaterialSaleLine   @relation(fields: [materialSaleLineId], references: [id])
+  material           Material           @relation(fields: [materialId], references: [id])
+  location           StockLocation      @relation(fields: [locationId], references: [id])
+
+  @@index([materialSaleReturnId])
+  @@index([materialId])
 }
 
 // ───────────────────────────────────────────────────────────────
