@@ -905,6 +905,8 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
                 <TH>Name</TH>
                 <TH>Email</TH>
                 <TH>Role</TH>
+                <TH className="hidden lg:table-cell">Dept</TH>
+                <TH className="hidden xl:table-cell">Code</TH>
                 <TH>Status</TH>
                 {canManage && <TH className="text-right">Actions</TH>}
               </TR>
@@ -913,12 +915,26 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
               {users.map((u) => (
                 <TR key={u.id}>
                   <TD className="font-medium">
-                    {u.name}
-                    {u.id === currentUserId && (
-                      <span className="ml-2 text-caption text-muted-foreground">(you)</span>
-                    )}
+                    <div className="flex flex-col">
+                      <span className="flex items-center gap-1.5">
+                        {u.name}
+                        {u.id === currentUserId && (
+                          <span className="text-caption text-muted-foreground">(you)</span>
+                        )}
+                      </span>
+                      {u.designation && (
+                        <span className="text-caption text-muted-foreground">{u.designation}</span>
+                      )}
+                    </div>
                   </TD>
-                  <TD className="text-muted-foreground">{u.email}</TD>
+                  <TD className="text-muted-foreground">
+                    <div className="flex flex-col">
+                      <span>{u.email}</span>
+                      {u.phone && (
+                        <span className="text-caption text-muted-foreground">{u.phone}</span>
+                      )}
+                    </div>
+                  </TD>
                   <TD>
                     {canManage && canAssignRole(actorRole, u.role) ? (
                       <Select
@@ -939,6 +955,12 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
                       <Badge variant={roleBadgeVariant(u.role)}>{u.role}</Badge>
                     )}
                   </TD>
+                  <TD className="hidden lg:table-cell text-muted-foreground text-caption">
+                    {u.department ?? "—"}
+                  </TD>
+                  <TD className="hidden xl:table-cell text-muted-foreground text-caption">
+                    {u.employeeCode ?? "—"}
+                  </TD>
                   <TD>
                     {canManage && canAssignRole(actorRole, u.role) ? (
                       <button
@@ -957,7 +979,6 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
                   {canManage && (
                     <TD className="text-right text-caption text-muted-foreground">
                       <div className="flex items-center justify-end gap-2">
-                        <span className="hidden lg:inline">{ROLE_LIST.find((r) => r.key === u.role)?.description}</span>
                         <Button
                           variant="ghost"
                           size="icon-sm"

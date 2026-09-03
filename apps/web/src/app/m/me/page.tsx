@@ -16,8 +16,9 @@ import {
   Check,
   X,
   Loader2,
+  Lock,
 } from "lucide-react";
-import { useSession, signOut as authSignOut } from "@/lib/auth-client";
+import { useSession, signOut as authSignOut, authClient } from "@/lib/auth-client";
 import { useFieldMode } from "@/lib/field-mode";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import {
@@ -52,6 +53,13 @@ export default function MePage() {
   const [editName, setEditName] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [savingPassword, setSavingPassword] = useState(false);
 
   useEffect(() => {
     let meDone = false;
@@ -133,6 +141,35 @@ export default function MePage() {
       toast.error(e instanceof Error ? e.message : "Failed to update profile");
     } finally {
       setSavingProfile(false);
+    }
+  }
+
+  async function handleChangePassword() {
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error("New passwords don't match");
+      return;
+    }
+    if (passwordForm.newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      const result = await authClient.changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      if (result.error) {
+        toast.error(result.error.message ?? "Failed to change password");
+      } else {
+        toast.success("Password changed");
+        setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+        setShowPasswordForm(false);
+      }
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setSavingPassword(false);
     }
   }
 
@@ -230,6 +267,97 @@ export default function MePage() {
                 </button>
               </div>
             </div>
+          )}
+        </Card>
+      </div>
+
+      {/* ── Password change ────────────────────────────────────────── */}
+      <div className="mb-4">
+        <Card className="p-4">
+          {showPasswordForm ? (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Lock className="size-4" style={{ color: "var(--color-ink-500)" }} />
+                <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                  Change Password
+                </p>
+              </div>
+              <div className="space-y-2.5">
+                <div>
+                  <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                    Current Password
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm((f) => ({ ...f, currentPassword: e.target.value }))}
+                    disabled={savingPassword}
+                    placeholder="••••••••"
+                    className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section font-medium outline-none"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                  />
+                </div>
+                <div>
+                  <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm((f) => ({ ...f, newPassword: e.target.value }))}
+                    disabled={savingPassword}
+                    placeholder="At least 8 characters"
+                    className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section font-medium outline-none"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                  />
+                </div>
+                <div>
+                  <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                    Confirm New Password
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm((f) => ({ ...f, confirmPassword: e.target.value }))}
+                    disabled={savingPassword}
+                    placeholder="••••••••"
+                    className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section font-medium outline-none"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 mt-3">
+                <Button variant="secondary" size="md" fullWidth onClick={() => setShowPasswordForm(false)} disabled={savingPassword}>
+                  <X className="size-3.5" />
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="md"
+                  fullWidth
+                  onClick={handleChangePassword}
+                  disabled={savingPassword || !passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword}
+                >
+                  {savingPassword ? <Loader2 className="size-3.5 animate-spin" /> : <Lock className="size-3.5" />}
+                  Change Password
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowPasswordForm(true)}
+              className="flex items-center gap-3 w-full text-left press"
+            >
+              <Lock className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+              <div className="flex-1">
+                <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                  Change Password
+                </p>
+                <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
+                  Update your account password
+                </p>
+              </div>
+            </button>
           )}
         </Card>
       </div>

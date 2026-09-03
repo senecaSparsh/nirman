@@ -1238,6 +1238,11 @@ export const userRoleSchema = z.object({
   active: z.boolean().optional(),
   name: z.string().min(1).max(100).optional(),
   phone: z.string().max(20).nullable().optional(),
+  designation: z.string().max(100).nullable().optional(),
+  department: z.string().max(100).nullable().optional(),
+  employeeCode: z.string().max(50).nullable().optional(),
+  joiningDate: z.string().nullable().optional(), // ISO date string
+  employmentEndDate: z.string().nullable().optional(), // ISO date string
 });
 
 /** Standard JSON API response helper. */
