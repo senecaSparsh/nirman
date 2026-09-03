@@ -1,7 +1,7 @@
 import { prisma, type EquipmentStatus, type MaintenanceType } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
-import { postEquipmentAcquisition, postEquipmentMaintenance, postEquipmentRetirement } from "./gl-posting";
+import { postEquipmentAcquisition, postEquipmentMaintenance, postEquipmentRetirement, postEquipmentSale } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
 
@@ -328,6 +328,63 @@ export async function unretireEquipment(equipmentId: string, userId?: string) {
       entityId: equipmentId,
       before: { status: "RETIRED" },
       after: { status: "AVAILABLE" },
+    });
+    return updated;
+  });
+}
+
+/**
+ * Sell equipment to a third party. Sets status to SOLD (terminal),
+ * posts GL entries (revenue + COGS + gain/loss on disposal), and
+ * logs the action. Refuses if equipment is ASSIGNED or IN_MAINTENANCE.
+ */
+export async function sellEquipment(
+  equipmentId: string,
+  input: {
+    salePrice: Decimal | number | string;
+    gstAmount?: Decimal | number | string;
+    buyerName?: string;
+    buyerPhone?: string;
+    saleDate?: Date;
+    notes?: string;
+  },
+  userId?: string,
+) {
+  return withSerializableTransaction(async (tx) => {
+    const equipment = await tx.equipment.findFirst({ where: { id: equipmentId, deletedAt: null } });
+    if (!equipment) throw new ServiceError("Equipment not found", 404);
+    if (equipment.status === "SOLD") throw new ServiceError("Equipment already sold");
+    if (equipment.status === "ASSIGNED") throw new ServiceError("Return the equipment before selling it");
+    if (equipment.status === "IN_MAINTENANCE") throw new ServiceError("Equipment in maintenance — complete or cancel maintenance before selling");
+
+    const salePrice = new Decimal(input.salePrice);
+    if (salePrice.lte(0)) throw new ServiceError("Sale price must be positive");
+
+    const updated = await tx.equipment.update({
+      where: { id: equipmentId },
+      data: {
+        status: "SOLD",
+        notes: input.notes ? `${equipment.notes ?? ""}\n[Sale] ${input.notes}`.trim() : equipment.notes,
+      },
+    });
+
+    // Post GL: revenue + relieve asset at currentValue + gain/loss
+    await postEquipmentSale(tx, {
+      companyId: equipment.companyId,
+      equipmentId,
+      salePrice,
+      currentValue: equipment.currentValue,
+      gstAmount: input.gstAmount ?? 0,
+      postedById: userId,
+    });
+
+    await logAction(tx, {
+      userId,
+      action: "EQUIPMENT_SELL",
+      entityType: "Equipment",
+      entityId: equipmentId,
+      before: { status: equipment.status, currentValue: equipment.currentValue.toString() },
+      after: { status: "SOLD", salePrice: salePrice.toString(), buyerName: input.buyerName ?? null },
     });
     return updated;
   });

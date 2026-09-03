@@ -1545,6 +1545,72 @@ export async function postEquipmentRetirement(
 }
 
 /**
+ * Equipment Sale: sell a piece of equipment to a third party.
+ * Relieves the fixed asset at its current (depreciated) value,
+ * recognises the sale revenue, and books gain/loss on disposal.
+ *
+ *   Dr Cash / Bank                    (salePrice + gst)
+ *   Cr Sales Revenue                  (salePrice)
+ *   Cr Output GST                     (gst if > 0)
+ *
+ *   Dr Cost of Goods Sold             (currentValue)
+ *   Cr Equipment & Fixtures           (currentValue)
+ *
+ * If salePrice ≠ currentValue, the difference is gain/loss on disposal:
+ *   Dr COGS (loss) or Cr Operating Expense (gain)
+ */
+export async function postEquipmentSale(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    equipmentId: string;
+    salePrice: Decimal | number | string;
+    currentValue: Decimal | number | string;
+    gstAmount?: Decimal | number | string;
+    postedById?: string;
+  },
+) {
+  const salePrice = new Decimal(opts.salePrice);
+  const currentValue = new Decimal(opts.currentValue);
+  const gst = new Decimal(opts.gstAmount ?? 0);
+  if (salePrice.isZero() && currentValue.isZero()) return null;
+
+  const lines: JournalLineInput[] = [];
+
+  // Revenue leg
+  lines.push({ accountCode: ACCT.CASH, debit: salePrice.plus(gst), credit: 0, entityType: "Equipment", entityId: opts.equipmentId, memo: "Equipment sale proceeds" });
+  if (salePrice.gt(0)) {
+    lines.push({ accountCode: ACCT.SALES_REVENUE, debit: 0, credit: salePrice, entityType: "Equipment", entityId: opts.equipmentId, memo: "Equipment sale revenue" });
+  }
+  if (gst.gt(0)) {
+    lines.push({ accountCode: ACCT.OUTPUT_GST, debit: 0, credit: gst, entityType: "Equipment", entityId: opts.equipmentId, memo: "Output GST on equipment sale" });
+  }
+
+  // COGS leg — relieve the fixed asset at its current value
+  if (currentValue.gt(0)) {
+    lines.push({ accountCode: ACCT.COGS, debit: currentValue, credit: 0, entityType: "Equipment", entityId: opts.equipmentId, memo: "Equipment cost on sale" });
+    lines.push({ accountCode: ACCT.EQUIPMENT_ASSET, debit: 0, credit: currentValue, entityType: "Equipment", entityId: opts.equipmentId, memo: "Equipment relieved on sale" });
+  }
+
+  // Gain or loss on disposal
+  const gain = salePrice.minus(currentValue);
+  if (gain.gt(0)) {
+    lines.push({ accountCode: ACCT.OPERATING_EXPENSE, debit: 0, credit: gain, entityType: "Equipment", entityId: opts.equipmentId, memo: "Gain on equipment sale" });
+  } else if (gain.lt(0)) {
+    lines.push({ accountCode: ACCT.OPERATING_EXPENSE, debit: gain.abs(), credit: 0, entityType: "Equipment", entityId: opts.equipmentId, memo: "Loss on equipment sale" });
+  }
+
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "EQUIPMENT_SALE",
+    sourceId: opts.equipmentId,
+    memo: "Equipment sold",
+    postedById: opts.postedById,
+    lines,
+  });
+}
+
+/**
  * Security Deposit Received (tenancy activation): debit cash, credit the
  * security deposit liability (refundable to tenant on termination).
  *

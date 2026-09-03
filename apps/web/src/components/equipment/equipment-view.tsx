@@ -26,6 +26,7 @@ const STATUS_LABEL: Record<string, string> = {
   ASSIGNED: "Assigned",
   IN_MAINTENANCE: "In maintenance",
   RETIRED: "Retired",
+  SOLD: "Sold",
 };
 
 export function EquipmentView({
@@ -65,6 +66,7 @@ export function EquipmentView({
     { status: "ASSIGNED", label: "Assigned", items: filtered.filter((e) => e.status === "ASSIGNED") },
     { status: "IN_MAINTENANCE", label: "In Maintenance", items: filtered.filter((e) => e.status === "IN_MAINTENANCE") },
     { status: "RETIRED", label: "Retired", items: filtered.filter((e) => e.status === "RETIRED") },
+    { status: "SOLD", label: "Sold", items: filtered.filter((e) => e.status === "SOLD") },
   ];
 
   // Compact filter dropdowns for the toolbar
@@ -81,6 +83,7 @@ export function EquipmentView({
         <option value="ASSIGNED">Assigned</option>
         <option value="IN_MAINTENANCE">In Maintenance</option>
         <option value="RETIRED">Retired</option>
+        <option value="SOLD">Sold</option>
       </select>
       <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
     </div>

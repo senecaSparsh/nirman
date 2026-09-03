@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRight, Wrench, Check, Ban, Pencil, Trash2, RotateCcw, ClipboardList, Hammer } from "lucide-react";
+import { ArrowRight, Wrench, Check, Ban, Pencil, Trash2, RotateCcw, ClipboardList, Hammer, DollarSign, Loader2 } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input, Label } from "@/components/ui/input";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -53,6 +54,10 @@ export function EquipmentDetailDialog({
   const [editOpen, setEditOpen] = useState(false);
   const [retireOpen, setRetireOpen] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
+  const [sellOpen, setSellOpen] = useState(false);
+  const [sellPrice, setSellPrice] = useState("");
+  const [sellBuyer, setSellBuyer] = useState("");
+  const [sellNotes, setSellNotes] = useState("");
 
   useEffect(() => {
     if (open && equipment) {
@@ -180,6 +185,38 @@ export function EquipmentDetailDialog({
     }
   }
 
+  async function doSell() {
+    if (!equipment) return;
+    const price = Number(sellPrice);
+    if (!price || price <= 0) { toast.error("Enter a valid sale price"); return; }
+    setActing(true);
+    try {
+      const res = await fetch(`/api/equipment/${equipment.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "sell",
+          salePrice: price,
+          buyerName: sellBuyer || undefined,
+          notes: sellNotes || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Sale failed");
+      toast.success("Equipment sold — GL entries posted");
+      setSellOpen(false);
+      setSellPrice("");
+      setSellBuyer("");
+      setSellNotes("");
+      await refetchDetail();
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setActing(false);
+    }
+  }
+
   // Smart maintenance alert: if last maintenance was >90 days ago (or never), suggest scheduling
   const [now] = useState(() => Date.now());
   const daysSinceMaint = useMemo(() => {
@@ -207,7 +244,8 @@ export function EquipmentDetailDialog({
       label: "Maintenance",
       state: status === "IN_MAINTENANCE" ? "current" : hasBeenInMaintenance ? "done" : "pending",
     },
-    { label: "Retired", state: status === "RETIRED" ? "current" : "pending" },
+    { label: "Retired", state: status === "RETIRED" ? "current" : status === "SOLD" ? "skipped" : "pending" },
+    { label: "Sold", state: status === "SOLD" ? "current" : "pending" },
   ];
 
   return (
@@ -259,6 +297,9 @@ export function EquipmentDetailDialog({
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => setMaintOpen(true)}>
                     <Wrench className="h-4 w-4" /> Maintenance
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setSellOpen(true)} disabled={acting}>
+                    <DollarSign className="h-4 w-4" /> Sell
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => setRetireOpen(true)} disabled={acting} className="text-muted-foreground hover:text-danger">
                     <Ban className="h-4 w-4" /> Retire
@@ -467,6 +508,37 @@ export function EquipmentDetailDialog({
               <Button type="button" variant="destructive" onClick={doRetire} disabled={acting}>
                 {acting ? "Retiring…" : "Retire"}
               </Button>
+            </div>
+          </Dialog>
+          <Dialog
+            open={sellOpen}
+            onOpenChange={setSellOpen}
+            title="Sell equipment"
+            description={`Sell “${equipment.name}” to a third party. This posts revenue, relieves the asset, and records gain/loss on disposal.`}
+            className="max-w-md"
+          >
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Sale Price *</Label>
+                <Input type="number" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} placeholder="0.00" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Buyer Name</Label>
+                <Input value={sellBuyer} onChange={(e) => setSellBuyer(e.target.value)} placeholder="Optional" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Notes</Label>
+                <Input value={sellNotes} onChange={(e) => setSellNotes(e.target.value)} placeholder="Optional" />
+              </div>
+              <div className="flex justify-end gap-2 border-t border-border pt-3">
+                <Button type="button" variant="outline" onClick={() => setSellOpen(false)} disabled={acting}>
+                  Cancel
+                </Button>
+                <Button type="button" onClick={doSell} disabled={acting}>
+                  {acting ? <Loader2 className="h-4 w-4 animate-spin" /> : <DollarSign className="h-4 w-4" />}
+                  Sell Equipment
+                </Button>
+              </div>
             </div>
           </Dialog>
         </>

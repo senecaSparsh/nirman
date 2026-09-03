@@ -2636,6 +2636,7 @@ enum EquipmentStatus {
   ASSIGNED      // at a project site
   IN_MAINTENANCE
   RETIRED
+  SOLD          // sold to a third party — terminal state
 }
 
 model Equipment {

@@ -479,6 +479,7 @@ export {
   completeMaintenance,
   retireEquipment,
   unretireEquipment,
+  sellEquipment,
   computeDepreciatedValue,
 } from "./equipment";
 
@@ -621,6 +622,7 @@ export {
   postEquipmentAcquisition,
   postEquipmentMaintenance,
   postEquipmentRetirement,
+  postEquipmentSale,
   postSecurityDepositReceived,
   postSecurityDepositRefunded,
   postSaleExpense,

@@ -14,7 +14,7 @@ import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
-type EquipmentStatus = "AVAILABLE" | "ASSIGNED" | "IN_MAINTENANCE" | "RETIRED";
+type EquipmentStatus = "AVAILABLE" | "ASSIGNED" | "IN_MAINTENANCE" | "RETIRED" | "SOLD";
 
 interface Assignment {
   id: string;

@@ -3,14 +3,16 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Truck, ArrowRight, Building2, Check, X, Printer, ChevronDown, Send, Undo } from "lucide-react";
+import { Plus, Truck, ArrowRight, Building2, Check, X, Printer, ChevronDown, Send, Undo, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input, Label, Select } from "@/components/ui/input";
 import { EmptyState } from "@/components/empty-state";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { StatusPill } from "@/components/page";
 import { TransferFormDialog } from "@/components/procurement/transfer-form-dialog";
 import { LocationFormDialog } from "@/components/materials/location-form-dialog";
+import { VehicleCaptureSection, EMPTY_VEHICLE, type VehicleData } from "@/components/vehicle-capture-section";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { StockLocationRow, TransferRow, ProjectOption } from "@/lib/types";
 
@@ -187,25 +189,64 @@ export function TransfersTab({ transfers, locations, projects, canTransfer }: { 
 function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
   const router = useRouter();
   const [acting, setActing] = useState(false);
+  const [showDispatch, setShowDispatch] = useState(false);
+  const [showComplete, setShowComplete] = useState(false);
+  const [vehicle, setVehicle] = useState<VehicleData>(EMPTY_VEHICLE);
+  const [challanNumber, setChallanNumber] = useState("");
+  const [packageCount, setPackageCount] = useState("");
+  const [deliveryMode, setDeliveryMode] = useState("");
+  const [shortageRemarks, setShortageRemarks] = useState("");
+  const [damageRemarks, setDamageRemarks] = useState("");
 
-  async function doAction(action: "complete" | "cancel" | "dispatch" | "returnToSource") {
+  async function doAction(
+    action: "complete" | "cancel" | "dispatch" | "returnToSource",
+    extra?: Record<string, unknown>,
+  ) {
     setActing(true);
     try {
       const res = await fetch(`/api/transfers/${transfer.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, ...extra }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Action failed");
       const done: Record<typeof action, string> = { complete: "completed", cancel: "cancelled", dispatch: "dispatched", returnToSource: "returned to source" };
       toast.success(`Transfer ${done[action]}`);
+      setShowDispatch(false);
+      setShowComplete(false);
+      setVehicle(EMPTY_VEHICLE);
+      setChallanNumber("");
+      setPackageCount("");
+      setDeliveryMode("");
+      setShortageRemarks("");
+      setDamageRemarks("");
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setActing(false);
     }
+  }
+
+  function handleDispatch() {
+    doAction("dispatch", {
+      vehicleNumber: vehicle.vehicleNumber || undefined,
+      vehicleType: vehicle.vehicleType || undefined,
+      driverName: vehicle.driverName || undefined,
+      driverPhone: vehicle.driverPhone || undefined,
+      transporterName: vehicle.transporterName || undefined,
+      challanNumber: challanNumber || undefined,
+      packageCount: packageCount ? Number(packageCount) : undefined,
+    });
+  }
+
+  function handleComplete() {
+    doAction("complete", {
+      deliveryMode: deliveryMode || undefined,
+      shortageRemarks: shortageRemarks || undefined,
+      damageRemarks: damageRemarks || undefined,
+    });
   }
 
   return (
@@ -367,10 +408,10 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
       {/* Actions for DRAFT transfers */}
       {transfer.status === "DRAFT" && (
         <div className="flex gap-2 border-t border-border pt-3">
-          <Button variant="default" size="sm" onClick={() => doAction("dispatch")} disabled={acting}>
+          <Button variant="default" size="sm" onClick={() => setShowDispatch(true)} disabled={acting}>
             <Send className="h-4 w-4" /> Dispatch
           </Button>
-          <Button variant="default" size="sm" onClick={() => doAction("complete")} disabled={acting}>
+          <Button variant="default" size="sm" onClick={() => setShowComplete(true)} disabled={acting}>
             <Check className="h-4 w-4" /> Complete Transfer
           </Button>
           <Button variant="outline" size="sm" onClick={() => doAction("cancel")} disabled={acting} className="text-muted-foreground hover:text-danger">
@@ -382,7 +423,7 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
       {/* Actions for IN_TRANSIT transfers */}
       {transfer.status === "IN_TRANSIT" && (
         <div className="flex gap-2 border-t border-border pt-3">
-          <Button variant="default" size="sm" onClick={() => doAction("complete")} disabled={acting}>
+          <Button variant="default" size="sm" onClick={() => setShowComplete(true)} disabled={acting}>
             <Check className="h-4 w-4" /> Complete Transfer
           </Button>
           <Button variant="outline" size="sm" onClick={() => doAction("returnToSource")} disabled={acting} className="text-muted-foreground hover:text-warning">
@@ -390,6 +431,74 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
           </Button>
         </div>
       )}
+
+      {/* Dispatch dialog with vehicle capture */}
+      <Dialog
+        open={showDispatch}
+        onOpenChange={setShowDispatch}
+        title="Dispatch Transfer"
+        description="Capture vehicle and dispatch details for traceability."
+        className="max-w-lg"
+      >
+        <div className="space-y-3">
+          <VehicleCaptureSection value={vehicle} onChange={setVehicle} />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Challan Number</Label>
+              <Input value={challanNumber} onChange={(e) => setChallanNumber(e.target.value)} placeholder="Optional" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Package Count</Label>
+              <Input type="number" value={packageCount} onChange={(e) => setPackageCount(e.target.value)} placeholder="Optional" />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 border-t border-border pt-3">
+            <Button variant="outline" size="sm" onClick={() => setShowDispatch(false)}>Cancel</Button>
+            <Button size="sm" onClick={handleDispatch} disabled={acting}>
+              {acting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Dispatch
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Complete dialog with receive proof */}
+      <Dialog
+        open={showComplete}
+        onOpenChange={setShowComplete}
+        title="Complete Transfer"
+        description="Confirm receipt and capture any delivery issues."
+        className="max-w-lg"
+      >
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Delivery Mode</Label>
+              <Select value={deliveryMode} onChange={(e) => setDeliveryMode(e.target.value)}>
+                <option value="">—</option>
+                <option value="ROAD">Road</option>
+                <option value="HAND">Hand carry</option>
+                <option value="OTHER">Other</option>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Shortage Remarks</Label>
+            <Input value={shortageRemarks} onChange={(e) => setShortageRemarks(e.target.value)} placeholder="Any quantity shortages?" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Damage Remarks</Label>
+            <Input value={damageRemarks} onChange={(e) => setDamageRemarks(e.target.value)} placeholder="Any damage during transit?" />
+          </div>
+          <div className="flex justify-end gap-2 border-t border-border pt-3">
+            <Button variant="outline" size="sm" onClick={() => setShowComplete(false)}>Cancel</Button>
+            <Button size="sm" onClick={handleComplete} disabled={acting}>
+              {acting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              Confirm Receipt
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { completeMaintenance, retireEquipment, unretireEquipment, softDelete, logAction } from "@nirman/services";
+import { completeMaintenance, retireEquipment, unretireEquipment, sellEquipment, softDelete, logAction } from "@nirman/services";
 import { z } from "zod";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -109,6 +109,35 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
   }
 
+  if (action === "sell") {
+    const company = await getCompany();
+    // Verify company ownership
+    const existing = await prisma.equipment.findFirst({
+      where: { id, companyId: company.id, deletedAt: null },
+      select: { id: true },
+    });
+    if (!existing) return json({ error: "Equipment not found" }, { status: 404 });
+
+    const salePrice = Number(body?.salePrice);
+    if (!salePrice || salePrice <= 0) return json({ error: "Sale price must be positive" }, { status: 400 });
+
+    try {
+      await sellEquipment(id, {
+        salePrice,
+        gstAmount: body?.gstAmount ? Number(body.gstAmount) : undefined,
+        buyerName: body?.buyerName,
+        buyerPhone: body?.buyerPhone,
+        saleDate: body?.saleDate ? new Date(body.saleDate) : undefined,
+        notes: body?.notes,
+      }, user.id);
+      revalidatePath("/m/equipment");
+      revalidatePath("/equipment");
+      return json({ ok: true });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Sale failed") }, { status: 400 });
+    }
+  }
+
   if (action === "update") {
     const parsed = equipmentUpdateSchema.safeParse(body);
     if (!parsed.success) {
@@ -145,7 +174,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     return json({ ok: true, id: updated.id });
   }
 
-  return json({ error: "Invalid action. Use retire, unretire, complete-maintenance, or update." }, { status: 400 });
+  return json({ error: "Invalid action. Use retire, unretire, complete-maintenance, sell, or update." }, { status: 400 });
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {

@@ -1038,7 +1038,7 @@ export type AuditLogRow = {
 //  Equipment module
 // ───────────────────────────────────────────────────────────
 
-export type EquipmentStatus = "AVAILABLE" | "ASSIGNED" | "IN_MAINTENANCE" | "RETIRED";
+export type EquipmentStatus = "AVAILABLE" | "ASSIGNED" | "IN_MAINTENANCE" | "RETIRED" | "SOLD";
 export type MaintenanceType = "SCHEDULED" | "REPAIR" | "INSPECTION";
 
 export type EquipmentRow = {
