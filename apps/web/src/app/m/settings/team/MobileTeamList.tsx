@@ -15,6 +15,7 @@ import {
   X,
   Pencil,
   Code,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ROLES, roleTier, type Role } from "@/lib/roles";
@@ -31,6 +32,7 @@ import {
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { ScopeEditorDialog } from "@/components/settings/scope-editor-dialog";
+import { PermissionsEditorDialog } from "@/components/settings/permissions-editor-dialog";
 
 interface TeamMember {
   id: string;
@@ -402,6 +404,7 @@ function MemberCard({
   const [changing, setChanging] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showScope, setShowScope] = useState(false);
+  const [showPerms, setShowPerms] = useState(false);
   const meta = ROLE_META[member.role];
   const Icon = meta.icon;
 
@@ -619,6 +622,21 @@ function MemberCard({
             </button>
           )}
 
+          {/* Module permissions button (managers only) */}
+          {canManage && (
+            <button
+              onClick={() => setShowPerms(true)}
+              className="flex w-full items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press mb-2"
+              style={{
+                color: "var(--color-ink-500)",
+                backgroundColor: "var(--color-concrete)",
+              }}
+            >
+              <Lock className="size-3" />
+              Module Permissions
+            </button>
+          )}
+
           {/* Role change */}
           {canManage && (
             <>
@@ -696,6 +714,21 @@ function MemberCard({
           onClose={() => setShowScope(false)}
           onSaved={() => {
             setShowScope(false);
+            onChanged();
+          }}
+        />
+      )}
+
+      {/* Permissions editor dialog */}
+      {showPerms && (
+        <PermissionsEditorDialog
+          userId={member.id}
+          userName={member.name}
+          userRole={member.role}
+          canEdit={true}
+          onClose={() => setShowPerms(false)}
+          onSaved={() => {
+            setShowPerms(false);
             onChanged();
           }}
         />

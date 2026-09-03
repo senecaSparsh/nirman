@@ -237,6 +237,97 @@ export type Permission = (typeof PERM)[keyof typeof PERM];
 
 export const ALL_PERMISSIONS: string[] = Object.values(PERM);
 
+/**
+ * Permission groups by module — used by the permissions UI to show
+ * toggles grouped by functional area. Each module has a label, icon
+ * name, and the list of permission keys that belong to it.
+ */
+export const PERMISSION_MODULES: {
+  key: string;
+  label: string;
+  icon: string;
+  permissions: string[];
+}[] = [
+  {
+    key: "projects",
+    label: "Projects & Planning",
+    icon: "HardHat",
+    permissions: [PERM.PROJECTS_VIEW, PERM.PROJECTS_MANAGE, PERM.BOQ_VIEW, PERM.BOQ_MANAGE, PERM.WBS_VIEW, PERM.WBS_MANAGE, PERM.MB_VIEW, PERM.MB_VERIFY, PERM.MB_APPROVE, PERM.PROJECT_CONTROL_VIEW],
+  },
+  {
+    key: "inventory",
+    label: "Inventory & Stock",
+    icon: "Package",
+    permissions: [PERM.INVENTORY_VIEW, PERM.INVENTORY_MANAGE, PERM.STOCK_TRANSFER, PERM.STOCK_ISSUE],
+  },
+  {
+    key: "procurement",
+    label: "Procurement",
+    icon: "ShoppingCart",
+    permissions: [PERM.PROCUREMENT_VIEW, PERM.PROCUREMENT_MANAGE, PERM.PO_APPROVE, PERM.REQUISITION_APPROVE, PERM.QUOTATION_VIEW, PERM.QUOTATION_MANAGE],
+  },
+  {
+    key: "assets",
+    label: "Assets & Land",
+    icon: "MapPin",
+    permissions: [PERM.ASSETS_VIEW, PERM.ASSETS_MANAGE, PERM.ASSET_SELL, PERM.LAND_PARTITION, PERM.LEGAL_MANAGE],
+  },
+  {
+    key: "finance",
+    label: "Finance & Books",
+    icon: "Calculator",
+    permissions: [PERM.FINANCE_VIEW, PERM.FINANCE_MANAGE, PERM.EXPENSE_CREATE, PERM.EXPENSE_APPROVE],
+  },
+  {
+    key: "sales",
+    label: "Sales",
+    icon: "TrendingUp",
+    permissions: [PERM.SALES_VIEW, PERM.SALES_MANAGE, PERM.SALE_CREATE],
+  },
+  {
+    key: "hr",
+    label: "People & HR",
+    icon: "Users",
+    permissions: [PERM.HR_VIEW, PERM.HR_MANAGE, PERM.PAYROLL_VIEW, PERM.PAYROLL_MANAGE, PERM.DPR_SUBMIT, PERM.DPR_VIEW, PERM.DPR_APPROVE_SUB_ADMIN, PERM.DPR_APPROVE_ADMIN],
+  },
+  {
+    key: "subcontractor",
+    label: "Subcontractors & RA",
+    icon: "FileText",
+    permissions: [PERM.WO_MANAGE, PERM.RA_SUBMIT, PERM.RA_APPROVE, PERM.RA_PAY],
+  },
+  {
+    key: "vehicles",
+    label: "Vehicles",
+    icon: "Truck",
+    permissions: [PERM.VEHICLE_VIEW, PERM.VEHICLE_MANAGE],
+  },
+  {
+    key: "gate",
+    label: "Gate Pass",
+    icon: "DoorOpen",
+    permissions: [PERM.GATE_PASS_VIEW, PERM.GATE_PASS_CREATE, PERM.GATE_PASS_APPROVE, PERM.GATE_PASS_EXIT, PERM.GATE_PASS_MANAGE],
+  },
+  {
+    key: "tasks",
+    label: "Tasks & Workflows",
+    icon: "CheckSquare",
+    permissions: [PERM.TASKS_VIEW, PERM.TASKS_ASSIGN, PERM.TASKS_MANAGE_ALL, PERM.WORKFLOWS_VIEW, PERM.WORKFLOWS_MANAGE, PERM.WORKFLOWS_RUN, PERM.CANVAS_VIEW, PERM.CANVAS_EDIT, PERM.CANVAS_CREATE],
+  },
+  {
+    key: "calls",
+    label: "Calls & Telephony",
+    icon: "Phone",
+    permissions: [PERM.CALL_VIEW, PERM.CALL_VIEW_ALL, PERM.CALL_VIEW_CHILD, PERM.CALL_VIEW_FULL_NUMBER, PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_DELETE, PERM.CALL_MANAGE, PERM.CALL_RECORDING_LISTEN, PERM.CALL_RECORDING_DELETE, PERM.CALL_ANALYTICS, PERM.TELEPHONY_VIEW, PERM.TELEPHONY_MANAGE],
+  },
+  {
+    key: "admin",
+    label: "Admin & Settings",
+    icon: "Settings",
+    permissions: [PERM.USERS_VIEW, PERM.USERS_MANAGE, PERM.COMPANY_MANAGE, PERM.ATTACHMENT_MANAGE],
+  },
+];
+
 export const ROLES: Record<Role, RoleDef> = {
   // ── Tier 1: Executive ──
   OWNER: {

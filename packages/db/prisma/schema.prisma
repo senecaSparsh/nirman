@@ -179,6 +179,7 @@ model UserCompany {
   reportsTo   UserCompany? @relation("UserCompanyReportsTo", fields: [reportsToUserCompanyId], references: [id], onDelete: SetNull)
   directReports UserCompany[] @relation("UserCompanyReportsTo")
   scopes      UserScope[]
+  userPermissions UserPermission[]
 
   @@unique([userId, companyId])
   @@index([companyId])
@@ -220,6 +221,22 @@ model RolePermission {
 
   @@unique([role, permission])
   @@index([role])
+}
+
+// Fine-grained permission overrides per user (per company membership).
+// Additive to the role matrix + RolePermission overrides. A row grants
+// a permission to a specific user even if their role doesn't include it.
+// Used for customizing individual access without changing the role.
+model UserPermission {
+  id              String @id @default(cuid())
+  userCompanyId   String
+  permission      String // e.g. "po.approve", "inventory.view"
+  createdAt       DateTime @default(now())
+
+  userCompany UserCompany @relation(fields: [userCompanyId], references: [id], onDelete: Cascade)
+
+  @@unique([userCompanyId, permission])
+  @@index([userCompanyId])
 }
 
 // ───────────────────────────────────────────────────────────
@@ -744,6 +761,7 @@ model Project {
   isPossessed          Boolean  @default(false)
   possessionDate       DateTime?  // when possession was taken/handed over
   possessionNotes      String?
+  possessionDocumentUrl String?   // uploaded possession proof
   // Optimistic locking — see Material.version comment
   version      Int           @default(0)
   createdAt   DateTime      @default(now())
@@ -2219,6 +2237,7 @@ model LandPurchase {
   isPossessed          Boolean  @default(false)
   possessionDate       DateTime?  // when possession was taken
   possessionNotes      String?    // notes about possession (e.g. "keys handed over", "boundary wall done")
+  possessionDocumentUrl String?   // uploaded possession proof (handover letter, photo, etc.)
   // ── Partial payment registry ──
   // Normally registry requires full payment. But sometimes registry happens
   // before full payment (e.g. seller insists on registry, balance paid later).

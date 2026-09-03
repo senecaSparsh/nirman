@@ -430,7 +430,7 @@ The Build world is the core pipeline: **Acquire → Procure → Stock → Constr
 
 **Use cases**:
 - **UC-SALE-01: Book a unit** — `AssetSale` with buyer, unit, deal price, advance, payment plan, broker, T&C.
-- **UC-SALE-02: Sale lifecycle** — `BOOKED → ATS_BBA_SIGNED → REGISTERED → COMPLETED`.
+- **UC-SALE-02: Sale lifecycle** — `PENDING → DEPOSIT_RECEIVED → COMPLETED` (enum); UI derives full lifecycle `BOOKED → BBA_SIGNED → REGISTERED → COMPLETED` from document fields (BBA doc upload, registry doc upload).
 - **UC-SALE-03: Document uploads per stage** — ATS/BBA, sale deed, registry.
 - **UC-SALE-04: T&C cost allocation** — Each cost component (registration, stamp, transfer, lease, GST) toggles “borne by client or seller”.
 - **UC-SALE-05: Broker & commission** — `Broker` master with default %; `brokerageAmount` and payment status tracked.
@@ -525,7 +525,7 @@ The Build world is the core pipeline: **Acquire → Procure → Stock → Constr
 
 ### 5.1 Chart of Accounts & General Ledger
 
-**Real-world scenario**: The system must post double-entry books that always tie to Tally, with 26 system accounts and GST separation.
+**Real-world scenario**: The system must post double-entry books that always tie to Tally, with 32 system accounts and GST separation.
 
 **Use cases**:
 - **UC-GL-01: Seed chart of accounts** — `GlAccount` with `ACCT` codes: stock, WIP, land, suppliers, customers, GST input/output, TDS, banks, cash, etc.
@@ -985,7 +985,7 @@ Security guard (gate entry), STORE_KEEPER / SUPERVISOR (GRN), QAQC_ENGINEER (ins
 
 ### Detailed steps
 
-1. **Truck arrives at site. Security guard opens mobile `/m/gate-entry` or desktop `/gate-entry`.**
+1. **Truck arrives at site. Security guard directs to store keeper who opens mobile `/m/gate-pass` or desktop `/gate-passes` (outbound gate passes). Inbound deliveries are received directly via the GRN/receive dialog (`MobileReceiveDialog`) which generates an unloading slip number via `/api/gate-entry/next`.**
    - Form: supplier (challan supplier), vehicle number, driver name, challan number, gate-in time auto-stamped.
 2. **Guard submits gate entry.**
    - `GatePass` (or `GateEntry`) created with `INBOUND` category and sequential gate-in number.

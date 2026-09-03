@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, UserPlus, X, Plug, Pencil, Layers, Warehouse } from "lucide-react";
+import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, UserPlus, X, Plug, Pencil, Layers, Warehouse, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,7 @@ import { CostCentresTab } from "@/components/settings/cost-centres-tab";
 import { PeopleTab } from "@/components/settings/people-tab";
 import { IntegrationsTab } from "@/components/settings/integrations-tab";
 import { ScopeEditorDialog } from "@/components/settings/scope-editor-dialog";
+import { PermissionsEditorDialog } from "@/components/settings/permissions-editor-dialog";
 import type { StockLocationRow, DepartmentRow } from "@/lib/types";
 import { useTabParam } from "@/lib/use-tab-param";
 
@@ -801,6 +802,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
   const [adding, setAdding] = useState(false);
   const [editUser, setEditUser] = useState<UserRow | null>(null);
   const [scopeUser, setScopeUser] = useState<UserRow | null>(null);
+  const [permsUser, setPermsUser] = useState<UserRow | null>(null);
 
   const assignable = assignableRoles(actorRole);
 
@@ -1036,6 +1038,14 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
                         <Button
                           variant="ghost"
                           size="icon-sm"
+                          title="Module permissions"
+                          onClick={() => setPermsUser(u)}
+                        >
+                          <Lock className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
                           title="Edit profile"
                           onClick={() => setEditUser(u)}
                         >
@@ -1084,6 +1094,18 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
           canEdit={canManage}
           onClose={() => setScopeUser(null)}
           onSaved={() => { setScopeUser(null); router.refresh(); }}
+        />
+      )}
+
+      {/* Permissions editor dialog */}
+      {permsUser && (
+        <PermissionsEditorDialog
+          userId={permsUser.id}
+          userName={permsUser.name}
+          userRole={permsUser.role}
+          canEdit={canManage}
+          onClose={() => setPermsUser(null)}
+          onSaved={() => { setPermsUser(null); router.refresh(); }}
         />
       )}
     </div>

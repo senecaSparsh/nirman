@@ -408,6 +408,53 @@ export function MobileDprForm({
     setLaborLines(laborLines.filter((_, i) => i !== idx));
   }
 
+  // ── Pull today's crew attendance for the selected project ──
+  const [pullingAttendance, setPullingAttendance] = useState(false);
+  async function pullTodaysAttendance() {
+    if (!fProject) {
+      toast.error("Select a project first");
+      return;
+    }
+    setPullingAttendance(true);
+    try {
+      const res = await fetch(`/api/attendance?date=${fDate}&projectId=${fProject}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load attendance");
+      const records = Array.isArray(data) ? data : data.items ?? [];
+      if (records.length === 0) {
+        toast.info("No attendance records for today at this project");
+        return;
+      }
+      // Map attendance records to labor lines — each present worker gets a line
+      const pulled: LaborLine[] = records
+        .filter((r: { status?: string; checkInAt?: string | null }) => r.status === "PRESENT" || r.status === "HALF_DAY" || r.checkInAt)
+        .map((r: { employeeId: string | null; employeeName?: string; status?: string; hoursWorked?: number | null }) => ({
+          employeeId: r.employeeId ?? "",
+          crewId: "",
+          hoursWorked: r.hoursWorked ? String(r.hoursWorked) : r.status === "HALF_DAY" ? "4" : "8",
+          taskDescription: "",
+        }));
+      if (pulled.length === 0) {
+        toast.info("No checked-in workers found for today");
+        return;
+      }
+      // Merge with existing labor lines (avoid duplicates by employeeId)
+      const existingIds = new Set(laborLines.map((l) => l.employeeId).filter(Boolean));
+      const newLines = pulled.filter((l) => l.employeeId && !existingIds.has(l.employeeId));
+      if (newLines.length === 0) {
+        toast.info("All checked-in workers are already in the labour list");
+        return;
+      }
+      setLaborLines([...laborLines, ...newLines]);
+      haptic(20);
+      toast.success(`Pulled ${newLines.length} worker${newLines.length > 1 ? "s" : ""} from today's attendance`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to pull attendance");
+    } finally {
+      setPullingAttendance(false);
+    }
+  }
+
   async function submit() {
     if (!fProject) {
       haptic([50, 20, 50]);
@@ -734,14 +781,27 @@ export function MobileDprForm({
           <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
             Labour utilised
           </p>
-          <button
-            type="button"
-            onClick={addLaborLine}
-            className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption font-bold text-m-body press"
-            style={{ borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-          >
-            <Plus className="size-2.5" /> Add
-          </button>
+          <div className="flex items-center gap-1.5">
+            {fProject && !editingDprId && (
+              <button
+                type="button"
+                onClick={pullTodaysAttendance}
+                disabled={pullingAttendance}
+                className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption font-bold text-m-body press disabled:opacity-50"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
+              >
+                {pullingAttendance ? <Loader2 className="size-2.5 animate-spin" /> : <CheckCircle2 className="size-2.5" />} Attendance
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={addLaborLine}
+              className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption font-bold text-m-body press"
+              style={{ borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            >
+              <Plus className="size-2.5" /> Add
+            </button>
+          </div>
         </div>
         <div className="flex flex-col gap-2">
           {laborLines.map((l, idx) => (

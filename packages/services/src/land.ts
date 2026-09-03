@@ -1170,6 +1170,7 @@ export interface MarkPossessionInput {
   possessionDate?: string;
   notes?: string;
   userId?: string;
+  possessionDocumentUrl?: string;
 }
 
 export async function markPossession(input: MarkPossessionInput) {
@@ -1186,6 +1187,7 @@ export async function markPossession(input: MarkPossessionInput) {
             ? (input.possessionDate ? new Date(input.possessionDate) : new Date())
             : null,
           possessionNotes: input.notes ?? null,
+          possessionDocumentUrl: input.isPossessed ? (input.possessionDocumentUrl ?? null) : null,
         },
       });
 
@@ -1197,7 +1199,7 @@ export async function markPossession(input: MarkPossessionInput) {
           entityType: "LandPurchase",
           entityId: input.landPurchaseId,
           before: { isPossessed: lp.isPossessed },
-          after: { isPossessed: input.isPossessed, possessionDate: updated.possessionDate },
+          after: { isPossessed: input.isPossessed, possessionDate: updated.possessionDate, possessionDocumentUrl: input.possessionDocumentUrl ?? null },
         });
       }
       return updated;
@@ -1215,6 +1217,7 @@ export async function markPossession(input: MarkPossessionInput) {
             ? (input.possessionDate ? new Date(input.possessionDate) : new Date())
             : null,
           possessionNotes: input.notes ?? null,
+          possessionDocumentUrl: input.isPossessed ? (input.possessionDocumentUrl ?? null) : null,
         },
       });
 
@@ -1226,7 +1229,7 @@ export async function markPossession(input: MarkPossessionInput) {
           entityType: "Project",
           entityId: input.projectId,
           before: { isPossessed: proj.isPossessed },
-          after: { isPossessed: input.isPossessed, possessionDate: updated.possessionDate },
+          after: { isPossessed: input.isPossessed, possessionDate: updated.possessionDate, possessionDocumentUrl: input.possessionDocumentUrl ?? null },
         });
       }
       return updated;

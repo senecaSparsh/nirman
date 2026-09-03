@@ -1479,18 +1479,29 @@ export async function projectScopeFilter(): Promise<{ id: { in: string[] } } | u
 
 /**
  * Get the current user's effective permission list (role matrix +
- * any additive RolePermission overrides from the DB). Cached per
- * request via a module-level memo would be nice but is not required
- * for correctness.
+ * any additive RolePermission overrides from the DB + per-user
+ * UserPermission overrides). Cached per request via a module-level
+ * memo would be nice but is not required for correctness.
  */
 export async function getUserPermissions(): Promise<string[]> {
   const user = await getCurrentUser();
   if (!user) return [];
-  const overrides = await prisma.rolePermission
-    .findMany({ where: { role: user.role }, select: { permission: true } })
-    .then((rows) => rows.map((r) => r.permission))
-    .catch(() => [] as string[]);
-  return effectivePermissions(user.role, overrides);
+  const company = await getCompany();
+  // Fetch role-level and user-level overrides in parallel
+  const [roleOverrides, userMembership] = await Promise.all([
+    prisma.rolePermission
+      .findMany({ where: { role: user.role }, select: { permission: true } })
+      .then((rows) => rows.map((r) => r.permission))
+      .catch(() => [] as string[]),
+    prisma.userCompany
+      .findUnique({
+        where: { userId_companyId: { userId: user.id, companyId: company.id } },
+        include: { userPermissions: { select: { permission: true } } },
+      })
+      .catch(() => null),
+  ]);
+  const userOverrides = userMembership?.userPermissions.map((p) => p.permission) ?? [];
+  return effectivePermissions(user.role, [...roleOverrides, ...userOverrides]);
 }
 
 /** Error thrown when a permission/role check fails — caught by apiHandler. */
