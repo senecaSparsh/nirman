@@ -6,7 +6,7 @@ import { PERM } from "@/lib/roles";
 
 /**
  * POST /api/land-purchases/[id]/possession — mark or unmark possession of the land.
- * Body: { isPossessed: boolean, possessionDate?: string, notes?: string }
+ * Body: { isPossessed: boolean, possessionDate?: string, notes?: string, possessionDocumentUrl?: string }
  */
 export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.ASSETS_MANAGE);
@@ -23,6 +23,7 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
       isPossessed: body.isPossessed,
       possessionDate: body.possessionDate,
       notes: body.notes,
+      possessionDocumentUrl: body.possessionDocumentUrl,
       userId: user.id,
     });
     revalidatePath("/land");

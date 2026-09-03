@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { IndianRupee } from "lucide-react";
+import { IndianRupee, Loader2, Upload } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
@@ -53,6 +53,8 @@ export function SupplierPaymentFormDialog({
   const [referenceNo, setReferenceNo] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [chequePhotoUrl, setChequePhotoUrl] = useState<string | null>(null);
   const [errors, setErrors] = useState<ValidationErrors<PaymentFormValues>>({});
 
   function validateField(key: keyof PaymentFormValues): string | undefined {
@@ -101,6 +103,27 @@ export function SupplierPaymentFormDialog({
     }
     setSaving(true);
     try {
+      let finalChequeUrl = chequePhotoUrl;
+      // If a file was selected, upload it first
+      const fileInput = document.getElementById("sp-cheque-photo") as HTMLInputElement | null;
+      if (fileInput?.files?.[0]) {
+        setUploading(true);
+        try {
+          const formData = new FormData();
+          formData.append("file", fileInput.files[0]);
+          const uploadRes = await fetch("/api/uploads", { method: "POST", body: formData });
+          const uploadData = await uploadRes.json();
+          if (!uploadRes.ok) throw new Error(uploadData.error ?? "Upload failed");
+          finalChequeUrl = uploadData.url ?? null;
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Cheque photo upload failed");
+          setSaving(false);
+          setUploading(false);
+          return;
+        } finally {
+          setUploading(false);
+        }
+      }
       const res = await fetch("/api/supplier-payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -113,6 +136,7 @@ export function SupplierPaymentFormDialog({
           paymentDate,
           paymentMode,
           referenceNo: referenceNo || undefined,
+          chequePhotoUrl: finalChequeUrl,
           notes: notes || undefined,
         }),
       });
@@ -223,6 +247,22 @@ export function SupplierPaymentFormDialog({
             />
           </Field>
         </div>
+
+        {/* Cheque photo upload (only for CHEQUE payments) */}
+        {paymentMode === "CHEQUE" && (
+          <Field label="Cheque Photo">
+            <div className="flex items-center gap-2">
+              <input
+                id="sp-cheque-photo"
+                type="file"
+                accept="image/*,application/pdf"
+                className="text-caption text-muted-foreground file:mr-2 file:rounded file:border-0 file:bg-primary file:px-2 file:py-1 file:text-primary-foreground"
+                disabled={uploading}
+              />
+              {uploading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+            </div>
+          </Field>
+        )}
 
         {/* TDS Section */}
         <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-3">
