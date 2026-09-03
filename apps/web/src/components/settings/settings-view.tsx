@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, UserPlus, X, Plug, Pencil, Layers, Warehouse, Lock, KeyRound } from "lucide-react";
+import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, UserPlus, X, Plug, Pencil, Layers, Warehouse, Lock, KeyRound, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,7 @@ import { PermissionsEditorDialog } from "@/components/settings/permissions-edito
 import { CreateUserDialog } from "@/components/settings/create-user-dialog";
 import { ResetPasswordDialog } from "@/components/settings/reset-password-dialog";
 import { RolePermissionsDialog } from "@/components/settings/role-permissions-dialog";
+import { UserActivityDialog } from "@/components/settings/user-activity-dialog";
 import type { StockLocationRow, DepartmentRow } from "@/lib/types";
 import { useTabParam } from "@/lib/use-tab-param";
 
@@ -805,6 +806,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
   const [resetUser, setResetUser] = useState<UserRow | null>(null);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showRolePerms, setShowRolePerms] = useState(false);
+  const [activityUser, setActivityUser] = useState<UserRow | null>(null);
 
   const assignable = assignableRoles(actorRole);
 
@@ -983,6 +985,14 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
                         <Button
                           variant="ghost"
                           size="icon-sm"
+                          title="Activity log"
+                          onClick={() => setActivityUser(u)}
+                        >
+                          <History className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
                           title="Edit profile"
                           onClick={() => setEditUser(u)}
                         >
@@ -1071,6 +1081,15 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
         <RolePermissionsDialog
           onClose={() => setShowRolePerms(false)}
           onSaved={() => { setShowRolePerms(false); router.refresh(); }}
+        />
+      )}
+
+      {/* User activity dialog */}
+      {activityUser && (
+        <UserActivityDialog
+          userId={activityUser.id}
+          userName={activityUser.name}
+          onClose={() => setActivityUser(null)}
         />
       )}
     </div>

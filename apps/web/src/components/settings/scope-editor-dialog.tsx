@@ -29,6 +29,13 @@ type ScopeResponse = {
     department: { id: string; code: string; name: string } | null;
     project: { id: string; name: string } | null;
   }[];
+  potentialManagers: {
+    membershipId: string;
+    userId: string;
+    name: string;
+    email: string;
+    role: string;
+  }[];
 };
 
 /**
@@ -63,6 +70,8 @@ export function ScopeEditorDialog({
   const [saving, setSaving] = useState(false);
   const [scopeType, setScopeType] = useState<"COMPANY" | "DEPARTMENT" | "PROJECT">("COMPANY");
   const [entries, setEntries] = useState<ScopeEntry[]>([]);
+  const [reportsTo, setReportsTo] = useState<string>("");
+  const [potentialManagers, setPotentialManagers] = useState<{ membershipId: string; name: string; role: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Load current scope on open
@@ -88,6 +97,8 @@ export function ScopeEditorDialog({
             projectId: s.projectId,
           })),
         );
+        setReportsTo(data.reportsToUserCompanyId ?? "");
+        setPotentialManagers(data.potentialManagers ?? []);
       } catch (err: unknown) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load scope");
@@ -145,6 +156,7 @@ export function ScopeEditorDialog({
           role: userRole,
           scopeType,
           scopeEntries: cleanEntries,
+          reportsToUserCompanyId: reportsTo || null,
         }),
       });
       const data = await res.json();
@@ -300,6 +312,24 @@ export function ScopeEditorDialog({
           )}
 
           {error && <p className="text-caption text-danger">{error}</p>}
+
+          {/* Reporting line */}
+          {canEdit && potentialManagers.length > 0 && (
+            <div className="space-y-2 border-t border-border pt-3">
+              <Label>Reports To (optional)</Label>
+              <Select value={reportsTo} onChange={(e) => setReportsTo(e.target.value)}>
+                <option value="">No reporting line (top of chain)</option>
+                {potentialManagers.map((m) => (
+                  <option key={m.membershipId} value={m.membershipId}>
+                    {m.name} ({m.role})
+                  </option>
+                ))}
+              </Select>
+              <p className="text-caption text-muted-foreground">
+                Sets who this user reports to. Used for approval routing (e.g. DPR approvals go to the direct manager) and the org chart. Cycle prevention is enforced server-side.
+              </p>
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancel</Button>

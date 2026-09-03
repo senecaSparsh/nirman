@@ -69,17 +69,30 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const { id: userId } = await params;
 
   const { prisma } = await import("@nirman/db");
-  const membership = await prisma.userCompany.findUnique({
-    where: { userId_companyId: { userId, companyId: company.id } },
-    include: {
-      scopes: {
-        include: {
-          department: { select: { id: true, code: true, name: true } },
-          project: { select: { id: true, name: true } },
+  const [membership, otherMembers] = await Promise.all([
+    prisma.userCompany.findUnique({
+      where: { userId_companyId: { userId, companyId: company.id } },
+      include: {
+        scopes: {
+          include: {
+            department: { select: { id: true, code: true, name: true } },
+            project: { select: { id: true, name: true } },
+          },
         },
       },
-    },
-  });
+    }),
+    // Fetch all other members for the reportsTo selector
+    prisma.userCompany.findMany({
+      where: { companyId: company.id, userId: { not: userId } },
+      orderBy: { user: { name: "asc" } },
+      select: {
+        id: true,
+        role: true,
+        reportsToUserCompanyId: true,
+        user: { select: { id: true, name: true, email: true, active: true } },
+      },
+    }),
+  ]);
 
   if (!membership) {
     return json({ error: "User is not a member of this company" }, { status: 404 });
@@ -98,5 +111,15 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       department: s.department,
       project: s.project,
     })),
+    // Potential managers: all other active members
+    potentialManagers: otherMembers
+      .filter((m) => m.user.active)
+      .map((m) => ({
+        membershipId: m.id,
+        userId: m.user.id,
+        name: m.user.name,
+        email: m.user.email,
+        role: m.role,
+      })),
   });
 });
