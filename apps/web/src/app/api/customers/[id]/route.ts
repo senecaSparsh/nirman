@@ -32,7 +32,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   }
   try {
     const updated = await withSerializableTransaction(async (tx) => {
-      const existing = await tx.customer.findFirst({ where: { id, companyId: company.id } });
+      const existing = await tx.customer.findFirst({ where: { id, companyId: company.id, deletedAt: null } });
       if (!existing) throw new Error("Customer not found");
       if (expectedVersion !== undefined && existing.version !== expectedVersion) {
         throw new ConcurrentEditError("Customer", id, expectedVersion, existing.version);
@@ -65,7 +65,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   await requirePermission(PERM.SALES_MANAGE);
   const company = await getCompany();
   const { id } = await params;
-  const existing = await prisma.customer.findFirst({ where: { id, companyId: company.id } });
+  const existing = await prisma.customer.findFirst({ where: { id, companyId: company.id, deletedAt: null } });
   if (!existing) return json({ error: "Customer not found" }, { status: 404 });
   await softDelete("Customer", id);
   revalidatePath("/m/customers");

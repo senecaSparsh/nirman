@@ -1065,14 +1065,30 @@ export async function recordPayment(input: RecordPaymentInput) {
       }
     }
 
-    // Post the payment to the General Ledger: cash settles the receivable.
-    await postPaymentReceived(tx, {
-      companyId: sale.companyId,
-      assetSaleId: input.assetSaleId,
-      paymentId: payment.id,
-      amount,
-      postedById: input.userId,
-    });
+    // Post the payment to the General Ledger.
+    // Pre-completion (saleStage != COMPLETED): post as a deposit liability
+    //   (Dr Cash, Cr Customer Deposits) — revenue isn't recognised yet.
+    // Post-completion: post as a receivable settlement
+    //   (Dr Cash, Cr Accounts Receivable).
+    // Note: recordPayment currently blocks COMPLETED sales (line 979),
+    // so all payments reaching here are pre-completion → deposit.
+    // If that guard is ever relaxed, the else-branch will handle it.
+    if (sale.saleStage !== "COMPLETED") {
+      await postDepositReceived(tx, {
+        companyId: sale.companyId,
+        assetSaleId: input.assetSaleId,
+        amount,
+        postedById: input.userId,
+      });
+    } else {
+      await postPaymentReceived(tx, {
+        companyId: sale.companyId,
+        assetSaleId: input.assetSaleId,
+        paymentId: payment.id,
+        amount,
+        postedById: input.userId,
+      });
+    }
 
     if (input.userId) {
       await logAction(tx, {

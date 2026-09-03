@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, requireUser, json, userRoleSchema } from "@/lib/server";
-import { canAssignRole } from "@/lib/roles";
+import { apiHandler, requirePermission, json, userRoleSchema } from "@/lib/server";
+import { canAssignRole, PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
 /**
@@ -18,7 +18,7 @@ import { normalizePhone } from "@/lib/phone-otp";
  * All role changes are written to the AuditLog for compliance.
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const actor = await requireUser();
+  const actor = await requirePermission(PERM.USERS_MANAGE);
   const actorRole = actor.role;
   const actorId = actor.id;
 
