@@ -55,6 +55,8 @@ export function IssueFormDialog({
   const [projectId, setProjectId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [fromLocationId, setFromLocationId] = useState("");
+  const [builtUnitId, setBuiltUnitId] = useState("");
+  const [builtUnits, setBuiltUnits] = useState<{ id: string; unitNumber: string; unitType: string | null }[]>([]);
   const [receiverName, setReceiverName] = useState("");
   const [receiverMobile, setReceiverMobile] = useState("");
   const [roundOff, setRoundOff] = useState("");
@@ -76,6 +78,15 @@ export function IssueFormDialog({
       })
       .catch(() => setStockMap({}));
   }, [fromLocationId]);
+
+  // Fetch built units when project changes (for per-unit issue)
+  useEffect(() => {
+    if (target !== "PROJECT" || !projectId) { setBuiltUnits([]); setBuiltUnitId(""); return; }
+    fetch(`/api/built-units?projectId=${projectId}&status=AVAILABLE,BOOKED,SOLD`)
+      .then((r) => r.json())
+      .then((data: { id: string; unitNumber: string; unitType: string | null }[]) => setBuiltUnits(data))
+      .catch(() => setBuiltUnits([]));
+  }, [target, projectId]);
   const [errors, setErrors] = useState<ValidationErrors<IssueFormValues>>({});
   // Local copies so freshly created masters appear in their dropdowns without
   // waiting for router.refresh.
@@ -210,6 +221,7 @@ export function IssueFormDialog({
         body: JSON.stringify({
           projectId: target === "PROJECT" ? projectId : null,
           departmentId: target === "DEPARTMENT" ? departmentId : null,
+          builtUnitId: target === "PROJECT" ? (builtUnitId || null) : null,
           fromLocationId,
           notes: notes.trim() || null,
           receiverName: receiverName.trim() || null,
@@ -246,7 +258,7 @@ export function IssueFormDialog({
         });
       }
       onOpenChange(false);
-      setProjectId(""); setDepartmentId(""); setFromLocationId(""); setNotes("");
+      setProjectId(""); setDepartmentId(""); setFromLocationId(""); setBuiltUnitId(""); setNotes("");
       setReceiverName(""); setReceiverMobile(""); setRoundOff(""); setErrors({});
       setVehicle(EMPTY_VEHICLE);
       setLines([{ id: crypto.randomUUID(), materialId: "", materialName: "", unit: "", qty: "", lotNumber: "", available: null }]);
@@ -338,6 +350,24 @@ export function IssueFormDialog({
             {errors.fromLocationId && <p className="text-caption text-danger" role="alert">{errors.fromLocationId}</p>}
           </div>
         </div>
+
+        {/* Built unit selector — optional, only for project issues with available units */}
+        {target === "PROJECT" && projectId && builtUnits.length > 0 && (
+          <div className="space-y-1.5">
+            <Label>Built Unit (optional)</Label>
+            <Select value={builtUnitId} onChange={(e) => setBuiltUnitId(e.target.value)}>
+              <option value="">— Area-allocated (default) —</option>
+              {builtUnits.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.unitNumber}{u.unitType ? ` · ${u.unitType}` : ""}
+                </option>
+              ))}
+            </Select>
+            <p className="text-caption text-muted-foreground">
+              Selecting a unit sends the cost directly to that unit's production cost instead of area-allocating across all units.
+            </p>
+          </div>
+        )}
 
         {/* Receiver accountability — matches the paper Stock Issue Slip */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

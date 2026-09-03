@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Package, Printer, MapPin, User, Truck, Phone,
-  AlertCircle, Loader2, X, Ban, FileText,
+  AlertCircle, Loader2, X, Ban, FileText, CheckCircle2,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
@@ -58,15 +58,18 @@ interface IssueData {
 export function MobileMaterialIssueDetailClient({
   issue,
   canCancel,
+  canExecute,
   notFound,
 }: {
   issue?: IssueData;
   canCancel: boolean;
+  canExecute?: boolean;
   notFound?: boolean;
 }) {
   const router = useRouter();
   const [showCancel, setShowCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [executing, setExecuting] = useState(false);
 
   if (notFound || !issue) {
     return (
@@ -99,6 +102,25 @@ export function MobileMaterialIssueDetailClient({
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
       setCancelling(false);
+    }
+  }
+
+  async function handleExecute() {
+    setExecuting(true);
+    try {
+      const res = await fetch(`/api/issue-materials`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "execute", issueId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to execute");
+      toast.success("Material issue executed — stock moved");
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setExecuting(false);
     }
   }
 
@@ -153,7 +175,7 @@ export function MobileMaterialIssueDetailClient({
         </div>
       ) : null}
 
-      {/* ── Print + Cancel actions ── */}
+      {/* ── Print + Execute + Cancel actions ── */}
       <div className="flex gap-2">
         {issue.issueNumber ? (
           <a
@@ -166,6 +188,17 @@ export function MobileMaterialIssueDetailClient({
             <Printer className="size-3.5" />
             Print Slip
           </a>
+        ) : null}
+        {canExecute && !isCancelled ? (
+          <button
+            onClick={handleExecute}
+            disabled={executing}
+            className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] py-2 text-m-label font-bold text-m-body press active:scale-95 disabled:opacity-50"
+            style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
+          >
+            {executing ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}
+            Execute Issue
+          </button>
         ) : null}
         {canCancel && !isCancelled ? (
           <button

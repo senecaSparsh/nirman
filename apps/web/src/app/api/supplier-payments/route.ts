@@ -89,6 +89,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
 
     revalidatePath("/supplier-payments");
+    revalidatePath("/finance");
     revalidatePath("/m/suppliers");
     return json(
       {

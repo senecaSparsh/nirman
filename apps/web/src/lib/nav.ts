@@ -45,6 +45,7 @@ import {
   RefreshCw,
   Phone,
   PhoneCall,
+  IndianRupee,
   type LucideIcon,
 } from "lucide-react";
 
@@ -881,6 +882,14 @@ export const WORLDS: World[] = [
             roles: BOOKS,
             keywords: ["receivable", "payable", "outstanding", "overdue", "dues", "pending payment"],
           },
+          {
+            label: "Supplier Payments",
+            href: "/supplier-payments",
+            icon: IndianRupee,
+            hint: "Record and track all supplier payments — cheques, bank transfers, TDS",
+            roles: BOOKS,
+            keywords: ["supplier payment", "vendor payment", "cheque", "bank transfer", "tds", "ap payment"],
+          },
           // ── Finance reports (hidden from sidebar, on /reports) ──
           {
             label: "Cash Flow",
@@ -956,6 +965,16 @@ export const WORLDS: World[] = [
             keywords: ["tds", "certificate", "194c", "form 16c", "subcontractor", "tax deducted", "tds certificate"],
           },
           // ── Books reports (hidden from sidebar, on /reports) ──
+          {
+            label: "Balance Sheet",
+            href: "/reports/balance-sheet",
+            icon: Scale,
+            hint: "Assets = Liabilities + Equity — the company's financial position",
+            roles: BOOKS,
+            keywords: ["balance sheet", "position", "assets", "liabilities", "equity", "net worth"],
+            hidden: true,
+            group: RG.BOOKS,
+          },
           {
             label: "Profit & Loss",
             href: "/reports/profit",

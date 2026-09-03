@@ -130,7 +130,7 @@ async function MobileMaterialIssueDetailContent({
       <div className="mb-3 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <MobilePipelineStepper steps={issuePipelineSteps} />
       </div>
-      <MobileMaterialIssueDetailClient issue={data} canCancel={canIssue && issue.status === "COMPLETED"} />
+      <MobileMaterialIssueDetailClient issue={data} canCancel={canIssue && issue.status === "COMPLETED"} canExecute={canIssue && issue.status === "PENDING"} />
     </>
   );
 }

@@ -62,7 +62,10 @@ async function ApprovalsContent() {
   const canApproveReq = perms.includes(PERM.REQUISITION_APPROVE);
   const canApproveGatePass = perms.includes(PERM.GATE_PASS_APPROVE);
   const canApproveExpense = perms.includes(PERM.EXPENSE_APPROVE);
-  if (!canApprovePo && !canApproveReq && !canApproveGatePass && !canApproveExpense) {
+  const canApproveDprSubAdmin = perms.includes(PERM.DPR_APPROVE_SUB_ADMIN);
+  const canApproveDprAdmin = perms.includes(PERM.DPR_APPROVE_ADMIN);
+  const canApproveDpr = canApproveDprSubAdmin || canApproveDprAdmin;
+  if (!canApprovePo && !canApproveReq && !canApproveGatePass && !canApproveExpense && !canApproveDpr) {
     return (
       <NoAccess what="the approval queue" />
     );
@@ -85,7 +88,7 @@ async function ApprovalsContent() {
       ? { projectId: { in: scope.projectIds } }
       : {};
 
-  const [purchaseOrders, requisitions, gatePasses, pendingExpenses, pendingClaims, expenseCategories] = await Promise.all([
+  const [purchaseOrders, requisitions, gatePasses, pendingExpenses, pendingClaims, expenseCategories, pendingDprs] = await Promise.all([
     canApprovePo
       ? prisma.purchaseOrder.findMany({
           take: 500,
@@ -161,6 +164,24 @@ async function ApprovalsContent() {
       ? prisma.expenseCategory.findMany({
           where: { companyId: company.id },
           select: { id: true, name: true, glAccountCode: true, description: true, isActive: true },
+        })
+      : [],
+    canApproveDpr
+      ? prisma.dailyProgressReport.findMany({
+          take: 200,
+          where: {
+            project: { companyId: company.id },
+            approvalStatus: canApproveDprAdmin ? { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] } : "SUBMITTED",
+            ...(scope.scopeType === "PROJECT" && scope.projectIds.length > 0 ? { projectId: { in: scope.projectIds } } : {}),
+          },
+          orderBy: { date: "desc" },
+          include: {
+            project: { select: { id: true, name: true } },
+            submittedBy: { select: { id: true, name: true } },
+            subAdminApprovedBy: { select: { name: true } },
+            materialLines: { select: { id: true, qty: true } },
+            laborLines: { select: { id: true } },
+          },
         })
       : [],
   ]);
@@ -311,7 +332,7 @@ async function ApprovalsContent() {
     canApprove: canApproveExpense && c.claimantId !== user.id,
   }));
 
-  const totalCount = poRows.length + reqRows.length + gatePasses.length + expenseRows.length + claimRows.length;
+  const totalCount = poRows.length + reqRows.length + gatePasses.length + expenseRows.length + claimRows.length + pendingDprs.length;
   const overdueCount = [...poRows, ...reqRows].filter((r) => r.urgency === "overdue").length;
 
   return (
@@ -329,6 +350,7 @@ async function ApprovalsContent() {
             { label: "Claims", value: claimRows.length, hint: "Submitted expense claims pending your approval. Each line becomes an expense on approval." },
           ] : []),
           ...(canApproveGatePass ? [{ label: "Gate Passes", value: gatePasses.length, hint: "Gate passes pending approval before items can leave the gate." }] : []),
+          ...(canApproveDpr ? [{ label: "DPRs", value: pendingDprs.length, hint: "Daily Progress Reports pending sub-admin or admin approval." }] : []),
         ]}
       />
       {(poRows.length > 0 || reqRows.length > 0) && (
@@ -346,6 +368,37 @@ async function ApprovalsContent() {
           title="Nothing to approve"
           description="Items awaiting your sign-off will appear here."
         />
+      )}
+      {canApproveDpr && pendingDprs.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-subhead font-semibold">DPRs Pending Approval</h3>
+            <Link href="/dprs" className="text-caption text-brand hover:underline">View all →</Link>
+          </div>
+          <div className="space-y-2">
+            {pendingDprs.slice(0, 10).map((dpr) => (
+              <Link key={dpr.id} href={`/dprs/${dpr.id}`} className="flex items-center justify-between rounded-lg border border-border/40 p-2.5 hover:bg-muted/20">
+                <div>
+                  <div className="font-mono text-caption font-medium">
+                    {new Date(dpr.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                    {" · "}
+                    {dpr.project.name}
+                  </div>
+                  <div className="text-meta text-muted-foreground">
+                    {dpr.materialLines.length + dpr.laborLines.length} items · {dpr.submittedBy?.name ?? "—"}
+                    {dpr.approvalStatus === "SUB_ADMIN_APPROVED" && dpr.subAdminApprovedBy && ` · Sub-approved by ${dpr.subAdminApprovedBy.name}`}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {dpr.approvalStatus === "SUB_ADMIN_APPROVED" && (
+                    <span className="rounded bg-blue-100 px-1.5 py-0.5 text-meta font-medium text-blue-700">Sub-Approved</span>
+                  )}
+                  <span className="text-meta text-muted-foreground">→</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
       )}
       {canApproveGatePass && gatePasses.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-4">

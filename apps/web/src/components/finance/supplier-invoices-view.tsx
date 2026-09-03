@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, FileText, RefreshCw, Check, X, AlertTriangle, SearchX } from "lucide-react";
+import { Plus, FileText, RefreshCw, Check, X, AlertTriangle, SearchX, IndianRupee } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
@@ -12,7 +12,9 @@ import { EmptyState } from "@/components/empty-state";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { SupplierFormDialog } from "@/components/procurement/supplier-form-dialog";
+import { SupplierPaymentFormDialog } from "@/components/procurement/supplier-payment-form-dialog";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import type { SupplierRow } from "@/lib/types";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -358,6 +360,7 @@ export function SupplierInvoicesView({
             canManage={permissions.canManage}
             actionLoading={actionLoading}
             onAction={handleAction}
+            suppliers={suppliers}
           />
         ) : null}
       </Dialog>
@@ -372,13 +375,17 @@ function InvoiceDetailContent({
   canManage,
   actionLoading,
   onAction,
+  suppliers,
 }: {
   detail: InvoiceDetail;
   canManage: boolean;
   actionLoading: boolean;
   onAction: (action: "approve" | "reject") => void;
+  suppliers: SupplierOption[];
 }) {
   const canApprove = detail.status === "PENDING" || detail.status === "MATCHED" || detail.status === "DISPUTED";
+  const canPay = canManage && (detail.status === "APPROVED" || detail.status === "PAID");
+  const [showPayment, setShowPayment] = useState(false);
   return (
     <div className="space-y-4">
       {/* Summary row */}
@@ -502,7 +509,21 @@ function InvoiceDetailContent({
             </Button>
           </>
         )}
+        {canPay && (
+          <Button size="sm" onClick={() => setShowPayment(true)}>
+            <IndianRupee className="h-3.5 w-3.5" /> Record Payment
+          </Button>
+        )}
       </div>
+      {canPay && (
+        <SupplierPaymentFormDialog
+          open={showPayment}
+          onOpenChange={setShowPayment}
+          suppliers={suppliers as unknown as SupplierRow[]}
+          defaultSupplierId={detail.supplier.id}
+          defaultAmount={Number(detail.totalAmount)}
+        />
+      )}
     </div>
   );
 }

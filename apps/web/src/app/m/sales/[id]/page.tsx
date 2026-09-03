@@ -127,7 +127,10 @@ async function MobileSaleDetailContent({
   }
 
   const canManage = hasPermission(role, PERM.SALES_MANAGE);
-  const totalPaid = sale.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+  // Only count CLEARED payments — exclude PENDING and BOUNCED cheques
+  const totalPaid = sale.payments
+    .filter((p) => p.status !== "BOUNCED" && p.chequeStatus !== "BOUNCED" && p.chequeStatus !== "PENDING")
+    .reduce((sum, p) => sum + toNum(p.amount), 0);
 
   const asset = sale.assetType === "LAND"
     ? landParcel
