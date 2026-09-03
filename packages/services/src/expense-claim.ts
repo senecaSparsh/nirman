@@ -110,9 +110,10 @@ export async function removeClaimLine(lineId: string, companyId: string, userId?
     if (!line || line.claim.companyId !== companyId) throw new ServiceError("Claim line not found", 404);
     if (line.claim.status !== "DRAFT") throw new ServiceError("Can only remove lines from a DRAFT claim", 409);
     await tx.expenseClaimLine.delete({ where: { id: lineId } });
+    const lineGst = line.gstAmount ? new Decimal(line.gstAmount) : new Decimal(0);
     await tx.expenseClaim.update({
       where: { id: line.claimId },
-      data: { totalAmount: (line.claim.totalAmount as Decimal).minus(line.amount) },
+      data: { totalAmount: (line.claim.totalAmount as Decimal).minus(line.amount).minus(lineGst) },
     });
     await logAction(tx, {
       userId, companyId, action: "EXPENSE_CLAIM_LINE_REMOVE",
@@ -190,16 +191,30 @@ export async function approveExpenseClaim(claimId: string, companyId: string, us
         const cat = await tx.expenseCategory.findUnique({ where: { id: line.categoryId } });
         if (cat?.glAccountCode) accountCode = cat.glAccountCode;
       }
+      const lineGst = line.gstAmount ? new Decimal(line.gstAmount) : new Decimal(0);
+      const totalLineAmount = (line.amount as Decimal).plus(lineGst);
+      // Post GL: Dr <expense account> for base amount, Dr Input GST (ITC) for GST,
+      // Cr Cash for total (base + GST)
+      const glLines = [
+        { accountCode, debit: line.amount as Decimal, credit: 0, entityType: "Expense" as const, entityId: expense.id },
+        { accountCode: ACCT.CASH, debit: 0, credit: totalLineAmount, entityType: "Expense" as const, entityId: expense.id },
+      ];
+      if (lineGst.gt(0)) {
+        glLines.splice(1, 0, {
+          accountCode: ACCT.INPUT_GST,
+          debit: lineGst,
+          credit: 0,
+          entityType: "Expense" as const,
+          entityId: expense.id,
+        });
+      }
       await postJournalEntry(tx, {
         companyId,
         sourceType: "EXPENSE_CLAIM_APPROVAL",
         sourceId: expense.id,
         memo: `Claim reimbursement — ${line.category}`,
         postedById: userId,
-        lines: [
-          { accountCode, debit: line.amount as Decimal, credit: 0, entityType: "Expense", entityId: expense.id },
-          { accountCode: ACCT.CASH, debit: 0, credit: line.amount as Decimal, entityType: "Expense", entityId: expense.id },
-        ],
+        lines: glLines,
       });
     }
 
