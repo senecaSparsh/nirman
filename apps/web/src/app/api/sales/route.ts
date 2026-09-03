@@ -268,7 +268,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
       userId: user.id,
     });
 
+    revalidatePath("/sales");
     revalidatePath("/m/sales");
+    revalidatePath(`/sales/${sale.id}`);
+    revalidatePath(`/m/sales/${sale.id}`);
     return json({ ok: true, saleId: sale.id, saleNumber: sale.saleNumber }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to create sale") }, { status: 400 });

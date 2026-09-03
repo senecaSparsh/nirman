@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { updatePayrollLine } from "@nirman/services";
 import { apiHandler, json, payrollLineUpdateSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -25,6 +26,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       deductions: parsed.data.deductions,
       userId: user.id,
     });
+    revalidatePath("/payroll");
+    revalidatePath("/m/payroll");
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to update payroll line") }, { status: 400 });

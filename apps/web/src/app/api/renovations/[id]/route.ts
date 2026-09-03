@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { startRenovation, completeRenovation, cancelRenovation, logAction, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, renovationSchema, requirePermission } from "@/lib/server";
@@ -73,6 +74,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       });
       return r;
     });
+    revalidatePath("/renovations");
+    revalidatePath(`/renovations/${id}`);
     return json({ ok: true, id: updated.id, title: updated.title });
   } catch (err) {
     const message = err instanceof ServiceError ? err.message : "Failed to update renovation";
@@ -89,15 +92,23 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   try {
     if (action === "start") {
       const r = await startRenovation(id, user.id);
+      revalidatePath("/renovations");
+      revalidatePath(`/renovations/${id}`);
       return json({ ok: true, id: r.id, status: r.status });
     } else if (action === "complete") {
       const { renovation, roi } = await completeRenovation(id, {
         newValuation: body.newValuation ?? undefined,
         userId: user.id,
       });
+      revalidatePath("/renovations");
+      revalidatePath(`/renovations/${id}`);
+      revalidatePath("/projects");
+      revalidatePath("/gl");
       return json({ ok: true, id: renovation.id, status: renovation.status, roi: roi.toFixed(2) });
     } else if (action === "cancel") {
       const r = await cancelRenovation(id, user.id);
+      revalidatePath("/renovations");
+      revalidatePath(`/renovations/${id}`);
       return json({ ok: true, id: r.id, status: r.status });
     }
     return json({ error: "Unknown action. Use 'start', 'complete', or 'cancel'." }, { status: 400 });

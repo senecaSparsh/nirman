@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma, type MbEntryStatus } from "@nirman/db";
 import { createMbEntry } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
@@ -34,6 +35,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       measureDate: d.measureDate ? new Date(d.measureDate) : undefined,
       measuredById: user.id,
     });
+    revalidatePath("/boq");
+    revalidatePath("/projects");
     return json(entry, { status: 201 });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });

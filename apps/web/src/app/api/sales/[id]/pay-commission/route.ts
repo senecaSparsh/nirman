@@ -13,6 +13,8 @@ export const POST = apiHandler(async (_req: NextRequest, { params }: { params: P
   try {
     const sale = await payBrokerCommission(id, user.id);
     revalidatePath("/sales");
+    revalidatePath(`/sales/${id}`);
+    revalidatePath(`/m/sales/${id}`);
     return json({ ok: true, commissionPaid: sale.commissionPaid });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to pay commission") }, { status: 400 });

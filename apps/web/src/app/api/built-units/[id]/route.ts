@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { softDelete, updateUnitStatus, updateUnitValuation, updateBuiltUnit } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum, builtUnitStatusSchema, builtUnitValuationSchema, builtUnitEditSchema } from "@/lib/server";
@@ -56,6 +57,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
     try {
       await updateUnitStatus(id, statusParsed.data, user.id);
+      revalidatePath("/projects");
+      revalidatePath("/m/projects");
+      revalidatePath("/land");
+      revalidatePath("/m/land");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Status change failed") }, { status: 400 });
@@ -79,6 +84,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
         },
         user.id,
       );
+      revalidatePath("/projects");
+      revalidatePath("/m/projects");
+      revalidatePath("/land");
+      revalidatePath("/m/land");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Valuation update failed") }, { status: 400 });
@@ -120,6 +129,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
         hasLoadingDock: parsed.data.hasLoadingDock,
         userId: user.id,
       });
+      revalidatePath("/projects");
+      revalidatePath("/m/projects");
+      revalidatePath("/land");
+      revalidatePath("/m/land");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Edit failed") }, { status: 400 });

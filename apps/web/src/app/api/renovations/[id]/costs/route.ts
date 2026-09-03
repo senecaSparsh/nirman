@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { addRenovationCost, ServiceError } from "@nirman/services";
 import { apiHandler, json, renovationCostSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -21,6 +22,9 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       receiptUrl: parsed.data.receiptUrl ?? undefined,
       userId: user.id,
     });
+    revalidatePath("/renovations");
+    revalidatePath(`/renovations/${id}`);
+    revalidatePath("/gl");
     return json({ ok: true, id: cost.id }, { status: 201 });
   } catch (err) {
     const message = err instanceof ServiceError ? err.message : "Failed to add renovation cost";

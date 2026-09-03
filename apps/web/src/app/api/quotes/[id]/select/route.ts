@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { selectWinningQuote, notifyQuoteApproval } from "@nirman/services";
 import { PERM } from "@/lib/roles";
@@ -84,5 +85,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     // Notification failures should not block the quote selection
   }
 
+  revalidatePath("/requisitions");
+  revalidatePath("/procurement");
   return json({ ok: true, id: updated.id, status: updated.status });
 });

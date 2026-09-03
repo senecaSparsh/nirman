@@ -796,7 +796,7 @@ export interface CompleteSaleInput {
 }
 
 export async function completeSale(input: CompleteSaleInput) {
-  return withSerializableTransaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const sale = await tx.assetSale.findUnique({
       where: { id: input.saleId },
       include: { payments: true },
@@ -919,12 +919,14 @@ export async function completeSale(input: CompleteSaleInput) {
     }
 
     // 3. Post the final cash payment (Dr Cash, Cr AR)
+    let finalPaymentId: string | null = null;
     if (finalPayment.gt(0)) {
       const finalPaymentRow = await tx.assetSalePayment.findFirst({
         where: { assetSaleId: input.saleId },
         orderBy: { paymentDate: "desc" },
       });
       if (finalPaymentRow) {
+        finalPaymentId = finalPaymentRow.id;
         await postPaymentReceived(tx, {
           companyId: sale.companyId,
           assetSaleId: input.saleId,
@@ -947,8 +949,28 @@ export async function completeSale(input: CompleteSaleInput) {
       });
     }
 
-    return { saleStage: "COMPLETED" as const, paymentStatus: "PAID" as const };
+    return { saleStage: "COMPLETED" as const, paymentStatus: "PAID" as const, companyId: sale.companyId, finalPaymentId };
   });
+
+  // Auto-sync to Tally (best-effort, outside the transaction)
+  void (async () => {
+    try {
+      const entries = await prisma.journalEntry.findMany({
+        where: { sourceId: input.saleId, sourceType: { in: ["ASSET_SALE", "ASSET_SALE_COGS", "ASSET_SALE_DEPOSIT_SETTLE"] } },
+        select: { id: true },
+      });
+      for (const je of entries) await autoSyncEntryToTally(result.companyId, je.id);
+      if (result.finalPaymentId) {
+        const paymentJe = await prisma.journalEntry.findFirst({
+          where: { sourceId: result.finalPaymentId, sourceType: "PAYMENT_RECEIVED" },
+          select: { id: true },
+        });
+        if (paymentJe) await autoSyncEntryToTally(result.companyId, paymentJe.id);
+      }
+    } catch { /* best-effort */ }
+  })();
+
+  return result;
 }
 
 // ───────────────────────────────────────────────────────────
@@ -976,7 +998,6 @@ export async function recordPayment(input: RecordPaymentInput) {
     });
     if (!sale) throw new ServiceError("Sale not found", 404);
     if (sale.status === "CANCELLED") throw new ServiceError("Cannot record payment against a cancelled sale");
-    if (sale.saleStage === "COMPLETED") throw new ServiceError("Cannot record payment on a completed sale");
 
     const amount = new Decimal(input.amount);
     if (!amount.gt(0)) throw new ServiceError("Payment amount must be > 0");
@@ -1070,10 +1091,8 @@ export async function recordPayment(input: RecordPaymentInput) {
     //   (Dr Cash, Cr Customer Deposits) — revenue isn't recognised yet.
     // Post-completion: post as a receivable settlement
     //   (Dr Cash, Cr Accounts Receivable).
-    // Note: recordPayment currently blocks COMPLETED sales (line 979),
-    // so all payments reaching here are pre-completion → deposit.
-    // If that guard is ever relaxed, the else-branch will handle it.
-    if (sale.saleStage !== "COMPLETED") {
+    const isCompletedSale = sale.saleStage === "COMPLETED";
+    if (!isCompletedSale) {
       await postDepositReceived(tx, {
         companyId: sale.companyId,
         assetSaleId: input.assetSaleId,
@@ -1120,9 +1139,17 @@ export async function recordPayment(input: RecordPaymentInput) {
   // Auto-sync the payment GL entry to Tally (best-effort, outside the tx)
   void (async () => {
     try {
+      // Deposits use sourceType ASSET_SALE_DEPOSIT with sourceId = sale.id;
+      // post-completion payments use PAYMENT_RECEIVED with sourceId = payment.id
       const je = await prisma.journalEntry.findFirst({
-        where: { sourceId: result.payment.id, sourceType: "PAYMENT_RECEIVED" },
+        where: {
+          OR: [
+            { sourceId: result.payment.id, sourceType: "PAYMENT_RECEIVED" },
+            { sourceId: input.assetSaleId, sourceType: "ASSET_SALE_DEPOSIT" },
+          ],
+        },
         select: { id: true },
+        orderBy: { createdAt: "desc" },
       });
       if (je) await autoSyncEntryToTally(result.companyId, je.id);
     } catch { /* best-effort */ }
@@ -1293,7 +1320,7 @@ export async function updateSale(input: UpdateSaleInput) {
 // ───────────────────────────────────────────────────────────
 
 export async function cancelSale(saleId: string, userId?: string) {
-  return withSerializableTransaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const sale = await tx.assetSale.findUnique({
       where: { id: saleId },
       include: { payments: true },
@@ -1402,8 +1429,21 @@ export async function cancelSale(saleId: string, userId?: string) {
       });
     }
 
-    return updated;
+    return { updated, companyId: sale.companyId };
   });
+
+  // Auto-sync reversal entries to Tally (best-effort, outside the transaction)
+  void (async () => {
+    try {
+      const entries = await prisma.journalEntry.findMany({
+        where: { sourceId: saleId, sourceType: { in: ["ASSET_SALE_CANCEL", "DEPOSIT_REFUND", "BROKER_COMMISSION_REVERSAL"] } },
+        select: { id: true },
+      });
+      for (const je of entries) await autoSyncEntryToTally(result.companyId, je.id);
+    } catch { /* best-effort */ }
+  })();
+
+  return result.updated;
 }
 
 // ───────────────────────────────────────────────────────────
@@ -1624,7 +1664,7 @@ export function autoGenerateScheduleItems(
 // ───────────────────────────────────────────────────────────
 
 export async function payBrokerCommission(saleId: string, userId?: string) {
-  return withSerializableTransaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const sale = await tx.assetSale.findUnique({ where: { id: saleId } });
     if (!sale) throw new ServiceError("Sale not found", 404);
     if (sale.dealSource !== "BROKER") throw new ServiceError("Sale is not a broker deal");
@@ -1658,8 +1698,21 @@ export async function payBrokerCommission(saleId: string, userId?: string) {
       });
     }
 
-    return updated;
+    return { updated, companyId: sale.companyId };
   });
+
+  // Auto-sync the BROKER_COMMISSION_PAID entry to Tally (best-effort, outside the transaction)
+  void (async () => {
+    try {
+      const je = await prisma.journalEntry.findFirst({
+        where: { sourceId: saleId, sourceType: "BROKER_COMMISSION_PAID" },
+        select: { id: true },
+      });
+      if (je) await autoSyncEntryToTally(result.companyId, je.id);
+    } catch { /* best-effort */ }
+  })();
+
+  return result.updated;
 }
 
 // ───────────────────────────────────────────────────────────

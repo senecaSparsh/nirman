@@ -1019,6 +1019,81 @@ export async function postSupplierPayment(
 }
 
 /**
+ * Supplier Invoice Approval: recognise the AP liability for an approved invoice.
+ *
+ * For services invoices (no GRN linked — no inventory was booked at receipt):
+ *   Dr Operating Expense      (subtotal)
+ *   Dr Input GST              (gstAmount)
+ *   Cr Accounts Payable       (totalAmount)
+ *
+ * For goods invoices where a GRN already booked Dr Inventory / Cr AP, only the
+ * variance (invoice total − GRN total) is posted to avoid double-counting AP.
+ * A positive variance posts Dr Inventory / Dr Input GST / Cr AP; a negative
+ * variance posts the reverse.
+ */
+export async function postSupplierInvoice(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    supplierInvoiceId: string;
+    subtotal: Decimal;
+    gstAmount: Decimal;
+    totalAmount: Decimal;
+    isServicesInvoice: boolean; // true = no GRN, post full amount
+    varianceTotal?: Decimal; // for goods invoices: invoice total − GRN total
+    varianceSubtotal?: Decimal;
+    varianceGst?: Decimal;
+    postedById?: string;
+  },
+) {
+  const lines: JournalLineInput[] = [];
+
+  if (opts.isServicesInvoice) {
+    // Full invoice — no GRN booked anything yet
+    lines.push({ accountCode: ACCT.OPERATING_EXPENSE, debit: opts.subtotal, credit: 0, entityType: "SupplierInvoice", entityId: opts.supplierInvoiceId, memo: "Supplier invoice — expense" });
+    if (opts.gstAmount.gt(0)) {
+      lines.push({ accountCode: ACCT.INPUT_GST, debit: opts.gstAmount, credit: 0, memo: "Input GST (ITC)" });
+    }
+    lines.push({ accountCode: ACCT.AP, debit: 0, credit: opts.totalAmount, entityType: "SupplierInvoice", entityId: opts.supplierInvoiceId, memo: "Payable to supplier" });
+  } else {
+    // Goods invoice — only post the variance
+    const variance = opts.varianceTotal ?? new Decimal(0);
+    if (variance.eq(0)) return null; // no variance, nothing to post
+
+    const varSub = opts.varianceSubtotal ?? new Decimal(0);
+    const varGst = opts.varianceGst ?? new Decimal(0);
+
+    if (variance.gt(0)) {
+      // Invoice > GRN: additional cost
+      lines.push({ accountCode: ACCT.INVENTORY, debit: varSub, credit: 0, entityType: "SupplierInvoice", entityId: opts.supplierInvoiceId, memo: "Invoice price variance" });
+      if (varGst.gt(0)) {
+        lines.push({ accountCode: ACCT.INPUT_GST, debit: varGst, credit: 0, memo: "Input GST variance" });
+      }
+      lines.push({ accountCode: ACCT.AP, debit: 0, credit: variance, entityType: "SupplierInvoice", entityId: opts.supplierInvoiceId, memo: "Additional payable" });
+    } else {
+      // Invoice < GRN: reverse excess
+      const absVar = variance.abs();
+      const absSub = varSub.abs();
+      const absGst = varGst.abs();
+      lines.push({ accountCode: ACCT.AP, debit: absVar, credit: 0, entityType: "SupplierInvoice", entityId: opts.supplierInvoiceId, memo: "Reverse excess AP" });
+      lines.push({ accountCode: ACCT.INVENTORY, debit: 0, credit: absSub, entityType: "SupplierInvoice", entityId: opts.supplierInvoiceId, memo: "Reverse excess inventory" });
+      if (absGst.gt(0)) {
+        lines.push({ accountCode: ACCT.INPUT_GST, debit: 0, credit: absGst, memo: "Reverse excess GST" });
+      }
+    }
+  }
+
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "SUPPLIER_INVOICE",
+    sourceId: opts.supplierInvoiceId,
+    memo: "Supplier invoice approved",
+    postedById: opts.postedById,
+    lines,
+  });
+}
+
+/**
  * Land Purchase: capitalise the land as an unsold asset, credit cash and/or AP.
  *
  * For immediate purchases (full payment at creation):

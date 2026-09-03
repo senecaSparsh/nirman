@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { verifyMbEntry, approveMbEntry, rejectMbEntry } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, requireUser } from "@/lib/server";
@@ -36,11 +37,15 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     if (action === "verify") {
       const user = await requirePermission(PERM.MB_VERIFY);
       const entry = await verifyMbEntry(id, user.id);
+      revalidatePath("/boq");
+      revalidatePath("/projects");
       return json(entry);
     }
     if (action === "approve") {
       const user = await requirePermission(PERM.MB_APPROVE);
       const entry = await approveMbEntry(id, user.id);
+      revalidatePath("/boq");
+      revalidatePath("/projects");
       return json(entry);
     }
     if (action === "reject") {
@@ -49,6 +54,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       const parsed = schema.safeParse({ reason: body.reason });
       if (!parsed.success) return json({ error: "Rejection reason is required" }, { status: 400 });
       const entry = await rejectMbEntry(id, parsed.data.reason, user.id);
+      revalidatePath("/boq");
+      revalidatePath("/projects");
       return json(entry);
     }
     return json({ error: "Unknown action. Use: verify | approve | reject" }, { status: 400 });

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { TenancyStatus } from "@nirman/db";
 import { createTenancy } from "@nirman/services";
@@ -114,6 +115,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       notes: parsed.data.notes ?? undefined,
       userId: user.id,
     });
+    revalidatePath("/rentals");
+    revalidatePath("/m/rentals");
     return json({ ok: true, id: tenancy.id }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to create tenancy") }, { status: 400 });

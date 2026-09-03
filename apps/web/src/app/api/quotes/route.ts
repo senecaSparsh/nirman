@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import {
   createVendorQuote,
@@ -167,5 +168,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     })),
   });
 
+  revalidatePath("/requisitions");
+  revalidatePath("/procurement");
   return json({ ok: true, id: quote.id }, { status: 201 });
 });

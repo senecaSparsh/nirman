@@ -100,5 +100,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   }
   revalidatePath("/expense-claims");
   revalidatePath("/approvals");
+  revalidatePath("/expenses");
+  revalidatePath("/finance");
+  revalidatePath("/gl");
   return json({ ok: true });
 });

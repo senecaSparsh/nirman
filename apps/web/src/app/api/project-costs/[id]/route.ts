@@ -105,6 +105,9 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     });
     return cost;
   });
+  revalidatePath("/projects");
+  revalidatePath("/m/projects");
+  revalidatePath("/gl");
   return json({ ok: true, id: updated.id });
 });
 

@@ -432,7 +432,7 @@ export async function executeMaterialSale(saleId: string, userId?: string) {
   // Gate Pass check — all gate passes for this sale must be approved
   await assertGatePassApproved("MaterialSale", saleId);
 
-  return withStockTransaction(async (tx) => {
+  const result = await withStockTransaction(async (tx) => {
     const sale = await tx.materialSale.findUnique({
       where: { id: saleId },
       include: { lines: true },
@@ -488,13 +488,26 @@ export async function executeMaterialSale(saleId: string, userId?: string) {
       });
     }
 
-    return updated;
+    return { updated, companyId: sale.companyId };
   });
+
+  // Auto-sync MATERIAL_SALE + MATERIAL_SALE_COGS entries to Tally (best-effort, outside the transaction)
+  void (async () => {
+    try {
+      const entries = await prisma.journalEntry.findMany({
+        where: { sourceId: saleId, sourceType: { in: ["MATERIAL_SALE", "MATERIAL_SALE_COGS"] } },
+        select: { id: true },
+      });
+      for (const je of entries) await autoSyncEntryToTally(result.companyId, je.id);
+    } catch { /* best-effort */ }
+  })();
+
+  return result.updated;
 }
 
 /** Cancel a material sale — only if no payments have been received. */
 export async function cancelMaterialSale(id: string, companyId: string, userId?: string) {
-  return withStockTransaction(async (tx) => {
+  const result = await withStockTransaction(async (tx) => {
     const sale = await tx.materialSale.findFirst({
       where: { id, companyId },
       include: { lines: true },
@@ -573,8 +586,21 @@ export async function cancelMaterialSale(id: string, companyId: string, userId?:
       });
     }
 
-    return updated;
+    return { updated, companyId: sale.companyId, saleId: sale.id };
   });
+
+  // Auto-sync reversal entries to Tally (best-effort, outside the transaction)
+  void (async () => {
+    try {
+      const entries = await prisma.journalEntry.findMany({
+        where: { sourceId: result.saleId, sourceType: { in: ["MATERIAL_SALE", "MATERIAL_SALE_COGS"] } },
+        select: { id: true },
+      });
+      for (const je of entries) await autoSyncEntryToTally(result.companyId, je.id);
+    } catch { /* best-effort */ }
+  })();
+
+  return result.updated;
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -617,7 +643,7 @@ export async function createMaterialSaleReturn(
     userId?: string;
   },
 ) {
-  return withStockTransaction(async (tx) => {
+  const result = await withStockTransaction(async (tx) => {
     const sale = await tx.materialSale.findFirst({
       where: { id: saleId, companyId: input.companyId },
       include: { lines: true, returns: { where: { status: "COMPLETED" }, include: { lines: true } } },
@@ -748,6 +774,19 @@ export async function createMaterialSaleReturn(
       });
     }
 
-    return saleReturn;
+    return { saleReturn, saleId: sale.id, companyId: sale.companyId };
   });
+
+  // Auto-sync reversal entries to Tally (best-effort, outside the transaction)
+  void (async () => {
+    try {
+      const entries = await prisma.journalEntry.findMany({
+        where: { sourceId: result.saleId, sourceType: { in: ["MATERIAL_SALE_REVERSAL", "MATERIAL_SALE_COGS_REVERSAL"] } },
+        select: { id: true },
+      });
+      for (const je of entries) await autoSyncEntryToTally(result.companyId, je.id);
+    } catch { /* best-effort */ }
+  })();
+
+  return result.saleReturn;
 }

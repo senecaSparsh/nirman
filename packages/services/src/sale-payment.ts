@@ -4,6 +4,7 @@ import { logAction } from "./audit";
 import { postMaterialSalePayment } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
+import { autoSyncEntryToTally } from "./auto-sync";
 
 /**
  * Material Sale Payment Service — recording money received from customers
@@ -35,7 +36,7 @@ export async function createMaterialSalePayment(input: {
   const amount = new Decimal(input.amount);
   if (!amount.gt(0)) throw new ServiceError("Payment amount must be greater than 0");
 
-  return withSerializableTransaction(async (tx) => {
+  const payment = await withSerializableTransaction(async (tx) => {
     // 1. Validate the sale exists and belongs to the company
     const sale = await tx.materialSale.findFirst({
       where: { id: input.saleId, companyId: input.companyId },
@@ -118,6 +119,19 @@ export async function createMaterialSalePayment(input: {
 
     return payment;
   });
+
+  // Auto-sync the MATERIAL_SALE_PAYMENT entry to Tally (best-effort, outside the transaction)
+  void (async () => {
+    try {
+      const je = await prisma.journalEntry.findFirst({
+        where: { sourceId: payment.id, sourceType: "MATERIAL_SALE_PAYMENT" },
+        select: { id: true },
+      });
+      if (je) await autoSyncEntryToTally(input.companyId, je.id);
+    } catch { /* best-effort */ }
+  })();
+
+  return payment;
 }
 
 export async function getMaterialSalePayments(saleId: string) {

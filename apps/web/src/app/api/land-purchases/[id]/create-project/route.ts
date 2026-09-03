@@ -4,7 +4,7 @@ import { prisma, type ProjectType } from "@nirman/db";
 import { z } from "zod";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { withSerializableTransaction } from "@nirman/services";
+import { logAction, reallocateProjectCosts, withSerializableTransaction } from "@nirman/services";
 
 /**
  * POST /api/land-purchases/[id]/create-project
@@ -16,7 +16,7 @@ import { withSerializableTransaction } from "@nirman/services";
  * This is the "Create project from land" button on the land detail page.
  */
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.PROJECTS_MANAGE);
+  const user = await requirePermission(PERM.PROJECTS_MANAGE);
   const company = await getCompany();
   const { id } = await params;
 
@@ -75,13 +75,35 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       data: { projectId: proj.id },
     });
 
-    // Link all land parcels to the project
+    // Link all land parcels to the project and set purpose = PROJECT
     if (landPurchase.parcels.length > 0) {
       await tx.landParcel.updateMany({
         where: { id: { in: landPurchase.parcels.map((p) => p.id) } },
-        data: { projectId: proj.id },
+        data: { projectId: proj.id, purpose: "PROJECT" },
       });
     }
+
+    // Reallocate project costs so costPerSqft reflects the land cost immediately
+    try {
+      await reallocateProjectCosts(tx, proj.id);
+    } catch {
+      // Reallocation may fail if no sellable area yet — that's fine, it'll
+      // run again when built units are created.
+    }
+
+    // Audit log
+    await logAction(tx, {
+      userId: user.id,
+      companyId: company.id,
+      action: "PROJECT_CREATE_FROM_LAND",
+      entityType: "Project",
+      entityId: proj.id,
+      after: {
+        projectName: proj.name,
+        landPurchaseId: landPurchase.id,
+        totalBudget: landPurchase.totalCost.toString(),
+      },
+    });
 
     return proj;
   });
@@ -89,5 +111,6 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   revalidatePath("/land");
   revalidatePath("/m/land");
   revalidatePath("/projects");
+  revalidatePath(`/land/${landPurchase.id}`);
   return json({ ok: true, id: project.id, name: project.name }, { status: 201 });
 });

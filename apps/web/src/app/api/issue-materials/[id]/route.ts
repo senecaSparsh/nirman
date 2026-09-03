@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { cancelMaterialIssue, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
@@ -39,6 +40,12 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (action === "cancel") {
     try {
       const result = await cancelMaterialIssue(id, user.id);
+      revalidatePath("/stock");
+      revalidatePath("/m/stock");
+      revalidatePath("/projects");
+      revalidatePath("/m/projects");
+      revalidatePath("/gate-passes");
+      revalidatePath("/gl");
       return json({ id: result.id, status: result.status });
     } catch (err: unknown) {
       return json({ error: err instanceof ServiceError ? err.message : "Failed to cancel issue" }, { status: err instanceof ServiceError ? err.status : 400 });

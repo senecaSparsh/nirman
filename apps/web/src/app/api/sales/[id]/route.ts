@@ -192,7 +192,12 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (action === "cancel") {
     try {
       await cancelSale(id, user.id);
+      revalidatePath("/sales");
       revalidatePath("/m/sales");
+      revalidatePath(`/sales/${id}`);
+      revalidatePath(`/m/sales/${id}`);
+      revalidatePath("/finance");
+      revalidatePath("/gl");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Cancel failed") }, { status: 400 });
@@ -203,7 +208,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     try {
       const { action: _action, ...fields } = body;
       await updateSale({ saleId: id, userId: user.id, ...fields });
+      revalidatePath("/sales");
       revalidatePath("/m/sales");
+      revalidatePath(`/sales/${id}`);
+      revalidatePath(`/m/sales/${id}`);
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Update failed") }, { status: 400 });
@@ -279,6 +287,11 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       });
       // Send WhatsApp payment confirmation to the customer
       await sendPaymentConfirmation(company.id, id, "deposit", parsed.data.depositAmount, parsed.data.reference ?? undefined);
+      revalidatePath("/sales");
+      revalidatePath("/m/sales");
+      revalidatePath(`/sales/${id}`);
+      revalidatePath(`/m/sales/${id}`);
+      revalidatePath("/finance");
       return json({ ok: true, saleStage: result.saleStage, paymentStatus: result.paymentStatus }, { status: 201 });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Deposit failed") }, { status: 400 });
@@ -325,6 +338,12 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       });
       // Send WhatsApp payment confirmation to the customer
       await sendPaymentConfirmation(company.id, id, "final", parsed.data.finalPaymentAmount ?? 0, parsed.data.reference ?? undefined);
+      revalidatePath("/sales");
+      revalidatePath("/m/sales");
+      revalidatePath(`/sales/${id}`);
+      revalidatePath(`/m/sales/${id}`);
+      revalidatePath("/finance");
+      revalidatePath("/gl");
       return json({ ok: true, saleStage: result.saleStage, paymentStatus: result.paymentStatus }, { status: 201 });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Complete failed") }, { status: 400 });
@@ -352,6 +371,12 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       });
       // Send WhatsApp payment confirmation to the customer
       await sendPaymentConfirmation(company.id, id, "payment", parsed.data.amount, parsed.data.reference ?? undefined);
+      revalidatePath("/sales");
+      revalidatePath("/m/sales");
+      revalidatePath(`/sales/${id}`);
+      revalidatePath(`/m/sales/${id}`);
+      revalidatePath("/finance");
+      revalidatePath("/gl");
       return json({ ok: true, paymentStatus: result.paymentStatus }, { status: 201 });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Payment failed") }, { status: 400 });

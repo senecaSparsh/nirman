@@ -95,5 +95,6 @@ export const PATCH = apiHandler(async (req: NextRequest) => {
   const result = await generateDueRecurringExpenses(company.id);
   revalidatePath("/recurring-expenses");
   revalidatePath("/expenses");
+  revalidatePath("/approvals");
   return json({ ok: true, generated: result.count });
 });

@@ -2,6 +2,7 @@ import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { postSupplierInvoice } from "./gl-posting";
 import { withSerializableTransaction } from "./transaction";
 
 /**
@@ -315,6 +316,43 @@ export async function approveSupplierInvoice(input: {
     if (!existing) throw new ServiceError("Supplier invoice not found", 404);
 
     if (input.action === "approve") {
+      // Determine if this is a services invoice (no GRN) or goods invoice.
+      // For services: post the full invoice to GL (Dr Expense / Dr Input GST / Cr AP)
+      // and increment Supplier.balanceOwed.
+      // For goods: AP was already booked at GRN time; only post the variance.
+      let isServicesInvoice = true;
+      let varianceTotal = new Decimal(0);
+      let varianceSubtotal = new Decimal(0);
+      let varianceGst = new Decimal(0);
+
+      if (existing.purchaseOrderId) {
+        const po = await tx.purchaseOrder.findUnique({
+          where: { id: existing.purchaseOrderId },
+          include: {
+            goodsReceipts: { select: { id: true } },
+          },
+        });
+        if (po && po.goodsReceipts.length > 0) {
+          isServicesInvoice = false;
+          // Compute variance: invoice subtotal − GRN subtotal (sum of qtyReceived × unitCost)
+          const grnLines = await tx.goodsReceiptLine.findMany({
+            where: { goodsReceipt: { purchaseOrderId: po.id } },
+            select: { qtyReceived: true, unitCost: true },
+          });
+          const grnSubtotal = grnLines.reduce(
+            (sum, l) => sum.plus(new Decimal(l.qtyReceived).times(new Decimal(l.unitCost))),
+            new Decimal(0),
+          );
+          const invoiceSubtotal = new Decimal(existing.subtotal);
+          const invoiceGst = new Decimal(existing.gstAmount);
+          // Variance = invoice subtotal − grnSubtotal for subtotal variance
+          varianceSubtotal = invoiceSubtotal.minus(grnSubtotal);
+          // GST variance: use invoice GST as the GST variance if subtotal variance > 0
+          varianceGst = varianceSubtotal.gt(0) ? invoiceGst : new Decimal(0);
+          varianceTotal = varianceSubtotal.plus(varianceGst);
+        }
+      }
+
       const updated = await tx.supplierInvoice.update({
         where: { id: input.invoiceId },
         data: {
@@ -324,18 +362,46 @@ export async function approveSupplierInvoice(input: {
           matchNotes: input.notes ?? existing.matchNotes,
         },
         include: {
-          supplier: { select: { id: true, name: true } },
+          supplier: { select: { id: true, name: true, balanceOwed: true } },
           purchaseOrder: { select: { id: true, poNumber: true } },
           approvedBy: { select: { id: true, name: true } },
         },
       });
+
+      // Post GL for the invoice approval
+      const glAmount = isServicesInvoice ? new Decimal(existing.totalAmount) : varianceTotal;
+      if (glAmount.gt(0) || !isServicesInvoice) {
+        await postSupplierInvoice(tx, {
+          companyId: input.companyId,
+          supplierInvoiceId: input.invoiceId,
+          subtotal: new Decimal(existing.subtotal),
+          gstAmount: new Decimal(existing.gstAmount),
+          totalAmount: new Decimal(existing.totalAmount),
+          isServicesInvoice,
+          varianceTotal,
+          varianceSubtotal,
+          varianceGst,
+          postedById: input.userId,
+        });
+
+        // Increment Supplier.balanceOwed by the AP credit amount
+        const apIncrement = isServicesInvoice ? new Decimal(existing.totalAmount) : (varianceTotal.gt(0) ? varianceTotal : new Decimal(0));
+        if (apIncrement.gt(0)) {
+          const newBalance = new Decimal(updated.supplier.balanceOwed).plus(apIncrement);
+          await tx.supplier.update({
+            where: { id: existing.supplierId },
+            data: { balanceOwed: newBalance },
+          });
+        }
+      }
+
       await logAction(tx, {
         userId: input.userId,
         action: "SUPPLIER_INVOICE_APPROVE",
         entityType: "SupplierInvoice",
         entityId: input.invoiceId,
         before: { status: existing.status },
-        after: { status: "APPROVED", notes: input.notes ?? null },
+        after: { status: "APPROVED", notes: input.notes ?? null, glPosted: true, isServicesInvoice },
       });
       return updated;
     } else {

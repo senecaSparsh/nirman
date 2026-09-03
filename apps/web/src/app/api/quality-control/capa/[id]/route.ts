@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { updateCapa, startCapa, completeCorrectiveAction, completePreventiveAction, verifyCapa, closeCapa } from "@nirman/services";
 import { apiHandler, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -32,17 +33,22 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     try {
       switch (parsed.data.action) {
         case "start":
+          revalidatePath("/quality-control");
           return json(await startCapa(id, user.id));
         case "corrective_done":
+          revalidatePath("/quality-control");
           return json(await completeCorrectiveAction(id, user.id));
         case "preventive_done":
+          revalidatePath("/quality-control");
           return json(await completePreventiveAction(id, user.id));
         case "verify":
           if (!parsed.data.verificationMethod || !parsed.data.verificationNotes || parsed.data.effective === undefined)
             return json({ error: "verificationMethod, verificationNotes, and effective are required" }, { status: 400 });
+          revalidatePath("/quality-control");
           return json(await verifyCapa(id, user.id, parsed.data.verificationMethod, parsed.data.verificationNotes, parsed.data.effective));
         case "close":
           if (!parsed.data.closureNotes) return json({ error: "closureNotes required" }, { status: 400 });
+          revalidatePath("/quality-control");
           return json(await closeCapa(id, user.id, parsed.data.closureNotes));
       }
     } catch (err: unknown) {
@@ -53,13 +59,14 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   try {
+    revalidatePath("/quality-control");
     return json(await updateCapa(id, {
       rootCause: parsed.data.rootCause,
       correctiveAction: parsed.data.correctiveAction,
       correctiveDueDate: parsed.data.correctiveDueDate ? new Date(parsed.data.correctiveDueDate) : null,
       preventiveAction: parsed.data.preventiveAction,
       preventiveDueDate: parsed.data.preventiveDueDate ? new Date(parsed.data.preventiveDueDate) : null,
-    }));
+    }, user.id));
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
   }

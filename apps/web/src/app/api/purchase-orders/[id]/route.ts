@@ -174,7 +174,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
     await cancelPurchaseOrder(id, user.id);
   }
-  revalidatePath("/m/procurement");
+  revalidatePath("/procurement");
   revalidatePath("/m/procurement");
   return json({ ok: true });
 });

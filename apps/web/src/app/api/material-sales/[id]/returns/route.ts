@@ -44,7 +44,12 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     });
     revalidatePath("/material-sales");
     revalidatePath(`/material-sales/${saleId}`);
+    revalidatePath("/m/material-sales");
+    revalidatePath(`/m/material-sales/${saleId}`);
     revalidatePath("/m/sales");
+    revalidatePath("/stock");
+    revalidatePath("/finance");
+    revalidatePath("/gl");
     return json({ ok: true, returnNumber: result.returnNumber, id: result.id }, { status: 201 });
   } catch (err: unknown) {
     if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });

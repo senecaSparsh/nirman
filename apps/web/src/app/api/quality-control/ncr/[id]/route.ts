@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { getNcr, updateNcr, reviewNcr, closeNcr, cancelNcr, deleteNcr } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
@@ -53,14 +54,18 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
       switch (parsed.data.action) {
         case "review":
           if (!parsed.data.outcome || !parsed.data.reviewNotes) return json({ error: "outcome and reviewNotes required" }, { status: 400 });
+          revalidatePath("/quality-control");
           return json(await reviewNcr(id, { outcome: parsed.data.outcome, reviewNotes: parsed.data.reviewNotes, userId: user.id }));
         case "close":
           if (!parsed.data.closureNotes) return json({ error: "closureNotes required" }, { status: 400 });
+          revalidatePath("/quality-control");
           return json(await closeNcr(id, user.id, parsed.data.closureNotes));
         case "cancel":
+          revalidatePath("/quality-control");
           return json(await cancelNcr(id, user.id));
         case "delete":
           await deleteNcr(id, user.id);
+          revalidatePath("/quality-control");
           return json({ ok: true });
       }
     } catch (err: unknown) {
@@ -72,6 +77,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   try {
+    revalidatePath("/quality-control");
     return json(await updateNcr(id, {
       title: parsed.data.title,
       description: parsed.data.description,
@@ -99,6 +105,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   if (existing.companyId !== company.id) return json({ error: "NCR does not belong to your company" }, { status: 403 });
   try {
     await deleteNcr(id, user.id);
+    revalidatePath("/quality-control");
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });

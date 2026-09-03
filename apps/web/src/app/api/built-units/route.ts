@@ -94,6 +94,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         areaUnit: u!.areaUnit,
         askingPrice: u!.askingPrice ?? undefined,
         phaseId: u!.phaseId ?? null,
+        landParcelId: u!.landParcelId ?? null,
         // RERA fields
         carpetArea: u!.carpetArea ?? null,
         superBuiltUpArea: u!.superBuiltUpArea ?? null,

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createCapa, getCapa } from "@nirman/services";
 import { apiHandler, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -38,6 +39,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       preventiveDueDate: parsed.data.preventiveDueDate ? new Date(parsed.data.preventiveDueDate) : null,
       userId: user.id,
     });
+    revalidatePath("/quality-control");
     return json(capa, { status: 201 });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });

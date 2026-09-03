@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Package, Plus, Trash2, Printer, CreditCard, SearchX, ShieldCheck } from "lucide-react";
+import { Package, Plus, Trash2, Printer, CreditCard, SearchX, ShieldCheck, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label, Textarea } from "@/components/ui/input";
@@ -214,6 +214,7 @@ export function MaterialSalesView({
   const [cancelTarget, setCancelTarget] = useState<MaterialSaleRow | null>(null);
   const [detailTarget, setDetailTarget] = useState<MaterialSaleRow | null>(null);
   const [paymentDialogSale, setPaymentDialogSale] = useState<MaterialSaleRow | null>(null);
+  const [returnDialogSale, setReturnDialogSale] = useState<MaterialSaleRow | null>(null);
   const [paymentsBySale, setPaymentsBySale] = useState<Record<string, MaterialSalePaymentRow[]>>({});
   const [paymentsLoading, setPaymentsLoading] = useState<string | null>(null);
 
@@ -671,8 +672,10 @@ export function MaterialSalesView({
           onPrint={() => {}}
           onRecordPayment={() => { setPaymentDialogSale(detailTarget); setDetailTarget(null); }}
           onCancel={() => { requestCancelSale(detailTarget); setDetailTarget(null); }}
+          onCreateReturn={() => { setReturnDialogSale(detailTarget); setDetailTarget(null); }}
           canCancel={canCancel}
           canRecordPayment={canRecordPayment}
+          canCreateReturn={canCancel}
           submitting={submitting}
         />
       )}
@@ -826,6 +829,13 @@ export function MaterialSalesView({
           outstandingBalance={outstandingBalance(paymentDialogSale)}
         />
       )}
+
+      {returnDialogSale && (
+        <MaterialSaleReturnDialog
+          sale={returnDialogSale}
+          onClose={() => setReturnDialogSale(null)}
+        />
+      )}
     </div>
   );
 }
@@ -844,8 +854,10 @@ function MaterialSaleDetailDialog({
   onPrint: _onPrint,
   onRecordPayment,
   onCancel,
+  onCreateReturn,
   canCancel,
   canRecordPayment,
+  canCreateReturn,
   submitting,
 }: {
   sale: MaterialSaleRow;
@@ -857,8 +869,10 @@ function MaterialSaleDetailDialog({
   onPrint: () => void;
   onRecordPayment: () => void;
   onCancel: () => void;
+  onCreateReturn: () => void;
   canCancel: boolean;
   canRecordPayment: boolean;
+  canCreateReturn: boolean;
   submitting: boolean;
 }) {
   return (
@@ -977,11 +991,16 @@ function MaterialSaleDetailDialog({
         </div>
 
         {/* Actions */}
-        {sale.status === "ACTIVE" && (canRecordPayment || canCancel) && (
+        {sale.status === "ACTIVE" && (canRecordPayment || canCancel || canCreateReturn) && (
           <div className="flex justify-end gap-2 border-t border-border pt-3">
             {canRecordPayment && sale.paymentStatus !== "PAID" && (
               <Button size="sm" variant="outline" onClick={onRecordPayment} disabled={submitting}>
                 <CreditCard className="h-3.5 w-3.5" /> Record Payment
+              </Button>
+            )}
+            {canCreateReturn && (
+              <Button size="sm" variant="outline" onClick={onCreateReturn} disabled={submitting}>
+                <RotateCcw className="h-3.5 w-3.5" /> Create Credit Note
               </Button>
             )}
             {canCancel && (
@@ -991,6 +1010,173 @@ function MaterialSaleDetailDialog({
             )}
           </div>
         )}
+      </div>
+    </Dialog>
+  );
+}
+
+// ───────────────────────────────────────────────────────────
+//  Material Sale Return / Credit Note Dialog
+// ───────────────────────────────────────────────────────────
+
+function MaterialSaleReturnDialog({
+  sale,
+  onClose,
+}: {
+  sale: MaterialSaleRow;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [submitting, setSubmitting] = useState(false);
+  const [returnLines, setReturnLines] = useState<Record<string, { qty: string; reason: string }>>(
+    () => Object.fromEntries(sale.lines.map((l) => [l.id, { qty: "", reason: "" }])),
+  );
+  const [reason, setReason] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const selectedLines = sale.lines.filter((l) => {
+    const rl = returnLines[l.id];
+    return rl && parseFloat(rl.qty) > 0;
+  });
+
+  const totalReturn = selectedLines.reduce((sum, l) => {
+    const rl = returnLines[l.id];
+    if (!rl) return sum;
+    const qty = parseFloat(rl.qty) || 0;
+    return sum + qty * l.unitPrice;
+  }, 0);
+
+  const handleSubmit = async () => {
+    if (selectedLines.length === 0) {
+      toast.error("Select at least one line with a return quantity");
+      return;
+    }
+    // Validate quantities
+    for (const l of selectedLines) {
+      const rl = returnLines[l.id];
+      if (!rl) continue;
+      const qty = parseFloat(rl.qty);
+      if (qty <= 0 || qty > l.qty) {
+        toast.error(`Return qty for ${l.materialName} must be between 0 and ${l.qty}`);
+        return;
+      }
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/material-sales/${sale.id}/returns`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lines: selectedLines.map((l) => {
+            const rl = returnLines[l.id]!;
+            return {
+              materialSaleLineId: l.id,
+              qty: parseFloat(rl.qty),
+              reason: rl.reason || undefined,
+            };
+          }),
+          reason: reason || undefined,
+          notes: notes || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to create return");
+      }
+      const data = await res.json();
+      toast.success(`Credit note ${data.returnNumber} created`);
+      router.refresh();
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create return");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={`Credit Note — ${sale.saleNumber}`}
+      description="Select items to return. Stock comes back, revenue is reversed, and a CN- number is generated."
+      className="max-w-2xl"
+    >
+      <div className="space-y-4">
+        <div className="rounded-lg border border-border overflow-hidden">
+          <table className="w-full text-body">
+            <thead className="bg-muted/50 text-label text-muted-foreground">
+              <tr>
+                <th className="text-left p-2">Material</th>
+                <th className="text-right p-2">Sold Qty</th>
+                <th className="text-right p-2">Return Qty</th>
+                <th className="text-left p-2">Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sale.lines.map((l) => {
+                const rl = returnLines[l.id] ?? { qty: "", reason: "" };
+                return (
+                  <tr key={l.id} className="border-t border-border">
+                    <td className="p-2 font-medium">{l.materialName}</td>
+                    <td className="p-2 text-right tnum">{l.qty} {l.materialUnit}</td>
+                    <td className="p-2">
+                      <Input
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        max={l.qty}
+                        value={rl?.qty ?? ""}
+                        onChange={(e) => setReturnLines((prev) => ({
+                          ...prev,
+                          [l.id]: { qty: e.target.value, reason: prev[l.id]?.reason ?? "" },
+                        }))}
+                        className="h-8 w-24 text-right tnum"
+                        placeholder="0"
+                      />
+                    </td>
+                    <td className="p-2">
+                      <Input
+                        value={rl?.reason ?? ""}
+                        onChange={(e) => setReturnLines((prev) => ({
+                          ...prev,
+                          [l.id]: { qty: prev[l.id]?.qty ?? "", reason: e.target.value },
+                        }))}
+                        className="h-8"
+                        placeholder="Optional"
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {selectedLines.length > 0 && (
+          <div className="flex justify-between items-center rounded-lg border border-border bg-muted/20 p-3">
+            <span className="text-label text-muted-foreground">Estimated return value</span>
+            <span className="text-body font-semibold tnum">{formatCurrency(totalReturn)}</span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>Overall reason</Label>
+            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Customer returned damaged goods" />
+          </div>
+          <div>
+            <Label>Notes</Label>
+            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-border pt-3">
+          <Button variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={submitting || selectedLines.length === 0}>
+            <RotateCcw className="h-3.5 w-3.5" /> Create Credit Note
+          </Button>
+        </div>
       </div>
     </Dialog>
   );

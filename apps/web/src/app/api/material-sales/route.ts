@@ -139,6 +139,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
       }).catch(() => { /* best-effort */ });
     }
 
+    revalidatePath("/material-sales");
+    revalidatePath("/m/material-sales");
+    revalidatePath("/stock");
+    revalidatePath("/m/stock");
+    revalidatePath("/finance");
     return json({ ok: true, id: sale.id, saleNumber: sale.saleNumber }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to create material sale") }, { status: 400 });
@@ -166,7 +171,10 @@ export const PATCH = apiHandler(async (req: NextRequest) => {
       await executeMaterialSale(body.saleId, user.id);
 
       revalidatePath("/material-sales");
+      revalidatePath("/m/material-sales");
       revalidatePath("/gate-passes");
+      revalidatePath("/stock");
+      revalidatePath("/finance");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Failed to execute sale") }, { status: 400 });

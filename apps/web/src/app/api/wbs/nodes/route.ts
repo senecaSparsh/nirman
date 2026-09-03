@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createWbsNode } from "@nirman/services";
 import { apiHandler, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -41,6 +42,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       sortOrder: d.sortOrder,
       userId: user.id,
     });
+    revalidatePath("/boq");
+    revalidatePath("/projects");
     return json(node, { status: 201 });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });

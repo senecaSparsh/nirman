@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma, type RenovationStatus } from "@nirman/db";
 import { createRenovation, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, renovationSchema, requirePermission, toNum } from "@/lib/server";
@@ -84,6 +85,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       startDate: parsed.data.startDate ? new Date(parsed.data.startDate) : undefined,
       userId: user.id,
     });
+    revalidatePath("/renovations");
+    revalidatePath(`/renovations/${renovation.id}`);
     return json({ ok: true, id: renovation.id, renovationNumber: renovation.renovationNumber }, { status: 201 });
   } catch (err) {
     const message = err instanceof ServiceError ? err.message : "Failed to create renovation";

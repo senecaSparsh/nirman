@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { approveSupplierInvoice, getSupplierInvoice } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
@@ -97,6 +98,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       action: body.action,
       notes: body.notes,
     });
+
+    revalidatePath("/supplier-invoices");
+    revalidatePath("/finance");
+    revalidatePath("/gl");
+    revalidatePath("/approvals");
 
     return json({
       ok: true,

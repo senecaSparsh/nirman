@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createBoqItem, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
@@ -51,6 +52,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       sortOrder: d.sortOrder,
       userId: user.id,
     });
+    revalidatePath("/boq");
     return json(item, { status: 201 });
   } catch (err: unknown) {
     return json({ error: err instanceof ServiceError ? err.message : "Failed to create BOQ item" }, { status: err instanceof ServiceError ? err.status : 400 });

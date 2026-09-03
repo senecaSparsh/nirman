@@ -84,6 +84,9 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   if (body?.action !== "convert") return json({ error: "Invalid action. Use convert." }, { status: 400 });
   const result = await convertLeadToCustomer({ leadId: id, companyId: company.id, userId: user.id });
   revalidatePath("/sales");
+  revalidatePath("/m/sales");
+  revalidatePath("/customers");
+  revalidatePath("/m/customers");
   return json({ leadId: result.lead.id, customerId: result.customer.id, customerName: result.customer.name });
 });
 

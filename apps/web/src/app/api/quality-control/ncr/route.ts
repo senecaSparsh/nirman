@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma, type NcrStatus, type NcrSeverity } from "@nirman/db";
 import {createNcr} from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
@@ -62,6 +63,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       attachments: parsed.data.attachments,
       userId: user.id,
     });
+    revalidatePath("/quality-control");
     return json(ncr, { status: 201 });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
