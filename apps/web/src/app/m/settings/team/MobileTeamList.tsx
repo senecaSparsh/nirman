@@ -16,6 +16,7 @@ import {
   Pencil,
   Code,
   Lock,
+  KeyRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ROLES, roleTier, type Role } from "@/lib/roles";
@@ -33,6 +34,7 @@ import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { ScopeEditorDialog } from "@/components/settings/scope-editor-dialog";
 import { PermissionsEditorDialog } from "@/components/settings/permissions-editor-dialog";
+import { ResetPasswordDialog } from "@/components/settings/reset-password-dialog";
 
 interface TeamMember {
   id: string;
@@ -405,6 +407,7 @@ function MemberCard({
   const [showEdit, setShowEdit] = useState(false);
   const [showScope, setShowScope] = useState(false);
   const [showPerms, setShowPerms] = useState(false);
+  const [showResetPwd, setShowResetPwd] = useState(false);
   const meta = ROLE_META[member.role];
   const Icon = meta.icon;
 
@@ -637,6 +640,21 @@ function MemberCard({
             </button>
           )}
 
+          {/* Reset password button (managers only) */}
+          {canManage && (
+            <button
+              onClick={() => setShowResetPwd(true)}
+              className="flex w-full items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press mb-2"
+              style={{
+                color: "var(--color-ink-500)",
+                backgroundColor: "var(--color-concrete)",
+              }}
+            >
+              <KeyRound className="size-3" />
+              Reset Password
+            </button>
+          )}
+
           {/* Role change */}
           {canManage && (
             <>
@@ -729,6 +747,19 @@ function MemberCard({
           onClose={() => setShowPerms(false)}
           onSaved={() => {
             setShowPerms(false);
+            onChanged();
+          }}
+        />
+      )}
+
+      {/* Reset password dialog */}
+      {showResetPwd && (
+        <ResetPasswordDialog
+          userId={member.id}
+          userName={member.name}
+          onClose={() => setShowResetPwd(false)}
+          onSaved={() => {
+            setShowResetPwd(false);
             onChanged();
           }}
         />

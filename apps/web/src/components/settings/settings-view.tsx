@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, UserPlus, X, Plug, Pencil, Layers, Warehouse, Lock } from "lucide-react";
+import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, UserPlus, X, Plug, Pencil, Layers, Warehouse, Lock, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,9 @@ import { PeopleTab } from "@/components/settings/people-tab";
 import { IntegrationsTab } from "@/components/settings/integrations-tab";
 import { ScopeEditorDialog } from "@/components/settings/scope-editor-dialog";
 import { PermissionsEditorDialog } from "@/components/settings/permissions-editor-dialog";
+import { CreateUserDialog } from "@/components/settings/create-user-dialog";
+import { ResetPasswordDialog } from "@/components/settings/reset-password-dialog";
+import { RolePermissionsDialog } from "@/components/settings/role-permissions-dialog";
 import type { StockLocationRow, DepartmentRow } from "@/lib/types";
 import { useTabParam } from "@/lib/use-tab-param";
 
@@ -796,42 +799,14 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
   const { canManageUsers, userId: currentUserId } = usePermissions();
   const canManage = canManageUsers();
   const [saving, setSaving] = useState<string | null>(null);
-  const [showAddUser, setShowAddUser] = useState(false);
-  const [addEmail, setAddEmail] = useState("");
-  const [addRole, setAddRole] = useState<Role>(assignableRoles(actorRole)[0] ?? "PROJECT_MANAGER");
-  const [adding, setAdding] = useState(false);
   const [editUser, setEditUser] = useState<UserRow | null>(null);
   const [scopeUser, setScopeUser] = useState<UserRow | null>(null);
   const [permsUser, setPermsUser] = useState<UserRow | null>(null);
+  const [resetUser, setResetUser] = useState<UserRow | null>(null);
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [showRolePerms, setShowRolePerms] = useState(false);
 
   const assignable = assignableRoles(actorRole);
-
-  async function addUser() {
-    if (!addEmail.trim()) {
-      toast.error("Email is required");
-      return;
-    }
-    setAdding(true);
-    try {
-      const res = await fetch(`/api/companies/${companyId}/members`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: addEmail.trim(), role: addRole }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to add user");
-      toast.success("User added", {
-        description: `${addEmail.trim()} added as ${addRole}`,
-      });
-      setAddEmail("");
-      setShowAddUser(false);
-      router.refresh();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to add user");
-    } finally {
-      setAdding(false);
-    }
-  }
 
   const handleRoleChange = async (userId: string, newRole: Role) => {
     setSaving(userId);
@@ -906,65 +881,19 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
             {!canManage && " · read-only (your role cannot manage users)"}
           </span>
         </div>
-        {canManage && assignable.length > 0 && (
-          <Button size="sm" onClick={() => setShowAddUser(true)}>
-            <Plus className="h-3.5 w-3.5" /> Add User
-          </Button>
+        {canManage && (
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setShowRolePerms(true)}>
+              <Shield className="h-3.5 w-3.5" /> Role Permissions
+            </Button>
+            {assignable.length > 0 && (
+              <Button size="sm" onClick={() => setShowCreateUser(true)}>
+                <Plus className="h-3.5 w-3.5" /> Add User
+              </Button>
+            )}
+          </div>
         )}
       </div>
-
-      {/* Add User Dialog */}
-      {showAddUser && (
-        <Card>
-          <CardContent className="space-y-3 p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-body font-semibold">Add User to Company</span>
-              <button onClick={() => setShowAddUser(false)} className="text-muted-foreground hover:text-foreground">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <p className="text-caption text-muted-foreground">
-              Enter the email of the person to add. If they already have an account, they&apos;ll be added to this company. If not, a new account will be created.
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="add-user-email">Email *</Label>
-                <Input
-                  id="add-user-email"
-                  type="email"
-                  value={addEmail}
-                  onChange={(e) => setAddEmail(e.target.value)}
-                  placeholder="user@example.com"
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="add-user-role">Role</Label>
-                <Select
-                  id="add-user-role"
-                  value={addRole}
-                  onChange={(e) => setAddRole(e.target.value as Role)}
-                  className="h-8"
-                >
-                  {assignable.map((r) => {
-                    const def = ROLE_LIST.find((rl) => rl.key === r);
-                    return <option key={r} value={r}>{def?.label ?? r}</option>;
-                  })}
-                </Select>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowAddUser(false)} disabled={adding}>
-                Cancel
-              </Button>
-              <Button size="sm" onClick={addUser} disabled={adding || !addEmail.trim()}>
-                {adding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
-                {adding ? "Adding…" : "Add User"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardContent className="p-0">
@@ -1046,6 +975,14 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
                         <Button
                           variant="ghost"
                           size="icon-sm"
+                          title="Reset password"
+                          onClick={() => setResetUser(u)}
+                        >
+                          <KeyRound className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
                           title="Edit profile"
                           onClick={() => setEditUser(u)}
                         >
@@ -1106,6 +1043,34 @@ function UsersManager({ users, actorRole, companyId, projects, departments }: { 
           canEdit={canManage}
           onClose={() => setPermsUser(null)}
           onSaved={() => { setPermsUser(null); router.refresh(); }}
+        />
+      )}
+
+      {/* Reset password dialog */}
+      {resetUser && (
+        <ResetPasswordDialog
+          userId={resetUser.id}
+          userName={resetUser.name}
+          onClose={() => setResetUser(null)}
+          onSaved={() => { setResetUser(null); router.refresh(); }}
+        />
+      )}
+
+      {/* Create user dialog */}
+      {showCreateUser && (
+        <CreateUserDialog
+          actorRole={actorRole}
+          projects={projects}
+          departments={departments}
+          onClose={() => setShowCreateUser(false)}
+        />
+      )}
+
+      {/* Role permissions dialog */}
+      {showRolePerms && (
+        <RolePermissionsDialog
+          onClose={() => setShowRolePerms(false)}
+          onSaved={() => { setShowRolePerms(false); router.refresh(); }}
         />
       )}
     </div>
