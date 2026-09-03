@@ -24,6 +24,7 @@ import { CompaniesManager, type CompanyRow } from "@/components/settings/compani
 import { CostCentresTab } from "@/components/settings/cost-centres-tab";
 import { PeopleTab } from "@/components/settings/people-tab";
 import { IntegrationsTab } from "@/components/settings/integrations-tab";
+import { ScopeEditorDialog } from "@/components/settings/scope-editor-dialog";
 import type { StockLocationRow, DepartmentRow } from "@/lib/types";
 import { useTabParam } from "@/lib/use-tab-param";
 
@@ -453,7 +454,7 @@ export function SettingsView({
         </TabsContent>
 
         <TabsContent value="users">
-          <UsersManager users={users} actorRole={actorRole} companyId={company.id} />
+          <UsersManager users={users} actorRole={actorRole} companyId={company.id} projects={projects} departments={departments} />
         </TabsContent>
 
         <TabsContent value="locations">
@@ -789,7 +790,7 @@ function LocationsTab({
 
 // ── Users Manager — role + active status management ──────────
 
-function UsersManager({ users, actorRole, companyId }: { users: UserRow[]; actorRole: string; companyId: string }) {
+function UsersManager({ users, actorRole, companyId, projects, departments }: { users: UserRow[]; actorRole: string; companyId: string; projects: { id: string; name: string }[]; departments: DepartmentRow[] }) {
   const router = useRouter();
   const { canManageUsers, userId: currentUserId } = usePermissions();
   const canManage = canManageUsers();
@@ -799,6 +800,7 @@ function UsersManager({ users, actorRole, companyId }: { users: UserRow[]; actor
   const [addRole, setAddRole] = useState<Role>(assignableRoles(actorRole)[0] ?? "PROJECT_MANAGER");
   const [adding, setAdding] = useState(false);
   const [editUser, setEditUser] = useState<UserRow | null>(null);
+  const [scopeUser, setScopeUser] = useState<UserRow | null>(null);
 
   const assignable = assignableRoles(actorRole);
 
@@ -1026,6 +1028,14 @@ function UsersManager({ users, actorRole, companyId }: { users: UserRow[]; actor
                         <Button
                           variant="ghost"
                           size="icon-sm"
+                          title="Set access scope"
+                          onClick={() => setScopeUser(u)}
+                        >
+                          <Shield className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
                           title="Edit profile"
                           onClick={() => setEditUser(u)}
                         >
@@ -1060,6 +1070,20 @@ function UsersManager({ users, actorRole, companyId }: { users: UserRow[]; actor
           user={editUser}
           onClose={() => setEditUser(null)}
           onSaved={() => { setEditUser(null); router.refresh(); }}
+        />
+      )}
+
+      {/* Scope editor dialog */}
+      {scopeUser && (
+        <ScopeEditorDialog
+          userId={scopeUser.id}
+          userName={scopeUser.name}
+          userRole={scopeUser.role}
+          projects={projects}
+          departments={departments}
+          canEdit={canManage}
+          onClose={() => setScopeUser(null)}
+          onSaved={() => { setScopeUser(null); router.refresh(); }}
         />
       )}
     </div>

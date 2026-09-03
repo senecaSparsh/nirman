@@ -30,6 +30,7 @@ import {
 } from "@/components/mobile/v2/export-share-bar";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { ScopeEditorDialog } from "@/components/settings/scope-editor-dialog";
 
 interface TeamMember {
   id: string;
@@ -123,6 +124,8 @@ export function MobileTeamList({
   currentRole: _currentRole,
   roleCounts,
   assignableRoles,
+  projects,
+  departments,
   exportTitle,
   exportRows,
   exportColumns,
@@ -134,6 +137,8 @@ export function MobileTeamList({
   currentRole: string;
   roleCounts: Record<string, number>;
   assignableRoles: AssignableRole[];
+  projects: { id: string; name: string }[];
+  departments: { id: string; code: string; name: string; active: boolean }[];
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
@@ -297,6 +302,8 @@ export function MobileTeamList({
               setExpandedId(expandedId === member.id ? null : member.id)
             }
             assignableRoles={assignableRoles}
+            projects={projects}
+            departments={departments}
             onChanged={() => {
               setExpandedId(null);
               router.refresh();
@@ -378,6 +385,8 @@ function MemberCard({
   expanded,
   onToggle,
   assignableRoles,
+  projects,
+  departments,
   onChanged,
 }: {
   member: TeamMember;
@@ -386,10 +395,13 @@ function MemberCard({
   expanded: boolean;
   onToggle: () => void;
   assignableRoles: AssignableRole[];
+  projects: { id: string; name: string }[];
+  departments: { id: string; code: string; name: string; active: boolean }[];
   onChanged: () => void;
 }) {
   const [changing, setChanging] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showScope, setShowScope] = useState(false);
   const meta = ROLE_META[member.role];
   const Icon = meta.icon;
 
@@ -592,6 +604,21 @@ function MemberCard({
             </button>
           )}
 
+          {/* Set access scope button (managers only) */}
+          {canManage && (
+            <button
+              onClick={() => setShowScope(true)}
+              className="flex w-full items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press mb-2"
+              style={{
+                color: "var(--color-ink-500)",
+                backgroundColor: "var(--color-concrete)",
+              }}
+            >
+              <Shield className="size-3" />
+              Set Access Scope
+            </button>
+          )}
+
           {/* Role change */}
           {canManage && (
             <>
@@ -652,6 +679,23 @@ function MemberCard({
           onClose={() => setShowEdit(false)}
           onSaved={() => {
             setShowEdit(false);
+            onChanged();
+          }}
+        />
+      )}
+
+      {/* Scope editor dialog */}
+      {showScope && (
+        <ScopeEditorDialog
+          userId={member.id}
+          userName={member.name}
+          userRole={member.role}
+          projects={projects}
+          departments={departments}
+          canEdit={true}
+          onClose={() => setShowScope(false)}
+          onSaved={() => {
+            setShowScope(false);
             onChanged();
           }}
         />

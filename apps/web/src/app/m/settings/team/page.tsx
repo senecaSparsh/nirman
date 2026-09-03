@@ -41,14 +41,26 @@ async function TeamContent() {
   const canManage = hasPermission(role, PERM.USERS_MANAGE);
 
   // Get all users in this company with their membership info
-  const memberships = await prisma.userCompany.findMany({
-    where: { companyId: company.id },
-    orderBy: { createdAt: "asc" },
-    include: {
-      user: { select: { id: true, name: true, email: true, phone: true, active: true, role: true, designation: true, department: true, employeeCode: true, joiningDate: true } },
-      reportsTo: { include: { user: { select: { name: true } } } },
-    },
-  });
+  const [memberships, projects, departments] = await Promise.all([
+    prisma.userCompany.findMany({
+      where: { companyId: company.id },
+      orderBy: { createdAt: "asc" },
+      include: {
+        user: { select: { id: true, name: true, email: true, phone: true, active: true, role: true, designation: true, department: true, employeeCode: true, joiningDate: true } },
+        reportsTo: { include: { user: { select: { name: true } } } },
+      },
+    }),
+    prisma.project.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.department.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      select: { id: true, code: true, name: true, active: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   const team = memberships.map((m) => ({
     id: m.user.id,
@@ -95,6 +107,8 @@ async function TeamContent() {
       currentRole={role}
       roleCounts={roleCounts}
       assignableRoles={assignableRoles}
+      projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+      departments={departments.map((d) => ({ id: d.id, code: d.code, name: d.name, active: d.active }))}
       exportTitle="Team"
       exportRows={team as unknown as Record<string, unknown>[]}
       exportColumns={exportColumns}
