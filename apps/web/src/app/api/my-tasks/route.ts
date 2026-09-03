@@ -22,6 +22,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
     orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
     include: {
       assignedBy: { select: { id: true, name: true } },
+      subtasks: { orderBy: { createdAt: "asc" } },
+      timeLogs: { orderBy: { startedAt: "desc" }, take: 5 },
+      _count: { select: { comments: true } },
     },
   });
 
@@ -38,6 +41,17 @@ export const GET = apiHandler(async (req: NextRequest) => {
       assignedBy: t.assignedBy?.name ?? null,
       completedAt: t.completedAt ? formatDate(t.completedAt) : null,
       createdAt: formatDate(t.createdAt),
+      estimateMins: t.estimateMins ?? null,
+      subtasks: t.subtasks.map((s) => ({
+        id: s.id,
+        title: s.title,
+        done: s.completed,
+      })),
+      subtaskProgress: t.subtasks.length > 0
+        ? Math.round((t.subtasks.filter((s) => s.completed).length / t.subtasks.length) * 100)
+        : null,
+      totalLoggedMins: t.timeLogs.reduce((sum, log) => sum + (log.durationMins ?? 0), 0),
+      commentCount: t._count.comments,
     })),
   );
 });

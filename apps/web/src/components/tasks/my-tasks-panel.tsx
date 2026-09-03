@@ -27,6 +27,11 @@ interface MyTask {
   assignedBy: string | null;
   completedAt: string | null;
   createdAt: string;
+  estimateMins: number | null;
+  subtasks: { id: string; title: string; done: boolean }[];
+  subtaskProgress: number | null;
+  totalLoggedMins: number;
+  commentCount: number;
 }
 
 const STATUS_CONFIG = {
@@ -216,6 +221,21 @@ export function MyTasksPanel({ limit }: { limit?: number }) {
                     {task.dueDate && (
                       <span className="flex items-center gap-1" style={{ color: ddStatus.color }}>
                         <Calendar className="h-3 w-3" /> {ddStatus.label}
+                      </span>
+                    )}
+                    {task.subtaskProgress !== null && (
+                      <span className="flex items-center gap-1">
+                        <ClipboardList className="h-3 w-3" /> {task.subtaskProgress}% subtasks
+                      </span>
+                    )}
+                    {task.totalLoggedMins > 0 && (
+                      <span className="flex items-center gap-1">
+                        <PlayCircle className="h-3 w-3" /> {Math.round(task.totalLoggedMins / 60)}h {task.totalLoggedMins % 60}m logged
+                      </span>
+                    )}
+                    {task.commentCount > 0 && (
+                      <span className="flex items-center gap-1">
+                        <MessageSquare className="h-3 w-3" /> {task.commentCount}
                       </span>
                     )}
                   </div>

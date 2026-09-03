@@ -56,6 +56,8 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       categoryName: l.categoryMaster?.name ?? null,
       category: l.category,
       amount: toNum(l.amount),
+      gstRate: l.gstRate ? toNum(l.gstRate) : null,
+      gstAmount: l.gstAmount ? toNum(l.gstAmount) : null,
       date: l.date.toISOString(),
       receiptUrl: l.receiptUrl,
       notes: l.notes,
