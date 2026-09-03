@@ -85,7 +85,7 @@ async function ApprovalsContent() {
       ? { projectId: { in: scope.projectIds } }
       : {};
 
-  const [purchaseOrders, requisitions, gatePasses, pendingExpenses, pendingClaims] = await Promise.all([
+  const [purchaseOrders, requisitions, gatePasses, pendingExpenses, pendingClaims, expenseCategories] = await Promise.all([
     canApprovePo
       ? prisma.purchaseOrder.findMany({
           take: 500,
@@ -155,6 +155,12 @@ async function ApprovalsContent() {
             project: { select: { id: true, name: true } },
             lines: { select: { id: true, amount: true } },
           },
+        })
+      : [],
+    canApproveExpense
+      ? prisma.expenseCategory.findMany({
+          where: { companyId: company.id },
+          select: { id: true, name: true, glAccountCode: true, description: true, isActive: true },
         })
       : [],
   ]);
@@ -332,7 +338,7 @@ async function ApprovalsContent() {
         <ExpenseApprovalList expenses={expenseRows} />
       )}
       {canApproveExpense && claimRows.length > 0 && (
-        <ClaimApprovalList claims={claimRows} />
+        <ClaimApprovalList claims={claimRows} categories={expenseCategories} />
       )}
       {totalCount === 0 && (
         <EmptyState

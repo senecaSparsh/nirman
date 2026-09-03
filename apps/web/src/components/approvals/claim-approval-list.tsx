@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, X, Loader2, FileText } from "lucide-react";
+import { Check, X, Loader2, FileText, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { ClaimDetailDialog } from "@/components/expenses/claim-detail-dialog";
+import type { ExpenseCategoryRow } from "@/lib/types";
 
 export type ApprovalClaimRow = {
   id: string;
@@ -27,11 +29,12 @@ export type ApprovalClaimRow = {
  * Each row shows the claim summary with inline Approve / Reject actions.
  * On approval, each claim line becomes an APPROVED Expense row (GL posted).
  */
-export function ClaimApprovalList({ claims }: { claims: ApprovalClaimRow[] }) {
+export function ClaimApprovalList({ claims, categories }: { claims: ApprovalClaimRow[]; categories: ExpenseCategoryRow[] }) {
   const router = useRouter();
   const [acting, setActing] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<ApprovalClaimRow | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [viewingClaim, setViewingClaim] = useState<string | null>(null);
 
   async function approve(c: ApprovalClaimRow) {
     setActing(`${c.id}-approve`);
@@ -109,6 +112,14 @@ export function ClaimApprovalList({ claims }: { claims: ApprovalClaimRow[] }) {
                 <div className="flex gap-1.5">
                   <Button
                     size="sm"
+                    variant="outline"
+                    onClick={() => setViewingClaim(c.id)}
+                    title="View claim details"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="sm"
                     variant="success"
                     onClick={() => approve(c)}
                     disabled={acting === `${c.id}-approve`}
@@ -126,7 +137,17 @@ export function ClaimApprovalList({ claims }: { claims: ApprovalClaimRow[] }) {
                   </Button>
                 </div>
               ) : (
-                <span className="text-caption text-muted-foreground italic">Your own claim</span>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setViewingClaim(c.id)}
+                    title="View claim details"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                  <span className="text-caption text-muted-foreground italic">Your own claim</span>
+                </div>
               )}
             </div>
           </div>
@@ -163,6 +184,15 @@ export function ClaimApprovalList({ claims }: { claims: ApprovalClaimRow[] }) {
           </div>
         </Dialog>
       )}
+
+      {/* Claim detail viewer */}
+      <ClaimDetailDialog
+        claimId={viewingClaim}
+        open={viewingClaim !== null}
+        onOpenChange={(o) => !o && setViewingClaim(null)}
+        categories={categories}
+        canEdit={false}
+      />
     </div>
   );
 }
