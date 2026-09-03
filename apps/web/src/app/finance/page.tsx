@@ -14,6 +14,7 @@ import { FinanceView } from "@/components/finance/finance-view";
 import { SupplierInvoicesView } from "@/components/finance/supplier-invoices-view";
 import { PageLoading } from "@/components/page-loading";
 import { FinanceTabs } from "@/components/finance/finance-tabs";
+import { OutstandingActionCard } from "@/components/finance/outstanding-action-card";
 import type { ProjectCostRow, AuditLogRow, ProjectOption } from "@/lib/types";
 
 import { NoAccess } from "@/components/no-access";
@@ -108,6 +109,10 @@ async function FinanceContent() {
   });
   const totalRevenue = sales.reduce((s, sale) => s + toNum(sale.salePrice), 0);
   const totalCollected = sales.reduce((s, sale) => s + sale.payments.reduce((ps, p) => ps + toNum(p.amount), 0), 0);
+  const outstandingSaleCount = sales.filter((sale) => {
+    const collected = sale.payments.reduce((ps, p) => ps + toNum(p.amount), 0);
+    return toNum(sale.salePrice) - collected > 0;
+  }).length;
 
   const projectCostRows: ProjectCostRow[] = projectCosts.map((c) => ({
     id: c.id,
@@ -174,6 +179,7 @@ async function FinanceContent() {
           { label: "Costs + Expenses", value: formatCurrency(totalCosts + totalExpenses), tone: "danger", hint: `${formatCurrency(totalCosts)} project costs + ${formatCurrency(totalExpenses)} operating expenses.` },
         ]}
       />
+      <OutstandingActionCard outstanding={outstanding} outstandingSaleCount={outstandingSaleCount} />
       <FinanceTabs
         overview={
           <FinanceView

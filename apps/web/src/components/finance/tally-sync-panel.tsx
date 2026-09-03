@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { RefreshCw, CheckCircle2, XCircle, Clock, Loader2, Download, ArrowDownToLine, ArrowUpDown, AlertTriangle, Inbox, AlertCircle, Settings, FileClock } from "lucide-react";
+import { RefreshCw, CheckCircle2, XCircle, Clock, Loader2, Download, ArrowDownToLine, ArrowUpDown, AlertTriangle, Inbox, AlertCircle, Settings, FileClock, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
@@ -25,6 +25,7 @@ export function TallySyncPanel({ stats }: { stats: TallyStats }) {
   const [syncing, setSyncing] = useState(false);
   const [syncMode, setSyncMode] = useState<"push" | "pull" | "both" | null>(null);
   const [showLog, setShowLog] = useState(false);
+  const [autoSyncing, setAutoSyncing] = useState(false);
   const [logs, setLogs] = useState<Array<{
     id: string;
     entryNumber: string;
@@ -81,6 +82,24 @@ export function TallySyncPanel({ stats }: { stats: TallyStats }) {
     }
   }
 
+  async function autoSync() {
+    setAutoSyncing(true);
+    try {
+      const res = await fetch("/api/tally/auto-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Auto-sync failed");
+      toast.success(`Auto-synced ${data.synced ?? 0} entries${data.failed > 0 ? `, ${data.failed} failed` : ""}`);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Auto-sync failed");
+    } finally {
+      setAutoSyncing(false);
+    }
+  }
+
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-center justify-between">
@@ -112,6 +131,16 @@ export function TallySyncPanel({ stats }: { stats: TallyStats }) {
               </Button>
             </Link>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={autoSync}
+            disabled={autoSyncing || !stats.configured}
+            title="Automatically sync all pending entries to Tally"
+          >
+            {autoSyncing ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Zap className="mr-1 h-3.5 w-3.5" />}
+            Auto-sync
+          </Button>
           <Button size="sm" variant="outline" onClick={loadLog}>
             View Log
           </Button>

@@ -218,6 +218,14 @@ export const WORLDS: World[] = [
             keywords: ["todo", "assigned", "mine", "my tasks", "delegate", "assign", "team work", "task manager"],
           },
           {
+            label: "All Tasks",
+            href: "/tasks",
+            icon: ListChecks,
+            hint: "Every task across the company — filter by project, assignee, status, or priority",
+            roles: LEADERSHIP,
+            keywords: ["task", "all tasks", "team", "delegate", "assign", "track", "kanban", "board"],
+          },
+          {
             label: "Approvals",
             href: "/approvals",
             icon: ClipboardCheck,
@@ -298,6 +306,14 @@ export const WORLDS: World[] = [
             hint: "Who you buy from, what you owe them, and how they've performed (ratings tab inside)",
             roles: [...OPS, "ACCOUNTANT"],
             keywords: ["vendor", "seller", "party", "supplier", "vendor rating", "supplier score", "performance", "on-time", "quality", "price"],
+          },
+          {
+            label: "Vendor Ratings",
+            href: "/vendor-ratings",
+            icon: ShieldCheck,
+            hint: "Supplier performance scorecards — on-time delivery, quality, and price competitiveness",
+            roles: [...OPS, "ACCOUNTANT"],
+            keywords: ["vendor rating", "supplier rating", "performance", "scorecard", "on-time", "quality", "price", "evaluation"],
           },
           {
             label: "Rate Contracts",
@@ -400,6 +416,14 @@ export const WORLDS: World[] = [
             hint: "The full stock lifecycle — on-hand by location, every movement, transfers, issues to site, scrap, and counts",
             roles: [...OPS, "ACCOUNTANT"],
             keywords: ["stock", "on hand", "movement", "transfer", "issue", "audit", "history", "ledger", "stock register", "scrap", "count", "physical verification", "reconcile", "variance"],
+          },
+          {
+            label: "Stock Movements",
+            href: "/stock-movements",
+            icon: History,
+            hint: "Every stock movement — receipts, issues, transfers, adjustments — as a single filterable ledger",
+            roles: [...OPS, "ACCOUNTANT"],
+            keywords: ["stock movement", "movement log", "in", "out", "transfer", "adjustment", "receipt", "issue", "ledger"],
           },
           {
             label: "Material Catalogue",
@@ -769,6 +793,14 @@ export const WORLDS: World[] = [
             hint: "The DPR — what work got done on site today, and by whom",
             roles: OPS,
             keywords: ["dpr", "daily progress report", "daily report", "progress", "site report", "work done"],
+          },
+          {
+            label: "Daily Reports",
+            href: "/hr/daily-reports",
+            icon: FileText,
+            hint: "Site daily reports — work completed, labour deployed, materials used, and issues faced",
+            roles: OPS,
+            keywords: ["daily report", "site report", "work log", "labour report", "site diary"],
           },
           {
             label: "Pending List",

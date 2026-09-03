@@ -24,6 +24,7 @@ import { ProjectDetailActions } from "./project-detail-actions";
 import { PhasesSection, type PhaseRow } from "./phases-section";
 import { BuiltUnitFormDialog } from "@/components/built-units/built-unit-form-dialog";
 import { LegalDocsSection } from "@/components/legal/legal-docs-section";
+import { ProjectCostFormDialog } from "@/components/finance/project-cost-form-dialog";
 import { useTabParam } from "@/lib/use-tab-param";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
 import type {
@@ -1272,6 +1273,7 @@ function FinanceTab({ data }: { data: ProjectHubData }) {
   const varianceAmt = actual - budget;
   const variancePct = budget > 0 ? (varianceAmt / budget) * 100 : 0;
   const [view, setView] = useState<"costs" | "breakdown">("costs");
+  const [costFormOpen, setCostFormOpen] = useState(false);
 
   // ── Cost breakdown bars (unique — header only shows total) ──
   const costBreakdown = [
@@ -1471,11 +1473,9 @@ function FinanceTab({ data }: { data: ProjectHubData }) {
             totalFormat={(_k, sum) => formatCurrency(sum)}
             toolbarLeading={toggle}
             toolbarTrailing={
-              <Link href="/finance">
-                <Button size="sm" className="h-7 gap-1.5">
-                  <Plus className="size-3.5" /> Add Cost
-                </Button>
-              </Link>
+              <Button size="sm" className="h-7 gap-1.5" onClick={() => setCostFormOpen(true)}>
+                <Plus className="size-3.5" /> Add Cost
+              </Button>
             }
             columns={[
               {
@@ -1574,6 +1574,12 @@ function FinanceTab({ data }: { data: ProjectHubData }) {
           />
         </div>
       )}
+      <ProjectCostFormDialog
+        open={costFormOpen}
+        onOpenChange={setCostFormOpen}
+        projects={[{ id: project.id, name: project.name, type: project.type, status: project.status }]}
+        defaults={{ projectId: project.id }}
+      />
     </div>
   );
 }

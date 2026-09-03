@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { Boxes, ChevronDown, AlertTriangle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Boxes, ChevronDown, AlertTriangle, SlidersHorizontal, ClipboardCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
+import { AdjustStockDialog } from "@/components/materials/adjust-stock-dialog";
 
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatCurrency, formatNumber } from "@/lib/utils";
@@ -19,10 +21,15 @@ import type { StockLocationRow, StockRow } from "@/lib/types";
  * one dense, sortable grid instead of N separate lists.
  */
 export function OnHandTab({ stock, locations }: { stock: StockRow[]; locations: StockLocationRow[] }) {
+  const router = useRouter();
   const [locationFilter, setLocationFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [lowStockIds, setLowStockIds] = useState<Set<string>>(new Set());
+
+  // Adjust-stock dialog state
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [adjustRow, setAdjustRow] = useState<StockRow | null>(null);
 
   // Fetch low-stock material IDs when the toggle is enabled
   useEffect(() => {
@@ -118,7 +125,10 @@ export function OnHandTab({ stock, locations }: { stock: StockRow[]; locations: 
           <DataTable
             data={filtered}
             initialSort={{ key: "value", direction: "desc" }}
-            columns={stockColumns}
+            columns={stockColumns({
+              onAdjust: (r) => { setAdjustRow(r); setAdjustOpen(true); },
+              onCount: (r) => { router.push(`/stock?tab=counts&materialId=${r.materialId}&locationId=${r.locationId}`); },
+            })}
             searchable
             searchPlaceholder="Search by code, material, location…"
             showTotals
@@ -130,12 +140,45 @@ export function OnHandTab({ stock, locations }: { stock: StockRow[]; locations: 
           />
         </div>
       )}
+      {adjustRow && (
+        <AdjustStockDialog
+          open={adjustOpen}
+          onOpenChange={(o) => { setAdjustOpen(o); if (!o) setAdjustRow(null); }}
+          material={{
+            id: adjustRow.materialId,
+            code: adjustRow.materialCode,
+            name: adjustRow.materialName,
+            unit: adjustRow.unit,
+            currentCost: adjustRow.mac,
+            isLotTracked: false,
+          }}
+          stockItems={[
+            {
+              locationId: adjustRow.locationId,
+              locationName: adjustRow.locationName,
+              locationType: adjustRow.locationType,
+              qty: adjustRow.qty,
+              movingAvgCost: adjustRow.mac,
+            },
+          ]}
+          locations={locations.map((l) => ({
+            id: l.id,
+            name: l.name,
+            type: l.type,
+            projectName: l.projectName,
+          }))}
+        />
+      )}
     </div>
   );
 }
 
 /** Column definitions for the stock on-hand DataTable. */
-const stockColumns: Column<StockRow>[] = [
+function stockColumns(actions: {
+  onAdjust: (row: StockRow) => void;
+  onCount: (row: StockRow) => void;
+}): Column<StockRow>[] {
+  return [
   {
     key: "materialCode",
     label: "Code",
@@ -191,4 +234,37 @@ const stockColumns: Column<StockRow>[] = [
     sortable: true,
     render: (r) => <span className="tnum font-semibold text-foreground">{formatCurrency(r.value)}</span>,
   },
+  {
+    key: "actions",
+    label: "Actions",
+    align: "right",
+    sortable: false,
+    render: (r) => (
+      <div className="flex items-center justify-end gap-1">
+        <button
+          type="button"
+          className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+          title="Adjust stock for this material at this location"
+          onClick={(e) => {
+            e.stopPropagation();
+            actions.onAdjust(r);
+          }}
+        >
+          <SlidersHorizontal className="size-3" /> Adjust
+        </button>
+        <button
+          type="button"
+          className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+          title="Start a stock count for this material at this location"
+          onClick={(e) => {
+            e.stopPropagation();
+            actions.onCount(r);
+          }}
+        >
+          <ClipboardCheck className="size-3" /> Count
+        </button>
+      </div>
+    ),
+  },
 ];
+}

@@ -42,6 +42,8 @@ import {
   Building2 as BuildingIcon,
   Phone,
   PhoneIncoming,
+  Banknote,
+  Coins,
   type LucideIcon,
 } from "lucide-react";
 
@@ -582,6 +584,9 @@ export const NAV_GROUPS: Record<string, NavGroup[]> = {
         { href: "/m/books/receipts", icon: Receipt, label: "Receipts", subtitle: "Payment receipts" },
         { href: "/m/books/payroll", icon: Wallet, label: "Payroll", subtitle: "Salary processing" },
         { href: "/m/profit-center", icon: TrendingUp, label: "Profit Center", subtitle: "Per-project revenue, cost, and margin analysis" },
+        { href: "/m/supplier-payments", icon: Banknote, label: "Supplier Payments", subtitle: "Payments made to vendors" },
+        { href: "/m/expense-claims", icon: Receipt, label: "Expense Claims", subtitle: "Employee reimbursement claims" },
+        { href: "/m/petty-cash", icon: Coins, label: "Petty Cash", subtitle: "Site cash floats & top-ups" },
       ],
     },
     {
