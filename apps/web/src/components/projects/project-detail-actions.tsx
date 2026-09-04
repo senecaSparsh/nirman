@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Pencil, Trash2, Milestone, Loader2 } from "lucide-react";
+import { Pencil, Trash2, Milestone, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProjectFormDialog, type ProjectFormValues } from "./project-form-dialog";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { formatCurrency } from "@/lib/utils";
 
 export function ProjectDetailActions({
   projectId,
@@ -21,6 +22,7 @@ export function ProjectDetailActions({
   const [internalEditOpen, setInternalEditOpen] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
   const [checkingMilestones, setCheckingMilestones] = useState(false);
+  const [reallocating, setReallocating] = useState(false);
   const isEditControlled = editOpen !== undefined && setEditOpen !== undefined;
   const open = isEditControlled ? editOpen : internalEditOpen;
   const onOpenChange = isEditControlled ? setEditOpen : setInternalEditOpen;
@@ -47,8 +49,30 @@ export function ProjectDetailActions({
     }
   }
 
+  async function reallocateCosts() {
+    setReallocating(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/reallocate`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to reallocate costs");
+      toast.success("Costs reallocated", {
+        description: `Cost/sqft: ${formatCurrency(data.costPerSqft)} · Total: ${formatCurrency(data.totalProjectCost)}`,
+      });
+      // Refresh the page to show updated values
+      window.location.reload();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to reallocate costs");
+    } finally {
+      setReallocating(false);
+    }
+  }
+
   return (
     <div className="flex items-center gap-2">
+      <Button variant="outline" size="sm" onClick={reallocateCosts} disabled={reallocating}>
+        {reallocating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+        Reallocate Costs
+      </Button>
       <Button variant="outline" size="sm" onClick={checkMilestones} disabled={checkingMilestones}>
         {checkingMilestones ? <Loader2 className="h-4 w-4 animate-spin" /> : <Milestone className="h-4 w-4" />}
         Check Milestones

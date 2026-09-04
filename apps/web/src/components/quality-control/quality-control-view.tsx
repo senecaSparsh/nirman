@@ -183,6 +183,7 @@ function NewNcrDialog({
     category: "WORKMANSHIP" as NcrCategory,
     severity: "MINOR" as NcrSeverity,
     location: "",
+    workType: "",
     responsibleParty: "",
     subcontractorId: "",
   });
@@ -209,6 +210,7 @@ function NewNcrDialog({
           category: form.category,
           severity: form.severity,
           location: form.location || null,
+          workType: form.workType || null,
           responsibleParty: form.responsibleParty || null,
           subcontractorId: form.subcontractorId || null,
           attachments: attachments.map((a) => a.url),
@@ -280,6 +282,9 @@ function NewNcrDialog({
         </div>
         <Field label="Location">
           <Input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower A, 3rd floor, flat 302" />
+        </Field>
+        <Field label="Work Type">
+          <Input value={form.workType} onChange={(e) => set("workType", e.target.value)} placeholder="e.g. Plastering, Concrete Pour" />
         </Field>
         <div>
           <p className="text-sm font-medium mb-1.5">Photo Evidence</p>
