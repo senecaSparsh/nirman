@@ -15,6 +15,8 @@ const createSchema = z.object({
   location: z.string().optional().nullable(),
   wbsNodeId: z.string().optional().nullable(),
   boqItemId: z.string().optional().nullable(),
+  materialId: z.string().optional().nullable(),
+  workType: z.string().optional().nullable(),
   responsibleParty: z.string().optional().nullable(),
   subcontractorId: z.string().optional().nullable(),
   attachments: z.array(z.string()).optional(),
@@ -34,6 +36,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     include: {
       project: { select: { id: true, name: true } },
       subcontractor: { select: { id: true, name: true, trade: true } },
+      material: { select: { id: true, code: true, name: true, unit: true } },
     },
     take: 100,
   });
@@ -58,6 +61,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       location: parsed.data.location ?? null,
       wbsNodeId: parsed.data.wbsNodeId ?? null,
       boqItemId: parsed.data.boqItemId ?? null,
+      materialId: parsed.data.materialId ?? null,
+      workType: parsed.data.workType ?? null,
       responsibleParty: parsed.data.responsibleParty ?? null,
       subcontractorId: parsed.data.subcontractorId ?? null,
       attachments: parsed.data.attachments,

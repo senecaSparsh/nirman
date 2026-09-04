@@ -1063,6 +1063,7 @@ model Material {
   lots             MaterialLot[]
   gatePassLines    GatePassLine[]
   rateAnalysisLines RateAnalysisLine[]
+  ncrs             NonConformanceReport[] @relation("NcrMaterial")
 
   @@index([categoryId])
 }
@@ -5488,6 +5489,8 @@ model NonConformanceReport {
   location        String?       // e.g. "Tower A, 3rd floor, flat 302"
   wbsNodeId       String?       // linked WBS activity (optional)
   boqItemId       String?       // linked BOQ item (optional)
+  materialId      String?       // linked material (for MATERIAL category NCRs)
+  workType        String?       // free-text work type (e.g. "Plastering", "Concrete Pour")
   // Who raised it and when
   raisedById      String?
   raisedAt        DateTime      @default(now())
@@ -5511,6 +5514,7 @@ model NonConformanceReport {
   project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   wbsNode         WbsNode?      @relation(fields: [wbsNodeId], references: [id], onDelete: SetNull)
   boqItem         BoqItem?      @relation("NcrBoqItem", fields: [boqItemId], references: [id], onDelete: SetNull)
+  material        Material?     @relation("NcrMaterial", fields: [materialId], references: [id], onDelete: SetNull)
   subcontractor   Subcontractor? @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
   raisedBy        User?         @relation("NcrRaisedBy", fields: [raisedById], references: [id], onDelete: SetNull)
   reviewedBy      User?         @relation("NcrReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)

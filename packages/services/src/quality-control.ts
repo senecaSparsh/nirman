@@ -37,6 +37,8 @@ export interface CreateNcrInput {
   location?: string | null;
   wbsNodeId?: string | null;
   boqItemId?: string | null;
+  materialId?: string | null;
+  workType?: string | null;
   responsibleParty?: string | null;
   subcontractorId?: string | null;
   attachments?: string[];
@@ -141,6 +143,8 @@ export async function createNcr(input: CreateNcrInput) {
         location: input.location ?? null,
         wbsNodeId: input.wbsNodeId ?? null,
         boqItemId: input.boqItemId ?? null,
+        materialId: input.materialId ?? null,
+        workType: input.workType ?? null,
         responsibleParty: input.responsibleParty ?? null,
         subcontractorId: input.subcontractorId ?? null,
         attachments: input.attachments ?? [],

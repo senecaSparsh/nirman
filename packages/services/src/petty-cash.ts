@@ -36,8 +36,7 @@ export async function createPettyCashFloat(input: CreateFloatInput) {
         custodianId: input.custodianId ?? null,
       },
     });
-    // Post GL: Dr Petty Cash (use Cash account as proxy — in a real chart
-    // this would be a dedicated Petty Cash sub-account under 1000), Cr Cash/Bank.
+    // Post GL: Dr Petty Cash, Cr Cash/Bank (money moved from bank to petty cash)
     if (amount.gt(0)) {
       await postJournalEntry(tx, {
         companyId: input.companyId,
@@ -46,7 +45,7 @@ export async function createPettyCashFloat(input: CreateFloatInput) {
         memo: `Petty cash float created — ${input.name}`,
         postedById: input.userId,
         lines: [
-          { accountCode: ACCT.CASH, debit: amount, credit: 0, entityType: "PettyCashFloat", entityId: float.id },
+          { accountCode: ACCT.PETTY_CASH, debit: amount, credit: 0, entityType: "PettyCashFloat", entityId: float.id },
           { accountCode: ACCT.CASH, debit: 0, credit: amount, entityType: "PettyCashFloat", entityId: float.id },
         ],
       });
@@ -101,7 +100,7 @@ export async function topUpPettyCash(input: TopUpInput) {
       memo: `Petty cash top-up — ${float.name}`,
       postedById: input.userId,
       lines: [
-        { accountCode: ACCT.CASH, debit: amount, credit: 0, entityType: "PettyCashTopUp", entityId: topUp.id },
+        { accountCode: ACCT.PETTY_CASH, debit: amount, credit: 0, entityType: "PettyCashTopUp", entityId: topUp.id },
         { accountCode: ACCT.CASH, debit: 0, credit: amount, entityType: "PettyCashTopUp", entityId: topUp.id },
       ],
     });
@@ -170,7 +169,7 @@ export async function recordPettyCashSpend(
       },
     });
 
-    // Post GL: Dr <expense account>, Cr Cash
+    // Post GL: Dr <expense account>, Cr Petty Cash (money leaves the float)
     await postJournalEntry(tx, {
       companyId,
       sourceType: "PETTY_CASH_SPEND",
@@ -179,7 +178,7 @@ export async function recordPettyCashSpend(
       postedById: userId,
       lines: [
         { accountCode: expenseAccountCode ?? ACCT.OPERATING_EXPENSE, debit: amt, credit: 0, entityType: "Expense", entityId: expense.id },
-        { accountCode: ACCT.CASH, debit: 0, credit: amt, entityType: "Expense", entityId: expense.id },
+        { accountCode: ACCT.PETTY_CASH, debit: 0, credit: amt, entityType: "Expense", entityId: expense.id },
       ],
     });
 

@@ -36,6 +36,7 @@ import { ServiceError } from "./errors";
 
 export const CHART_OF_ACCOUNTS = [
   { code: "1000", name: "Cash / Bank", type: "ASSET" as const },
+  { code: "1050", name: "Petty Cash", type: "ASSET" as const },
   { code: "1200", name: "Accounts Receivable", type: "ASSET" as const },
   { code: "1300", name: "Inventory - Materials", type: "ASSET" as const },
   { code: "1400", name: "Input GST / ITC", type: "ASSET" as const },
@@ -74,6 +75,7 @@ export const CHART_OF_ACCOUNTS = [
 /** Account code constants — used by posting functions so codes are typo-proof. */
 export const ACCT = {
   CASH: "1000",
+  PETTY_CASH: "1050",
   AR: "1200",
   INVENTORY: "1300",
   INPUT_GST: "1400",

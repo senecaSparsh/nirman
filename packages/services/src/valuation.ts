@@ -1,6 +1,7 @@
 import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { ServiceError } from "./errors";
+import { logAction } from "./audit";
 
 /**
  * Valuation Service — derives all financial reporting from the ledgers.
@@ -222,6 +223,7 @@ export async function projectPnl(projectId: string) {
 export async function reallocateProjectCosts(
   tx: Prisma.TransactionClient,
   projectId: string,
+  userId?: string,
 ): Promise<{ costPerSqft: Decimal; totalCost: Decimal; totalArea: Decimal }> {
   // 1a. Material costs issued to the PROJECT (not to a specific unit) — area-allocated
   const projectLines = await tx.materialIssueLine.findMany({
@@ -329,6 +331,22 @@ export async function reallocateProjectCosts(
       totalSellableArea: totalArea,
     },
   });
+
+  // Audit log the reallocation (best-effort — userId may be undefined when
+  // called from internal flows like land-cost-component recompute)
+  if (userId) {
+    await logAction(tx, {
+      userId,
+      action: "PROJECT_COST_REALLOCATE",
+      entityType: "Project",
+      entityId: projectId,
+      after: {
+        costPerSqft: costPerSqft.toString(),
+        totalProjectCost: totalCost.toString(),
+        totalSellableArea: totalArea.toString(),
+      },
+    });
+  }
 
   return { costPerSqft, totalCost, totalArea };
 }
