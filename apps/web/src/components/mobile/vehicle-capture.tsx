@@ -122,9 +122,14 @@ export function VehicleCapture({
   const dividerStyle = { borderColor: "var(--color-line)" };
 
   return (
-    <div className="space-y-3">
-      {/* Vehicle number + type — inline label + input, full-width underline */}
-      <div className="grid grid-cols-2 gap-2 divide-x" style={dividerStyle}>
+    <div className="flex flex-col gap-3">
+      {/* Vehicle Details */}
+      <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+          Vehicle Details
+        </p>
+        {/* Vehicle number + type — inline label + input, full-width underline */}
+        <div className="grid grid-cols-2 gap-2 divide-x" style={dividerStyle}>
         <div className="relative pr-2">
           <div
             className="flex items-center justify-between gap-1 pb-0.5 border-b focus-within:border-b-2 transition-colors"
@@ -174,7 +179,17 @@ export function VehicleCapture({
             </span>
             <select
               value={value.vehicleType}
-              onChange={(e) => onChange({ ...value, vehicleType: e.target.value })}
+              onChange={(e) => {
+                if (e.target.value === "__create__") {
+                  const custom = prompt("Enter vehicle type:");
+                  if (custom && custom.trim()) {
+                    onChange({ ...value, vehicleType: custom.trim().toUpperCase().replace(/\s+/g, "_") });
+                  }
+                  e.target.value = value.vehicleType;
+                  return;
+                }
+                onChange({ ...value, vehicleType: e.target.value });
+              }}
               className="flex-1 min-w-0 h-7 px-1 text-m-caption text-right outline-none"
               style={{ backgroundColor: "transparent", color: "var(--color-ink-950)" }}
             >
@@ -182,6 +197,9 @@ export function VehicleCapture({
               {VEHICLE_TYPE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
+              <option value="__create__" style={{ color: "var(--color-signal-dark)", fontWeight: 600 }}>
+                + Create new type
+              </option>
             </select>
           </div>
         </div>
@@ -226,7 +244,13 @@ export function VehicleCapture({
           </div>
         </div>
       </div>
+      </div>
 
+      {/* Vehicle Photo */}
+      <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+          Vehicle Photo
+        </p>
       {/* Vehicle photo — even for cycle/bike/porter */}
       <div>
         {value.photoUrl ? (
@@ -247,6 +271,7 @@ export function VehicleCapture({
         ) : (
           <VehiclePhotoButton uploading={uploading} onUpload={handlePhotoUpload} compact={compact} />
         )}
+      </div>
       </div>
     </div>
   );

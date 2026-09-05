@@ -6,6 +6,9 @@ import {Truck, Search, User, X, ChevronRight, Loader2, RefreshCw} from "lucide-r
 import { formatRelativeTime } from "@/lib/utils";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { usePermissions } from "@/lib/permissions";
+import { PERM } from "@/lib/roles";
+import { MobileVehiclesFab } from "./MobileVehiclesFab";
 
 interface Vehicle {
   id: string;
@@ -41,6 +44,8 @@ export default function MobileVehiclesPage() {
   const [selected, setSelected] = useState<Vehicle | null>(null);
   const [trips, setTrips] = useState<VehicleTrip[] | null>(null);
   const [tripsLoading, setTripsLoading] = useState(false);
+  const { can } = usePermissions();
+  const canManage = can(PERM.VEHICLE_MANAGE);
 
   async function loadVehicles() {
     setLoading(true);
@@ -100,8 +105,8 @@ export default function MobileVehiclesPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by vehicle number…"
-            className="w-full h-9 rounded-[0.5rem] border pl-8 pr-3 text-m-section outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 pl-8 pr-3 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{ backgroundColor: "transparent" }}
           />
         </div>
       </div>
@@ -118,7 +123,9 @@ export default function MobileVehiclesPage() {
           <MobileEmptyState
             icon={Truck}
             title="No vehicles yet"
-            hint="Vehicles are auto-created when you enter a vehicle number on any goods movement"
+            hint={canManage
+              ? "Tap + to register a vehicle, or enter a vehicle number on any goods movement to auto-create it."
+              : "Vehicles are auto-created when you enter a vehicle number on any goods movement"}
           />
         )
       ) : (
@@ -246,6 +253,9 @@ export default function MobileVehiclesPage() {
           </div>
         </div>
       ) : null}
+
+      {/* ── FAB: New Vehicle ── */}
+      {canManage ? <MobileVehiclesFab /> : null}
     </div>
   );
 }

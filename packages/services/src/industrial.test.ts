@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import Decimal from "decimal.js";
 import { computeDepreciatedValue } from "./equipment";
-import { computeNrvWriteDown } from "./alerts";
+import { computeNrvWriteDown, computeWilsonEoq } from "./alerts";
+import { computePropertyTds } from "./sale";
 
 describe("equipment: computeDepreciatedValue (straight-line)", () => {
   it("depreciates correctly over time", () => {
@@ -46,6 +47,67 @@ describe("equipment: computeDepreciatedValue (straight-line)", () => {
       new Decimal(1.5),
     );
     expect(value.toNumber()).toBe(425000);
+  });
+});
+
+describe("alerts: computeWilsonEoq (Economic Order Quantity)", () => {
+  it("computes EOQ using the Wilson formula sqrt(2DS/H)", () => {
+    // D = 1200 units/year, S = ₹100/order, H = ₹12/unit/year
+    // EOQ = sqrt(2 × 1200 × 100 / 12) = sqrt(20000) ≈ 141.42
+    const eoq = computeWilsonEoq(
+      new Decimal(1200),
+      new Decimal(100),
+      new Decimal(12),
+    );
+    expect(eoq).not.toBeNull();
+    expect(eoq!.toNumber()).toBeCloseTo(141.42, 1);
+  });
+
+  it("returns null when any parameter is missing", () => {
+    expect(computeWilsonEoq(null, new Decimal(100), new Decimal(12))).toBeNull();
+    expect(computeWilsonEoq(new Decimal(1200), null, new Decimal(12))).toBeNull();
+    expect(computeWilsonEoq(new Decimal(1200), new Decimal(100), null)).toBeNull();
+  });
+
+  it("returns null when any parameter is zero or negative", () => {
+    expect(computeWilsonEoq(new Decimal(0), new Decimal(100), new Decimal(12))).toBeNull();
+    expect(computeWilsonEoq(new Decimal(1200), new Decimal(0), new Decimal(12))).toBeNull();
+    expect(computeWilsonEoq(new Decimal(1200), new Decimal(100), new Decimal(0))).toBeNull();
+    expect(computeWilsonEoq(new Decimal(-100), new Decimal(100), new Decimal(12))).toBeNull();
+  });
+});
+
+describe("sale: computePropertyTds (Section 194-IA)", () => {
+  it("computes 1% TDS when sale price ≥ ₹50 lakh", () => {
+    // Sale price = ₹60,00,000 → TDS = 1% = ₹60,000
+    const tds = computePropertyTds(new Decimal(6000000), null);
+    expect(tds).not.toBeNull();
+    expect(tds!.toNumber()).toBe(60000);
+  });
+
+  it("computes 1% TDS exactly at the ₹50 lakh threshold", () => {
+    const tds = computePropertyTds(new Decimal(5000000), null);
+    expect(tds).not.toBeNull();
+    expect(tds!.toNumber()).toBe(50000);
+  });
+
+  it("returns null when sale price < ₹50 lakh", () => {
+    const tds = computePropertyTds(new Decimal(4999999), null);
+    expect(tds).toBeNull();
+  });
+
+  it("uses manual TDS when provided, regardless of threshold", () => {
+    // Manual TDS takes precedence even below threshold
+    const tds = computePropertyTds(new Decimal(3000000), new Decimal(30000));
+    expect(tds).not.toBeNull();
+    expect(tds!.toNumber()).toBe(30000);
+  });
+
+  it("rounds TDS to 2 decimal places", () => {
+    // ₹50,00,001 × 1% = ₹50,000.01
+    const tds = computePropertyTds(new Decimal(5000001), null);
+    expect(tds).not.toBeNull();
+    expect(tds!.toNumber()).toBe(50000.01);
   });
 });
 

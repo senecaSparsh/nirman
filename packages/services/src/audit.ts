@@ -44,6 +44,29 @@ async function resolveUserId(tx: Prisma.TransactionClient, userId?: string): Pro
  * logged with userId = null instead of throwing an FK constraint violation.
  * This ensures audit logging never crashes a mutation transaction.
  */
+
+/**
+ * Resolve a userId for audit logging.
+ * Pure function — no DB access (the cache lookup is a pure map read).
+ *
+ * Returns:
+ *   - null if userId is undefined/null
+ *   - null if userId is "dev" (synthetic AUTH_BYPASS user)
+ *   - userId if cached as existing
+ *   - null if cached as not existing
+ *   - undefined if not in cache (caller must do DB lookup)
+ */
+export function resolveUserIdFromCache(
+  userId: string | undefined,
+  cache: Map<string, boolean>,
+): string | null | undefined {
+  if (!userId) return null;
+  if (userId === "dev") return null;
+  const cached = cache.get(userId);
+  if (cached !== undefined) return cached ? userId : null;
+  return undefined; // not in cache — caller must look up
+}
+
 export async function logAction(tx: Prisma.TransactionClient, entry: {
   userId?: string;
   companyId?: string;

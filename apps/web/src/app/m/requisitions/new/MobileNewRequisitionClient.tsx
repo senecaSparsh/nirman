@@ -228,36 +228,40 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
             </span>
           </div>
 
-          <MobileSelectWithCreate
-            label="Project"
-            required
-            value={projectId}
-            onChange={setProjectId}
-            options={data.projects.map((p) => ({ value: p.id, label: p.name }))}
-            inputClass={inputClass}
-            inputStyle={inputStyle}
-            renderDialog={({ open, onClose, onCreated, originRect }) => (
-              <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
-                <MobileNewProjectDialog
-                  open={open}
-                  onClose={onClose}
-                  onCreated={(p) => onCreated(p.id, p.name)}
-                />
-              </MobileFabModal>
-            )}
-          />
-
-          <div>
-            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-700)" }}>
-              Needed by date
-            </label>
-            <input
-              type="date"
-              value={neededByDate}
-              onChange={(e) => setNeededByDate(e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            />
+          {/* Project + Needed by date (side by side) */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <MobileSelectWithCreate
+                label="Project"
+                required
+                value={projectId}
+                onChange={setProjectId}
+                options={data.projects.map((p) => ({ value: p.id, label: p.name }))}
+                inputClass={inputClass}
+                inputStyle={inputStyle}
+                renderDialog={({ open, onClose, onCreated, originRect }) => (
+                  <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+                    <MobileNewProjectDialog
+                      open={open}
+                      onClose={onClose}
+                      onCreated={(p) => onCreated(p.id, p.name)}
+                    />
+                  </MobileFabModal>
+                )}
+              />
+            </div>
+            <div>
+              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                Needed by date
+              </label>
+              <input
+                type="date"
+                value={neededByDate}
+                onChange={(e) => setNeededByDate(e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
           </div>
         </div>
 
@@ -287,10 +291,11 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
               return (
                 <div
                   key={idx}
-                  className="rounded-[0.5rem] border p-2 space-y-3.5"
+                  className="rounded-[0.5rem] border p-2 space-y-2.5"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
                 >
-                  <div className="flex items-start gap-1">
+                  {/* Material + Qty (side by side) */}
+                  <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">
                       <MobileSelectWithCreate
                         label=""
@@ -311,6 +316,21 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
                         )}
                       />
                     </div>
+                    <div className="shrink-0 flex items-center gap-1">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        step="any"
+                        value={line.qty}
+                        onChange={(e) => updateLine(idx, "qty", e.target.value)}
+                        placeholder="Qty"
+                        className="w-16 h-7 px-1 text-m-caption font-mono font-bold outline-none border-b focus:border-b-2 transition-colors text-center"
+                        style={inputStyle}
+                      />
+                      <span className="text-m-caption shrink-0 truncate" style={{ color: "var(--color-ink-700)" }}>
+                        {mat?.unit || "units"}
+                      </span>
+                    </div>
                     {lines.length > 1 ? (
                       <button
                         type="button"
@@ -323,44 +343,34 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
                     ) : null}
                   </div>
 
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      step="any"
-                      value={line.qty}
-                      onChange={(e) => updateLine(idx, "qty", e.target.value)}
-                      placeholder="Qty"
-                      className="w-20 rounded-[0.375rem] border px-2 py-1 text-m-caption font-mono font-bold outline-none"
-                      style={inputStyle}
-                    />
-                    <span className="text-m-caption font-medium truncate" style={{ color: "var(--color-ink-700)" }}>
-                      {mat?.unit || "units"}
-                    </span>
+                  {/* Supplier + Line note (side by side) */}
+                  <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                    {data.suppliers.length > 0 ? (
+                      <div>
+                        <select
+                          value={line.preferredSupplierId}
+                          onChange={(e) => updateLine(idx, "preferredSupplierId", e.target.value)}
+                          className={`${inputClass} text-m-label`}
+                          style={inputStyle}
+                        >
+                          <option value="">No preferred supplier</option>
+                          {data.suppliers.map((s) => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
+                    <div className={data.suppliers.length === 0 ? "col-span-2" : ""}>
+                      <input
+                        type="text"
+                        value={line.notes}
+                        onChange={(e) => updateLine(idx, "notes", e.target.value)}
+                        placeholder="Line note (optional)"
+                        className={`${inputClass} text-m-label`}
+                        style={inputStyle}
+                      />
+                    </div>
                   </div>
-
-                  {data.suppliers.length > 0 ? (
-                    <select
-                      value={line.preferredSupplierId}
-                      onChange={(e) => updateLine(idx, "preferredSupplierId", e.target.value)}
-                      className={`${inputClass} text-m-label`}
-                      style={inputStyle}
-                    >
-                      <option value="">No preferred supplier</option>
-                      {data.suppliers.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                  ) : null}
-
-                  <input
-                    type="text"
-                    value={line.notes}
-                    onChange={(e) => updateLine(idx, "notes", e.target.value)}
-                    placeholder="Line note (optional)"
-                    className={`${inputClass} text-m-label`}
-                    style={inputStyle}
-                  />
                 </div>
               );
             })}

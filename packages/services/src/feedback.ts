@@ -14,6 +14,39 @@ import { ServiceError } from "./errors";
  * Lifecycle: NEW → READ → RESOLVED (→ ARCHIVED).
  */
 
+/**
+ * Validate a feedback message.
+ * Pure function — no DB access.
+ *
+ * Throws if message is empty/whitespace or exceeds 5000 characters.
+ */
+export function validateFeedbackMessage(message: string): void {
+  if (!message.trim()) {
+    throw new ServiceError("Feedback message cannot be empty.", 400);
+  }
+  if (message.length > 5000) {
+    throw new ServiceError("Feedback message is too long (max 5000 characters).", 400);
+  }
+}
+
+/**
+ * Validate that a feedback status transition is allowed.
+ * Pure function — no DB access.
+ *
+ * Lifecycle: NEW → READ → RESOLVED → ARCHIVED
+ * REOPENED can go back to READ from RESOLVED.
+ */
+export function isFeedbackTransitionAllowed(from: string, to: string): boolean {
+  if (from === to) return true;
+  const allowed: Record<string, string[]> = {
+    NEW: ["READ", "ARCHIVED"],
+    READ: ["RESOLVED", "ARCHIVED", "NEW"],
+    RESOLVED: ["ARCHIVED", "READ"],
+    ARCHIVED: [],
+  };
+  return allowed[from]?.includes(to) ?? false;
+}
+
 export interface CreateFeedbackInput {
   userId: string;
   companyId?: string | null;

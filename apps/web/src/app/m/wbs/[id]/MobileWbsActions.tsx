@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, Edit3, Trash2, AlertTriangle } from "lucide-react";
+import { Loader2, Edit3, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useOptimisticAction } from "@/lib/use-optimistic-action";
 import { ActionBar } from "@/components/mobile/v2/primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 interface FormState {
   name: string;
@@ -120,203 +121,184 @@ export function MobileWbsEditDialog({
     }
   }
 
-  if (!open) return null;
-
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span
-              className="grid place-items-center size-7 rounded-[0.375rem]"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              <Edit3
-                className="size-3.5"
-                style={{ color: "var(--color-ink-600)" }}
-              />
-            </span>
-            <p
-              className="text-m-section font-bold"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              Edit WBS Node
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-500)" }}
-            aria-label="Close"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
+    <MobileDialog open={open} onClose={onClose} title="Edit WBS Node">
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {/* Name */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Name <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Description
-            </label>
-            <textarea
-              value={form.description}
-              onChange={(e) => set("description", e.target.value)}
-              rows={2}
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section outline-none resize-none"
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Planned dates */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Node Details */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Node Details
+            </p>
+            {/* Name */}
             <div>
               <label className={labelClass} style={labelStyle}>
-                Planned Start
+                Name <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
               <input
-                type="date"
-                value={form.plannedStart}
-                onChange={(e) => set("plannedStart", e.target.value)}
+                type="text"
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
                 className={inputClass}
                 style={inputStyle}
               />
             </div>
+
+            {/* Description */}
             <div>
               <label className={labelClass} style={labelStyle}>
-                Planned End
+                Description
               </label>
-              <input
-                type="date"
-                value={form.plannedEnd}
-                onChange={(e) => set("plannedEnd", e.target.value)}
-                className={inputClass}
+              <textarea
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
+                rows={1}
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
                 style={inputStyle}
               />
             </div>
           </div>
 
-          {/* Actual dates */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Actual Start
-              </label>
-              <input
-                type="date"
-                value={form.actualStart}
-                onChange={(e) => set("actualStart", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Actual End
-              </label>
-              <input
-                type="date"
-                value={form.actualEnd}
-                onChange={(e) => set("actualEnd", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              />
+          {/* Planned Schedule */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Planned Schedule
+            </p>
+            {/* Planned dates */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Planned Start
+                </label>
+                <input
+                  type="date"
+                  value={form.plannedStart}
+                  onChange={(e) => set("plannedStart", e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div className="pl-2">
+                <label className={labelClass} style={labelStyle}>
+                  Planned End
+                </label>
+                <input
+                  type="date"
+                  value={form.plannedEnd}
+                  onChange={(e) => set("plannedEnd", e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
             </div>
           </div>
 
-          {/* Progress + Critical */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Progress %
-              </label>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                step="any"
-                value={form.progressPct}
-                onChange={(e) => set("progressPct", e.target.value)}
-                placeholder="0"
-                inputMode="decimal"
-                className={inputClass}
-                style={inputStyle}
-              />
+          {/* Actual Schedule */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Actual Schedule
+            </p>
+            {/* Actual dates */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Actual Start
+                </label>
+                <input
+                  type="date"
+                  value={form.actualStart}
+                  onChange={(e) => set("actualStart", e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div className="pl-2">
+                <label className={labelClass} style={labelStyle}>
+                  Actual End
+                </label>
+                <input
+                  type="date"
+                  value={form.actualEnd}
+                  onChange={(e) => set("actualEnd", e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
             </div>
-            <div className="flex items-end pb-1">
-              <label
-                className="flex items-center gap-2 cursor-pointer touch"
-                onClick={() => {
-                  set("isCritical", !form.isCritical);
-                  haptic(10);
-                }}
-              >
-                <span
-                  className="grid place-items-center size-5 rounded-[0.375rem] border-2"
-                  style={{
-                    borderColor: form.isCritical
-                      ? "var(--color-stop)"
-                      : "var(--color-line)",
-                    backgroundColor: form.isCritical
-                      ? "var(--color-stop)"
-                      : "transparent",
+          </div>
+
+          {/* Progress */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Progress
+            </p>
+            {/* Progress + Critical */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Progress %
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="any"
+                  value={form.progressPct}
+                  onChange={(e) => set("progressPct", e.target.value)}
+                  placeholder="0"
+                  inputMode="decimal"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div className="flex items-end pb-1 pl-2">
+                <label
+                  className="flex items-center gap-2 cursor-pointer touch"
+                  onClick={() => {
+                    set("isCritical", !form.isCritical);
+                    haptic(10);
                   }}
                 >
-                  {form.isCritical ? (
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="white"
-                      strokeWidth="3"
-                      className="size-3"
-                    >
-                      <path d="M5 12l5 5L20 7" />
-                    </svg>
-                  ) : null}
-                </span>
-                <span
-                  className="text-m-body font-semibold"
-                  style={{ color: "var(--color-ink-700)" }}
-                >
-                  Critical path
-                </span>
-              </label>
+                  <span
+                    className="grid place-items-center size-5 rounded-[0.375rem] border-2"
+                    style={{
+                      borderColor: form.isCritical
+                        ? "var(--color-stop)"
+                        : "var(--color-line)",
+                      backgroundColor: form.isCritical
+                        ? "var(--color-stop)"
+                        : "transparent",
+                    }}
+                  >
+                    {form.isCritical ? (
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="3"
+                        className="size-3"
+                      >
+                        <path d="M5 12l5 5L20 7" />
+                      </svg>
+                    ) : null}
+                  </span>
+                  <span
+                    className="text-m-body font-semibold"
+                    style={{ color: "var(--color-ink-700)" }}
+                  >
+                    Critical path
+                  </span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -349,8 +331,7 @@ export function MobileWbsEditDialog({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }
 

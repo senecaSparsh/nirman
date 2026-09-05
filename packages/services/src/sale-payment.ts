@@ -18,6 +18,29 @@ import { autoSyncEntryToTally } from "./auto-sync";
  * of all payments vs the sale's totalAmount.
  */
 
+/**
+ * Validate a sale payment and determine the new payment status.
+ * Pure function — no DB access.
+ *
+ * Throws if amount ≤ 0 or if the payment would exceed the outstanding balance.
+ * Returns "PAID" if total equals sale total, "PARTIAL" otherwise.
+ */
+export function validateSalePayment(
+  amount: Decimal,
+  previouslyPaid: Decimal,
+  saleTotal: Decimal,
+): { totalAfterPayment: Decimal; paymentStatus: "PAID" | "PARTIAL" } {
+  if (!amount.gt(0)) throw new ServiceError("Payment amount must be greater than 0");
+  const totalAfterPayment = previouslyPaid.plus(amount);
+  if (totalAfterPayment.gt(saleTotal)) {
+    throw new ServiceError(
+      `Payment ${amount} exceeds outstanding balance. Outstanding: ${saleTotal.minus(previouslyPaid)}`,
+    );
+  }
+  const paymentStatus = totalAfterPayment.equals(saleTotal) ? "PAID" : "PARTIAL";
+  return { totalAfterPayment, paymentStatus };
+}
+
 export async function createMaterialSalePayment(input: {
   saleId: string;
   companyId: string;

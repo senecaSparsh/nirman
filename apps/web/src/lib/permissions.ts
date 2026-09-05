@@ -15,6 +15,7 @@ export function usePermissions() {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+
   useEffect(() => {
     let cancelled = false;
     fetch("/api/me")

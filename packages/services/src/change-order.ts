@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * Change Order Service — formal modifications to project scope, BOQ, budget, or schedule.
@@ -100,15 +101,7 @@ async function generateChangeOrderNumber(
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `CO-${ymd}-`;
-  const existing = await tx.changeOrder.findMany({
-    where: { companyId, changeOrderNo: { startsWith: prefix } },
-    select: { changeOrderNo: true },
-  });
-  const maxSeq = existing.reduce((max, e) => {
-    const n = parseInt(e.changeOrderNo.slice(prefix.length) ?? "0", 10);
-    return n > max ? n : max;
-  }, 0);
-  return `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 // ── Line computation ───────────────────────────────────────
@@ -119,7 +112,7 @@ interface ComputedLine {
   amountDelta: Decimal;
 }
 
-function computeLine(
+export function computeLine(
   originalQty: Decimal,
   revisedQty: Decimal,
   rate: Decimal,
@@ -130,7 +123,7 @@ function computeLine(
   return { originalAmount, revisedAmount, amountDelta };
 }
 
-function computeTotals(lines: ChangeOrderLineInput[]) {
+export function computeTotals(lines: ChangeOrderLineInput[]) {
   let originalAmount = new Decimal(0);
   let revisedAmount = new Decimal(0);
   let costDelta = new Decimal(0);
@@ -152,7 +145,7 @@ function computeTotals(lines: ChangeOrderLineInput[]) {
 
 // ── Validation ─────────────────────────────────────────────
 
-function validateLines(lines: ChangeOrderLineInput[]) {
+export function validateLines(lines: ChangeOrderLineInput[]) {
   if (!lines || lines.length === 0) {
     throw new ServiceError("At least one change order line is required", 400);
   }

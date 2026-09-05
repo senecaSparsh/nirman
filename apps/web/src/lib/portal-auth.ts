@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@nirman/db";
 import { normalizePhone } from "@/lib/phone-otp";
 
@@ -10,14 +11,45 @@ import { normalizePhone } from "@/lib/phone-otp";
  * with multiple companies in the group). The session is stored in a
  * signed cookie `nirman-portal-customer` containing the customer ID.
  *
- * In production, the cookie should be signed/encrypted. For now, we use
- * a simple HMAC-less approach since the portal is read-only (no mutations
- * from the customer side except payment links which redirect to external
- * payment gateways).
+ * The cookie value is `customerId.hmac` where hmac = HMAC-SHA256(secret, customerId).
+ * This prevents tampering with the customer ID.
  */
 
 export const PORTAL_COOKIE_NAME = "nirman-portal-customer";
 export const PORTAL_COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // 7 days
+
+const PORTAL_SECRET = process.env.PORTAL_COOKIE_SECRET ?? process.env.NEXTAUTH_SECRET ?? "dev-portal-secret";
+
+/**
+ * Sign a customer ID with HMAC-SHA256.
+ * Returns `customerId.hexSignature`.
+ */
+export function signPortalCookie(customerId: string): string {
+  const hmac = createHmac("sha256", PORTAL_SECRET).update(customerId).digest("hex");
+  return `${customerId}.${hmac}`;
+}
+
+/**
+ * Verify a signed cookie value. Returns the customer ID if valid, null otherwise.
+ */
+export function verifyPortalCookie(value: string): string | null {
+  const dotIdx = value.lastIndexOf(".");
+  if (dotIdx <= 0 || dotIdx === value.length - 1) return null;
+  const customerId = value.slice(0, dotIdx);
+  const signature = value.slice(dotIdx + 1);
+  if (!customerId || !signature) return null;
+  // Validate hex signature
+  if (!/^[0-9a-f]+$/i.test(signature)) return null;
+  const expected = createHmac("sha256", PORTAL_SECRET).update(customerId).digest("hex");
+  // Timing-safe comparison
+  if (signature.length !== expected.length) return null;
+  try {
+    if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
+  } catch {
+    return null;
+  }
+  return customerId;
+}
 
 export interface PortalCustomer {
   id: string;

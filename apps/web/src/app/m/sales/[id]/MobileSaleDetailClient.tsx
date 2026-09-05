@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Phone, Printer, XCircle, Banknote,
-  TrendingUp, Loader2, IndianRupee, X,
+  TrendingUp, Loader2, IndianRupee,
   CheckCircle2, ExternalLink, MessageCircle, Pencil, Check,
   HandCoins, CalendarClock,
 } from "lucide-react";
@@ -15,6 +15,7 @@ import { haptic } from "@/lib/haptic";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../MobileChequeFields";
 import { MobileDocUploader } from "../../MobileDocUploader";
 import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 type AssetType = "LAND" | "BUILT_UNIT" | "PROJECT";
 type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
@@ -1357,64 +1358,69 @@ export function MobileSaleDetailClient({
       {/* ── Payment modal ── */}
       {showPayment ? (
         <Modal onClose={() => setShowPayment(false)} title="Record Payment">
-          <form onSubmit={handlePayment} className="space-y-3">
-            <div>
-              <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-                Amount *
-              </label>
-              <input
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min="0"
-                value={payAmount}
-                onChange={(e) => setPayAmount(e.target.value)}
-                placeholder={balanceDue.toFixed(2)}
-                required
-                autoFocus
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-bold tabular-nums outline-none focus:ring-2"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              />
-              {balanceDue > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => setPayAmount(balanceDue.toFixed(2))}
-                  className="text-m-caption font-bold mt-1 press"
-                  style={{ color: "var(--color-go)" }}
+          <form onSubmit={handlePayment} className="flex flex-col gap-3">
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Payment Details
+              </p>
+              <div>
+                <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                  Amount *
+                </label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                  placeholder={balanceDue.toFixed(2)}
+                  required
+                  autoFocus
+                  className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ backgroundColor: "transparent" }}
+                />
+                {balanceDue > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setPayAmount(balanceDue.toFixed(2))}
+                    className="text-m-caption font-bold mt-1 press"
+                    style={{ color: "var(--color-go)" }}
+                  >
+                    Full balance: {formatCurrency(balanceDue)}
+                  </button>
+                ) : null}
+              </div>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                  Mode
+                </label>
+                <select
+                  value={payMode}
+                  onChange={(e) => setPayMode(e.target.value as (typeof PAYMENT_MODES)[number])}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
                 >
-                  Full balance: {formatCurrency(balanceDue)}
-                </button>
-              ) : null}
+                  {PAYMENT_MODES.map((m) => (
+                    <option key={m} value={m}>{m.replace("_", " ")}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                  Reference
+                </label>
+                <input
+                  type="text"
+                  value={payRef}
+                  onChange={(e) => setPayRef(e.target.value)}
+                  placeholder="Cheque / UTR no."
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
+                />
+              </div>
+              {payMode === "CHEQUE" && <MobileChequeFields value={payCheque} onChange={setPayCheque} />}
             </div>
-            <div>
-              <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-                Mode
-              </label>
-              <select
-                value={payMode}
-                onChange={(e) => setPayMode(e.target.value as (typeof PAYMENT_MODES)[number])}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              >
-                {PAYMENT_MODES.map((m) => (
-                  <option key={m} value={m}>{m.replace("_", " ")}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-                Reference
-              </label>
-              <input
-                type="text"
-                value={payRef}
-                onChange={(e) => setPayRef(e.target.value)}
-                placeholder="Cheque / UTR no."
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              />
-            </div>
-            {payMode === "CHEQUE" && <MobileChequeFields value={payCheque} onChange={setPayCheque} />}
             <div className="flex flex-col gap-2 pt-1">
               <button
                 type="button"
@@ -1440,49 +1446,54 @@ export function MobileSaleDetailClient({
       {/* ── Deposit modal ── */}
       {showDeposit ? (
         <Modal onClose={() => setShowDeposit(false)} title="Record Deposit">
-          <form onSubmit={handleDeposit} className="space-y-3">
-            <div>
-              <label className="text-m-caption font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-600)" }}>
-                Deposit Amount
-              </label>
-              <input
-                type="number"
-                value={depAmount}
-                onChange={(e) => setDepAmount(e.target.value)}
-                placeholder="0"
-                step="0.01"
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-body tabular-nums"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                required
-              />
+          <form onSubmit={handleDeposit} className="flex flex-col gap-3">
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Deposit Details
+              </p>
+              <div>
+                <label className="text-m-caption font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-600)" }}>
+                  Deposit Amount
+                </label>
+                <input
+                  type="number"
+                  value={depAmount}
+                  onChange={(e) => setDepAmount(e.target.value)}
+                  placeholder="0"
+                  step="0.01"
+                  className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ backgroundColor: "transparent" }}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-m-caption font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-600)" }}>
+                  Payment Mode
+                </label>
+                <select
+                  value={depMode}
+                  onChange={(e) => setDepMode(e.target.value as (typeof PAYMENT_MODES)[number])}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ backgroundColor: "transparent" }}
+                >
+                  {PAYMENT_MODES.map((m) => <option key={m} value={m}>{m.replaceAll("_", " ")}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-m-caption font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-600)" }}>
+                  Reference (optional)
+                </label>
+                <input
+                  type="text"
+                  value={depRef}
+                  onChange={(e) => setDepRef(e.target.value)}
+                  placeholder="Cheque / UTR no."
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ backgroundColor: "transparent" }}
+                />
+              </div>
+              {depMode === "CHEQUE" && <MobileChequeFields value={depCheque} onChange={setDepCheque} />}
             </div>
-            <div>
-              <label className="text-m-caption font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-600)" }}>
-                Payment Mode
-              </label>
-              <select
-                value={depMode}
-                onChange={(e) => setDepMode(e.target.value as (typeof PAYMENT_MODES)[number])}
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-body"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              >
-                {PAYMENT_MODES.map((m) => <option key={m} value={m}>{m.replaceAll("_", " ")}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-m-caption font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-600)" }}>
-                Reference (optional)
-              </label>
-              <input
-                type="text"
-                value={depRef}
-                onChange={(e) => setDepRef(e.target.value)}
-                placeholder="Cheque / UTR no."
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-body"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              />
-            </div>
-            {depMode === "CHEQUE" && <MobileChequeFields value={depCheque} onChange={setDepCheque} />}
             <button
               type="submit"
               disabled={submitting}
@@ -1498,59 +1509,64 @@ export function MobileSaleDetailClient({
       {/* ── Complete sale modal ── */}
       {showComplete ? (
         <Modal onClose={() => setShowComplete(false)} title="Complete Sale">
-          <form onSubmit={handleComplete} className="space-y-3">
+          <form onSubmit={handleComplete} className="flex flex-col gap-3">
             <p className="text-m-caption rounded-[0.375rem] px-2.5 py-1.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 8%, var(--color-paper))", color: "var(--color-ink-700)" }}>
               Completing the sale registers the sale deed, recognises revenue, and transfers title. Balance due: <strong style={{ color: "var(--color-go)" }}>{formatCurrency(balanceDue)}</strong>
             </p>
 
-            <div>
-              <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-                Sale Deed / Registry No.
-              </label>
-              <input
-                type="text"
-                value={compSaleDeedNo}
-                onChange={(e) => setCompSaleDeedNo(e.target.value)}
-                placeholder="e.g. SR-1234/2025"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              />
-            </div>
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Registry Details
+              </p>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                  Sale Deed / Registry No.
+                </label>
+                <input
+                  type="text"
+                  value={compSaleDeedNo}
+                  onChange={(e) => setCompSaleDeedNo(e.target.value)}
+                  placeholder="e.g. SR-1234/2025"
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
+                />
+              </div>
 
-            <div>
-              <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-                Payment Mode
-              </label>
-              <select
-                value={compPayMode}
-                onChange={(e) => setCompPayMode(e.target.value as (typeof PAYMENT_MODES)[number])}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              >
-                {PAYMENT_MODES.map((m) => (
-                  <option key={m} value={m}>{m.replace("_", " ")}</option>
-                ))}
-              </select>
-            </div>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                  Payment Mode
+                </label>
+                <select
+                  value={compPayMode}
+                  onChange={(e) => setCompPayMode(e.target.value as (typeof PAYMENT_MODES)[number])}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
+                >
+                  {PAYMENT_MODES.map((m) => (
+                    <option key={m} value={m}>{m.replace("_", " ")}</option>
+                  ))}
+                </select>
+              </div>
 
-            <div>
-              <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-                Reference
-              </label>
-              <input
-                type="text"
-                value={compRef}
-                onChange={(e) => setCompRef(e.target.value)}
-                placeholder="Cheque / UTR no."
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              />
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                  Reference
+                </label>
+                <input
+                  type="text"
+                  value={compRef}
+                  onChange={(e) => setCompRef(e.target.value)}
+                  placeholder="Cheque / UTR no."
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
+                />
+              </div>
             </div>
 
             {/* Compliance documents */}
             {/* Document uploads — ATS / BBA / Registry */}
-            <div className="rounded-[0.375rem] border p-2.5 space-y-2" style={{ borderColor: "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-signal) 4%, var(--color-paper))" }}>
-              <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-signal)" }}>
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-signal) 4%, var(--color-paper))" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                 Sale Documents
               </p>
               <div>
@@ -1597,97 +1613,97 @@ export function MobileSaleDetailClient({
               </div>
             </div>
 
-            <div className="rounded-[0.375rem] border p-2.5 space-y-2.5" style={{ borderColor: "var(--color-line)" }}>
-              <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                 Compliance Documents
               </p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Allotment Letter No.</label>
                   <input type="text" value={compAllotmentNo}
                     onChange={(e) => setCompAllotmentNo(e.target.value)}
                     placeholder="AL-001"
-                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body outline-none"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ backgroundColor: "transparent" }} />
                 </div>
-                <div>
+                <div className="pl-2">
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Allotment Date</label>
                   <input type="date" value={compAllotmentDate}
                     onChange={(e) => setCompAllotmentDate(e.target.value)}
-                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body outline-none"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ backgroundColor: "transparent" }} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>BBA No.</label>
                   <input type="text" value={compBbaNo}
                     onChange={(e) => setCompBbaNo(e.target.value)}
                     placeholder="BBA-001"
-                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body outline-none"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ backgroundColor: "transparent" }} />
                 </div>
-                <div>
+                <div className="pl-2">
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>BBA Date</label>
                   <input type="date" value={compBbaDate}
                     onChange={(e) => setCompBbaDate(e.target.value)}
-                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body outline-none"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ backgroundColor: "transparent" }} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>TDS Amount (₹)</label>
                   <input type="number" min="0" step="0.01" value={compTdsAmount}
                     onChange={(e) => setCompTdsAmount(e.target.value)}
                     placeholder="1% if > ₹50L"
-                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body tabular-nums outline-none"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                    className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ backgroundColor: "transparent" }} />
                 </div>
-                <div>
+                <div className="pl-2">
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>TDS Certificate No.</label>
                   <input type="text" value={compTdsCertNo}
                     onChange={(e) => setCompTdsCertNo(e.target.value)}
                     placeholder="Form 16B no."
-                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body outline-none"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ backgroundColor: "transparent" }} />
                 </div>
               </div>
               {/* Home loan details */}
               <p className="text-m-caption font-bold uppercase pt-1" style={{ color: "var(--color-ink-500)" }}>Home Loan (if applicable)</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Bank / Lender</label>
                   <input type="text" value={compLoanBank}
                     onChange={(e) => setCompLoanBank(e.target.value)}
                     placeholder="HDFC, SBI…"
-                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body outline-none"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ backgroundColor: "transparent" }} />
                 </div>
-                <div>
+                <div className="pl-2">
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Loan Amount (₹)</label>
                   <input type="number" min="0" step="0.01" value={compLoanAmount}
                     onChange={(e) => setCompLoanAmount(e.target.value)}
                     placeholder="0"
-                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body tabular-nums outline-none"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                    className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ backgroundColor: "transparent" }} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Sanction No.</label>
                   <input type="text" value={compLoanSanctionNo}
                     onChange={(e) => setCompLoanSanctionNo(e.target.value)}
                     placeholder="Sanction letter no."
-                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body outline-none"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ backgroundColor: "transparent" }} />
                 </div>
-                <div>
+                <div className="pl-2">
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Sanction Date</label>
                   <input type="date" value={compLoanSanctionDate}
                     onChange={(e) => setCompLoanSanctionDate(e.target.value)}
-                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body outline-none"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }} />
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ backgroundColor: "transparent" }} />
                 </div>
               </div>
             </div>
@@ -1748,25 +1764,9 @@ export function MobileSaleDetailClient({
 /* ─── Modal ─── */
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[0.75rem] border p-4 pb-6"
-        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</p>
-          <button onClick={onClose} className="text-m-body press">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
+    <MobileDialog open={true} onClose={onClose} title={title}>
+      {children}
+    </MobileDialog>
   );
 }
 
@@ -1997,81 +1997,86 @@ function EditSaleModal({
 
   return (
     <Modal onClose={onClose} title={`Edit ${saleNumber}`}>
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Notes
-          </label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-          />
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Sale Details
+          </p>
+          <div>
+            <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              Notes
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+            />
+          </div>
+          <div>
+            <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              Expected Registry Date
+            </label>
+            <input
+              type="date"
+              value={expectedRegistryDate}
+              onChange={(e) => setExpectedRegistryDate(e.target.value)}
+              className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+            />
+          </div>
         </div>
-        <div>
-          <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Expected Registry Date
-          </label>
-          <input
-            type="date"
-            value={expectedRegistryDate}
-            onChange={(e) => setExpectedRegistryDate(e.target.value)}
-            className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-          />
-        </div>
-        <div className="pt-2 border-t" style={{ borderColor: "var(--color-line)" }}>
-          <p className="text-m-caption font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-ink-700)" }}>
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
             Broker Details
           </p>
-        </div>
-        <div>
-          <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Broker Name
-          </label>
-          <input
-            value={brokerName}
-            onChange={(e) => setBrokerName(e.target.value)}
-            className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-          />
-        </div>
-        <div>
-          <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Broker Phone
-          </label>
-          <input
-            value={brokerPhone}
-            onChange={(e) => setBrokerPhone(e.target.value)}
-            className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-          />
-        </div>
-        <div>
-          <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Broker Agency
-          </label>
-          <input
-            value={brokerAgency}
-            onChange={(e) => setBrokerAgency(e.target.value)}
-            className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-          />
-        </div>
-        <div>
-          <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Commission Amount
-          </label>
-          <input
-            type="number"
-            step="0.01"
-            value={commissionAmount}
-            onChange={(e) => setCommissionAmount(e.target.value)}
-            className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-          />
+          <div>
+            <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              Broker Name
+            </label>
+            <input
+              value={brokerName}
+              onChange={(e) => setBrokerName(e.target.value)}
+              className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+            />
+          </div>
+          <div>
+            <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              Broker Phone
+            </label>
+            <input
+              value={brokerPhone}
+              onChange={(e) => setBrokerPhone(e.target.value)}
+              className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+            />
+          </div>
+          <div>
+            <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              Broker Agency
+            </label>
+            <input
+              value={brokerAgency}
+              onChange={(e) => setBrokerAgency(e.target.value)}
+              className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+            />
+          </div>
+          <div>
+            <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+              Commission Amount
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              value={commissionAmount}
+              onChange={(e) => setCommissionAmount(e.target.value)}
+              className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+            />
+          </div>
         </div>
         <div className="flex gap-2 pt-2">
           <button

@@ -1,8 +1,17 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
-import { formatNumber, formatCurrencyCompact } from "@/lib/utils";
+import { Eye, Share2, Package, IndianRupee, AlertTriangle, Boxes } from "lucide-react";
+import { formatNumber, formatCurrency, formatCurrencyCompact } from "@/lib/utils";
+import { toast } from "sonner";
+import { useLongPress } from "@/lib/use-long-press";
+import {
+  MobileOverviewSheet,
+  type OverviewRow,
+} from "@/components/mobile/v2/mobile-overview-sheet";
+import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import { MaterialIllustration } from "@/components/mobile/v2/material-illustration";
 import { ScanButton } from "@/components/mobile/v2/scan-button";
 import {
@@ -202,76 +211,150 @@ export function MobileMaterialsList({
 /* ═══════════════════════════════════════════════════════════════════════════
    MATERIAL CARD — 2-col grid card matching nirman-os ProductCard style.
    Square-ish icon area, category label, name, stock qty, status badge.
+   Long-press opens an overview sheet (data already in the list item).
    ═══════════════════════════════════════════════════════════════════════════ */
 function MaterialCard({ material }: { material: MaterialItem }) {
+  const router = useRouter();
   const stockStatus = material.isOut ? "OUT_OF_STOCK" : material.isLow ? "LOW_STOCK" : "IN_STOCK";
   const statusColor = mobileStatusColor(stockStatus);
   const statusLabel =
     material.isOut ? "Out" : material.isLow ? "Low" : "In stock";
 
-  return (
-    <Link
-      href={`/m/materials/${material.id}`}
-      className="block rounded-[0.625rem] border overflow-hidden active:scale-[0.98] transition-transform"
-      style={{
-        borderColor: "var(--color-line)",
-        backgroundColor: "var(--color-paper)",
-      }}
-    >
-      {/* Illustration area — SVG based on category */}
-      <div
-        className="aspect-square relative"
-        style={{ backgroundColor: "var(--color-paper-2)" }}
-      >
-        <MaterialIllustration
-          categoryName={material.categoryName}
-          materialName={material.name}
-        />
-        {/* Status dot in top-right corner */}
-        <span
-          className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full"
-          style={{ backgroundColor: statusColor }}
-        />
-      </div>
+  // ── Long-press overview sheet (data already in the list item — no fetch) ──
+  const [overviewOpen, setOverviewOpen] = useState(false);
+  const [pressPoint, setPressPoint] = useState<{ x: number; y: number } | null>(null);
+  const { bind: longPressBind } = useLongPress((x, y) => {
+    setPressPoint({ x, y });
+    setOverviewOpen(true);
+  });
 
-      {/* Content */}
-      <div className="p-1.5">
-        <p
-          className="text-m-caption font-semibold uppercase tracking-wide truncate"
-          style={{ color: "var(--color-steel)" }}
+  const overviewRows: OverviewRow[] = [
+    { icon: Package, label: "Code", value: material.code, mono: true },
+    { icon: Package, label: "Category", value: material.categoryName },
+    { icon: Boxes, label: "Unit", value: material.unit },
+    {
+      icon: IndianRupee,
+      label: "Stock Value",
+      value: formatCurrency(material.stockValue),
+    },
+    {
+      icon: IndianRupee,
+      label: "Unit Cost",
+      value: formatCurrency(material.unitCost),
+    },
+    {
+      icon: AlertTriangle,
+      label: "Min Stock",
+      value: material.minStock != null ? formatNumber(material.minStock, 0) : "—",
+      valueColor: material.isLow ? "var(--color-signal)" : undefined,
+    },
+    {
+      icon: AlertTriangle,
+      label: "Reorder Point",
+      value: material.reorderPoint != null ? formatNumber(material.reorderPoint, 0) : "—",
+    },
+  ];
+
+  const overviewActions: ContextAction[] = [
+    {
+      label: "View Full Details",
+      icon: Eye,
+      onPress: () => router.push(`/m/materials/${material.id}`),
+    },
+    {
+      label: "Share",
+      icon: Share2,
+      onPress: () => {
+        const url = `${window.location.origin}/m/materials/${material.id}`;
+        if (navigator.share) {
+          navigator.share({ title: material.name, url }).catch(() => {});
+        } else {
+          navigator.clipboard?.writeText(url).catch(() => {});
+          toast.success("Link copied");
+        }
+      },
+    },
+  ];
+
+  return (
+    <>
+      <div {...longPressBind}>
+        <Link
+          href={`/m/materials/${material.id}`}
+          className="block rounded-[0.625rem] border overflow-hidden active:scale-[0.98] transition-transform"
+          style={{
+            borderColor: "var(--color-line)",
+            backgroundColor: "var(--color-paper)",
+          }}
         >
-          {material.categoryName}
-        </p>
-        <p
-          className="font-semibold text-m-label leading-snug mt-0.5 line-clamp-2 min-h-[2em]"
-          style={{ color: "var(--color-ink-950)" }}
-        >
-          {material.name}
-        </p>
-        <div className="mt-1 flex items-baseline justify-between gap-1">
-          <div className="min-w-0">
+          {/* Illustration area — SVG based on category */}
+          <div
+            className="aspect-square relative"
+            style={{ backgroundColor: "var(--color-paper-2)" }}
+          >
+            <MaterialIllustration
+              categoryName={material.categoryName}
+              materialName={material.name}
+            />
+            {/* Status dot in top-right corner */}
+            <span
+              className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full"
+              style={{ backgroundColor: statusColor }}
+            />
+          </div>
+
+          {/* Content */}
+          <div className="p-1.5">
             <p
-              className="numeric text-m-label font-bold"
+              className="text-m-caption font-semibold uppercase tracking-wide truncate"
+              style={{ color: "var(--color-steel)" }}
+            >
+              {material.categoryName}
+            </p>
+            <p
+              className="font-semibold text-m-label leading-snug mt-0.5 line-clamp-2 min-h-[2em]"
               style={{ color: "var(--color-ink-950)" }}
             >
-              {formatNumber(material.totalQty, 0)} {material.unit}
+              {material.name}
             </p>
-            <p
-              className="numeric text-m-caption"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              {formatCurrencyCompact(material.stockValue)}
-            </p>
+            <div className="mt-1 flex items-baseline justify-between gap-1">
+              <div className="min-w-0">
+                <p
+                  className="numeric text-m-label font-bold"
+                  style={{ color: "var(--color-ink-950)" }}
+                >
+                  {formatNumber(material.totalQty, 0)} {material.unit}
+                </p>
+                <p
+                  className="numeric text-m-caption"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  {formatCurrencyCompact(material.stockValue)}
+                </p>
+              </div>
+              <span
+                className="text-m-caption font-bold uppercase shrink-0"
+                style={{ color: statusColor }}
+              >
+                {statusLabel}
+              </span>
+            </div>
           </div>
-          <span
-            className="text-m-caption font-bold uppercase shrink-0"
-            style={{ color: statusColor }}
-          >
-            {statusLabel}
-          </span>
-        </div>
+        </Link>
       </div>
-    </Link>
+
+      {/* Long-press overview sheet */}
+      <MobileOverviewSheet
+        open={overviewOpen}
+        onClose={() => setOverviewOpen(false)}
+        origin={pressPoint}
+        title={material.name}
+        subtitle={material.categoryName}
+        accentColor={statusColor}
+        rows={overviewRows}
+        actions={overviewActions}
+      />
+    </>
   );
 }
 

@@ -13,6 +13,41 @@ import { withSerializableTransaction } from "./transaction";
  * Reconciliation applies ADJUSTMENT_IN / ADJUSTMENT_OUT movements for each variance.
  */
 
+/**
+ * Compute stock count variance and adjustment direction.
+ * Pure function — no DB access.
+ *
+ *   variance = countedQty − systemQty
+ *   direction = ADJUSTMENT_IN if variance > 0, ADJUSTMENT_OUT if variance < 0, null if 0
+ */
+export function computeStockCountVariance(
+  countedQty: Decimal,
+  systemQty: Decimal,
+): {
+  variance: Decimal;
+  direction: "ADJUSTMENT_IN" | "ADJUSTMENT_OUT" | null;
+} {
+  const variance = countedQty.minus(systemQty);
+  const direction =
+    variance.gt(0) ? "ADJUSTMENT_IN"
+    : variance.lt(0) ? "ADJUSTMENT_OUT"
+    : null;
+  return { variance, direction };
+}
+
+/**
+ * Compute the GL value of a stock adjustment.
+ * Pure function — no DB access.
+ *
+ *   adjustmentValue = |variance| × unitCost (MAC)
+ */
+export function computeAdjustmentValue(
+  variance: Decimal,
+  unitCost: Decimal,
+): Decimal {
+  return variance.abs().times(unitCost).toDecimalPlaces(2);
+}
+
 interface CreateStockCountInput {
   locationId: string;
   notes?: string;

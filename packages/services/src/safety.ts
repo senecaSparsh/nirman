@@ -2,6 +2,7 @@ import { prisma, type Prisma } from "@nirman/db";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * Safety Management Service — incidents, hazards, and inspections.
@@ -102,31 +103,25 @@ export function computeRiskLevel(likelihood: number, severity: number): HazardRi
 
 // ── Number generation ──────────────────────────────────────
 
-async function genIncidentNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
+async function genIncidentNumber(tx: Prisma.TransactionClient, _companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `INC-${ymd}-`;
-  const existing = await tx.safetyIncident.findMany({ where: { companyId, incidentNumber: { startsWith: prefix } }, select: { incidentNumber: true } });
-  const maxSeq = existing.reduce((max, e) => Math.max(max, parseInt(e.incidentNumber.slice(prefix.length) ?? "0", 10)), 0);
-  return `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
-async function genHazardNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
+async function genHazardNumber(tx: Prisma.TransactionClient, _companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `HZD-${ymd}-`;
-  const existing = await tx.safetyHazard.findMany({ where: { companyId, hazardNumber: { startsWith: prefix } }, select: { hazardNumber: true } });
-  const maxSeq = existing.reduce((max, e) => Math.max(max, parseInt(e.hazardNumber.slice(prefix.length) ?? "0", 10)), 0);
-  return `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
-async function genInspectionNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
+async function genInspectionNumber(tx: Prisma.TransactionClient, _companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `INS-${ymd}-`;
-  const existing = await tx.safetyInspection.findMany({ where: { companyId, inspectionNumber: { startsWith: prefix } }, select: { inspectionNumber: true } });
-  const maxSeq = existing.reduce((max, e) => Math.max(max, parseInt(e.inspectionNumber.slice(prefix.length) ?? "0", 10)), 0);
-  return `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 // ── Incident CRUD + Workflow ───────────────────────────────

@@ -4,6 +4,7 @@ import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { postJournalEntry, ACCT } from "./gl-posting";
 import { withSerializableTransaction } from "./transaction";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 
 /**
  * Petty Cash Service — small cash reserves held at sites/offices.
@@ -12,6 +13,27 @@ import { withSerializableTransaction } from "./transaction";
  * (paymentMode = "CASH" + a link convention); this service manages the
  * float itself and its top-up history.
  */
+
+/**
+ * Compute the low-balance threshold for a petty cash float.
+ * Pure function — no DB access.
+ *
+ *   threshold = floatAmount × 0.2 (20% of the original float)
+ */
+export function computeLowBalanceThreshold(floatAmount: Decimal): Decimal {
+  return floatAmount.times(0.2);
+}
+
+/**
+ * Check if a petty cash balance is below the low-balance threshold.
+ * Pure function — no DB access.
+ */
+export function isPettyCashLowBalance(
+  currentBalance: Decimal,
+  floatAmount: Decimal,
+): boolean {
+  return currentBalance.lt(computeLowBalanceThreshold(floatAmount));
+}
 
 export interface CreateFloatInput {
   companyId: string;
@@ -72,7 +94,7 @@ export interface TopUpInput {
 export async function topUpPettyCash(input: TopUpInput) {
   const amount = new Decimal(input.amount);
   if (!amount.gt(0)) throw new ServiceError("Top-up amount must be > 0");
-  return withSerializableTransaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const float = await tx.pettyCashFloat.findFirst({ where: { id: input.floatId, companyId: input.companyId } });
     if (!float) throw new ServiceError("Petty cash float not found", 404);
     const topUp = await tx.pettyCashTopUp.create({
@@ -109,8 +131,18 @@ export async function topUpPettyCash(input: TopUpInput) {
       action: "PETTY_CASH_TOPUP", entityType: "PettyCashTopUp", entityId: topUp.id,
       after: { floatId: input.floatId, amount },
     });
-    return topUp;
+    return { topUp, floatName: float.name };
   });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.PETTY_CASH_TOPUP,
+    companyId: input.companyId,
+    entityType: "PettyCashTopUp",
+    entityId: result.topUp.id,
+    variables: { floatId: input.floatId, floatName: result.floatName, amount: amount.toFixed(2) },
+    timestamp: new Date(),
+  });
+  return result.topUp;
 }
 
 /**
@@ -134,7 +166,7 @@ export async function recordPettyCashSpend(
 ) {
   const amt = new Decimal(input.amount);
   if (!amt.gt(0)) throw new ServiceError("Spend amount must be > 0");
-  return withSerializableTransaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const float = await tx.pettyCashFloat.findFirst({ where: { id: floatId, companyId } });
     if (!float) throw new ServiceError("Petty cash float not found", 404);
     if ((float.floatAmount as Decimal).lt(amt)) {
@@ -183,10 +215,11 @@ export async function recordPettyCashSpend(
     });
 
     // Reduce the float balance
+    const newBalance = (float.floatAmount as Decimal).minus(amt);
     await tx.pettyCashFloat.update({
       where: { id: floatId },
       data: {
-        floatAmount: (float.floatAmount as Decimal).minus(amt),
+        floatAmount: newBalance,
         spentTotal: (float.spentTotal as Decimal).plus(amt),
       },
     });
@@ -195,6 +228,19 @@ export async function recordPettyCashSpend(
       entityType: "PettyCashFloat", entityId: floatId,
       after: { amount: amt, expenseId: expense.id, category: input.category },
     });
-    return { ok: true, expenseId: expense.id };
+    return { ok: true, expenseId: expense.id, newBalance, floatName: float.name, threshold: (float.floatAmount as Decimal).times(0.2) };
   });
+
+  // Low-balance alert: if remaining balance < 20% of pre-spend balance, notify
+  if (result.newBalance.lt(result.threshold)) {
+    void emitNotificationEvent({
+      eventType: NotificationEventType.PETTY_CASH_LOW_BALANCE,
+      companyId,
+      entityType: "PettyCashFloat",
+      entityId: floatId,
+      variables: { floatId, floatName: result.floatName, balance: result.newBalance.toFixed(2) },
+      timestamp: new Date(),
+    });
+  }
+  return { ok: true, expenseId: result.expenseId };
 }

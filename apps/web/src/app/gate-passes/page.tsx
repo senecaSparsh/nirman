@@ -21,7 +21,7 @@ export default function GatePassesPage() {
   );
 }
 
-async function GatePassesContent() {
+export async function GatePassesContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

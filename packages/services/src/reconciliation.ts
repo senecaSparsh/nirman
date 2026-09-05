@@ -50,6 +50,52 @@ export interface ProjectReconciliation {
 }
 
 /**
+ * Compute reconciliation variances and alert level for a single BOQ item.
+ * Pure function — no DB access.
+ *
+ *   issueVariance       = issued − required
+ *   consumptionVariance = consumed − required
+ *   stockVariance       = (issued − consumed) − currentStock
+ *   wastagePct          = (consumed − required) / required × 100
+ *   alertLevel          = CRITICAL if wastage > 2× tolerance
+ *                         WARNING if wastage > tolerance
+ *                         OK otherwise
+ */
+export function computeReconciliationVariances(
+  requiredQty: Decimal,
+  issuedQty: Decimal,
+  consumedQty: Decimal,
+  currentStock: Decimal,
+  tolerancePct: Decimal,
+): {
+  issueVariance: Decimal;
+  consumptionVariance: Decimal;
+  stockVariance: Decimal;
+  wastagePct: Decimal;
+  isOverTolerance: boolean;
+  alertLevel: "OK" | "WARNING" | "CRITICAL";
+} {
+  const tolerance = new Decimal(tolerancePct);
+  const criticalThreshold = tolerance.times(2);
+
+  const issueVariance = issuedQty.minus(requiredQty);
+  const consumptionVariance = consumedQty.minus(requiredQty);
+  const stockVariance = issuedQty.minus(consumedQty).minus(currentStock);
+
+  const wastagePct = requiredQty.gt(0)
+    ? consumptionVariance.div(requiredQty).times(100)
+    : new Decimal(0);
+
+  const isOverTolerance = wastagePct.gt(tolerance);
+  const alertLevel: "OK" | "WARNING" | "CRITICAL" =
+    wastagePct.gt(criticalThreshold) ? "CRITICAL"
+    : isOverTolerance ? "WARNING"
+    : "OK";
+
+  return { issueVariance, consumptionVariance, stockVariance, wastagePct, isOverTolerance, alertLevel };
+}
+
+/**
  * Reconcile materials for a project: BOQ required vs issued vs consumed vs stock.
  *
  * Tolerance: if wastage exceeds tolerance% (default 5%), flag as WARNING.

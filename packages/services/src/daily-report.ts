@@ -11,6 +11,30 @@ import { withSerializableTransaction } from "./transaction";
  * logs focused on what happened on-site today.
  */
 
+/**
+ * Validate a daily report input.
+ * Pure function — no DB access.
+ *
+ * Throws if date is invalid or workDone is empty.
+ */
+export function validateDailyReportInput(input: {
+  date: string | Date;
+  workDone?: string;
+}): { date: Date } {
+  let date: Date;
+  if (input.date instanceof Date) {
+    date = input.date;
+  } else {
+    const s = input.date.trim();
+    // Handle epoch timestamps (numeric strings) — new Date("1704067200000") is invalid,
+    // but new Date(1704067200000) works.
+    date = /^\d+$/.test(s) ? new Date(Number(s)) : new Date(s);
+  }
+  if (isNaN(date.getTime())) throw new ServiceError("Invalid date");
+  if (!input.workDone?.trim()) throw new ServiceError("Work done is required");
+  return { date };
+}
+
 export interface CreateDailyReportInput {
   companyId: string;
   projectId?: string | null;

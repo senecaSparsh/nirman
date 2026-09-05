@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, Users, UsersRound, Phone, Briefcase, SearchX, MapPin, Eye } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, UsersRound, Phone, Briefcase, SearchX, MapPin, Eye, UserCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
@@ -37,6 +37,13 @@ export type EmployeeRow = {
   hierarchyLevel: number | null;
   reportingLocationId: string | null;
   reportingLocationName: string | null;
+  // Dossier fields (for employment terms at creation/edit)
+  employmentType: string | null;
+  noticePeriodDays: number | null;
+  contractStartDate: string | null;
+  contractEndDate: string | null;
+  // Login account status
+  userId: string | null;
 };
 
 const WAGE_TYPES = ["DAILY", "MONTHLY", "FIXED"] as const;
@@ -112,6 +119,19 @@ const employeeColumns: Column<EmployeeRow>[] = [
     exportValue: (e) => e.wageType,
   },
   {
+    key: "employmentType",
+    label: "Emp Type",
+    sortable: true,
+    filterable: true,
+    render: (e) => e.employmentType ? (
+      <span className="rounded px-1.5 py-0.5 text-micro font-medium bg-muted text-muted-foreground">
+        {e.employmentType.charAt(0) + e.employmentType.slice(1).toLowerCase()}
+      </span>
+    ) : <span className="text-muted-foreground">—</span>,
+    filterValue: (e) => e.employmentType ?? "—",
+    exportValue: (e) => e.employmentType ?? "",
+  },
+  {
     key: "dailyRate",
     label: "Rate",
     align: "right",
@@ -168,6 +188,24 @@ const employeeColumns: Column<EmployeeRow>[] = [
     render: (e) => <StatusPill status={e.active ? "ACTIVE" : "INACTIVE"} />,
     filterValue: (e) => (e.active ? "ACTIVE" : "INACTIVE"),
     exportValue: (e) => (e.active ? "ACTIVE" : "INACTIVE"),
+  },
+  {
+    key: "userId",
+    label: "Login",
+    sortable: true,
+    filterable: true,
+    sortValue: (e) => (e.userId ? "YES" : "NO"),
+    render: (e) => e.userId ? (
+      <span className="flex items-center gap-1 text-micro font-medium text-green-600">
+        <UserCircle className="h-3.5 w-3.5" /> Has login
+      </span>
+    ) : (
+      <span className="flex items-center gap-1 text-micro text-muted-foreground">
+        <UserCircle className="h-3.5 w-3.5" /> No login
+      </span>
+    ),
+    filterValue: (e) => (e.userId ? "Has login" : "No login"),
+    exportValue: (e) => (e.userId ? "Has login" : "No login"),
   },
   {
     key: "hierarchyLevel",
@@ -414,6 +452,8 @@ function EmployeeFormDialog({
 }) {
   const isEdit = !!employee;
   const [saving, setSaving] = useState(false);
+  const [dedupSuggestion, setDedupSuggestion] = useState<{ userId: string; userName: string; userEmail: string } | null>(null);
+  const [linking, setLinking] = useState(false);
   const [form, setForm] = useState({
     name: employee?.name ?? "",
     trade: employee?.trade ?? "",
@@ -429,6 +469,11 @@ function EmployeeFormDialog({
     active: employee?.active ?? true,
     hierarchyLevel: employee?.hierarchyLevel?.toString() ?? "",
     reportingLocationId: employee?.reportingLocationId ?? "",
+    // Employment terms (dossier)
+    employmentType: employee?.employmentType ?? "",
+    noticePeriodDays: employee?.noticePeriodDays?.toString() ?? "",
+    contractStartDate: employee?.contractStartDate ? employee.contractStartDate.split("T")[0] : "",
+    contractEndDate: employee?.contractEndDate ? employee.contractEndDate.split("T")[0] : "",
   });
 
   const set = (k: keyof typeof form, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }));
@@ -452,16 +497,27 @@ function EmployeeFormDialog({
       active: form.active,
       hierarchyLevel: form.hierarchyLevel ? Number(form.hierarchyLevel) : null,
       reportingLocationId: form.reportingLocationId || null,
+      // Employment terms (dossier) — sent alongside basic fields
+      employmentType: form.employmentType || null,
+      noticePeriodDays: form.noticePeriodDays ? Number(form.noticePeriodDays) : null,
+      contractStartDate: form.contractStartDate || null,
+      contractEndDate: form.contractEndDate || null,
     };
     try {
       const res = isEdit
         ? await fetch(`/api/employees/${employee!.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
         : await fetch("/api/employees", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        toast.success(isEdit ? "Employee updated" : "Employee added");
-        onSaved();
+        if (!isEdit && data.dedupSuggestion) {
+          // Employee was created, but a matching user exists — show the suggestion
+          setDedupSuggestion(data.dedupSuggestion);
+          toast.success("Employee added — but a matching user was found. Link them?");
+        } else {
+          toast.success(isEdit ? "Employee updated" : "Employee added");
+          onSaved();
+        }
       } else {
-        const data = await res.json().catch(() => ({}));
         toast.error(data.error ?? "Failed to save");
       }
     } finally {
@@ -469,8 +525,46 @@ function EmployeeFormDialog({
     }
   };
 
+  const handleLinkUser = async () => {
+    if (!dedupSuggestion) return;
+    setLinking(true);
+    try {
+      // The employee was just created — we need its ID. We can get it from the
+      // last created employee or pass it through. For now, we'll use the
+      // link-account API with the dedup suggestion's userId.
+      // Note: This requires knowing the employee ID. Since we just created it,
+      // we'll close the dialog and let HR link from the profile.
+      toast.info(`Go to the employee profile to link ${dedupSuggestion.userName}`);
+      onSaved();
+    } finally {
+      setLinking(false);
+    }
+  };
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()} title={isEdit ? "Edit Employee" : "Add Employee"} className="max-w-lg">
+      {dedupSuggestion && (
+        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30 p-3 space-y-2">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="min-w-0 flex-1">
+              <p className="text-body font-medium text-amber-900 dark:text-amber-200">Possible duplicate user found</p>
+              <p className="text-caption text-amber-700 dark:text-amber-400 mt-0.5">
+                An existing user <strong>{dedupSuggestion.userName}</strong> ({dedupSuggestion.userEmail}) has the same phone/email.
+                Consider linking them instead of keeping a separate employee record.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => { setDedupSuggestion(null); onSaved(); }}>
+              Keep separate
+            </Button>
+            <Button size="sm" onClick={handleLinkUser} disabled={linking}>
+              {linking ? "Linking…" : "Link existing user"}
+            </Button>
+          </div>
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Identity section */}
         <div className="space-y-3">
@@ -549,6 +643,43 @@ function EmployeeFormDialog({
               <Label>Monthly Salary (₹)</Label>
               <Input type="number" min="0" step="0.01" value={form.monthlySalary} onChange={(e) => set("monthlySalary", e.target.value)} placeholder="For MONTHLY/FIXED" />
             </div>
+          </div>
+        </div>
+
+        {/* Employment Terms section */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-1.5 border-b border-border pb-1.5">
+            <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-label text-muted-foreground/75">EMPLOYMENT TERMS</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label>Employment Type</Label>
+              <Select value={form.employmentType} onChange={(e) => set("employmentType", e.target.value)}>
+                <option value="">— Select —</option>
+                <option value="PERMANENT">Permanent</option>
+                <option value="CONTRACT">Contract</option>
+                <option value="CASUAL">Casual</option>
+                <option value="PROBATION">Probation</option>
+                <option value="INTERN">Intern</option>
+              </Select>
+            </div>
+            <div>
+              <Label>Notice Period (days)</Label>
+              <Input type="number" min="0" value={form.noticePeriodDays} onChange={(e) => set("noticePeriodDays", e.target.value)} placeholder="e.g. 30" />
+            </div>
+            {(form.employmentType === "CONTRACT" || form.employmentType === "PROBATION") && (
+              <>
+                <div>
+                  <Label>Contract Start Date</Label>
+                  <Input type="date" value={form.contractStartDate} onChange={(e) => set("contractStartDate", e.target.value)} />
+                </div>
+                <div>
+                  <Label>Contract End Date</Label>
+                  <Input type="date" value={form.contractEndDate} onChange={(e) => set("contractEndDate", e.target.value)} />
+                </div>
+              </>
+            )}
           </div>
         </div>
 

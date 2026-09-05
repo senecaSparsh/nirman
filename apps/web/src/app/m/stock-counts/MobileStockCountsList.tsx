@@ -1,9 +1,17 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ScanLine, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import { ScanLine, AlertTriangle, CheckCircle2, Clock, Eye, Share2, MapPin, Calendar, ClipboardList, GitCompare, User } from "lucide-react";
 import { formatDate, formatNumber } from "@/lib/utils";
+import { toast } from "sonner";
+import { useLongPress } from "@/lib/use-long-press";
+import {
+  MobileOverviewSheet,
+  type OverviewRow,
+} from "@/components/mobile/v2/mobile-overview-sheet";
+import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -154,6 +162,7 @@ export function MobileStockCountsList({
 
 /* ─── Count card — procurement-style with status accent ─── */
 function CountCard({ c }: { c: StockCountItem }) {
+  const router = useRouter();
   const isDraft = c.status === "DRAFT";
   const isCounted = c.status === "COUNTED";
 
@@ -175,86 +184,145 @@ function CountCard({ c }: { c: StockCountItem }) {
         ? "var(--color-signal)"
         : "var(--color-go)";
 
+  // ── Long-press overview sheet (data already in the list item — no fetch) ──
+  const [overviewOpen, setOverviewOpen] = useState(false);
+  const [pressPoint, setPressPoint] = useState<{ x: number; y: number } | null>(null);
+  const { bind: longPressBind } = useLongPress((x, y) => {
+    setPressPoint({ x, y });
+    setOverviewOpen(true);
+  });
+
+  const varianceText =
+    c.itemsWithVariance > 0
+      ? `${c.itemsWithVariance} item${c.itemsWithVariance !== 1 ? "s" : ""} (${c.totalVariance > 0 ? "+" : ""}${formatNumber(c.totalVariance, 0)})`
+      : "No variances";
+
+  const overviewRows: OverviewRow[] = [
+    { icon: StatusIcon, label: "Status", value: statusLabel, valueColor: accentColor },
+    { icon: Calendar, label: "Date", value: formatDate(c.countDate) },
+    { icon: MapPin, label: "Location", value: c.locationName },
+    { icon: ClipboardList, label: "Items Counted", value: String(c.lineCount) },
+    { icon: GitCompare, label: "Variances", value: varianceText, valueColor: hasVariance ? varianceColor : undefined },
+    { icon: User, label: "Initiated By", value: "—" },
+  ];
+
+  const overviewActions: ContextAction[] = [
+    {
+      label: "View Full Details",
+      icon: Eye,
+      onPress: () => router.push(`/m/stock-counts/${c.id}`),
+    },
+    {
+      label: "Share",
+      icon: Share2,
+      onPress: () => {
+        const url = `${window.location.origin}/m/stock-counts/${c.id}`;
+        if (navigator.share) {
+          navigator.share({ title: c.locationName, url }).catch(() => {});
+        } else {
+          navigator.clipboard?.writeText(url).catch(() => {});
+          toast.success("Link copied");
+        }
+      },
+    },
+  ];
+
   return (
-    <Link
-      href={`/m/stock-counts/${c.id}`}
-      className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
-      style={{
-        borderColor: "var(--color-line)",
-        backgroundColor: "var(--color-paper)",
-      }}
-    >
-      {/* Top accent strip */}
-      <div className="h-0.5 w-full" style={{ backgroundColor: accentColor }} />
-
-      <div className="p-2 flex flex-col gap-1 flex-1">
-        {/* Row 1: Status badge */}
-        <div className="flex items-center justify-between gap-1">
-          <span
-            className="flex items-center gap-0.5 text-m-caption font-bold uppercase shrink-0"
-            style={{ color: accentColor }}
-          >
-            <StatusIcon className="size-2.5" />
-            {statusLabel}
-          </span>
-          <span
-            className="text-m-caption font-semibold"
-            style={{ color: "var(--color-ink-500)" }}
-          >
-            {c.lineCount} items
-          </span>
-        </div>
-
-        {/* Row 2: Location name */}
-        <p
-          className="text-m-caption font-bold leading-tight truncate"
-          style={{ color: "var(--color-ink-950)" }}
+    <>
+      <div {...longPressBind}>
+        <Link
+          href={`/m/stock-counts/${c.id}`}
+          className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
+          style={{
+            borderColor: "var(--color-line)",
+            backgroundColor: "var(--color-paper)",
+          }}
         >
-          {c.locationName}
-        </p>
+          {/* Top accent strip */}
+          <div className="h-0.5 w-full" style={{ backgroundColor: accentColor }} />
 
-        {/* Row 3: Date */}
-        <span
-          className="text-m-caption tabular-nums"
-          style={{ color: "var(--color-ink-500)" }}
-        >
-          {formatDate(c.countDate)}
-        </span>
-
-        {/* Row 4: Variance indicator (fixed height) */}
-        <div className="mt-auto pt-1 h-[1.625rem] flex flex-col justify-end">
-          {hasVariance ? (
-            <div className="flex items-center justify-between">
+          <div className="p-2 flex flex-col gap-1 flex-1">
+            {/* Row 1: Status badge */}
+            <div className="flex items-center justify-between gap-1">
+              <span
+                className="flex items-center gap-0.5 text-m-caption font-bold uppercase shrink-0"
+                style={{ color: accentColor }}
+              >
+                <StatusIcon className="size-2.5" />
+                {statusLabel}
+              </span>
               <span
                 className="text-m-caption font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
-                {c.itemsWithVariance} mismatch
-              </span>
-              <span
-                className="text-m-caption font-bold tabular-nums"
-                style={{ color: varianceColor }}
-              >
-                {c.totalVariance > 0 ? "+" : ""}
-                {formatNumber(c.totalVariance, 0)}
+                {c.lineCount} items
               </span>
             </div>
-          ) : (
-            <div className="flex items-center justify-between">
-              <span
-                className="text-m-caption font-semibold"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                All match
-              </span>
-              <CheckCircle2
-                className="size-3"
-                style={{ color: "var(--color-go)" }}
-              />
+
+            {/* Row 2: Location name */}
+            <p
+              className="text-m-caption font-bold leading-tight truncate"
+              style={{ color: "var(--color-ink-950)" }}
+            >
+              {c.locationName}
+            </p>
+
+            {/* Row 3: Date */}
+            <span
+              className="text-m-caption tabular-nums"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              {formatDate(c.countDate)}
+            </span>
+
+            {/* Row 4: Variance indicator (fixed height) */}
+            <div className="mt-auto pt-1 h-[1.625rem] flex flex-col justify-end">
+              {hasVariance ? (
+                <div className="flex items-center justify-between">
+                  <span
+                    className="text-m-caption font-semibold"
+                    style={{ color: "var(--color-ink-500)" }}
+                  >
+                    {c.itemsWithVariance} mismatch
+                  </span>
+                  <span
+                    className="text-m-caption font-bold tabular-nums"
+                    style={{ color: varianceColor }}
+                  >
+                    {c.totalVariance > 0 ? "+" : ""}
+                    {formatNumber(c.totalVariance, 0)}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <span
+                    className="text-m-caption font-semibold"
+                    style={{ color: "var(--color-ink-500)" }}
+                  >
+                    All match
+                  </span>
+                  <CheckCircle2
+                    className="size-3"
+                    style={{ color: "var(--color-go)" }}
+                  />
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        </Link>
       </div>
-    </Link>
+
+      {/* Long-press overview sheet */}
+      <MobileOverviewSheet
+        open={overviewOpen}
+        onClose={() => setOverviewOpen(false)}
+        origin={pressPoint}
+        title={c.locationName}
+        subtitle={statusLabel}
+        accentColor={accentColor}
+        rows={overviewRows}
+        actions={overviewActions}
+      />
+    </>
   );
 }

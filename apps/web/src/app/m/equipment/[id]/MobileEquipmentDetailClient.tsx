@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 type EquipmentStatus = "AVAILABLE" | "ASSIGNED" | "IN_MAINTENANCE" | "RETIRED" | "SOLD";
 
@@ -503,19 +504,7 @@ export function MobileEquipmentDetailClient({
 
       {/* ── Retire confirmation ── */}
       {showRetire ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-          onClick={() => setShowRetire(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-t-[0.75rem] flex flex-col"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Retire equipment?</p>
-            </div>
+        <MobileDialog open={true} onClose={() => setShowRetire(false)} title="Retire equipment?">
             <div className="p-3">
               <p className="text-m-body mb-3" style={{ color: "var(--color-ink-500)" }}>
                 {equipment.name} will be marked as retired. You can restore it later if needed.
@@ -545,8 +534,7 @@ export function MobileEquipmentDetailClient({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+        </MobileDialog>
       ) : null}
 
       {/* ── Edit modal ── */}
@@ -613,64 +601,49 @@ function EditEquipmentModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <form
-        className="w-full max-w-md rounded-t-[0.75rem] flex flex-col max-h-[90vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)" }}
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={handleSubmit}
-      >
-        <div className="flex items-center justify-between p-3 border-b sticky top-0" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Edit Equipment</p>
-          <button type="button" onClick={onClose} className="text-m-body press">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
+    <MobileDialog open={true} onClose={onClose} title="Edit Equipment">
+      <form className="flex flex-col" onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}>
         <div className="p-3 flex flex-col gap-3">
           <Field label="Name *">
             <input
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
             />
           </Field>
           <Field label="Model">
             <input
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
             />
           </Field>
           <Field label="Serial Number">
             <input
               value={serialNumber}
               onChange={(e) => setSerialNumber(e.target.value)}
-              className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
             />
           </Field>
           <Field label="Category">
             <input
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
             />
           </Field>
           <Field label="Notes">
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+              rows={2}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
             />
           </Field>
         </div>
@@ -693,14 +666,14 @@ function EditEquipmentModal({
           </button>
         </div>
       </form>
-    </div>
+    </MobileDialog>
   );
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+      <span className="text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
         {label}
       </span>
       {children}
@@ -790,27 +763,12 @@ function AssignModal({
 
   return (
     <>
-      <div
-        className="fixed inset-0 z-50 flex items-end justify-center"
-        style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-        onClick={onClose}
-      >
-        <div
-          className="w-full max-w-md rounded-t-[0.75rem] flex flex-col"
-          style={{ backgroundColor: "var(--color-paper)" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Assign Equipment</p>
-            <button onClick={onClose} className="text-m-body press">
-              <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-            </button>
-          </div>
+      <MobileDialog open={true} onClose={onClose} title="Assign Equipment">
 
           <div className="p-3 flex flex-col gap-3">
             {/* Location — tappable selector card */}
             <div>
-              <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+              <label className="text-m-caption font-bold block mb-0" style={{ color: "var(--color-ink-500)" }}>
                 Location
               </label>
               <button
@@ -840,7 +798,7 @@ function AssignModal({
 
             {/* Project — tappable selector card */}
             <div>
-              <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+              <label className="text-m-caption font-bold block mb-0" style={{ color: "var(--color-ink-500)" }}>
                 Project (optional)
               </label>
               <button
@@ -870,16 +828,16 @@ function AssignModal({
 
             {/* Notes */}
             <div>
-              <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                 Notes (optional)
               </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="e.g. Deployed for foundation work"
-                rows={2}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none resize-none"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
+                rows={1}
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+                style={{ backgroundColor: "transparent", color: "var(--color-ink-950)" }}
               />
             </div>
 
@@ -899,8 +857,7 @@ function AssignModal({
               )}
             </button>
           </div>
-        </div>
-      </div>
+      </MobileDialog>
 
       {/* Location picker */}
       {picker === "location" ? (
@@ -986,8 +943,8 @@ function PickerSheet({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search…"
               autoFocus
-              className="w-full h-9 rounded-[0.5rem] border pl-8 pr-2 text-m-section outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
+              className="w-full h-7 pl-8 pr-2 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              style={{ backgroundColor: "transparent" }}
             />
           </div>
         </div>
@@ -1082,27 +1039,12 @@ function MaintenanceModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[0.75rem] flex flex-col"
-        style={{ backgroundColor: "var(--color-paper)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Record Maintenance</p>
-          <button onClick={onClose} className="text-m-body press">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
+    <MobileDialog open={true} onClose={onClose} title="Record Maintenance">
 
         <div className="p-3 flex flex-col gap-3">
           {/* Type */}
           <div>
-            <label className="text-m-caption font-semibold uppercase block mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+            <label className="text-m-caption font-bold block mb-0" style={{ color: "var(--color-ink-500)" }}>
               Type
             </label>
             <div className="grid grid-cols-3 gap-1.5">
@@ -1130,7 +1072,7 @@ function MaintenanceModal({
           {/* Cost + Vendor */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+              <label className="text-m-caption font-bold block mb-0" style={{ color: "var(--color-ink-500)" }}>
                 Cost (optional)
               </label>
               <div className="relative">
@@ -1148,7 +1090,7 @@ function MaintenanceModal({
               </div>
             </div>
             <div>
-              <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+              <label className="text-m-caption font-bold block mb-0" style={{ color: "var(--color-ink-500)" }}>
                 Vendor (optional)
               </label>
               <input
@@ -1156,24 +1098,24 @@ function MaintenanceModal({
                 value={vendor}
                 onChange={(e) => setVendor(e.target.value)}
                 placeholder="e.g. ABC Services"
-                className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body font-medium outline-none"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                className="w-full h-7 px-1 text-m-caption font-medium outline-none border-b focus:border-b-2 transition-colors"
+                style={{ backgroundColor: "transparent" }}
               />
             </div>
           </div>
 
           {/* Notes */}
           <div>
-            <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Notes (optional)
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Oil change + filter replacement"
-              rows={2}
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none resize-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              rows={1}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+              style={{ backgroundColor: "transparent", color: "var(--color-ink-950)" }}
             />
           </div>
 
@@ -1193,7 +1135,6 @@ function MaintenanceModal({
             )}
           </button>
         </div>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }

@@ -318,7 +318,7 @@ export function MobileStockMovementsList({
         <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="Add Material" icon={Plus} />
       )}
 
-      {/* ── New material bottom-sheet dialog ── */}
+      {/* ── New material dialog — springs from FAB ── */}
       {canManage && (
         <MobileNewMaterialDialog
           open={showNewMaterial}

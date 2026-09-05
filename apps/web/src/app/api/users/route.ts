@@ -184,6 +184,33 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return user;
   });
 
+  // ── Dedup detection: if the new user's phone/email matches an existing
+  //    unlinked Employee in this company, auto-link them so the Employee
+  //    gets a login account without duplication. ──
+  let autoLinkedEmployee: { id: string; name: string } | null = null;
+  if (normalizedPhone) {
+    const matchingEmployee = await prisma.employee.findFirst({
+      where: {
+        companyId: company.id,
+        deletedAt: null,
+        userId: null,
+        // Match by phone (last 10 digits, ignoring formatting)
+        phone: { contains: normalizedPhone.slice(-4) },
+      },
+      select: { id: true, name: true, phone: true },
+    });
+    if (matchingEmployee && matchingEmployee.phone) {
+      const empDigits = matchingEmployee.phone.replace(/\D/g, "").slice(-10);
+      if (empDigits === normalizedPhone.slice(-10)) {
+        await prisma.employee.update({
+          where: { id: matchingEmployee.id },
+          data: { userId: result.id },
+        });
+        autoLinkedEmployee = { id: matchingEmployee.id, name: matchingEmployee.name };
+      }
+    }
+  }
+
   const loginHint = normalizedPhone
     ? `phone number ${phone} and the password you set`
     : `email ${result.email} and the password you set`;
@@ -193,6 +220,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     name: result.name,
     email: result.email,
     role: result.role,
-    message: `${result.name} added. They can sign in with ${loginHint}.${mustChangePassword !== false ? " They will be asked to set a new password on first login." : ""}`,
+    ...(autoLinkedEmployee ? { autoLinkedEmployee } : {}),
+    message: `${result.name} added. They can sign in with ${loginHint}.${mustChangePassword !== false ? " They will be asked to set a new password on first login." : ""}${autoLinkedEmployee ? ` Auto-linked to employee record: ${autoLinkedEmployee.name}.` : ""}`,
   }, { status: 201 });
 });

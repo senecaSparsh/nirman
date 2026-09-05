@@ -694,11 +694,9 @@ function MobileQuoteUploadDialog({
   }
 
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none press";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors press";
   const inputStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
-    color: "var(--color-ink-950)",
+    backgroundColor: "transparent",
   };
 
   return (
@@ -751,275 +749,293 @@ function MobileQuoteUploadDialog({
         </div>
 
         <form onSubmit={onSubmit} className="px-4 py-3 flex flex-col gap-3">
-          {/* Supplier */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Supplier *
-            </label>
-            <button
-              type="button"
-              onClick={() => setShowSupplierPicker(true)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              {selectedSupplier ? (
-                <span className="text-left">{selectedSupplier.name}</span>
-              ) : (
-                <span
-                  className="text-left"
-                  style={{ color: "var(--color-ink-500)" }}
-                >
-                  Select supplier…
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* File upload */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Quote File (PDF/Image) *
-            </label>
-            {fileUrl ? (
-              <div
-                className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2"
-                style={inputStyle}
-              >
-                <a
-                  href={fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 truncate text-m-body font-semibold"
-                  style={{ color: "var(--color-ink-700)" }}
-                >
-                  {fileName}
-                </a>
-                <button
-                  type="button"
-                  onClick={clearFile}
-                  className="shrink-0 press"
-                  style={{ color: "var(--color-ink-500)" }}
-                >
-                  <X className="size-4" />
-                </button>
-              </div>
-            ) : (
-              <label
-                className="flex cursor-pointer items-center justify-center gap-2 rounded-[0.5rem] border border-dashed py-3 text-m-body"
-                style={{
-                  borderColor: "var(--color-line)",
-                  color: "var(--color-ink-500)",
-                }}
-              >
-                {uploading ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Upload className="size-4" />
-                )}
-                <span>{uploading ? "Uploading…" : "Choose file"}</span>
-                <input
-                  type="file"
-                  accept=".pdf,image/*"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                  disabled={uploading}
-                />
-              </label>
-            )}
-          </div>
-
-          {/* Line prices */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1.5"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Line Prices (per unit)
-            </label>
-            <div
-              className="rounded-[0.5rem] border overflow-hidden"
-              style={{ borderColor: "var(--color-line)" }}
-            >
-              {requisitionLines.map((l, i) => (
-                <div
-                  key={l.materialId}
-                  className="flex items-center gap-2 px-2.5 py-2"
-                  style={
-                    i > 0
-                      ? { borderTop: "1px solid var(--color-line)" }
-                      : undefined
-                  }
-                >
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className="text-m-label font-bold truncate"
-                      style={{ color: "var(--color-ink-950)" }}
-                    >
-                      {l.materialName}
-                    </p>
-                    <p
-                      className="text-m-caption tabular-nums"
-                      style={{ color: "var(--color-ink-500)" }}
-                    >
-                      {l.qtyRequested} {l.unit}
-                    </p>
-                  </div>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    step="any"
-                    min="0"
-                    placeholder="0"
-                    value={linePrices[l.materialId] ?? ""}
-                    onChange={(e) =>
-                      setLinePrices((p) => ({
-                        ...p,
-                        [l.materialId]: e.target.value,
-                      }))
-                    }
-                    className="w-24 text-right rounded-[0.375rem] border px-2 py-1.5 text-m-body font-bold tabular-nums outline-none"
-                    style={inputStyle}
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center justify-between px-1 mt-1.5">
-              <span
-                className="text-m-caption"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                Computed total (ex-GST)
-              </span>
-              <span
-                className="text-m-body font-bold tabular-nums"
-                style={{ color: "var(--color-ink-950)" }}
-              >
-                {formatCurrency(computedTotal)}
-              </span>
-            </div>
-          </div>
-
-          {/* Landed total override */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Landed Total (delivered to site) *
-            </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              step="any"
-              min="0"
-              placeholder={computedTotal > 0 ? String(computedTotal) : "0.00"}
-              value={landedTotal}
-              onChange={(e) => setLandedTotal(e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            />
-            <p
-              className="text-m-caption mt-0.5"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Leave blank to use computed total from lines
+          {/* Supplier & Quote File */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Supplier & Quote File
             </p>
-          </div>
-
-          {/* Valid until */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Valid Until
-            </label>
-            <input
-              type="date"
-              value={validUntil}
-              onChange={(e) => setValidUntil(e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Commercial terms */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Payment Terms *
-            </label>
-            <input
-              type="text"
-              value={paymentTerms}
-              onChange={(e) => setPaymentTerms(e.target.value)}
-              placeholder="e.g. 30 days credit"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
+            {/* Supplier */}
             <div>
               <label
                 className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
-                Lead Time (days) *
+                Supplier *
               </label>
-              <input
-                type="number"
-                min="0"
-                max="365"
-                inputMode="numeric"
-                value={leadTimeDays}
-                onChange={(e) => setLeadTimeDays(e.target.value)}
-                placeholder="e.g. 7"
+              <button
+                type="button"
+                onClick={() => setShowSupplierPicker(true)}
                 className={inputClass}
                 style={inputStyle}
-              />
+              >
+                {selectedSupplier ? (
+                  <span className="text-left">{selectedSupplier.name}</span>
+                ) : (
+                  <span
+                    className="text-left"
+                    style={{ color: "var(--color-ink-500)" }}
+                  >
+                    Select supplier…
+                  </span>
+                )}
+              </button>
             </div>
+
+            {/* File upload */}
             <div>
               <label
                 className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
-                Warranty (optional)
+                Quote File (PDF/Image) *
+              </label>
+              {fileUrl ? (
+                <div
+                  className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2"
+                  style={inputStyle}
+                >
+                  <a
+                    href={fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 truncate text-m-body font-semibold"
+                    style={{ color: "var(--color-ink-700)" }}
+                  >
+                    {fileName}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={clearFile}
+                    className="shrink-0 press"
+                    style={{ color: "var(--color-ink-500)" }}
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+              ) : (
+                <label
+                  className="flex cursor-pointer items-center justify-center gap-2 rounded-[0.5rem] border border-dashed py-3 text-m-body"
+                  style={{
+                    borderColor: "var(--color-line)",
+                    color: "var(--color-ink-500)",
+                  }}
+                >
+                  {uploading ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Upload className="size-4" />
+                  )}
+                  <span>{uploading ? "Uploading…" : "Choose file"}</span>
+                  <input
+                    type="file"
+                    accept=".pdf,image/*"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                    disabled={uploading}
+                  />
+                </label>
+              )}
+            </div>
+          </div>
+
+          {/* Pricing */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Pricing
+            </p>
+            {/* Line prices */}
+            <div>
+              <label
+                className="text-m-caption font-semibold block mb-1.5"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                Line Prices (per unit)
+              </label>
+              <div
+                className="rounded-[0.5rem] border overflow-hidden"
+                style={{ borderColor: "var(--color-line)" }}
+              >
+                {requisitionLines.map((l, i) => (
+                  <div
+                    key={l.materialId}
+                    className="flex items-center gap-2 px-2.5 py-2"
+                    style={
+                      i > 0
+                        ? { borderTop: "1px solid var(--color-line)" }
+                        : undefined
+                    }
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className="text-m-label font-bold truncate"
+                        style={{ color: "var(--color-ink-950)" }}
+                      >
+                        {l.materialName}
+                      </p>
+                      <p
+                        className="text-m-caption tabular-nums"
+                        style={{ color: "var(--color-ink-500)" }}
+                      >
+                        {l.qtyRequested} {l.unit}
+                      </p>
+                    </div>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      step="any"
+                      min="0"
+                      placeholder="0"
+                      value={linePrices[l.materialId] ?? ""}
+                      onChange={(e) =>
+                        setLinePrices((p) => ({
+                          ...p,
+                          [l.materialId]: e.target.value,
+                        }))
+                      }
+                      className="w-24 text-right h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                      style={inputStyle}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between px-1 mt-1.5">
+                <span
+                  className="text-m-caption"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  Computed total (ex-GST)
+                </span>
+                <span
+                  className="text-m-body font-bold tabular-nums"
+                  style={{ color: "var(--color-ink-950)" }}
+                >
+                  {formatCurrency(computedTotal)}
+                </span>
+              </div>
+            </div>
+
+            {/* Landed total override */}
+            <div>
+              <label
+                className="text-m-caption font-semibold block mb-1"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                Landed Total (delivered to site) *
               </label>
               <input
                 type="text"
-                value={warranty}
-                onChange={(e) => setWarranty(e.target.value)}
-                placeholder="e.g. 12 months"
+                inputMode="decimal"
+                step="any"
+                min="0"
+                placeholder={computedTotal > 0 ? String(computedTotal) : "0.00"}
+                value={landedTotal}
+                onChange={(e) => setLandedTotal(e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+              />
+              <p
+                className="text-m-caption mt-0.5"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                Leave blank to use computed total from lines
+              </p>
+            </div>
+
+            {/* Valid until */}
+            <div>
+              <label
+                className="text-m-caption font-semibold block mb-1"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                Valid Until
+              </label>
+              <input
+                type="date"
+                value={validUntil}
+                onChange={(e) => setValidUntil(e.target.value)}
                 className={inputClass}
                 style={inputStyle}
               />
             </div>
           </div>
 
-          {/* Notes */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Notes (optional)
-            </label>
-            <textarea
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Any special terms…"
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section resize-none outline-none"
-              style={inputStyle}
-            />
+          {/* Commercial Terms */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Commercial Terms
+            </p>
+            {/* Payment terms */}
+            <div>
+              <label
+                className="text-m-caption font-semibold block mb-1"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                Payment Terms *
+              </label>
+              <input
+                type="text"
+                value={paymentTerms}
+                onChange={(e) => setPaymentTerms(e.target.value)}
+                placeholder="e.g. 30 days credit"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label
+                  className="text-m-caption font-semibold block mb-1"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  Lead Time (days) *
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="365"
+                  inputMode="numeric"
+                  value={leadTimeDays}
+                  onChange={(e) => setLeadTimeDays(e.target.value)}
+                  placeholder="e.g. 7"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div className="pl-2">
+                <label
+                  className="text-m-caption font-semibold block mb-1"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  Warranty (optional)
+                </label>
+                <input
+                  type="text"
+                  value={warranty}
+                  onChange={(e) => setWarranty(e.target.value)}
+                  placeholder="e.g. 12 months"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label
+                className="text-m-caption font-semibold block mb-1"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                Notes (optional)
+              </label>
+              <textarea
+                rows={2}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Any special terms…"
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+                style={inputStyle}
+              />
+            </div>
           </div>
 
           {/* Submit */}
@@ -1138,11 +1154,9 @@ function SupplierPickerModal({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search suppliers…"
-            className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
             style={{
-              borderColor: "var(--color-line)",
-              backgroundColor: "var(--color-paper)",
-              color: "var(--color-ink-950)",
+              backgroundColor: "transparent",
             }}
           />
         </div>
@@ -1258,25 +1272,28 @@ function WaiveDialog({
             Waiving allows PO conversion without the minimum vendor quotes. This
             is logged for audit.
           </p>
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Reason *
-            </label>
-            <textarea
-              rows={3}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. Single source supplier, emergency procurement…"
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section resize-none outline-none"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            />
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Waive Reason
+            </p>
+            <div>
+              <label
+                className="text-m-caption font-semibold block mb-1"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                Reason *
+              </label>
+              <textarea
+                rows={3}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="e.g. Single source supplier, emergency procurement…"
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+                style={{
+                  backgroundColor: "transparent",
+                }}
+              />
+            </div>
           </div>
           <button
             onClick={onConfirm}
@@ -1350,11 +1367,9 @@ function MobileEditQuoteDialog({
   }
 
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none press";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors press";
   const inputStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
-    color: "var(--color-ink-950)",
+    backgroundColor: "transparent",
   };
 
   return (
@@ -1407,94 +1422,106 @@ function MobileEditQuoteDialog({
         </div>
 
         <form onSubmit={handleSubmit} className="px-4 py-3 flex flex-col gap-3">
-          {/* Landed total */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Landed Total (₹) *
-            </label>
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              value={landedTotal}
-              onChange={(e) => setLandedTotal(e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-              required
-            />
-          </div>
-
-          {/* Valid until */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Valid Until
-            </label>
-            <input
-              type="date"
-              value={validUntil}
-              onChange={(e) => setValidUntil(e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Lead time + Payment terms */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Pricing */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Pricing
+            </p>
+            {/* Landed total */}
             <div>
               <label
                 className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
-                Lead Time (days)
+                Landed Total (₹) *
               </label>
               <input
                 type="number"
                 min={0}
-                value={leadTimeDays}
-                onChange={(e) => setLeadTimeDays(e.target.value)}
+                step="0.01"
+                value={landedTotal}
+                onChange={(e) => setLandedTotal(e.target.value)}
                 className={inputClass}
                 style={inputStyle}
+                required
               />
             </div>
+
+            {/* Valid until */}
             <div>
               <label
                 className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
-                Payment Terms
+                Valid Until
               </label>
               <input
-                value={paymentTerms}
-                onChange={(e) => setPaymentTerms(e.target.value)}
-                placeholder="e.g. 30 days credit"
+                type="date"
+                value={validUntil}
+                onChange={(e) => setValidUntil(e.target.value)}
                 className={inputClass}
                 style={inputStyle}
               />
             </div>
           </div>
 
-          {/* Notes */}
-          <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Notes
-            </label>
-            <textarea
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Any special terms…"
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section resize-none outline-none"
-              style={inputStyle}
-            />
+          {/* Commercial Terms */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Commercial Terms
+            </p>
+            {/* Lead time + Payment terms */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label
+                  className="text-m-caption font-semibold block mb-1"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  Lead Time (days)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={leadTimeDays}
+                  onChange={(e) => setLeadTimeDays(e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div className="pl-2">
+                <label
+                  className="text-m-caption font-semibold block mb-1"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  Payment Terms
+                </label>
+                <input
+                  value={paymentTerms}
+                  onChange={(e) => setPaymentTerms(e.target.value)}
+                  placeholder="e.g. 30 days credit"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label
+                className="text-m-caption font-semibold block mb-1"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                Notes
+              </label>
+              <textarea
+                rows={2}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Any special terms…"
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+                style={inputStyle}
+              />
+            </div>
           </div>
 
           {/* Submit */}

@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   Plus,
   Trash2,
-  X,
   ChevronDown,
   Loader2,
   User,
@@ -22,6 +21,7 @@ import {
 import { formatDate, cn } from "@/lib/utils";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 export type AssignmentRow = {
   id: string;
@@ -243,24 +243,7 @@ export function MobileProjectAssignmentsClient({
 
       {/* ── Delete confirmation ── */}
       {delTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-          onClick={() => setDelTarget(null)}
-        >
-          <div
-            className="w-full rounded-t-[0.75rem] mx-auto max-w-md p-4"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-                Remove assignment?
-              </p>
-              <button onClick={() => setDelTarget(null)} className="text-m-body press p-1">
-                <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-              </button>
-            </div>
+        <MobileDialog open={!!delTarget} onClose={() => setDelTarget(null)} title="Remove assignment?">
             <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>
               Remove {delTarget.userName}&rsquo;s access to {delTarget.projectName}? They will no longer see this project&rsquo;s data.
             </p>
@@ -283,8 +266,7 @@ export function MobileProjectAssignmentsClient({
                 {submitting ? "Removing…" : "Remove"}
               </button>
             </div>
-          </div>
-        </div>
+        </MobileDialog>
       )}
     </div>
   );
@@ -413,8 +395,8 @@ function AssignmentFormDialog({
             <select
               value={scopedRole}
               onChange={(e) => setScopedRole(e.target.value)}
-              className="w-full h-11 rounded-[0.5rem] border px-3 text-m-section outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              style={{ backgroundColor: "transparent" }}
             >
               {SCOPED_ROLE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>

@@ -70,8 +70,10 @@ export function threeWayMatch(
   poLines: { materialId: string; qtyOrdered: Decimal | string | number; unitCost: Decimal | string | number }[],
   grnLines: { materialId: string; qtyReceived: Decimal | string | number }[],
   priceTolerance: number = DEFAULT_PRICE_TOLERANCE,
+  headerSubtotal?: Decimal | string | number,
 ): ThreeWayMatchResult {
   const variances: MatchVariance[] = [];
+  const headerSub = headerSubtotal ? new Decimal(headerSubtotal) : null;
 
   // Index PO lines and GRN lines by materialId for quick lookup.
   // If a material appears on multiple PO/GRN lines, sum them.
@@ -157,15 +159,32 @@ export function threeWayMatch(
       }
     }
 
-    // ── Amount match: line total = qty × price ──
-    // Since the invoice line total IS qty × price (we compute it above),
-    // this is always self-consistent by construction. A separate line
-    // total field is not currently provided by the input schema, so there
-    // is nothing to compare against. This check is a no-op placeholder
-    // for future extension when a separate printed total is supplied.
-    // (Previously this code incorrectly flagged every non-zero line as a
-    // variance, causing all invoices to be UNMATCHED.)
+    // ── Amount match: header subtotal vs sum of line totals ──
+    // The invoice carries a header subtotal that should equal Σ(qty × price).
+    // If they disagree, the supplier may have applied a discount, surcharge,
+    // or rounded — flag it so the approver can review before paying.
   });
+
+  // Header-level amount check: sum of line totals vs invoice subtotal.
+  // This catches cases where the printed invoice total doesn't match the
+  // line items (discounts, rounding, manual adjustments, data entry errors).
+  if (invoiceLines.length > 0) {
+    const lineTotalSum = invoiceLines.reduce(
+      (sum, inv) => sum.plus(new Decimal(inv.quantity).mul(new Decimal(inv.unitPrice))),
+      new Decimal(0),
+    );
+    // We compare against the header subtotal passed separately.
+    // The caller is responsible for passing headerSubtotal.
+    if (headerSub && !lineTotalSum.equals(headerSub)) {
+      variances.push({
+        line: 0, // line 0 = header-level variance
+        field: "lineTotal",
+        expected: headerSub.toString(),
+        actual: lineTotalSum.toString(),
+        variance: lineTotalSum.minus(headerSub).toString(),
+      });
+    }
+  }
 
   const matched = variances.length === 0;
   const matchType: ThreeWayMatchResult["matchType"] = matched
@@ -189,6 +208,7 @@ export async function createSupplierInvoice(input: {
   subtotal: number | Decimal | string;
   gstAmount?: number | Decimal | string;
   totalAmount: number | Decimal | string;
+  hsnCode?: string;
   lines?: InvoiceLineInput[];
   receivedById?: string;
   userId?: string;
@@ -200,6 +220,15 @@ export async function createSupplierInvoice(input: {
   if (!input.invoiceNumber?.trim()) throw new ServiceError("Invoice number is required");
   if (subtotal.lt(0)) throw new ServiceError("Subtotal cannot be negative");
   if (totalAmount.lt(0)) throw new ServiceError("Total amount cannot be negative");
+
+  // M2: Material invoices (with line items) must be linked to a Purchase Order
+  // so the three-way match can run. Services invoices (no lines) may skip the PO.
+  if (input.lines && input.lines.length > 0 && !input.purchaseOrderId) {
+    throw new ServiceError(
+      "Supplier invoices for materials must be linked to a Purchase Order for three-way matching. " +
+      "For services invoices (no material lines), omit the lines array.",
+    );
+  }
 
   return withSerializableTransaction(async (tx) => {
     // 1. Validate supplier
@@ -248,7 +277,7 @@ export async function createSupplierInvoice(input: {
 
       // Run three-way match if invoice lines are provided
       if (input.lines && input.lines.length > 0) {
-        const result = threeWayMatch(input.lines, poLines, grnLines);
+        const result = threeWayMatch(input.lines, poLines, grnLines, DEFAULT_PRICE_TOLERANCE, subtotal);
         matchStatus = result.matchType;
         if (!result.matched) {
           matchNotes = result.variances
@@ -270,6 +299,7 @@ export async function createSupplierInvoice(input: {
         subtotal,
         gstAmount,
         totalAmount,
+        hsnCode: input.hsnCode ?? null,
         status: matchStatus === "THREE_WAY_MATCH" || matchStatus === "TWO_WAY_MATCH" ? "MATCHED" : "PENDING",
         matchStatus,
         matchNotes,
@@ -530,7 +560,7 @@ export async function getSupplierInvoice(invoiceId: string, companyId: string) {
       quantity: pl.qtyOrdered,
       unitPrice: pl.unitCost,
     }));
-    matchDetails = threeWayMatch(invoiceLineProxy, poLines, grnLines);
+    matchDetails = threeWayMatch(invoiceLineProxy, poLines, grnLines, DEFAULT_PRICE_TOLERANCE, new Decimal(invoice.subtotal));
   }
 
   return { ...invoice, matchDetails };

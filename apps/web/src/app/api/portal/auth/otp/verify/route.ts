@@ -34,8 +34,30 @@ export const POST = async (req: NextRequest) => {
     orderBy: { createdAt: "desc" },
   });
 
-  if (!otp || otp.code !== code) {
+  if (!otp) {
     return NextResponse.json({ error: "Invalid or expired code." }, { status: 400 });
+  }
+
+  // Rate limit: max 5 attempts per OTP
+  const MAX_ATTEMPTS = 5;
+  if (otp.attempts >= MAX_ATTEMPTS) {
+    return NextResponse.json(
+      { error: "Too many attempts. Please request a new code." },
+      { status: 429 },
+    );
+  }
+
+  if (otp.code !== code) {
+    // Increment attempts
+    await prisma.phoneOtp.update({
+      where: { id: otp.id },
+      data: { attempts: { increment: 1 } },
+    });
+    const remaining = MAX_ATTEMPTS - (otp.attempts + 1);
+    return NextResponse.json(
+      { error: `Incorrect code. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.` },
+      { status: 400 },
+    );
   }
 
   // Mark OTP as used

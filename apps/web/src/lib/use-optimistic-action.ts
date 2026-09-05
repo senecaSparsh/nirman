@@ -67,13 +67,15 @@ export function useOptimisticAction({
   refreshOnSuccess = true,
   onSuccess,
 }: UseOptimisticActionOptions) {
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   const execute = useCallback(
     async (overrideBody?: unknown) => {
       setError(null);
+      setIsPending(true);
 
       // Apply optimistic update immediately
       if (optimisticUpdate) {
@@ -98,6 +100,7 @@ export function useOptimisticAction({
         }
 
         // Success
+        setIsPending(false);
         haptic(hapticOnSuccess);
         if (successMessage) {
           toast.success(successMessage, successDescription ? { description: successDescription } : undefined);
@@ -107,6 +110,7 @@ export function useOptimisticAction({
         return data;
       } catch (err) {
         // Revert optimistic update
+        setIsPending(false);
         if (revert) {
           startTransition(() => {
             revert();

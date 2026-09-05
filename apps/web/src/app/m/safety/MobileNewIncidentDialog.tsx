@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, Plus, AlertTriangle } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useWbsOptions } from "@/lib/use-wbs-options";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 type IncidentType = "ACCIDENT" | "NEAR_MISS" | "INJURY" | "FATALITY" | "PROPERTY_DAMAGE" | "ENVIRONMENTAL" | "FIRE" | "STRUCTURAL" | "OTHER";
 type IncidentSeverity = "FIRST_AID" | "LOST_TIME" | "SERIOUS" | "FATAL" | "PROPERTY_ONLY";
@@ -22,7 +23,28 @@ const SEVERITIES: { value: IncidentSeverity; label: string }[] = [
   { value: "FATAL", label: "Fatal" }, { value: "PROPERTY_ONLY", label: "Property Only" },
 ];
 
-export function MobileNewIncidentDialog({ open, onClose, projects }: { open: boolean; onClose: () => void; projects: { id: string; name: string }[] }) {
+const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
+const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" };
+const labelClass = "block text-m-caption font-bold mb-0";
+const labelStyle = { color: "var(--color-ink-700)" };
+const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
+const sectionStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" };
+const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
+const sectionTitleStyle = { color: "var(--color-ink-950)" };
+
+/**
+ * MobileNewIncidentForm — form content for reporting an incident.
+ *
+ * Used inside <MobileFabModal> (spring-from-FAB animation) on the
+ * safety page, or wrapped by <MobileNewIncidentDialog> (legacy
+ * bottom-sheet backdrop) for inline creation from other pages.
+ * Mirrors MobileNewLeaveForm / MobileNewMaterialForm.
+ *
+ * No header or Cancel button here — the wrapper supplies the title
+ * and the close affordance (FAB morphs +→× in MobileFabModal, X
+ * button in the legacy bottom-sheet).
+ */
+export function MobileNewIncidentForm({ onClose, projects }: { onClose: () => void; projects: { id: string; name: string }[] }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [attachments, setAttachments] = useState<{ url: string; fileName?: string }[]>([]);
@@ -32,15 +54,12 @@ export function MobileNewIncidentDialog({ open, onClose, projects }: { open: boo
     injuredCount: "0", fatalities: "0", propertyDamageEstimate: "", wbsNodeId: "",
   });
 
-  const wbsOptions = useWbsOptions(open ? form.projectId : null);
-
-  useEffect(() => {
-    if (open) setForm({ projectId: projects[0]?.id ?? "", title: "", description: "", type: "ACCIDENT", severity: "FIRST_AID", incidentDate: new Date().toISOString().slice(0, 10), incidentTime: "", location: "", peopleInvolved: "", injuredCount: "0", fatalities: "0", propertyDamageEstimate: "", wbsNodeId: "" });
-  }, [open, projects]);
+  const wbsOptions = useWbsOptions(form.projectId || null);
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) { setForm((f) => ({ ...f, [k]: v })); }
 
-  async function onSave() {
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
     if (!form.title.trim() || !form.description.trim()) { toast.error("Title and description are required"); return; }
     setSaving(true); haptic(20);
     try {
@@ -58,96 +77,124 @@ export function MobileNewIncidentDialog({ open, onClose, projects }: { open: boo
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Failed"); } finally { setSaving(false); }
   }
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}>
-      <div className="mt-auto rounded-t-[1rem] max-h-[92vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}>
-        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <div className="flex items-center gap-2"><AlertTriangle className="size-4" style={{ color: "var(--color-stop)" }} /><h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Report Incident</h2></div>
-          <button onClick={onClose} className="text-m-body press"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
-        </div>
-        <div className="p-4 space-y-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      {/* Details */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>Details</p>
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Project</label>
-            <select value={form.projectId} onChange={(e) => set("projectId", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>
+            <label className={labelClass} style={labelStyle}>Project</label>
+            <select value={form.projectId} onChange={(e) => set("projectId", e.target.value)} className={inputClass} style={inputStyle}>
               {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
+          <div className="pl-2">
+            <label className={labelClass} style={labelStyle}>Title</label>
+            <input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Worker fell from scaffolding" className={inputClass} style={inputStyle} />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Title</label>
-            <input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Worker fell from scaffolding" className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+            <label className={labelClass} style={labelStyle}>Type</label>
+            <select value={form.type} onChange={(e) => set("type", e.target.value as IncidentType)} className={inputClass} style={inputStyle}>{TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
           </div>
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Description</label>
-            <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={3} placeholder="What happened? Be specific…" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Type</label>
-              <select value={form.type} onChange={(e) => set("type", e.target.value as IncidentType)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>{TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
-            </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Severity</label>
-              <select value={form.severity} onChange={(e) => set("severity", e.target.value as IncidentSeverity)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>{SEVERITIES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Date</label>
-              <input type="date" value={form.incidentDate} onChange={(e) => set("incidentDate", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-            </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Time</label>
-              <input type="time" value={form.incidentTime} onChange={(e) => set("incidentTime", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-            </div>
-          </div>
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Location</label>
-            <input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower B, 5th floor" className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-          </div>
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>WBS Activity (optional)</label>
-            <select value={form.wbsNodeId} onChange={(e) => set("wbsNodeId", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} disabled={wbsOptions.length === 0}>
-              <option value="">{wbsOptions.length === 0 ? "No WBS nodes for this project" : "— None —"}</option>
-              {wbsOptions.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>People Involved</label>
-            <input value={form.peopleInvolved} onChange={(e) => set("peopleInvolved", e.target.value)} placeholder="Names or description" className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Injured</label>
-              <input type="number" value={form.injuredCount} onChange={(e) => set("injuredCount", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-            </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Fatal</label>
-              <input type="number" value={form.fatalities} onChange={(e) => set("fatalities", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-            </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Damage ₹</label>
-              <input type="number" value={form.propertyDamageEstimate} onChange={(e) => set("propertyDamageEstimate", e.target.value)} placeholder="0" className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-            </div>
-          </div>
-
-          {/* Photo evidence */}
-          <div>
-            <label className="text-m-caption font-semibold mb-1 block" style={{ color: "var(--color-ink-500)" }}>
-              Photo Evidence
-            </label>
-            <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
-          </div>
-
-          <div className="flex gap-2 pt-2">
-            <button onClick={onClose} className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
-            <button onClick={onSave} disabled={saving} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
-              {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}{saving ? "Reporting…" : "Report"}
-            </button>
+          <div className="pl-2">
+            <label className={labelClass} style={labelStyle}>Severity</label>
+            <select value={form.severity} onChange={(e) => set("severity", e.target.value as IncidentSeverity)} className={inputClass} style={inputStyle}>{SEVERITIES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Description */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>Description</p>
+        <div>
+          <label className={labelClass} style={labelStyle}>What happened?</label>
+          <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={3} placeholder="Be specific…" className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors" style={inputStyle} />
+        </div>
+      </div>
+
+      {/* When & Where */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>When &amp; Where</p>
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+          <div>
+            <label className={labelClass} style={labelStyle}>Date</label>
+            <input type="date" value={form.incidentDate} onChange={(e) => set("incidentDate", e.target.value)} className={inputClass} style={inputStyle} />
+          </div>
+          <div className="pl-2">
+            <label className={labelClass} style={labelStyle}>Time</label>
+            <input type="time" value={form.incidentTime} onChange={(e) => set("incidentTime", e.target.value)} className={inputClass} style={inputStyle} />
+          </div>
+        </div>
+        <div>
+          <label className={labelClass} style={labelStyle}>Location</label>
+          <input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower B, 5th floor" className={inputClass} style={inputStyle} />
+        </div>
+        <div>
+          <label className={labelClass} style={labelStyle}>WBS Activity (optional)</label>
+          <select value={form.wbsNodeId} onChange={(e) => set("wbsNodeId", e.target.value)} className={inputClass} style={inputStyle} disabled={wbsOptions.length === 0}>
+            <option value="">{wbsOptions.length === 0 ? "No WBS nodes for this project" : "— None —"}</option>
+            {wbsOptions.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* People & Damage */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>People &amp; Damage</p>
+        <div>
+          <label className={labelClass} style={labelStyle}>People Involved</label>
+          <input value={form.peopleInvolved} onChange={(e) => set("peopleInvolved", e.target.value)} placeholder="Names or description" className={inputClass} style={inputStyle} />
+        </div>
+        <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+          <div>
+            <label className={labelClass} style={labelStyle}>Injured</label>
+            <input type="number" value={form.injuredCount} onChange={(e) => set("injuredCount", e.target.value)} className={`${inputClass} tabular-nums`} style={inputStyle} />
+          </div>
+          <div className="pl-2">
+            <label className={labelClass} style={labelStyle}>Fatal</label>
+            <input type="number" value={form.fatalities} onChange={(e) => set("fatalities", e.target.value)} className={`${inputClass} tabular-nums`} style={inputStyle} />
+          </div>
+          <div className="pl-2">
+            <label className={labelClass} style={labelStyle}>Damage ₹</label>
+            <input type="number" value={form.propertyDamageEstimate} onChange={(e) => set("propertyDamageEstimate", e.target.value)} placeholder="0" className={`${inputClass} tabular-nums`} style={inputStyle} />
+          </div>
+        </div>
+      </div>
+
+      {/* Evidence */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>Photo Evidence</p>
+        <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
+      </div>
+
+      <button
+        type="submit"
+        disabled={saving}
+        className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+        style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+      >
+        {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+        {saving ? "Reporting…" : "Report"}
+      </button>
+    </form>
+  );
+}
+
+/**
+ * MobileNewIncidentDialog — legacy bottom-sheet backdrop wrapper.
+ *
+ * Kept for backward compatibility / inline creation from other pages.
+ * Prefer wrapping <MobileNewIncidentForm> in <MobileFabModal> instead —
+ * that gives the spring-from-FAB animation matching the materials and
+ * leaves pages.
+ */
+export function MobileNewIncidentDialog({ open, onClose, projects }: { open: boolean; onClose: () => void; projects: { id: string; name: string }[] }) {
+  return (
+    <MobileDialog open={open} onClose={onClose} title="New Incident">
+      <MobileNewIncidentForm onClose={onClose} projects={projects} />
+    </MobileDialog>
   );
 }

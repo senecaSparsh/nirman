@@ -10,12 +10,13 @@ import { ServiceError } from "./errors";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { autoSyncEntryToTally } from "./auto-sync";
 import { autoFillHsnGst } from "./material-service";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * Haversine distance between two lat/lng points in metres.
  * Used for geo-fence validation of GPS-tagged receipts.
  */
-function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+export function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371000; // Earth radius in metres
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
@@ -97,8 +98,7 @@ async function generatePoNumber(tx: Prisma.TransactionClient): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `PO-${ymd}-`;
-  const count = await tx.purchaseOrder.count({ where: { poNumber: { startsWith: prefix } } });
-  return `${prefix}${String(count + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 export async function createPurchaseOrder(input: CreatePOInput) {

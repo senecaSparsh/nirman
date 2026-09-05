@@ -19,7 +19,7 @@ export default function RequisitionsPage() {
   );
 }
 
-async function RequisitionsContent() {
+export async function RequisitionsContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

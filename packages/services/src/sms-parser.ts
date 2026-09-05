@@ -3,7 +3,7 @@ import Decimal from "decimal.js";
 import { createHash } from "crypto";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
-import { postPaymentReceived, postMaterialSalePayment, postJournalEntry, ACCT } from "./gl-posting";
+import { postPaymentReceived, postDepositReceived, postMaterialSalePayment, postJournalEntry, ACCT } from "./gl-posting";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { withSerializableTransaction } from "./transaction";
 
@@ -312,13 +312,29 @@ async function matchPayment(
             status: "RECEIVED",
           },
         });
-        // Post GL: Dr Cash, Cr Accounts Receivable
-        await postPaymentReceived(tx, {
-          companyId,
-          assetSaleId: sale.id,
-          paymentId: p.id,
-          amount,
-        });
+        // Post GL: Dr Cash, Cr Accounts Receivable (post-completion)
+        //   or Dr Cash, Cr Customer Deposits (pre-completion).
+        //   This mirrors the logic in sale.ts:recordPayment — pre-completion
+        //   payments are deposits (revenue not yet recognised), post-completion
+        //   payments settle the receivable.  Without this check, SMS-matched
+        //   pre-completion payments would post to AR, and completeSale's
+        //   deposit-settlement would find nothing to settle — causing a GL
+        //   mismatch between the costing layer and the general ledger.
+        const isCompleted = sale.saleStage === "COMPLETED";
+        if (isCompleted) {
+          await postPaymentReceived(tx, {
+            companyId,
+            assetSaleId: sale.id,
+            paymentId: p.id,
+            amount,
+          });
+        } else {
+          await postDepositReceived(tx, {
+            companyId,
+            assetSaleId: sale.id,
+            amount,
+          });
+        }
         // Recompute + update parent payment status
         const allPayments = await tx.assetSalePayment.findMany({
           where: { assetSaleId: sale.id, status: "RECEIVED" },
@@ -518,12 +534,23 @@ export async function manualMatchSms(input: ManualMatchInput) {
           reference: sms.upiRef ?? undefined,
         },
       });
-      await postPaymentReceived(tx, {
-        companyId: input.companyId,
-        assetSaleId: input.entityId,
-        paymentId: p.id,
-        amount,
-      });
+      // Post GL: same saleStage-aware routing as matchPayment above.
+      // Pre-completion → Customer Deposits; post-completion → AR.
+      const isCompleted = sale.saleStage === "COMPLETED";
+      if (isCompleted) {
+        await postPaymentReceived(tx, {
+          companyId: input.companyId,
+          assetSaleId: input.entityId,
+          paymentId: p.id,
+          amount,
+        });
+      } else {
+        await postDepositReceived(tx, {
+          companyId: input.companyId,
+          assetSaleId: input.entityId,
+          amount,
+        });
+      }
       // Recompute parent payment status
       const allPayments = await tx.assetSalePayment.findMany({
         where: { assetSaleId: input.entityId, status: "RECEIVED" },

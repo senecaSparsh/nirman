@@ -12,6 +12,7 @@ import { MobileCustomerEditForm } from "./MobileCustomerEditForm";
 import {formatCurrencyCompact, formatDate} from "@/lib/utils";
 import { toast } from "sonner";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 /* ─── Types ─── */
 
@@ -452,17 +453,7 @@ function DeleteConfirm({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="absolute inset-0" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={onClose} />
-      <div
-        className="relative w-full max-w-md rounded-t-[0.75rem] border-t"
-        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-      >
-        <div className="w-8 h-0.5 rounded-full mx-auto mt-2 mb-2" style={{ backgroundColor: "var(--color-ink-300)" }} />
-        <div className="p-3">
-          <p className="text-m-section font-bold mb-2" style={{ color: "var(--color-ink-950)" }}>
-            Delete {customerName}?
-          </p>
+    <MobileDialog open={true} onClose={onClose} title={`Delete ${customerName}?`}>
           <div
             className="rounded-[0.5rem] border p-3 mb-3"
             style={{ borderColor: "var(--color-stop)", backgroundColor: `color-mix(in srgb, var(--color-stop) 5%, transparent)` }}
@@ -492,8 +483,6 @@ function DeleteConfirm({
               {acting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Delete"}
             </button>
           </div>
-        </div>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }

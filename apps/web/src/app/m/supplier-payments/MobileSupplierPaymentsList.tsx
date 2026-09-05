@@ -2,8 +2,15 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Banknote, Plus } from "lucide-react";
-import { formatCurrencyCompact, formatDate } from "@/lib/utils";
+import { Banknote, Plus, Share2, Hash, Calendar, Building2, IndianRupee, CreditCard, FileText } from "lucide-react";
+import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
+import { toast } from "sonner";
+import { useLongPress } from "@/lib/use-long-press";
+import {
+  MobileOverviewSheet,
+  type OverviewRow,
+} from "@/components/mobile/v2/mobile-overview-sheet";
+import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import {
   MobileSearchHeader,
   MobileCardGrid,
@@ -79,33 +86,87 @@ export function MobileSupplierPaymentsList({
       <MobileSummaryStrip stats={stats} />
       <MobileCardGrid>
         {filtered.map((p) => (
-          <Link
-            key={p.id}
-            href={`/supplier-payments?open=${p.id}`}
-            className="block rounded-xl border border-border bg-card p-3.5 shadow-sm transition-colors active:bg-muted/40"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <span className="font-mono text-caption text-muted-foreground">{p.paymentNumber}</span>
-                <p className="mt-0.5 truncate text-body font-medium text-foreground">{p.supplierName}</p>
-                {p.poNumber && (
-                  <p className="mt-0.5 truncate text-caption text-muted-foreground">PO: {p.poNumber}</p>
-                )}
-              </div>
-              <div className="text-right">
-                <p className="tnum text-body font-semibold text-foreground">{formatCurrencyCompact(p.amount)}</p>
-              </div>
-            </div>
-            <div className="mt-2 flex items-center justify-between">
-              <span className="text-caption text-muted-foreground">
-                {p.paymentMode ?? "—"}
-              </span>
-              <span className="text-caption text-muted-foreground">{formatDate(p.paymentDate)}</span>
-            </div>
-          </Link>
+          <SupplierPaymentCard key={p.id} p={p} />
         ))}
       </MobileCardGrid>
       {filtered.length === 0 && <MobileNoResults query={query} />}
     </div>
+  );
+}
+
+/* ─── Supplier payment card — long-press opens overview sheet ─── */
+function SupplierPaymentCard({ p }: { p: SupplierPaymentListItem }) {
+  // ── Long-press overview sheet (data already in the list item — no fetch) ──
+  const [overviewOpen, setOverviewOpen] = useState(false);
+  const [pressPoint, setPressPoint] = useState<{ x: number; y: number } | null>(null);
+  const { bind: longPressBind } = useLongPress((x, y) => {
+    setPressPoint({ x, y });
+    setOverviewOpen(true);
+  });
+
+  const overviewRows: OverviewRow[] = [
+    { icon: Hash, label: "Payment No", value: p.paymentNumber, mono: true },
+    { icon: Calendar, label: "Date", value: formatDate(p.paymentDate) },
+    { icon: Building2, label: "Supplier", value: p.supplierName },
+    { icon: IndianRupee, label: "Amount", value: formatCurrency(p.amount), valueColor: "var(--color-stop)" },
+    { icon: CreditCard, label: "Mode", value: p.paymentMode ?? "—" },
+    { icon: FileText, label: "Reference", value: p.poNumber ?? p.invoiceNumber ?? "—" },
+  ];
+
+  const overviewActions: ContextAction[] = [
+    {
+      label: "Share",
+      icon: Share2,
+      onPress: () => {
+        const url = `${window.location.origin}/m/supplier-payments`;
+        if (navigator.share) {
+          navigator.share({ title: p.paymentNumber, url }).catch(() => {});
+        } else {
+          navigator.clipboard?.writeText(url).catch(() => {});
+          toast.success("Link copied");
+        }
+      },
+    },
+  ];
+
+  return (
+    <>
+      <div {...longPressBind}>
+        <Link
+          href={`/supplier-payments?open=${p.id}`}
+          className="block rounded-xl border border-border bg-card p-3.5 shadow-sm transition-colors active:bg-muted/40"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <span className="font-mono text-caption text-muted-foreground">{p.paymentNumber}</span>
+              <p className="mt-0.5 truncate text-body font-medium text-foreground">{p.supplierName}</p>
+              {p.poNumber && (
+                <p className="mt-0.5 truncate text-caption text-muted-foreground">PO: {p.poNumber}</p>
+              )}
+            </div>
+            <div className="text-right">
+              <p className="tnum text-body font-semibold text-foreground">{formatCurrencyCompact(p.amount)}</p>
+            </div>
+          </div>
+          <div className="mt-2 flex items-center justify-between">
+            <span className="text-caption text-muted-foreground">
+              {p.paymentMode ?? "—"}
+            </span>
+            <span className="text-caption text-muted-foreground">{formatDate(p.paymentDate)}</span>
+          </div>
+        </Link>
+      </div>
+
+      {/* Long-press overview sheet */}
+      <MobileOverviewSheet
+        open={overviewOpen}
+        onClose={() => setOverviewOpen(false)}
+        origin={pressPoint}
+        title={p.paymentNumber}
+        subtitle={p.supplierName}
+        rows={overviewRows}
+        actions={overviewActions}
+      />
+    </>
   );
 }

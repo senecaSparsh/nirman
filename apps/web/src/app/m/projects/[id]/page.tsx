@@ -179,7 +179,7 @@ async function MobileProjectDetailContent({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <h1
-                className="font-bold text-m-body leading-tight truncate"
+                className="font-bold text-m-section leading-tight truncate"
                 style={{ color: "var(--color-ink-950)" }}
               >
                 {project.name}

@@ -16,6 +16,52 @@ import { logAction } from "./audit";
  */
 
 /**
+ * Compute the cost-per-sqft and per-unit production cost allocation.
+ * Pure function — no DB access.
+ *
+ *   poolToAllocate = projectMaterials + labour + land − costRecovery
+ *   safePool       = max(poolToAllocate, 0)   (scrap can't make pool negative)
+ *   costPerSqft    = safePool / totalArea      (0 if no area)
+ *   unitCost       = costPerSqft × unitArea + directCost
+ *   totalCost      = projectMaterials + directMaterialsTotal + labour + land − costRecovery
+ *
+ * Note: `directMaterialsTotal` is the sum of ALL direct-to-unit material costs
+ * (including SOLD/PLANNED units), while `units[].directCost` is only for the
+ * allocatable units (CREATED + AVAILABLE/HOLD/UNDER_CONSTRUCTION/RESERVED).
+ */
+export function computeCostAllocation(input: {
+  projectMaterials: Decimal;
+  directMaterialsTotal: Decimal;
+  labour: Decimal;
+  land: Decimal;
+  costRecovery: Decimal;
+  totalArea: Decimal;
+  units: { id: string; area: Decimal; directCost: Decimal }[];
+}): {
+  totalCost: Decimal;
+  costPerSqft: Decimal;
+  unitCosts: { id: string; productionCost: Decimal }[];
+} {
+  const poolToAllocate = input.projectMaterials
+    .plus(input.labour)
+    .plus(input.land)
+    .minus(input.costRecovery);
+  const safePool = poolToAllocate.lt(0) ? new Decimal(0) : poolToAllocate;
+  const costPerSqft = input.totalArea.gt(0) ? safePool.div(input.totalArea) : new Decimal(0);
+  const unitCosts = input.units.map((u) => ({
+    id: u.id,
+    productionCost: costPerSqft.times(u.area).plus(u.directCost),
+  }));
+  // totalCost includes ALL direct-to-unit materials (not just allocatable units)
+  const totalCost = input.projectMaterials
+    .plus(input.directMaterialsTotal)
+    .plus(input.labour)
+    .plus(input.land)
+    .minus(input.costRecovery);
+  return { totalCost, costPerSqft, unitCosts };
+}
+
+/**
  * Total value of all material stock across all locations (excluding soft-deleted).
  * Value = Σ StockLocationItem.qty × StockLocationItem.movingAvgCost
  */
@@ -301,6 +347,9 @@ export async function reallocateProjectCosts(
   //    Direct-to-unit costs are added on top of the area allocation for that specific unit.
   //    Scrap generation value reduces the area-allocated pool (benefits all units proportionally).
   const poolToAllocate = projectMaterials.plus(labour).plus(land).minus(costRecovery);
+  // Guard: if scrap recovery exceeds total project cost, the pool goes negative.
+  // This would produce negative productionCost on units — clamp to zero.
+  const safePool = poolToAllocate.lt(0) ? new Decimal(0) : poolToAllocate;
   if (totalArea.eq(0)) {
     // No sellable units (all PLANNED or SOLD) — costs remain in WIP
     // uncapitalized until units become AVAILABLE/HOLD/UNDER_CONSTRUCTION.
@@ -308,7 +357,7 @@ export async function reallocateProjectCosts(
     // Previously this threw, which broke createBuiltUnits() on projects
     // that had land costs but no sellable units yet.
   }
-  const costPerSqft = totalArea.gt(0) ? poolToAllocate.div(totalArea) : new Decimal(0);
+  const costPerSqft = totalArea.gt(0) ? safePool.div(totalArea) : new Decimal(0);
 
   // 4. Write allocation back to each unit + project cache
   await Promise.all(

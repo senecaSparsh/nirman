@@ -105,6 +105,42 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     select: { id: true, email: true, name: true, role: true, active: true, phone: true, designation: true, department: true, employeeCode: true, companyId: true },
   });
 
+  // ── Bidirectional sync: mirror name/phone/email/designation/joiningDate
+  //    changes to any linked Employee records so HR data stays in sync with
+  //    the auth identity. A user may be linked to employees in multiple companies. ──
+  if (isProfileEdit) {
+    const rawEmail = typeof body.email === "string" ? body.email : undefined;
+    const empUpdate: Record<string, unknown> = {};
+    if (parsed.data.name !== undefined) empUpdate.name = parsed.data.name;
+    if (parsed.data.phone !== undefined) empUpdate.phone = parsed.data.phone || null;
+    if (rawEmail !== undefined) empUpdate.email = rawEmail || null;
+    if (parsed.data.designation !== undefined) empUpdate.designation = parsed.data.designation || null;
+    if (parsed.data.joiningDate !== undefined) empUpdate.joinDate = parsed.data.joiningDate || null;
+    if (Object.keys(empUpdate).length > 0) {
+      await prisma.employee.updateMany({
+        where: { userId, deletedAt: null },
+        data: empUpdate,
+      });
+    }
+  }
+
+  // ── Cascade: deactivating a User also deactivates their linked Employee
+  //    records (so attendance/payroll stop tracking a terminated person). ──
+  if (parsed.data.active === false && parsed.data.active !== existing.active) {
+    await prisma.employee.updateMany({
+      where: { userId, deletedAt: null, active: true },
+      data: { active: false },
+    });
+  }
+  // ── Cascade: reactivating a User also reactivates their linked Employee
+  //    (if the employee wasn't independently soft-deleted). ──
+  if (parsed.data.active === true && parsed.data.active !== existing.active) {
+    await prisma.employee.updateMany({
+      where: { userId, deletedAt: null, active: false },
+      data: { active: true },
+    });
+  }
+
   // When deactivating a user, auto-unassign all their company phone numbers.
   // This prevents deactivated users from remaining the "assignedTo" of numbers
   // that are still receiving calls. The numbers return to the unassigned pool.

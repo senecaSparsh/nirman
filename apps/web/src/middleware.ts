@@ -36,13 +36,49 @@ import { NextRequest, NextResponse } from "next/server";
 // client-side corrector — once landed on a surface, the user stays there.
 const MOBILE_UA = /Android(?:(?=.*Mobile)|(?=.*\bSilk\b))|iPhone|iPod|Windows Phone|BlackBerry|Opera Mini|Mobile\b/i;
 
+/** Test if a User-Agent string is a mobile device. */
+export function isMobileUA(ua: string): boolean {
+  return MOBILE_UA.test(ua);
+}
+
 function isMobileRequest(req: NextRequest): boolean {
   const ua = req.headers.get("user-agent") ?? "";
-  return MOBILE_UA.test(ua);
+  return isMobileUA(ua);
 }
 
 function hasDesktopCookie(req: NextRequest): boolean {
   return req.cookies.get("nirman-desktop")?.value === "1";
+}
+
+/** Check if a pathname is a public route (always accessible, no cookie check). */
+export function isPublicRoute(pathname: string): boolean {
+  return (
+    pathname === "/sign-in" ||
+    pathname.startsWith("/sign-in/") ||
+    pathname === "/sign-up" ||
+    pathname.startsWith("/sign-up/") ||
+    pathname === "/forgot-password" ||
+    pathname.startsWith("/forgot-password/") ||
+    pathname === "/reset-password" ||
+    pathname.startsWith("/reset-password/") ||
+    pathname === "/change-password" ||
+    pathname.startsWith("/change-password/") ||
+    pathname === "/consent" ||
+    pathname.startsWith("/consent/") ||
+    pathname.startsWith("/api/auth/") ||
+    pathname.startsWith("/api/telephony/webhook") ||
+    pathname.startsWith("/portal") ||
+    pathname.startsWith("/api/portal/") ||
+    pathname.startsWith("/_next/") ||
+    pathname.startsWith("/favicon") ||
+    /\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|map|webmanifest|txt)$/.test(pathname)
+  );
+}
+
+/** Check if a pathname is an auth rate-limited endpoint (sign-in/sign-up/password). */
+export function isAuthRateLimitedPath(pathname: string): boolean {
+  if (!pathname.startsWith("/api/auth/")) return false;
+  return /sign-in|sign-up|password/.test(pathname);
 }
 
 export function middleware(req: NextRequest) {

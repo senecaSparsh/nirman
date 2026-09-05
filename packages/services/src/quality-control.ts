@@ -3,6 +3,8 @@ import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * Quality Control Service — Non-Conformance Reports (NCR) and
@@ -84,40 +86,76 @@ export interface UpdateCapaInput {
 
 // ── Number generation ──────────────────────────────────────
 
+/**
+ * Validate that an NCR status transition is allowed.
+ * Pure function — no DB access.
+ *
+ * Allowed transitions:
+ *   OPEN → UNDER_REVIEW, CANCELLED
+ *   UNDER_REVIEW → CAPA_REQUIRED, ACCEPTED, REJECTED, OPEN
+ *   CAPA_REQUIRED → CLOSED (after CAPA is verified)
+ *   ACCEPTED → CLOSED
+ *   REJECTED → CLOSED
+ *   CLOSED → (terminal, no transitions)
+ *   CANCELLED → (terminal, no transitions)
+ */
+export function isNcrTransitionAllowed(from: NcrStatus, to: NcrStatus): boolean {
+  if (from === to) return true; // no-op
+  const allowed: Record<NcrStatus, NcrStatus[]> = {
+    OPEN: ["UNDER_REVIEW", "CANCELLED"],
+    UNDER_REVIEW: ["CAPA_REQUIRED", "ACCEPTED", "REJECTED", "OPEN"],
+    CAPA_REQUIRED: ["CLOSED"],
+    ACCEPTED: ["CLOSED"],
+    REJECTED: ["CLOSED"],
+    CLOSED: [],
+    CANCELLED: [],
+  };
+  return allowed[from]?.includes(to) ?? false;
+}
+
+/**
+ * Validate that a CAPA status transition is allowed.
+ * Pure function — no DB access.
+ *
+ * Allowed transitions:
+ *   DRAFT → IN_PROGRESS
+ *   IN_PROGRESS → VERIFICATION
+ *   VERIFICATION → VERIFIED, REJECTED
+ *   VERIFIED → CLOSED
+ *   REJECTED → IN_PROGRESS (rework)
+ *   CLOSED → (terminal)
+ */
+export function isCapaTransitionAllowed(from: CapaStatus, to: CapaStatus): boolean {
+  if (from === to) return true; // no-op
+  const allowed: Record<CapaStatus, CapaStatus[]> = {
+    DRAFT: ["IN_PROGRESS"],
+    IN_PROGRESS: ["VERIFICATION"],
+    VERIFICATION: ["VERIFIED", "REJECTED"],
+    VERIFIED: ["CLOSED"],
+    REJECTED: ["IN_PROGRESS"],
+    CLOSED: [],
+  };
+  return allowed[from]?.includes(to) ?? false;
+}
+
 async function generateNcrNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `NCR-${ymd}-`;
-  const existing = await tx.nonConformanceReport.findMany({
-    where: { companyId, ncrNumber: { startsWith: prefix } },
-    select: { ncrNumber: true },
-  });
-  const maxSeq = existing.reduce((max, e) => {
-    const n = parseInt(e.ncrNumber.slice(prefix.length) ?? "0", 10);
-    return n > max ? n : max;
-  }, 0);
-  return `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 async function generateCapaNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `CAPA-${ymd}-`;
-  const existing = await tx.capa.findMany({
-    where: { companyId, capaNumber: { startsWith: prefix } },
-    select: { capaNumber: true },
-  });
-  const maxSeq = existing.reduce((max, e) => {
-    const n = parseInt(e.capaNumber.slice(prefix.length) ?? "0", 10);
-    return n > max ? n : max;
-  }, 0);
-  return `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 // ── NCR CRUD ───────────────────────────────────────────────
 
 export async function createNcr(input: CreateNcrInput) {
-  return withSerializableTransaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const project = await tx.project.findFirst({
       where: { id: input.projectId, deletedAt: null },
       include: { company: { select: { id: true } } },
@@ -163,8 +201,18 @@ export async function createNcr(input: CreateNcrInput) {
       });
     }
 
-    return ncr;
+    return { ncr, companyId: project.company.id };
   });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.NCR_RAISED,
+    companyId: result.companyId,
+    entityType: "NonConformanceReport",
+    entityId: result.ncr.id,
+    variables: { ncrNumber: result.ncr.ncrNumber, title: result.ncr.title, severity: result.ncr.severity },
+    timestamp: new Date(),
+  });
+  return result.ncr;
 }
 
 export async function getNcrs(projectId?: string, status?: NcrStatus, severity?: NcrSeverity) {
@@ -360,7 +408,7 @@ export async function deleteNcr(id: string, userId?: string) {
 // ── CAPA CRUD + Workflow ───────────────────────────────────
 
 export async function createCapa(input: CreateCapaInput) {
-  return withSerializableTransaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const ncr = await tx.nonConformanceReport.findUnique({
       where: { id: input.ncrId },
       include: { project: { select: { companyId: true } } },
@@ -405,8 +453,25 @@ export async function createCapa(input: CreateCapaInput) {
       });
     }
 
-    return capa;
+    return { capa, companyId: ncr.project.companyId };
   });
+
+  // Notify if corrective or preventive due date is set (CAPA_DUE event)
+  if (result.capa.correctiveDueDate || result.capa.preventiveDueDate) {
+    void emitNotificationEvent({
+      eventType: NotificationEventType.CAPA_DUE,
+      companyId: result.companyId,
+      entityType: "Capa",
+      entityId: result.capa.id,
+      variables: {
+        capaNumber: result.capa.capaNumber,
+        correctiveDue: result.capa.correctiveDueDate?.toISOString() ?? "",
+        preventiveDue: result.capa.preventiveDueDate?.toISOString() ?? "",
+      },
+      timestamp: new Date(),
+    });
+  }
+  return result.capa;
 }
 
 export async function getCapa(ncrId: string) {

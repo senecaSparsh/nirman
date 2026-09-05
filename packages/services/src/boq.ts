@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * BOQ (Bill of Quantities) + WBS (Work Breakdown Structure) +
@@ -529,15 +530,7 @@ async function generateMbNumber(tx: Prisma.TransactionClient): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `MB-${ymd}-`;
-  const existing = await tx.measurementBookEntry.findMany({
-    where: { mbNumber: { startsWith: prefix } },
-    select: { mbNumber: true },
-  });
-  const maxSeq = existing.reduce((max, e) => {
-    const n = parseInt(e.mbNumber.slice(prefix.length) ?? "0", 10);
-    return n > max ? n : max;
-  }, 0);
-  return `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 export interface CreateMbEntryInput {
@@ -874,6 +867,45 @@ export async function generateMaterialTakeOff(projectId: string) {
  * - EAC (Estimate at Completion) = BAC / CPI (if CPI is stable)
  * - VAC (Variance at Completion) = BAC - EAC
  */
+/**
+ * Pure EVM (Earned Value Management) metrics computation.
+ * Extracted from getEvmMetrics for unit testing.
+ *
+ *   PV = Planned Value (BAC — budget at completion)
+ *   EV = Earned Value (approved work × rate)
+ *   AC = Actual Cost
+ *
+ *   CV = EV − AC        (Cost Variance — positive = under budget)
+ *   SV = EV − PV        (Schedule Variance — positive = ahead of schedule)
+ *   CPI = EV / AC       (Cost Performance Index — >1 = under budget)
+ *   SPI = EV / PV       (Schedule Performance Index — >1 = ahead of schedule)
+ *   EAC = BAC / CPI     (Estimate at Completion — projected total cost)
+ *   VAC = BAC − EAC     (Variance at Completion — positive = under budget)
+ *   pctComplete = EV / PV × 100
+ */
+export function computeEvmMetrics(
+  pv: Decimal,
+  ev: Decimal,
+  ac: Decimal,
+): {
+  cv: Decimal;
+  sv: Decimal;
+  cpi: Decimal;
+  spi: Decimal;
+  eac: Decimal;
+  vac: Decimal;
+  pctComplete: Decimal;
+} {
+  const cv = ev.minus(ac);
+  const sv = ev.minus(pv);
+  const cpi = ac.gt(0) ? ev.div(ac) : new Decimal(1);
+  const spi = pv.gt(0) ? ev.div(pv) : new Decimal(1);
+  const eac = cpi.gt(0) ? pv.div(cpi) : pv; // BAC / CPI
+  const vac = pv.minus(eac);
+  const pctComplete = pv.gt(0) ? ev.div(pv).times(100).toDecimalPlaces(2) : new Decimal(0);
+  return { cv, sv, cpi, spi, eac, vac, pctComplete };
+}
+
 export async function getEvmMetrics(projectId: string) {
   // PV = Σ BOQ line items estimatedAmount
   const boqItems = await prisma.boqItem.findMany({
@@ -902,15 +934,8 @@ export async function getEvmMetrics(projectId: string) {
   const ac = costBreakdown.total;
 
   // Derived metrics
-  const cv = ev.minus(ac);
-  const sv = ev.minus(pv);
-  const cpi = ac.gt(0) ? ev.div(ac) : new Decimal(1);
-  const spi = pv.gt(0) ? ev.div(pv) : new Decimal(1);
-  const eac = cpi.gt(0) ? pv.div(cpi) : pv; // BAC / CPI
-  const vac = pv.minus(eac);
-
-  // % complete = EV / PV
-  const pctComplete = pv.gt(0) ? ev.div(pv).times(100).toDecimalPlaces(2) : new Decimal(0);
+  const evmMetrics = computeEvmMetrics(pv, ev, ac);
+  const { cv, sv, cpi, spi, eac, vac, pctComplete } = evmMetrics;
 
   return {
     pv: pv.toDecimalPlaces(2),

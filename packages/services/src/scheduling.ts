@@ -251,7 +251,7 @@ export async function computeSchedule(projectId: string, userId?: string) {
   return { nodes: results, criticalPath, projectDuration };
 }
 
-function addDays(date: Date, days: number): Date {
+export function addDays(date: Date, days: number): Date {
   const d = new Date(date);
   d.setDate(d.getDate() + days);
   return d;

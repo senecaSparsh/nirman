@@ -64,10 +64,10 @@ export function MobileAdjustStockBtn({
   const [reason, setReason] = useState("");
 
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none tabular-nums";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors tabular-nums";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   } as React.CSSProperties;
 
@@ -197,41 +197,46 @@ export function MobileAdjustStockBtn({
           {materialCode} · {materialName}
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
-          {/* Direction toggle */}
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setDirection("IN")}
-              className="flex items-center justify-center gap-1.5 h-11 rounded-[0.5rem] border text-m-section font-bold press"
-              style={
-                direction === "IN"
-                  ? {
-                      borderColor: "var(--color-go)",
-                      backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)",
-                      color: "var(--color-go)",
-                    }
-                  : { borderColor: "var(--color-line)", color: "var(--color-ink-500)" }
-              }
-            >
-              <Plus className="size-4" /> Add
-            </button>
-            <button
-              type="button"
-              onClick={() => setDirection("OUT")}
-              className="flex items-center justify-center gap-1.5 h-11 rounded-[0.5rem] border text-m-section font-bold press"
-              style={
-                direction === "OUT"
-                  ? {
-                      borderColor: "var(--color-stop)",
-                      backgroundColor: "color-mix(in srgb, var(--color-stop) 12%, transparent)",
-                      color: "var(--color-stop)",
-                    }
-                  : { borderColor: "var(--color-line)", color: "var(--color-ink-500)" }
-              }
-            >
-              <Minus className="size-4" /> Remove
-            </button>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {/* Direction */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Direction
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setDirection("IN")}
+                className="flex items-center justify-center gap-1.5 h-11 rounded-[0.5rem] border text-m-section font-bold press"
+                style={
+                  direction === "IN"
+                    ? {
+                        borderColor: "var(--color-go)",
+                        backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)",
+                        color: "var(--color-go)",
+                      }
+                    : { borderColor: "var(--color-line)", color: "var(--color-ink-500)" }
+                }
+              >
+                <Plus className="size-4" /> Add
+              </button>
+              <button
+                type="button"
+                onClick={() => setDirection("OUT")}
+                className="flex items-center justify-center gap-1.5 h-11 rounded-[0.5rem] border text-m-section font-bold press"
+                style={
+                  direction === "OUT"
+                    ? {
+                        borderColor: "var(--color-stop)",
+                        backgroundColor: "color-mix(in srgb, var(--color-stop) 12%, transparent)",
+                        color: "var(--color-stop)",
+                      }
+                    : { borderColor: "var(--color-line)", color: "var(--color-ink-500)" }
+                }
+              >
+                <Minus className="size-4" /> Remove
+              </button>
+            </div>
           </div>
 
           {isLotTracked && direction === "IN" && (
@@ -250,161 +255,177 @@ export function MobileAdjustStockBtn({
             </div>
           )}
 
-          {/* Location */}
-          <div>
-            <label
-              className="block text-m-caption font-semibold mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
+          {/* Stock Location */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Stock Location
-            </label>
-            <select
-              value={locationId}
-              onChange={(e) => setLocationId(e.target.value)}
-              disabled={locLoading || locations.length === 0}
-              className={inputClass}
-              style={inputStyle}
-            >
-              {locations.length === 0 ? (
-                <option value="">No locations available</option>
-              ) : (
-                locations.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                    {l.projectName ? ` · ${l.projectName}` : ""}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
-
-          {selectedStock && (
-            <div
-              className="rounded-[0.5rem] border p-3 space-y-1"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-            >
-              <div className="flex items-baseline justify-between">
-                <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                  Current balance
-                </span>
-                <span
-                  className="text-m-body font-bold tabular-nums"
-                  style={{ color: "var(--color-ink-950)" }}
-                >
-                  {formatNumber(availableQty, 3)} {materialUnit}
-                </span>
-              </div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                  Moving avg cost
-                </span>
-                <span
-                  className="text-m-body font-bold tabular-nums"
-                  style={{ color: "var(--color-ink-950)" }}
-                >
-                  {formatCurrency(selectedStock.movingAvgCost)}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Qty + cost */}
-          <div className="grid grid-cols-2 gap-2">
+            </p>
             <div>
               <label
-                className="block text-m-caption font-semibold mb-1"
-                style={{ color: "var(--color-ink-500)" }}
+                className="block text-m-caption font-bold mb-0"
+                style={{ color: "var(--color-ink-700)" }}
               >
-                Quantity
+                Stock Location
               </label>
-              <input
-                type="number"
-                step="any"
-                min="0"
-                value={qty}
-                onChange={(e) => setQty(e.target.value)}
-                placeholder="0"
-                inputMode="decimal"
+              <select
+                value={locationId}
+                onChange={(e) => setLocationId(e.target.value)}
+                disabled={locLoading || locations.length === 0}
                 className={inputClass}
                 style={inputStyle}
-              />
+              >
+                {locations.length === 0 ? (
+                  <option value="">No locations available</option>
+                ) : (
+                  locations.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                      {l.projectName ? ` · ${l.projectName}` : ""}
+                    </option>
+                  ))
+                )}
+              </select>
             </div>
-            {direction === "IN" ? (
-              <div>
-                <label
-                  className="block text-m-caption font-semibold mb-1"
-                  style={{ color: "var(--color-ink-500)" }}
-                >
-                  Unit Cost
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={unitCost}
-                  onChange={(e) => setUnitCost(e.target.value)}
-                  placeholder={String(defaultCost || "")}
-                  inputMode="decimal"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
-            ) : (
-              <div>
-                <label
-                  className="block text-m-caption font-semibold mb-1"
-                  style={{ color: "var(--color-ink-500)" }}
-                >
-                  Value
-                </label>
-                <div
-                  className="h-10 flex items-center px-3 rounded-[0.5rem] border text-m-section tabular-nums"
-                  style={{
-                    borderColor: "var(--color-line)",
-                    backgroundColor: "var(--color-paper-2)",
-                    color: "var(--color-ink-700)",
-                  }}
-                >
-                  {formatCurrency(lineValue)}
+
+            {selectedStock && (
+              <div
+                className="rounded-[0.5rem] border p-3 space-y-1"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+              >
+                <div className="flex items-baseline justify-between">
+                  <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                    Current balance
+                  </span>
+                  <span
+                    className="text-m-body font-bold tabular-nums"
+                    style={{ color: "var(--color-ink-950)" }}
+                  >
+                    {formatNumber(availableQty, 3)} {materialUnit}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                    Moving avg cost
+                  </span>
+                  <span
+                    className="text-m-body font-bold tabular-nums"
+                    style={{ color: "var(--color-ink-950)" }}
+                  >
+                    {formatCurrency(selectedStock.movingAvgCost)}
+                  </span>
                 </div>
               </div>
             )}
           </div>
 
-          {qtyNum > 0 && (
-            <div
-              className="flex items-baseline justify-between rounded-[0.5rem] border p-3"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-            >
-              <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                Line value
-              </span>
-              <span
-                className="text-m-body font-bold tabular-nums"
-                style={{ color: "var(--color-ink-950)" }}
-              >
-                {formatCurrency(lineValue)}
-              </span>
+          {/* Quantity & Cost */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Quantity &amp; Cost
+            </p>
+            {/* Qty + cost */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label
+                  className="block text-m-caption font-bold mb-0"
+                  style={{ color: "var(--color-ink-700)" }}
+                >
+                  Quantity
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={qty}
+                  onChange={(e) => setQty(e.target.value)}
+                  placeholder="0"
+                  inputMode="decimal"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              {direction === "IN" ? (
+                <div className="pl-2">
+                  <label
+                    className="block text-m-caption font-bold mb-0"
+                    style={{ color: "var(--color-ink-700)" }}
+                  >
+                    Unit Cost
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={unitCost}
+                    onChange={(e) => setUnitCost(e.target.value)}
+                    placeholder={String(defaultCost || "")}
+                    inputMode="decimal"
+                    className={inputClass}
+                    style={inputStyle}
+                  />
+                </div>
+              ) : (
+                <div className="pl-2">
+                  <label
+                    className="block text-m-caption font-bold mb-0"
+                    style={{ color: "var(--color-ink-700)" }}
+                  >
+                    Value
+                  </label>
+                  <div
+                    className="h-10 flex items-center px-3 rounded-[0.5rem] border text-m-section tabular-nums"
+                    style={{
+                      borderColor: "var(--color-line)",
+                      backgroundColor: "var(--color-paper-2)",
+                      color: "var(--color-ink-700)",
+                    }}
+                  >
+                    {formatCurrency(lineValue)}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+
+            {qtyNum > 0 && (
+              <div
+                className="flex items-baseline justify-between rounded-[0.5rem] border p-3"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+              >
+                <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                  Line value
+                </span>
+                <span
+                  className="text-m-body font-bold tabular-nums"
+                  style={{ color: "var(--color-ink-950)" }}
+                >
+                  {formatCurrency(lineValue)}
+                </span>
+              </div>
+            )}
+          </div>
 
           {/* Reason */}
-          <div>
-            <label
-              className="block text-m-caption font-semibold mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Reason
-            </label>
-            <input
-              type="text"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder={direction === "IN" ? "e.g. Opening stock entry" : "e.g. Damaged / write-off"}
-              maxLength={500}
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-              style={inputStyle}
-            />
+            </p>
+            <div>
+              <label
+                className="block text-m-caption font-bold mb-0"
+                style={{ color: "var(--color-ink-700)" }}
+              >
+                Reason
+              </label>
+              <input
+                type="text"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder={direction === "IN" ? "e.g. Opening stock entry" : "e.g. Damaged / write-off"}
+                maxLength={500}
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={inputStyle}
+              />
+            </div>
           </div>
 
           {/* Actions */}

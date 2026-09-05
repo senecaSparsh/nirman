@@ -161,177 +161,193 @@ export function MobileNewLeadClient({
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {/* Contact */}
-        <div>
-          <label className={labelClass} style={labelStyle}>Name *</label>
-          <input
-            type="text"
-            value={form.name}
-            onChange={(e) => set("name", e.target.value)}
-            placeholder="Lead name"
-            className={inputClass}
-            style={inputStyle}
-            required
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Contact
+          </p>
           <div>
-            <label className={labelClass} style={labelStyle}>Phone *</label>
+            <label className={labelClass} style={labelStyle}>Name *</label>
             <input
-              type="tel"
-              value={form.phone}
-              onChange={(e) => set("phone", e.target.value)}
-              placeholder="9876543210"
-              inputMode="tel"
+              type="text"
+              value={form.name}
+              onChange={(e) => set("name", e.target.value)}
+              placeholder="Lead name"
               className={inputClass}
               style={inputStyle}
               required
             />
           </div>
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <label className={labelClass} style={labelStyle}>Phone *</label>
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={(e) => set("phone", e.target.value)}
+                placeholder="9876543210"
+                inputMode="tel"
+                className={inputClass}
+                style={inputStyle}
+                required
+              />
+            </div>
+            <div className="pl-2">
+              <label className={labelClass} style={labelStyle}>Email</label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => set("email", e.target.value)}
+                placeholder="lead@email.com"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <label className={labelClass} style={labelStyle}>Source *</label>
+              <select
+                value={form.source}
+                onChange={(e) => set("source", e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+              >
+                {SOURCES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+            <div className="pl-2">
+              <label className={labelClass} style={labelStyle}>Priority</label>
+              <select
+                value={form.priority}
+                onChange={(e) => set("priority", e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+              >
+                {PRIORITIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Project Interest */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Project Interest
+          </p>
           <div>
-            <label className={labelClass} style={labelStyle}>Email</label>
+            <label className={labelClass} style={labelStyle}>Project (optional)</label>
+            <select
+              value={form.projectId}
+              onChange={(e) => set("projectId", e.target.value)}
+              className={inputClass}
+              style={inputStyle}
+            >
+              <option value="">Any project</option>
+              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <label className={labelClass} style={labelStyle}>Interested unit</label>
+              <select
+                value={form.interestedUnitId}
+                onChange={(e) => set("interestedUnitId", e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+              >
+                <option value="">Not decided</option>
+                {filteredUnits.map((u) => <option key={u.id} value={u.id}>{u.projectName} · {u.label}</option>)}
+              </select>
+            </div>
+            <div className="pl-2">
+              <label className={labelClass} style={labelStyle}>Unit type</label>
+              <select
+                value={form.interestedUnitType}
+                onChange={(e) => set("interestedUnitType", e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+              >
+                {UNIT_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Budget & Assignment */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Budget & Assignment
+          </p>
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <label className={labelClass} style={labelStyle}>Budget from (₹)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={form.budgetMin}
+                onChange={(e) => set("budgetMin", e.target.value)}
+                placeholder="0"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+            <div className="pl-2">
+              <label className={labelClass} style={labelStyle}>Budget to (₹)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={form.budgetMax}
+                onChange={(e) => set("budgetMax", e.target.value)}
+                placeholder="0"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+          <div>
+            <label className={labelClass} style={labelStyle}>Owner (assigned to)</label>
+            <select
+              value={form.assignedToId}
+              onChange={(e) => set("assignedToId", e.target.value)}
+              className={inputClass}
+              style={inputStyle}
+            >
+              <option value="">Unassigned</option>
+              {assignees.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Follow-up & Notes */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Follow-up & Notes
+          </p>
+          <div>
+            <label className={labelClass} style={labelStyle}>Next follow-up</label>
             <input
-              type="email"
-              value={form.email}
-              onChange={(e) => set("email", e.target.value)}
-              placeholder="lead@email.com"
+              type="datetime-local"
+              value={form.nextFollowUpAt}
+              onChange={(e) => set("nextFollowUpAt", e.target.value)}
               className={inputClass}
               style={inputStyle}
             />
           </div>
-        </div>
-
-        {/* Source + Priority */}
-        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <div>
-            <label className={labelClass} style={labelStyle}>Source *</label>
-            <select
-              value={form.source}
-              onChange={(e) => set("source", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              {SOURCES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass} style={labelStyle}>Priority</label>
-            <select
-              value={form.priority}
-              onChange={(e) => set("priority", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              {PRIORITIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </div>
-        </div>
-
-        {/* Project + Unit */}
-        <div>
-          <label className={labelClass} style={labelStyle}>Project (optional)</label>
-          <select
-            value={form.projectId}
-            onChange={(e) => set("projectId", e.target.value)}
-            className={inputClass}
-            style={inputStyle}
-          >
-            <option value="">Any project</option>
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        </div>
-        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <div>
-            <label className={labelClass} style={labelStyle}>Interested unit</label>
-            <select
-              value={form.interestedUnitId}
-              onChange={(e) => set("interestedUnitId", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              <option value="">Not decided</option>
-              {filteredUnits.map((u) => <option key={u.id} value={u.id}>{u.projectName} · {u.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass} style={labelStyle}>Unit type</label>
-            <select
-              value={form.interestedUnitType}
-              onChange={(e) => set("interestedUnitType", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              {UNIT_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </div>
-        </div>
-
-        {/* Budget + Owner */}
-        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <div>
-            <label className={labelClass} style={labelStyle}>Budget from (₹)</label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
-              value={form.budgetMin}
-              onChange={(e) => set("budgetMin", e.target.value)}
-              placeholder="0"
-              className={inputClass}
+            <label className={labelClass} style={labelStyle}>Notes</label>
+            <textarea
+              rows={3}
+              value={form.notes}
+              onChange={(e) => set("notes", e.target.value)}
+              placeholder="Any context about this lead…"
+              className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
               style={inputStyle}
             />
           </div>
-          <div>
-            <label className={labelClass} style={labelStyle}>Budget to (₹)</label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
-              value={form.budgetMax}
-              onChange={(e) => set("budgetMax", e.target.value)}
-              placeholder="0"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-        </div>
-        <div>
-          <label className={labelClass} style={labelStyle}>Owner (assigned to)</label>
-          <select
-            value={form.assignedToId}
-            onChange={(e) => set("assignedToId", e.target.value)}
-            className={inputClass}
-            style={inputStyle}
-          >
-            <option value="">Unassigned</option>
-            {assignees.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-        </div>
-
-        {/* Follow-up */}
-        <div>
-          <label className={labelClass} style={labelStyle}>Next follow-up</label>
-          <input
-            type="datetime-local"
-            value={form.nextFollowUpAt}
-            onChange={(e) => set("nextFollowUpAt", e.target.value)}
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
-
-        {/* Notes */}
-        <div>
-          <label className={labelClass} style={labelStyle}>Notes</label>
-          <textarea
-            rows={3}
-            value={form.notes}
-            onChange={(e) => set("notes", e.target.value)}
-            placeholder="Any context about this lead…"
-            className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
-            style={inputStyle}
-          />
         </div>
 
         {/* Submit */}

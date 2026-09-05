@@ -8,8 +8,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ───────────────────────────────────────────────────────────
@@ -136,6 +137,7 @@ model Company {
   smsLogs                SmsLog[]
   telephonyProviderConfigs TelephonyProviderConfig[]
   consentPolicies        ConsentPolicy[]
+  backups                BackupRecord[]
 
   @@index([parentCompanyId])
 }
@@ -286,6 +288,15 @@ enum BenefitFrequency {
   ON_DEMAND   // provided when needed (e.g. accommodation, leave encashment)
 }
 
+// ── Contract status — tracks the employment agreement lifecycle ──
+enum ContractStatus {
+  DRAFT       // agreement generated but not yet issued
+  ISSUED      // issued to the employee for review/signature
+  CONFIRMED   // employee confirmed/signed — auto-deposit can be enabled
+  EXPIRED     // contract end date has passed
+  TERMINATED  // ended early (linked to employee termination)
+}
+
 model Employee {
   id        String   @id @default(cuid())
   name      String
@@ -319,6 +330,11 @@ model Employee {
   noticePeriodDays  Int?            // notice period in days (e.g. 30, 60, 90)
   contractStartDate DateTime?       // contract start (if employmentType = CONTRACT)
   contractEndDate   DateTime?       // contract end / renewal date
+  // ── Contract / agreement tracking ──
+  contractStatus    ContractStatus? // DRAFT → ISSUED → CONFIRMED → EXPIRED/TERMINATED
+  contractIssuedAt  DateTime?       // when the agreement was generated/issued
+  contractConfirmedAt DateTime?     // when the employee confirmed/signed
+  contractAttachmentId String?      // → EntityAttachment (the generated agreement document)
   // ── Pay day — day of month salary is credited (e.g. 7th) ──
   payDay            Int?            // 1-31, null = not set
   // ── Bank account — for salary credit ──
@@ -327,6 +343,9 @@ model Employee {
   bankIfsc          String?         // IFSC code
   bankName          String?         // bank name (HDFC, SBI, etc.)
   bankBranch        String?         // branch name
+  // ── Auto-deposit — salary auto-credited to bank on payday ──
+  autoDepositEnabled Boolean?       // null = not set up, true = active, false = disabled
+  autoDepositSetupAt DateTime?     // when auto-deposit was configured
   // ── Tax / statutory IDs ──
   panNumber         String?         // PAN (for TDS)
   aadhaarNumber     String?         // Aadhaar (masked in UI)
@@ -366,6 +385,7 @@ model Employee {
   @@index([crewId])
   @@index([activeProjectId])
   @@index([employmentType])
+  @@index([contractStatus])
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -1578,6 +1598,7 @@ model SupplierInvoice {
   subtotal      Decimal  @db.Decimal(14, 2)
   gstAmount     Decimal  @default(0) @db.Decimal(14, 2)
   totalAmount   Decimal  @db.Decimal(14, 2)
+  hsnCode       String?  // HSN/SAC code for GST classification
   status        String   @default("PENDING") // PENDING | MATCHED | DISPUTED | APPROVED | PAID
   matchStatus   String?  // THREE_WAY_MATCH | TWO_WAY_MATCH | MANUAL | UNMATCHED
   matchNotes    String?
@@ -1871,6 +1892,11 @@ model MaterialIssue {
   totalAmount    Decimal  @default(0) @db.Decimal(14, 2)
   // DPR-Finance Bridge: link this issue back to the DPR that triggered it
   sourceDprId    String?  // null = manual issue (not from DPR)
+  // Link to the approved requisition that authorized this issue.
+  // null = direct issue (not from a requisition). Per owner flow, issues
+  // should come from an approved requisition, but we allow direct issues
+  // for emergency/ad-hoc cases.
+  requisitionId  String?
   createdAt      DateTime @default(now())
 
   project       Project?           @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -1882,6 +1908,7 @@ model MaterialIssue {
   issuedBy      User?              @relation(fields: [issuedById], references: [id])
   cancelledBy   User?              @relation("MaterialIssueCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
   sourceDpr     DailyProgressReport? @relation("DprMaterialIssues", fields: [sourceDprId], references: [id], onDelete: SetNull)
+  requisition   MaterialRequisition? @relation("RequisitionIssues", fields: [requisitionId], references: [id], onDelete: SetNull)
   lines         MaterialIssueLine[]
 
   @@index([projectId])
@@ -1890,6 +1917,7 @@ model MaterialIssue {
   @@index([phaseId])
   @@index([builtUnitId])
   @@index([sourceDprId])
+  @@index([requisitionId])
 }
 
 model MaterialIssueLine {
@@ -2025,6 +2053,8 @@ model StockTransfer {
   driverPhone        String?
   transporterName    String?
   // Dispatch documents
+  referenceNo        String?   // supplier/seller reference or challan number
+  ewayBillNo         String?   // e-way bill number for GST compliance
   challanNumber      String?
   packageCount       Int?
   shortageRemarks    String?
@@ -2774,6 +2804,7 @@ model MaterialRequisition {
   vendorQuotes VendorQuote[]
   directPurchases DirectPurchase[]
   quotationRequests QuotationRequest[] @relation("QuotationRequestRequisition")
+  materialIssues MaterialIssue[] @relation("RequisitionIssues")
 
   @@index([projectId])
   @@index([departmentId])
@@ -6545,4 +6576,34 @@ model ConsentAcceptance {
   @@unique([consentPolicyId, userId])
 }
 
+// ───────────────────────────────────────────────────────────
+//  AUTOMATED BACKUPS — scheduled by /api/cron/backup
+// ───────────────────────────────────────────────────────────
+model BackupRecord {
+  id        String   @id @default(cuid())
+  companyId String
+  data      String   // JSON blob (full company export)
+  sizeBytes Int      @default(0)
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
+}
+
+// ───────────────────────────────────────────────────────────
+//  SEQUENCE COUNTERS — atomic gap-free numbering for all
+//  transactional documents (PO, REQ, MS, JE, SP, etc.)
+//  Replaces the race-prone `count + 1` / `max + 1` pattern.
+//  Uses atomic `UPDATE ... RETURNING` inside the transaction.
+// ───────────────────────────────────────────────────────────
+model NumberSequence {
+  id        String   @id @default(cuid())
+  prefix    String   // e.g. "PO-20260904-", "JE-20260904-", "SP-260904-"
+  nextSeq   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([prefix])
+}
 

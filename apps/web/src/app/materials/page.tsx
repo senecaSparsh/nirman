@@ -20,7 +20,7 @@ export default function MaterialsPage() {
   );
 }
 
-async function MaterialsContent() {
+export async function MaterialsContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

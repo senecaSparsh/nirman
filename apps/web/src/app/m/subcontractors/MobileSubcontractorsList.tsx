@@ -1,8 +1,16 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
-import { Phone, Hammer } from "lucide-react";
+import { Phone, Hammer, Eye, Share2, FileText, ClipboardList, Package } from "lucide-react";
+import { toast } from "sonner";
+import { useLongPress } from "@/lib/use-long-press";
+import {
+  MobileOverviewSheet,
+  type OverviewRow,
+} from "@/components/mobile/v2/mobile-overview-sheet";
+import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -169,67 +177,123 @@ export function MobileSubcontractorsList({
 }
 
 /* ─── Subcontractor card — trade-style with work order accent ─── */
+/* Long-press opens an overview sheet (data already in the list item — no fetch). */
 function SubcontractorCard({ s }: { s: SubcontractorListItem }) {
+  const router = useRouter();
   const hasWork = s.workOrderCount > 0;
   const accentColor = hasWork ? "var(--color-go)" : "var(--color-steel)";
   const tradeLabel = s.trade ?? "General";
 
+  // ── Long-press overview sheet (data already in the list item — no fetch) ──
+  const [overviewOpen, setOverviewOpen] = useState(false);
+  const [pressPoint, setPressPoint] = useState<{ x: number; y: number } | null>(null);
+  const { bind: longPressBind } = useLongPress((x, y) => {
+    setPressPoint({ x, y });
+    setOverviewOpen(true);
+  });
+
+  const overviewRows: OverviewRow[] = [
+    { icon: Hammer, label: "Trade / Specialty", value: tradeLabel },
+    ...(s.phone ? [{ icon: Phone, label: "Phone", value: s.phone, mono: true }] : []),
+    ...(s.gstin ? [{ icon: FileText, label: "GSTIN", value: s.gstin, mono: true }] : []),
+    { icon: ClipboardList, label: "Active Work Orders", value: String(s.workOrderCount) },
+    { icon: Package, label: "Material Issues", value: String(s.materialIssueCount) },
+    { icon: Package, label: "Project Costs", value: String(s.projectCostCount) },
+  ];
+
+  const overviewActions: ContextAction[] = [
+    {
+      label: "View Full Details",
+      icon: Eye,
+      onPress: () => router.push(`/m/subcontractors/${s.id}`),
+    },
+    {
+      label: "Share",
+      icon: Share2,
+      onPress: () => {
+        const url = `${window.location.origin}/m/subcontractors/${s.id}`;
+        if (navigator.share) {
+          navigator.share({ title: s.name, url }).catch(() => {});
+        } else {
+          navigator.clipboard?.writeText(url).catch(() => {});
+          toast.success("Link copied");
+        }
+      },
+    },
+  ];
+
   return (
-    <Link
-      href={`/m/subcontractors/${s.id}`}
-      className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
-      style={{
-        borderColor: "var(--color-line)",
-        backgroundColor: "var(--color-paper)",
-      }}
-    >
-      {/* Top accent strip */}
-      <div className="h-0.5 w-full" style={{ backgroundColor: accentColor }} />
+    <>
+      <div {...longPressBind}>
+        <Link
+          href={`/m/subcontractors/${s.id}`}
+          className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
+          style={{
+            borderColor: "var(--color-line)",
+            backgroundColor: "var(--color-paper)",
+          }}
+        >
+          {/* Top accent strip */}
+          <div className="h-0.5 w-full" style={{ backgroundColor: accentColor }} />
 
-      <div className="p-2 flex flex-col gap-1 flex-1">
-        {/* Row 1: Name + trade badge */}
-        <div className="flex items-center justify-between gap-1">
-          <p className="text-m-label font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
-            {s.name}
-          </p>
-          <span
-            className="text-m-caption font-bold uppercase shrink-0"
-            style={{ color: accentColor }}
-          >
-            {hasWork ? "Active" : "Idle"}
-          </span>
-        </div>
-
-        {/* Row 2: Trade + phone */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-m-caption font-semibold truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-700)" }}>
-            <Hammer className="size-2" />
-            {tradeLabel}
-          </span>
-          {s.phone ? (
-            <>
-              <span style={{ color: "var(--color-line)" }}>·</span>
-              <span className="text-m-caption truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
-                <Phone className="size-2" />
-                {s.phone}
+          <div className="p-2 flex flex-col gap-1 flex-1">
+            {/* Row 1: Name + trade badge */}
+            <div className="flex items-center justify-between gap-1">
+              <p className="text-m-label font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+                {s.name}
+              </p>
+              <span
+                className="text-m-caption font-bold uppercase shrink-0"
+                style={{ color: accentColor }}
+              >
+                {hasWork ? "Active" : "Idle"}
               </span>
-            </>
-          ) : null}
-        </div>
+            </div>
 
-        {/* Row 3: Bottom area — fixed height for equal card sizes */}
-        <div className="mt-auto pt-1 h-[1rem] flex items-center">
-          {hasWork ? (
-            <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
-              {s.workOrderCount} Work Order{s.workOrderCount !== 1 ? "s" : ""}
-            </span>
-          ) : (
-            <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
-              No work orders yet
-            </span>
-          )}
-        </div>
+            {/* Row 2: Trade + phone */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-m-caption font-semibold truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-700)" }}>
+                <Hammer className="size-2" />
+                {tradeLabel}
+              </span>
+              {s.phone ? (
+                <>
+                  <span style={{ color: "var(--color-line)" }}>·</span>
+                  <span className="text-m-caption truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
+                    <Phone className="size-2" />
+                    {s.phone}
+                  </span>
+                </>
+              ) : null}
+            </div>
+
+            {/* Row 3: Bottom area — fixed height for equal card sizes */}
+            <div className="mt-auto pt-1 h-[1rem] flex items-center">
+              {hasWork ? (
+                <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+                  {s.workOrderCount} Work Order{s.workOrderCount !== 1 ? "s" : ""}
+                </span>
+              ) : (
+                <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
+                  No work orders yet
+                </span>
+              )}
+            </div>
+          </div>
+        </Link>
       </div>
-    </Link>
+
+      {/* Long-press overview sheet */}
+      <MobileOverviewSheet
+        open={overviewOpen}
+        onClose={() => setOverviewOpen(false)}
+        origin={pressPoint}
+        title={s.name}
+        subtitle={tradeLabel}
+        accentColor={accentColor}
+        rows={overviewRows}
+        actions={overviewActions}
+      />
+    </>
   );
 }

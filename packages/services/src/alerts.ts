@@ -12,6 +12,31 @@ import { withSerializableTransaction } from "./transaction";
  */
 
 /**
+ * Wilson EOQ (Economic Order Quantity) formula:
+ *   EOQ = sqrt(2 × D × S / H)
+ * where:
+ *   D = annual demand (units/year)
+ *   S = ordering cost per order
+ *   H = holding cost per unit per year
+ *
+ * If any parameter is missing or zero, returns null (caller falls back to
+ * the simpler replenish-to-buffer heuristic).
+ */
+export function computeWilsonEoq(
+  annualDemand: Decimal | null,
+  orderingCost: Decimal | null,
+  holdingCostPerUnit: Decimal | null,
+): Decimal | null {
+  if (!annualDemand || !orderingCost || !holdingCostPerUnit) return null;
+  if (annualDemand.lte(0) || orderingCost.lte(0) || holdingCostPerUnit.lte(0)) return null;
+  // EOQ = sqrt(2DS/H)
+  const twoDS = new Decimal(2).times(annualDemand).times(orderingCost);
+  const eoq = twoDS.div(holdingCostPerUnit);
+  // Decimal.js sqrt with default precision (20 significant digits)
+  return eoq.sqrt().toDecimalPlaces(2);
+}
+
+/**
  * Low-stock alerts: materials where total stock across all locations ≤ reorderPoint.
  * Returns materials that need reordering, with current total stock and suggested order qty (EOQ).
  */

@@ -22,7 +22,7 @@ export default function ExpenseClaimsPage() {
   );
 }
 
-async function ExpenseClaimsContent() {
+export async function ExpenseClaimsContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

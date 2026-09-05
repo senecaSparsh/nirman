@@ -8,6 +8,7 @@ import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { autoSyncEntryToTally } from "./auto-sync";
 import { assertGatePassApproved, autoCreateGatePassFromRef } from "./gate-pass";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * Material Sale Service — sell raw materials / stock items to customers.
@@ -23,12 +24,74 @@ import { assertGatePassApproved, autoCreateGatePassFromRef } from "./gate-pass";
  * - All happens inside one Serializable transaction — stock, sale, and GL never diverge
  */
 
+/**
+ * Compute a material sale line's financial values.
+ * Pure function — no DB access.
+ *
+ *   lineSubtotal = unitPrice × qty          (rounded to 2 dp)
+ *   gstAmount    = lineSubtotal × gstRate / 100  (rounded to 2 dp)
+ *   lineTotal    = lineSubtotal + gstAmount
+ *   lineCost     = unitCost × qty           (NOT rounded — accumulated raw, rounded at total level)
+ */
+export function computeMaterialSaleLine(
+  qty: Decimal,
+  unitPrice: Decimal,
+  gstRate: Decimal,
+  unitCost: Decimal,
+): {
+  lineSubtotal: Decimal;
+  gstAmount: Decimal;
+  lineTotal: Decimal;
+  lineCost: Decimal;
+} {
+  const lineSubtotal = unitPrice.mul(qty).toDecimalPlaces(2);
+  const gstAmount = lineSubtotal.mul(gstRate).div(100).toDecimalPlaces(2);
+  const lineTotal = lineSubtotal.plus(gstAmount);
+  const lineCost = unitCost.mul(qty); // NOT rounded per-line — matches original accumulation
+  return { lineSubtotal, gstAmount, lineTotal, lineCost };
+}
+
+/**
+ * Compute material sale header totals from validated line results.
+ * Pure function — no DB access.
+ *
+ *   totalAmount = subtotal + gstTotal + roundOff
+ *   grossProfit = subtotal − totalCost
+ */
+export function computeMaterialSaleTotals(
+  lines: { lineSubtotal: Decimal; gstAmount: Decimal; lineCost: Decimal; isScrap: boolean }[],
+  roundOff: Decimal,
+): {
+  subtotal: Decimal;
+  gstTotal: Decimal;
+  totalCost: Decimal;
+  scrapSubtotal: Decimal;
+  totalAmount: Decimal;
+  grossProfit: Decimal;
+} {
+  let subtotal = new Decimal(0);
+  let gstTotal = new Decimal(0);
+  let totalCost = new Decimal(0);
+  let scrapSubtotal = new Decimal(0);
+  for (const l of lines) {
+    subtotal = subtotal.plus(l.lineSubtotal);
+    gstTotal = gstTotal.plus(l.gstAmount);
+    totalCost = totalCost.plus(l.lineCost);
+    if (l.isScrap) scrapSubtotal = scrapSubtotal.plus(l.lineSubtotal);
+  }
+  subtotal = subtotal.toDecimalPlaces(2);
+  gstTotal = gstTotal.toDecimalPlaces(2);
+  totalCost = totalCost.toDecimalPlaces(2);
+  const totalAmount = subtotal.plus(gstTotal).plus(roundOff);
+  const grossProfit = subtotal.minus(totalCost);
+  return { subtotal, gstTotal, totalCost, scrapSubtotal, totalAmount, grossProfit };
+}
+
 async function generateMaterialSaleNumber(tx: Prisma.TransactionClient): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `MS-${ymd}-`;
-  const count = await tx.materialSale.count({ where: { saleNumber: { startsWith: prefix } } });
-  return `${prefix}${String(count + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 export interface MaterialSaleLineInput {
@@ -286,65 +349,75 @@ export async function createMaterialSale(input: CreateMaterialSaleInput) {
 export async function createMaterialSaleRequest(input: CreateMaterialSaleInput) {
   if (input.lines.length === 0) throw new ServiceError("At least one line item is required");
 
-  // Validate customer
+  // Validate customer (read-only, outside tx — customer rarely changes)
   const customer = await prisma.customer.findFirst({
     where: { id: input.customerId, companyId: input.companyId, deletedAt: null },
   });
   if (!customer) throw new ServiceError("Customer not found or deleted", 404);
 
-  // Validate lines + compute totals
-  let subtotal = new Decimal(0);
-  let gstTotal = new Decimal(0);
-  let totalCost = new Decimal(0);
-  let scrapSubtotal = new Decimal(0);
-
-  const validatedLines: {
-    materialId: string;
-    locationId: string;
-    qty: Decimal;
-    unitPrice: Decimal;
-    gstRate: Decimal;
-    gstAmount: Decimal;
-    lineTotal: Decimal;
-    unitCost: Decimal;
-    isScrap: boolean;
-  }[] = [];
-
+  // Pre-validate line inputs (types, positivity) outside the tx — these are
+  // pure input validations that don't touch the DB.
   for (const line of input.lines) {
     const qty = new Decimal(line.qty);
     if (!qty.gt(0)) throw new ServiceError("Quantity must be > 0");
     const unitPrice = new Decimal(line.unitPrice);
     if (!unitPrice.gt(0)) throw new ServiceError("Unit price must be > 0");
-    const gstRate = line.gstRate ? new Decimal(line.gstRate) : new Decimal(0);
-
-    const stockItem = await prisma.stockLocationItem.findUnique({
-      where: { locationId_materialId: { locationId: line.locationId, materialId: line.materialId } },
-    });
-    if (!stockItem) throw new ServiceError(`No stock for material ${line.materialId} at location ${line.locationId}`);
-
-    const material = await prisma.material.findFirst({ where: { id: line.materialId, deletedAt: null } });
-    if (!material) throw new ServiceError(`Material ${line.materialId} not found`, 404);
-
-    const unitCost = new Decimal(stockItem.movingAvgCost);
-    const lineSubtotal = unitPrice.mul(qty).toDecimalPlaces(2);
-    const gstAmount = lineSubtotal.mul(gstRate).div(100).toDecimalPlaces(2);
-    const lineTotal = lineSubtotal.plus(gstAmount);
-
-    validatedLines.push({ materialId: line.materialId, locationId: line.locationId, qty, unitPrice, gstRate, gstAmount, lineTotal, unitCost, isScrap: material.isScrap });
-    if (material.isScrap) scrapSubtotal = scrapSubtotal.plus(lineSubtotal);
-    subtotal = subtotal.plus(lineSubtotal);
-    gstTotal = gstTotal.plus(gstAmount);
-    totalCost = totalCost.plus(unitCost.mul(qty));
   }
 
-  subtotal = subtotal.toDecimalPlaces(2);
-  gstTotal = gstTotal.toDecimalPlaces(2);
-  totalCost = totalCost.toDecimalPlaces(2);
-  const roundOff = new Decimal(input.roundOff ?? 0).toDecimalPlaces(2);
-  const totalAmount = subtotal.plus(gstTotal).plus(roundOff);
-  const grossProfit = subtotal.minus(totalCost);
-
+  // All DB reads (stock items, materials, unit costs) happen INSIDE the
+  // Serializable transaction so that the computed totals are consistent
+  // and concurrent sale requests see the same snapshot.
   const sale = await withSerializableTransaction(async (tx) => {
+    let subtotal = new Decimal(0);
+    let gstTotal = new Decimal(0);
+    let totalCost = new Decimal(0);
+    let scrapSubtotal = new Decimal(0);
+
+    const validatedLines: {
+      materialId: string;
+      locationId: string;
+      qty: Decimal;
+      unitPrice: Decimal;
+      gstRate: Decimal;
+      gstAmount: Decimal;
+      lineTotal: Decimal;
+      unitCost: Decimal;
+      isScrap: boolean;
+    }[] = [];
+
+    for (const line of input.lines) {
+      const qty = new Decimal(line.qty);
+      const unitPrice = new Decimal(line.unitPrice);
+      const gstRate = line.gstRate ? new Decimal(line.gstRate) : new Decimal(0);
+
+      // Read stock item INSIDE the transaction for consistent MAC
+      const stockItem = await tx.stockLocationItem.findUnique({
+        where: { locationId_materialId: { locationId: line.locationId, materialId: line.materialId } },
+      });
+      if (!stockItem) throw new ServiceError(`No stock for material ${line.materialId} at location ${line.locationId}`);
+
+      const material = await tx.material.findFirst({ where: { id: line.materialId, deletedAt: null } });
+      if (!material) throw new ServiceError(`Material ${line.materialId} not found`, 404);
+
+      const unitCost = new Decimal(stockItem.movingAvgCost);
+      const lineSubtotal = unitPrice.mul(qty).toDecimalPlaces(2);
+      const gstAmount = lineSubtotal.mul(gstRate).div(100).toDecimalPlaces(2);
+      const lineTotal = lineSubtotal.plus(gstAmount);
+
+      validatedLines.push({ materialId: line.materialId, locationId: line.locationId, qty, unitPrice, gstRate, gstAmount, lineTotal, unitCost, isScrap: material.isScrap });
+      if (material.isScrap) scrapSubtotal = scrapSubtotal.plus(lineSubtotal);
+      subtotal = subtotal.plus(lineSubtotal);
+      gstTotal = gstTotal.plus(gstAmount);
+      totalCost = totalCost.plus(unitCost.mul(qty));
+    }
+
+    subtotal = subtotal.toDecimalPlaces(2);
+    gstTotal = gstTotal.toDecimalPlaces(2);
+    totalCost = totalCost.toDecimalPlaces(2);
+    const roundOff = new Decimal(input.roundOff ?? 0).toDecimalPlaces(2);
+    const totalAmount = subtotal.plus(gstTotal).plus(roundOff);
+    const grossProfit = subtotal.minus(totalCost);
+
     const sale = await tx.materialSale.create({
       data: {
         saleNumber: await generateMaterialSaleNumber(tx),
@@ -614,8 +687,7 @@ async function generateCreditNoteNumber(tx: Prisma.TransactionClient): Promise<s
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `CN-${ymd}-`;
-  const count = await tx.materialSaleReturn.count({ where: { returnNumber: { startsWith: prefix } } });
-  return `${prefix}${String(count + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 export interface MaterialSaleReturnLineInput {
@@ -652,10 +724,12 @@ export async function createMaterialSaleReturn(
     if (sale.status !== "ACTIVE") throw new ServiceError("Can only return items from an active sale");
 
     // Validate return lines and compute already-returned quantities
-    const returnedQtyByLine = new Map<string, number>();
+    // Use Decimal to preserve full precision for fractional quantities
+    const returnedQtyByLine = new Map<string, Decimal>();
     for (const ret of sale.returns) {
       for (const rl of ret.lines) {
-        returnedQtyByLine.set(rl.materialSaleLineId, (returnedQtyByLine.get(rl.materialSaleLineId) ?? 0) + Number(rl.qty));
+        const current = returnedQtyByLine.get(rl.materialSaleLineId) ?? new Decimal(0);
+        returnedQtyByLine.set(rl.materialSaleLineId, current.plus(new Decimal(rl.qty)));
       }
     }
 
@@ -675,15 +749,15 @@ export async function createMaterialSaleReturn(
       if (!saleLine) throw new ServiceError("Return line does not belong to this sale", 400);
       const qty = new Decimal(inputLine.qty);
       if (qty.lte(0)) throw new ServiceError("Return quantity must be positive", 400);
-      const alreadyReturned = returnedQtyByLine.get(saleLine.id) ?? 0;
+      const alreadyReturned = returnedQtyByLine.get(saleLine.id) ?? new Decimal(0);
       if (qty.plus(alreadyReturned).gt(saleLine.qty)) {
         throw new ServiceError(`Cannot return more than ${saleLine.qty} units (already returned: ${alreadyReturned})`, 400);
       }
       const unitPrice = new Decimal(saleLine.unitPrice);
       const unitCost = new Decimal(saleLine.unitCost);
       const gstRate = new Decimal(saleLine.gstRate);
-      const gstAmount = unitPrice.mul(qty).mul(gstRate).div(100);
-      const lineTotal = unitPrice.mul(qty).plus(gstAmount);
+      const gstAmount = unitPrice.mul(qty).mul(gstRate).div(100).toDecimalPlaces(2);
+      const lineTotal = unitPrice.mul(qty).plus(gstAmount).toDecimalPlaces(2);
       returnLines.push({ saleLine, qty, unitPrice, unitCost, gstRate, gstAmount, lineTotal, reason: inputLine.reason });
     }
 

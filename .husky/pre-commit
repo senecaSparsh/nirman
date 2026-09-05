@@ -1,0 +1,2 @@
+# Pre-commit: run lint-staged on changed files (fast — only touches staged files)
+npx lint-staged

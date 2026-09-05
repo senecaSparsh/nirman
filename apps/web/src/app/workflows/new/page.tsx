@@ -22,7 +22,7 @@ export default function NewWorkflowPage() {
   );
 }
 
-async function NewWorkflowContent() {
+export async function NewWorkflowContent() {
   await connection();
   return (
     <PermissionGate perm={PERM.CANVAS_VIEW}>

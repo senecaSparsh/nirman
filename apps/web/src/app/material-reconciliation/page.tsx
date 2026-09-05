@@ -18,7 +18,7 @@ export default function MaterialReconciliationPage() {
   );
 }
 
-async function ReconContent() {
+export async function ReconContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

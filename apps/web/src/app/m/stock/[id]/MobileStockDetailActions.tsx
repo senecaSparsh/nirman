@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Trash2, Loader2, X, Check } from "lucide-react";
+import { Pencil, Trash2, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 interface MaterialEditData {
   id: string;
@@ -170,23 +171,8 @@ function EditMaterialModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <form
-        className="w-full max-w-md rounded-t-[0.75rem] flex flex-col max-h-[90vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)" }}
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={handleSubmit}
-      >
-        <div className="flex items-center justify-between p-3 border-b sticky top-0" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Edit Material</p>
-          <button type="button" onClick={onClose} className="text-m-body press">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
+    <MobileDialog open={true} onClose={onClose} title="Edit Material">
+      <form onSubmit={handleSubmit}>
         <div className="p-3 flex flex-col gap-3">
           <Field label="Code *">
             <input required value={code} onChange={(e) => setCode(e.target.value)} className={inputCls} />
@@ -254,7 +240,7 @@ function EditMaterialModal({
           </button>
         </div>
       </form>
-    </div>
+    </MobileDialog>
   );
 }
 

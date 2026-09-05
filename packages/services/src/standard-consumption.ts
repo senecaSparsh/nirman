@@ -5,6 +5,7 @@ import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { recordMovement, withStockTransaction } from "./stock-ledger";
 import { postScrapGeneration } from "./gl-posting";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * Standard Consumption Benchmark Service.
@@ -167,6 +168,48 @@ export async function listWorkTypes(companyId: string): Promise<string[]> {
 }
 
 // ── Variance Calculation ──────────────────────────────────
+
+/**
+ * Scale a standard consumption quantity by the actual work quantity.
+ * Pure function — no DB access.
+ *
+ *   scaledStandard = standardQty × (workQty / baseQty)
+ *
+ * If workQty is null or baseQty is 0, returns standardQty unchanged.
+ */
+export function scaleStandardQty(
+  standardQty: Decimal,
+  baseQty: Decimal,
+  workQty: Decimal | null,
+): Decimal {
+  if (workQty != null && workQty.gt(0) && baseQty.gt(0)) {
+    return standardQty.times(workQty).dividedBy(baseQty);
+  }
+  return standardQty;
+}
+
+/**
+ * Compute consumption variance for a single material.
+ * Pure function — no DB access.
+ *
+ *   variance    = actualQty − standardQty
+ *   variancePct = variance / standardQty × 100  (0 if standard = 0)
+ *   isOverConsumption = variance > 0
+ */
+export function computeConsumptionVariance(
+  actualQty: Decimal,
+  standardQty: Decimal,
+): {
+  variance: Decimal;
+  variancePct: Decimal;
+  isOverConsumption: boolean;
+} {
+  const variance = actualQty.minus(standardQty);
+  const variancePct = standardQty.gt(0)
+    ? variance.dividedBy(standardQty).times(100)
+    : new Decimal(0);
+  return { variance, variancePct, isOverConsumption: variance.gt(0) };
+}
 
 export interface ConsumptionVariance {
   materialId: string;
@@ -367,15 +410,7 @@ export async function runDprVarianceAnalysis(
 
     scrapGenerationId = await withStockTransaction(async (tx) => {
       // Generate scrap number
-      const existing = await tx.scrapGeneration.findMany({
-        where: { scrapNumber: { startsWith: prefix } },
-        select: { scrapNumber: true },
-      });
-      const maxSeq = existing.reduce((max, e) => {
-        const n = parseInt(e.scrapNumber?.slice(prefix.length) ?? "0", 10);
-        return n > max ? n : max;
-      }, 0);
-      const scrapNumber = `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;
+      const scrapNumber = await nextSequenceNumber(tx, prefix, 4);
 
       // Build a lookup of DPR line unit costs for scrap valuation
       const lineCostMap = new Map(

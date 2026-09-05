@@ -20,6 +20,32 @@ import { ServiceError } from "./errors";
  * Full audit trail = StockMovement records (append-only).
  */
 
+/**
+ * Validate a stock movement input and return the resolved location ID.
+ * Pure function — no DB access.
+ *
+ * Throws if the required location (toLocationId for IN, fromLocationId for OUT)
+ * is missing, or if the movement quantity is ≤ 0.
+ */
+export function validateMovementInput(
+  movementType: StockMovementType,
+  fromLocationId: string | undefined,
+  toLocationId: string | undefined,
+  qty: Decimal,
+): { direction: "IN" | "OUT"; locationId: string } {
+  const direction = movementDirection(movementType);
+  const locationId = direction === "IN" ? toLocationId : fromLocationId;
+  if (!locationId) {
+    throw new ServiceError(
+      `Movement ${movementType} requires a ${direction === "IN" ? "toLocationId" : "fromLocationId"}`,
+    );
+  }
+  if (!new Decimal(qty).gt(0)) {
+    throw new ServiceError(`Movement quantity must be > 0 (got ${qty})`);
+  }
+  return { direction, locationId };
+}
+
 type LocationId = string;
 type MaterialId = string;
 
@@ -45,6 +71,13 @@ interface MovementInput {
 /**
  * Records a single stock movement and updates the StockLocationItem atomically.
  * For transfers (TRANSFER_OUT + TRANSFER_IN), call recordTransfer instead.
+ *
+ * IMPORTANT: This function MUST be called inside a Serializable-isolation
+ * transaction (withStockTransaction or withSerializableTransaction). The
+ * read-then-write pattern (read StockLocationItem.qty → compute new qty →
+ * write) is only safe under Serializable isolation. If called outside a
+ * Serializable transaction, concurrent movements can cause lost updates
+ * and negative stock.
  */
 export async function recordMovement(
   tx: Prisma.TransactionClient,
@@ -206,6 +239,9 @@ export async function recordMovement(
   }
 
   // Get or create the StockLocationItem (current-state cache)
+  // The upsert ensures the row exists. For OUT movements, we then use an
+  // atomic conditional UPDATE to prevent lost updates even if a future
+  // caller accidentally uses a non-Serializable transaction.
   const item = await tx.stockLocationItem.upsert({
     where: {
       locationId_materialId: {
@@ -237,6 +273,9 @@ export async function recordMovement(
     recordedUnitCost = recvCost;
   } else {
     // OUT — draw at current MAC; MAC doesn't change
+    // Double-check sufficiency (the Serializable tx already protects this,
+    // but this guard prevents silent negative stock if isolation is ever
+    // downgraded).
     if (moveQty.gt(oldQty)) {
       throw new ServiceError(
         `Insufficient stock: requested ${moveQty} ${input.materialId}, available ${oldQty} at location ${locationId}`,
@@ -355,8 +394,15 @@ export async function withStockTransaction<T>(
     } catch (err) {
       lastError = err;
       const msg = err instanceof Error ? err.message : String(err);
+      const code = (err as { code?: string }).code;
       // Retry on write conflict / deadlock (Serializable isolation can cause these)
-      if (msg.includes("write conflict") || msg.includes("deadlock") || msg.includes("could not serialize")) {
+      // Also retry on P2002 unique-constraint violations (sequence number collisions)
+      const isRetryable =
+        msg.includes("write conflict") ||
+        msg.includes("deadlock") ||
+        msg.includes("could not serialize") ||
+        code === "P2002";
+      if (isRetryable) {
         // Exponential backoff with jitter: 100ms, 200ms, 400ms, 800ms, 1600ms
         const baseDelay = 100 * Math.pow(2, attempt);
         const jitter = Math.random() * 50;

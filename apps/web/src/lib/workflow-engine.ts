@@ -61,6 +61,54 @@ interface RunResult {
 }
 
 /**
+ * Evaluate a condition operator against a field value and comparison value.
+ * Supports: eq, ne, gt, lt, contains. Unknown operators return false.
+ */
+export function evaluateCondition(
+  operator: string,
+  fieldValue: string,
+  value: string,
+): boolean {
+  switch (operator) {
+    case "eq":
+      return fieldValue === value;
+    case "ne":
+      return fieldValue !== value;
+    case "gt":
+      return parseFloat(fieldValue) > parseFloat(value);
+    case "lt":
+      return parseFloat(fieldValue) < parseFloat(value);
+    case "contains":
+      return fieldValue.includes(value);
+    default:
+      return false;
+  }
+}
+
+/**
+ * Find the next step ID from a step via edges.
+ * If a branch is specified, prefers a matching conditional edge, falling back
+ * to a non-conditional edge. If no branch, uses the first outgoing edge.
+ */
+export function findNextStep(
+  edges: WorkflowEdge[],
+  fromStepId: string,
+  branch?: string,
+): string | null {
+  if (branch) {
+    const branchEdge = edges.find((e) => e.from === fromStepId && e.condition === branch);
+    if (branchEdge) return branchEdge.to;
+  }
+  const fallbackEdge = edges.find((e) => e.from === fromStepId && !e.condition);
+  if (fallbackEdge) return fallbackEdge.to;
+  if (!branch) {
+    const anyEdge = edges.find((e) => e.from === fromStepId);
+    return anyEdge?.to ?? null;
+  }
+  return null;
+}
+
+/**
  * Execute a workflow by ID. Creates a WorkflowRun, walks the graph,
  * executes each step, and records results.
  */

@@ -19,6 +19,34 @@ export interface HsnGstEntry {
 }
 
 /**
+ * Score an HSN entry's description against search words.
+ * Pure function — no DB access.
+ *
+ * Scoring:
+ *   +10 for each word that is included in the description
+ *   +5  for each word that the description starts with
+ */
+export function scoreHsnDescription(description: string, words: string[]): number {
+  const desc = description.toLowerCase();
+  let score = 0;
+  for (const w of words) {
+    if (desc.includes(w)) score += 10;
+    if (desc.startsWith(w)) score += 5;
+  }
+  return score;
+}
+
+/**
+ * Extract search words (≥3 chars) from a query string.
+ * Pure function — no DB access.
+ */
+export function extractSearchWords(query: string): string[] {
+  const trimmed = query.trim().toLowerCase();
+  if (!trimmed) return [];
+  return trimmed.split(/\s+/).filter((w) => w.length >= 3);
+}
+
+/**
  * Curated HSN/SAC master for the construction industry. This covers the
  * most common materials a real-estate builder procures. The full CBIC
  * master (~12,000 codes) can be loaded from a JSON file later — this seed

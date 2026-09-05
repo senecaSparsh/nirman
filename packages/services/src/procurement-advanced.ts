@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * Advanced Procurement Service.
@@ -25,6 +26,42 @@ export interface VendorRating {
   totalPos: number;
   totalReceipts: number;
   totalQuotes: number;
+}
+
+/**
+ * Compute the overall vendor score from raw metrics.
+ * Pure function — no DB access.
+ *
+ * Weights: on-time 40%, quality 30%, price competitiveness 30%.
+ * Empty metrics default to neutral (1.0 for on-time/quality, 0.5 for price).
+ */
+export function computeVendorScore(input: {
+  onTimeCount: number;
+  totalPos: number;
+  acceptedCount: number;
+  totalReceipts: number;
+  selectedQuotes: number;
+  totalQuotes: number;
+}): {
+  onTimeRate: Decimal;
+  qualityRate: Decimal;
+  priceCompetitiveness: Decimal;
+  overallScore: Decimal;
+} {
+  const onTimeRate = input.totalPos > 0
+    ? new Decimal(input.onTimeCount).div(input.totalPos)
+    : new Decimal(1); // no POs → neutral
+  const qualityRate = input.totalReceipts > 0
+    ? new Decimal(input.acceptedCount).div(input.totalReceipts)
+    : new Decimal(1); // no receipts → neutral
+  const priceCompetitiveness = input.totalQuotes > 0
+    ? new Decimal(input.selectedQuotes).div(input.totalQuotes)
+    : new Decimal(0.5); // no quotes → neutral
+  const overallScore = onTimeRate
+    .times(0.4)
+    .plus(qualityRate.times(0.3))
+    .plus(priceCompetitiveness.times(0.3));
+  return { onTimeRate, qualityRate, priceCompetitiveness, overallScore };
 }
 
 /**
@@ -149,15 +186,7 @@ async function generateContractNumber(tx: Prisma.TransactionClient): Promise<str
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `RC-${ymd}-`;
-  const existing = await tx.rateContract.findMany({
-    where: { contractNumber: { startsWith: prefix } },
-    select: { contractNumber: true },
-  });
-  const maxSeq = existing.reduce((max, e) => {
-    const n = parseInt(e.contractNumber.slice(prefix.length) ?? "0", 10);
-    return n > max ? n : max;
-  }, 0);
-  return `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 export interface CreateRateContractInput {

@@ -83,10 +83,10 @@ export function MobileStandardConsumptionActions({
     }
   }
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
-  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
+  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
     <>
@@ -132,35 +132,50 @@ export function MobileStandardConsumptionActions({
               </button>
             </div>
             <div className="px-3 pb-4 flex flex-col gap-3">
-              <div>
-                <label className={labelClass} style={labelStyle}>Work Type *</label>
-                <input value={workType} onChange={(e) => setWorkType(e.target.value)} placeholder="e.g. Foundation, Plastering" className={inputClass} style={inputStyle} />
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>Material *</label>
-                <select value={materialId} onChange={(e) => setMaterialId(e.target.value)} className={inputClass} style={inputStyle}>
-                  {materials.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Benchmark Details
+                </p>
                 <div>
-                  <label className={labelClass} style={labelStyle}>Standard Qty</label>
-                  <input type="number" step="any" inputMode="decimal" value={standardQty} onChange={(e) => setStandardQty(e.target.value)} className={inputClass} style={inputStyle} />
+                  <label className={labelClass} style={labelStyle}>Work Type *</label>
+                  <input value={workType} onChange={(e) => setWorkType(e.target.value)} placeholder="e.g. Foundation, Plastering" className={inputClass} style={inputStyle} />
                 </div>
                 <div>
-                  <label className={labelClass} style={labelStyle}>Base Qty</label>
-                  <input type="number" step="any" inputMode="decimal" value={baseQty} onChange={(e) => setBaseQty(e.target.value)} className={inputClass} style={inputStyle} />
+                  <label className={labelClass} style={labelStyle}>Material *</label>
+                  <select value={materialId} onChange={(e) => setMaterialId(e.target.value)} className={inputClass} style={inputStyle}>
+                    {materials.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
+                    ))}
+                  </select>
                 </div>
               </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>Unit of Measure</label>
-                <input value={unitOfMeasure} onChange={(e) => setUnitOfMeasure(e.target.value)} placeholder="e.g. sqft, cum, rmt" className={inputClass} style={inputStyle} />
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Quantities
+                </p>
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>Standard Qty</label>
+                    <input type="number" step="any" inputMode="decimal" value={standardQty} onChange={(e) => setStandardQty(e.target.value)} className={inputClass} style={inputStyle} />
+                  </div>
+                  <div className="pl-2">
+                    <label className={labelClass} style={labelStyle}>Base Qty</label>
+                    <input type="number" step="any" inputMode="decimal" value={baseQty} onChange={(e) => setBaseQty(e.target.value)} className={inputClass} style={inputStyle} />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass} style={labelStyle}>Unit of Measure</label>
+                  <input value={unitOfMeasure} onChange={(e) => setUnitOfMeasure(e.target.value)} placeholder="e.g. sqft, cum, rmt" className={inputClass} style={inputStyle} />
+                </div>
               </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>Notes</label>
-                <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes…" className="w-full rounded-[0.5rem] border px-2.5 py-2 text-m-section resize-none outline-none" style={inputStyle} />
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Notes
+                </p>
+                <div>
+                  <label className={labelClass} style={labelStyle}>Notes</label>
+                  <textarea rows={1} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes…" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
+                </div>
               </div>
               <div className="flex flex-col gap-2 pt-1">
                 <button onClick={() => setShowEdit(false)} disabled={saving} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>

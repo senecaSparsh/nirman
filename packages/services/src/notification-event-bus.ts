@@ -54,6 +54,21 @@ export enum NotificationEventType {
   PROJECT_COST_ADDED = "PROJECT_COST_ADDED",
   GL_ENTRY_POSTED = "GL_ENTRY_POSTED",
 
+  // Equipment (4)
+  EQUIPMENT_MAINTENANCE_DUE = "EQUIPMENT_MAINTENANCE_DUE",
+  EQUIPMENT_ASSIGNED = "EQUIPMENT_ASSIGNED",
+  EQUIPMENT_SOLD = "EQUIPMENT_SOLD",
+  EQUIPMENT_RETIRED = "EQUIPMENT_RETIRED",
+
+  // Quality — NCR/CAPA (3)
+  NCR_RAISED = "NCR_RAISED",
+  CAPA_DUE = "CAPA_DUE",
+  CAPA_OVERDUE = "CAPA_OVERDUE",
+
+  // Petty Cash (2)
+  PETTY_CASH_LOW_BALANCE = "PETTY_CASH_LOW_BALANCE",
+  PETTY_CASH_TOPUP = "PETTY_CASH_TOPUP",
+
   // Gate Pass (4)
   GATE_PASS_SUBMITTED = "GATE_PASS_SUBMITTED",
   GATE_PASS_APPROVED = "GATE_PASS_APPROVED",
@@ -116,6 +131,21 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.EXPENSE_CREATED]: "DAILY",
   [NotificationEventType.PROJECT_COST_ADDED]: "DAILY",
   [NotificationEventType.GL_ENTRY_POSTED]: "WEEKLY",
+
+  // Equipment
+  [NotificationEventType.EQUIPMENT_MAINTENANCE_DUE]: "IMMEDIATE",
+  [NotificationEventType.EQUIPMENT_ASSIGNED]: "DAILY",
+  [NotificationEventType.EQUIPMENT_SOLD]: "DAILY",
+  [NotificationEventType.EQUIPMENT_RETIRED]: "DAILY",
+
+  // Quality — NCR/CAPA
+  [NotificationEventType.NCR_RAISED]: "IMMEDIATE",
+  [NotificationEventType.CAPA_DUE]: "IMMEDIATE",
+  [NotificationEventType.CAPA_OVERDUE]: "IMMEDIATE",
+
+  // Petty Cash
+  [NotificationEventType.PETTY_CASH_LOW_BALANCE]: "DAILY",
+  [NotificationEventType.PETTY_CASH_TOPUP]: "DAILY",
 
   // Gate Pass — all immediate (approvals + exit confirmation)
   [NotificationEventType.GATE_PASS_SUBMITTED]: "IMMEDIATE",
@@ -279,7 +309,7 @@ async function resolveRecipients(event: NotificationEvent): Promise<string[]> {
     .map((m) => m.user.id);
 }
 
-function shouldRoleReceiveEvent(role: string, eventType: NotificationEventType): boolean {
+export function shouldRoleReceiveEvent(role: string, eventType: NotificationEventType): boolean {
   const PROCUREMENT_EVENTS = new Set([
     NotificationEventType.REQUISITION_SUBMITTED,
     NotificationEventType.REQUISITION_APPROVED,
@@ -311,6 +341,8 @@ function shouldRoleReceiveEvent(role: string, eventType: NotificationEventType):
     NotificationEventType.GL_ENTRY_POSTED,
     NotificationEventType.PAYROLL_PROCESSED,
     NotificationEventType.SUPPLIER_PAYMENT_DUE,
+    NotificationEventType.PETTY_CASH_LOW_BALANCE,
+    NotificationEventType.PETTY_CASH_TOPUP,
   ]);
   const LAND_EVENTS = new Set([
     NotificationEventType.LAND_PURCHASE_CREATED,
@@ -323,20 +355,31 @@ function shouldRoleReceiveEvent(role: string, eventType: NotificationEventType):
     NotificationEventType.RENT_ESCALATION_APPLIED,
     NotificationEventType.LAND_PAYMENT_DUE,
   ]);
+  const EQUIPMENT_EVENTS = new Set([
+    NotificationEventType.EQUIPMENT_MAINTENANCE_DUE,
+    NotificationEventType.EQUIPMENT_ASSIGNED,
+    NotificationEventType.EQUIPMENT_SOLD,
+    NotificationEventType.EQUIPMENT_RETIRED,
+  ]);
+  const QUALITY_EVENTS = new Set([
+    NotificationEventType.NCR_RAISED,
+    NotificationEventType.CAPA_DUE,
+    NotificationEventType.CAPA_OVERDUE,
+  ]);
 
   if (role === "OWNER" || role === "ADMIN") return true;
   if (role === "PROJECT_DIRECTOR" || role === "FINANCE_HEAD") {
-    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType);
+    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || QUALITY_EVENTS.has(eventType);
   }
   if (role === "PROJECT_MANAGER" || role === "PROCUREMENT_MANAGER" || role === "HR_MANAGER") {
-    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType);
+    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType);
   }
   if (role === "SUPERVISOR" || role === "QAQC_ENGINEER" || role === "SITE_ENGINEER") {
-    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType);
+    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || QUALITY_EVENTS.has(eventType);
   }
   if (role === "SALES_MANAGER") return SALES_EVENTS.has(eventType) || LAND_EVENTS.has(eventType);
-  if (role === "ACCOUNTANT") return FINANCE_EVENTS.has(eventType) || SALES_EVENTS.has(eventType) || LAND_EVENTS.has(eventType);
-  if (role === "STORE_KEEPER") return PROCUREMENT_EVENTS.has(eventType);
+  if (role === "ACCOUNTANT") return FINANCE_EVENTS.has(eventType) || SALES_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType);
+  if (role === "STORE_KEEPER") return PROCUREMENT_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType);
   return false;
 }
 
@@ -348,7 +391,7 @@ function isWithinQuietHours(): boolean {
 }
 
 /** Render a basic message for the event */
-function renderEventMessage(event: NotificationEvent): string {
+export function renderEventMessage(event: NotificationEvent): string {
   const varStr = Object.entries(event.variables)
     .map(([k, v]) => `${k}=${v}`)
     .join(", ");

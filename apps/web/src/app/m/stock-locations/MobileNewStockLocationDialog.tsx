@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, X } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 /**
  * Form content for creating a stock location — used inside MobileFabModal
@@ -74,96 +75,102 @@ export function MobileNewStockLocationForm({
   return (
     <>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        {/* Name + Type */}
-        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <div>
-            <label
-              className="block text-m-caption font-bold mb-0"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              Location name{" "}
-              <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Central Warehouse"
-              autoFocus
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "transparent",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-          <div>
-            <label
-              className="block text-m-caption font-bold mb-0"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              Type <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <select
-              value={type}
-              onChange={(e) => {
-                setType(
-                  e.target.value as
-                    | "CENTRAL_WAREHOUSE"
-                    | "COMPANY_WAREHOUSE"
-                    | "PROJECT_SITE",
-                );
-                setProjectId("");
-                haptic(10);
-              }}
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "transparent",
-                color: "var(--color-ink-950)",
-              }}
-            >
-              <option value="CENTRAL_WAREHOUSE">
-                Central Warehouse
-              </option>
-              <option value="COMPANY_WAREHOUSE">Company Warehouse</option>
-              <option value="PROJECT_SITE">Project Site</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Project — only when type is PROJECT_SITE */}
-        {type === "PROJECT_SITE" && (
-          <div>
-            <label
-              className="block text-m-caption font-bold mb-0"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              Project <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <select
-              value={projectId}
-              onChange={(e) => {
-                setProjectId(e.target.value);
-                haptic(10);
-              }}
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "transparent",
-                color: "var(--color-ink-950)",
-              }}
-            >
-              <option value="">Select a project…</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
+        {/* Location Details */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Location Details
+          </p>
+          {/* Name + Type */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <label
+                className="block text-m-caption font-bold mb-0"
+                style={{ color: "var(--color-ink-700)" }}
+              >
+                Location name{" "}
+                <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Central Warehouse"
+                autoFocus
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={{
+                  borderColor: "var(--color-line)",
+                  backgroundColor: "transparent",
+                  color: "var(--color-ink-950)",
+                }}
+              />
+            </div>
+            <div className="pl-2">
+              <label
+                className="block text-m-caption font-bold mb-0"
+                style={{ color: "var(--color-ink-700)" }}
+              >
+                Type <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <select
+                value={type}
+                onChange={(e) => {
+                  setType(
+                    e.target.value as
+                      | "CENTRAL_WAREHOUSE"
+                      | "COMPANY_WAREHOUSE"
+                      | "PROJECT_SITE",
+                  );
+                  setProjectId("");
+                  haptic(10);
+                }}
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={{
+                  borderColor: "var(--color-line)",
+                  backgroundColor: "transparent",
+                  color: "var(--color-ink-950)",
+                }}
+              >
+                <option value="CENTRAL_WAREHOUSE">
+                  Central Warehouse
                 </option>
-              ))}
-            </select>
+                <option value="COMPANY_WAREHOUSE">Company Warehouse</option>
+                <option value="PROJECT_SITE">Project Site</option>
+              </select>
+            </div>
           </div>
-        )}
+
+          {/* Project — only when type is PROJECT_SITE */}
+          {type === "PROJECT_SITE" && (
+            <div>
+              <label
+                className="block text-m-caption font-bold mb-0"
+                style={{ color: "var(--color-ink-700)" }}
+              >
+                Project <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <select
+                value={projectId}
+                onChange={(e) => {
+                  setProjectId(e.target.value);
+                  haptic(10);
+                }}
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={{
+                  borderColor: "var(--color-line)",
+                  backgroundColor: "transparent",
+                  color: "var(--color-ink-950)",
+                }}
+              >
+                <option value="">Select a project…</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
 
         {/* Submit */}
         <button
@@ -205,43 +212,13 @@ export function MobileNewStockLocationDialog({
   onCreated: (location: { id: string; name: string; type: string }) => void;
   projects?: { id: string; name: string }[];
 }) {
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <h2
-            className="text-m-section font-bold"
-            style={{ color: "var(--color-ink-950)" }}
-          >
-            New Stock Location
-          </h2>
-          <button
-            onClick={onClose}
-            className="touch text-m-body press grid place-items-center rounded-[0.375rem]"
-            style={{ color: "var(--color-ink-700)" }}
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
-        <MobileNewStockLocationForm
-          onClose={onClose}
-          onCreated={onCreated}
-          projects={projects}
-        />
-      </div>
-    </div>
+    <MobileDialog open={open} onClose={onClose} title="New Stock Location">
+      <MobileNewStockLocationForm
+        onClose={onClose}
+        onCreated={onCreated}
+        projects={projects}
+      />
+    </MobileDialog>
   );
 }

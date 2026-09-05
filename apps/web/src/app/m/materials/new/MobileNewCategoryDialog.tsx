@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, X } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 /**
  * Mobile dialog for creating a material category.
@@ -82,50 +83,26 @@ export function MobileNewCategoryDialog({
     }
   }
 
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
+    <MobileDialog open={open} onClose={onClose} title="New Category">
+      <p
+        className="text-m-caption mb-4"
+        style={{ color: "var(--color-ink-500)" }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <h2
-            className="text-m-section font-bold"
-            style={{ color: "var(--color-ink-950)" }}
-          >
-            New Material Category
-          </h2>
-          <button
-            onClick={onClose}
-            className="touch text-m-body press grid place-items-center rounded-[0.375rem]"
-            style={{ color: "var(--color-ink-500)" }}
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+        Categories group materials and define a default unit of measure.
+      </p>
 
-        <p
-          className="text-m-caption mb-4"
-          style={{ color: "var(--color-ink-500)" }}
-        >
-          Categories group materials and define a default unit of measure.
-        </p>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        {/* Category Details */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Category Details
+          </p>
           {/* Name */}
           <div>
             <label
-              className="block text-m-caption font-semibold mb-1"
-              style={{ color: "var(--color-ink-500)" }}
+              className="block text-m-caption font-bold mb-0"
+              style={{ color: "var(--color-ink-700)" }}
             >
               Category name{" "}
               <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -136,10 +113,10 @@ export function MobileNewCategoryDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Cement & Binding"
               autoFocus
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
               style={{
                 borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
+                backgroundColor: "transparent",
                 color: "var(--color-ink-950)",
               }}
             />
@@ -176,28 +153,28 @@ export function MobileNewCategoryDialog({
               ))}
             </div>
           </div>
+        </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
-            style={{
-              backgroundColor: "var(--color-ink-950)",
-              color: "var(--color-paper)",
-            }}
-          >
-            {saving ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <>
-                <Plus className="size-4" />
-                <span>Create Category</span>
-              </>
-            )}
-          </button>
-        </form>
-      </div>
-    </div>
+        {/* Submit */}
+        <button
+          type="submit"
+          disabled={saving}
+          className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+          style={{
+            backgroundColor: "var(--color-ink-950)",
+            color: "var(--color-paper)",
+          }}
+        >
+          {saving ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <>
+              <Plus className="size-4" />
+              <span>Create Category</span>
+            </>
+          )}
+        </button>
+      </form>
+    </MobileDialog>
   );
 }

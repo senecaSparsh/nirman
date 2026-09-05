@@ -1,13 +1,22 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import {
   Users, Phone,
   UserPlus,
   AlertCircle, ChevronRight,
+  Eye, Share2, FileText, Mail, IndianRupee,
 } from "lucide-react";
-import {formatCurrencyCompact} from "@/lib/utils";
+import {formatCurrencyCompact, formatCurrency} from "@/lib/utils";
+import { toast } from "sonner";
+import { useLongPress } from "@/lib/use-long-press";
+import {
+  MobileOverviewSheet,
+  type OverviewRow,
+} from "@/components/mobile/v2/mobile-overview-sheet";
+import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -235,6 +244,7 @@ export function MobileCustomersList({
 }
 
 /* ─── Customer card ─── */
+/* Long-press opens an overview sheet (data already in the list item — no fetch). */
 function CustomerCard({
   customer: c,
   canEdit: _canEdit = false,
@@ -244,100 +254,164 @@ function CustomerCard({
   canEdit?: boolean;
   canDelete?: boolean;
 }) {
+  const router = useRouter();
   const badge = PAYMENT_BADGE[c.paymentStatus] ?? { color: "var(--color-ink-400)", label: "Unknown" };
   const hasDues = c.dueCount > 0;
   const hasSales = c.activeCount > 0;
 
+  // ── Long-press overview sheet (data already in the list item — no fetch) ──
+  const [overviewOpen, setOverviewOpen] = useState(false);
+  const [pressPoint, setPressPoint] = useState<{ x: number; y: number } | null>(null);
+  const { bind: longPressBind } = useLongPress((x, y) => {
+    setPressPoint({ x, y });
+    setOverviewOpen(true);
+  });
+
+  const overviewRows: OverviewRow[] = [
+    ...(c.phone ? [{ icon: Phone, label: "Phone", value: c.phone, mono: true }] : []),
+    ...(c.email ? [{ icon: Mail, label: "Email", value: c.email }] : []),
+    ...(c.gstin ? [{ icon: FileText, label: "GSTIN", value: c.gstin, mono: true }] : []),
+    {
+      icon: IndianRupee,
+      label: "Total Sales",
+      value: formatCurrency(c.totalValue),
+    },
+    {
+      icon: IndianRupee,
+      label: "Outstanding",
+      value: formatCurrency(c.outstanding),
+      valueColor: c.outstanding > 0 ? "var(--color-signal)" : "var(--color-ink-950)",
+    },
+    { icon: Users, label: "Active Deals", value: String(c.activeCount) },
+  ];
+
+  const overviewActions: ContextAction[] = [
+    {
+      label: "View Full Details",
+      icon: Eye,
+      onPress: () => router.push(`/m/customers/${c.id}`),
+    },
+    {
+      label: "Share",
+      icon: Share2,
+      onPress: () => {
+        const url = `${window.location.origin}/m/customers/${c.id}`;
+        if (navigator.share) {
+          navigator.share({ title: c.name, url }).catch(() => {});
+        } else {
+          navigator.clipboard?.writeText(url).catch(() => {});
+          toast.success("Link copied");
+        }
+      },
+    },
+  ];
+
   return (
-    <Link
-      href={`/m/customers/${c.id}`}
-      className="block rounded-[0.5rem] border overflow-hidden active:scale-[0.99] transition-transform"
-      style={{
-        borderColor: hasDues ? "var(--color-signal)" : "var(--color-line)",
-        backgroundColor: "var(--color-paper)",
-      }}
-    >
-      <div className="p-2.5">
-        {/* ── Top: name + badge ── */}
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-m-section font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
-            {c.name}
-          </p>
-          <span
-            className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full shrink-0"
-            style={{ color: badge.color, backgroundColor: `color-mix(in srgb, ${badge.color} 12%, transparent)` }}
-          >
-            {badge.label}
-          </span>
-        </div>
-
-        {/* ── Phone ── */}
-        {c.phone ? (
-          <p className="text-m-caption flex items-center gap-0.5 mb-1.5" style={{ color: "var(--color-ink-500)" }}>
-            <Phone className="size-2.5" />
-            {c.phone}
-          </p>
-        ) : (
-          <p className="text-m-caption mb-1.5" style={{ color: "var(--color-ink-400)" }}>
-            No phone
-          </p>
-        )}
-
-        {/* ── Financial row ── */}
-        {hasSales ? (
-          <div className="flex items-center gap-3">
-            <div>
-              <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
-                Sales
+    <>
+      <div {...longPressBind}>
+        <Link
+          href={`/m/customers/${c.id}`}
+          className="block rounded-[0.5rem] border overflow-hidden active:scale-[0.99] transition-transform"
+          style={{
+            borderColor: hasDues ? "var(--color-signal)" : "var(--color-line)",
+            backgroundColor: "var(--color-paper)",
+          }}
+        >
+          <div className="p-2.5">
+            {/* ── Top: name + badge ── */}
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-m-section font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+                {c.name}
               </p>
-              <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-                {formatCurrencyCompact(c.totalValue)}
-              </p>
+              <span
+                className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full shrink-0"
+                style={{ color: badge.color, backgroundColor: `color-mix(in srgb, ${badge.color} 12%, transparent)` }}
+              >
+                {badge.label}
+              </span>
             </div>
 
-            {c.outstanding > 0 ? (
-              <>
-                <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
+            {/* ── Phone ── */}
+            {c.phone ? (
+              <p className="text-m-caption flex items-center gap-0.5 mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+                <Phone className="size-2.5" />
+                {c.phone}
+              </p>
+            ) : (
+              <p className="text-m-caption mb-1.5" style={{ color: "var(--color-ink-400)" }}>
+                No phone
+              </p>
+            )}
+
+            {/* ── Financial row ── */}
+            {hasSales ? (
+              <div className="flex items-center gap-3">
                 <div>
                   <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
-                    Outstanding
+                    Sales
                   </p>
-                  <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
-                    {formatCurrencyCompact(c.outstanding)}
+                  <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                    {formatCurrencyCompact(c.totalValue)}
                   </p>
                 </div>
-              </>
-            ) : null}
 
-            <div className="ml-auto text-right">
-              <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
-                Deals
+                {c.outstanding > 0 ? (
+                  <>
+                    <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
+                    <div>
+                      <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                        Outstanding
+                      </p>
+                      <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
+                        {formatCurrencyCompact(c.outstanding)}
+                      </p>
+                    </div>
+                  </>
+                ) : null}
+
+                <div className="ml-auto text-right">
+                  <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                    Deals
+                  </p>
+                  <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                    {c.activeCount}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
+                No sales yet
               </p>
-              <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-                {c.activeCount}
-              </p>
-            </div>
+            )}
           </div>
-        ) : (
-          <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
-            No sales yet
-          </p>
-        )}
+
+          {/* ── Outstanding accent bar ── */}
+          {hasDues ? (
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1"
+              style={{ borderTop: "1px solid var(--color-line)", backgroundColor: `color-mix(in srgb, var(--color-signal) 5%, transparent)` }}
+            >
+              <AlertCircle className="size-2.5" style={{ color: "var(--color-signal)" }} />
+              <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal)" }}>
+                {c.dueCount} {c.dueCount === 1 ? "sale" : "sales"} with dues
+              </span>
+              <ChevronRight className="size-3 ml-auto" style={{ color: "var(--color-ink-500)" }} />
+            </div>
+          ) : null}
+        </Link>
       </div>
 
-      {/* ── Outstanding accent bar ── */}
-      {hasDues ? (
-        <div
-          className="flex items-center gap-1.5 px-2.5 py-1"
-          style={{ borderTop: "1px solid var(--color-line)", backgroundColor: `color-mix(in srgb, var(--color-signal) 5%, transparent)` }}
-        >
-          <AlertCircle className="size-2.5" style={{ color: "var(--color-signal)" }} />
-          <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal)" }}>
-            {c.dueCount} {c.dueCount === 1 ? "sale" : "sales"} with dues
-          </span>
-          <ChevronRight className="size-3 ml-auto" style={{ color: "var(--color-ink-500)" }} />
-        </div>
-      ) : null}
-    </Link>
+      {/* Long-press overview sheet */}
+      <MobileOverviewSheet
+        open={overviewOpen}
+        onClose={() => setOverviewOpen(false)}
+        origin={pressPoint}
+        title={c.name}
+        subtitle={badge.label}
+        accentColor={badge.color}
+        rows={overviewRows}
+        actions={overviewActions}
+      />
+    </>
   );
 }

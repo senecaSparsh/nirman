@@ -5,8 +5,16 @@ import { useRouter } from "next/navigation";
 import {
   KeyRound, Phone, AlertCircle, Calendar,
   Clock, ChevronRight, Plus,
+  Eye, Share2, User, Home, IndianRupee,
 } from "lucide-react";
-import { formatCurrencyCompact, formatDate } from "@/lib/utils";
+import { formatCurrencyCompact, formatCurrency, formatDate } from "@/lib/utils";
+import { toast } from "sonner";
+import { useLongPress } from "@/lib/use-long-press";
+import {
+  MobileOverviewSheet,
+  type OverviewRow,
+} from "@/components/mobile/v2/mobile-overview-sheet";
+import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import { MobileNewTenancyDialog } from "./MobileNewTenancyDialog";
 import {
   MobileSearchHeader,
@@ -275,6 +283,7 @@ export function MobileRentalsList({
 }
 
 /* ─── Tenancy card ─── */
+/* Long-press opens an overview sheet (data already in the list item — no fetch). */
 function TenancyCard({ tenancy: t }: { tenancy: RentalListItem }) {
   const router = useRouter();
   const meta = STATUS_META[t.status] ?? { color: "var(--color-ink-500)", label: t.status };
@@ -288,125 +297,193 @@ function TenancyCard({ tenancy: t }: { tenancy: RentalListItem }) {
       ? "var(--color-signal)"
       : "var(--color-line)";
 
+  // ── Long-press overview sheet (data already in the list item — no fetch) ──
+  const [overviewOpen, setOverviewOpen] = useState(false);
+  const [pressPoint, setPressPoint] = useState<{ x: number; y: number } | null>(null);
+  const { bind: longPressBind } = useLongPress((x, y) => {
+    setPressPoint({ x, y });
+    setOverviewOpen(true);
+  });
+
+  const overviewRows: OverviewRow[] = [
+    { icon: User, label: "Tenant", value: t.tenantName },
+    { icon: Home, label: "Unit", value: t.assetLabel },
+    {
+      icon: IndianRupee,
+      label: "Rent",
+      value: `${formatCurrency(t.monthlyRent)}/mo`,
+    },
+    {
+      icon: IndianRupee,
+      label: "Deposit",
+      value: formatCurrency(t.securityDeposit),
+    },
+    { icon: Calendar, label: "Start Date", value: formatDate(t.startDate) },
+    { icon: Calendar, label: "End Date", value: formatDate(t.endDate) },
+    {
+      icon: KeyRound,
+      label: "Status",
+      value: meta.label,
+      valueColor: meta.color,
+    },
+  ];
+
+  const overviewActions: ContextAction[] = [
+    {
+      label: "View Full Details",
+      icon: Eye,
+      onPress: () => router.push(`/m/rentals/${t.id}`),
+    },
+    {
+      label: "Share",
+      icon: Share2,
+      onPress: () => {
+        const url = `${window.location.origin}/m/rentals/${t.id}`;
+        if (navigator.share) {
+          navigator.share({ title: t.tenantName, url }).catch(() => {});
+        } else {
+          navigator.clipboard?.writeText(url).catch(() => {});
+          toast.success("Link copied");
+        }
+      },
+    },
+  ];
+
   const navigate = () => router.push(`/m/rentals/${t.id}`);
 
   return (
-    <div
-      role="link"
-      onClick={navigate}
-      className="block rounded-[0.5rem] border overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
-      style={{ borderColor, backgroundColor: "var(--color-paper)" }}
-    >
-      <div className="p-2.5">
-        {/* ── Top: tenant name + status ── */}
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-m-section font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
-            {t.tenantName}
-          </p>
-          <span
-            className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full shrink-0"
-            style={{ color: meta.color, backgroundColor: `color-mix(in srgb, ${meta.color} 12%, transparent)` }}
-          >
-            {meta.label}
-          </span>
-        </div>
-
-        {/* ── Asset + phone ── */}
-        <p className="text-m-caption truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
-          {t.assetLabel}{t.projectName ? ` · ${t.projectName}` : ""}
-        </p>
-
-        {/* ── Financial row ── */}
-        <div className="flex items-center gap-3">
-          <div>
-            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
-              Rent
-            </p>
-            <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-              {formatCurrencyCompact(t.monthlyRent)}/mo
-            </p>
-          </div>
-
-          <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
-
-          <div>
-            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
-              Received
-            </p>
-            <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
-              {formatCurrencyCompact(t.totalReceived)}
-            </p>
-          </div>
-
-          {t.tenantPhone ? (
-            <>
-              <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
-              <a
-                href={`tel:${t.tenantPhone}`}
-                onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-0.5 text-m-caption font-semibold text-m-body press"
-                style={{ color: "var(--color-ink-600)" }}
+    <>
+      <div {...longPressBind}>
+        <div
+          role="link"
+          onClick={navigate}
+          className="block rounded-[0.5rem] border overflow-hidden active:scale-[0.99] transition-transform cursor-pointer"
+          style={{ borderColor, backgroundColor: "var(--color-paper)" }}
+        >
+          <div className="p-2.5">
+            {/* ── Top: tenant name + status ── */}
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-m-section font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+                {t.tenantName}
+              </p>
+              <span
+                className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full shrink-0"
+                style={{ color: meta.color, backgroundColor: `color-mix(in srgb, ${meta.color} 12%, transparent)` }}
               >
-                <Phone className="size-2.5" />
-                Call
-              </a>
-            </>
-          ) : null}
+                {meta.label}
+              </span>
+            </div>
 
-          {/* Lease end date */}
-          <div className="ml-auto text-right">
-            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
-              Until
+            {/* ── Asset + phone ── */}
+            <p className="text-m-caption truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+              {t.assetLabel}{t.projectName ? ` · ${t.projectName}` : ""}
             </p>
-            <p
-              className="text-m-body font-bold tabular-nums"
-              style={{ color: t.expiringSoon ? "var(--color-signal)" : "var(--color-ink-950)" }}
-            >
-              {formatDate(t.endDate)}
-            </p>
+
+            {/* ── Financial row ── */}
+            <div className="flex items-center gap-3">
+              <div>
+                <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                  Rent
+                </p>
+                <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                  {formatCurrencyCompact(t.monthlyRent)}/mo
+                </p>
+              </div>
+
+              <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
+
+              <div>
+                <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                  Received
+                </p>
+                <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+                  {formatCurrencyCompact(t.totalReceived)}
+                </p>
+              </div>
+
+              {t.tenantPhone ? (
+                <>
+                  <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
+                  <a
+                    href={`tel:${t.tenantPhone}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-0.5 text-m-caption font-semibold text-m-body press"
+                    style={{ color: "var(--color-ink-600)" }}
+                  >
+                    <Phone className="size-2.5" />
+                    Call
+                  </a>
+                </>
+              ) : null}
+
+              {/* Lease end date */}
+              <div className="ml-auto text-right">
+                <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                  Until
+                </p>
+                <p
+                  className="text-m-body font-bold tabular-nums"
+                  style={{ color: t.expiringSoon ? "var(--color-signal)" : "var(--color-ink-950)" }}
+                >
+                  {formatDate(t.endDate)}
+                </p>
+              </div>
+            </div>
           </div>
+
+          {/* ── Urgency footer ── */}
+          {hasOverdue || t.expiringSoon || (t.nextDueDate && !isPending) ? (
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1"
+              style={{
+                borderTop: "1px solid var(--color-line)",
+                backgroundColor: hasOverdue
+                  ? `color-mix(in srgb, var(--color-signal) 5%, transparent)`
+                  : t.expiringSoon
+                    ? `color-mix(in srgb, var(--color-signal) 5%, transparent)`
+                    : "var(--color-paper-2)",
+              }}
+            >
+              {hasOverdue ? (
+                <>
+                  <AlertCircle className="size-2.5" style={{ color: "var(--color-signal)" }} />
+                  <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal)" }}>
+                    {formatCurrencyCompact(t.overdueAmount)} overdue · {t.overdueCount} {t.overdueCount === 1 ? "payment" : "payments"}
+                  </span>
+                </>
+              ) : t.expiringSoon ? (
+                <>
+                  <Calendar className="size-2.5" style={{ color: "var(--color-signal)" }} />
+                  <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal)" }}>
+                    Expires in {t.daysToExpiry} {t.daysToExpiry === 1 ? "day" : "days"}
+                  </span>
+                </>
+              ) : t.nextDueDate ? (
+                <>
+                  <Clock className="size-2.5" style={{ color: "var(--color-ink-500)" }} />
+                  <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
+                    Next: {formatCurrencyCompact(t.nextDueAmount ?? 0)} due {formatDate(t.nextDueDate)}
+                  </span>
+                </>
+              ) : null}
+
+              <ChevronRight className="size-3 ml-auto" style={{ color: "var(--color-ink-500)" }} />
+            </div>
+          ) : null}
         </div>
       </div>
 
-      {/* ── Urgency footer ── */}
-      {hasOverdue || t.expiringSoon || (t.nextDueDate && !isPending) ? (
-        <div
-          className="flex items-center gap-1.5 px-2.5 py-1"
-          style={{
-            borderTop: "1px solid var(--color-line)",
-            backgroundColor: hasOverdue
-              ? `color-mix(in srgb, var(--color-signal) 5%, transparent)`
-              : t.expiringSoon
-                ? `color-mix(in srgb, var(--color-signal) 5%, transparent)`
-                : "var(--color-paper-2)",
-          }}
-        >
-          {hasOverdue ? (
-            <>
-              <AlertCircle className="size-2.5" style={{ color: "var(--color-signal)" }} />
-              <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal)" }}>
-                {formatCurrencyCompact(t.overdueAmount)} overdue · {t.overdueCount} {t.overdueCount === 1 ? "payment" : "payments"}
-              </span>
-            </>
-          ) : t.expiringSoon ? (
-            <>
-              <Calendar className="size-2.5" style={{ color: "var(--color-signal)" }} />
-              <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal)" }}>
-                Expires in {t.daysToExpiry} {t.daysToExpiry === 1 ? "day" : "days"}
-              </span>
-            </>
-          ) : t.nextDueDate ? (
-            <>
-              <Clock className="size-2.5" style={{ color: "var(--color-ink-500)" }} />
-              <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
-                Next: {formatCurrencyCompact(t.nextDueAmount ?? 0)} due {formatDate(t.nextDueDate)}
-              </span>
-            </>
-          ) : null}
-
-          <ChevronRight className="size-3 ml-auto" style={{ color: "var(--color-ink-500)" }} />
-        </div>
-      ) : null}
-    </div>
+      {/* Long-press overview sheet */}
+      <MobileOverviewSheet
+        open={overviewOpen}
+        onClose={() => setOverviewOpen(false)}
+        origin={pressPoint}
+        title={t.tenantName}
+        subtitle={t.assetLabel}
+        accentColor={meta.color}
+        rows={overviewRows}
+        actions={overviewActions}
+      />
+    </>
   );
 }

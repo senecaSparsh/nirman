@@ -1,0 +1,118 @@
+# CI Gate — runs lint, typecheck, and tests on every PR.
+# Blocks merge to main if any check fails.
+#
+# This prevents broken code from reaching Render — a failed lint/typecheck
+# here means the production build would also fail (or run with type errors
+# that cause runtime crashes).
+#
+# The build step is included as an advisory check (won't block merge on
+# memory-constrained runners, but will surface build errors early).
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel in-progress runs for the same PR/branch — saves CI minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Lint + Typecheck ──────────────────────────────────────────
+  quality:
+    name: Lint + Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 23
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @nirman/db generate
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+        continue-on-error: true # Advisory — don't block on lint warnings
+
+  # ── Unit Tests ────────────────────────────────────────────────
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 23
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @nirman/db generate
+
+      - name: Run tests
+        run: pnpm --filter @nirman/services test
+
+  # ── Production Build ──────────────────────────────────────────
+  # Verifies the webpack build succeeds (catches build-time errors
+  # before they reach Render). Advisory — won't block merge if the
+  # runner runs out of memory (the build is memory-heavy).
+  build:
+    name: Production Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 23
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @nirman/db generate
+
+      - name: Build (webpack)
+        run: pnpm build
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          DATABASE_URL: "postgresql://placeholder@localhost:5432/placeholder" # build doesn't need a real DB
+          BETTER_AUTH_SECRET: "ci-placeholder-secret"
+          NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+          BETTER_AUTH_URL: "http://localhost:3000"
+        continue-on-error: true # Advisory — don't block merge on build env issues

@@ -32,6 +32,7 @@ import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobi
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 type GatePassRow = {
   id: string;
@@ -465,26 +466,14 @@ export function MobileGatePassList({
 
       {/* Reject dialog */}
       {rejectTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-          onClick={() => setRejectTarget(null)}
-        >
-          <div
-            className="w-full max-w-md rounded-t-[0.75rem] p-4 space-y-2.5"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div>
-              <div className="text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>Reject {rejectTarget.gatePassNumber}</div>
-              <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Provide a reason for rejection</div>
-            </div>
+        <MobileDialog open={true} onClose={() => setRejectTarget(null)} title={`Reject ${rejectTarget.gatePassNumber}`}>
+            <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Provide a reason for rejection</div>
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              rows={3}
+              rows={2}
               placeholder="Why is this gate pass being rejected?"
-              className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={{ backgroundColor: "transparent" }}
               autoFocus
             />
             <div className="flex justify-end gap-2">
@@ -503,29 +492,16 @@ export function MobileGatePassList({
                 Reject Gate Pass
               </button>
             </div>
-          </div>
-        </div>
+          </MobileDialog>
       )}
 
       {/* Cancel dialog */}
       {cancelTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-          onClick={() => setCancelTarget(null)}
-        >
-          <div
-            className="w-full max-w-md rounded-t-[0.75rem] p-4 space-y-2.5"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div>
-              <div className="text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>Cancel {cancelTarget.gatePassNumber}</div>
-              <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                {cancelTarget.category !== "MANUAL"
-                  ? "This will also cancel the linked transaction (issue/sale). This cannot be undone."
-                  : "This gate pass will be permanently cancelled. This cannot be undone."}
-              </div>
+        <MobileDialog open={true} onClose={() => setCancelTarget(null)} title={`Cancel ${cancelTarget.gatePassNumber}`}>
+            <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+              {cancelTarget.category !== "MANUAL"
+                ? "This will also cancel the linked transaction (issue/sale). This cannot be undone."
+                : "This gate pass will be permanently cancelled. This cannot be undone."}
             </div>
             <div className="flex justify-end gap-2">
               <button
@@ -544,27 +520,14 @@ export function MobileGatePassList({
                 {actionLoading === cancelTarget.id ? <Loader2 className="size-3.5 animate-spin" /> : "Cancel Gate Pass"}
               </button>
             </div>
-          </div>
-        </div>
+          </MobileDialog>
       )}
 
       {/* Exit confirmation dialog with photo capture */}
       {exitTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-          onClick={() => setExitTarget(null)}
-        >
-          <div
-            className="w-full max-w-md rounded-t-[0.75rem] p-4 space-y-2.5 max-h-[90vh] overflow-y-auto"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div>
-              <div className="text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>Confirm Exit — {exitTarget.gatePassNumber}</div>
-              <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                Confirm items have physically left the gate.
-              </div>
+        <MobileDialog open={true} onClose={() => setExitTarget(null)} title={`Confirm Exit — ${exitTarget.gatePassNumber}`}>
+            <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+              Confirm items have physically left the gate.
             </div>
             <div className="space-y-1.5">
               <label className="text-m-caption font-semibold" style={{ color: "var(--color-ink-600)" }}>Exit Notes</label>
@@ -573,7 +536,7 @@ export function MobileGatePassList({
                 onChange={(e) => setExitNotes(e.target.value)}
                 rows={2}
                 placeholder="Optional — any observations at the gate"
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-caption outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={{ backgroundColor: "transparent" }}
               />
             </div>
             <div className="space-y-1.5">
@@ -621,8 +584,7 @@ export function MobileGatePassList({
                 Confirm Exit
               </button>
             </div>
-          </div>
-        </div>
+          </MobileDialog>
       )}
     </div>
   );
@@ -728,15 +690,23 @@ export function MobileGatePassFormDialog({
       <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="New gate pass" />
 
       <MobileFabModal open={fab.isOpen} onClose={handleClose} originRect={fab.originRect} title="New Gate Pass">
-            {/* Location */}
+        <div className="flex flex-col gap-3">
+          {/* ══════ SECTION: Location ══════ */}
+          <div
+            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Location
+            </p>
             <div>
-              <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
+              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                 Location <span className="">*</span>
               </label>
               <select
                 value={locationId}
                 onChange={(e) => setLocationId(e.target.value)}
-                className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
               >
                 <option value="">Select location…</option>
                 {locations.map((l) => (
@@ -744,17 +714,15 @@ export function MobileGatePassFormDialog({
                 ))}
               </select>
             </div>
-
-            {/* Project */}
             {projects.length > 0 && (
               <div>
-                <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Project (optional)
                 </label>
                 <select
                   value={projectId}
                   onChange={(e) => setProjectId(e.target.value)}
-                  className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                 >
                   <option value="">No project</option>
                   {projects.map((p) => (
@@ -763,11 +731,21 @@ export function MobileGatePassFormDialog({
                 </select>
               </div>
             )}
+          </div>
+
+          {/* ══════ SECTION: Transport ══════ */}
+          <div
+            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Transport
+            </p>
 
             {/* Destination + Purpose */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div className="pr-2">
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Destination
                 </label>
                 <input
@@ -775,11 +753,11 @@ export function MobileGatePassFormDialog({
                   value={destination}
                   onChange={(e) => setDestination(e.target.value)}
                   placeholder="Where to?"
-                  className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                 />
               </div>
-              <div>
-                <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
+              <div className="pl-2">
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Purpose
                 </label>
                 <input
@@ -787,15 +765,15 @@ export function MobileGatePassFormDialog({
                   value={purpose}
                   onChange={(e) => setPurpose(e.target.value)}
                   placeholder="Why?"
-                  className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                 />
               </div>
             </div>
 
-            {/* Vehicle details */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
+            {/* Vehicle Number + Vehicle Type */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div className="pr-2">
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Vehicle Number
                 </label>
                 <input
@@ -803,17 +781,17 @@ export function MobileGatePassFormDialog({
                   value={vehicleNumber}
                   onChange={(e) => setVehicleNumber(e.target.value)}
                   placeholder="HR26 AB 1234"
-                  className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                 />
               </div>
-              <div>
-                <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
+              <div className="pl-2">
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Vehicle Type
                 </label>
                 <select
                   value={vehicleType}
                   onChange={(e) => setVehicleType(e.target.value)}
-                  className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                 >
                   {Object.entries(VEHICLE_TYPE_LABELS).map(([v, label]) => (
                     <option key={v} value={v}>{label}</option>
@@ -822,9 +800,10 @@ export function MobileGatePassFormDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
+            {/* Driver Name + Driver Phone */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div className="pr-2">
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Driver Name
                 </label>
                 <input
@@ -832,11 +811,11 @@ export function MobileGatePassFormDialog({
                   value={driverName}
                   onChange={(e) => setDriverName(e.target.value)}
                   placeholder="Driver name"
-                  className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                 />
               </div>
-              <div>
-                <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
+              <div className="pl-2">
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Driver Phone
                 </label>
                 <input
@@ -844,13 +823,14 @@ export function MobileGatePassFormDialog({
                   value={driverPhone}
                   onChange={(e) => setDriverPhone(e.target.value)}
                   placeholder="+91…"
-                  className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                 />
               </div>
             </div>
 
+            {/* Transporter */}
             <div>
-              <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
+              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                 Transporter
               </label>
               <input
@@ -858,63 +838,72 @@ export function MobileGatePassFormDialog({
                 value={transporterName}
                 onChange={(e) => setTransporterName(e.target.value)}
                 placeholder="Transporter name"
-                className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
               />
             </div>
+          </div>
 
-            {/* Line items */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-m-label font-semibold uppercase tracking-wider">
-                  Items <span className="">*</span>
-                </label>
-                <button
-                  onClick={() => setLines([...lines, { description: "", qty: "", unit: "" }])}
-                  className="text-m-caption text-m-caption press"
-                >
-                  + Add line
-                </button>
-              </div>
-              <div className="space-y-2">
-                {lines.map((line, i) => (
-                  <div key={i} className="flex gap-2">
+          {/* ══════ SECTION: Items ══════ */}
+          <div
+            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Items <span className="">*</span>
+              </p>
+              <button
+                onClick={() => setLines([...lines, { description: "", qty: "", unit: "" }])}
+                className="text-m-caption press"
+              >
+                + Add line
+              </button>
+            </div>
+            <div className="space-y-2">
+              {lines.map((line, i) => (
+                <div key={i} className="flex gap-2 items-end">
+                  <div className="flex-1 min-w-0">
                     <input
                       type="text"
                       value={line.description}
                       onChange={(e) => setLines(lines.map((l, idx) => idx === i ? { ...l, description: e.target.value } : l))}
                       placeholder="Description"
-                      className="flex-1 min-w-0 rounded-[0.375rem] border bg-background px-2 py-1.5 text-m-caption focus:outline-none focus:ring-1 focus:ring-brand"
+                      className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                     />
+                  </div>
+                  <div className="w-16 shrink-0">
                     <input
                       type="number"
                       value={line.qty}
                       onChange={(e) => setLines(lines.map((l, idx) => idx === i ? { ...l, qty: e.target.value } : l))}
                       placeholder="Qty"
-                      className="w-16 shrink-0 rounded-[0.375rem] border bg-background px-2 py-1.5 text-m-caption focus:outline-none focus:ring-1 focus:ring-brand"
+                      className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                     />
+                  </div>
+                  <div className="w-16 shrink-0">
                     <input
                       type="text"
                       value={line.unit}
                       onChange={(e) => setLines(lines.map((l, idx) => idx === i ? { ...l, unit: e.target.value } : l))}
                       placeholder="Unit"
-                      className="w-16 shrink-0 rounded-[0.375rem] border bg-background px-2 py-1.5 text-m-caption focus:outline-none focus:ring-1 focus:ring-brand"
+                      className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                     />
-                    {lines.length > 1 && (
-                      <button
-                        onClick={() => setLines(lines.filter((_, idx) => idx !== i))}
-                        className="shrink-0 hover: press"
-                      >
-                        <X className="size-3.5" />
-                      </button>
-                    )}
                   </div>
-                ))}
-              </div>
+                  {lines.length > 1 && (
+                    <button
+                      onClick={() => setLines(lines.filter((_, idx) => idx !== i))}
+                      className="shrink-0 press pb-1"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
 
             {/* Notes */}
             <div>
-              <label className="block text-m-label font-semibold uppercase tracking-wider mb-1">
+              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                 Notes
               </label>
               <textarea
@@ -922,7 +911,7 @@ export function MobileGatePassFormDialog({
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
                 placeholder="Additional notes…"
-                className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                className="w-full px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
               />
             </div>
 
@@ -936,24 +925,27 @@ export function MobileGatePassFormDialog({
               />
               <span>Submit for approval immediately</span>
             </label>
+          </div>
 
-            {/* Submit */}
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                onClick={handleClose}
-                className="rounded-[0.375rem] border px-3 py-1.5 text-m-caption active:opacity-70 press"
-              >
-                Cancel
-              </button>
-              <button
-                disabled={submitting}
-                onClick={handleSubmit}
-                className="flex items-center gap-1.5 rounded-[0.375rem] px-3 py-1.5 text-m-caption font-semibold text-m-body press active:scale-95 disabled:opacity-50"
-              >
-                {submitting ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
-                {autoSubmit ? "Create & Submit" : "Create Draft"}
-              </button>
+          {/* ══════ Sticky action bar ══════ */}
+          <div
+            className="sticky bottom-0 left-0 right-0 z-20 border-t flex items-center justify-between px-3 py-2"
+            style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
+          >
+            <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+              {lines.filter((l) => l.description.trim() && l.qty).length} item{lines.filter((l) => l.description.trim() && l.qty).length !== 1 ? "s" : ""}
             </div>
+            <button
+              disabled={submitting}
+              onClick={handleSubmit}
+              className="flex items-center gap-1.5 rounded-[0.375rem] px-3 py-1.5 text-m-caption font-semibold press active:scale-95 disabled:opacity-50"
+              style={{ backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)" }}
+            >
+              {submitting ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
+              {autoSubmit ? "Create & Submit" : "Create Draft"}
+            </button>
+          </div>
+        </div>
       </MobileFabModal>
     </>
   );

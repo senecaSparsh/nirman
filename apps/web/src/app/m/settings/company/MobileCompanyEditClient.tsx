@@ -41,14 +41,14 @@ export function MobileCompanyEditClient({
   const [saved, setSaved] = useState(false);
 
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section font-medium outline-none";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const labelClass = "text-m-caption font-bold block mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -136,131 +136,138 @@ export function MobileCompanyEditClient({
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        {/* Company Name */}
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Company Name <span style={{ color: "var(--color-stop)" }}>*</span>
-          </label>
-          <input
-            type="text"
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            placeholder="e.g. ABP Realty Pvt Ltd"
-            required
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
+        {/* ── Company Details ── */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Company Details
+          </p>
 
-        {/* Business Type */}
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Business Type
-          </label>
-          <input
-            type="text"
-            value={form.businessType}
-            onChange={(e) => setForm((f) => ({ ...f, businessType: e.target.value }))}
-            placeholder="e.g. Real Estate, Construction"
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
+          {/* Company Name */}
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Company Name <span style={{ color: "var(--color-stop)" }}>*</span>
+            </label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="e.g. ABP Realty Pvt Ltd"
+              required
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
 
-        {/* GSTIN */}
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            GSTIN
-          </label>
-          <input
-            type="text"
-            value={form.gstin}
-            onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))}
-            placeholder="22AAAAA0000A1Z5"
-            maxLength={15}
-            className={`${inputClass} uppercase`}
-            style={inputStyle}
-          />
-        </div>
+          {/* Business Type */}
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Business Type
+            </label>
+            <input
+              type="text"
+              value={form.businessType}
+              onChange={(e) => setForm((f) => ({ ...f, businessType: e.target.value }))}
+              placeholder="e.g. Real Estate, Construction"
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
 
-        {/* PAN */}
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            PAN
-          </label>
-          <input
-            type="text"
-            value={form.pan}
-            onChange={(e) => setForm((f) => ({ ...f, pan: e.target.value.toUpperCase() }))}
-            placeholder="AAAAA0000A"
-            maxLength={10}
-            className={`${inputClass} uppercase`}
-            style={inputStyle}
-          />
-        </div>
+          {/* GSTIN */}
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              GSTIN
+            </label>
+            <input
+              type="text"
+              value={form.gstin}
+              onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))}
+              placeholder="22AAAAA0000A1Z5"
+              maxLength={15}
+              className={`${inputClass} uppercase`}
+              style={inputStyle}
+            />
+          </div>
 
-        {/* Address */}
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Address
-          </label>
-          <textarea
-            value={form.address}
-            onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-            placeholder="Registered office address"
-            rows={2}
-            className={`${inputClass} resize-none`}
-            style={{ ...inputStyle, height: "auto", paddingTop: "0.5rem", paddingBottom: "0.5rem" }}
-          />
-        </div>
+          {/* PAN */}
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              PAN
+            </label>
+            <input
+              type="text"
+              value={form.pan}
+              onChange={(e) => setForm((f) => ({ ...f, pan: e.target.value.toUpperCase() }))}
+              placeholder="AAAAA0000A"
+              maxLength={10}
+              className={`${inputClass} uppercase`}
+              style={inputStyle}
+            />
+          </div>
 
-        {/* Phone */}
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Phone
-          </label>
-          <input
-            type="tel"
-            value={form.phone}
-            onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-            placeholder="+91 98765 43210"
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
+          {/* Address */}
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Address
+            </label>
+            <textarea
+              value={form.address}
+              onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+              placeholder="Registered office address"
+              rows={1}
+              className={`${inputClass} resize-none`}
+              style={{ ...inputStyle, height: "auto", paddingTop: "0.5rem", paddingBottom: "0.5rem" }}
+            />
+          </div>
 
-        {/* Email */}
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Email
-          </label>
-          <input
-            type="email"
-            value={form.email}
-            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-            placeholder="accounts@company.com"
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
+          {/* Phone */}
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Phone
+            </label>
+            <input
+              type="tel"
+              value={form.phone}
+              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              placeholder="+91 98765 43210"
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
 
-        {/* Currency */}
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Currency
-          </label>
-          <select
-            value={form.currency}
-            onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
-            className={inputClass}
-            style={inputStyle}
-          >
-            {["INR", "USD", "EUR", "GBP", "AED"].map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          {/* Email */}
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Email
+            </label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              placeholder="accounts@company.com"
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Currency */}
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Currency
+            </label>
+            <select
+              value={form.currency}
+              onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
+              className={inputClass}
+              style={inputStyle}
+            >
+              {["INR", "USD", "EUR", "GBP", "AED"].map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Submit */}

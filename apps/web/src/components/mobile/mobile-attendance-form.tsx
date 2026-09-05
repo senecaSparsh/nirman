@@ -44,11 +44,9 @@ const STATUS_CONFIG: Record<AttendanceStatus, { label: string; color: string; bg
 
 const ALL_STATUSES: AttendanceStatus[] = ["PRESENT", "LATE", "ABSENT", "HALF_DAY", "OVERTIME", "LEAVE", "PAID_LEAVE", "NON_PAID_LEAVE"];
 
-const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-label font-medium outline-none";
+const inputClass = "w-full h-7 px-1 text-m-caption font-medium outline-none border-b focus:border-b-2 transition-colors";
 const inputStyle = {
-  borderColor: "var(--color-line)",
-  backgroundColor: "var(--color-paper)",
-  color: "var(--color-ink-950)",
+  backgroundColor: "transparent",
 } as React.CSSProperties;
 
 export function MobileAttendanceForm({
@@ -328,57 +326,60 @@ export function MobileAttendanceForm({
       </div>
 
       {/* ── Project + Search ────────────────────────────────── */}
-      <div className="flex flex-col gap-2 mb-3">
-        <div>
-          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
-            Project (optional)
-          </label>
-          <div className="flex gap-1.5">
-            <select
-              value={fProject}
-              onChange={(e) => setFProject(e.target.value)}
-              className="flex-1 h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-              style={inputStyle}
-            >
-              <option value="">All workers</option>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-            <button
-              type="button"
-              onClick={requestGps}
-              disabled={gpsLoading}
-              className="shrink-0 grid place-items-center w-10 h-10 rounded-[0.5rem] border text-m-body press disabled:opacity-50"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
-              title="Use my location to auto-select project"
-            >
-              {gpsLoading ? <Loader2 className="size-4 animate-spin" /> : <MapPin className="size-4" />}
-            </button>
+      <div className="flex flex-col gap-3 mb-3">
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Filters
+          </p>
+          <div>
+            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+              Project (optional)
+            </label>
+            <div className="flex gap-1.5">
+              <select
+                value={fProject}
+                onChange={(e) => setFProject(e.target.value)}
+                className="flex-1 h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={inputStyle}
+              >
+                <option value="">All workers</option>
+                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <button
+                type="button"
+                onClick={requestGps}
+                disabled={gpsLoading}
+                className="shrink-0 grid place-items-center w-10 h-10 rounded-[0.5rem] border text-m-body press disabled:opacity-50"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
+                title="Use my location to auto-select project"
+              >
+                {gpsLoading ? <Loader2 className="size-4 animate-spin" /> : <MapPin className="size-4" />}
+              </button>
+            </div>
           </div>
-        </div>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5" style={{ color: "var(--color-ink-500)" }} />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search workers…"
-            className="w-full h-10 rounded-[0.5rem] border pl-8 pr-8 text-m-section outline-none"
-            style={{
-              borderColor: search ? "var(--color-ink-950)" : "var(--color-line)",
-              backgroundColor: "var(--color-paper)",
-              color: "var(--color-ink-950)",
-            }}
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-m-body press"
-              aria-label="Clear"
-            >
-              <X className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
-            </button>
-          )}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5" style={{ color: "var(--color-ink-500)" }} />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search workers…"
+              className="w-full h-7 pl-8 pr-8 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              style={{
+                backgroundColor: "transparent",
+              }}
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-m-body press"
+                aria-label="Clear"
+              >
+                <X className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
+              </button>
+            )}
+          </div>
         </div>
         {/* GPS capture for site check-in */}
         <button

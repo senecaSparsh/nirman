@@ -1,44 +1,33 @@
 "use client";
 
-import { useState } from "react";
-import { Plus } from "lucide-react";
-import { MobileNewCompanyDialog } from "./MobileNewCompanyDialog";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileNewCompanyForm } from "./MobileNewCompanyDialog";
 
 /**
- * MobileCompanyFab — floating action button + dialog launcher for
- * creating a new company from the mobile home page.
+ * MobileCompanyFab — floating action button + spring-from-FAB modal for
+ * creating a new company from the mobile home page. Mirrors the
+ * MobileMaterialsFab pattern.
  */
 export function MobileCompanyFab({
   parentOptions = [],
 }: {
   parentOptions?: { id: string; name: string }[];
 }) {
-  const [open, setOpen] = useState(false);
+  const fab = useFabModal();
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed right-3 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
-        style={{
-          bottom:
-            "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
-          backgroundColor: "var(--color-ink-950)",
-          color: "var(--color-paper)",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-        }}
-        aria-label="Create new company"
+      <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="Add new company" />
+      <MobileFabModal
+        open={fab.isOpen}
+        onClose={fab.close}
+        originRect={fab.originRect}
+        title="New Company"
       >
-        <Plus className="size-5" />
-      </button>
-
-      {open && (
-        <MobileNewCompanyDialog
-          open={open}
-          onClose={() => setOpen(false)}
-          parentOptions={parentOptions}
-        />
-      )}
+        <MobileNewCompanyForm onClose={fab.close} parentOptions={parentOptions} />
+      </MobileFabModal>
     </>
   );
 }

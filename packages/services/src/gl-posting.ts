@@ -2,6 +2,7 @@ import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * General Ledger Posting Service — the accounting layer behind the costing.
@@ -45,6 +46,7 @@ export const CHART_OF_ACCOUNTS = [
   { code: "1700", name: "Unsold Assets - Land", type: "ASSET" as const },
   { code: "1800", name: "Unsold Assets - Built Units", type: "ASSET" as const },
   { code: "1900", name: "Equipment & Fixtures", type: "ASSET" as const },
+  { code: "1910", name: "Accumulated Depreciation - Equipment", type: "ASSET" as const },
   { code: "1950", name: "Inter-Company Receivable", type: "ASSET" as const },
   { code: "1960", name: "TDS Receivable - Rent", type: "ASSET" as const },
   { code: "2000", name: "Accounts Payable", type: "LIABILITY" as const },
@@ -65,11 +67,14 @@ export const CHART_OF_ACCOUNTS = [
   { code: "4100", name: "Cost Recovery - Scrap Sales", type: "CONTRA_EXPENSE" as const },
   { code: "4200", name: "Inter-Company Sales Revenue", type: "REVENUE" as const },
   { code: "4300", name: "Round-Off Income/Expense", type: "REVENUE" as const },
+  { code: "4400", name: "Gain on Asset Disposal", type: "REVENUE" as const },
   { code: "5000", name: "Cost of Goods Sold", type: "EXPENSE" as const },
   { code: "5500", name: "Inventory Shrinkage Expense", type: "EXPENSE" as const },
   { code: "6000", name: "Operating Expenses", type: "EXPENSE" as const },
   { code: "6100", name: "Salaries & Wages Expense", type: "EXPENSE" as const },
   { code: "6200", name: "Brokerage & Commission Expense", type: "EXPENSE" as const },
+  { code: "6300", name: "Loss on Asset Disposal", type: "EXPENSE" as const },
+  { code: "6400", name: "Depreciation Expense", type: "EXPENSE" as const },
 ];
 
 /** Account code constants — used by posting functions so codes are typo-proof. */
@@ -84,6 +89,7 @@ export const ACCT = {
   LAND_ASSET: "1700",
   UNIT_ASSET: "1800",
   EQUIPMENT_ASSET: "1900",
+  ACCUM_DEPRECIATION: "1910", // Contra-asset: accumulated depreciation on equipment
   IC_RECEIVABLE: "1950",
   TDS_RECEIVABLE: "1960",
   AP: "2000",
@@ -103,11 +109,14 @@ export const ACCT = {
   SALES_REVENUE: "4000",
   COST_RECOVERY: "4100",
   ROUND_OFF: "4300",
+  GAIN_ON_DISPOSAL: "4400",
   COGS: "5000",
   INVENTORY_SHRINKAGE: "5500",
   OPERATING_EXPENSE: "6000",
   SALARIES_EXPENSE: "6100",
   BROKERAGE_EXPENSE: "6200",
+  LOSS_ON_DISPOSAL: "6300",
+  DEPRECIATION_EXPENSE: "6400",
 } as const;
 
 /**
@@ -190,8 +199,7 @@ export async function postJournalEntry(
   const d = input.entryDate ?? new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `JE-${ymd}-`;
-  const count = await tx.journalEntry.count({ where: { entryNumber: { startsWith: prefix } } });
-  const entryNumber = `${prefix}${String(count + 1).padStart(5, "0")}`;
+  const entryNumber = await nextSequenceNumber(tx, prefix, 5);
 
   const entry = await tx.journalEntry.create({
     data: {
@@ -298,7 +306,7 @@ export async function postPurchaseReceipt(
   let gst = new Decimal(0);
   for (const l of opts.lines) {
     const lineSubtotal = new Decimal(l.qty).times(new Decimal(l.unitCost));
-    const lineGst = lineSubtotal.times(new Decimal(l.gstRate)).div(100);
+    const lineGst = lineSubtotal.times(new Decimal(l.gstRate)).div(100).toDecimalPlaces(2);
     subtotal = subtotal.plus(lineSubtotal);
     gst = gst.plus(lineGst);
   }
@@ -960,7 +968,7 @@ export async function postSupplierReturn(
   let gst = new Decimal(0);
   for (const l of opts.lines) {
     const lineSubtotal = new Decimal(l.qty).times(new Decimal(l.unitCost));
-    const lineGst = lineSubtotal.times(new Decimal(l.gstRate)).div(100);
+    const lineGst = lineSubtotal.times(new Decimal(l.gstRate)).div(100).toDecimalPlaces(2);
     subtotal = subtotal.plus(lineSubtotal);
     gst = gst.plus(lineGst);
   }
@@ -1321,7 +1329,7 @@ export async function postDirectPurchase(
   let gst = new Decimal(0);
   for (const l of opts.lines) {
     const lineSubtotal = new Decimal(l.qty).times(new Decimal(l.unitCost));
-    const lineGst = lineSubtotal.times(new Decimal(l.gstRate)).div(100);
+    const lineGst = lineSubtotal.times(new Decimal(l.gstRate)).div(100).toDecimalPlaces(2);
     subtotal = subtotal.plus(lineSubtotal);
     gst = gst.plus(lineGst);
   }
@@ -1574,14 +1582,59 @@ export async function postEquipmentMaintenance(
 }
 
 /**
+ * Post periodic depreciation for a single equipment asset.
+ *
+ * GL entry:
+ *   Dr Depreciation Expense (6400)   depreciationAmount
+ *   Cr Accumulated Depreciation (1910)  depreciationAmount
+ *
+ * This is the book entry for periodic depreciation. It does NOT change the
+ * Equipment.currentValue — that field tracks the net book value which is
+ * acquisitionCost − accumulatedDepreciation. The caller should update
+ * Equipment.currentValue separately if needed.
+ *
+ * @param tx Prisma transaction client
+ * @param opts.companyId Company owning the equipment
+ * @param opts.equipmentId Equipment ID
+ * @param opts.depreciationAmount Amount to depreciate (must be > 0)
+ * @param opts.period Label for the period (e.g. "2026-03" for March 2026)
+ * @param opts.postedById Optional user ID
+ */
+export async function postDepreciation(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    equipmentId: string;
+    depreciationAmount: Decimal;
+    period: string;
+    postedById?: string;
+  },
+): Promise<void> {
+  const amount = new Decimal(opts.depreciationAmount);
+  if (!amount.gt(0)) return; // No depreciation to post
+
+  await postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "EQUIPMENT_DEPRECIATION",
+    sourceId: opts.equipmentId,
+    memo: `Depreciation for period ${opts.period}`,
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.DEPRECIATION_EXPENSE, debit: amount, credit: new Decimal(0), entityType: "Equipment", entityId: opts.equipmentId, memo: `Depreciation ${opts.period}` },
+      { accountCode: ACCT.ACCUM_DEPRECIATION, debit: new Decimal(0), credit: amount, entityType: "Equipment", entityId: opts.equipmentId, memo: `Accumulated depreciation ${opts.period}` },
+    ],
+  });
+}
+
+/**
  * Equipment Retirement: relieve the fixed asset account at the equipment's
  * current (depreciated) value and recognise any disposal gain/loss against
  * cash received (defaults to 0 if no scrap value).
  *
  *   Dr Cash / Bank                  (scrapValue)
- *   Dr Operating Expenses (loss)    (max(0, currentValue − scrapValue))
+ *   Dr Loss on Asset Disposal (loss) (max(0, currentValue − scrapValue))
  *   Cr Equipment & Fixtures          (currentValue)
- *   Cr Operating Expenses (gain)     (max(0, scrapValue − currentValue))
+ *   Cr Gain on Asset Disposal (gain) (max(0, scrapValue − currentValue))
  */
 export async function postEquipmentRetirement(
   tx: Prisma.TransactionClient,
@@ -1606,10 +1659,10 @@ export async function postEquipmentRetirement(
     lines.push({ accountCode: ACCT.CASH, debit: scrap, credit: 0, entityType: "Equipment", entityId: opts.equipmentId, memo: "Scrap value received" });
   }
   if (loss.gt(0)) {
-    lines.push({ accountCode: ACCT.OPERATING_EXPENSE, debit: loss, credit: 0, entityType: "Equipment", entityId: opts.equipmentId, memo: "Loss on disposal" });
+    lines.push({ accountCode: ACCT.LOSS_ON_DISPOSAL, debit: loss, credit: 0, entityType: "Equipment", entityId: opts.equipmentId, memo: "Loss on disposal" });
   }
   if (gain.gt(0)) {
-    lines.push({ accountCode: ACCT.OPERATING_EXPENSE, debit: 0, credit: gain, entityType: "Equipment", entityId: opts.equipmentId, memo: "Gain on disposal" });
+    lines.push({ accountCode: ACCT.GAIN_ON_DISPOSAL, debit: 0, credit: gain, entityType: "Equipment", entityId: opts.equipmentId, memo: "Gain on disposal" });
   }
   return postJournalEntry(tx, {
     companyId: opts.companyId,
@@ -1634,7 +1687,7 @@ export async function postEquipmentRetirement(
  *   Cr Equipment & Fixtures           (currentValue)
  *
  * If salePrice ≠ currentValue, the difference is gain/loss on disposal:
- *   Dr COGS (loss) or Cr Operating Expense (gain)
+ *   Dr Loss on Asset Disposal (loss) or Cr Gain on Asset Disposal (gain)
  */
 export async function postEquipmentSale(
   tx: Prisma.TransactionClient,
@@ -1672,9 +1725,9 @@ export async function postEquipmentSale(
   // Gain or loss on disposal
   const gain = salePrice.minus(currentValue);
   if (gain.gt(0)) {
-    lines.push({ accountCode: ACCT.OPERATING_EXPENSE, debit: 0, credit: gain, entityType: "Equipment", entityId: opts.equipmentId, memo: "Gain on equipment sale" });
+    lines.push({ accountCode: ACCT.GAIN_ON_DISPOSAL, debit: 0, credit: gain, entityType: "Equipment", entityId: opts.equipmentId, memo: "Gain on equipment sale" });
   } else if (gain.lt(0)) {
-    lines.push({ accountCode: ACCT.OPERATING_EXPENSE, debit: gain.abs(), credit: 0, entityType: "Equipment", entityId: opts.equipmentId, memo: "Loss on equipment sale" });
+    lines.push({ accountCode: ACCT.LOSS_ON_DISPOSAL, debit: gain.abs(), credit: 0, entityType: "Equipment", entityId: opts.equipmentId, memo: "Loss on equipment sale" });
   }
 
   return postJournalEntry(tx, {

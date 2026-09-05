@@ -6,7 +6,6 @@ import {
   Play,
   Trash2,
   Clock,
-  X,
   Loader2,
   ChevronLeft,
   CheckCircle,
@@ -16,6 +15,7 @@ import {
 import { toast } from "sonner";
 import {formatDate, formatRelativeTime} from "@/lib/utils";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 export type WorkflowDetail = {
   id: string;
@@ -244,23 +244,7 @@ export function MobileWorkflowDetailClient({
       </div>
 
       {/* Delete confirmation */}
-      {confirmDelete && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-          onClick={() => setConfirmDelete(false)}
-        >
-          <div
-            className="w-full rounded-t-[0.75rem] mx-auto max-w-md p-4"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Delete workflow</p>
-              <button onClick={() => setConfirmDelete(false)} className="text-m-body press p-1">
-                <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-              </button>
-            </div>
+      <MobileDialog open={confirmDelete} onClose={() => setConfirmDelete(false)} title="Delete workflow">
             <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>
               Delete &ldquo;{workflow.name}&rdquo;? This cannot be undone.
             </p>
@@ -283,9 +267,7 @@ export function MobileWorkflowDetailClient({
                 {deleting ? "Deleting…" : "Delete"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </MobileDialog>
     </div>
   );
 }

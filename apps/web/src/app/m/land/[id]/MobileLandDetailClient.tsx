@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -18,6 +18,7 @@ import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from 
 import { MobileDocUploader } from "../../MobileDocUploader";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import { mobileStatusColor, ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { useConfirm } from "@/lib/use-confirm";
 import { toast } from "sonner";
 
@@ -1429,7 +1430,7 @@ export function MobileLandDetailClient({
       {/* ── Payment modal ── */}
       {showPayment ? (
         <LandModal onClose={() => setShowPayment(false)} title="Record Payment">
-          <form onSubmit={handlePayment} className="space-y-3">
+          <form onSubmit={handlePayment} className="flex flex-col gap-3">
             <div className="grid grid-cols-3 gap-2 rounded-[0.375rem] border p-2" style={{ borderColor: "var(--color-line)" }}>
               <div>
                 <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Total</p>
@@ -1444,38 +1445,43 @@ export function MobileLandDetailClient({
                 <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>{formatCurrencyCompact(balanceDue)}</p>
               </div>
             </div>
-            <div>
-              <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Amount *</label>
-              <input
-                type="number" inputMode="decimal" step="0.01" min="0" max={balanceDue}
-                value={payAmount} onChange={(e) => setPayAmount(e.target.value)}
-                placeholder={balanceDue.toFixed(2)} required autoFocus
-                className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-section font-bold tabular-nums outline-none"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              />
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Payment Details
+              </p>
+              <div>
+                <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Amount *</label>
+                <input
+                  type="number" inputMode="decimal" step="0.01" min="0" max={balanceDue}
+                  value={payAmount} onChange={(e) => setPayAmount(e.target.value)}
+                  placeholder={balanceDue.toFixed(2)} required autoFocus
+                  className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ backgroundColor: "transparent" }}
+                />
+              </div>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Mode</label>
+                <select
+                  value={payMode} onChange={(e) => setPayMode(e.target.value)}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ backgroundColor: "transparent" }}
+                >
+                  {["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"].map((m) => (
+                    <option key={m} value={m}>{m.replace("_", " ")}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Reference</label>
+                <input
+                  type="text" value={payRef} onChange={(e) => setPayRef(e.target.value)}
+                  placeholder="Cheque / UTR no."
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ backgroundColor: "transparent" }}
+                />
+              </div>
+              {payMode === "CHEQUE" && <MobileChequeFields value={payCheque} onChange={setPayCheque} />}
             </div>
-            <div>
-              <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Mode</label>
-              <select
-                value={payMode} onChange={(e) => setPayMode(e.target.value)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              >
-                {["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"].map((m) => (
-                  <option key={m} value={m}>{m.replace("_", " ")}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Reference</label>
-              <input
-                type="text" value={payRef} onChange={(e) => setPayRef(e.target.value)}
-                placeholder="Cheque / UTR no."
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              />
-            </div>
-            {payMode === "CHEQUE" && <MobileChequeFields value={payCheque} onChange={setPayCheque} />}
             <div className="flex flex-col gap-2 pt-1">
               <button type="button" onClick={() => setShowPayment(false)}
                 className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold text-m-body press"
@@ -1495,50 +1501,55 @@ export function MobileLandDetailClient({
       {/* ── Complete purchase modal ── */}
       {showComplete ? (
         <LandModal onClose={() => setShowComplete(false)} title="Complete Land Purchase">
-          <form onSubmit={handleComplete} className="space-y-3">
+          <form onSubmit={handleComplete} className="flex flex-col gap-3">
             <p className="text-m-caption rounded-[0.375rem] px-2.5 py-1.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 8%, var(--color-paper))", color: "var(--color-ink-700)" }}>
               Completing the purchase marks all parcels as AVAILABLE and creates an ownership certificate.
             </p>
-            <div>
-              <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Registry No.</label>
-              <input
-                type="text" value={compRegistryNo} onChange={(e) => setCompRegistryNo(e.target.value)}
-                placeholder="e.g. SR-1234/2025"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              />
-            </div>
-            <div>
-              <label className="text-m-caption font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--color-signal)" }}>
-                Registry Document — required *
-              </label>
-              <MobileDocUploader
-                url={data.registryDocumentUrl || compRegistryDocUrl}
-                fileName={data.registryDocumentName}
-                label="Upload Registry Document"
-                required
-                onUpload={(url) => setCompRegistryDocUrl(url)}
-                onRemove={() => setCompRegistryDocUrl("")}
-              />
-              {!data.registryDocumentUrl && !compRegistryDocUrl && (
-                <p className="text-m-caption mt-1" style={{ color: "var(--color-signal)" }}>
-                  Purchase cannot be completed without the registry document.
-                </p>
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Registry Details
+              </p>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Registry No.</label>
+                <input
+                  type="text" value={compRegistryNo} onChange={(e) => setCompRegistryNo(e.target.value)}
+                  placeholder="e.g. SR-1234/2025"
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ backgroundColor: "transparent" }}
+                />
+              </div>
+              <div>
+                <label className="text-m-caption font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--color-signal)" }}>
+                  Registry Document — required *
+                </label>
+                <MobileDocUploader
+                  url={data.registryDocumentUrl || compRegistryDocUrl}
+                  fileName={data.registryDocumentName}
+                  label="Upload Registry Document"
+                  required
+                  onUpload={(url) => setCompRegistryDocUrl(url)}
+                  onRemove={() => setCompRegistryDocUrl("")}
+                />
+                {!data.registryDocumentUrl && !compRegistryDocUrl && (
+                  <p className="text-m-caption mt-1" style={{ color: "var(--color-signal)" }}>
+                    Purchase cannot be completed without the registry document.
+                  </p>
+                )}
+              </div>
+              {balanceDue > 0 && (
+                <label className="flex items-center gap-2 rounded-[0.375rem] border px-2.5 py-2" style={{ borderColor: "var(--color-line)" }}>
+                  <input
+                    type="checkbox"
+                    checked={compPartialRegistry}
+                    onChange={(e) => setCompPartialRegistry(e.target.checked)}
+                    className="size-3.5"
+                  />
+                  <span className="text-m-caption" style={{ color: "var(--color-ink-700)" }}>
+                    Allow partial registry — complete with ₹{formatCurrencyCompact(balanceDue)} balance due
+                  </span>
+                </label>
               )}
             </div>
-            {balanceDue > 0 && (
-              <label className="flex items-center gap-2 rounded-[0.375rem] border px-2.5 py-2" style={{ borderColor: "var(--color-line)" }}>
-                <input
-                  type="checkbox"
-                  checked={compPartialRegistry}
-                  onChange={(e) => setCompPartialRegistry(e.target.checked)}
-                  className="size-3.5"
-                />
-                <span className="text-m-caption" style={{ color: "var(--color-ink-700)" }}>
-                  Allow partial registry — complete with ₹{formatCurrencyCompact(balanceDue)} balance due
-                </span>
-              </label>
-            )}
             <div className="flex flex-col gap-2 pt-1">
               <button type="button" onClick={() => setShowComplete(false)}
                 className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold text-m-body press"
@@ -1574,25 +1585,9 @@ export function MobileLandDetailClient({
 /* ─── Land Modal (bottom sheet) ─── */
 function LandModal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[0.75rem] border p-4 pb-6 max-h-[85vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</p>
-          <button onClick={onClose} className="text-m-body press">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
+    <MobileDialog open={true} onClose={onClose} title={title}>
+      {children}
+    </MobileDialog>
   );
 }
 
@@ -2260,69 +2255,74 @@ function PartitionSheet({
       </div>
 
       {/* Children */}
-      <div className="flex flex-col gap-2 mb-3">
-        {children.map((c, i) => (
-          <div key={i} className="rounded-[0.5rem] border p-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-600)" }}>
-                Sub-parcel {i + 1}
-              </span>
-              {children.length > 2 ? (
-                <button onClick={() => removeChild(i)} className="text-m-body press">
-                  <X className="size-3" style={{ color: "var(--color-stop)" }} />
-                </button>
-              ) : null}
+      <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3 mb-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+          Sub-parcels
+        </p>
+        <div className="flex flex-col gap-2">
+          {children.map((c, i) => (
+            <div key={i} className="rounded-[0.5rem] border p-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-600)" }}>
+                  Sub-parcel {i + 1}
+                </span>
+                {children.length > 2 ? (
+                  <button onClick={() => removeChild(i)} className="text-m-body press">
+                    <X className="size-3" style={{ color: "var(--color-stop)" }} />
+                  </button>
+                ) : null}
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                <input
+                  type="text"
+                  placeholder="Number"
+                  value={c.number}
+                  onChange={(e) => updateChild(i, "number", e.target.value)}
+                  className="h-8 rounded border px-2 text-m-label outline-none"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                />
+                <input
+                  type="text" inputMode="decimal"
+                  placeholder={`Area (${unitShort})`}
+                  value={c.area}
+                  onChange={(e) => updateChild(i, "area", e.target.value)}
+                  className="h-8 rounded border px-2 text-m-label tabular-nums outline-none"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                />
+                <input
+                  type="text" inputMode="decimal"
+                  placeholder="Asking ₹"
+                  value={c.askingPrice}
+                  onChange={(e) => updateChild(i, "askingPrice", e.target.value)}
+                  className="h-8 rounded border px-2 text-m-label tabular-nums outline-none"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              <input
-                type="text"
-                placeholder="Number"
-                value={c.number}
-                onChange={(e) => updateChild(i, "number", e.target.value)}
-                className="h-8 rounded border px-2 text-m-label outline-none"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              />
-              <input
-                type="text" inputMode="decimal"
-                placeholder={`Area (${unitShort})`}
-                value={c.area}
-                onChange={(e) => updateChild(i, "area", e.target.value)}
-                className="h-8 rounded border px-2 text-m-label tabular-nums outline-none"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              />
-              <input
-                type="text" inputMode="decimal"
-                placeholder="Asking ₹"
-                value={c.askingPrice}
-                onChange={(e) => updateChild(i, "askingPrice", e.target.value)}
-                className="h-8 rounded border px-2 text-m-label tabular-nums outline-none"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      <button
-        onClick={addChild}
-        className="w-full flex items-center justify-center gap-1 h-8 rounded-[0.5rem] border text-m-label font-semibold text-m-body press mb-3"
-        style={{ borderColor: "var(--color-line)", color: "var(--color-ink-600)" }}
-      >
-        <Plus className="size-3" />
-        Add sub-parcel
-      </button>
+        <button
+          onClick={addChild}
+          className="w-full flex items-center justify-center gap-1 h-8 rounded-[0.5rem] border text-m-label font-semibold text-m-body press"
+          style={{ borderColor: "var(--color-line)", color: "var(--color-ink-600)" }}
+        >
+          <Plus className="size-3" />
+          Add sub-parcel
+        </button>
 
-      {/* Area check */}
-      <div
-        className="rounded-[0.5rem] p-2 mb-3 flex items-center gap-1.5 text-m-caption"
-        style={{
-          backgroundColor: areaMatch ? `color-mix(in srgb, var(--color-go) 8%, transparent)` : `color-mix(in srgb, var(--color-signal) 8%, transparent)`,
-          color: areaMatch ? "var(--color-go)" : "var(--color-signal)",
-        }}
-      >
-        {areaMatch ? <CheckCircle2 className="size-3" /> : <AlertCircle className="size-3" />}
-        {formatNumber(totalChildArea, 0)} / {formatNumber(parcel.area, 0)} {unitShort}
-        {areaMatch ? " ✓" : ` (${formatNumber(parcel.area - totalChildArea, 0)} remaining)`}
+        {/* Area check */}
+        <div
+          className="rounded-[0.5rem] p-2 flex items-center gap-1.5 text-m-caption"
+          style={{
+            backgroundColor: areaMatch ? `color-mix(in srgb, var(--color-go) 8%, transparent)` : `color-mix(in srgb, var(--color-signal) 8%, transparent)`,
+            color: areaMatch ? "var(--color-go)" : "var(--color-signal)",
+          }}
+        >
+          {areaMatch ? <CheckCircle2 className="size-3" /> : <AlertCircle className="size-3" />}
+          {formatNumber(totalChildArea, 0)} / {formatNumber(parcel.area, 0)} {unitShort}
+          {areaMatch ? " ✓" : ` (${formatNumber(parcel.area - totalChildArea, 0)} remaining)`}
+        </div>
       </div>
 
       {error ? (
@@ -2420,98 +2420,104 @@ function SellSheet({
         </div>
       </div>
 
-      {/* Customer picker */}
-      {!selectedCustomer ? (
-        <div className="mb-3">
-          <p className="text-m-label font-bold uppercase mb-1.5" style={{ color: "var(--color-ink-600)" }}>
-            Select Buyer
-          </p>
-          <div className="relative mb-2">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5" style={{ color: "var(--color-ink-500)" }} />
-            <input
-              type="search"
-              value={customerSearch}
-              onChange={(e) => setCustomerSearch(e.target.value)}
-              placeholder="Search customers…"
-              className="w-full h-9 rounded-[0.5rem] border pl-8 pr-3 text-m-label outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-            />
-          </div>
-          <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
-            {filteredCustomers.length === 0 ? (
-              <p className="text-m-caption text-center py-3" style={{ color: "var(--color-ink-500)" }}>
-                No customers found
-              </p>
-            ) : (
-              filteredCustomers.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setSelectedCustomer(c)}
-                  className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2 text-left text-m-body press"
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                >
-                  <span className="text-m-label font-semibold" style={{ color: "var(--color-ink-950)" }}>
-                    {c.name}
-                  </span>
-                  <ChevronRight className="size-3" style={{ color: "var(--color-ink-500)" }} />
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="mb-3">
-          <p className="text-m-label font-bold uppercase mb-1.5" style={{ color: "var(--color-ink-600)" }}>
+      <div className="flex flex-col gap-3">
+        {/* Customer picker */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
             Buyer
           </p>
-          <div
-            className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          >
-            <span className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
-              {selectedCustomer.name}
-            </span>
-            <button onClick={() => setSelectedCustomer(null)} className="text-m-body press">
-              <X className="size-3" style={{ color: "var(--color-ink-500)" }} />
-            </button>
+          {!selectedCustomer ? (
+            <div>
+              <div className="relative mb-2">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5" style={{ color: "var(--color-ink-500)" }} />
+                <input
+                  type="search"
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  placeholder="Search customers…"
+                  className="w-full h-7 pl-8 pr-3 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ backgroundColor: "transparent" }}
+                />
+              </div>
+              <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
+                {filteredCustomers.length === 0 ? (
+                  <p className="text-m-caption text-center py-3" style={{ color: "var(--color-ink-500)" }}>
+                    No customers found
+                  </p>
+                ) : (
+                  filteredCustomers.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => setSelectedCustomer(c)}
+                      className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2 text-left text-m-body press"
+                      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                    >
+                      <span className="text-m-label font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                        {c.name}
+                      </span>
+                      <ChevronRight className="size-3" style={{ color: "var(--color-ink-500)" }} />
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div
+                className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              >
+                <span className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
+                  {selectedCustomer.name}
+                </span>
+                <button onClick={() => setSelectedCustomer(null)} className="text-m-body press">
+                  <X className="size-3" style={{ color: "var(--color-ink-500)" }} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Sale price */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Pricing
+          </p>
+          <div>
+            <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
+              Sale Price (₹)
+            </p>
+            <input
+              type="text" inputMode="decimal"
+              value={salePrice}
+              onChange={(e) => setSalePrice(e.target.value)}
+              placeholder="Enter sale price"
+              className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+              style={{ backgroundColor: "transparent" }}
+            />
+            {price > 0 ? (
+              <p className="text-m-caption mt-1 flex items-center gap-1" style={{ color: profit >= 0 ? "var(--color-go)" : "var(--color-stop)" }}>
+                {profit >= 0 ? <TrendingUp className="size-2.5" /> : <TrendingDown className="size-2.5" />}
+                Profit: {formatCurrency(profit)} ({profitPct > 0 ? "+" : ""}{profitPct}%)
+              </p>
+            ) : null}
+          </div>
+
+          {/* Initial payment (optional) */}
+          <div>
+            <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
+              Initial Payment (₹) <span style={{ color: "var(--color-ink-500)" }}>(optional)</span>
+            </p>
+            <input
+              type="text" inputMode="decimal"
+              value={initialPayment}
+              onChange={(e) => setInitialPayment(e.target.value)}
+              placeholder="Token / deposit amount"
+              className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+              style={{ backgroundColor: "transparent" }}
+            />
           </div>
         </div>
-      )}
-
-      {/* Sale price */}
-      <div className="mb-3">
-        <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
-          Sale Price (₹)
-        </p>
-        <input
-          type="text" inputMode="decimal"
-          value={salePrice}
-          onChange={(e) => setSalePrice(e.target.value)}
-          placeholder="Enter sale price"
-          className="w-full h-9 rounded-[0.5rem] border px-3 text-m-section tabular-nums outline-none"
-          style={{ borderColor: salePrice ? "var(--color-ink-950)" : "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-        />
-        {price > 0 ? (
-          <p className="text-m-caption mt-1 flex items-center gap-1" style={{ color: profit >= 0 ? "var(--color-go)" : "var(--color-stop)" }}>
-            {profit >= 0 ? <TrendingUp className="size-2.5" /> : <TrendingDown className="size-2.5" />}
-            Profit: {formatCurrency(profit)} ({profitPct > 0 ? "+" : ""}{profitPct}%)
-          </p>
-        ) : null}
-      </div>
-
-      {/* Initial payment (optional) */}
-      <div className="mb-3">
-        <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
-          Initial Payment (₹) <span style={{ color: "var(--color-ink-500)" }}>(optional)</span>
-        </p>
-        <input
-          type="text" inputMode="decimal"
-          value={initialPayment}
-          onChange={(e) => setInitialPayment(e.target.value)}
-          placeholder="Token / deposit amount"
-          className="w-full h-9 rounded-[0.5rem] border px-3 text-m-section tabular-nums outline-none"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-        />
       </div>
 
       {error ? (
@@ -2582,36 +2588,41 @@ function ValuationSheet({
         </p>
       </div>
 
-      <div className="mb-3">
-        <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
-          Current Valuation (₹)
+      <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+          Valuation
         </p>
-        <input
-          type="text" inputMode="decimal"
-          value={valuation}
-          onChange={(e) => setValuation(e.target.value)}
-          className="w-full h-9 rounded-[0.5rem] border px-3 text-m-section tabular-nums outline-none"
-          style={{ borderColor: valuation ? "var(--color-ink-950)" : "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-        />
-        {gain !== 0 ? (
-          <p className="text-m-caption mt-1" style={{ color: gain >= 0 ? "var(--color-go)" : "var(--color-stop)" }}>
-            {gain >= 0 ? "+" : ""}{formatCurrency(gain)} ({gainPct > 0 ? "+" : ""}{gainPct}%)
+        <div>
+          <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
+            Current Valuation (₹)
           </p>
-        ) : null}
-      </div>
+          <input
+            type="text" inputMode="decimal"
+            value={valuation}
+            onChange={(e) => setValuation(e.target.value)}
+            className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+            style={{ backgroundColor: "transparent" }}
+          />
+          {gain !== 0 ? (
+            <p className="text-m-caption mt-1" style={{ color: gain >= 0 ? "var(--color-go)" : "var(--color-stop)" }}>
+              {gain >= 0 ? "+" : ""}{formatCurrency(gain)} ({gainPct > 0 ? "+" : ""}{gainPct}%)
+            </p>
+          ) : null}
+        </div>
 
-      <div className="mb-3">
-        <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
-          Asking Price (₹) <span style={{ color: "var(--color-ink-500)" }}>(optional)</span>
-        </p>
-        <input
-          type="text" inputMode="decimal"
-          value={askingPrice}
-          onChange={(e) => setAskingPrice(e.target.value)}
-          placeholder="List price for sale"
-          className="w-full h-9 rounded-[0.5rem] border px-3 text-m-section tabular-nums outline-none"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-        />
+        <div>
+          <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
+            Asking Price (₹) <span style={{ color: "var(--color-ink-500)" }}>(optional)</span>
+          </p>
+          <input
+            type="text" inputMode="decimal"
+            value={askingPrice}
+            onChange={(e) => setAskingPrice(e.target.value)}
+            placeholder="List price for sale"
+            className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+            style={{ backgroundColor: "transparent" }}
+          />
+        </div>
       </div>
 
       {error ? (
@@ -2679,49 +2690,10 @@ function BottomSheet({
   children: React.ReactNode;
   onClose: () => void;
 }) {
-  const sheetRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handler);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", handler);
-      document.body.style.overflow = "";
-    };
-  }, [onClose]);
-
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0"
-        style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-        onClick={onClose}
-      />
-      {/* Sheet */}
-      <div
-        ref={sheetRef}
-        className="relative w-full max-w-md rounded-t-[0.75rem] border-t max-h-[85vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-      >
-        {/* Drag handle */}
-        <div className="sticky top-0 z-10 pt-2 pb-1" style={{ backgroundColor: "var(--color-paper)" }}>
-          <div className="w-8 h-0.5 rounded-full mx-auto mb-2" style={{ backgroundColor: "var(--color-ink-300)" }} />
-          <div className="flex items-center justify-between px-3 pb-2 border-b" style={{ borderColor: "var(--color-line)" }}>
-            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-              {title}
-            </p>
-            <button onClick={onClose} className="text-m-body press">
-              <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-            </button>
-          </div>
-        </div>
-        <div className="p-3">
-          {children}
-        </div>
-      </div>
-    </div>
+    <MobileDialog open={true} onClose={onClose} title={title}>
+      {children}
+    </MobileDialog>
   );
 }
 
@@ -2928,92 +2900,81 @@ function LandPaymentScheduleModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[0.75rem] border p-4 pb-6 max-h-[85vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Payment Plan</h2>
-          <button onClick={onClose} className="text-m-body press">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
-
+    <MobileDialog open={true} onClose={onClose} title="Payment Plan">
         <p className="text-m-caption mb-3 rounded-[0.375rem] px-2.5 py-1.5" style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-600)" }}>
           Balance to schedule: <span className="font-bold">{formatCurrency(balanceDue)}</span>. Add installments with their percentage of the balance and optional due dates.
         </p>
 
-        <div className="space-y-2 mb-3">
-          {items.map((item, idx) => {
-            const amount = (balanceDue * (parseFloat(item.percentage) || 0)) / 100;
-            return (
-              <div key={idx} className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)" }}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-m-caption font-bold" style={{ color: "var(--color-steel)" }}>Installment {idx + 1}</span>
-                  <button onClick={() => removeItem(idx)} className="text-m-body press">
-                    <Trash2 className="size-3" style={{ color: "var(--color-stop)" }} />
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  value={item.description}
-                  onChange={(e) => updateItem(idx, "description", e.target.value)}
-                  placeholder="Description (e.g. On ATS, On Registry)"
-                  className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-label mb-1.5"
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                />
-                <div className="flex flex-col gap-2">
-                  <div className="flex-1">
-                    <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>% of Balance</label>
-                    <input
-                      type="number"
-                      value={item.percentage}
-                      onChange={(e) => updateItem(idx, "percentage", e.target.value)}
-                      className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-label tabular-nums"
-                      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                    />
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3 mb-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Installments
+          </p>
+          <div className="flex flex-col gap-2">
+            {items.map((item, idx) => {
+              const amount = (balanceDue * (parseFloat(item.percentage) || 0)) / 100;
+              return (
+                <div key={idx} className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)" }}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-m-caption font-bold" style={{ color: "var(--color-steel)" }}>Installment {idx + 1}</span>
+                    <button onClick={() => removeItem(idx)} className="text-m-body press">
+                      <Trash2 className="size-3" style={{ color: "var(--color-stop)" }} />
+                    </button>
                   </div>
-                  <div className="flex-1">
-                    <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Due Date</label>
-                    <input
-                      type="date"
-                      value={item.dueDate}
-                      onChange={(e) => updateItem(idx, "dueDate", e.target.value)}
-                      className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-label"
-                      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                    />
+                  <input
+                    type="text"
+                    value={item.description}
+                    onChange={(e) => updateItem(idx, "description", e.target.value)}
+                    placeholder="Description (e.g. On ATS, On Registry)"
+                    className="w-full h-7 px-1 text-m-caption mb-1.5 outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ backgroundColor: "transparent" }}
+                  />
+                  <div className="flex flex-col gap-2">
+                    <div className="flex-1">
+                      <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>% of Balance</label>
+                      <input
+                        type="number"
+                        value={item.percentage}
+                        onChange={(e) => updateItem(idx, "percentage", e.target.value)}
+                        className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                        style={{ backgroundColor: "transparent" }}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Due Date</label>
+                      <input
+                        type="date"
+                        value={item.dueDate}
+                        onChange={(e) => updateItem(idx, "dueDate", e.target.value)}
+                        className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                        style={{ backgroundColor: "transparent" }}
+                      />
+                    </div>
                   </div>
+                  <p className="text-m-caption mt-1 tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                    = {formatCurrency(amount)}
+                  </p>
                 </div>
-                <p className="text-m-caption mt-1 tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-                  = {formatCurrency(amount)}
-                </p>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
 
-        <button
-          onClick={addItem}
-          className="w-full rounded-[0.5rem] border border-dashed py-2 text-m-label font-bold text-m-body press mb-3"
-          style={{ borderColor: "var(--color-line)", color: "var(--color-ink-600)" }}
-        >
-          + Add Installment
-        </button>
-
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Total</span>
-          <span
-            className="text-m-label font-bold tabular-nums"
-            style={{ color: pctValid ? "var(--color-go)" : "var(--color-stop)" }}
+          <button
+            onClick={addItem}
+            className="w-full rounded-[0.5rem] border border-dashed py-2 text-m-label font-bold text-m-body press"
+            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-600)" }}
           >
-            {totalPct.toFixed(2)}% {pctValid ? "✓" : "(must be 100%)"}
-          </span>
+            + Add Installment
+          </button>
+
+          <div className="flex items-center justify-between">
+            <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Total</span>
+            <span
+              className="text-m-label font-bold tabular-nums"
+              style={{ color: pctValid ? "var(--color-go)" : "var(--color-stop)" }}
+            >
+              {totalPct.toFixed(2)}% {pctValid ? "✓" : "(must be 100%)"}
+            </span>
+          </div>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -3033,7 +2994,6 @@ function LandPaymentScheduleModal({
             {saving ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Save Plan"}
           </button>
         </div>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }

@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { Plus } from "lucide-react";
-import { MobileNewUnitDialog } from "./MobileNewUnitDialog";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileNewUnitForm } from "./MobileNewUnitDialog";
 
 /**
- * MobileUnitsFab — floating action button + dialog launcher for creating
- * a new built unit from the mobile units page. Extracted as a client
- * component because the units page is a Server Component.
+ * MobileUnitsFab — floating action button + spring-from-FAB modal for
+ * creating a new built unit from the mobile units page. Extracted as a
+ * client component because the units page is a Server Component.
  */
 export function MobileUnitsFab({
   projects,
@@ -16,32 +17,23 @@ export function MobileUnitsFab({
   projects: { id: string; name: string }[];
   defaultProjectId?: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const fab = useFabModal();
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed right-3 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
-        style={{
-          bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
-          backgroundColor: "var(--color-ink-950)",
-          color: "var(--color-paper)",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-        }}
-        aria-label="Add new unit"
+      <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="Add new unit" />
+      <MobileFabModal
+        open={fab.isOpen}
+        onClose={fab.close}
+        originRect={fab.originRect}
+        title="New Built Unit"
       >
-        <Plus className="size-5" />
-      </button>
-
-      {open && (
-        <MobileNewUnitDialog
-          open={open}
-          onClose={() => setOpen(false)}
+        <MobileNewUnitForm
+          onClose={fab.close}
           projects={projects}
           defaultProjectId={defaultProjectId}
         />
-      )}
+      </MobileFabModal>
     </>
   );
 }

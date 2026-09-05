@@ -44,7 +44,7 @@ export interface CreateExpenseInput {
 }
 
 /** Compute the GST total from the three components. */
-function gstTotalOf(cgst: Decimal, sgst: Decimal, igst: Decimal): Decimal {
+export function gstTotalOf(cgst: Decimal, sgst: Decimal, igst: Decimal): Decimal {
   return cgst.plus(sgst).plus(igst);
 }
 

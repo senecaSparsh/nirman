@@ -217,191 +217,204 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
     <div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        {/* ── Destination ── */}
-        <MobileSelectWithCreate
-          label="Destination location"
-          required
-          value={toLocationId}
-          onChange={setToLocationId}
-          options={locations.map((loc) => ({
-            value: loc.id,
-            label: `${loc.name} (${loc.type.replace(/_/g, " ").toLowerCase()})`,
-          }))}
-          inputClass={inputClass}
-          inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          renderDialog={({ open, onClose, onCreated }) => (
-            <MobileNewStockLocationDialog
-              open={open}
-              onClose={onClose}
-              projects={projects}
-              onCreated={(l) => {
-                setLocations((prev) => [...prev, { id: l.id, name: l.name, type: l.type }]);
-                onCreated(l.id, `${l.name} (${l.type.replace(/_/g, " ").toLowerCase()})`);
-              }}
-            />
-          )}
-        />
-
-        {/* ── Project (optional) ── */}
-        <MobileSelectWithCreate
-          label="Project (optional)"
-          value={projectId}
-          onChange={setProjectId}
-          options={projects.map((proj) => ({ value: proj.id, label: proj.name }))}
-          placeholder="No project linkage"
-          inputClass={inputClass}
-          inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          renderDialog={({ open, onClose, onCreated, originRect }) => (
-            <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
-              <MobileNewProjectDialog
+        {/* Destination & Linkage */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Destination & Linkage
+          </p>
+          {/* ── Destination ── */}
+          <MobileSelectWithCreate
+            label="Destination location"
+            required
+            value={toLocationId}
+            onChange={setToLocationId}
+            options={locations.map((loc) => ({
+              value: loc.id,
+              label: `${loc.name} (${loc.type.replace(/_/g, " ").toLowerCase()})`,
+            }))}
+            inputClass={inputClass}
+            inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+            renderDialog={({ open, onClose, onCreated }) => (
+              <MobileNewStockLocationDialog
                 open={open}
                 onClose={onClose}
-                onCreated={(p) => {
-                  setProjects((prev) => [...prev, { id: p.id, name: p.name }]);
-                  onCreated(p.id, p.name);
+                projects={projects}
+                onCreated={(l) => {
+                  setLocations((prev) => [...prev, { id: l.id, name: l.name, type: l.type }]);
+                  onCreated(l.id, `${l.name} (${l.type.replace(/_/g, " ").toLowerCase()})`);
                 }}
               />
-            </MobileFabModal>
-          )}
-        />
+            )}
+          />
 
-        {/* ── Source material (optional) ── */}
-        <MobileSelectWithCreate
-          label="Source material (optional)"
-          value={sourceMaterialId}
-          onChange={setSourceMaterialId}
-          options={materials.map((mat) => ({ value: mat.id, label: `${mat.name} (${mat.code})` }))}
-          placeholder="No source material"
-          inputClass={inputClass}
-          inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          renderDialog={({ open, onClose, onCreated }) => (
-            <MobileNewMaterialDialog
-              open={open}
-              onClose={onClose}
-              categories={[]}
-              onCreated={(m) => {
-                setMaterials((prev) => [...prev, { id: m.id, name: m.name, code: m.code, unit: m.unit }]);
-                onCreated(m.id, `${m.name} (${m.code})`);
-              }}
-            />
-          )}
-        />
+          {/* ── Project (optional) ── */}
+          <MobileSelectWithCreate
+            label="Project (optional)"
+            value={projectId}
+            onChange={setProjectId}
+            options={projects.map((proj) => ({ value: proj.id, label: proj.name }))}
+            placeholder="No project linkage"
+            inputClass={inputClass}
+            inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+            renderDialog={({ open, onClose, onCreated, originRect }) => (
+              <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+                <MobileNewProjectDialog
+                  open={open}
+                  onClose={onClose}
+                  onCreated={(p) => {
+                    setProjects((prev) => [...prev, { id: p.id, name: p.name }]);
+                    onCreated(p.id, p.name);
+                  }}
+                />
+              </MobileFabModal>
+            )}
+          />
 
-        {/* ── Line items ── */}
-        <div>
-          <label className="block text-m-caption font-semibold mb-1.5" style={{ color: "var(--color-ink-700)" }}>
-            Line Items <span style={{ color: "var(--color-stop)" }}>*</span>
-          </label>
-          <div className="flex flex-col gap-3">
-            {lines.map((line, idx) => {
-              const mat = materials.find((m) => m.id === line.materialId);
-              const lineTotal = (Number(line.qty) || 0) * (Number(line.unitCost) || 0);
-              return (
-                <div
-                  key={idx}
-                  className="rounded-[0.5rem] border p-2"
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                >
-                  {/* Material selector */}
-                  <MobileSelectWithCreate
-                    label="Material"
-                    value={line.materialId}
-                    onChange={(val) => handleLineChange(idx, "materialId", val)}
-                    options={materials.map((mat) => ({ value: mat.id, label: `${mat.name} (${mat.code})` }))}
-                    inputClass={`${inputClass} text-m-body mb-2`}
-                    inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                    labelClass="text-m-caption font-semibold uppercase block mb-1"
-                    renderDialog={({ open, onClose, onCreated }) => (
-                      <MobileNewMaterialDialog
-                        open={open}
-                        onClose={onClose}
-                        categories={[]}
-                        onCreated={(m) => {
-                          setMaterials((prev) => [...prev, { id: m.id, name: m.name, code: m.code, unit: m.unit }]);
-                          onCreated(m.id, `${m.name} (${m.code})`);
-                        }}
-                      />
-                    )}
-                  />
-
-                  {/* Qty + unit cost */}
-                  <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-                    <div>
-                      <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-700)" }}>
-                        Qty{mat ? ` (${mat.unit})` : ""}
-                      </label>
-                      <input
-                        type="text" inputMode="decimal"
-                        step="any"
-                        min="0"
-                        value={line.qty}
-                        onChange={(e) => handleLineChange(idx, "qty", e.target.value)}
-                        placeholder="0"
-                        className={`${inputClass} text-m-caption tabular-nums`}
-                        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-700)" }}>
-                        Unit Cost
-                      </label>
-                      <input
-                        type="text" inputMode="decimal"
-                        step="any"
-                        min="0"
-                        value={line.unitCost}
-                        onChange={(e) => handleLineChange(idx, "unitCost", e.target.value)}
-                        placeholder="0"
-                        className={`${inputClass} text-m-caption tabular-nums`}
-                        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Line total + remove */}
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
-                      {formatCurrency(lineTotal)}
-                    </span>
-                    {lines.length > 1 ? (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveLine(idx)}
-                        className="flex items-center gap-1.5 text-m-caption font-semibold text-m-body press"
-                        style={{ color: "var(--color-stop)" }}
-                      >
-                        <Trash2 className="size-3" /> Remove
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Add line button */}
-          <button
-            type="button"
-            onClick={handleAddLine}
-            className="flex items-center justify-center gap-1 w-full rounded-[0.375rem] border border-dashed py-2 mt-2 text-m-body press"
-            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
-          >
-            <Plus className="size-3" />
-            <span className="text-m-label font-semibold">Add line item</span>
-          </button>
+          {/* ── Source material (optional) ── */}
+          <MobileSelectWithCreate
+            label="Source material (optional)"
+            value={sourceMaterialId}
+            onChange={setSourceMaterialId}
+            options={materials.map((mat) => ({ value: mat.id, label: `${mat.name} (${mat.code})` }))}
+            placeholder="No source material"
+            inputClass={inputClass}
+            inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+            renderDialog={({ open, onClose, onCreated }) => (
+              <MobileNewMaterialDialog
+                open={open}
+                onClose={onClose}
+                categories={[]}
+                onCreated={(m) => {
+                  setMaterials((prev) => [...prev, { id: m.id, name: m.name, code: m.code, unit: m.unit }]);
+                  onCreated(m.id, `${m.name} (${m.code})`);
+                }}
+              />
+            )}
+          />
         </div>
 
-        {/* ── Notes ── */}
-        <FormField label="Notes (optional)">
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="e.g. Broken tiles from Tower A flooring"
-            rows={2}
-            className={`${inputClass} resize-none`}
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          />
-        </FormField>
+        {/* Line Items */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Line Items
+          </p>
+          <div>
+            <div className="flex flex-col gap-3">
+              {lines.map((line, idx) => {
+                const mat = materials.find((m) => m.id === line.materialId);
+                const lineTotal = (Number(line.qty) || 0) * (Number(line.unitCost) || 0);
+                return (
+                  <div
+                    key={idx}
+                    className="rounded-[0.5rem] border p-2"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                  >
+                    {/* Material selector */}
+                    <MobileSelectWithCreate
+                      label="Material"
+                      value={line.materialId}
+                      onChange={(val) => handleLineChange(idx, "materialId", val)}
+                      options={materials.map((mat) => ({ value: mat.id, label: `${mat.name} (${mat.code})` }))}
+                      inputClass={`${inputClass} text-m-body mb-2`}
+                      inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                      labelClass="text-m-caption font-semibold uppercase block mb-1"
+                      renderDialog={({ open, onClose, onCreated }) => (
+                        <MobileNewMaterialDialog
+                          open={open}
+                          onClose={onClose}
+                          categories={[]}
+                          onCreated={(m) => {
+                            setMaterials((prev) => [...prev, { id: m.id, name: m.name, code: m.code, unit: m.unit }]);
+                            onCreated(m.id, `${m.name} (${m.code})`);
+                          }}
+                        />
+                      )}
+                    />
+
+                    {/* Qty + unit cost */}
+                    <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                      <div>
+                        <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-700)" }}>
+                          Qty{mat ? ` (${mat.unit})` : ""}
+                        </label>
+                        <input
+                          type="text" inputMode="decimal"
+                          step="any"
+                          min="0"
+                          value={line.qty}
+                          onChange={(e) => handleLineChange(idx, "qty", e.target.value)}
+                          placeholder="0"
+                          className={`${inputClass} text-m-caption tabular-nums`}
+                          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                        />
+                      </div>
+                      <div className="pl-2">
+                        <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-700)" }}>
+                          Unit Cost
+                        </label>
+                        <input
+                          type="text" inputMode="decimal"
+                          step="any"
+                          min="0"
+                          value={line.unitCost}
+                          onChange={(e) => handleLineChange(idx, "unitCost", e.target.value)}
+                          placeholder="0"
+                          className={`${inputClass} text-m-caption tabular-nums`}
+                          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Line total + remove */}
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+                        {formatCurrency(lineTotal)}
+                      </span>
+                      {lines.length > 1 ? (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLine(idx)}
+                          className="flex items-center gap-1.5 text-m-caption font-semibold text-m-body press"
+                          style={{ color: "var(--color-stop)" }}
+                        >
+                          <Trash2 className="size-3" /> Remove
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Add line button */}
+            <button
+              type="button"
+              onClick={handleAddLine}
+              className="flex items-center justify-center gap-1 w-full rounded-[0.375rem] border border-dashed py-2 mt-2 text-m-body press"
+              style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+            >
+              <Plus className="size-3" />
+              <span className="text-m-label font-semibold">Add line item</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Notes */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Notes
+          </p>
+          <FormField label="Notes (optional)">
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. Broken tiles from Tower A flooring"
+              rows={2}
+              className={`${inputClass} resize-none`}
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+            />
+          </FormField>
+        </div>
 
         {/* ── Total + submit ── */}
         <div

@@ -1,43 +1,35 @@
 "use client";
 
-import { useState } from "react";
-import { Plus } from "lucide-react";
-import { MobileNewTaskDialog } from "./MobileNewTaskDialog";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileNewTaskForm } from "./MobileNewTaskDialog";
 
 /**
- * MobileTasksFab — floating action button + dialog launcher for
+ * MobileTasksFab — floating action button + spring-from-FAB modal for
  * assigning a new task from the mobile tasks page.
+ *
+ * Mirrors MobileMaterialsFab: uses <MobileFab> + <MobileFabModal> +
+ * useFabModal() instead of a custom fixed button + bottom-sheet.
  */
 export function MobileTasksFab({
   assignees,
 }: {
   assignees: { id: string; name: string; role: string }[];
 }) {
-  const [open, setOpen] = useState(false);
+  const fab = useFabModal();
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed right-3 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
-        style={{
-          bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
-          backgroundColor: "var(--color-ink-950)",
-          color: "var(--color-paper)",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-        }}
-        aria-label="Assign new task"
+      <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="Assign new task" />
+      <MobileFabModal
+        open={fab.isOpen}
+        onClose={fab.close}
+        originRect={fab.originRect}
+        title="Assign Task"
       >
-        <Plus className="size-5" />
-      </button>
-
-      {open && (
-        <MobileNewTaskDialog
-          open={open}
-          onClose={() => setOpen(false)}
-          assignees={assignees}
-        />
-      )}
+        <MobileNewTaskForm onClose={fab.close} assignees={assignees} />
+      </MobileFabModal>
     </>
   );
 }

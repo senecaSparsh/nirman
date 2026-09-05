@@ -1,5 +1,6 @@
 import { prisma, type Prisma, type AssetType } from "@nirman/db";
 import Decimal from "decimal.js";
+import { nextSequenceNumber } from "./sequence";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
 import {
@@ -37,12 +38,38 @@ import { autoSyncEntryToTally } from "./auto-sync";
  * - Cancellation refunds the deposit and releases the asset back to AVAILABLE.
  */
 
+/**
+ * TDS under Section 194-IA: 1% TDS on sale of immovable property
+ * where the sale price or stamp duty value exceeds ₹50 lakh.
+ * The buyer deducts this from the payment to the seller and deposits
+ * it with the government. This function auto-computes the TDS amount
+ * if the buyer hasn't manually specified one.
+ *
+ * @param salePrice The total sale consideration
+ * @param manualTds Optional manually-specified TDS amount (takes precedence)
+ * @returns The TDS amount to be deducted, or null if not applicable
+ */
+export function computePropertyTds(
+  salePrice: Decimal,
+  manualTds?: Decimal | string | number | null,
+): Decimal | null {
+  if (manualTds != null) {
+    return new Decimal(manualTds);
+  }
+  // Section 194-IA threshold: ₹50,00,000
+  const THRESHOLD = new Decimal(5000000);
+  const RATE = new Decimal(0.01); // 1%
+  if (salePrice.gte(THRESHOLD)) {
+    return salePrice.times(RATE).toDecimalPlaces(2);
+  }
+  return null;
+}
+
 async function generateSaleNumber(tx: Prisma.TransactionClient): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `SAL-${ymd}-`;
-  const count = await tx.assetSale.count({ where: { saleNumber: { startsWith: prefix } } });
-  return `${prefix}${String(count + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 export interface SellAssetInput {
@@ -323,8 +350,8 @@ export async function sellAsset(input: SellAssetInput) {
         allotmentDate: input.allotmentDate ? new Date(input.allotmentDate) : null,
         bbaNo: input.bbaNo ?? null,
         bbaDate: input.bbaDate ? new Date(input.bbaDate) : null,
-        // TDS tracking
-        tdsAmount: input.tdsAmount ? new Decimal(input.tdsAmount) : null,
+        // TDS tracking — auto-compute 1% under Section 194-IA if sale ≥ ₹50L
+        tdsAmount: computePropertyTds(new Decimal(input.salePrice!), input.tdsAmount),
         tdsCertificateNo: input.tdsCertificateNo ?? null,
         // Home loan tracking
         homeLoanBank: input.homeLoanBank ?? null,
@@ -519,20 +546,26 @@ export async function sellAsset(input: SellAssetInput) {
         },
       });
 
-      // For immediate full payment with CHEQUE mode, don't mark COMPLETED
-      // until the cheque clears. Keep as DEPOSIT_RECEIVED with PAID status.
+      // For immediate full payment, keep the sale at DEPOSIT_RECEIVED even
+      // though payment is fully received. The sale must be explicitly
+      // completed via completeSale() after ATS/BBA + registry documents
+      // are uploaded — per the owner's required lifecycle:
+      // Sale Order → ATS/BBA → Registry → Complete.
+      // (Cheque payments are also DEPOSIT_RECEIVED until the cheque clears.)
       const isChequePayment = input.initialPaymentMode === "CHEQUE";
       await tx.assetSale.update({
         where: { id: sale.id },
         data: {
           paymentStatus: "PAID",
-          saleStage: isChequePayment ? "DEPOSIT_RECEIVED" : "COMPLETED",
-          finalSaleDate: isChequePayment ? null : new Date(),
+          saleStage: "DEPOSIT_RECEIVED",
+          finalSaleDate: null,
         },
       });
 
-      // Post revenue + COGS (only for non-cheque immediate full payment;
-      // cheque payments are provisional until cleared)
+      // Post revenue + COGS only for non-cheque immediate full payment
+      // (cheque payments are provisional until cleared).
+      // Revenue recognition happens here because payment is confirmed;
+      // the sale *stage* stays DEPOSIT_RECEIVED until documents are uploaded.
       if (!isChequePayment) {
         await postAssetSale(tx, {
           companyId,
@@ -805,14 +838,22 @@ export async function completeSale(input: CompleteSaleInput) {
     if (sale.status === "CANCELLED") throw new ServiceError("Cannot complete a cancelled sale");
     if (sale.saleStage === "COMPLETED") throw new ServiceError("Sale is already completed");
 
-    // ── Registry document gating ──
-    // Sale completion = registry done + registry document uploaded.
-    // The registry document can be provided here OR was already uploaded
-    // via a separate document upload action.
+    // ── Document gating ──
+    // Sale completion requires the document trail per the owner's lifecycle:
+    // Sale Order → ATS/BBA → Registry → Complete.
+    // At minimum, the registry document must be uploaded. ATS or BBA should
+    // also be uploaded (at least one of the two) before the sale can complete.
     const registryDocUrl = input.registryDocumentUrl ?? sale.registryDocumentUrl;
     if (!registryDocUrl) {
       throw new ServiceError(
         "Sale cannot be completed without uploading the registry document. Please upload the sale deed / registry document first.",
+      );
+    }
+    const atsDocUrl = sale.atsDocumentUrl;
+    const bbaDocUrl = sale.bbaDocumentUrl;
+    if (!atsDocUrl && !bbaDocUrl) {
+      throw new ServiceError(
+        "Sale cannot be completed without uploading at least one of ATS or BBA document. Please upload the ATS or BBA document first.",
       );
     }
 
@@ -874,7 +915,11 @@ export async function completeSale(input: CompleteSaleInput) {
         ...(input.allotmentDate ? { allotmentDate: new Date(input.allotmentDate) } : {}),
         ...(input.bbaNo ? { bbaNo: input.bbaNo } : {}),
         ...(input.bbaDate ? { bbaDate: new Date(input.bbaDate) } : {}),
-        ...(input.tdsAmount ? { tdsAmount: new Decimal(input.tdsAmount) } : {}),
+        // TDS — auto-compute if not manually provided at completion
+        ...(() => {
+          const tds = computePropertyTds(sale.salePrice, input.tdsAmount);
+          return tds != null ? { tdsAmount: tds } : {};
+        })(),
         ...(input.tdsCertificateNo ? { tdsCertificateNo: input.tdsCertificateNo } : {}),
         // Home loan details — often finalized at completion
         ...(input.homeLoanBank !== undefined ? { homeLoanBank: input.homeLoanBank || null } : {}),
@@ -1251,7 +1296,7 @@ export async function updateSale(input: UpdateSaleInput) {
 
       // Recompute GST amount if gstRate is also being updated
       const rate = input.gstRate !== undefined ? new Decimal(input.gstRate) : (sale.gstRate ?? new Decimal(0));
-      data.gstAmount = newPrice.mul(rate).div(100);
+      data.gstAmount = newPrice.mul(rate).div(100).toDecimalPlaces(2);
       // Recompute profit (cost basis doesn't change)
       data.profit = newPrice.minus(sale.costBasis);
     }
@@ -1260,7 +1305,7 @@ export async function updateSale(input: UpdateSaleInput) {
       data.gstRate = new Decimal(input.gstRate);
       if (!priceChanged) {
         // Recompute GST amount with the new rate on the existing price
-        data.gstAmount = sale.salePrice.mul(new Decimal(input.gstRate)).div(100);
+        data.gstAmount = sale.salePrice.mul(new Decimal(input.gstRate)).div(100).toDecimalPlaces(2);
       }
     }
 

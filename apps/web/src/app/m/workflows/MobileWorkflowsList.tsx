@@ -7,7 +7,6 @@ import {
   Play,
   Clock,
   Trash2,
-  X,
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -20,6 +19,7 @@ import {
   type SummaryStat,
 } from "@/components/mobile/v2/scaffold";
 import {formatRelativeTime} from "@/lib/utils";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 export type WorkflowListItem = {
   id: string;
@@ -238,22 +238,7 @@ export function MobileWorkflowsList({
 
       {/* ── Run confirmation dialog ── */}
       {runTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-          onClick={() => setRunTarget(null)}
-        >
-          <div
-            className="w-full rounded-t-[0.75rem] mx-auto max-w-md p-4"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Run workflow</p>
-              <button onClick={() => setRunTarget(null)} className="text-m-body press p-1">
-                <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-              </button>
-            </div>
+        <MobileDialog open={!!runTarget} onClose={() => setRunTarget(null)} title="Run workflow">
             <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>
               Run &ldquo;{runTarget.name}&rdquo; now? This will execute every step in the workflow graph.
             </p>
@@ -276,28 +261,12 @@ export function MobileWorkflowsList({
                 {running ? "Running…" : "Run now"}
               </button>
             </div>
-          </div>
-        </div>
+        </MobileDialog>
       )}
 
       {/* ── Delete confirmation dialog ── */}
       {delTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-          onClick={() => setDelTarget(null)}
-        >
-          <div
-            className="w-full rounded-t-[0.75rem] mx-auto max-w-md p-4"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Delete workflow</p>
-              <button onClick={() => setDelTarget(null)} className="text-m-body press p-1">
-                <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-              </button>
-            </div>
+        <MobileDialog open={!!delTarget} onClose={() => setDelTarget(null)} title="Delete workflow">
             <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>
               Delete &ldquo;{delTarget.name}&rdquo;? This cannot be undone.
             </p>
@@ -320,8 +289,7 @@ export function MobileWorkflowsList({
                 {deleting ? "Deleting…" : "Delete"}
               </button>
             </div>
-          </div>
-        </div>
+        </MobileDialog>
       )}
     </div>
   );

@@ -11,6 +11,7 @@ import {
 import { formatDate, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 type CountStatus = "DRAFT" | "COUNTED" | "RECONCILED";
 
@@ -347,20 +348,8 @@ export function MobileStockCountDetailClient({
 
       {/* ── Delete confirmation modal ── */}
       {showDelete ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-          onClick={() => setShowDelete(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-t-[0.75rem] flex flex-col"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Delete draft count?</p>
-            </div>
-            <div className="p-3">
+        <MobileDialog open={true} onClose={() => setShowDelete(false)} title="Delete draft count?">
+            <div>
               <p className="text-m-body mb-3" style={{ color: "var(--color-ink-500)" }}>
                 This will permanently delete the draft stock inventory for {count.location.name}. This action cannot be undone.
               </p>
@@ -389,8 +378,7 @@ export function MobileStockCountDetailClient({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+        </MobileDialog>
       ) : null}
     </div>
   );

@@ -26,7 +26,7 @@ export interface CreateRecurringInput {
   userId?: string;
 }
 
-function addPeriod(date: Date, frequency: string): Date {
+export function addPeriod(date: Date, frequency: string): Date {
   const d = new Date(date);
   switch (frequency) {
     case "WEEKLY": d.setDate(d.getDate() + 7); break;

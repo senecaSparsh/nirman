@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileSellerDialog } from "./MobileSellerDialog";
 import { MobileLegalDocsSection } from "@/components/legal/mobile-legal-docs-section";
@@ -607,50 +608,7 @@ export function MobileLandWizard({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[1rem] border-t pb-safe max-h-[92vh] overflow-y-auto"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div
-          className="sticky top-0 z-10 flex items-center justify-between p-4 pb-2"
-          style={{
-            backgroundColor: "var(--color-paper)",
-            borderBottom: "1px solid var(--color-line)",
-          }}
-        >
-          <div>
-            <p
-              className="text-m-section font-extrabold tracking-tight"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              Record Land Purchase
-            </p>
-            <p
-              className="text-m-caption"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              Step {step} of 4
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-700)" }}
-            aria-label="Close"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+    <MobileDialog open={true} onClose={onClose} title="Record Land Purchase">
 
         {/* Stepper */}
         <div className="flex items-center gap-1 px-4 py-2">
@@ -699,7 +657,7 @@ export function MobileLandWizard({
         </div>
 
         {/* Content */}
-        <div className="p-4 pt-2 space-y-3">
+        <div className="p-4 pt-2 flex flex-col gap-3">
           {/* Step 1: Land Details */}
           {step === 1 && (
             <>
@@ -717,190 +675,199 @@ export function MobileLandWizard({
                   </strong>
                 </div>
               )}
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Seller <span style={{ color: "var(--color-stop)" }}>*</span>
-                </label>
-                <MobileSelectWithCreate
-                  label=""
-                  value={land.sellerId}
-                  onChange={(v) => {
-                    const s = localSellers.find((x) => x.id === v);
-                    setLand((f) => ({
-                      ...f,
-                      sellerId: v,
-                      sellerName: s?.name ?? "",
-                      sellerContact: s?.phone ?? "",
-                    }));
-                  }}
-                  options={localSellers.map((s) => ({
-                    value: s.id,
-                    label: s.phone ? `${s.name} (${s.phone})` : s.name,
-                  }))}
-                  placeholder="Select a seller…"
-                  inputClass={inputClass}
-                  inputStyle={inputStyle}
-                  renderDialog={({ open: o, onClose, onCreated }) => (
-                    <MobileSellerDialog
-                      open={o}
-                      onClose={onClose}
-                      onCreated={(seller) => {
-                        setLocalSellers((prev) => [...prev, seller]);
-                        setLand((f) => ({
-                          ...f,
-                          sellerId: seller.id,
-                          sellerName: seller.name,
-                          sellerContact: seller.phone ?? "",
-                        }));
-                        onCreated(seller.id, seller.name);
-                      }}
-                    />
-                  )}
-                />
-                {land.sellerContact && (
-                  <div
-                    className="text-m-caption mt-1"
-                    style={{ color: "var(--color-ink-700)" }}
-                  >
-                    Contact:{" "}
-                    <strong style={{ color: "var(--color-ink-500)" }}>
-                      {land.sellerContact}
-                    </strong>
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Location
-                </label>
-                <input
-                  type="text"
-                  value={land.location}
-                  onChange={(e) => setLandField("location", e.target.value)}
-                  placeholder="Village, tehsil, district"
-                  enterKeyHint="next"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              {/* Seller & Location */}
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Seller & Location
+                </p>
                 <div>
                   <label className={labelClass} style={labelStyle}>
-                    Total Area{" "}
-                    <span style={{ color: "var(--color-stop)" }}>*</span>
+                    Seller <span style={{ color: "var(--color-stop)" }}>*</span>
+                  </label>
+                  <MobileSelectWithCreate
+                    label=""
+                    value={land.sellerId}
+                    onChange={(v) => {
+                      const s = localSellers.find((x) => x.id === v);
+                      setLand((f) => ({
+                        ...f,
+                        sellerId: v,
+                        sellerName: s?.name ?? "",
+                        sellerContact: s?.phone ?? "",
+                      }));
+                    }}
+                    options={localSellers.map((s) => ({
+                      value: s.id,
+                      label: s.phone ? `${s.name} (${s.phone})` : s.name,
+                    }))}
+                    placeholder="Select a seller…"
+                    inputClass={inputClass}
+                    inputStyle={inputStyle}
+                    renderDialog={({ open: o, onClose, onCreated }) => (
+                      <MobileSellerDialog
+                        open={o}
+                        onClose={onClose}
+                        onCreated={(seller) => {
+                          setLocalSellers((prev) => [...prev, seller]);
+                          setLand((f) => ({
+                            ...f,
+                            sellerId: seller.id,
+                            sellerName: seller.name,
+                            sellerContact: seller.phone ?? "",
+                          }));
+                          onCreated(seller.id, seller.name);
+                        }}
+                      />
+                    )}
+                  />
+                  {land.sellerContact && (
+                    <div
+                      className="text-m-caption mt-1"
+                      style={{ color: "var(--color-ink-700)" }}
+                    >
+                      Contact:{" "}
+                      <strong style={{ color: "var(--color-ink-500)" }}>
+                        {land.sellerContact}
+                      </strong>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className={labelClass} style={labelStyle}>
+                    Location
                   </label>
                   <input
-                    type="number"
-                    min={0}
-                    step="any"
-                    value={land.totalArea}
-                    onChange={(e) => setLandField("totalArea", e.target.value)}
-                    placeholder="0"
-                    inputMode="decimal"
+                    type="text"
+                    value={land.location}
+                    onChange={(e) => setLandField("location", e.target.value)}
+                    placeholder="Village, tehsil, district"
+                    enterKeyHint="next"
                     className={inputClass}
                     style={inputStyle}
                   />
                 </div>
-                <div>
-                  <label className={labelClass} style={labelStyle}>
-                    Unit
-                  </label>
-                  <select
-                    value={land.areaUnit}
-                    onChange={(e) =>
-                      setLandField("areaUnit", e.target.value as AreaUnit)
-                    }
-                    className={inputClass}
-                    style={inputStyle}
-                  >
-                    {(Object.keys(AREA_UNIT_LABELS) as AreaUnit[]).map((u) => (
-                      <option key={u} value={u}>
-                        {AREA_UNIT_LABELS[u]}
-                      </option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>
+                      Total Area{" "}
+                      <span style={{ color: "var(--color-stop)" }}>*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={land.totalArea}
+                      onChange={(e) => setLandField("totalArea", e.target.value)}
+                      placeholder="0"
+                      inputMode="decimal"
+                      className={inputClass}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div className="pl-2">
+                    <label className={labelClass} style={labelStyle}>
+                      Unit
+                    </label>
+                    <select
+                      value={land.areaUnit}
+                      onChange={(e) =>
+                        setLandField("areaUnit", e.target.value as AreaUnit)
+                      }
+                      className={inputClass}
+                      style={inputStyle}
+                    >
+                      {(Object.keys(AREA_UNIT_LABELS) as AreaUnit[]).map((u) => (
+                        <option key={u} value={u}>
+                          {AREA_UNIT_LABELS[u]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
-              {/* ── Land Type ── */}
-              <div>
-                <label className={labelClass} style={labelStyle}>
+
+              {/* Land Type */}
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                   Land Type
-                </label>
-                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLandField("landType", "FREEHOLD");
-                      haptic(10);
-                    }}
-                    className="rounded-[0.5rem] border p-2.5 text-left transition-colors press"
-                    style={{
-                      borderColor:
-                        land.landType === "FREEHOLD"
-                          ? "var(--color-ink-950)"
-                          : "var(--color-line)",
-                      backgroundColor:
-                        land.landType === "FREEHOLD"
-                          ? "var(--color-concrete)"
-                          : "transparent",
-                    }}
-                  >
-                    <div
-                      className="text-m-body font-bold"
-                      style={{ color: "var(--color-ink-500)" }}
+                </p>
+                <div>
+                  <label className={labelClass} style={labelStyle}>
+                    Land Type
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLandField("landType", "FREEHOLD");
+                        haptic(10);
+                      }}
+                      className="rounded-[0.5rem] border p-2.5 text-left transition-colors press"
+                      style={{
+                        borderColor:
+                          land.landType === "FREEHOLD"
+                            ? "var(--color-ink-950)"
+                            : "var(--color-line)",
+                        backgroundColor:
+                          land.landType === "FREEHOLD"
+                            ? "var(--color-concrete)"
+                            : "transparent",
+                      }}
                     >
-                      Freehold
-                    </div>
-                    <div
-                      className="text-m-caption"
-                      style={{ color: "var(--color-ink-700)" }}
+                      <div
+                        className="text-m-body font-bold"
+                        style={{ color: "var(--color-ink-500)" }}
+                      >
+                        Freehold
+                      </div>
+                      <div
+                        className="text-m-caption"
+                        style={{ color: "var(--color-ink-700)" }}
+                      >
+                        Outright purchase
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLandField("landType", "LEASEHOLD");
+                        haptic(10);
+                      }}
+                      className="rounded-[0.5rem] border p-2.5 text-left transition-colors press"
+                      style={{
+                        borderColor:
+                          land.landType === "LEASEHOLD"
+                            ? "var(--color-ink-950)"
+                            : "var(--color-line)",
+                        backgroundColor:
+                          land.landType === "LEASEHOLD"
+                            ? "var(--color-concrete)"
+                            : "transparent",
+                      }}
                     >
-                      Outright purchase
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLandField("landType", "LEASEHOLD");
-                      haptic(10);
-                    }}
-                    className="rounded-[0.5rem] border p-2.5 text-left transition-colors press"
-                    style={{
-                      borderColor:
-                        land.landType === "LEASEHOLD"
-                          ? "var(--color-ink-950)"
-                          : "var(--color-line)",
-                      backgroundColor:
-                        land.landType === "LEASEHOLD"
-                          ? "var(--color-concrete)"
-                          : "transparent",
-                    }}
-                  >
-                    <div
-                      className="text-m-body font-bold"
-                      style={{ color: "var(--color-ink-500)" }}
-                    >
-                      Leasehold
-                    </div>
-                    <div
-                      className="text-m-caption"
-                      style={{ color: "var(--color-ink-700)" }}
-                    >
-                      Leased from authority
-                    </div>
-                  </button>
+                      <div
+                        className="text-m-body font-bold"
+                        style={{ color: "var(--color-ink-500)" }}
+                      >
+                        Leasehold
+                      </div>
+                      <div
+                        className="text-m-caption"
+                        style={{ color: "var(--color-ink-700)" }}
+                      >
+                        Leased from authority
+                      </div>
+                    </button>
+                  </div>
                 </div>
               </div>
 
               {/* ── Lease details ── */}
               {isLeasehold && (
-                <div style={cardStyle} className="space-y-3">
-                  <div
-                    className="text-m-body font-bold"
-                    style={{ color: "var(--color-ink-500)" }}
-                  >
+                <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                  <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                     Lease Details
-                  </div>
+                  </p>
                   <div>
                     <label className={labelClass} style={labelStyle}>
                       Lease Rent Type
@@ -1010,13 +977,10 @@ export function MobileLandWizard({
               )}
 
               {/* ── Cost Breakup ── */}
-              <div style={cardStyle} className="space-y-3">
-                <div
-                  className="text-m-body font-bold"
-                  style={{ color: "var(--color-ink-500)" }}
-                >
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                   Cost Breakup
-                </div>
+                </p>
                 <div>
                   <label className={labelClass} style={labelStyle}>
                     Base Cost (₹){" "}
@@ -1318,11 +1282,11 @@ export function MobileLandWizard({
               </div>
 
               {/* Additional Costs — recurring / future costs */}
-              <div className="space-y-3">
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
                 <div className="flex items-center justify-between">
-                  <label className={labelClass} style={labelStyle}>
-                    Additional Costs (recurring / future)
-                  </label>
+                  <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                    Additional Costs
+                  </p>
                   <button
                     type="button"
                     className="flex items-center gap-1 text-m-caption font-medium"
@@ -1389,196 +1353,207 @@ export function MobileLandWizard({
                 ))}
               </div>
 
-              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              {/* Registry & Documents */}
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Registry & Documents
+                </p>
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>
+                      Registry No.
+                    </label>
+                    <input
+                      type="text"
+                      value={land.registryNo}
+                      onChange={(e) => setLandField("registryNo", e.target.value)}
+                      placeholder="REG-2024-0123"
+                      enterKeyHint="next"
+                      className={inputClass}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div className="pl-2">
+                    <label className={labelClass} style={labelStyle}>
+                      Purchase Date
+                    </label>
+                    <input
+                      type="date"
+                      value={land.purchaseDate}
+                      onChange={(e) =>
+                        setLandField("purchaseDate", e.target.value)
+                      }
+                      className={inputClass}
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
+
+                {/* Document upload */}
                 <div>
                   <label className={labelClass} style={labelStyle}>
-                    Registry No.
+                    Document
+                  </label>
+                  {documentUrl ? (
+                    <div
+                      className="flex items-center justify-between gap-1 rounded-[0.5rem] border px-3 py-2"
+                      style={{
+                        borderColor: "var(--color-line)",
+                        backgroundColor: "var(--color-concrete)",
+                      }}
+                    >
+                      <a
+                        href={documentUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex min-w-0 items-center gap-1.5 text-m-body underline underline-offset-2"
+                        style={{ color: "var(--color-ink-500)" }}
+                      >
+                        <FileText
+                          className="size-3.5 shrink-0"
+                          style={{ color: "var(--color-ink-700)" }}
+                        />
+                        <span className="truncate">
+                          {documentName || "View document"}
+                        </span>
+                      </a>
+                      <button
+                        type="button"
+                        onClick={removeDocument}
+                        className="shrink-0 grid place-items-center size-6 rounded press"
+                        style={{ color: "var(--color-ink-700)" }}
+                        aria-label="Remove"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label
+                      className="flex cursor-pointer items-center justify-center gap-1.5 rounded-[0.5rem] border border-dashed px-3 py-2.5 text-m-caption transition-colors press"
+                      style={{
+                        borderColor: "var(--color-line)",
+                        color: "var(--color-ink-700)",
+                      }}
+                    >
+                      <Upload className="size-3.5" />
+                      {uploading
+                        ? "Uploading…"
+                        : "Upload sale deed / registry document"}
+                      <input
+                        type="file"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                        disabled={uploading}
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip"
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {/* Parent parcel number */}
+                <div>
+                  <label className={labelClass} style={labelStyle}>
+                    Parent Parcel Number
                   </label>
                   <input
                     type="text"
-                    value={land.registryNo}
-                    onChange={(e) => setLandField("registryNo", e.target.value)}
-                    placeholder="REG-2024-0123"
+                    value={land.parentParcelNumber}
+                    onChange={(e) =>
+                      setLandField("parentParcelNumber", e.target.value)
+                    }
+                    placeholder="PLOT-1 (default)"
                     enterKeyHint="next"
                     className={inputClass}
                     style={inputStyle}
                   />
                 </div>
+              </div>
+
+              {/* Purchase Mode */}
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Purchase Mode
+                </p>
                 <div>
                   <label className={labelClass} style={labelStyle}>
-                    Purchase Date
+                    How is this land being purchased?
                   </label>
-                  <input
-                    type="date"
-                    value={land.purchaseDate}
-                    onChange={(e) =>
-                      setLandField("purchaseDate", e.target.value)
-                    }
-                    className={inputClass}
-                    style={inputStyle}
-                  />
-                </div>
-              </div>
-
-              {/* Document upload */}
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Document
-                </label>
-                {documentUrl ? (
-                  <div
-                    className="flex items-center justify-between gap-1 rounded-[0.5rem] border px-3 py-2"
-                    style={{
-                      borderColor: "var(--color-line)",
-                      backgroundColor: "var(--color-concrete)",
-                    }}
-                  >
-                    <a
-                      href={documentUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex min-w-0 items-center gap-1.5 text-m-body underline underline-offset-2"
-                      style={{ color: "var(--color-ink-500)" }}
-                    >
-                      <FileText
-                        className="size-3.5 shrink-0"
-                        style={{ color: "var(--color-ink-700)" }}
-                      />
-                      <span className="truncate">
-                        {documentName || "View document"}
-                      </span>
-                    </a>
+                  <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                     <button
                       type="button"
-                      onClick={removeDocument}
-                      className="shrink-0 grid place-items-center size-6 rounded press"
-                      style={{ color: "var(--color-ink-700)" }}
-                      aria-label="Remove"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <label
-                    className="flex cursor-pointer items-center justify-center gap-1.5 rounded-[0.5rem] border border-dashed px-3 py-2.5 text-m-caption transition-colors press"
-                    style={{
-                      borderColor: "var(--color-line)",
-                      color: "var(--color-ink-700)",
-                    }}
-                  >
-                    <Upload className="size-3.5" />
-                    {uploading
-                      ? "Uploading…"
-                      : "Upload sale deed / registry document"}
-                    <input
-                      type="file"
-                      className="hidden"
-                      onChange={handleFileUpload}
-                      disabled={uploading}
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip"
-                    />
-                  </label>
-                )}
-              </div>
-
-              {/* Parent parcel number */}
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Parent Parcel Number
-                </label>
-                <input
-                  type="text"
-                  value={land.parentParcelNumber}
-                  onChange={(e) =>
-                    setLandField("parentParcelNumber", e.target.value)
-                  }
-                  placeholder="PLOT-1 (default)"
-                  enterKeyHint="next"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
-
-              {/* Mode selection */}
-              <div className="">
-                <label className={labelClass} style={labelStyle}>
-                  How is this land being purchased?
-                </label>
-                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-                  <button
-                    type="button"
-                    onClick={() => selectMode("WHOLE")}
-                    className="rounded-[0.5rem] border p-3 text-left transition-colors press"
-                    style={{
-                      borderColor:
-                        mode === "WHOLE"
-                          ? "var(--color-ink-950)"
-                          : "var(--color-line)",
-                      backgroundColor:
-                        mode === "WHOLE"
-                          ? "var(--color-concrete)"
-                          : "transparent",
-                    }}
-                  >
-                    <CircleDollarSign
-                      className="size-4 mb-1"
+                      onClick={() => selectMode("WHOLE")}
+                      className="rounded-[0.5rem] border p-3 text-left transition-colors press"
                       style={{
-                        color:
+                        borderColor:
                           mode === "WHOLE"
                             ? "var(--color-ink-950)"
-                            : "var(--color-ink-500)",
+                            : "var(--color-line)",
+                        backgroundColor:
+                          mode === "WHOLE"
+                            ? "var(--color-concrete)"
+                            : "transparent",
                       }}
-                    />
-                    <div
-                      className="text-m-body font-bold"
-                      style={{ color: "var(--color-ink-500)" }}
                     >
-                      Whole Plot
-                    </div>
-                    <div
-                      className="text-m-caption"
-                      style={{ color: "var(--color-ink-700)" }}
-                    >
-                      Single parcel
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => selectMode("SUBDIVIDED")}
-                    className="rounded-[0.5rem] border p-3 text-left transition-colors press"
-                    style={{
-                      borderColor:
-                        mode === "SUBDIVIDED"
-                          ? "var(--color-ink-950)"
-                          : "var(--color-line)",
-                      backgroundColor:
-                        mode === "SUBDIVIDED"
-                          ? "var(--color-concrete)"
-                          : "transparent",
-                    }}
-                  >
-                    <SplitSquareHorizontal
-                      className="size-4 mb-1"
+                      <CircleDollarSign
+                        className="size-4 mb-1"
+                        style={{
+                          color:
+                            mode === "WHOLE"
+                              ? "var(--color-ink-950)"
+                              : "var(--color-ink-500)",
+                        }}
+                      />
+                      <div
+                        className="text-m-body font-bold"
+                        style={{ color: "var(--color-ink-500)" }}
+                      >
+                        Whole Plot
+                      </div>
+                      <div
+                        className="text-m-caption"
+                        style={{ color: "var(--color-ink-700)" }}
+                      >
+                        Single parcel
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectMode("SUBDIVIDED")}
+                      className="rounded-[0.5rem] border p-3 text-left transition-colors press"
                       style={{
-                        color:
+                        borderColor:
                           mode === "SUBDIVIDED"
                             ? "var(--color-ink-950)"
-                            : "var(--color-ink-500)",
+                            : "var(--color-line)",
+                        backgroundColor:
+                          mode === "SUBDIVIDED"
+                            ? "var(--color-concrete)"
+                            : "transparent",
                       }}
-                    />
-                    <div
-                      className="text-m-body font-bold"
-                      style={{ color: "var(--color-ink-500)" }}
                     >
-                      Sub-divided
-                    </div>
-                    <div
-                      className="text-m-caption"
-                      style={{ color: "var(--color-ink-700)" }}
-                    >
-                      Multiple sections
-                    </div>
-                  </button>
+                      <SplitSquareHorizontal
+                        className="size-4 mb-1"
+                        style={{
+                          color:
+                            mode === "SUBDIVIDED"
+                              ? "var(--color-ink-950)"
+                              : "var(--color-ink-500)",
+                        }}
+                      />
+                      <div
+                        className="text-m-body font-bold"
+                        style={{ color: "var(--color-ink-500)" }}
+                      >
+                        Sub-divided
+                      </div>
+                      <div
+                        className="text-m-caption"
+                        style={{ color: "var(--color-ink-700)" }}
+                      >
+                        Multiple sections
+                      </div>
+                    </button>
+                  </div>
                 </div>
               </div>
             </>
@@ -1679,13 +1654,10 @@ export function MobileLandWizard({
           {/* Step 3: Review */}
           {step === 3 && (
             <>
-              <div style={cardStyle} className="space-y-3.5">
-                <div
-                  className="text-m-section font-bold"
-                  style={{ color: "var(--color-ink-500)" }}
-                >
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                   Review Land Purchase
-                </div>
+                </p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-m-caption">
                   <div style={{ color: "var(--color-ink-700)" }}>
                     Seller:{" "}
@@ -1862,16 +1834,13 @@ export function MobileLandWizard({
               >
                 Parcels ({sections.length})
               </div>
-              <div className="space-y-3">
+              <div className="flex flex-col gap-3">
                 {sections.map((s, _i) => (
-                  <div key={s.id} style={cardStyle} className="space-y-3">
+                  <div key={s.id} className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
                     <div className="flex items-center justify-between">
-                      <span
-                        className="text-m-body font-bold"
-                        style={{ color: "var(--color-ink-500)" }}
-                      >
+                      <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                         {s.number}
-                      </span>
+                      </p>
                       <MobilePurposeBadge purpose={s.purpose} />
                     </div>
                     <div
@@ -2026,8 +1995,7 @@ export function MobileLandWizard({
             </button>
           )}
         </div>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }
 
@@ -2075,14 +2043,11 @@ function MobileSectionEditor({
       : 0;
 
   return (
-    <div style={cardStyle} className="space-y-3">
+    <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
       <div className="flex items-center justify-between">
-        <span
-          className="text-m-body font-bold"
-          style={{ color: "var(--color-ink-500)" }}
-        >
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
           {isWhole ? "Parcel" : `Section ${index + 1}`}
-        </span>
+        </p>
         {canRemove && (
           <button
             type="button"

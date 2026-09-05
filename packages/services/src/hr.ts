@@ -9,6 +9,7 @@ import { emitNotificationEvent, NotificationEventType } from "./notification-eve
 import { recordMovement, withStockTransaction } from "./stock-ledger";
 import { postMaterialIssue } from "./gl-posting";
 import { withSerializableTransaction } from "./transaction";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * Generate the next SA-YYMMDD-NNNN slip number for a DPR-generated material issue.
@@ -18,8 +19,7 @@ async function generateDprIssueNumber(tx: Prisma.TransactionClient): Promise<str
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `SA-${ymd}-`;
-  const count = await tx.materialIssue.count({ where: { issueNumber: { startsWith: prefix } } });
-  return `${prefix}${String(count + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 /**
@@ -593,6 +593,11 @@ export interface CreateEmployeeInput {
   reportingLocationId?: string;
   hierarchyLevel?: number;
   userId?: string;
+  // Employment terms (dossier) — accepted at creation time
+  employmentType?: "PERMANENT" | "CONTRACT" | "CASUAL" | "PROBATION" | "INTERN";
+  noticePeriodDays?: number;
+  contractStartDate?: Date;
+  contractEndDate?: Date;
 }
 
 export async function createEmployee(input: CreateEmployeeInput) {
@@ -626,6 +631,11 @@ export async function createEmployee(input: CreateEmployeeInput) {
         reportingLocationId: input.reportingLocationId || null,
         hierarchyLevel: input.hierarchyLevel ?? null,
         companyId: input.companyId,
+        // Employment terms (dossier)
+        employmentType: input.employmentType ?? null,
+        noticePeriodDays: input.noticePeriodDays ?? null,
+        contractStartDate: input.contractStartDate ?? null,
+        contractEndDate: input.contractEndDate ?? null,
       },
     });
     await logAction(tx, {
@@ -696,6 +706,29 @@ export async function updateEmployee(input: UpdateEmployeeInput) {
     if (input.active !== undefined) data.active = input.active;
 
     const updated = await tx.employee.update({ where: { id: input.employeeId }, data });
+
+    // ── Bidirectional sync: if the Employee has a linked User, mirror
+    //    name/phone/email/designation/joinDate changes to the User record so they
+    //    stay in sync (editing from either side updates both). ──
+    if (existing.userId && (data.name || data.phone !== undefined || data.email !== undefined || data.designation !== undefined || data.joinDate !== undefined)) {
+      const userData: Prisma.UserUpdateInput = {};
+      if (data.name) userData.name = data.name;
+      if (input.phone !== undefined) {
+        userData.phone = input.phone ?? null;
+        // Update normalized phone for OTP login lookup
+        if (input.phone) {
+          const digits = input.phone.replace(/\D/g, "");
+          if (digits.length >= 10) userData.phoneNormalized = digits;
+        }
+      }
+      if (input.email !== undefined && input.email !== null) userData.email = input.email;
+      if (input.designation !== undefined) userData.designation = input.designation ?? null;
+      if (data.joinDate !== undefined) userData.joiningDate = data.joinDate;
+      if (Object.keys(userData).length > 0) {
+        await tx.user.update({ where: { id: existing.userId }, data: userData });
+      }
+    }
+
     await logAction(tx, {
       userId: input.userId,
       action: "EMPLOYEE_UPDATE",
@@ -1171,6 +1204,38 @@ export async function processPayroll(input: { payrollPeriodId: string; userId?: 
     }
     if (period.lines.length === 0) {
       throw new HrError("Cannot process a payroll with no lines — generate first", 400);
+    }
+
+    // ── DPR approval gate ──
+    // Per the owner's required HR flow: Attendance → DPR → DPR Approval → Payroll.
+    // Before payroll can be processed, all DPRs for the payroll period's date
+    // range (for projects that have employees in this payroll) must be APPROVED.
+    // Projects with no DPRs in the period are OK (not all projects have daily reports).
+    const projectIds = new Set<string>();
+    for (const line of period.lines) {
+      const pid = line.employee?.activeProjectId;
+      if (pid) projectIds.add(pid);
+    }
+
+    if (projectIds.size > 0) {
+      const unapprovedDprs = await tx.dailyProgressReport.findMany({
+        where: {
+          companyId: period.companyId,
+          projectId: { in: Array.from(projectIds) },
+          date: { gte: period.startDate, lte: period.endDate },
+          approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] },
+        },
+        select: { id: true, projectId: true, date: true, approvalStatus: true },
+      });
+      if (unapprovedDprs.length > 0) {
+        const count = unapprovedDprs.length;
+        const sample = unapprovedDprs.slice(0, 3).map((d) => d.date.toISOString().slice(0, 10)).join(", ");
+        throw new HrError(
+          `Cannot process payroll: ${count} DPR(s) in this period are not yet fully approved (e.g. ${sample}). ` +
+          "Please approve all DPRs for the payroll period before processing payroll.",
+          409,
+        );
+      }
     }
 
     // Sum line-level PF, employer PF, ESI, profession tax, and TDS

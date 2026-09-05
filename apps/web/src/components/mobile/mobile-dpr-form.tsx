@@ -40,10 +40,10 @@ type YesterdayDpr = {
   laborLines: { employeeId: string | null; crewId: string | null; hoursWorked: number; taskDescription: string }[];
 };
 
-const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section font-medium outline-none";
+const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
 const inputStyle = {
   borderColor: "var(--color-line)",
-  backgroundColor: "var(--color-paper)",
+  backgroundColor: "transparent",
   color: "var(--color-ink-950)",
 } as React.CSSProperties;
 
@@ -59,12 +59,40 @@ function FormField({
   return (
     <div>
       <label
-        className="block text-m-caption font-semibold mb-1"
-        style={{ color: "var(--color-ink-500)" }}
+        className="block text-m-caption font-bold mb-0"
+        style={{ color: "var(--color-ink-700)" }}
       >
         {label}
         {required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
       </label>
+      {children}
+    </div>
+  );
+}
+
+function SectionCard({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+    >
+      <div className="flex items-center justify-between">
+        <h3
+          className="text-m-section font-extrabold tracking-tight"
+          style={{ color: "var(--color-ink-950)" }}
+        >
+          {title}
+        </h3>
+        {action}
+      </div>
       {children}
     </div>
   );
@@ -568,7 +596,9 @@ export function MobileDprForm({
         </div>
       )}
 
-      {/* ══════ SECTION: Basic info ══════ */}
+      {/* ══════ SECTION: Details ══════ */}
+      <SectionCard title="Details">
+      {/* ── SECTION: Basic info ─────────────────────────── */}
       <FormField label="Project" required>
         <div className="flex gap-1.5">
           <select value={fProject} onChange={(e) => onProjectChange(e.target.value)} className={`${inputClass} flex-1`} style={inputStyle}>
@@ -599,7 +629,7 @@ export function MobileDprForm({
         </select>
       </FormField>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
         <FormField label="Work Qty">
           <input
             type="number"
@@ -629,7 +659,7 @@ export function MobileDprForm({
         </FormField>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
         <FormField label="Date" required>
           <input type="date" value={fDate} onChange={(e) => setFDate(e.target.value)} className={inputClass} style={inputStyle} />
         </FormField>
@@ -643,26 +673,30 @@ export function MobileDprForm({
       </FormField>
 
       <FormField label="Work summary" required>
-        <textarea value={fWorkSummary} onChange={(e) => setFWorkSummary(e.target.value)} rows={3} placeholder="What work was done today?" className={`${inputClass} resize-none`} style={inputStyle} />
+        <textarea value={fWorkSummary} onChange={(e) => setFWorkSummary(e.target.value)} rows={2} placeholder="What work was done today?" className="w-full px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
       </FormField>
 
       <FormField label="Blockers">
-        <textarea value={fBlockers} onChange={(e) => setFBlockers(e.target.value)} rows={2} placeholder="Any delays or issues?" className={`${inputClass} resize-none`} style={inputStyle} />
+        <textarea value={fBlockers} onChange={(e) => setFBlockers(e.target.value)} rows={1} placeholder="Any delays or issues?" className="w-full px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
       </FormField>
 
       <FormField label="Tomorrow's plan">
-        <textarea value={fTomorrow} onChange={(e) => setFTomorrow(e.target.value)} rows={2} placeholder="What's planned for tomorrow?" className={`${inputClass} resize-none`} style={inputStyle} />
+        <textarea value={fTomorrow} onChange={(e) => setFTomorrow(e.target.value)} rows={1} placeholder="What's planned for tomorrow?" className="w-full px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
       </FormField>
+      </SectionCard>
 
       {/* ══════ SECTION: Materials ══════ */}
       <div
-        className="rounded-[0.625rem] border p-3"
+        className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+        <div className="flex items-center justify-between">
+          <h3
+            className="text-m-section font-extrabold tracking-tight"
+            style={{ color: "var(--color-ink-950)" }}
+          >
             Materials used
-          </p>
+          </h3>
           <div className="flex items-center gap-1.5">
             {yesterdayDpr && !editingDprId && (
               <button
@@ -745,9 +779,9 @@ export function MobileDprForm({
                   } : m));
                 }}
               />
-              <div className="grid grid-cols-2 gap-1.5 mt-1.5">
-                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Qty" value={l.qty} onChange={(e) => setMaterialLines(materialLines.map((m, i) => i === idx ? { ...m, qty: e.target.value } : m))} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-label tabular-nums outline-none" style={inputStyle} />
-                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Unit cost" value={l.unitCost} onChange={(e) => setMaterialLines(materialLines.map((m, i) => i === idx ? { ...m, unitCost: e.target.value } : m))} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-label tabular-nums outline-none" style={inputStyle} />
+              <div className="grid grid-cols-2 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Qty" value={l.qty} onChange={(e) => setMaterialLines(materialLines.map((m, i) => i === idx ? { ...m, qty: e.target.value } : m))} className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={inputStyle} />
+                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Unit cost" value={l.unitCost} onChange={(e) => setMaterialLines(materialLines.map((m, i) => i === idx ? { ...m, unitCost: e.target.value } : m))} className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={inputStyle} />
               </div>
               {l.qty && l.unitCost && Number(l.qty) > 0 && Number(l.unitCost) > 0 ? (
                 <p className="text-right text-m-caption font-semibold tabular-nums mt-1" style={{ color: "var(--color-ink-500)" }}>
@@ -774,13 +808,16 @@ export function MobileDprForm({
 
       {/* ══════ SECTION: Labour ══════ */}
       <div
-        className="rounded-[0.625rem] border p-3"
+        className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+        <div className="flex items-center justify-between">
+          <h3
+            className="text-m-section font-extrabold tracking-tight"
+            style={{ color: "var(--color-ink-950)" }}
+          >
             Labour utilised
-          </p>
+          </h3>
           <div className="flex items-center gap-1.5">
             {fProject && !editingDprId && (
               <button
@@ -825,30 +862,32 @@ export function MobileDprForm({
                   <X className="size-3" style={{ color: "var(--color-stop)" }} />
                 </button>
               </div>
-              <select value={l.employeeId} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, employeeId: e.target.value, crewId: e.target.value ? "" : m.crewId } : m))} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-label mb-1.5 outline-none" style={inputStyle}>
+              <select value={l.employeeId} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, employeeId: e.target.value, crewId: e.target.value ? "" : m.crewId } : m))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors mb-1.5" style={inputStyle}>
                 <option value="">Individual worker…</option>
                 {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.name} {emp.trade ? `(${emp.trade})` : ""}</option>)}
               </select>
-              <select value={l.crewId} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, crewId: e.target.value, employeeId: e.target.value ? "" : m.employeeId } : m))} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-label mb-1.5 outline-none" style={inputStyle}>
+              <select value={l.crewId} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, crewId: e.target.value, employeeId: e.target.value ? "" : m.employeeId } : m))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors mb-1.5" style={inputStyle}>
                 <option value="">Or crew…</option>
                 {crews.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              <div className="grid grid-cols-2 gap-1.5">
-                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Hours" value={l.hoursWorked} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, hoursWorked: e.target.value } : m))} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-label tabular-nums outline-none" style={inputStyle} />
-                <input placeholder="Task description" value={l.taskDescription} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, taskDescription: e.target.value } : m))} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-label outline-none" style={inputStyle} />
+              <div className="grid grid-cols-2 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Hours" value={l.hoursWorked} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, hoursWorked: e.target.value } : m))} className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={inputStyle} />
+                <input placeholder="Task description" value={l.taskDescription} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, taskDescription: e.target.value } : m))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={inputStyle} />
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      <FormField label="Notes">
-        <textarea value={fNotes} onChange={(e) => setFNotes(e.target.value)} rows={2} placeholder="Additional notes…" className={`${inputClass} resize-none`} style={inputStyle} />
-      </FormField>
+      <SectionCard title="Notes">
+        <FormField label="Notes">
+          <textarea value={fNotes} onChange={(e) => setFNotes(e.target.value)} rows={1} placeholder="Additional notes…" className="w-full px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
+        </FormField>
+      </SectionCard>
 
       <div>
         <div className="flex items-center justify-between mb-1">
-          <label className="block text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
+          <label className="block text-m-caption font-bold" style={{ color: "var(--color-ink-700)" }}>
             Site photos
           </label>
           {fPhotos.length > 0 && (
@@ -869,14 +908,13 @@ export function MobileDprForm({
 
       {/* ── Sticky save bar ─────────────────────────────────── */}
       <div
-        className="fixed left-0 right-0 z-30 border-t backdrop-blur-sm"
+        className="sticky bottom-0 left-0 right-0 z-20 border-t"
         style={{
-          bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px))",
-          backgroundColor: "color-mix(in srgb, var(--color-paper) 97%, transparent)",
+          backgroundColor: "var(--color-paper)",
           borderColor: "var(--color-line)",
         }}
       >
-        <div className="max-w-md mx-auto px-3.5 py-2">
+        <div className="flex items-center justify-between gap-3 px-1 py-2">
           <button
             type="button"
             onClick={submit}

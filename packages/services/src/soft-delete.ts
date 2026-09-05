@@ -1,4 +1,5 @@
 import { prisma } from "@nirman/db";
+import Decimal from "decimal.js";
 import { ServiceError } from "./errors";
 
 /**
@@ -7,6 +8,26 @@ import { ServiceError } from "./errors";
  * Never hard-deletes. Sets deletedAt = now() after checking guard conditions.
  * Guards prevent deleting entities that are "in use" (have stock, open orders, etc.).
  */
+
+/**
+ * Check if any stock location item has a positive quantity.
+ * Pure function — no DB access.
+ *
+ * Used by the Material and StockLocation delete guards.
+ */
+export function hasPositiveStock(items: { qty: number | string | Decimal }[]): boolean {
+  return items.some((i) => Number(i.qty) > 0);
+}
+
+/**
+ * Check if a project status allows deletion.
+ * Pure function — no DB access.
+ *
+ * ACTIVE projects cannot be deleted — must be completed or put on hold first.
+ */
+export function isProjectDeletable(status: string): boolean {
+  return status !== "ACTIVE";
+}
 
 type EntityType =
   | "Company"

@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {X, Loader2, Pencil} from "lucide-react";
+import {Loader2} from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 type ProjectType =
   | "RESIDENTIAL"
@@ -154,228 +155,183 @@ export function MobileEditProjectDialog({
     }
   }
 
-  if (!open) return null;
-
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span
-              className="grid place-items-center size-7 rounded-[0.375rem]"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              <Pencil
-                className="size-3.5"
-                style={{ color: "var(--color-ink-600)" }}
-              />
-            </span>
-            <p
-              className="text-m-section font-bold"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              Edit Project
+    <MobileDialog open={open} onClose={onClose} title="Edit Project">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {/* ── Project Details ── */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Project Details
             </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-500)" }}
-            aria-label="Close"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {/* Name */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Project Name <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
-              autoFocus
-              enterKeyHint="next"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Type + Status */}
-          <div className="grid grid-cols-2 gap-3">
+            {/* Name */}
             <div>
               <label className={labelClass} style={labelStyle}>
-                Type
-              </label>
-              <select
-                value={form.type}
-                onChange={(e) => set("type", e.target.value as ProjectType)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {(Object.keys(TYPE_LABELS) as ProjectType[]).map((t) => (
-                  <option key={t} value={t}>
-                    {TYPE_LABELS[t]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Status
-              </label>
-              <select
-                value={form.status}
-                onChange={(e) => set("status", e.target.value as ProjectStatus)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {(Object.keys(STATUS_LABELS) as ProjectStatus[]).map((s) => (
-                  <option key={s} value={s}>
-                    {STATUS_LABELS[s]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Address */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Address
-            </label>
-            <input
-              type="text"
-              value={form.address}
-              onChange={(e) => set("address", e.target.value)}
-              placeholder="Plot no, area, city, PIN"
-              enterKeyHint="next"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Start Date
+                Project Name <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
               <input
-                type="date"
-                value={form.startDate}
-                onChange={(e) => set("startDate", e.target.value)}
+                type="text"
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                autoFocus
+                enterKeyHint="next"
                 className={inputClass}
                 style={inputStyle}
               />
             </div>
+
+            {/* Type + Status */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Type
+                </label>
+                <select
+                  value={form.type}
+                  onChange={(e) => set("type", e.target.value as ProjectType)}
+                  className={inputClass}
+                  style={inputStyle}
+                >
+                  {(Object.keys(TYPE_LABELS) as ProjectType[]).map((t) => (
+                    <option key={t} value={t}>
+                      {TYPE_LABELS[t]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Status
+                </label>
+                <select
+                  value={form.status}
+                  onChange={(e) => set("status", e.target.value as ProjectStatus)}
+                  className={inputClass}
+                  style={inputStyle}
+                >
+                  {(Object.keys(STATUS_LABELS) as ProjectStatus[]).map((s) => (
+                    <option key={s} value={s}>
+                      {STATUS_LABELS[s]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Address */}
             <div>
               <label className={labelClass} style={labelStyle}>
-                End Date
+                Address
               </label>
               <input
-                type="date"
-                value={form.endDate}
-                onChange={(e) => set("endDate", e.target.value)}
+                type="text"
+                value={form.address}
+                onChange={(e) => set("address", e.target.value)}
+                placeholder="Plot no, area, city, PIN"
+                enterKeyHint="next"
                 className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={form.startDate}
+                  onChange={(e) => set("startDate", e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={form.endDate}
+                  onChange={(e) => set("endDate", e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            {/* Budget + Area */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Budget (₹)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={form.totalBudget}
+                  onChange={(e) => set("totalBudget", e.target.value)}
+                  placeholder="0"
+                  inputMode="numeric"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Sellable Area (sq.ft)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={form.totalSellableArea}
+                  onChange={(e) => set("totalSellableArea", e.target.value)}
+                  placeholder="0"
+                  inputMode="decimal"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Description
+              </label>
+              <textarea
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
+                rows={1}
+                placeholder="Optional notes"
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
                 style={inputStyle}
               />
             </div>
           </div>
 
-          {/* Budget + Area */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* ── RERA Registration ── */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
             <div>
-              <label className={labelClass} style={labelStyle}>
-                Budget (₹)
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={form.totalBudget}
-                onChange={(e) => set("totalBudget", e.target.value)}
-                placeholder="0"
-                inputMode="numeric"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Sellable Area (sq.ft)
-              </label>
-              <input
-                type="number"
-                min={0}
-                step="any"
-                value={form.totalSellableArea}
-                onChange={(e) => set("totalSellableArea", e.target.value)}
-                placeholder="0"
-                inputMode="decimal"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Description
-            </label>
-            <textarea
-              value={form.description}
-              onChange={(e) => set("description", e.target.value)}
-              rows={2}
-              placeholder="Optional notes"
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section outline-none resize-none"
-              style={inputStyle}
-            />
-          </div>
-
-          {/* RERA Registration */}
-          <div
-            className="rounded-[0.5rem] border p-3 space-y-2.5"
-            style={{ borderColor: "var(--color-line)" }}
-          >
-            <div>
-              <div
-                className="text-m-body font-bold"
-                style={{ color: "var(--color-ink-950)" }}
-              >
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                 RERA Registration
-              </div>
-              <div
-                className="text-m-caption"
-                style={{ color: "var(--color-ink-500)" }}
-              >
+              </p>
+              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 Mandatory for projects &gt; 500 sqm or &gt; 8 units.
-              </div>
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -433,25 +389,30 @@ export function MobileEditProjectDialog({
             </div>
           </div>
 
-          {/* LCI Threshold override */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              LCI Threshold % (optional)
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="any"
-              value={form.lciThreshold}
-              onChange={(e) => set("lciThreshold", e.target.value)}
-              placeholder="Company default"
-              className={inputClass}
-              style={inputStyle}
-            />
-            <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
-              Per-project override for the Logistics Complexity Index threshold that routes procurement between central and direct.
+          {/* ── Procurement ── */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Procurement
             </p>
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                LCI Threshold % (optional)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="any"
+                value={form.lciThreshold}
+                onChange={(e) => set("lciThreshold", e.target.value)}
+                placeholder="Company default"
+                className={inputClass}
+                style={inputStyle}
+              />
+              <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
+                Per-project override for the Logistics Complexity Index threshold that routes procurement between central and direct.
+              </p>
+            </div>
           </div>
 
           {/* Actions */}
@@ -483,7 +444,6 @@ export function MobileEditProjectDialog({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }

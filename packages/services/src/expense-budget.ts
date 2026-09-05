@@ -10,6 +10,27 @@ import { withSerializableTransaction } from "./transaction";
  * Actuals are summed from APPROVED expenses in the period.
  */
 
+/**
+ * Compute budget utilization percentage.
+ * Pure function — no DB access.
+ *
+ *   utilizationPct = round(actual / budget × 1000) / 10  (1 decimal place)
+ *   Returns 0 when budget ≤ 0.
+ */
+export function computeUtilizationPct(budgetAmt: number, actual: number): number {
+  return budgetAmt > 0 ? Math.round((actual / budgetAmt) * 1000) / 10 : 0;
+}
+
+/**
+ * Compute budget variance.
+ * Pure function — no DB access.
+ *
+ *   variance = budget − actual
+ */
+export function computeBudgetVarianceAmount(budgetAmt: number, actual: number): number {
+  return budgetAmt - actual;
+}
+
 export interface SetBudgetInput {
   companyId: string;
   projectId?: string | null;

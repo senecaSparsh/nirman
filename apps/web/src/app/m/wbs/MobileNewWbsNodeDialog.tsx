@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, ListTree, Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 type WbsNodeType = "PROJECT_NODE" | "PHASE_NODE" | "ACTIVITY" | "SUB_ACTIVITY" | "MILESTONE";
 
@@ -152,259 +153,234 @@ export function MobileNewWbsNodeDialog({
     }
   }
 
-  if (!open) return null;
-
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
   const isMilestone = form.type === "MILESTONE";
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span
-              className="grid place-items-center size-7 rounded-[0.375rem]"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              <ListTree
-                className="size-3.5"
-                style={{ color: "var(--color-ink-600)" }}
-              />
-            </span>
-            <p
-              className="text-m-section font-bold"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              Add WBS Node
+    <MobileDialog open={open} onClose={onClose} title="New WBS Node">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {/* Hierarchy */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Hierarchy
             </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-500)" }}
-            aria-label="Close"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {/* Parent (optional) */}
-          {parentNodes.length > 0 && (
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Parent (optional)
-              </label>
-              <select
-                value={form.parentId}
-                onChange={(e) => onParentChange(e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                <option value="">— Top-level (no parent) —</option>
-                {parentNodes.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.code} · {p.name} ({TYPE_LABELS[p.type]})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Type selector */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Node Type
-            </label>
-            <div className="flex gap-2 flex-wrap">
-              {allowedTypes.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => {
-                    set("type", t);
-                    haptic(10);
-                  }}
-                  className="flex-1 min-w-[5rem] h-10 rounded-[0.5rem] border-2 text-m-caption font-bold text-m-body press"
-                  style={{
-                    borderColor:
-                      form.type === t
-                        ? "var(--color-ink-950)"
-                        : "var(--color-line)",
-                    backgroundColor:
-                      form.type === t
-                        ? "var(--color-ink-950)"
-                        : "var(--color-paper)",
-                    color:
-                      form.type === t
-                        ? "var(--color-paper)"
-                        : "var(--color-ink-500)",
-                  }}
-                >
-                  {TYPE_LABELS[t]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Code + Name */}
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Code <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={form.code}
-                onChange={(e) => set("code", e.target.value)}
-                placeholder="1.1"
-                autoFocus
-                enterKeyHint="next"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-            <div className="col-span-2">
-              <label className={labelClass} style={labelStyle}>
-                Name <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => set("name", e.target.value)}
-                placeholder="e.g. Foundation Works"
-                enterKeyHint="next"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Description (optional)
-            </label>
-            <textarea
-              value={form.description}
-              onChange={(e) => set("description", e.target.value)}
-              rows={2}
-              placeholder="Additional context…"
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section outline-none resize-none"
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Planned Start
-              </label>
-              <input
-                type="date"
-                value={form.plannedStart}
-                onChange={(e) => set("plannedStart", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Planned End{isMilestone ? " (= start)" : ""}
-              </label>
-              <input
-                type="date"
-                value={isMilestone ? form.plannedStart : form.plannedEnd}
-                onChange={(e) => set("plannedEnd", e.target.value)}
-                disabled={isMilestone}
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          {/* BOQ link (for ACTIVITY / SUB_ACTIVITY) */}
-          {(form.type === "ACTIVITY" || form.type === "SUB_ACTIVITY") &&
-            boqItems.length > 0 && (
+            {/* Parent (optional) */}
+            {parentNodes.length > 0 && (
               <div>
                 <label className={labelClass} style={labelStyle}>
-                  Link to BOQ Item (optional)
+                  Parent (optional)
                 </label>
                 <select
-                  value={form.boqItemId}
-                  onChange={(e) => set("boqItemId", e.target.value)}
+                  value={form.parentId}
+                  onChange={(e) => onParentChange(e.target.value)}
                   className={inputClass}
                   style={inputStyle}
                 >
-                  <option value="">— None —</option>
-                  {boqItems.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.serialNo} — {b.description}
+                  <option value="">— Top-level (no parent) —</option>
+                  {parentNodes.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.code} · {p.name} ({TYPE_LABELS[p.type]})
                     </option>
                   ))}
                 </select>
               </div>
             )}
 
-          {/* Critical path toggle */}
-          <label
-            className="flex items-center gap-2 cursor-pointer touch"
-            onClick={() => {
-              set("isCritical", !form.isCritical);
-              haptic(10);
-            }}
-          >
-            <span
-              className="grid place-items-center size-5 rounded-[0.375rem] border-2"
-              style={{
-                borderColor: form.isCritical
-                  ? "var(--color-stop)"
-                  : "var(--color-line)",
-                backgroundColor: form.isCritical
-                  ? "var(--color-stop)"
-                  : "transparent",
+            {/* Type selector */}
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Node Type
+              </label>
+              <div className="flex gap-2 flex-wrap">
+                {allowedTypes.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => {
+                      set("type", t);
+                      haptic(10);
+                    }}
+                    className="flex-1 min-w-[5rem] h-10 rounded-[0.5rem] border-2 text-m-caption font-bold text-m-body press"
+                    style={{
+                      borderColor:
+                        form.type === t
+                          ? "var(--color-ink-950)"
+                          : "var(--color-line)",
+                      backgroundColor:
+                        form.type === t
+                          ? "var(--color-ink-950)"
+                          : "var(--color-paper)",
+                      color:
+                        form.type === t
+                          ? "var(--color-paper)"
+                          : "var(--color-ink-500)",
+                    }}
+                  >
+                    {TYPE_LABELS[t]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Node Details */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Node Details
+            </p>
+            {/* Code + Name */}
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Code <span style={{ color: "var(--color-stop)" }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.code}
+                  onChange={(e) => set("code", e.target.value)}
+                  placeholder="1.1"
+                  autoFocus
+                  enterKeyHint="next"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div className="col-span-2">
+                <label className={labelClass} style={labelStyle}>
+                  Name <span style={{ color: "var(--color-stop)" }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => set("name", e.target.value)}
+                  placeholder="e.g. Foundation Works"
+                  enterKeyHint="next"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Description (optional)
+              </label>
+              <textarea
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
+                rows={1}
+                placeholder="Additional context…"
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          {/* Schedule & Links */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Schedule &amp; Links
+            </p>
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Planned Start
+                </label>
+                <input
+                  type="date"
+                  value={form.plannedStart}
+                  onChange={(e) => set("plannedStart", e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div className="pl-2">
+                <label className={labelClass} style={labelStyle}>
+                  Planned End{isMilestone ? " (= start)" : ""}
+                </label>
+                <input
+                  type="date"
+                  value={isMilestone ? form.plannedStart : form.plannedEnd}
+                  onChange={(e) => set("plannedEnd", e.target.value)}
+                  disabled={isMilestone}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            {/* BOQ link (for ACTIVITY / SUB_ACTIVITY) */}
+            {(form.type === "ACTIVITY" || form.type === "SUB_ACTIVITY") &&
+              boqItems.length > 0 && (
+                <div>
+                  <label className={labelClass} style={labelStyle}>
+                    Link to BOQ Item (optional)
+                  </label>
+                  <select
+                    value={form.boqItemId}
+                    onChange={(e) => set("boqItemId", e.target.value)}
+                    className={inputClass}
+                    style={inputStyle}
+                  >
+                    <option value="">— None —</option>
+                    {boqItems.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.serialNo} — {b.description}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+            {/* Critical path toggle */}
+            <label
+              className="flex items-center gap-2 cursor-pointer touch"
+              onClick={() => {
+                set("isCritical", !form.isCritical);
+                haptic(10);
               }}
             >
-              {form.isCritical ? (
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="white"
-                  strokeWidth="3"
-                  className="size-3"
-                >
-                  <path d="M5 12l5 5L20 7" />
-                </svg>
-              ) : null}
-            </span>
-            <span
-              className="text-m-body font-semibold"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              Critical path node
-            </span>
-          </label>
+              <span
+                className="grid place-items-center size-5 rounded-[0.375rem] border-2"
+                style={{
+                  borderColor: form.isCritical
+                    ? "var(--color-stop)"
+                    : "var(--color-line)",
+                  backgroundColor: form.isCritical
+                    ? "var(--color-stop)"
+                    : "transparent",
+                }}
+              >
+                {form.isCritical ? (
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="white"
+                    strokeWidth="3"
+                    className="size-3"
+                  >
+                    <path d="M5 12l5 5L20 7" />
+                  </svg>
+                ) : null}
+              </span>
+              <span
+                className="text-m-body font-semibold"
+                style={{ color: "var(--color-ink-700)" }}
+              >
+                Critical path node
+              </span>
+            </label>
+          </div>
 
           {/* Actions */}
           <div className="flex flex-col gap-2 pt-1">
@@ -435,8 +411,7 @@ export function MobileNewWbsNodeDialog({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }
 

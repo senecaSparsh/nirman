@@ -13,6 +13,54 @@ import { ServiceError } from "./errors";
 
 // ── 1. Project Profit Center ───────────────────────────────
 
+/**
+ * Compute derived profit center metrics from raw cost/revenue components.
+ * Pure function — no DB access.
+ *
+ *   totalCost     = land + material + labour + equipment + subcontractor + overhead
+ *   grossProfit   = totalInflow − totalCost
+ *   marginPct     = grossProfit / totalInflow × 100  (0 if no inflow)
+ *   costPerSqft   = totalCost / totalSellableArea    (0 if no area)
+ *   revenuePerSqft= totalRevenue / totalSellableArea (0 if no area)
+ */
+export function computeProfitCenterMetrics(input: {
+  totalRevenue: Decimal;
+  costRecovery: Decimal;
+  landCost: Decimal;
+  materialCost: Decimal;
+  labourCost: Decimal;
+  equipmentCost: Decimal;
+  subcontractorCost: Decimal;
+  overheadCost: Decimal;
+  totalSellableArea: Decimal;
+}): {
+  totalInflow: Decimal;
+  totalCost: Decimal;
+  grossProfit: Decimal;
+  marginPct: Decimal;
+  costPerSqft: Decimal;
+  revenuePerSqft: Decimal;
+} {
+  const totalInflow = input.totalRevenue.plus(input.costRecovery);
+  const totalCost = input.landCost
+    .plus(input.materialCost)
+    .plus(input.labourCost)
+    .plus(input.equipmentCost)
+    .plus(input.subcontractorCost)
+    .plus(input.overheadCost);
+  const grossProfit = totalInflow.minus(totalCost);
+  const marginPct = totalInflow.gt(0)
+    ? grossProfit.div(totalInflow).times(100)
+    : new Decimal(0);
+  const costPerSqft = input.totalSellableArea.gt(0)
+    ? totalCost.div(input.totalSellableArea)
+    : new Decimal(0);
+  const revenuePerSqft = input.totalSellableArea.gt(0)
+    ? input.totalRevenue.div(input.totalSellableArea)
+    : new Decimal(0);
+  return { totalInflow, totalCost, grossProfit, marginPct, costPerSqft, revenuePerSqft };
+}
+
 export interface ProjectProfitCenter {
   projectId: string;
   projectName: string;
@@ -403,6 +451,29 @@ export interface BudgetVariance {
   // Budget allocation: how the overall budget splits between BOQ + non-BOQ
   boqBudget: Decimal;        // sum of BOQ estimatedAmount
   nonBoqBudget: Decimal;     // totalBudget - boqBudget (the residual for land/material/overhead)
+}
+
+/**
+ * Compute budget variance for a single line item.
+ * Pure function — no DB access.
+ *
+ *   variance    = budget − actual
+ *   variancePct = variance / budget × 100  (0 if budget = 0)
+ *   status      = OVER if variancePct < −5%, UNDER if > 5%, ON_TRACK otherwise
+ */
+export function computeBudgetVariance(
+  budget: Decimal,
+  actual: Decimal,
+): {
+  variance: Decimal;
+  variancePct: Decimal;
+  status: "UNDER" | "ON_TRACK" | "OVER";
+} {
+  const variance = budget.minus(actual);
+  const variancePct = budget.gt(0) ? variance.div(budget).times(100) : new Decimal(0);
+  const status: "UNDER" | "ON_TRACK" | "OVER" =
+    variancePct.lt(-5) ? "OVER" : variancePct.gt(5) ? "UNDER" : "ON_TRACK";
+  return { variance, variancePct, status };
 }
 
 /**

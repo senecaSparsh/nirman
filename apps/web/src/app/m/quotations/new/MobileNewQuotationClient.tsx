@@ -202,41 +202,41 @@ export function MobileNewQuotationClient({
             Request Details
           </p>
 
-          {/* Title */}
-          <div className="">
-            <label className={labelClass} style={labelStyle}>
-              Title <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Steel + Cement for Tower A foundation"
-              required
-              autoFocus
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Project */}
-          <div className="">
-            <MobileSelectWithCreate
-              label="Project (optional)"
-              value={projectId}
-              onChange={setProjectId}
-              placeholder="No specific project"
-              options={data.projects.map((p) => ({ value: p.id, label: p.name }))}
-              inputClass={inputClass}
-              inputStyle={inputStyle}
-              labelClass={labelClass}
-              labelStyle={labelStyle}
-              renderDialog={({ open, onClose, onCreated, originRect }) => (
-                <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
-                  <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
-                </MobileFabModal>
-              )}
-            />
+          {/* Title + Project (side by side) */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Title <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Steel + Cement"
+                required
+                autoFocus
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <MobileSelectWithCreate
+                label="Project"
+                value={projectId}
+                onChange={setProjectId}
+                placeholder="No specific project"
+                options={data.projects.map((p) => ({ value: p.id, label: p.name }))}
+                inputClass={inputClass}
+                inputStyle={inputStyle}
+                labelClass={labelClass}
+                labelStyle={labelStyle}
+                renderDialog={({ open, onClose, onCreated, originRect }) => (
+                  <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+                    <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+                  </MobileFabModal>
+                )}
+              />
+            </div>
           </div>
 
           {/* Min quotes + Required by date */}
@@ -419,9 +419,10 @@ export function MobileNewQuotationClient({
               {lines.map((l) => (
                 <div
                   key={l.key}
-                  className="py-2 space-y-3"
+                  className="py-2 space-y-1.5"
                 >
-                  <div className="flex items-start justify-between gap-1">
+                  {/* Material name + Qty (side by side) */}
+                  <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                         {l.materialName}
@@ -432,6 +433,22 @@ export function MobileNewQuotationClient({
                         {` · GST ${l.gstRate}%`}
                       </p>
                     </div>
+                    <div className="shrink-0 flex items-center gap-1">
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0.001"
+                        step="any"
+                        value={l.qty}
+                        onChange={(e) => updateQty(l.key, e.target.value)}
+                        placeholder="Qty"
+                        className="w-16 h-7 px-1 text-m-caption font-mono font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors text-center"
+                        style={inputStyle}
+                      />
+                      <span className="text-m-caption shrink-0" style={{ color: "var(--color-ink-500)" }}>
+                        {l.unit}
+                      </span>
+                    </div>
                     <button
                       type="button"
                       onClick={() => removeLine(l.key)}
@@ -440,22 +457,6 @@ export function MobileNewQuotationClient({
                     >
                       <Trash2 className="size-3.5" />
                     </button>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min="0.001"
-                      step="any"
-                      value={l.qty}
-                      onChange={(e) => updateQty(l.key, e.target.value)}
-                      placeholder="Qty"
-                      className="w-20 h-8 px-1 text-m-caption font-mono font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
-                      style={inputStyle}
-                    />
-                    <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                      {l.unit}
-                    </span>
                   </div>
                 </div>
               ))}

@@ -8,6 +8,7 @@ import { postMaterialIssue, postMaterialIssueToDepartment, reverseJournalEntry }
 import { autoSyncEntryToTally } from "./auto-sync";
 import { ServiceError } from "./errors";
 import { assertGatePassApproved, autoCreateGatePassFromRef } from "./gate-pass";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * Generate the next SA-YYMMDD-NNNN slip number for a material issue.
@@ -17,8 +18,7 @@ async function generateIssueNumber(tx: Prisma.TransactionClient): Promise<string
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `SA-${ymd}-`;
-  const count = await tx.materialIssue.count({ where: { issueNumber: { startsWith: prefix } } });
-  return `${prefix}${String(count + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 /**
@@ -46,6 +46,9 @@ interface IssueMaterialsInput {
   driverPhone?: string;
   roundOff?: Decimal | number | string;
   builtUnitId?: string;
+  // Link to the approved requisition that authorized this issue.
+  // Optional for emergency/ad-hoc issues, but recommended per owner flow.
+  requisitionId?: string;
   lines: {
     materialId: string;
     qty: Decimal | number | string;
@@ -117,6 +120,18 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
       });
     }
 
+    // Validate requisition if provided — must be APPROVED
+    if (input.requisitionId) {
+      const req = await tx.materialRequisition.findUnique({
+        where: { id: input.requisitionId },
+        select: { id: true, status: true, projectId: true, departmentId: true },
+      });
+      if (!req) throw new Error("Requisition not found");
+      if (req.status !== "APPROVED") {
+        throw new Error(`Cannot issue against a requisition with status ${req.status} — requisition must be APPROVED first`);
+      }
+    }
+
     // Create MaterialIssue + lines (audit record)
     const materialIssue = await tx.materialIssue.create({
       data: {
@@ -127,6 +142,7 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
         notes: input.notes,
         totalCost,
         builtUnitId: input.builtUnitId ?? null,
+        requisitionId: input.requisitionId ?? null,
         receiverName: input.receiverName,
         receiverMobile: input.receiverMobile,
         vehicleNumber: input.vehicleNumber,
@@ -384,6 +400,7 @@ interface IssueToDepartmentInput {
   vehiclePhotoUrl?: string;
   driverName?: string;
   driverPhone?: string;
+  requisitionId?: string;
   lines: {
     materialId: string;
     qty: Decimal | number | string;
@@ -445,6 +462,18 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
       });
     }
 
+    // Validate requisition if provided — must be APPROVED
+    if (input.requisitionId) {
+      const req = await tx.materialRequisition.findUnique({
+        where: { id: input.requisitionId },
+        select: { id: true, status: true },
+      });
+      if (!req) throw new Error("Requisition not found");
+      if (req.status !== "APPROVED") {
+        throw new Error(`Cannot issue against a requisition with status ${req.status} — requisition must be APPROVED first`);
+      }
+    }
+
     // Create MaterialIssue + lines (audit record) — department target
     const materialIssue = await tx.materialIssue.create({
       data: {
@@ -454,6 +483,7 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
         issuedById: input.issuedById,
         notes: input.notes,
         totalCost,
+        requisitionId: input.requisitionId ?? null,
         receiverName: input.receiverName,
         receiverMobile: input.receiverMobile,
         vehicleNumber: input.vehicleNumber,

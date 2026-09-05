@@ -150,6 +150,11 @@ interface CreateTransferInput {
   freight?: Decimal | number | string;
   handlingFee?: Decimal | number | string;
   markupPct?: Decimal | number | string;
+  /** Transport / dispatch details */
+  referenceNo?: string;
+  ewayBillNo?: string;
+  vehicleNumber?: string;
+  transporterName?: string;
   lines: {
     materialId: string;
     qty: Decimal | number | string;
@@ -202,6 +207,10 @@ export async function createTransfer(input: CreateTransferInput) {
         freight,
         handlingFee,
         markupPct,
+        referenceNo: input.referenceNo ?? null,
+        ewayBillNo: input.ewayBillNo ?? null,
+        vehicleNumber: input.vehicleNumber ?? null,
+        transporterName: input.transporterName ?? null,
         lines: {
           create: input.lines.map((l) => ({
             materialId: l.materialId,

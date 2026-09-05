@@ -128,9 +128,16 @@ class StubEInvoiceProvider implements EInvoiceProvider {
 }
 
 let provider: EInvoiceProvider = new StubEInvoiceProvider();
+let providerIsStub = true;
 
 export function setEInvoiceProvider(p: EInvoiceProvider) {
   provider = p;
+  providerIsStub = false;
+}
+
+/** Returns true if the e-invoice provider is the default stub (no real NIC integration). */
+export function isEInvoiceConfigured(): boolean {
+  return !providerIsStub;
 }
 
 // ── Payload Builder ────────────────────────────────────────────────
@@ -536,7 +543,7 @@ export async function cancelAssetSaleIrn(
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function formatDateForNic(date: Date): string {
+export function formatDateForNic(date: Date): string {
   const d = new Date(date);
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");

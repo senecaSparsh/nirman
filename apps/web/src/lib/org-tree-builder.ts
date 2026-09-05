@@ -159,6 +159,35 @@ function subTier(role: string): number {
 }
 
 /**
+ * Compute task summary counts from a list of tasks.
+ * Counts: pending, inProgress, completed, overdue (pending/in-progress with past dueDate),
+ * dueToday (pending/in-progress with dueDate today).
+ */
+export function computeTaskSummary(
+  tasks: { status: string; dueDate: Date | null }[],
+  now: Date = new Date(),
+): { pending: number; inProgress: number; completed: number; overdue: number; dueToday: number } {
+  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const todayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+
+  let pending = 0, inProgress = 0, completed = 0, overdue = 0, dueToday = 0;
+  for (const t of tasks) {
+    if (t.status === "PENDING") pending++;
+    else if (t.status === "IN_PROGRESS") inProgress++;
+    else if (t.status === "COMPLETED") completed++;
+
+    const isActive = t.status === "PENDING" || t.status === "IN_PROGRESS";
+    if (isActive && t.dueDate) {
+      // Overdue: dueDate is in the past (before now)
+      if (t.dueDate < now) overdue++;
+      // Due today: dueDate falls within today's date range
+      if (t.dueDate >= todayStart && t.dueDate <= todayEnd) dueToday++;
+    }
+  }
+  return { pending, inProgress, completed, overdue, dueToday };
+}
+
+/**
  * Build the full org tree (reporting + assignment + teams) from raw DB rows.
  */
 export function buildOrgTree(

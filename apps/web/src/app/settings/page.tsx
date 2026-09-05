@@ -25,7 +25,7 @@ export default function SettingsPage() {
   );
 }
 
-async function SettingsContent() {
+export async function SettingsContent() {
   await connection();
   const user = await getCurrentUser();
   const role = await getUserRole();

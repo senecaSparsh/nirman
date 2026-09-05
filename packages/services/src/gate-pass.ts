@@ -5,6 +5,7 @@ import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * Gate Pass Service — outbound gate pass with approval workflow.
@@ -18,20 +19,36 @@ import { emitNotificationEvent, NotificationEventType } from "./notification-eve
  *                  → REJECTED     → CANCELLED
  */
 
+/**
+ * Validate that a gate pass status transition is allowed.
+ * Pure function — no DB access.
+ *
+ * Allowed transitions:
+ *   DRAFT → PENDING (submit)
+ *   PENDING → APPROVED, REJECTED
+ *   REJECTED → PENDING (resubmit)
+ *   APPROVED → EXITED (security confirms exit)
+ *   APPROVED, EXITED, CANCELLED, REJECTED → (no cancel from these states)
+ */
+export function isGatePassTransitionAllowed(from: string, to: string): boolean {
+  if (from === to) return true; // no-op
+  const allowed: Record<string, string[]> = {
+    DRAFT: ["PENDING", "CANCELLED"],
+    PENDING: ["APPROVED", "REJECTED", "CANCELLED"],
+    APPROVED: ["EXITED"],
+    REJECTED: ["PENDING"],
+    EXITED: [],
+    CANCELLED: [],
+  };
+  return allowed[from]?.includes(to) ?? false;
+}
+
 /** Generate a unique gate pass number: GP-YYMMDD-NNNN */
 async function generateGatePassNumber(tx: Prisma.TransactionClient): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `GP-${ymd}-`;
-  const existing = await tx.gatePass.findMany({
-    where: { gatePassNumber: { startsWith: prefix } },
-    select: { gatePassNumber: true },
-  });
-  const maxSeq = existing.reduce((max, e) => {
-    const n = parseInt(e.gatePassNumber?.slice(prefix.length) ?? "0", 10);
-    return n > max ? n : max;
-  }, 0);
-  return `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 export interface GatePassLineInput {

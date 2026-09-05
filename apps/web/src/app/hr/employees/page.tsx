@@ -97,6 +97,11 @@ async function EmployeesContent() {
     hierarchyLevel: e.hierarchyLevel,
     reportingLocationId: e.reportingLocationId,
     reportingLocationName: e.reportingLocation?.name ?? null,
+    employmentType: e.employmentType,
+    noticePeriodDays: e.noticePeriodDays,
+    contractStartDate: e.contractStartDate?.toISOString() ?? null,
+    contractEndDate: e.contractEndDate?.toISOString() ?? null,
+    userId: e.userId,
   }));
 
   const crewRowsMapped = crewRows.map((c) => ({

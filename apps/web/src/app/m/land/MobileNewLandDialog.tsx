@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, MapPin } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 
@@ -130,237 +131,206 @@ export function MobileNewLandDialog({
     }
   }
 
-  if (!open) return null;
-
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span
-              className="grid place-items-center size-7 rounded-[0.375rem]"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              <MapPin
-                className="size-3.5"
-                style={{ color: "var(--color-ink-600)" }}
-              />
-            </span>
-            <p
-              className="text-m-section font-bold"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              New Land Purchase
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-500)" }}
-            aria-label="Close"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
+    <MobileDialog open={open} onClose={onClose} title="New Land Purchase">
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {/* Seller Name */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Seller Name <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={form.sellerName}
-              onChange={(e) => set("sellerName", e.target.value)}
-              placeholder="e.g. Ramesh Properties"
-              autoFocus
-              enterKeyHint="next"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Seller Contact */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Seller Contact
-            </label>
-            <input
-              type="tel"
-              value={form.sellerContact}
-              onChange={(e) => set("sellerContact", e.target.value)}
-              placeholder="98765 43210"
-              enterKeyHint="next"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Project (optional) */}
-          <MobileSelectWithCreate
-            label="Project (optional)"
-            value={form.projectId}
-            onChange={(v) => set("projectId", v)}
-            placeholder="— None —"
-            options={projects.map((p) => ({ value: p.id, label: p.name }))}
-            inputClass={inputClass}
-            inputStyle={inputStyle}
-            renderDialog={({ open, onClose, onCreated }) => (
-              <MobileNewProjectDialog
-                open={open}
-                onClose={onClose}
-                onCreated={(p) => onCreated(p.id, p.name)}
-              />
-            )}
-          />
-
-          {/* Location */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Location
-            </label>
-            <input
-              type="text"
-              value={form.location}
-              onChange={(e) => set("location", e.target.value)}
-              placeholder="Village, tehsil, district, state"
-              enterKeyHint="next"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Purchase Date */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Purchase Date
-            </label>
-            <input
-              type="date"
-              value={form.purchaseDate}
-              onChange={(e) => set("purchaseDate", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Area + Unit */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Seller & Project */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Seller &amp; Project
+            </p>
+            {/* Seller Name */}
             <div>
               <label className={labelClass} style={labelStyle}>
-                Total Area <span style={{ color: "var(--color-stop)" }}>*</span>
+                Seller Name <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={form.sellerName}
+                onChange={(e) => set("sellerName", e.target.value)}
+                placeholder="e.g. Ramesh Properties"
+                autoFocus
+                enterKeyHint="next"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Seller Contact */}
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Seller Contact
+              </label>
+              <input
+                type="tel"
+                value={form.sellerContact}
+                onChange={(e) => set("sellerContact", e.target.value)}
+                placeholder="98765 43210"
+                enterKeyHint="next"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Project (optional) */}
+            <MobileSelectWithCreate
+              label="Project (optional)"
+              value={form.projectId}
+              onChange={(v) => set("projectId", v)}
+              placeholder="— None —"
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              inputClass={inputClass}
+              inputStyle={inputStyle}
+              renderDialog={({ open, onClose, onCreated }) => (
+                <MobileNewProjectDialog
+                  open={open}
+                  onClose={onClose}
+                  onCreated={(p) => onCreated(p.id, p.name)}
+                />
+              )}
+            />
+          </div>
+
+          {/* Land Details */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Land Details
+            </p>
+            {/* Location */}
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Location
+              </label>
+              <input
+                type="text"
+                value={form.location}
+                onChange={(e) => set("location", e.target.value)}
+                placeholder="Village, tehsil, district, state"
+                enterKeyHint="next"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Purchase Date */}
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Purchase Date
+              </label>
+              <input
+                type="date"
+                value={form.purchaseDate}
+                onChange={(e) => set("purchaseDate", e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Area + Unit */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Total Area <span style={{ color: "var(--color-stop)" }}>*</span>
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={form.totalArea}
+                  onChange={(e) => set("totalArea", e.target.value)}
+                  placeholder="0"
+                  inputMode="decimal"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div className="pl-2">
+                <label className={labelClass} style={labelStyle}>
+                  Unit
+                </label>
+                <select
+                  value={form.areaUnit}
+                  onChange={(e) => set("areaUnit", e.target.value as AreaUnit)}
+                  className={inputClass}
+                  style={inputStyle}
+                >
+                  {(Object.keys(AREA_UNIT_LABELS) as AreaUnit[]).map((u) => (
+                    <option key={u} value={u}>
+                      {AREA_UNIT_LABELS[u]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Total Cost */}
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Total Cost (₹){" "}
+                <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
               <input
                 type="number"
                 min={0}
-                step="any"
-                value={form.totalArea}
-                onChange={(e) => set("totalArea", e.target.value)}
+                step="0.01"
+                value={form.totalCost}
+                onChange={(e) => set("totalCost", e.target.value)}
                 placeholder="0"
-                inputMode="decimal"
+                inputMode="numeric"
                 className={inputClass}
                 style={inputStyle}
               />
             </div>
+
+            {/* Registry No */}
             <div>
               <label className={labelClass} style={labelStyle}>
-                Unit
+                Registry / Sale Deed No.
               </label>
-              <select
-                value={form.areaUnit}
-                onChange={(e) => set("areaUnit", e.target.value as AreaUnit)}
+              <input
+                type="text"
+                value={form.registryNo}
+                onChange={(e) => set("registryNo", e.target.value)}
+                placeholder="e.g. REG-2024-0123"
+                enterKeyHint="next"
                 className={inputClass}
                 style={inputStyle}
-              >
-                {(Object.keys(AREA_UNIT_LABELS) as AreaUnit[]).map((u) => (
-                  <option key={u} value={u}>
-                    {AREA_UNIT_LABELS[u]}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
-          </div>
 
-          {/* Total Cost */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Total Cost (₹){" "}
-              <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              value={form.totalCost}
-              onChange={(e) => set("totalCost", e.target.value)}
-              placeholder="0"
-              inputMode="numeric"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Registry No */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Registry / Sale Deed No.
-            </label>
-            <input
-              type="text"
-              value={form.registryNo}
-              onChange={(e) => set("registryNo", e.target.value)}
-              placeholder="e.g. REG-2024-0123"
-              enterKeyHint="next"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Initial Parcel Number */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Parcel Number{" "}
-              <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={form.initialParcelNumber}
-              onChange={(e) => set("initialParcelNumber", e.target.value)}
-              placeholder="e.g. P-001"
-              enterKeyHint="done"
-              className={inputClass}
-              style={inputStyle}
-            />
-            <p
-              className="text-m-caption mt-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              The default parcel created for this purchase. You can partition it
-              later.
-            </p>
+            {/* Initial Parcel Number */}
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Parcel Number{" "}
+                <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={form.initialParcelNumber}
+                onChange={(e) => set("initialParcelNumber", e.target.value)}
+                placeholder="e.g. P-001"
+                enterKeyHint="done"
+                className={inputClass}
+                style={inputStyle}
+              />
+              <p
+                className="text-m-caption mt-1"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                The default parcel created for this purchase. You can partition it
+                later.
+              </p>
+            </div>
           </div>
 
           {/* Actions */}
@@ -392,7 +362,6 @@ export function MobileNewLandDialog({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }

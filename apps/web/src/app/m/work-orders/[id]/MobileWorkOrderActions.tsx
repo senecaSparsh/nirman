@@ -65,10 +65,10 @@ export function MobileWorkOrderActions({
 
   if (!showIssue && !showPayAdvance && !showComplete && !showReleaseRetention) return null;
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
-  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
+  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
     <>
@@ -170,22 +170,27 @@ export function MobileWorkOrderActions({
               </button>
             </div>
             <div className="px-3 pb-4 flex flex-col gap-3">
-              <div>
-                <label className={labelClass} style={labelStyle}>Amount (₹) *</label>
-                <input type="number" min="0" step="any" inputMode="numeric" value={advanceAmount} onChange={(e) => setAdvanceAmount(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>Payment Mode</label>
-                <select value={advanceMode} onChange={(e) => setAdvanceMode(e.target.value)} className={inputClass} style={inputStyle}>
-                  <option value="BANK">Bank Transfer</option>
-                  <option value="CASH">Cash</option>
-                  <option value="CHEQUE">Cheque</option>
-                  <option value="UPI">UPI</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>Reference No.</label>
-                <input value={advanceRef} onChange={(e) => setAdvanceRef(e.target.value)} placeholder="UTR / Cheque no." className={inputClass} style={inputStyle} />
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Payment Details
+                </p>
+                <div>
+                  <label className={labelClass} style={labelStyle}>Amount (₹) *</label>
+                  <input type="number" min="0" step="any" inputMode="numeric" value={advanceAmount} onChange={(e) => setAdvanceAmount(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
+                </div>
+                <div>
+                  <label className={labelClass} style={labelStyle}>Payment Mode</label>
+                  <select value={advanceMode} onChange={(e) => setAdvanceMode(e.target.value)} className={inputClass} style={inputStyle}>
+                    <option value="BANK">Bank Transfer</option>
+                    <option value="CASH">Cash</option>
+                    <option value="CHEQUE">Cheque</option>
+                    <option value="UPI">UPI</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass} style={labelStyle}>Reference No.</label>
+                  <input value={advanceRef} onChange={(e) => setAdvanceRef(e.target.value)} placeholder="UTR / Cheque no." className={inputClass} style={inputStyle} />
+                </div>
               </div>
               <div className="flex flex-col gap-2 pt-1">
                 <button onClick={() => setShowAdvance(false)} disabled={acting !== null} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>

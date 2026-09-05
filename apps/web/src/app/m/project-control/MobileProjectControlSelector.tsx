@@ -27,10 +27,10 @@ export function MobileProjectControlSelector({
         }}
         placeholder="— Select project —"
         options={projects.map((p) => ({ value: p.id, label: p.name }))}
-        inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-m-section font-semibold outline-none"
+        inputClass="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
         inputStyle={{
           borderColor: "var(--color-line)",
-          backgroundColor: "var(--color-paper)",
+          backgroundColor: "transparent",
           color: "var(--color-ink-950)",
         }}
         renderDialog={({ open, onClose, onCreated }) => (

@@ -6,6 +6,7 @@ import { postSupplierReturn } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { assertGatePassApproved, autoCreateGatePassFromRef } from "./gate-pass";
 import { withSerializableTransaction } from "./transaction";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * Supplier Return Service — return defective/excess materials to suppliers.
@@ -15,12 +16,57 @@ import { withSerializableTransaction } from "./transaction";
  * Tracks credit note number for accounting reconciliation.
  */
 
+/**
+ * Validate supplier return lines.
+ * Pure function — no DB access.
+ */
+export function validateSupplierReturnLines(
+  lines: { qty: Decimal | number | string }[],
+): void {
+  if (lines.length === 0) throw new ServiceError("Return must have at least one line");
+  for (const line of lines) {
+    if (!new Decimal(line.qty).gt(0)) throw new ServiceError("Return qty must be > 0");
+  }
+}
+
+/**
+ * Compute the total value of a supplier return.
+ * Pure function — no DB access.
+ *
+ *   returnTotal = Σ(qty × unitCost)
+ */
+export function computeSupplierReturnTotal(
+  lines: { qty: Decimal; unitCost: Decimal }[],
+): Decimal {
+  return lines.reduce(
+    (s, l) => s.plus(l.qty.times(l.unitCost)),
+    new Decimal(0),
+  );
+}
+
+/**
+ * Validate supplier return status transition.
+ * Pure function — no DB access.
+ */
+export function isSupplierReturnTransitionAllowed(
+  from: string,
+  to: string,
+): boolean {
+  if (from === to) return true;
+  const allowed: Record<string, string[]> = {
+    DRAFT: ["SUBMITTED", "CANCELLED"],
+    SUBMITTED: ["COMPLETED", "CANCELLED"],
+    COMPLETED: [],
+    CANCELLED: [],
+  };
+  return allowed[from]?.includes(to) ?? false;
+}
+
 async function generateReturnNumber(tx: Prisma.TransactionClient): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `RET-${ymd}-`;
-  const count = await tx.supplierReturn.count({ where: { returnNumber: { startsWith: prefix } } });
-  return `${prefix}${String(count + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 interface CreateSupplierReturnInput {

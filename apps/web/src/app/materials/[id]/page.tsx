@@ -21,7 +21,7 @@ export default function MaterialDetailPage({ params }: { params: Promise<{ id: s
   );
 }
 
-async function MaterialDetailContent({ params }: { params: Promise<{ id: string }> }) {
+export async function MaterialDetailContent({ params }: { params: Promise<{ id: string }> }) {
   await connection();
   const role = await getUserRole();
   if (!hasPermission(role, PERM.INVENTORY_VIEW)) {

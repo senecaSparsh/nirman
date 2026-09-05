@@ -269,11 +269,9 @@ function MobilePayDialog({
   }
 
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
-    color: "var(--color-ink-950)",
+    backgroundColor: "transparent",
   };
   const parsedAmount = Number(amount) || 0;
   const parsedTds = Number(tdsAmount) || 0;
@@ -316,6 +314,11 @@ function MobilePayDialog({
         </div>
 
         <form onSubmit={handleSubmit} className="px-4 py-3 flex flex-col gap-3">
+          {/* Payment Details */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Payment Details
+            </p>
           <div>
             <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
               Amount (₹) *
@@ -342,7 +345,7 @@ function MobilePayDialog({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
               <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
                 Payment Date *
@@ -356,7 +359,7 @@ function MobilePayDialog({
                 required
               />
             </div>
-            <div>
+            <div className="pl-2">
               <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
                 Mode *
               </label>
@@ -389,16 +392,17 @@ function MobilePayDialog({
               style={inputStyle}
             />
           </div>
+          </div>
 
-          {/* TDS */}
+          {/* TDS Deduction */}
           <div
-            className="rounded-[0.5rem] border p-3 space-y-2"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
-            <p className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               TDS Deduction (optional)
             </p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
               <input
                 type="number"
                 step="0.01"
@@ -412,7 +416,7 @@ function MobilePayDialog({
               <select
                 value={tdsSection}
                 onChange={(e) => setTdsSection(e.target.value)}
-                className={inputClass}
+                className={`${inputClass} pl-2`}
                 style={inputStyle}
               >
                 <option value="">Section…</option>
@@ -525,11 +529,9 @@ function MobileAddLineDialog({
   }
 
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
-    color: "var(--color-ink-950)",
+    backgroundColor: "transparent",
   };
 
   return (
@@ -582,6 +584,11 @@ function MobileAddLineDialog({
         </div>
 
         <form onSubmit={handleSubmit} className="px-4 py-3 flex flex-col gap-3">
+          {/* Line Details */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Line Details
+            </p>
           {/* Material */}
           <div>
             <label
@@ -610,7 +617,7 @@ function MobileAddLineDialog({
           </div>
 
           {/* Quantity + Unit cost */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
               <label
                 className="text-m-caption font-semibold block mb-1"
@@ -630,7 +637,7 @@ function MobileAddLineDialog({
                 required
               />
             </div>
-            <div>
+            <div className="pl-2">
               <label
                 className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
@@ -649,6 +656,7 @@ function MobileAddLineDialog({
                 required
               />
             </div>
+          </div>
           </div>
 
           {/* Line total */}

@@ -12,7 +12,6 @@ import {
   Crown,
   CircleDot,
   UserPlus,
-  X,
   Pencil,
   Code,
   Lock,
@@ -36,6 +35,7 @@ import { Button } from "@/components/mobile/v2/primitives";
 import { ScopeEditorDialog } from "@/components/settings/scope-editor-dialog";
 import { PermissionsEditorDialog } from "@/components/settings/permissions-editor-dialog";
 import { ResetPasswordDialog } from "@/components/settings/reset-password-dialog";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 interface TeamMember {
   id: string;
@@ -778,22 +778,7 @@ function MemberCard({
 
       {/* Deactivation confirmation bottom sheet */}
       {confirmDeactivate && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-          onClick={() => setConfirmDeactivate(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe"
-            style={{
-              backgroundColor: "var(--color-paper)",
-              borderColor: "var(--color-line)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="text-m-section font-bold mb-2" style={{ color: "var(--color-ink-950)" }}>
-              Deactivate {member.name}?
-            </p>
+        <MobileDialog open={true} onClose={() => setConfirmDeactivate(false)} title={`Deactivate ${member.name}?`}>
             <p className="text-m-body mb-3" style={{ color: "var(--color-ink-700)" }}>
               This will log them out, clear pending approvals, cancel tasks, and remove project assignments. They can be reactivated later.
             </p>
@@ -815,8 +800,7 @@ function MemberCard({
                 Deactivate
               </Button>
             </div>
-          </div>
-        </div>
+        </MobileDialog>
       )}
     </div>
   );
@@ -1227,47 +1211,7 @@ function EditMemberDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[85vh] overflow-y-auto"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1">
-            <span
-              className="grid place-items-center size-7 rounded-[0.375rem]"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              <Pencil
-                className="size-3.5"
-                style={{ color: "var(--color-ink-600)" }}
-              />
-            </span>
-            <p
-              className="text-m-section font-bold"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              Edit Profile
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-700)" }}
-            aria-label="Close"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+    <MobileDialog open={true} onClose={onClose} title="Edit Profile">
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Email (read-only) */}
@@ -1469,7 +1413,6 @@ function EditMemberDialog({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }

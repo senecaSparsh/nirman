@@ -107,9 +107,23 @@ async function MobileEmployeeDetailContent({
   if (!employee) {
     return (
       <>
-        <MobileEmployeeDetailClient notFound canManage={canManage} projects={projects} stockLocations={stockLocations} />
+        <MobileEmployeeDetailClient notFound canManage={canManage} actorRole={role} projects={projects} stockLocations={stockLocations} />
       </>
     );
+  }
+
+  // ── Lazy contract expiry check (same as desktop) ──
+  if (
+    employee.contractEndDate &&
+    employee.contractEndDate < new Date() &&
+    (employee.contractStatus === "ISSUED" || employee.contractStatus === "CONFIRMED") &&
+    employee.active
+  ) {
+    await prisma.employee.update({
+      where: { id: employee.id },
+      data: { contractStatus: "EXPIRED" },
+    });
+    employee.contractStatus = "EXPIRED";
   }
 
   // Tasks are assigned to the linked User.
@@ -192,8 +206,19 @@ async function MobileEmployeeDetailContent({
     crewName: employee.crew?.name ?? null,
     crewProjectName: employee.crew?.project?.name ?? null,
     activeProjectName: employee.activeProject?.name ?? null,
+    activeProjectId: employee.activeProjectId,
     reportingLocationName: employee.reportingLocation?.name ?? null,
+    reportingLocationId: employee.reportingLocationId,
     userId: employee.userId,
+    contractStatus: employee.contractStatus,
+    autoDepositEnabled: employee.autoDepositEnabled,
+    payDay: employee.payDay,
+    bankName: employee.bankName,
+    bankAccountNumber: employee.bankAccountNumber,
+    employmentType: employee.employmentType,
+    noticePeriodDays: employee.noticePeriodDays,
+    contractStartDate: employee.contractStartDate ? employee.contractStartDate.toISOString() : null,
+    contractEndDate: employee.contractEndDate ? employee.contractEndDate.toISOString() : null,
     user: employee.user
       ? {
           email: employee.user.email,
@@ -239,6 +264,7 @@ async function MobileEmployeeDetailContent({
       <MobileEmployeeDetailClient
         employee={data}
         canManage={canManage}
+        actorRole={role}
         projects={projects}
         stockLocations={stockLocations}
       />

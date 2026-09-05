@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, Plus, ClipboardCheck } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useWbsOptions } from "@/lib/use-wbs-options";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 type NcrCategory = "MATERIAL" | "WORKMANSHIP" | "DESIGN" | "DOCUMENT" | "PROCESS" | "SAFETY" | "OTHER";
 type NcrSeverity = "CRITICAL" | "MAJOR" | "MINOR" | "OBSERVATION";
@@ -41,13 +42,23 @@ function flattenBoq(nodes: unknown[], depth = 0): { id: string; label: string }[
   return out;
 }
 
-export function MobileNewNcrDialog({
-  open,
+/**
+ * MobileNewNcrForm — form content for raising a Non-Conformance Report.
+ *
+ * Used inside <MobileFabModal> (spring-from-FAB animation) on the
+ * quality-control page, or wrapped by <MobileNewNcrDialog> (legacy
+ * bottom-sheet backdrop) for inline creation from other pages.
+ * Mirrors MobileNewLeaveForm / MobileNewMaterialForm.
+ *
+ * No header or Cancel button here — the wrapper supplies the title
+ * and the close affordance (FAB morphs +→× in MobileFabModal, X
+ * button in the legacy bottom-sheet).
+ */
+export function MobileNewNcrForm({
   onClose,
   projects,
   subcontractors,
 }: {
-  open: boolean;
   onClose: () => void;
   projects: { id: string; name: string }[];
   subcontractors: { id: string; name: string; trade: string | null }[];
@@ -69,11 +80,11 @@ export function MobileNewNcrDialog({
     boqItemId: "",
   });
 
-  const wbsOptions = useWbsOptions(open ? form.projectId : null);
+  const wbsOptions = useWbsOptions(form.projectId || null);
 
   // Fetch BOQ tree when the project changes.
   useEffect(() => {
-    if (!open || !form.projectId) { setBoqOptions([]); return; }
+    if (!form.projectId) { setBoqOptions([]); return; }
     let cancelled = false;
     (async () => {
       try {
@@ -85,25 +96,7 @@ export function MobileNewNcrDialog({
       }
     })();
     return () => { cancelled = true; };
-  }, [open, form.projectId]);
-
-  useEffect(() => {
-    if (open) {
-      setForm({
-        projectId: projects[0]?.id ?? "",
-        title: "",
-        description: "",
-        category: "WORKMANSHIP",
-        severity: "MINOR",
-        location: "",
-        responsibleParty: "",
-        subcontractorId: "",
-        wbsNodeId: "",
-        boqItemId: "",
-      });
-      setAttachments([]);
-    }
-  }, [open, projects]);
+  }, [form.projectId]);
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -145,194 +138,199 @@ export function MobileNewNcrDialog({
     }
   }
 
-  if (!open) return null;
+  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
+  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
+  const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
+  const sectionStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" };
+  const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
+  const sectionTitleStyle = { color: "var(--color-ink-950)" };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}>
-      <div
-        className="mt-auto rounded-t-[1rem] max-h-[92vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}
-      >
-        {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <div className="flex items-center gap-2">
-            <ClipboardCheck className="size-4" style={{ color: "var(--color-ink-950)" }} />
-            <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Raise NCR</h2>
-          </div>
-          <button onClick={onClose} className="text-m-body press">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
+    <div className="flex flex-col gap-3">
+      {/* Details */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>Details</p>
+        <div>
+          <label className={labelClass} style={labelStyle}>Project</label>
+          <select
+            value={form.projectId}
+            onChange={(e) => set("projectId", e.target.value)}
+            className={inputClass}
+            style={inputStyle}
+          >
+            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
         </div>
-
-        <div className="p-4 space-y-4">
-          {/* Project */}
+        <div>
+          <label className={labelClass} style={labelStyle}>Title</label>
+          <input
+            value={form.title}
+            onChange={(e) => set("title", e.target.value)}
+            placeholder="e.g. Uneven plaster in flat 302"
+            className={inputClass}
+            style={inputStyle}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Project</label>
+            <label className={labelClass} style={labelStyle}>Category</label>
             <select
-              value={form.projectId}
-              onChange={(e) => set("projectId", e.target.value)}
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              value={form.category}
+              onChange={(e) => set("category", e.target.value as NcrCategory)}
+              className={inputClass}
+              style={inputStyle}
             >
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
           </div>
-
-          {/* Title */}
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Title</label>
-            <input
-              value={form.title}
-              onChange={(e) => set("title", e.target.value)}
-              placeholder="e.g. Uneven plaster in flat 302"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-            />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Description</label>
-            <textarea
-              value={form.description}
-              onChange={(e) => set("description", e.target.value)}
-              rows={3}
-              placeholder="What is non-conforming? Be specific…"
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-            />
-          </div>
-
-          {/* Category + Severity */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Category</label>
-              <select
-                value={form.category}
-                onChange={(e) => set("category", e.target.value as NcrCategory)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              >
-                {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Severity</label>
-              <select
-                value={form.severity}
-                onChange={(e) => set("severity", e.target.value as NcrSeverity)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              >
-                {SEVERITIES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* Severity description */}
-          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-            {SEVERITIES.find((s) => s.value === form.severity)?.desc}
-          </p>
-
-          {/* Location */}
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Location (optional)</label>
-            <input
-              value={form.location}
-              onChange={(e) => set("location", e.target.value)}
-              placeholder="e.g. Tower A, 3rd floor, flat 302"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-            />
-          </div>
-
-          {/* WBS Node + BOQ Item */}
-          <div className="grid grid-cols-1 gap-2">
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>WBS Activity (optional)</label>
-              <select
-                value={form.wbsNodeId}
-                onChange={(e) => set("wbsNodeId", e.target.value)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-                disabled={wbsOptions.length === 0}
-              >
-                <option value="">{wbsOptions.length === 0 ? "No WBS nodes for this project" : "— None —"}</option>
-                {wbsOptions.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>BOQ Item (optional)</label>
-              <select
-                value={form.boqItemId}
-                onChange={(e) => set("boqItemId", e.target.value)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-                disabled={boqOptions.length === 0}
-              >
-                <option value="">{boqOptions.length === 0 ? "No BOQ items for this project" : "— None —"}</option>
-                {boqOptions.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* Responsible party + Subcontractor */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Responsible Party</label>
-              <input
-                value={form.responsibleParty}
-                onChange={(e) => set("responsibleParty", e.target.value)}
-                placeholder="e.g. In-house team"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              />
-            </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Subcontractor</label>
-              <select
-                value={form.subcontractorId}
-                onChange={(e) => set("subcontractorId", e.target.value)}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              >
-                <option value="">— None —</option>
-                {subcontractors.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}{s.trade ? ` (${s.trade})` : ""}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Photo evidence */}
-          <div>
-            <label className="text-m-caption font-semibold mb-1 block" style={{ color: "var(--color-ink-500)" }}>
-              Photo Evidence
-            </label>
-            <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-2 pt-2">
-            <button
-              onClick={onClose}
-              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press"
-              style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+          <div className="pl-2">
+            <label className={labelClass} style={labelStyle}>Severity</label>
+            <select
+              value={form.severity}
+              onChange={(e) => set("severity", e.target.value as NcrSeverity)}
+              className={inputClass}
+              style={inputStyle}
             >
-              Cancel
-            </button>
-            <button
-              onClick={onSave}
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press flex items-center justify-center gap-1.5"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+              {SEVERITIES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+          {SEVERITIES.find((s) => s.value === form.severity)?.desc}
+        </p>
+      </div>
+
+      {/* Description */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>Description</p>
+        <div>
+          <label className={labelClass} style={labelStyle}>Description</label>
+          <textarea
+            value={form.description}
+            onChange={(e) => set("description", e.target.value)}
+            rows={3}
+            placeholder="What is non-conforming? Be specific…"
+            className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
+            style={inputStyle}
+          />
+        </div>
+      </div>
+
+      {/* Location & Linkage */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>Location & Linkage</p>
+        <div>
+          <label className={labelClass} style={labelStyle}>Location (optional)</label>
+          <input
+            value={form.location}
+            onChange={(e) => set("location", e.target.value)}
+            placeholder="e.g. Tower A, 3rd floor, flat 302"
+            className={inputClass}
+            style={inputStyle}
+          />
+        </div>
+        <div>
+          <label className={labelClass} style={labelStyle}>WBS Activity (optional)</label>
+          <select
+            value={form.wbsNodeId}
+            onChange={(e) => set("wbsNodeId", e.target.value)}
+            className={inputClass}
+            style={inputStyle}
+            disabled={wbsOptions.length === 0}
+          >
+            <option value="">{wbsOptions.length === 0 ? "No WBS nodes for this project" : "— None —"}</option>
+            {wbsOptions.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelClass} style={labelStyle}>BOQ Item (optional)</label>
+          <select
+            value={form.boqItemId}
+            onChange={(e) => set("boqItemId", e.target.value)}
+            className={inputClass}
+            style={inputStyle}
+            disabled={boqOptions.length === 0}
+          >
+            <option value="">{boqOptions.length === 0 ? "No BOQ items for this project" : "— None —"}</option>
+            {boqOptions.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Responsibility */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>Responsibility</p>
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+          <div>
+            <label className={labelClass} style={labelStyle}>Responsible Party</label>
+            <input
+              value={form.responsibleParty}
+              onChange={(e) => set("responsibleParty", e.target.value)}
+              placeholder="e.g. In-house team"
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+          <div className="pl-2">
+            <label className={labelClass} style={labelStyle}>Subcontractor</label>
+            <select
+              value={form.subcontractorId}
+              onChange={(e) => set("subcontractorId", e.target.value)}
+              className={inputClass}
+              style={inputStyle}
             >
-              {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-              {saving ? "Raising…" : "Raise NCR"}
-            </button>
+              <option value="">— None —</option>
+              {subcontractors.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}{s.trade ? ` (${s.trade})` : ""}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
+
+      {/* Evidence */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>Evidence</p>
+        <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
+      </div>
+
+      <button
+        onClick={onSave}
+        disabled={saving}
+        className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+        style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+      >
+        {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+        {saving ? "Raising…" : "Raise NCR"}
+      </button>
     </div>
+  );
+}
+
+/**
+ * MobileNewNcrDialog — legacy bottom-sheet backdrop wrapper.
+ *
+ * Kept for backward compatibility / inline creation from other pages.
+ * Prefer wrapping <MobileNewNcrForm> in <MobileFabModal> instead —
+ * that gives the spring-from-FAB animation matching the materials and
+ * leaves pages.
+ */
+export function MobileNewNcrDialog({
+  open,
+  onClose,
+  projects,
+  subcontractors,
+}: {
+  open: boolean;
+  onClose: () => void;
+  projects: { id: string; name: string }[];
+  subcontractors: { id: string; name: string; trade: string | null }[];
+}) {
+  return (
+    <MobileDialog open={open} onClose={onClose} title="New NCR">
+      <MobileNewNcrForm onClose={onClose} projects={projects} subcontractors={subcontractors} />
+    </MobileDialog>
   );
 }

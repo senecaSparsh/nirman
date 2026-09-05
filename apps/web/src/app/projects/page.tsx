@@ -28,7 +28,7 @@ export default function ProjectsPage() {
   );
 }
 
-async function ProjectsContent() {
+export async function ProjectsContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

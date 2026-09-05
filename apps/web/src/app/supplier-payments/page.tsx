@@ -20,7 +20,7 @@ export default function SupplierPaymentsPage() {
   );
 }
 
-async function SupplierPaymentsContent() {
+export async function SupplierPaymentsContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

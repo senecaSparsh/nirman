@@ -16,6 +16,19 @@ import { withSerializableTransaction } from "./transaction";
  * directly (the payment itself is recorded as an Expense).
  */
 
+/**
+ * Compute an expense claim line's GST amount.
+ * Pure function — no DB access.
+ *
+ *   gstAmount = amount × gstRate / 100  (or null if no gstRate)
+ */
+export function computeClaimLineGst(
+  amount: Decimal,
+  gstRate: Decimal | null,
+): Decimal | null {
+  return gstRate ? amount.mul(gstRate).div(100) : null;
+}
+
 export interface CreateClaimInput {
   companyId: string;
   claimantId: string;

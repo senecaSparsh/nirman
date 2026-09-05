@@ -14,6 +14,7 @@ import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from 
 import { toast } from "sonner";
 import { MobileDocUploader } from "../../MobileDocUploader";
 import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 /* ─── Types ─── */
 
@@ -858,153 +859,156 @@ function PaymentSheet({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="absolute inset-0" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={onClose} />
-      <div
-        className="relative w-full max-w-md rounded-t-[0.75rem] border-t max-h-[90vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-      >
-        <div className="w-8 h-0.5 rounded-full mx-auto mt-2 mb-2" style={{ backgroundColor: "var(--color-ink-300)" }} />
-        <div className="p-3">
-          <p className="text-m-section font-bold mb-3" style={{ color: "var(--color-ink-950)" }}>
-            Record Rent Payment
-          </p>
+    <MobileDialog open={true} onClose={onClose} title="Record Rent Payment">
+        <div className="p-3 flex flex-col gap-3">
 
-          {/* Amount */}
-          <div className="mb-3">
-            <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
-              Amount (₹)
-            </label>
-            <input
-              type="text" inputMode="decimal"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full h-9 rounded-[0.5rem] border px-2.5 text-m-section font-bold tabular-nums outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-            />
-          </div>
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Payment Details
+            </p>
 
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-2 mb-3">
+            {/* Amount */}
             <div>
               <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
-                Payment Date
-              </label>
-              <input
-                type="date"
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-                className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label outline-none"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              />
-            </div>
-            <div>
-              <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
-                Due Date
-              </label>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label outline-none"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              />
-            </div>
-          </div>
-
-          {/* Mode */}
-          <div className="mb-3">
-            <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
-              Payment Mode
-            </label>
-            <div className="flex gap-1">
-              {PAYMENT_MODES.map((m) => (
-                <button
-                  key={m.value}
-                  onClick={() => setMode(m.value)}
-                  className="flex-1 h-8 rounded-[0.5rem] text-m-caption font-bold text-m-body press"
-                  style={{
-                    backgroundColor: mode === m.value ? "var(--color-ink-950)" : "var(--color-paper-2)",
-                    color: mode === m.value ? "var(--color-paper)" : "var(--color-ink-500)",
-                    border: `1px solid ${mode === m.value ? "var(--color-ink-950)" : "var(--color-line)"}`,
-                  }}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Reference */}
-          <div className="mb-3">
-            <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
-              Reference (optional)
-            </label>
-            <input
-              type="text"
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              placeholder="NEFT / UPI / Cheque no."
-              className="w-full h-9 rounded-[0.5rem] border px-2.5 text-m-label outline-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-            />
-          </div>
-
-          {/* TDS */}
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            <div>
-              <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
-                TDS Deducted (₹)
+                Amount (₹)
               </label>
               <input
                 type="text" inputMode="decimal"
-                value={tdsAmount}
-                onChange={(e) => setTdsAmount(e.target.value)}
-                placeholder="0"
-                className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label tabular-nums outline-none"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                style={{ backgroundColor: "transparent" }}
               />
             </div>
+
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                  Payment Date
+                </label>
+                <input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ backgroundColor: "transparent" }}
+                />
+              </div>
+              <div className="pl-2">
+                <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                  Due Date
+                </label>
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ backgroundColor: "transparent" }}
+                />
+              </div>
+            </div>
+
+            {/* Mode */}
             <div>
               <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
-                TDS Cert. No.
+                Payment Mode
+              </label>
+              <div className="flex gap-1">
+                {PAYMENT_MODES.map((m) => (
+                  <button
+                    key={m.value}
+                    onClick={() => setMode(m.value)}
+                    className="flex-1 h-8 rounded-[0.5rem] text-m-caption font-bold text-m-body press"
+                    style={{
+                      backgroundColor: mode === m.value ? "var(--color-ink-950)" : "var(--color-paper-2)",
+                      color: mode === m.value ? "var(--color-paper)" : "var(--color-ink-500)",
+                      border: `1px solid ${mode === m.value ? "var(--color-ink-950)" : "var(--color-line)"}`,
+                    }}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Reference */}
+            <div>
+              <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                Reference (optional)
               </label>
               <input
                 type="text"
-                value={tdsCert}
-                onChange={(e) => setTdsCert(e.target.value)}
-                placeholder="Form 16C"
-                className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label outline-none"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                value={reference}
+                onChange={(e) => setReference(e.target.value)}
+                placeholder="NEFT / UPI / Cheque no."
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={{ backgroundColor: "transparent" }}
               />
             </div>
           </div>
 
-          {/* Rent period */}
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            <div>
-              <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
-                Period Start
-              </label>
-              <input
-                type="date"
-                value={periodStart}
-                onChange={(e) => setPeriodStart(e.target.value)}
-                className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label outline-none"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              />
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              TDS & Rent Period
+            </p>
+
+            {/* TDS */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                  TDS Deducted (₹)
+                </label>
+                <input
+                  type="text" inputMode="decimal"
+                  value={tdsAmount}
+                  onChange={(e) => setTdsAmount(e.target.value)}
+                  placeholder="0"
+                  className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ backgroundColor: "transparent" }}
+                />
+              </div>
+              <div className="pl-2">
+                <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                  TDS Cert. No.
+                </label>
+                <input
+                  type="text"
+                  value={tdsCert}
+                  onChange={(e) => setTdsCert(e.target.value)}
+                  placeholder="Form 16C"
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ backgroundColor: "transparent" }}
+                />
+              </div>
             </div>
-            <div>
-              <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
-                Period End
-              </label>
-              <input
-                type="date"
-                value={periodEnd}
-                onChange={(e) => setPeriodEnd(e.target.value)}
-                className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label outline-none"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              />
+
+            {/* Rent period */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                  Period Start
+                </label>
+                <input
+                  type="date"
+                  value={periodStart}
+                  onChange={(e) => setPeriodStart(e.target.value)}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ backgroundColor: "transparent" }}
+                />
+              </div>
+              <div className="pl-2">
+                <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                  Period End
+                </label>
+                <input
+                  type="date"
+                  value={periodEnd}
+                  onChange={(e) => setPeriodEnd(e.target.value)}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ backgroundColor: "transparent" }}
+                />
+              </div>
             </div>
           </div>
 
@@ -1028,8 +1032,7 @@ function PaymentSheet({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }
 
@@ -1045,17 +1048,8 @@ function ActionSheet({
 }) {
   const isActivate = action === "activate";
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="absolute inset-0" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={onClose} />
-      <div
-        className="relative w-full max-w-md rounded-t-[0.75rem] border-t"
-        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-      >
-        <div className="w-8 h-0.5 rounded-full mx-auto mt-2 mb-2" style={{ backgroundColor: "var(--color-ink-300)" }} />
+    <MobileDialog open={true} onClose={onClose} title={isActivate ? "Activate tenancy?" : "Terminate tenancy?"}>
         <div className="p-3">
-          <p className="text-m-section font-bold mb-2" style={{ color: "var(--color-ink-950)" }}>
-            {isActivate ? "Activate tenancy?" : "Terminate tenancy?"}
-          </p>
           <div
             className="rounded-[0.5rem] border p-3 mb-3"
             style={{
@@ -1091,8 +1085,7 @@ function ActionSheet({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }
 
@@ -1108,17 +1101,8 @@ function SheetShell({
   submitLabel: string;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="absolute inset-0" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={onClose} />
-      <div
-        className="relative w-full max-w-md rounded-t-[0.75rem] border-t max-h-[90vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-      >
-        <div className="w-8 h-0.5 rounded-full mx-auto mt-2 mb-2" style={{ backgroundColor: "var(--color-ink-300)" }} />
+    <MobileDialog open={true} onClose={onClose} title={title}>
         <div className="p-3">
-          <p className="text-m-section font-bold mb-3" style={{ color: "var(--color-ink-950)" }}>
-            {title}
-          </p>
           {children}
           <div className="flex gap-2 mt-3">
             <button
@@ -1139,8 +1123,7 @@ function SheetShell({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }
 
@@ -1206,8 +1189,8 @@ function EditSheet({
           type="text"
           value={tenantName}
           onChange={(e) => setTenantName(e.target.value)}
-          className="w-full h-9 rounded-[0.5rem] border px-2.5 text-m-section font-bold outline-none"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          className="w-full h-7 px-1 text-m-caption font-bold outline-none border-b focus:border-b-2 transition-colors"
+          style={{ backgroundColor: "transparent" }}
         />
       </div>
 
@@ -1220,8 +1203,8 @@ function EditSheet({
             type="text"
             value={tenantPhone}
             onChange={(e) => setTenantPhone(e.target.value)}
-            className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{ backgroundColor: "transparent" }}
           />
         </div>
         <div>
@@ -1232,8 +1215,8 @@ function EditSheet({
             type="email"
             value={tenantEmail}
             onChange={(e) => setTenantEmail(e.target.value)}
-            className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{ backgroundColor: "transparent" }}
           />
         </div>
       </div>
@@ -1247,8 +1230,8 @@ function EditSheet({
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{ backgroundColor: "transparent" }}
           />
         </div>
         <div>
@@ -1259,8 +1242,8 @@ function EditSheet({
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{ backgroundColor: "transparent" }}
           />
         </div>
       </div>
@@ -1274,8 +1257,8 @@ function EditSheet({
             type="text" inputMode="decimal"
             value={monthlyRent}
             onChange={(e) => setMonthlyRent(e.target.value)}
-            className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label tabular-nums outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+            style={{ backgroundColor: "transparent" }}
           />
         </div>
         <div>
@@ -1286,8 +1269,8 @@ function EditSheet({
             type="text" inputMode="decimal"
             value={securityDeposit}
             onChange={(e) => setSecurityDeposit(e.target.value)}
-            className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label tabular-nums outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+            style={{ backgroundColor: "transparent" }}
           />
         </div>
       </div>
@@ -1302,8 +1285,8 @@ function EditSheet({
             value={escalationPercent}
             onChange={(e) => setEscalationPercent(e.target.value)}
             placeholder="0"
-            className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label tabular-nums outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+            style={{ backgroundColor: "transparent" }}
           />
         </div>
         <div>
@@ -1314,8 +1297,8 @@ function EditSheet({
             type="text" inputMode="numeric"
             value={rentFreeDays}
             onChange={(e) => setRentFreeDays(e.target.value)}
-            className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label tabular-nums outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+            style={{ backgroundColor: "transparent" }}
           />
         </div>
         <div>
@@ -1326,8 +1309,8 @@ function EditSheet({
             type="text"
             value={rentAgreementNo}
             onChange={(e) => setRentAgreementNo(e.target.value)}
-            className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{ backgroundColor: "transparent" }}
           />
         </div>
       </div>
@@ -1340,8 +1323,8 @@ function EditSheet({
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
-          className="w-full rounded-[0.5rem] border px-2.5 py-2 text-m-label outline-none resize-none"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+          style={{ backgroundColor: "transparent" }}
         />
       </div>
     </SheetShell>
@@ -1364,17 +1347,8 @@ function EscalateSheet({
     ? Math.round(currentRent * (1 + escalationPercent / 100))
     : currentRent;
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="absolute inset-0" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={onClose} />
-      <div
-        className="relative w-full max-w-md rounded-t-[0.75rem] border-t"
-        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-      >
-        <div className="w-8 h-0.5 rounded-full mx-auto mt-2 mb-2" style={{ backgroundColor: "var(--color-ink-300)" }} />
+    <MobileDialog open={true} onClose={onClose} title="Apply rent escalation?">
         <div className="p-3">
-          <p className="text-m-section font-bold mb-2" style={{ color: "var(--color-ink-950)" }}>
-            Apply rent escalation?
-          </p>
           <div
             className="rounded-[0.5rem] border p-3 mb-3"
             style={{ borderColor: "var(--color-signal)", backgroundColor: "color-mix(in srgb, var(--color-signal) 5%, transparent)" }}
@@ -1405,8 +1379,7 @@ function EscalateSheet({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }
 
@@ -1433,8 +1406,8 @@ function GenerateScheduleSheet({
           type="text" inputMode="numeric"
           value={monthsAhead}
           onChange={(e) => setMonthsAhead(e.target.value)}
-          className="w-full h-9 rounded-[0.5rem] border px-2.5 text-m-section font-bold tabular-nums outline-none"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+          style={{ backgroundColor: "transparent" }}
         />
         <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
           Generates rent due reminders for the next N months based on the monthly rent.
@@ -1494,8 +1467,8 @@ function UploadDraftSheet({
           type="date"
           value={draftDate}
           onChange={(e) => setDraftDate(e.target.value)}
-          className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label outline-none"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+          style={{ backgroundColor: "transparent" }}
         />
       </div>
       <div className="mb-3">
@@ -1507,8 +1480,8 @@ function UploadDraftSheet({
           onChange={(e) => setDraftNotes(e.target.value)}
           rows={3}
           placeholder="Terms, conditions, LOI details…"
-          className="w-full rounded-[0.5rem] border px-2.5 py-2 text-m-label outline-none resize-none"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+          style={{ backgroundColor: "transparent" }}
         />
       </div>
     </SheetShell>
@@ -1568,8 +1541,8 @@ function ChangeTenantSheet({
           type="text"
           value={newTenantName}
           onChange={(e) => setNewTenantName(e.target.value)}
-          className="w-full h-9 rounded-[0.5rem] border px-2.5 text-m-section font-bold outline-none"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          className="w-full h-7 px-1 text-m-caption font-bold outline-none border-b focus:border-b-2 transition-colors"
+          style={{ backgroundColor: "transparent" }}
         />
       </div>
       <div className="grid grid-cols-2 gap-2 mb-3">
@@ -1581,8 +1554,8 @@ function ChangeTenantSheet({
             type="text"
             value={newTenantPhone}
             onChange={(e) => setNewTenantPhone(e.target.value)}
-            className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{ backgroundColor: "transparent" }}
           />
         </div>
         <div>
@@ -1593,8 +1566,8 @@ function ChangeTenantSheet({
             type="email"
             value={newTenantEmail}
             onChange={(e) => setNewTenantEmail(e.target.value)}
-            className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{ backgroundColor: "transparent" }}
           />
         </div>
       </div>
@@ -1607,8 +1580,8 @@ function ChangeTenantSheet({
             type="date"
             value={newStartDate}
             onChange={(e) => setNewStartDate(e.target.value)}
-            className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{ backgroundColor: "transparent" }}
           />
         </div>
         <div>
@@ -1619,8 +1592,8 @@ function ChangeTenantSheet({
             type="date"
             value={newEndDate}
             onChange={(e) => setNewEndDate(e.target.value)}
-            className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{ backgroundColor: "transparent" }}
           />
         </div>
       </div>
@@ -1634,8 +1607,8 @@ function ChangeTenantSheet({
             value={newMonthlyRent}
             onChange={(e) => setNewMonthlyRent(e.target.value)}
             placeholder="Same as before"
-            className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label tabular-nums outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+            style={{ backgroundColor: "transparent" }}
           />
         </div>
         <div>
@@ -1647,8 +1620,8 @@ function ChangeTenantSheet({
             value={newSecurityDeposit}
             onChange={(e) => setNewSecurityDeposit(e.target.value)}
             placeholder="Same as before"
-            className="w-full h-9 rounded-[0.5rem] border px-2 text-m-label tabular-nums outline-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+            style={{ backgroundColor: "transparent" }}
           />
         </div>
       </div>
@@ -1660,8 +1633,8 @@ function ChangeTenantSheet({
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={2}
-          className="w-full rounded-[0.5rem] border px-2.5 py-2 text-m-label outline-none resize-none"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+          style={{ backgroundColor: "transparent" }}
         />
       </div>
     </SheetShell>

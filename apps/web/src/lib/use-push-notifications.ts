@@ -23,7 +23,7 @@ export function usePushNotifications() {
   // Check current permission on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!("Notification" in window)) {
+    if (typeof Notification === "undefined") {
       setPermission("unsupported");
       return;
     }
@@ -39,7 +39,7 @@ export function usePushNotifications() {
   }, []);
 
   const requestPermission = useCallback(async () => {
-    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (typeof window === "undefined" || typeof Notification === "undefined") return;
     setLoading(true);
     try {
       const result = await Notification.requestPermission();

@@ -8,6 +8,7 @@ import { ServiceError } from "./errors";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { createQuotationRequest } from "./quotation";
 import { withSerializableTransaction } from "./transaction";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * Requisition Service — material request → approval → convert to PO.
@@ -20,12 +21,52 @@ import { withSerializableTransaction } from "./transaction";
  * schedules. Managers approve. Approved requisitions convert to Purchase Orders.
  */
 
+/**
+ * Validate requisition input before DB operations.
+ * Pure function — no DB access.
+ */
+export function validateRequisitionInput(input: {
+  projectId?: string;
+  departmentId?: string;
+  lines: { qtyRequested: Decimal | number | string }[];
+}): void {
+  if (input.lines.length === 0) throw new ServiceError("Indent must have at least one line");
+  if (!input.projectId && !input.departmentId) {
+    throw new ServiceError("Either projectId or departmentId must be set", 400);
+  }
+  for (const line of input.lines) {
+    if (!new Decimal(line.qtyRequested).gt(0)) throw new ServiceError("Requested qty must be > 0");
+  }
+}
+
+/**
+ * Validate that a requisition status transition is allowed.
+ * Pure function — no DB access.
+ *
+ * Flow: DRAFT → SUBMITTED → APPROVED → CONVERTED
+ *                   ↓
+ *                REJECTED
+ */
+export function isRequisitionTransitionAllowed(
+  from: RequisitionStatus,
+  to: RequisitionStatus,
+): boolean {
+  if (from === to) return true; // no-op
+  const allowed: Partial<Record<RequisitionStatus, RequisitionStatus[]>> = {
+    DRAFT: ["SUBMITTED"],
+    SUBMITTED: ["APPROVED", "REJECTED"],
+    APPROVED: ["CONVERTED"],
+    REJECTED: ["DRAFT"], // can re-submit after rejection
+    CONVERTED: [],
+  };
+  return allowed[from]?.includes(to) ?? false;
+}
+
 async function generateReqNumber(tx: Prisma.TransactionClient): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `REQ-${ymd}-`;
-  const count = await tx.materialRequisition.count({ where: { reqNumber: { startsWith: prefix } } });
-  return `${prefix}${String(count + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 interface CreateRequisitionInput {

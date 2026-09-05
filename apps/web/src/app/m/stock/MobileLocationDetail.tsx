@@ -297,10 +297,10 @@ export function MobileLocationDetail({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={tab === "inventory" ? "Search material…" : "Search movement…"}
-            className="w-full h-8 rounded-[0.5rem] border pl-8 pr-8 text-m-section focus:outline-none"
+            className="w-full h-7 pl-8 pr-8 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
             style={{
               borderColor: query ? "var(--color-ink-950)" : "var(--color-line)",
-              backgroundColor: "var(--color-paper)",
+              backgroundColor: "transparent",
               color: "var(--color-ink-950)",
             }}
           />
@@ -333,7 +333,7 @@ export function MobileLocationDetail({
         <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="Add Material" icon={Plus} />
       )}
 
-      {/* ── New material bottom-sheet dialog ── */}
+      {/* ── New material dialog — springs from FAB ── */}
       {canManage && (
         <MobileNewMaterialDialog
           open={showNewMaterial}

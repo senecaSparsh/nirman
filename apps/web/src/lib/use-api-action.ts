@@ -59,7 +59,8 @@ interface ApiActionOptions {
 const RETRY_DELAYS = [500, 1500]; // exponential backoff: 500ms, 1.5s
 
 export function useApiAction() {
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   // Ref to hold the latest mutate function so the retry button can call it
@@ -84,6 +85,7 @@ export function useApiAction() {
       } = opts;
 
       setError(null);
+      setIsPending(true);
 
       // Apply optimistic update immediately
       if (optimisticUpdate) {
@@ -111,6 +113,7 @@ export function useApiAction() {
           }
 
           // Success
+          setIsPending(false);
           if (successMessage) {
             toast.success(successMessage, {
               ...(successDescription ? { description: successDescription } : {}),
@@ -134,6 +137,7 @@ export function useApiAction() {
       }
 
       // All retries exhausted — revert and show error
+      setIsPending(false);
       if (revert) {
         startTransition(() => revert());
       }

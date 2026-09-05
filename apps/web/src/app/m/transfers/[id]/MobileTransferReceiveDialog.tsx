@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import {
-  CheckCircle2, X, Package, Truck, Calendar, Loader2,
+  CheckCircle2, X, Truck, Calendar, Loader2,
   RotateCcw, AlertTriangle,
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 import {
   PhotoCapture, SignaturePad, GeoTagCapture, SelectField, TextField,
   WeighbridgeFields, GeoFenceStatus,
@@ -212,31 +213,8 @@ export function MobileTransferReceiveDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={() => { if (!submitting) setOpen(false); }}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[0.75rem] flex flex-col"
-        style={{ backgroundColor: "var(--color-paper)", maxHeight: "92vh" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="grid place-items-center size-7 rounded-[0.375rem] shrink-0" style={{ backgroundColor: "var(--color-concrete)" }}>
-              <Package className="size-3.5" style={{ color: "var(--color-ink-700)" }} />
-            </span>
-            <div className="min-w-0">
-              <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>Receive Transfer</p>
-              <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>{fromLocationName} → {toLocationName}</p>
-            </div>
-          </div>
-          <button onClick={() => { if (!submitting) setOpen(false); }} className="text-m-body press shrink-0 p-1">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
+    <MobileDialog open={true} onClose={() => { if (!submitting) setOpen(false); }} title="Receive Transfer">
+        <p className="text-m-caption truncate mb-2" style={{ color: "var(--color-ink-500)" }}>{fromLocationName} → {toLocationName}</p>
 
         {/* Auto-date + location badge */}
         <div className="flex items-center gap-3 px-3 py-2 border-b" style={{ borderColor: "var(--color-line)" }}>
@@ -383,7 +361,6 @@ export function MobileTransferReceiveDialog({
             Return to Source
           </button>
         </div>
-      </div>
 
       {/* Return to source dialog */}
       {showReturn ? (
@@ -411,7 +388,7 @@ export function MobileTransferReceiveDialog({
           </div>
         </div>
       ) : null}
-    </div>
+    </MobileDialog>
   );
 }
 
@@ -536,31 +513,8 @@ export function MobileTransferDispatchDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={() => { if (!submitting) setOpen(false); }}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[0.75rem] flex flex-col"
-        style={{ backgroundColor: "var(--color-paper)", maxHeight: "92vh" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="grid place-items-center size-7 rounded-[0.375rem] shrink-0" style={{ backgroundColor: "var(--color-concrete)" }}>
-              <Truck className="size-3.5" style={{ color: "var(--color-ink-700)" }} />
-            </span>
-            <div className="min-w-0">
-              <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>Dispatch Transfer</p>
-              <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>{fromLocationName} → {toLocationName}</p>
-            </div>
-          </div>
-          <button onClick={() => { if (!submitting) setOpen(false); }} className="text-m-body press shrink-0 p-1">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
+    <MobileDialog open={true} onClose={() => { if (!submitting) setOpen(false); }} title="Dispatch Transfer">
+        <p className="text-m-caption truncate mb-2" style={{ color: "var(--color-ink-500)" }}>{fromLocationName} → {toLocationName}</p>
 
         {/* Auto-date */}
         <div className="flex items-center gap-3 px-3 py-2 border-b" style={{ borderColor: "var(--color-line)" }}>
@@ -634,7 +588,6 @@ export function MobileTransferDispatchDialog({
             {submitting ? (<><div className="size-4 rounded-full border-2 border-ink-950/30 border-t-ink-950 animate-spin" />Dispatching…</>) : (<><Truck className="size-4" />Dispatch — mark as in transit</>)}
           </button>
         </div>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }

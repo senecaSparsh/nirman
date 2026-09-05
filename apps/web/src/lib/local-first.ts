@@ -47,8 +47,13 @@ interface CacheEntry {
   ttl: number;
 }
 
-function getCacheKey(url: string): string {
+export function getCacheKey(url: string): string {
   return `${STORAGE_PREFIX}${url}`;
+}
+
+/** Check if a cache entry is stale (age > ttl). */
+export function isCacheEntryStale(entry: CacheEntry, now: number = Date.now()): boolean {
+  return now - entry.timestamp > entry.ttl;
 }
 
 function getCachedData(url: string): { data: unknown; isStale: boolean } | null {

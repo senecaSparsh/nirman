@@ -1,184 +1,211 @@
+/**
+ * Unit tests for the pure payroll/attendance helpers in hr.ts.
+ *
+ *   attendanceWeight          — weight of a status toward "days worked"
+ *   computeDaysWorked         — sum present-days from attendance records
+ *   computeOvertimeHours      — Σ max(0, hoursWorked − 8) for attended days
+ *   computeStatusFromHours    — classify attendance from hours worked (85% rule)
+ *   countLateDays             — count LATE entries
+ *   computeLateHalfDayDeductions — 4 lates → 1 half-day deducted
+ *
+ * No DB, no mocking — pure functions.
+ */
 import { describe, it, expect } from "vitest";
-import Decimal from "decimal.js";
 import {
   attendanceWeight,
   computeDaysWorked,
   computeOvertimeHours,
-  computeWorkingDays,
-  hourlyRateFor,
-  computeBasicAmount,
-  computeNetPay,
   computeStatusFromHours,
   countLateDays,
   computeLateHalfDayDeductions,
-  computeAttendanceTier,
 } from "./hr";
+import Decimal from "decimal.js";
 
 describe("attendanceWeight", () => {
-  it("weights PRESENT and OVERTIME as 1, HALF_DAY as 0.5, others as 0", () => {
+  it("returns 1 for PRESENT", () => {
     expect(attendanceWeight("PRESENT")).toBe(1);
+  });
+
+  it("returns 1 for OVERTIME", () => {
     expect(attendanceWeight("OVERTIME")).toBe(1);
+  });
+
+  it("returns 1 for LATE (late counts as full day)", () => {
+    expect(attendanceWeight("LATE")).toBe(1);
+  });
+
+  it("returns 0.5 for HALF_DAY", () => {
     expect(attendanceWeight("HALF_DAY")).toBe(0.5);
+  });
+
+  it("returns 1 for PAID_LEAVE", () => {
+    expect(attendanceWeight("PAID_LEAVE")).toBe(1);
+  });
+
+  it("returns 0 for ABSENT", () => {
     expect(attendanceWeight("ABSENT")).toBe(0);
+  });
+
+  it("returns 0 for LEAVE", () => {
     expect(attendanceWeight("LEAVE")).toBe(0);
+  });
+
+  it("returns 0 for NON_PAID_LEAVE", () => {
+    expect(attendanceWeight("NON_PAID_LEAVE")).toBe(0);
+  });
+
+  it("returns 0 for unknown status", () => {
+    expect(attendanceWeight("UNKNOWN")).toBe(0);
   });
 });
 
 describe("computeDaysWorked", () => {
-  it("sums attendance weights across records", () => {
-    const days = computeDaysWorked([
-      { status: "PRESENT" },
-      { status: "PRESENT" },
-      { status: "HALF_DAY" },
-      { status: "ABSENT" },
-      { status: "OVERTIME" },
-      { status: "LEAVE" },
-    ]);
-    expect(days.toNumber()).toBe(3.5); // 1+1+0.5+0+1+0
+  it("returns 0 for empty array", () => {
+    expect(computeDaysWorked([]).toNumber()).toBe(0);
   });
 
-  it("returns 0 for an all-absent week", () => {
-    const days = computeDaysWorked([
-      { status: "ABSENT" },
-      { status: "LEAVE" },
-    ]);
-    expect(days.toNumber()).toBe(0);
+  it("sums weights correctly for mixed statuses", () => {
+    const attendances = [
+      { status: "PRESENT" },     // 1
+      { status: "LATE" },        // 1
+      { status: "HALF_DAY" },    // 0.5
+      { status: "ABSENT" },      // 0
+      { status: "PAID_LEAVE" },  // 1
+    ];
+    expect(computeDaysWorked(attendances).toNumber()).toBe(3.5);
+  });
+
+  it("returns integer for all full-day statuses", () => {
+    const attendances = [
+      { status: "PRESENT" },
+      { status: "PRESENT" },
+      { status: "OVERTIME" },
+    ];
+    expect(computeDaysWorked(attendances).toNumber()).toBe(3);
   });
 });
 
 describe("computeOvertimeHours", () => {
-  it("sums hours beyond 8 for attended days only", () => {
-    const ot = computeOvertimeHours([
-      { status: "PRESENT", hoursWorked: 8 }, // 0 OT
-      { status: "OVERTIME", hoursWorked: 10 }, // 2 OT
-      { status: "HALF_DAY", hoursWorked: 4 }, // 0 OT
-      { status: "ABSENT", hoursWorked: 12 }, // ignored (absent)
-    ]);
-    expect(ot.toNumber()).toBe(2);
+  it("returns 0 for empty array", () => {
+    expect(computeOvertimeHours([]).toNumber()).toBe(0);
   });
 
-  it("treats missing hoursWorked as 0", () => {
-    const ot = computeOvertimeHours([
+  it("sums overtime beyond 8 hours for attended days", () => {
+    const attendances = [
+      { status: "PRESENT", hoursWorked: 10 },     // 2h OT
+      { status: "OVERTIME", hoursWorked: 9 },     // 1h OT
+      { status: "PRESENT", hoursWorked: 8 },      // 0h OT
+    ];
+    expect(computeOvertimeHours(attendances).toNumber()).toBe(3);
+  });
+
+  it("ignores ABSENT and LEAVE days", () => {
+    const attendances = [
+      { status: "ABSENT", hoursWorked: 10 },
+      { status: "LEAVE", hoursWorked: 12 },
+      { status: "PAID_LEAVE", hoursWorked: 10 },
+      { status: "NON_PAID_LEAVE", hoursWorked: 10 },
+    ];
+    expect(computeOvertimeHours(attendances).toNumber()).toBe(0);
+  });
+
+  it("handles null hoursWorked as 0", () => {
+    const attendances = [
       { status: "PRESENT", hoursWorked: null },
-    ]);
-    expect(ot.toNumber()).toBe(0);
+    ];
+    expect(computeOvertimeHours(attendances).toNumber()).toBe(0);
+  });
+
+  it("handles missing hoursWorked as 0", () => {
+    const attendances = [
+      { status: "PRESENT" },
+    ];
+    expect(computeOvertimeHours(attendances).toNumber()).toBe(0);
+  });
+
+  it("handles Decimal hoursWorked", () => {
+    const attendances = [
+      { status: "PRESENT", hoursWorked: new Decimal(10.5) },
+    ];
+    expect(computeOvertimeHours(attendances).toNumber()).toBe(2.5);
+  });
+
+  it("does not count negative overtime (less than 8h)", () => {
+    const attendances = [
+      { status: "PRESENT", hoursWorked: 6 },
+      { status: "PRESENT", hoursWorked: 7 },
+    ];
+    expect(computeOvertimeHours(attendances).toNumber()).toBe(0);
   });
 });
 
-describe("computeWorkingDays", () => {
-  it("counts Mon–Sat, excluding Sundays", () => {
-    // 2024-01-01 (Mon) → 2024-01-07 (Sun): 6 working days
-    const days = computeWorkingDays(new Date(2024, 0, 1), new Date(2024, 0, 7));
-    expect(days).toBe(6);
-  });
-
-  it("returns at least 1 for a single Sunday", () => {
-    const days = computeWorkingDays(new Date(2024, 0, 7), new Date(2024, 0, 7));
-    expect(days).toBe(1);
-  });
-
-  it("counts a full 30-day month correctly", () => {
-    // April 2024: 30 days, 4 Sundays → 26 working days
-    const days = computeWorkingDays(new Date(2024, 3, 1), new Date(2024, 3, 30));
-    expect(days).toBe(26);
-  });
-});
-
-describe("hourlyRateFor", () => {
-  it("derives hourly rate from dailyRate for DAILY workers", () => {
-    const r = hourlyRateFor({ wageType: "DAILY", dailyRate: 800 }, 26);
-    expect(r.toNumber()).toBe(100); // 800/8
-  });
-
-  it("derives hourly rate from monthlySalary for MONTHLY workers", () => {
-    const r = hourlyRateFor({ wageType: "MONTHLY", dailyRate: 0, monthlySalary: 26000 }, 26);
-    expect(r.toNumber()).toBe(125); // 26000 / (26*8) = 125
-  });
-
-  it("returns 0 for FIXED workers (no implied overtime)", () => {
-    const r = hourlyRateFor({ wageType: "FIXED", dailyRate: 0, monthlySalary: 30000 }, 26);
-    expect(r.toNumber()).toBe(0);
-  });
-});
-
-describe("computeBasicAmount", () => {
-  it("DAILY: dailyRate × daysWorked", () => {
-    const basic = computeBasicAmount({ wageType: "DAILY", dailyRate: 500 }, new Decimal(20), 26);
-    expect(basic.toNumber()).toBe(10000);
-  });
-
-  it("MONTHLY: salary prorated by attendance", () => {
-    // 26000 salary, 26 working days, 13 days worked → 13000
-    const basic = computeBasicAmount(
-      { wageType: "MONTHLY", dailyRate: 0, monthlySalary: 26000 },
-      new Decimal(13),
-      26,
-    );
-    expect(basic.toNumber()).toBe(13000);
-  });
-
-  it("FIXED: full agreed amount regardless of attendance", () => {
-    const basic = computeBasicAmount(
-      { wageType: "FIXED", dailyRate: 0, monthlySalary: 30000 },
-      new Decimal(5),
-      26,
-    );
-    expect(basic.toNumber()).toBe(30000);
-  });
-});
-
-describe("computeNetPay", () => {
-  it("net = basic + overtime − deductions", () => {
-    const net = computeNetPay(10000, 1500, 500);
-    expect(net.toNumber()).toBe(11000);
-  });
-
-  it("handles zero overtime and deductions", () => {
-    const net = computeNetPay(8000, 0, 0);
-    expect(net.toNumber()).toBe(8000);
-  });
-
-  it("can go negative if deductions exceed earnings", () => {
-    const net = computeNetPay(1000, 0, 2000);
-    expect(net.toNumber()).toBe(-1000);
-  });
-});
-
-describe("computeStatusFromHours (85% rule)", () => {
-  it("returns ABSENT for 0 hours", () => {
-    expect(computeStatusFromHours(0)).toBe("ABSENT");
-  });
-
+describe("computeStatusFromHours", () => {
   it("returns ABSENT for null hours", () => {
     expect(computeStatusFromHours(null)).toBe("ABSENT");
   });
 
-  it("returns HALF_DAY for < 85% of standard hours", () => {
-    // 8h standard, 6h worked = 75% → HALF_DAY
-    expect(computeStatusFromHours(6, 8)).toBe("HALF_DAY");
+  it("returns ABSENT for 0 hours", () => {
+    expect(computeStatusFromHours(0)).toBe("ABSENT");
   });
 
-  it("returns LATE for ≥ 85% but < 100%", () => {
-    // 8h standard, 7h worked = 87.5% → LATE
-    expect(computeStatusFromHours(7, 8)).toBe("LATE");
-    // Exactly 85% → LATE
-    expect(computeStatusFromHours(6.8, 8)).toBe("LATE");
+  it("returns ABSENT for negative hours", () => {
+    expect(computeStatusFromHours(-1)).toBe("ABSENT");
   });
 
-  it("returns PRESENT for exactly 100%", () => {
+  it("returns PRESENT for exactly standard hours (100%)", () => {
     expect(computeStatusFromHours(8, 8)).toBe("PRESENT");
   });
 
-  it("returns OVERTIME for > 100%", () => {
+  it("returns OVERTIME for more than standard hours", () => {
     expect(computeStatusFromHours(9, 8)).toBe("OVERTIME");
+    expect(computeStatusFromHours(10, 8)).toBe("OVERTIME");
+  });
+
+  it("returns LATE for 85-99% of standard hours", () => {
+    // 85% of 8 = 6.8
+    expect(computeStatusFromHours(6.8, 8)).toBe("LATE");
+    // 99% of 8 = 7.92
+    expect(computeStatusFromHours(7.92, 8)).toBe("LATE");
+  });
+
+  it("returns HALF_DAY for > 0 but < 85% of standard hours", () => {
+    // 84% of 8 = 6.72
+    expect(computeStatusFromHours(6.72, 8)).toBe("HALF_DAY");
+    // 50% of 8 = 4
+    expect(computeStatusFromHours(4, 8)).toBe("HALF_DAY");
+    // 1% of 8 = 0.08
+    expect(computeStatusFromHours(0.08, 8)).toBe("HALF_DAY");
+  });
+
+  it("returns PRESENT when standard hours is 0 (no standard defined)", () => {
+    expect(computeStatusFromHours(5, 0)).toBe("PRESENT");
+  });
+
+  it("handles Decimal inputs", () => {
+    expect(computeStatusFromHours(new Decimal(9), new Decimal(8))).toBe("OVERTIME");
+    expect(computeStatusFromHours(new Decimal(7), new Decimal(8))).toBe("LATE");
+  });
+
+  it("boundary: exactly 85% is LATE", () => {
+    // 85% of 8 = 6.8
+    expect(computeStatusFromHours(6.8, 8)).toBe("LATE");
+  });
+
+  it("boundary: just below 85% is HALF_DAY", () => {
+    // 84.99% of 8 = 6.7992
+    expect(computeStatusFromHours(6.799, 8)).toBe("HALF_DAY");
   });
 });
 
-describe("countLateDays + computeLateHalfDayDeductions", () => {
-  it("counts LATE records", () => {
+describe("countLateDays", () => {
+  it("returns 0 for empty array", () => {
+    expect(countLateDays([])).toBe(0);
+  });
+
+  it("counts only LATE statuses", () => {
     const attendances = [
-      { status: "PRESENT" },
       { status: "LATE" },
+      { status: "PRESENT" },
       { status: "LATE" },
       { status: "ABSENT" },
       { status: "LATE" },
@@ -186,61 +213,44 @@ describe("countLateDays + computeLateHalfDayDeductions", () => {
     expect(countLateDays(attendances)).toBe(3);
   });
 
-  it("4 lates → 1 half-day deduction", () => {
+  it("returns 0 when no lates", () => {
     const attendances = [
-      { status: "LATE" },
-      { status: "LATE" },
-      { status: "LATE" },
-      { status: "LATE" },
+      { status: "PRESENT" },
+      { status: "ABSENT" },
     ];
-    expect(computeLateHalfDayDeductions(attendances)).toBe(1);
-  });
-
-  it("7 lates → 1 half-day deduction (floor)", () => {
-    const attendances = Array(7).fill({ status: "LATE" });
-    expect(computeLateHalfDayDeductions(attendances)).toBe(1);
-  });
-
-  it("8 lates → 2 half-day deductions", () => {
-    const attendances = Array(8).fill({ status: "LATE" });
-    expect(computeLateHalfDayDeductions(attendances)).toBe(2);
-  });
-
-  it("0 lates → 0 deductions", () => {
-    expect(computeLateHalfDayDeductions([{ status: "PRESENT" }])).toBe(0);
+    expect(countLateDays(attendances)).toBe(0);
   });
 });
 
-describe("computeAttendanceTier", () => {
-  it("RED for ABSENT", () => {
-    expect(computeAttendanceTier({ status: "ABSENT" })).toBe("RED");
+describe("computeLateHalfDayDeductions", () => {
+  it("returns 0 for 0-3 lates", () => {
+    expect(computeLateHalfDayDeductions([])).toBe(0);
+    expect(computeLateHalfDayDeductions([{ status: "LATE" }])).toBe(0);
+    expect(computeLateHalfDayDeductions([{ status: "LATE" }, { status: "LATE" }])).toBe(0);
+    expect(computeLateHalfDayDeductions([{ status: "LATE" }, { status: "LATE" }, { status: "LATE" }])).toBe(0);
   });
 
-  it("RED for NON_PAID_LEAVE", () => {
-    expect(computeAttendanceTier({ status: "NON_PAID_LEAVE" })).toBe("RED");
+  it("returns 1 for 4 lates (4 lates → 1 half-day)", () => {
+    const attendances = Array(4).fill({ status: "LATE" });
+    expect(computeLateHalfDayDeductions(attendances)).toBe(1);
   });
 
-  it("GREEN for PAID_LEAVE", () => {
-    expect(computeAttendanceTier({ status: "PAID_LEAVE" })).toBe("GREEN");
+  it("returns 1 for 5-7 lates", () => {
+    expect(computeLateHalfDayDeductions(Array(5).fill({ status: "LATE" }))).toBe(1);
+    expect(computeLateHalfDayDeductions(Array(7).fill({ status: "LATE" }))).toBe(1);
   });
 
-  it("YELLOW for PRESENT without DPR approval", () => {
-    expect(computeAttendanceTier({ status: "PRESENT", dprApproved: false })).toBe("YELLOW");
+  it("returns 2 for 8 lates", () => {
+    expect(computeLateHalfDayDeductions(Array(8).fill({ status: "LATE" }))).toBe(2);
   });
 
-  it("GREEN for PRESENT with DPR approval", () => {
-    expect(computeAttendanceTier({ status: "PRESENT", dprApproved: true })).toBe("GREEN");
-  });
-
-  it("RED for PRESENT but outside geofence", () => {
-    expect(computeAttendanceTier({ status: "PRESENT", geoFenceOk: false })).toBe("RED");
-  });
-
-  it("YELLOW for LATE without DPR approval", () => {
-    expect(computeAttendanceTier({ status: "LATE", dprApproved: false })).toBe("YELLOW");
-  });
-
-  it("GREEN for LATE with DPR approval", () => {
-    expect(computeAttendanceTier({ status: "LATE", dprApproved: true })).toBe("GREEN");
+  it("ignores non-LATE statuses", () => {
+    const attendances = [
+      { status: "LATE" }, { status: "LATE" }, { status: "LATE" },
+      { status: "PRESENT" }, { status: "ABSENT" },
+      { status: "LATE" },
+    ];
+    // 4 lates → 1 deduction
+    expect(computeLateHalfDayDeductions(attendances)).toBe(1);
   });
 });

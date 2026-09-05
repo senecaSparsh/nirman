@@ -2,72 +2,206 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, Plus, ClipboardCheck } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
-export function MobileNewInspectionDialog({ open, onClose, projects }: { open: boolean; onClose: () => void; projects: { id: string; name: string }[] }) {
+const inputClass =
+  "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
+const inputStyle = {
+  borderColor: "var(--color-line)",
+  backgroundColor: "transparent",
+  color: "var(--color-ink-950)",
+};
+const labelClass = "block text-m-caption font-bold mb-0";
+const labelStyle = { color: "var(--color-ink-700)" };
+
+const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
+const sectionStyle = {
+  borderColor: "var(--color-line)",
+  backgroundColor: "var(--color-paper)",
+};
+const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
+const sectionTitleStyle = { color: "var(--color-ink-950)" };
+
+/**
+ * MobileNewInspectionForm — form content for scheduling an inspection.
+ *
+ * Used inside <MobileFabModal> (spring-from-FAB animation) on the
+ * safety page, or wrapped by <MobileNewInspectionDialog> (legacy
+ * bottom-sheet backdrop) for inline creation from other pages.
+ * Mirrors MobileNewLeaveForm / MobileNewMaterialForm.
+ *
+ * No header or Cancel button here — the wrapper supplies the title
+ * and the close affordance (FAB morphs +→× in MobileFabModal, X
+ * button in the legacy bottom-sheet).
+ */
+export function MobileNewInspectionForm({
+  onClose,
+  projects,
+}: {
+  onClose: () => void;
+  projects: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    projectId: projects[0]?.id ?? "", title: "", scheduledDate: new Date().toISOString().slice(0, 10), inspectorName: "",
+    projectId: projects[0]?.id ?? "",
+    title: "",
+    scheduledDate: new Date().toISOString().slice(0, 10),
+    inspectorName: "",
   });
 
   useEffect(() => {
-    if (open) setForm({ projectId: projects[0]?.id ?? "", title: "", scheduledDate: new Date().toISOString().slice(0, 10), inspectorName: "" });
-  }, [open, projects]);
+    setForm({
+      projectId: projects[0]?.id ?? "",
+      title: "",
+      scheduledDate: new Date().toISOString().slice(0, 10),
+      inspectorName: "",
+    });
+  }, [projects]);
 
-  function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) { setForm((f) => ({ ...f, [k]: v })); }
-
-  async function onSave() {
-    if (!form.title.trim()) { toast.error("Title is required"); return; }
-    setSaving(true); haptic(20);
-    try {
-      const res = await fetch("/api/safety/inspections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-        projectId: form.projectId, title: form.title.trim(), scheduledDate: form.scheduledDate, inspectorName: form.inspectorName || null,
-      }) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success("Inspection scheduled"); onClose(); router.refresh();
-    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Failed"); } finally { setSaving(false); }
+  function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
+    setForm((f) => ({ ...f, [k]: v }));
   }
 
-  if (!open) return null;
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.title.trim()) {
+      toast.error("Title is required");
+      return;
+    }
+    setSaving(true);
+    haptic(20);
+    try {
+      const res = await fetch("/api/safety/inspections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: form.projectId,
+          title: form.title.trim(),
+          scheduledDate: form.scheduledDate,
+          inspectorName: form.inspectorName || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      toast.success("Inspection scheduled");
+      onClose();
+      router.refresh();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}>
-      <div className="mt-auto rounded-t-[1rem] max-h-[60vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}>
-        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <div className="flex items-center gap-2"><ClipboardCheck className="size-4" style={{ color: "var(--color-ink-950)" }} /><h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Schedule Inspection</h2></div>
-          <button onClick={onClose} className="text-m-body press"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      {/* Details */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>
+          Details
+        </p>
+        <div>
+          <label className={labelClass} style={labelStyle}>
+            Project
+          </label>
+          <select
+            value={form.projectId}
+            onChange={(e) => set("projectId", e.target.value)}
+            className={inputClass}
+            style={inputStyle}
+          >
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
         </div>
-        <div className="p-4 space-y-4">
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Project</label>
-            <select value={form.projectId} onChange={(e) => set("projectId", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Title</label>
-            <input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Weekly safety walkthrough" className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-          </div>
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Scheduled Date</label>
-            <input type="date" value={form.scheduledDate} onChange={(e) => set("scheduledDate", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-          </div>
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Inspector Name (optional)</label>
-            <input value={form.inspectorName} onChange={(e) => set("inspectorName", e.target.value)} placeholder="e.g. External safety auditor" className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-          </div>
-          <div className="flex gap-2 pt-2">
-            <button onClick={onClose} className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
-            <button onClick={onSave} disabled={saving} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
-              {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}{saving ? "Scheduling…" : "Schedule"}
-            </button>
-          </div>
+        <div>
+          <label className={labelClass} style={labelStyle}>
+            Title <span style={{ color: "var(--color-stop)" }}>*</span>
+          </label>
+          <input
+            value={form.title}
+            onChange={(e) => set("title", e.target.value)}
+            placeholder="e.g. Weekly safety walkthrough"
+            className={inputClass}
+            style={inputStyle}
+          />
         </div>
       </div>
-    </div>
+
+      {/* Schedule */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>
+          Schedule
+        </p>
+        <div>
+          <label className={labelClass} style={labelStyle}>
+            Scheduled Date
+          </label>
+          <input
+            type="date"
+            value={form.scheduledDate}
+            onChange={(e) => set("scheduledDate", e.target.value)}
+            className={inputClass}
+            style={inputStyle}
+          />
+        </div>
+        <div>
+          <label className={labelClass} style={labelStyle}>
+            Inspector Name (optional)
+          </label>
+          <input
+            value={form.inspectorName}
+            onChange={(e) => set("inspectorName", e.target.value)}
+            placeholder="e.g. External safety auditor"
+            className={inputClass}
+            style={inputStyle}
+          />
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        disabled={saving}
+        className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+        style={{
+          backgroundColor: "var(--color-ink-950)",
+          color: "var(--color-paper)",
+        }}
+      >
+        {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+        {saving ? "Scheduling…" : "Schedule"}
+      </button>
+    </form>
+  );
+}
+
+/**
+ * MobileNewInspectionDialog — legacy bottom-sheet backdrop wrapper.
+ *
+ * Kept for backward compatibility / inline creation from other pages.
+ * Prefer wrapping <MobileNewInspectionForm> in <MobileFabModal> instead —
+ * that gives the spring-from-FAB animation matching the materials and
+ * leaves pages.
+ */
+export function MobileNewInspectionDialog({
+  open,
+  onClose,
+  projects,
+}: {
+  open: boolean;
+  onClose: () => void;
+  projects: { id: string; name: string }[];
+}) {
+  return (
+    <MobileDialog open={open} onClose={onClose} title="New Inspection">
+      <MobileNewInspectionForm onClose={onClose} projects={projects} />
+    </MobileDialog>
   );
 }

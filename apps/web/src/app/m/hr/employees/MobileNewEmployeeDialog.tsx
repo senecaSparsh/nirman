@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 type WageType = "DAILY" | "MONTHLY" | "FIXED";
 
@@ -38,21 +39,31 @@ interface FormState {
   activeProjectId: string;
   hierarchyLevel: string;
   reportingLocationId: string;
+  employmentType: string;
+  noticePeriodDays: string;
+  contractStartDate: string;
+  contractEndDate: string;
 }
 
 /**
- * MobileNewEmployeeDialog — bottom-sheet form for adding an employee
- * from the mobile surface. Mirrors the desktop employees-view's API
- * contract (POST /api/employees).
+ * MobileNewEmployeeForm — form content for adding an employee.
+ *
+ * Used inside <MobileFabModal> (spring-from-FAB animation) on the
+ * employees page, or wrapped by <MobileNewEmployeeDialog> (legacy
+ * bottom-sheet backdrop) for inline creation from other pages
+ * (e.g. the leaves dialog). Mirrors the desktop employees-view's
+ * API contract (POST /api/employees).
+ *
+ * No header or Cancel button here — the wrapper supplies the title
+ * and the close affordance (FAB morphs +→× in MobileFabModal, X
+ * button in the legacy bottom-sheet).
  */
-export function MobileNewEmployeeDialog({
-  open,
+export function MobileNewEmployeeForm({
   onClose,
   projects,
   stockLocations,
   onCreated,
 }: {
-  open: boolean;
   onClose: () => void;
   projects: ProjectOption[];
   stockLocations: StockLocationOption[];
@@ -73,6 +84,10 @@ export function MobileNewEmployeeDialog({
     activeProjectId: "",
     hierarchyLevel: "",
     reportingLocationId: "",
+    employmentType: "",
+    noticePeriodDays: "",
+    contractStartDate: "",
+    contractEndDate: "",
   });
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -110,6 +125,10 @@ export function MobileNewEmployeeDialog({
           activeProjectId: form.activeProjectId || null,
           hierarchyLevel,
           reportingLocationId: form.reportingLocationId || null,
+          employmentType: form.employmentType || null,
+          noticePeriodDays: form.noticePeriodDays ? Number(form.noticePeriodDays) : null,
+          contractStartDate: form.contractStartDate || null,
+          contractEndDate: form.contractEndDate || null,
           active: true,
         }),
       });
@@ -130,8 +149,6 @@ export function MobileNewEmployeeDialog({
     }
   }
 
-  if (!open) return null;
-
   const inputClass =
     "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
@@ -142,54 +159,57 @@ export function MobileNewEmployeeDialog({
   const labelClass = "block text-m-caption font-bold mb-0";
   const labelStyle = { color: "var(--color-ink-700)" };
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <p
-            className="text-m-section font-extrabold tracking-tight"
-            style={{ color: "var(--color-ink-950)" }}
-          >
-            New Employee
-          </p>
-          <button
-            onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-700)" }}
-            aria-label="Close"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+  const sectionClass =
+    "rounded-[0.625rem] border p-3 flex flex-col gap-3";
+  const sectionStyle = {
+    borderColor: "var(--color-line)",
+    backgroundColor: "var(--color-paper)",
+  };
+  const sectionTitleClass =
+    "text-m-section font-extrabold tracking-tight";
+  const sectionTitleStyle = { color: "var(--color-ink-950)" };
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {/* Name */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Name <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
-              placeholder="e.g. Rajesh Kumar"
-              autoFocus
-              enterKeyHint="next"
-              className={inputClass}
-              style={inputStyle}
-            />
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        {/* Details */}
+        <div className={sectionClass} style={sectionStyle}>
+          <p className={sectionTitleClass} style={sectionTitleStyle}>Details</p>
+          {/* Name + Hierarchy Level — side by side */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Name <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                placeholder="e.g. Rajesh Kumar"
+                autoFocus
+                enterKeyHint="next"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Hierarchy
+              </label>
+              <select
+                value={form.hierarchyLevel}
+                onChange={(e) => { set("hierarchyLevel", e.target.value); haptic(10); }}
+                className={inputClass}
+                style={inputStyle}
+              >
+                <option value="">Unassigned</option>
+                <option value="1">H1 — Management</option>
+                <option value="2">H2 — Manager</option>
+                <option value="3">H3 — Engineer</option>
+                <option value="4">H4 — Supervisor</option>
+                <option value="5">H5 — Skilled</option>
+                <option value="6">H6 — Labor</option>
+              </select>
+            </div>
           </div>
 
           {/* Trade + Designation */}
@@ -223,39 +243,11 @@ export function MobileNewEmployeeDialog({
               />
             </div>
           </div>
+        </div>
 
-          {/* Hierarchy Level (H1-H6) */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Hierarchy Level
-            </label>
-            <div className="flex gap-1.5 flex-wrap">
-              {[
-                { value: "", label: "Unassigned" },
-                { value: "1", label: "H1 — Management" },
-                { value: "2", label: "H2 — Manager" },
-                { value: "3", label: "H3 — Engineer" },
-                { value: "4", label: "H4 — Supervisor" },
-                { value: "5", label: "H5 — Skilled" },
-                { value: "6", label: "H6 — Labor" },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => { set("hierarchyLevel", opt.value); haptic(10); }}
-                  className="rounded-[0.375rem] border px-2.5 py-1.5 text-m-caption font-bold text-m-body press"
-                  style={{
-                    borderColor: form.hierarchyLevel === opt.value ? "var(--color-ink-950)" : "var(--color-line)",
-                    backgroundColor: form.hierarchyLevel === opt.value ? "var(--color-ink-950)" : "var(--color-paper)",
-                    color: form.hierarchyLevel === opt.value ? "var(--color-paper)" : "var(--color-ink-500)",
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
+        {/* Contact */}
+        <div className={sectionClass} style={sectionStyle}>
+          <p className={sectionTitleClass} style={sectionTitleStyle}>Contact</p>
           {/* Phone + Email */}
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
@@ -287,80 +279,119 @@ export function MobileNewEmployeeDialog({
               />
             </div>
           </div>
+        </div>
 
-          {/* Wage Type — horizontal 3-col */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Wage Type
-            </label>
-            <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-              {(Object.keys(WAGE_TYPE_LABELS) as WageType[]).map((w) => (
-                <button
-                  key={w}
-                  type="button"
-                  onClick={() => {
-                    set("wageType", w);
-                    haptic(10);
-                  }}
-                  className="h-9 rounded-[0.375rem] border-2 text-m-caption font-bold text-m-body press"
-                  style={{
-                    borderColor:
-                      form.wageType === w
-                        ? "var(--color-ink-950)"
-                        : "var(--color-line)",
-                    backgroundColor:
-                      form.wageType === w
-                        ? "var(--color-ink-950)"
-                        : "var(--color-paper)",
-                    color:
-                      form.wageType === w
-                        ? "var(--color-paper)"
-                        : "var(--color-ink-500)",
-                  }}
-                >
-                  {WAGE_TYPE_LABELS[w]}
-                </button>
-              ))}
+        {/* Compensation */}
+        <div className={sectionClass} style={sectionStyle}>
+          <p className={sectionTitleClass} style={sectionTitleStyle}>Compensation</p>
+          {/* Wage Type (selector) + Rate/Salary — side by side */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Wage Type
+              </label>
+              <select
+                value={form.wageType}
+                onChange={(e) => { set("wageType", e.target.value as WageType); haptic(10); }}
+                className={inputClass}
+                style={inputStyle}
+              >
+                {(Object.keys(WAGE_TYPE_LABELS) as WageType[]).map((w) => (
+                  <option key={w} value={w}>
+                    {WAGE_TYPE_LABELS[w]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                {form.wageType === "DAILY" ? "Daily Rate (₹)" : form.wageType === "FIXED" ? "Fixed Amount (₹)" : "Monthly Salary (₹)"}
+              </label>
+              <input
+                type="number"
+                min={0}
+                step="any"
+                value={form.wageType === "DAILY" ? form.dailyRate : form.monthlySalary}
+                onChange={(e) => form.wageType === "DAILY" ? set("dailyRate", e.target.value) : set("monthlySalary", e.target.value)}
+                placeholder="0"
+                inputMode="numeric"
+                className={`${inputClass} tabular-nums`}
+                style={inputStyle}
+              />
             </div>
           </div>
+        </div>
 
-          {/* Rate / Salary (conditional) */}
-          {form.wageType === "DAILY" ? (
+        {/* Employment Terms */}
+        <div className={sectionClass} style={sectionStyle}>
+          <p className={sectionTitleClass} style={sectionTitleStyle}>Employment Terms</p>
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
               <label className={labelClass} style={labelStyle}>
-                Daily Rate (₹)
+                Employment Type
+              </label>
+              <select
+                className={inputClass}
+                style={inputStyle}
+                value={form.employmentType}
+                onChange={(e) => set("employmentType", e.target.value)}
+              >
+                <option value="">— Select —</option>
+                <option value="PERMANENT">Permanent</option>
+                <option value="CONTRACT">Contract</option>
+                <option value="CASUAL">Casual</option>
+                <option value="PROBATION">Probation</option>
+                <option value="INTERN">Intern</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Notice (days)
               </label>
               <input
-                type="number"
-                min={0}
-                step="any"
-                value={form.dailyRate}
-                onChange={(e) => set("dailyRate", e.target.value)}
-                placeholder="0"
-                inputMode="numeric"
-                className={`${inputClass} tabular-nums`}
+                className={inputClass}
                 style={inputStyle}
+                type="number"
+                min="0"
+                value={form.noticePeriodDays}
+                onChange={(e) => set("noticePeriodDays", e.target.value)}
+                placeholder="30"
               />
             </div>
-          ) : (
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Monthly Salary (₹)
-              </label>
-              <input
-                type="number"
-                min={0}
-                step="any"
-                value={form.monthlySalary}
-                onChange={(e) => set("monthlySalary", e.target.value)}
-                placeholder="0"
-                inputMode="numeric"
-                className={`${inputClass} tabular-nums`}
-                style={inputStyle}
-              />
+          </div>
+          {(form.employmentType === "CONTRACT" || form.employmentType === "PROBATION") && (
+            <div className="grid grid-cols-2 gap-2 divide-x mt-2" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Contract Start
+                </label>
+                <input
+                  className={inputClass}
+                  style={inputStyle}
+                  type="date"
+                  value={form.contractStartDate}
+                  onChange={(e) => set("contractStartDate", e.target.value)}
+                />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Contract End
+                </label>
+                <input
+                  className={inputClass}
+                  style={inputStyle}
+                  type="date"
+                  value={form.contractEndDate}
+                  onChange={(e) => set("contractEndDate", e.target.value)}
+                />
+              </div>
             </div>
           )}
+        </div>
 
+        {/* Assignment */}
+        <div className={sectionClass} style={sectionStyle}>
+          <p className={sectionTitleClass} style={sectionTitleStyle}>Assignment</p>
           {/* Join Date + Project */}
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
@@ -417,37 +448,54 @@ export function MobileNewEmployeeDialog({
               Auto-marks PRESENT when employee enters this location&apos;s geo-fence.
             </p>
           </div>
+        </div>
 
-          {/* Actions */}
-          <div className="flex flex-col gap-3 ">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
-              style={{
-                borderColor: "var(--color-line)",
-                color: "var(--color-ink-700)",
-                backgroundColor: "var(--color-paper)",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
-              style={{
-                backgroundColor: "var(--color-ink-950)",
-                color: "var(--color-paper)",
-              }}
-            >
-              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-              {saving ? "Adding…" : "Add Employee"}
-            </button>
-          </div>
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+            style={{
+              backgroundColor: "var(--color-ink-950)",
+              color: "var(--color-paper)",
+            }}
+          >
+            {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+            {saving ? "Adding…" : "Add Employee"}
+          </button>
         </form>
-      </div>
-    </div>
+  );
+}
+
+/**
+ * MobileNewEmployeeDialog — legacy bottom-sheet backdrop wrapper.
+ *
+ * Kept for backward compatibility (used by the leaves dialog's inline
+ * "create employee" picker). Prefer wrapping <MobileNewEmployeeForm>
+ * in <MobileFabModal> instead — that gives the spring-from-FAB
+ * animation matching the materials page.
+ */
+export function MobileNewEmployeeDialog({
+  open,
+  onClose,
+  projects,
+  stockLocations,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  projects: ProjectOption[];
+  stockLocations: StockLocationOption[];
+  onCreated?: (employee: { id: string; name: string }) => void;
+}) {
+  return (
+    <MobileDialog open={open} onClose={onClose} title="New Employee">
+      <MobileNewEmployeeForm
+        onClose={onClose}
+        projects={projects}
+        stockLocations={stockLocations}
+        onCreated={onCreated}
+      />
+    </MobileDialog>
   );
 }

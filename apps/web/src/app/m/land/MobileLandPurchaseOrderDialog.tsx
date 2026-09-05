@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, Trash2, Plus } from "lucide-react";
+import { Loader2, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../sales/MobileChequeFields";
 import { MobileDocUploader } from "../MobileDocUploader";
 import { formatCurrency } from "@/lib/utils";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 const AREA_UNITS = ["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"] as const;
 const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as const;
@@ -60,8 +61,6 @@ export function MobileLandPurchaseOrderDialog({
   const [planItems, setPlanItems] = useState<{ description: string; percentage: string; dueDate: string }[]>([]);
   // Partial registry allowed
   const [partialRegistry, setPartialRegistry] = useState(false);
-
-  if (!open) return null;
 
   function reset() {
     setSellerId(""); setSellerName(""); setSellerContact(""); setProjectId("");
@@ -166,24 +165,8 @@ export function MobileLandPurchaseOrderDialog({
   const sectionHeadingStyle = { color: "var(--color-ink-950)" };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[0.75rem] border p-4 pb-6 max-h-[90vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Book Land Purchase</p>
-          <button onClick={onClose} className="text-m-body press">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-3">
+    <MobileDialog open={open} onClose={onClose} title="New Land Purchase Order">
+      <form onSubmit={handleSubmit} className="space-y-3">
           {/* Info banner */}
           <p className="text-m-caption rounded-[0.375rem] px-2.5 py-1.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, var(--color-paper))", color: "var(--color-ink-700)" }}>
             Book land with a token payment. The purchase will be marked <strong>BOOKED</strong> — complete it later by uploading the registry document.
@@ -488,7 +471,6 @@ export function MobileLandPurchaseOrderDialog({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }

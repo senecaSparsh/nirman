@@ -280,7 +280,19 @@ export async function sendNotification(
     } else if (input.channel === "EMAIL") {
       result = await emailProvider.sendEmail(input.recipient, input.subject ?? "", message);
     } else {
-      // IN_APP — always succeeds (just logged)
+      // IN_APP — create an InAppNotification record so the notification bell
+      // dropdown can surface it via /api/notifications/in-app
+      const userId = input.userId ?? input.recipient;
+      if (userId) {
+        await createInAppNotification({
+          companyId: input.companyId,
+          userId,
+          eventType: input.eventType,
+          title: input.subject ?? input.eventType.replace(/_/g, " ").toLowerCase(),
+          message,
+          metadata: input.metadata,
+        });
+      }
       result = { success: true };
     }
   } catch (err: unknown) {

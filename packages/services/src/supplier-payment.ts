@@ -5,6 +5,7 @@ import { postJournalEntry, ACCT } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { autoSyncEntryToTally } from "./auto-sync";
 import { withSerializableTransaction } from "./transaction";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * Supplier Payment Service — recording money paid out to suppliers.
@@ -17,15 +18,45 @@ import { withSerializableTransaction } from "./transaction";
  * Payment number format: SP-YYMMDD-NNNN (sequential per day).
  */
 
+/**
+ * Validate and compute supplier payment amounts.
+ * Pure function — no DB access.
+ *
+ *   netPaidAmount = amount − tdsAmount
+ *
+ * Throws if amount ≤ 0, tdsAmount < 0, or tdsAmount > amount.
+ */
+export function validateSupplierPaymentAmounts(
+  amount: Decimal,
+  tdsAmount: Decimal,
+): { netPaidAmount: Decimal } {
+  if (!amount.gt(0)) throw new ServiceError("Payment amount must be greater than 0");
+  if (tdsAmount.lt(0)) throw new ServiceError("TDS amount cannot be negative");
+  if (tdsAmount.gt(amount)) throw new ServiceError("TDS amount cannot exceed payment amount");
+  const netPaidAmount = amount.minus(tdsAmount);
+  return { netPaidAmount };
+}
+
+/**
+ * Check if a payment would exceed the PO total.
+ * Pure function — no DB access.
+ */
+export function wouldExceedPoTotal(
+  alreadyPaid: Decimal,
+  newAmount: Decimal,
+  poTotal: Decimal,
+): boolean {
+  return alreadyPaid.plus(newAmount).gt(poTotal);
+}
+
 // Generate payment number: SP-YYMMDD-NNNN
 async function generatePaymentNumber(tx: Prisma.TransactionClient): Promise<string> {
   const today = new Date();
   const yy = String(today.getFullYear()).slice(2);
   const mm = String(today.getMonth() + 1).padStart(2, "0");
   const dd = String(today.getDate()).padStart(2, "0");
-  const prefix = `SP-${yy}${mm}${dd}`;
-  const count = await tx.supplierPayment.count({ where: { paymentNumber: { startsWith: prefix } } });
-  return `${prefix}-${String(count + 1).padStart(4, "0")}`;
+  const prefix = `SP-${yy}${mm}${dd}-`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 export async function createSupplierPayment(input: {
@@ -90,6 +121,39 @@ export async function createSupplierPayment(input: {
       }
       if (invoice.companyId !== input.companyId) {
         throw new ServiceError("Supplier invoice does not belong to this company");
+      }
+      // M3: Cannot pay an invoice that hasn't been approved yet.
+      // PENDING/DISPUTED invoices must be approved first to prevent paying
+      // for goods that failed three-way match or are under dispute.
+      if (invoice.status !== "APPROVED" && invoice.status !== "MATCHED" && invoice.status !== "PAID") {
+        throw new ServiceError(
+          `Cannot pay invoice with status "${invoice.status}". Invoice must be APPROVED or MATCHED first.`,
+        );
+      }
+      // Prevent overpayment: sum existing payments for this invoice should not exceed invoice total
+      const existingInvoicePayments = await tx.supplierPayment.aggregate({
+        where: { invoiceId: input.invoiceId },
+        _sum: { amount: true },
+      });
+      const alreadyPaidToInvoice = new Decimal(existingInvoicePayments._sum.amount ?? 0);
+      const invoiceTotal = new Decimal(invoice.totalAmount);
+      if (alreadyPaidToInvoice.plus(amount).gt(invoiceTotal)) {
+        throw new ServiceError(
+          `Payment exceeds invoice total. Invoice total: ${invoiceTotal}, already paid: ${alreadyPaidToInvoice}, attempting to pay: ${amount}`,
+        );
+      }
+    }
+
+    // 2c. For unlinked payments (no PO), prevent overpaying the supplier's balanceOwed.
+    //     Without this guard, two concurrent unlinked payments could each read the
+    //     same balanceOwed and both succeed, overpaying the supplier.
+    if (!input.purchaseOrderId) {
+      const currentBalance = new Decimal(supplier.balanceOwed);
+      if (amount.gt(currentBalance)) {
+        throw new ServiceError(
+          `Payment amount (${amount}) exceeds supplier's outstanding balance (${currentBalance}). ` +
+          `Use a linked PO payment or adjust the amount.`,
+        );
       }
     }
 

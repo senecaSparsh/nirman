@@ -101,10 +101,10 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
     }
   }
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
-  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
+  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   if (units.length === 0) {
     return (
@@ -135,117 +135,92 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        {/* Unit selector */}
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Unit to List <span style={{ color: "var(--color-stop)" }}>*</span>
-          </label>
-          <select value={form.builtUnitId} onChange={(e) => onUnitChange(e.target.value)} className={inputClass} style={inputStyle}>
-            <option value="">— Select available unit —</option>
-            {units.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.unitNumber} · {u.unitType} · {u.projectName} · {u.area} {u.areaUnit}
-                {u.askingPrice ? ` · ${formatCurrencyCompact(u.askingPrice)}` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Unit & Portal */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Unit &amp; Portal
+          </p>
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Unit to List <span style={{ color: "var(--color-stop)" }}>*</span>
+            </label>
+            <select value={form.builtUnitId} onChange={(e) => onUnitChange(e.target.value)} className={inputClass} style={inputStyle}>
+              <option value="">— Select available unit —</option>
+              {units.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.unitNumber} · {u.unitType} · {u.projectName} · {u.area} {u.areaUnit}
+                  {u.askingPrice ? ` · ${formatCurrencyCompact(u.askingPrice)}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        {/* Portal selector */}
-        <div>
-          <label className={labelClass} style={labelStyle}>Portal</label>
-          <div className="flex flex-col gap-2">
-            {PORTAL_OPTIONS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => { set("portalName", p); haptic(10); }}
-                className="flex-1 h-10 rounded-[0.5rem] border-2 text-m-caption font-bold text-m-body press"
-                style={{
-                  borderColor: form.portalName === p ? "var(--color-ink-950)" : "var(--color-line)",
-                  backgroundColor: form.portalName === p ? "var(--color-ink-950)" : "var(--color-paper)",
-                  color: form.portalName === p ? "var(--color-paper)" : "var(--color-ink-500)",
-                }}
-              >
-                {p}
-              </button>
-            ))}
+          <div>
+            <label className={labelClass} style={labelStyle}>Portal</label>
+            <div className="flex flex-col gap-2">
+              {PORTAL_OPTIONS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => { set("portalName", p); haptic(10); }}
+                  className="flex-1 h-10 rounded-[0.5rem] border-2 text-m-caption font-bold text-m-body press"
+                  style={{
+                    borderColor: form.portalName === p ? "var(--color-ink-950)" : "var(--color-line)",
+                    backgroundColor: form.portalName === p ? "var(--color-ink-950)" : "var(--color-paper)",
+                    color: form.portalName === p ? "var(--color-paper)" : "var(--color-ink-500)",
+                  }}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Title */}
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Listing Title <span style={{ color: "var(--color-stop)" }}>*</span>
-          </label>
-          <input
-            type="text"
-            value={form.title}
-            onChange={(e) => set("title", e.target.value)}
-            placeholder="e.g. 2BHK Apartment in Skyline Residency"
-            autoFocus
-            enterKeyHint="next"
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
-
-        {/* Description */}
-        <div>
-          <label className={labelClass} style={labelStyle}>Description</label>
-          <textarea
-            value={form.description}
-            onChange={(e) => set("description", e.target.value)}
-            rows={3}
-            placeholder="Describe the property…"
-            className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section outline-none resize-none"
-            style={inputStyle}
-          />
-        </div>
-
-        {/* Asking Price */}
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Asking Price (₹) <span style={{ color: "var(--color-stop)" }}>*</span>
-          </label>
-          <input
-            type="number"
-            min={1}
-            step="any"
-            value={form.askingPrice}
-            onChange={(e) => set("askingPrice", e.target.value)}
-            placeholder="0"
-            inputMode="numeric"
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
-
-        {/* Bedrooms + Bathrooms */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* Listing Details */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Listing Details
+          </p>
           <div>
-            <label className={labelClass} style={labelStyle}>Bedrooms</label>
+            <label className={labelClass} style={labelStyle}>
+              Listing Title <span style={{ color: "var(--color-stop)" }}>*</span>
+            </label>
             <input
-              type="number"
-              min={0}
-              max={10}
-              value={form.bedrooms}
-              onChange={(e) => set("bedrooms", e.target.value)}
-              placeholder="e.g. 2"
-              inputMode="numeric"
+              type="text"
+              value={form.title}
+              onChange={(e) => set("title", e.target.value)}
+              placeholder="e.g. 2BHK Apartment in Skyline Residency"
+              autoFocus
+              enterKeyHint="next"
               className={inputClass}
               style={inputStyle}
             />
           </div>
+
           <div>
-            <label className={labelClass} style={labelStyle}>Bathrooms</label>
+            <label className={labelClass} style={labelStyle}>Description</label>
+            <textarea
+              value={form.description}
+              onChange={(e) => set("description", e.target.value)}
+              rows={2}
+              placeholder="Describe the property…"
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Asking Price (₹) <span style={{ color: "var(--color-stop)" }}>*</span>
+            </label>
             <input
               type="number"
-              min={0}
-              max={10}
-              value={form.bathrooms}
-              onChange={(e) => set("bathrooms", e.target.value)}
-              placeholder="e.g. 2"
+              min={1}
+              step="any"
+              value={form.askingPrice}
+              onChange={(e) => set("askingPrice", e.target.value)}
+              placeholder="0"
               inputMode="numeric"
               className={inputClass}
               style={inputStyle}
@@ -253,24 +228,65 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
           </div>
         </div>
 
-        {/* Furnishing */}
-        <div>
-          <label className={labelClass} style={labelStyle}>Furnishing</label>
-          <input
-            type="text"
-            value={form.furnishing}
-            onChange={(e) => set("furnishing", e.target.value)}
-            placeholder="e.g. Semi-furnished, Unfurnished"
-            enterKeyHint="done"
-            className={inputClass}
-            style={inputStyle}
-          />
+        {/* Property Specs */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Property Specs
+          </p>
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <label className={labelClass} style={labelStyle}>Bedrooms</label>
+              <input
+                type="number"
+                min={0}
+                max={10}
+                value={form.bedrooms}
+                onChange={(e) => set("bedrooms", e.target.value)}
+                placeholder="e.g. 2"
+                inputMode="numeric"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+            <div className="pl-2">
+              <label className={labelClass} style={labelStyle}>Bathrooms</label>
+              <input
+                type="number"
+                min={0}
+                max={10}
+                value={form.bathrooms}
+                onChange={(e) => set("bathrooms", e.target.value)}
+                placeholder="e.g. 2"
+                inputMode="numeric"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClass} style={labelStyle}>Furnishing</label>
+            <input
+              type="text"
+              value={form.furnishing}
+              onChange={(e) => set("furnishing", e.target.value)}
+              placeholder="e.g. Semi-furnished, Unfurnished"
+              enterKeyHint="done"
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
         </div>
 
         {/* Photos */}
-        <div>
-          <label className={labelClass} style={labelStyle}>Photos</label>
-          <PhotoUploader photos={photos} onChange={setPhotos} maxPhotos={10} />
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Photos
+          </p>
+          <div>
+            <label className={labelClass} style={labelStyle}>Photos</label>
+            <PhotoUploader photos={photos} onChange={setPhotos} maxPhotos={10} />
+          </div>
         </div>
 
         {/* Actions */}

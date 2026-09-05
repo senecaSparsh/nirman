@@ -1,4 +1,6 @@
 import { prisma } from "@nirman/db";
+import { withSerializableTransaction } from "./transaction";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * Material Code Auto-Generation
@@ -48,7 +50,7 @@ const KNOWN_PREFIXES: Record<string, string> = {
   fasteners: "FST",
 };
 
-function categoryPrefix(categoryName: string): string {
+export function categoryPrefix(categoryName: string): string {
   const lower = categoryName.toLowerCase().trim();
   // Check known mappings first.
   for (const [key, prefix] of Object.entries(KNOWN_PREFIXES)) {
@@ -59,7 +61,7 @@ function categoryPrefix(categoryName: string): string {
   return alpha.padEnd(3, "X").toUpperCase();
 }
 
-function sanitizeGrade(grade: string | null | undefined): string {
+export function sanitizeGrade(grade: string | null | undefined): string {
   if (!grade) return "";
   return grade.trim().replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
 }
@@ -78,26 +80,12 @@ export async function generateMaterialCode(
   // Build the code pattern: "STL-Fe500D-" or "CEM-"
   const codePrefix = gradePart ? `${prefix}-${gradePart}-` : `${prefix}-`;
 
-  // Find all existing codes with this prefix to determine the next sequence.
-  const existing = await prisma.material.findMany({
-    where: {
-      code: { startsWith: codePrefix },
-      deletedAt: null,
-    },
-    select: { code: true },
+  // Use the atomic NumberSequence table to get the next sequence number.
+  // This prevents race conditions when two users create materials with the
+  // same category+grade simultaneously.
+  return withSerializableTransaction(async (tx) => {
+    return nextSequenceNumber(tx, codePrefix, 3);
   });
-
-  let maxSeq = 0;
-  for (const m of existing) {
-    const parts = m.code.split("-");
-    const lastPart = parts[parts.length - 1] ?? "";
-    const seq = parseInt(lastPart, 10);
-    if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
-  }
-
-  const nextSeq = maxSeq + 1;
-  const seqStr = String(nextSeq).padStart(3, "0");
-  return `${codePrefix}${seqStr}`;
 }
 
 /**

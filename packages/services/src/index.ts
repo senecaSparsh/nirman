@@ -24,6 +24,9 @@ export {
 // Serializable transaction helper — for auto-numbered creates and status transitions
 export { withSerializableTransaction } from "./transaction";
 
+// Atomic sequence number generator — replaces race-prone count+1 pattern
+export { nextSequenceNumber } from "./sequence";
+
 // UOM Conversion — pure functions for base/secondary unit conversion
 export {
   toBaseUnit,
@@ -313,6 +316,7 @@ export {
   bounceCheque,
   uploadSaleDocument,
   getPrintableSaleData,
+  computePropertyTds,
 } from "./sale";
 export type {
   SellAssetInput,
@@ -580,19 +584,22 @@ export {
   searchVehicles,
   getVehicleHistory,
   listVehicles,
+  createVehicle,
   VEHICLE_TYPES,
   VEHICLE_TYPE_LABELS,
   type VehicleType,
   type VehicleTripInput,
+  type CreateVehicleInput,
 } from "./vehicle";
 
-// Alerts & Reporting — low-stock, aging, NRV write-downs, lease expiry
+// Alerts & Reporting — low-stock, aging, NRV write-downs, lease expiry, EOQ
 export {
   lowStockAlerts,
   inventoryAgingReport,
   flagNrvWriteDowns,
   computeNrvWriteDown,
   leaseExpiryAlerts,
+  computeWilsonEoq,
 } from "./alerts";
 
 // General Ledger — double-entry bookkeeping + GST posting
@@ -625,6 +632,7 @@ export {
   postEquipmentMaintenance,
   postEquipmentRetirement,
   postEquipmentSale,
+  postDepreciation,
   postSecurityDepositReceived,
   postSecurityDepositRefunded,
   postSaleExpense,
@@ -657,6 +665,7 @@ export {
   buildMaterialSaleEInvoicePayload,
   buildAssetSaleEInvoicePayload,
   setEInvoiceProvider,
+  isEInvoiceConfigured,
   type EInvoicePayload,
   type EInvoiceProvider,
   type EInvoiceResult,
@@ -781,6 +790,30 @@ export {
   type CreateBenefitInput,
   type UpdateBenefitInput,
 } from "./employee-dossier";
+
+// Employee Account Linking — connects Employee (HR) ↔ User (auth) ↔ CompanyPhone (call tracking)
+export {
+  createEmployeeAccount,
+  linkEmployeeToUser,
+  assignPhoneToEmployee,
+  unlinkEmployeePhone,
+  terminateEmployee,
+  syncEmployeeUser,
+  checkPhoneAvailability,
+  findAvailablePhoneNumbers,
+  getEmployeeTelephonyCost,
+  generateEmploymentAgreement,
+  confirmEmploymentAgreement,
+  setupAutoDeposit,
+  disableAutoDeposit,
+  type CreateEmployeeAccountInput,
+  type LinkEmployeeToUserInput,
+  type AssignPhoneToEmployeeInput,
+  type TerminateEmployeeInput,
+  type ModulePermission,
+  type ScopeEntry,
+  type EmployeeTelephonyCost,
+} from "./employee-account";
 
 // SMS Parser — auto payment entry from bank SMS notifications
 export {
@@ -1114,7 +1147,7 @@ export {
 } from "./gate-pass";
 
 // Web Push notifications
-export { sendPushToUser, sendPushToApprovers, type PushPayload } from "./push";
+export { sendPushToUser, sendPushToApprovers, isPushConfigured, getVapidPublicKey, type PushPayload } from "./push";
 
 // Instant Feedback — screenshot + voice + text feedback from any user
 export {
@@ -1128,3 +1161,22 @@ export {
   getFeedbackStats,
   type CreateFeedbackInput,
 } from "./feedback";
+
+// Books Reconciliation — the "trust surface" that ties operational ledgers to the GL
+export {
+  runBookReconciliation,
+  reconcileStockLedger,
+  reconcileInventoryGl,
+  reconcileLandCosts,
+  reconcileUnitCosts,
+  reconcileTrialBalance,
+  decimalDelta,
+  statusForDelta,
+  buildCheck,
+  summarizeChecks,
+  type CheckStatus,
+  type ReconciliationDetail,
+  type ReconciliationCheck,
+  type ReconciliationSummary,
+  type ReconciliationReport,
+} from "./reconciliation-health";

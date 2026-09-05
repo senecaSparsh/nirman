@@ -27,6 +27,8 @@ export function computeMovingAverageCost(
 
   if (oldMACN.lt(0)) throw new Error("Old MAC cannot be negative");
   if (recvCostN.lt(0)) throw new Error("Received unit cost cannot be negative");
+  if (oldQtyN.lt(0)) throw new Error("Old quantity cannot be negative (stock ledger is corrupt)");
+  if (recvQtyN.lt(0)) throw new Error("Received quantity cannot be negative");
 
   const newQty = oldQtyN.plus(recvQtyN);
   if (newQty.isZero()) {

@@ -1067,6 +1067,11 @@ export const employeeSchema = z.object({
   active: z.boolean().optional(),
   reportingLocationId: z.string().optional().nullable(),
   hierarchyLevel: z.coerce.number().int().min(1).max(6).optional().nullable(),
+  // Employment terms (dossier) — accepted at creation time
+  employmentType: z.enum(["PERMANENT", "CONTRACT", "CASUAL", "PROBATION", "INTERN"]).optional().nullable(),
+  noticePeriodDays: z.coerce.number().int().min(0).max(365).optional().nullable(),
+  contractStartDate: z.string().optional().nullable(),
+  contractEndDate: z.string().optional().nullable(),
 });
 
 // ── Crew ──

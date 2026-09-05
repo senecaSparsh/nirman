@@ -3,14 +3,20 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {MapPin, Pencil, Trash2, Loader2, Warehouse, Building2} from "lucide-react";
+import {MapPin, Pencil, Trash2, Loader2, Warehouse, Building2, Eye, Share2, Package, IndianRupee} from "lucide-react";
 import { haptic } from "@/lib/haptic";
+import { useLongPress } from "@/lib/use-long-press";
+import {
+  MobileOverviewSheet,
+  type OverviewRow,
+} from "@/components/mobile/v2/mobile-overview-sheet";
+import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileFab } from "@/components/mobile/v2/scaffold";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileNewStockLocationForm } from "./MobileNewStockLocationDialog";
-import { formatCurrencyCompact } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 
 type LocationType = "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT" | "CENTRAL_WAREHOUSE";
 
@@ -91,7 +97,7 @@ export function MobileStockLocationsList({
         >
           ← Settings
         </a>
-        <h1 className="text-m-title font-bold mt-1" style={{ color: "var(--color-ink-950)" }}>
+        <h1 className="text-m-section font-bold mt-1" style={{ color: "var(--color-ink-950)" }}>
           Stock Locations
         </h1>
         <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
@@ -124,69 +130,16 @@ export function MobileStockLocationsList({
         />
       ) : (
         <div className="flex flex-col gap-2 px-4 pb-8">
-          {locations.map((loc) => {
-            const Icon = TYPE_ICONS[loc.type] ?? MapPin;
-            return (
-              <div
-                key={loc.id}
-                className="rounded-[0.75rem] border p-3.5"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 min-w-0 flex-1">
-                    <div
-                      className="grid place-items-center size-9 rounded-[0.625rem] shrink-0"
-                      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-500) 10%, transparent)" }}
-                    >
-                      <Icon className="size-4" style={{ color: "var(--color-ink-600)" }} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-m-body font-semibold truncate" style={{ color: "var(--color-ink-950)" }}>
-                        {loc.name}
-                      </p>
-                      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                        {TYPE_LABELS[loc.type] ?? loc.type}
-                        {loc.projectName ? ` · ${loc.projectName}` : ""}
-                      </p>
-                      {loc.address && (
-                        <p className="text-m-caption mt-0.5 truncate" style={{ color: "var(--color-ink-400)" }}>
-                          {loc.address}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-3 mt-1.5 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                        <span>{loc.itemCount} item{loc.itemCount !== 1 ? "s" : ""}</span>
-                        <span>·</span>
-                        <span className="tnum">{formatCurrencyCompact(loc.stockValue)}</span>
-                      </div>
-                    </div>
-                  </div>
-                  {canManage && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={() => setEditing(loc)}
-                        className="grid place-items-center size-8 rounded-[0.625rem] active:opacity-70 transition-colors press"
-                        title="Edit location"
-                      >
-                        <Pencil className="size-4" style={{ color: "var(--color-ink-500)" }} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(loc)}
-                        disabled={deleting === loc.id || loc.itemCount > 0}
-                        className="grid place-items-center size-8 rounded-[0.625rem] active:opacity-70 transition-colors disabled:opacity-30 press"
-                        title={loc.itemCount > 0 ? "Cannot delete location with stock" : "Delete location"}
-                      >
-                        {deleting === loc.id ? (
-                          <Loader2 className="size-4 animate-spin" style={{ color: "var(--color-stop)" }} />
-                        ) : (
-                          <Trash2 className="size-4" style={{ color: "var(--color-stop)" }} />
-                        )}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          {locations.map((loc) => (
+            <LocationCard
+              key={loc.id}
+              loc={loc}
+              canManage={canManage}
+              isDeleting={deleting === loc.id}
+              onEdit={() => setEditing(loc)}
+              onDelete={() => handleDelete(loc)}
+            />
+          ))}
         </div>
       )}
 
@@ -199,6 +152,142 @@ export function MobileStockLocationsList({
         />
       )}
     </div>
+  );
+}
+
+/* ── Location card — extracted so we can use long-press hooks ────────────── */
+/* Long-press opens an overview sheet (data already in the list item — no fetch). */
+function LocationCard({
+  loc,
+  canManage,
+  isDeleting,
+  onEdit,
+  onDelete,
+}: {
+  loc: LocationRow;
+  canManage: boolean;
+  isDeleting: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const router = useRouter();
+  const Icon = TYPE_ICONS[loc.type] ?? MapPin;
+
+  // ── Long-press overview sheet (data already in the list item — no fetch) ──
+  const [overviewOpen, setOverviewOpen] = useState(false);
+  const [pressPoint, setPressPoint] = useState<{ x: number; y: number } | null>(null);
+  const { bind: longPressBind } = useLongPress((x, y) => {
+    setPressPoint({ x, y });
+    setOverviewOpen(true);
+  });
+
+  const overviewRows: OverviewRow[] = [
+    { icon: Icon, label: "Type", value: TYPE_LABELS[loc.type] ?? loc.type },
+    ...(loc.projectName ? [{ icon: MapPin, label: "Project", value: loc.projectName }] : []),
+    ...(loc.address ? [{ icon: MapPin, label: "Address", value: loc.address }] : []),
+    { icon: Package, label: "Total Items", value: String(loc.itemCount) },
+    {
+      icon: IndianRupee,
+      label: "Stock Value",
+      value: formatCurrency(loc.stockValue),
+    },
+  ];
+
+  const overviewActions: ContextAction[] = [
+    {
+      label: "View Full Details",
+      icon: Eye,
+      onPress: () => router.push(`/m/stock-locations/${loc.id}`),
+    },
+    {
+      label: "Share",
+      icon: Share2,
+      onPress: () => {
+        const url = `${window.location.origin}/m/stock-locations/${loc.id}`;
+        if (navigator.share) {
+          navigator.share({ title: loc.name, url }).catch(() => {});
+        } else {
+          navigator.clipboard?.writeText(url).catch(() => {});
+          toast.success("Link copied");
+        }
+      },
+    },
+  ];
+
+  return (
+    <>
+      <div {...longPressBind}>
+        <div
+          className="rounded-[0.75rem] border p-3.5"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+              <div
+                className="grid place-items-center size-9 rounded-[0.625rem] shrink-0"
+                style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-500) 10%, transparent)" }}
+              >
+                <Icon className="size-4" style={{ color: "var(--color-ink-600)" }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-m-body font-semibold truncate" style={{ color: "var(--color-ink-950)" }}>
+                  {loc.name}
+                </p>
+                <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                  {TYPE_LABELS[loc.type] ?? loc.type}
+                  {loc.projectName ? ` · ${loc.projectName}` : ""}
+                </p>
+                {loc.address && (
+                  <p className="text-m-caption mt-0.5 truncate" style={{ color: "var(--color-ink-400)" }}>
+                    {loc.address}
+                  </p>
+                )}
+                <div className="flex items-center gap-3 mt-1.5 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                  <span>{loc.itemCount} item{loc.itemCount !== 1 ? "s" : ""}</span>
+                  <span>·</span>
+                  <span className="tnum">{formatCurrencyCompact(loc.stockValue)}</span>
+                </div>
+              </div>
+            </div>
+            {canManage && (
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={onEdit}
+                  className="grid place-items-center size-8 rounded-[0.625rem] active:opacity-70 transition-colors press"
+                  title="Edit location"
+                >
+                  <Pencil className="size-4" style={{ color: "var(--color-ink-500)" }} />
+                </button>
+                <button
+                  onClick={onDelete}
+                  disabled={isDeleting || loc.itemCount > 0}
+                  className="grid place-items-center size-8 rounded-[0.625rem] active:opacity-70 transition-colors disabled:opacity-30 press"
+                  title={loc.itemCount > 0 ? "Cannot delete location with stock" : "Delete location"}
+                >
+                  {isDeleting ? (
+                    <Loader2 className="size-4 animate-spin" style={{ color: "var(--color-stop)" }} />
+                  ) : (
+                    <Trash2 className="size-4" style={{ color: "var(--color-stop)" }} />
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Long-press overview sheet */}
+      <MobileOverviewSheet
+        open={overviewOpen}
+        onClose={() => setOverviewOpen(false)}
+        origin={pressPoint}
+        title={loc.name}
+        subtitle={TYPE_LABELS[loc.type] ?? loc.type}
+        accentColor="var(--color-ink-500)"
+        rows={overviewRows}
+        actions={overviewActions}
+      />
+    </>
   );
 }
 

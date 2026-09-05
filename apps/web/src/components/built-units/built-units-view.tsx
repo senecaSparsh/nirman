@@ -412,16 +412,6 @@ export function BuiltUnitsView({
   return (
     <div className="space-y-4">
       {/* ════════════════════════════════════════════════════════════
-          1. Title
-          ════════════════════════════════════════════════════════════ */}
-      <div className="min-w-0">
-        <h1 className="text-title text-foreground">Built Units</h1>
-        <p className="mt-0.5 text-meta text-muted-foreground">
-          Sellable units within projects — status, valuation, and NRV write-downs.
-        </p>
-      </div>
-
-      {/* ════════════════════════════════════════════════════════════
           4. Content
           ════════════════════════════════════════════════════════════ */}
       {units.length === 0 ? (

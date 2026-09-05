@@ -18,7 +18,7 @@ export default function ProjectControlPage() {
   );
 }
 
-async function ProjectControlContent() {
+export async function ProjectControlContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

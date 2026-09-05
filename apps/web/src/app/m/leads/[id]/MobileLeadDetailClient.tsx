@@ -472,45 +472,50 @@ export function MobileLeadDetailClient({
               </button>
             </div>
             <div className="px-3 pb-4 flex flex-col gap-3">
-              <div>
-                <label className="text-m-caption font-semibold block mb-1.5" style={{ color: "var(--color-ink-500)" }}>
-                  Next Stage
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {nextStages.map((s) => {
-                    const meta = STAGE_META[s] ?? { color: "var(--color-steel)", label: s };
-                    const active = selectedStage === s;
-                    return (
-                      <button
-                        key={s}
-                        onClick={() => { setSelectedStage(s); setLostReason(""); }}
-                        className="rounded-[0.375rem] px-2.5 py-1.5 text-m-caption font-bold text-m-body press"
-                        style={{
-                          backgroundColor: active ? meta.color : "var(--color-paper-2)",
-                          color: active ? "var(--color-paper)" : "var(--color-ink-700)",
-                          border: `1px solid ${active ? meta.color : "var(--color-line)"}`,
-                        }}
-                      >
-                        {meta.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              {selectedStage === "LOST" ? (
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Stage Transition
+                </p>
                 <div>
-                  <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
-                    Lost Reason *
+                  <label className="text-m-caption font-semibold block mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+                    Next Stage
                   </label>
-                  <input
-                    value={lostReason}
-                    onChange={(e) => setLostReason(e.target.value)}
-                    placeholder="Budget, location, competitor…"
-                    className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-                  />
+                  <div className="flex flex-wrap gap-1.5">
+                    {nextStages.map((s) => {
+                      const meta = STAGE_META[s] ?? { color: "var(--color-steel)", label: s };
+                      const active = selectedStage === s;
+                      return (
+                        <button
+                          key={s}
+                          onClick={() => { setSelectedStage(s); setLostReason(""); }}
+                          className="rounded-[0.375rem] px-2.5 py-1.5 text-m-caption font-bold text-m-body press"
+                          style={{
+                            backgroundColor: active ? meta.color : "var(--color-paper-2)",
+                            color: active ? "var(--color-paper)" : "var(--color-ink-700)",
+                            border: `1px solid ${active ? meta.color : "var(--color-line)"}`,
+                          }}
+                        >
+                          {meta.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              ) : null}
+                {selectedStage === "LOST" ? (
+                  <div>
+                    <label className="text-m-caption font-bold block mb-0" style={{ color: "var(--color-ink-700)" }}>
+                      Lost Reason *
+                    </label>
+                    <input
+                      value={lostReason}
+                      onChange={(e) => setLostReason(e.target.value)}
+                      placeholder="Budget, location, competitor…"
+                      className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                      style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                    />
+                  </div>
+                ) : null}
+              </div>
               <div className="flex flex-col gap-2 pt-1">
                 <button
                   onClick={() => setShowStageSheet(false)}
@@ -647,83 +652,88 @@ function LogActivityForm({ leadId }: { leadId: string }) {
       </div>
 
       <form onSubmit={submit} className="flex flex-col gap-2.5">
-        {/* Type selector */}
-        <div className="flex flex-wrap gap-1">
-          {ACTIVITY_TYPES.map((t) => {
-            const Icon = t.icon;
-            const active = type === t.value;
-            return (
-              <button
-                key={t.value}
-                type="button"
-                onClick={() => setType(t.value)}
-                className="flex items-center gap-1 rounded-[0.25rem] px-2 py-1 text-m-caption font-bold text-m-body press"
-                style={{
-                  backgroundColor: active ? "var(--color-ink-950)" : "var(--color-concrete)",
-                  color: active ? "var(--color-paper)" : "var(--color-ink-500)",
-                }}
-              >
-                <Icon className="size-2.5" />
-                {t.label}
-              </button>
-            );
-          })}
-        </div>
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Activity Details
+          </p>
+          {/* Type selector */}
+          <div className="flex flex-wrap gap-1">
+            {ACTIVITY_TYPES.map((t) => {
+              const Icon = t.icon;
+              const active = type === t.value;
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => setType(t.value)}
+                  className="flex items-center gap-1 rounded-[0.25rem] px-2 py-1 text-m-caption font-bold text-m-body press"
+                  style={{
+                    backgroundColor: active ? "var(--color-ink-950)" : "var(--color-concrete)",
+                    color: active ? "var(--color-paper)" : "var(--color-ink-500)",
+                  }}
+                >
+                  <Icon className="size-2.5" />
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
 
-        {/* Notes — "किसने क्या बोला" */}
-        <div>
-          <label className="text-m-caption font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>
-            Notes — what was discussed
-          </label>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={3}
-            placeholder="e.g. Client interested in 2BHK, asked for site visit next week"
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-label font-medium outline-none resize-none"
-            style={{
-              borderColor: "var(--color-line)",
-              backgroundColor: "var(--color-paper)",
-              color: "var(--color-ink-950)",
-            }}
-          />
-        </div>
+          {/* Notes — "किसने क्या बोला" */}
+          <div>
+            <label className="text-m-caption font-bold uppercase mb-0 block" style={{ color: "var(--color-ink-700)" }}>
+              Notes — what was discussed
+            </label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              placeholder="e.g. Client interested in 2BHK, asked for site visit next week"
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+              style={{
+                borderColor: "var(--color-line)",
+                backgroundColor: "transparent",
+                color: "var(--color-ink-950)",
+              }}
+            />
+          </div>
 
-        {/* Outcome */}
-        <div>
-          <label className="text-m-caption font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>
-            Outcome
-          </label>
-          <input
-            type="text"
-            value={outcome}
-            onChange={(e) => setOutcome(e.target.value)}
-            placeholder="e.g. Callback scheduled, warm lead"
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-label font-medium outline-none"
-            style={{
-              borderColor: "var(--color-line)",
-              backgroundColor: "var(--color-paper)",
-              color: "var(--color-ink-950)",
-            }}
-          />
-        </div>
+          {/* Outcome */}
+          <div>
+            <label className="text-m-caption font-bold uppercase mb-0 block" style={{ color: "var(--color-ink-700)" }}>
+              Outcome
+            </label>
+            <input
+              type="text"
+              value={outcome}
+              onChange={(e) => setOutcome(e.target.value)}
+              placeholder="e.g. Callback scheduled, warm lead"
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              style={{
+                borderColor: "var(--color-line)",
+                backgroundColor: "transparent",
+                color: "var(--color-ink-950)",
+              }}
+            />
+          </div>
 
-        {/* Next follow-up */}
-        <div>
-          <label className="text-m-caption font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>
-            Next Follow-up
-          </label>
-          <input
-            type="date"
-            value={nextFollowUp}
-            onChange={(e) => setNextFollowUp(e.target.value)}
-            className="w-full rounded-[0.375rem] border px-2.5 py-2 text-m-label font-medium outline-none"
-            style={{
-              borderColor: "var(--color-line)",
-              backgroundColor: "var(--color-paper)",
-              color: "var(--color-ink-950)",
-            }}
-          />
+          {/* Next follow-up */}
+          <div>
+            <label className="text-m-caption font-bold uppercase mb-0 block" style={{ color: "var(--color-ink-700)" }}>
+              Next Follow-up
+            </label>
+            <input
+              type="date"
+              value={nextFollowUp}
+              onChange={(e) => setNextFollowUp(e.target.value)}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              style={{
+                borderColor: "var(--color-line)",
+                backgroundColor: "transparent",
+                color: "var(--color-ink-950)",
+              }}
+            />
+          </div>
         </div>
 
         <button

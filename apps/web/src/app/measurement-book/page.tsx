@@ -18,7 +18,7 @@ export default function MeasurementBookPage() {
   );
 }
 
-async function MbContent() {
+export async function MbContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

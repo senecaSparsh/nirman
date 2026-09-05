@@ -177,3 +177,39 @@ export async function listVehicles(companyId: string) {
     orderBy: { lastUsedAt: "desc" },
   });
 }
+
+export interface CreateVehicleInput {
+  vehicleNumber: string;
+  vehicleType: string;
+  photoUrl?: string | null;
+  driverName?: string | null;
+  driverPhone?: string | null;
+  transporterName?: string | null;
+  companyId: string;
+}
+
+/**
+ * Manually create a Vehicle master record (without a trip).
+ *
+ * Vehicles normally auto-build from goods movements via `recordVehicleTrip`,
+ * but the owner can also pre-register a vehicle (e.g. a new truck joins the
+ * fleet) before it's used on any movement. The (vehicleNumber, companyId)
+ * pair is unique — a duplicate throws a clear error the caller can surface.
+ */
+export async function createVehicle(input: CreateVehicleInput) {
+  const vehicleNumber = input.vehicleNumber.trim().toUpperCase();
+  if (!vehicleNumber) throw new Error("Vehicle number is required");
+
+  return prisma.vehicle.create({
+    data: {
+      vehicleNumber,
+      vehicleType: input.vehicleType || "OTHER",
+      photoUrl: input.photoUrl ?? null,
+      driverName: input.driverName?.trim() || null,
+      driverPhone: input.driverPhone?.trim() || null,
+      transporterName: input.transporterName?.trim() || null,
+      companyId: input.companyId,
+      tripCount: 0,
+    },
+  });
+}

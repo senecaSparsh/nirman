@@ -11,6 +11,18 @@ import { withSerializableTransaction } from "./transaction";
  * These feed into the cost-per-sqft allocation (unlike Expenses, which are operational).
  */
 
+/**
+ * Validate a project cost amount.
+ * Pure function — no DB access.
+ *
+ * Throws if amount ≤ 0.
+ */
+export function validateProjectCostAmount(amount: Decimal | number | string): Decimal {
+  const d = new Decimal(amount);
+  if (!d.gt(0)) throw new ServiceError("Cost amount must be > 0");
+  return d;
+}
+
 interface AddProjectCostInput {
   projectId: string;
   costType: ProjectCostType;

@@ -4,6 +4,7 @@ import { logAction } from "./audit";
 import { lowStockAlerts } from "./alerts";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * Auto-Requisition Service — operationalize the reorderPoint / EOQ fields.
@@ -28,6 +29,28 @@ import { withSerializableTransaction } from "./transaction";
  * The requisition is created in DRAFT status — a human still reviews/submits it.
  * Automation raises the request; humans approve the spend. That's the right boundary.
  */
+
+/**
+ * Compute the auto-requisition order quantity for a material.
+ * Pure function — no DB access.
+ *
+ * If suggestedOrderQty > 0, use it directly.
+ * Otherwise: target = reorderPoint × 2, qty = target − totalStock.
+ * If qty ≤ 0, default to 1 (always order at least 1 unit when triggered).
+ */
+export function computeAutoRequisitionQty(
+  reorderPoint: Decimal,
+  totalStock: Decimal,
+  suggestedOrderQty?: Decimal | null,
+): Decimal {
+  if (suggestedOrderQty && suggestedOrderQty.gt(0)) {
+    return suggestedOrderQty;
+  }
+  const target = reorderPoint.times(2);
+  let qty = target.minus(totalStock);
+  if (qty.lte(0)) qty = new Decimal(1);
+  return qty;
+}
 
 export interface AutoRequisitionResult {
   requisitionId: string;
@@ -62,70 +85,73 @@ export async function generateAutoRequisition(opts: {
   }
 
   // 2. Detect low-stock materials across the company.
+  //    This read is outside the transaction (it's a read-only alert computation
+  //    that aggregates across locations). The dedup check below is inside the tx.
   const alerts = await lowStockAlerts(companyId);
   if (alerts.length === 0) return null;
 
-  // 3. Find materials that already have an OPEN requisition for this project — skip them.
-  const candidateMaterialIds = alerts.map((a) => a.materialId);
-  const openRequisitionLines = await prisma.materialRequisitionLine.findMany({
-    where: {
-      materialId: { in: candidateMaterialIds },
-      requisition: {
-        projectId,
-        status: { in: ["DRAFT", "SUBMITTED", "APPROVED"] },
+  // 3. Create the DRAFT requisition inside a Serializable transaction.
+  //    The dedup check (open requisition lines) is INSIDE the transaction so
+  //    that two concurrent auto-requisition runs cannot both create duplicate
+  //    requisitions for the same materials. The lines are rebuilt on every
+  //    retry from the fresh dedup read.
+  const result = await withSerializableTransaction(async (tx) => {
+    // 3a. Re-check open requisition lines INSIDE the transaction.
+    const candidateMaterialIds = alerts.map((a) => a.materialId);
+    const openRequisitionLines = await tx.materialRequisitionLine.findMany({
+      where: {
+        materialId: { in: candidateMaterialIds },
+        requisition: {
+          projectId,
+          status: { in: ["DRAFT", "SUBMITTED", "APPROVED"] },
+        },
       },
-    },
-    select: { materialId: true },
-  });
-  const alreadyRequisitioned = new Set(openRequisitionLines.map((l) => l.materialId));
+      select: { materialId: true },
+    });
+    const alreadyRequisitioned = new Set(openRequisitionLines.map((l) => l.materialId));
 
-  // 4. Build the line list with EOQ / replenish-to-buffer qty.
-  const lines: AutoRequisitionResult["lines"] = [];
-  const skipped: AutoRequisitionResult["skipped"] = [];
+    // 3b. Build the line list with EOQ / replenish-to-buffer qty.
+    const lines: AutoRequisitionResult["lines"] = [];
+    const skipped: AutoRequisitionResult["skipped"] = [];
 
-  for (const alert of alerts) {
-    if (alreadyRequisitioned.has(alert.materialId)) {
-      skipped.push({
+    for (const alert of alerts) {
+      if (alreadyRequisitioned.has(alert.materialId)) {
+        skipped.push({
+          materialId: alert.materialId,
+          code: alert.code,
+          name: alert.name,
+          reason: "Open requisition already exists for this material",
+        });
+        continue;
+      }
+
+      let qty: Decimal;
+      if (alert.suggestedOrderQty && alert.suggestedOrderQty.gt(0)) {
+        qty = alert.suggestedOrderQty;
+      } else {
+        const target = alert.reorderPoint.times(2);
+        qty = target.minus(alert.totalStock);
+        if (qty.lte(0)) qty = new Decimal(1);
+      }
+
+      lines.push({
         materialId: alert.materialId,
         code: alert.code,
         name: alert.name,
-        reason: "Open requisition already exists for this material",
+        qtyRequested: qty,
+        reason: alert.isCritical ? "below_min" : "below_reorder",
       });
-      continue;
     }
 
-    let qty: Decimal;
-    if (alert.suggestedOrderQty && alert.suggestedOrderQty.gt(0)) {
-      // EOQ is the optimal order quantity — use it when configured.
-      qty = alert.suggestedOrderQty;
-    } else {
-      // Replenish to 2× reorderPoint (a comfortable buffer above the trigger).
-      const target = alert.reorderPoint.times(2);
-      qty = target.minus(alert.totalStock);
-      if (qty.lte(0)) qty = new Decimal(1); // edge: stock exactly at 2× reorder
+    if (lines.length === 0) {
+      return { req: null, lines, skipped };
     }
 
-    lines.push({
-      materialId: alert.materialId,
-      code: alert.code,
-      name: alert.name,
-      qtyRequested: qty,
-      reason: alert.isCritical ? "below_min" : "below_reorder",
-    });
-  }
-
-  if (lines.length === 0) {
-    // Everything was already covered by an open requisition.
-    return { requisitionId: "", reqNumber: "", lineCount: 0, lines: [], skipped };
-  }
-
-  // 5. Create the DRAFT requisition (one per call, batching all due materials).
-  const created = await withSerializableTransaction(async (tx) => {
+    // 3c. Generate req number using the atomic sequence helper.
     const d = new Date();
     const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
     const prefix = `AREQ-${ymd}-`;
-    const count = await tx.materialRequisition.count({ where: { reqNumber: { startsWith: prefix } } });
-    const reqNumber = `${prefix}${String(count + 1).padStart(4, "0")}`;
+    const reqNumber = await nextSequenceNumber(tx, prefix, 4);
 
     const req = await tx.materialRequisition.create({
       data: {
@@ -158,14 +184,18 @@ export async function generateAutoRequisition(opts: {
         materials: lines.map((l) => ({ code: l.code, qty: l.qtyRequested.toString() })),
       },
     });
-    return req;
+    return { req, lines, skipped };
   });
 
+  if (!result.req) {
+    return { requisitionId: "", reqNumber: "", lineCount: 0, lines: [], skipped: result.skipped };
+  }
+
   return {
-    requisitionId: created.id,
-    reqNumber: created.reqNumber,
-    lineCount: lines.length,
-    lines,
-    skipped,
+    requisitionId: result.req.id,
+    reqNumber: result.req.reqNumber,
+    lineCount: result.lines.length,
+    lines: result.lines,
+    skipped: result.skipped,
   };
 }

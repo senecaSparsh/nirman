@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 interface CostComponent {
   id: string;
@@ -154,152 +155,140 @@ export function MobileLandCostComponentDialog({
   }
 
   const inputCls =
-    "w-full rounded-[0.375rem] border px-2.5 py-2 text-m-body outline-none";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
   };
   const labelCls =
-    "text-m-caption font-semibold uppercase tracking-wide";
-  const labelStyle = { color: "var(--color-ink-500)" };
+    "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[0.75rem] border p-4 pb-6 max-h-[85vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-            {editing ? "Edit Cost Component" : "Add Cost Component"}
-          </p>
-          <button onClick={onClose} className="text-m-body press">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
-
+    <MobileDialog open={true} onClose={onClose} title="Cost Component">
         <p className="text-m-caption mb-3" style={{ color: "var(--color-ink-500)" }}>
           Add a one-off or recurring cost that accrues into the land&apos;s total cost over time.
         </p>
 
-        <form onSubmit={onSubmit} className="space-y-3">
-          <div>
-            <label className={labelCls} style={labelStyle}>Label *</label>
-            <input
-              value={form.label}
-              onChange={(e) => set("label", e.target.value)}
-              placeholder="e.g. Yearly Lease Rent, EDC/IDC, Maintenance"
-              required
-              autoFocus
-              className={inputCls}
-              style={inputStyle}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
+        <form onSubmit={onSubmit} className="flex flex-col gap-3">
+          {/* Cost Component */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Cost Component
+            </p>
             <div>
-              <label className={labelCls} style={labelStyle}>Amount (₹) *</label>
+              <label className={labelCls} style={labelStyle}>Label *</label>
               <input
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.01"
-                value={form.amount}
-                onChange={(e) => set("amount", e.target.value)}
-                placeholder="e.g. 500000"
+                value={form.label}
+                onChange={(e) => set("label", e.target.value)}
+                placeholder="e.g. Yearly Lease Rent, EDC/IDC, Maintenance"
                 required
-                className={inputCls + " tabular-nums"}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label className={labelCls} style={labelStyle}>Frequency *</label>
-              <select
-                value={form.frequency}
-                onChange={(e) => set("frequency", e.target.value as "ONE_TIME" | "RECURRING")}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-body outline-none"
-                style={inputStyle}
-              >
-                <option value="ONE_TIME">One-time</option>
-                <option value="RECURRING">Recurring</option>
-              </select>
-            </div>
-          </div>
-
-          {form.frequency === "RECURRING" && (
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className={labelCls} style={labelStyle}>Interval *</label>
-                <select
-                  value={form.interval}
-                  onChange={(e) => set("interval", e.target.value as typeof form.interval)}
-                  className="w-full h-10 rounded-[0.5rem] border px-3 text-m-body outline-none"
-                  style={inputStyle}
-                >
-                  {Object.entries(INTERVAL_LABELS).map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelCls} style={labelStyle}>Occurrences</label>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min="1"
-                  step="1"
-                  value={form.occurrences}
-                  onChange={(e) => set("occurrences", e.target.value)}
-                  placeholder="Blank = until end date"
-                  className={inputCls + " tabular-nums"}
-                  style={inputStyle}
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className={labelCls} style={labelStyle}>Start Date *</label>
-              <input
-                type="date"
-                value={form.startDate}
-                onChange={(e) => set("startDate", e.target.value)}
-                required
+                autoFocus
                 className={inputCls}
                 style={inputStyle}
               />
             </div>
-            {form.frequency === "RECURRING" && (
+
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
               <div>
-                <label className={labelCls} style={labelStyle}>End Date</label>
+                <label className={labelCls} style={labelStyle}>Amount (₹) *</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  value={form.amount}
+                  onChange={(e) => set("amount", e.target.value)}
+                  placeholder="e.g. 500000"
+                  required
+                  className={inputCls + " tabular-nums"}
+                  style={inputStyle}
+                />
+              </div>
+              <div className="pl-2">
+                <label className={labelCls} style={labelStyle}>Frequency *</label>
+                <select
+                  value={form.frequency}
+                  onChange={(e) => set("frequency", e.target.value as "ONE_TIME" | "RECURRING")}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={inputStyle}
+                >
+                  <option value="ONE_TIME">One-time</option>
+                  <option value="RECURRING">Recurring</option>
+                </select>
+              </div>
+            </div>
+
+            {form.frequency === "RECURRING" && (
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                <div>
+                  <label className={labelCls} style={labelStyle}>Interval *</label>
+                  <select
+                    value={form.interval}
+                    onChange={(e) => set("interval", e.target.value as typeof form.interval)}
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                    style={inputStyle}
+                  >
+                    {Object.entries(INTERVAL_LABELS).map(([v, l]) => (
+                      <option key={v} value={v}>{l}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="pl-2">
+                  <label className={labelCls} style={labelStyle}>Occurrences</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    step="1"
+                    value={form.occurrences}
+                    onChange={(e) => set("occurrences", e.target.value)}
+                    placeholder="Blank = until end date"
+                    className={inputCls + " tabular-nums"}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelCls} style={labelStyle}>Start Date *</label>
                 <input
                   type="date"
-                  value={form.endDate}
-                  onChange={(e) => set("endDate", e.target.value)}
-                  placeholder="Blank = indefinite"
+                  value={form.startDate}
+                  onChange={(e) => set("startDate", e.target.value)}
+                  required
                   className={inputCls}
                   style={inputStyle}
                 />
               </div>
-            )}
-          </div>
+              {form.frequency === "RECURRING" && (
+                <div className="pl-2">
+                  <label className={labelCls} style={labelStyle}>End Date</label>
+                  <input
+                    type="date"
+                    value={form.endDate}
+                    onChange={(e) => set("endDate", e.target.value)}
+                    placeholder="Blank = indefinite"
+                    className={inputCls}
+                    style={inputStyle}
+                  />
+                </div>
+              )}
+            </div>
 
-          <div>
-            <label className={labelCls} style={labelStyle}>Notes</label>
-            <textarea
-              value={form.notes}
-              onChange={(e) => set("notes", e.target.value)}
-              rows={2}
-              placeholder="Optional"
-              className={inputCls + " resize-none"}
-              style={inputStyle}
-            />
+            <div>
+              <label className={labelCls} style={labelStyle}>Notes</label>
+              <textarea
+                value={form.notes}
+                onChange={(e) => set("notes", e.target.value)}
+                rows={1}
+                placeholder="Optional"
+                className={inputCls + " resize-none"}
+                style={inputStyle}
+              />
+            </div>
           </div>
 
           <div className="flex justify-between gap-2 pt-2">
@@ -337,7 +326,6 @@ export function MobileLandCostComponentDialog({
             </div>
           </div>
         </form>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }

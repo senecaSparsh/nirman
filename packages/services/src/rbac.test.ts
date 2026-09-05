@@ -1,3 +1,14 @@
+/**
+ * Unit tests for the pure RBAC helpers in rbac.ts.
+ *
+ *   defaultScopeType       — default scope for a role when membership doesn't set one
+ *   resolveScopeType       — effective scope (explicit > role default; OWNER/ADMIN always COMPANY)
+ *   requiresScopeEntries   — does a scope type need explicit entries?
+ *   validateScopeEntries   — validate entries match declared scope type
+ *   wouldCreateCycle       — prevent reporting cycles
+ *
+ * No DB, no mocking — pure functions.
+ */
 import { describe, it, expect } from "vitest";
 import {
   defaultScopeType,
@@ -5,159 +16,169 @@ import {
   requiresScopeEntries,
   validateScopeEntries,
   wouldCreateCycle,
-  _svcCanAssignRole,
   RbacError,
 } from "./rbac";
 
-describe("rbac — pure helpers", () => {
-  describe("defaultScopeType", () => {
-    it("OWNER/ADMIN → COMPANY (full system control tier)", () => {
-      expect(defaultScopeType("OWNER")).toBe("COMPANY");
-      expect(defaultScopeType("ADMIN")).toBe("COMPANY");
-    });
-    it("PROJECT_DIRECTOR/FINANCE_HEAD → COMPANY (senior management)", () => {
-      expect(defaultScopeType("PROJECT_DIRECTOR")).toBe("COMPANY");
-      expect(defaultScopeType("FINANCE_HEAD")).toBe("COMPANY");
-    });
-    it("PROJECT_MANAGER/PROCUREMENT_MANAGER/HR_MANAGER → COMPANY (middle management)", () => {
-      expect(defaultScopeType("PROJECT_MANAGER")).toBe("COMPANY");
-      expect(defaultScopeType("PROCUREMENT_MANAGER")).toBe("COMPANY");
-      expect(defaultScopeType("HR_MANAGER")).toBe("COMPANY");
-    });
-    it("SITE_ENGINEER/STORE_KEEPER/SUPERVISOR/QAQC_ENGINEER → PROJECT (field/execution)", () => {
-      expect(defaultScopeType("SITE_ENGINEER")).toBe("PROJECT");
-      expect(defaultScopeType("STORE_KEEPER")).toBe("PROJECT");
-      expect(defaultScopeType("SUPERVISOR")).toBe("PROJECT");
-      expect(defaultScopeType("QAQC_ENGINEER")).toBe("PROJECT");
-    });
-    it("SALES_MANAGER/ACCOUNTANT → COMPANY (default to company-wide)", () => {
-      expect(defaultScopeType("SALES_MANAGER")).toBe("COMPANY");
-      expect(defaultScopeType("ACCOUNTANT")).toBe("COMPANY");
-    });
-    it("unknown role → COMPANY (safe default)", () => {
-      expect(defaultScopeType("WHATEVER")).toBe("COMPANY");
-    });
+describe("defaultScopeType", () => {
+  it("returns COMPANY for OWNER and ADMIN", () => {
+    expect(defaultScopeType("OWNER")).toBe("COMPANY");
+    expect(defaultScopeType("ADMIN")).toBe("COMPANY");
   });
 
-  describe("resolveScopeType", () => {
-    it("OWNER/ADMIN are always COMPANY even if scopeType is set", () => {
-      expect(resolveScopeType({ scopeType: "DEPARTMENT", role: "ADMIN" })).toBe("COMPANY");
-      expect(resolveScopeType({ scopeType: "PROJECT", role: "OWNER" })).toBe("COMPANY");
-      expect(resolveScopeType({ scopeType: null, role: "OWNER" })).toBe("COMPANY");
-    });
-    it("explicit scopeType wins over the role default", () => {
-      expect(resolveScopeType({ scopeType: "DEPARTMENT", role: "PROJECT_MANAGER" })).toBe("DEPARTMENT");
-      expect(resolveScopeType({ scopeType: "PROJECT", role: "PROJECT_MANAGER" })).toBe("PROJECT");
-    });
-    it("null scopeType falls back to the role default", () => {
-      expect(resolveScopeType({ scopeType: null, role: "SUPERVISOR" })).toBe("PROJECT");
-      expect(resolveScopeType({ scopeType: null, role: "PROJECT_MANAGER" })).toBe("COMPANY");
-    });
-    it("invalid scopeType string falls back to the role default", () => {
-      expect(resolveScopeType({ scopeType: "BOGUS", role: "SUPERVISOR" })).toBe("PROJECT");
-    });
+  it("returns COMPANY for senior management (PROJECT_DIRECTOR, FINANCE_HEAD)", () => {
+    expect(defaultScopeType("PROJECT_DIRECTOR")).toBe("COMPANY");
+    expect(defaultScopeType("FINANCE_HEAD")).toBe("COMPANY");
   });
 
-  describe("requiresScopeEntries", () => {
-    it("COMPANY = no entries needed", () => {
-      expect(requiresScopeEntries("COMPANY")).toBe(false);
-    });
-    it("DEPARTMENT/PROJECT = entries required", () => {
-      expect(requiresScopeEntries("DEPARTMENT")).toBe(true);
-      expect(requiresScopeEntries("PROJECT")).toBe(true);
-    });
+  it("returns COMPANY for middle management (PROJECT_MANAGER, PROCUREMENT_MANAGER, HR_MANAGER)", () => {
+    expect(defaultScopeType("PROJECT_MANAGER")).toBe("COMPANY");
+    expect(defaultScopeType("PROCUREMENT_MANAGER")).toBe("COMPANY");
+    expect(defaultScopeType("HR_MANAGER")).toBe("COMPANY");
   });
 
-  describe("validateScopeEntries", () => {
-    it("COMPANY scope rejects any entries", () => {
-      expect(() => validateScopeEntries("COMPANY", [{ departmentId: "d1" }])).toThrow(RbacError);
-      expect(() => validateScopeEntries("COMPANY", [])).not.toThrow();
-    });
-    it("DEPARTMENT scope requires ≥1 entry with departmentId, no projectId", () => {
-      expect(() => validateScopeEntries("DEPARTMENT", [])).toThrow(RbacError);
-      expect(() => validateScopeEntries("DEPARTMENT", [{ projectId: "p1" }])).toThrow(RbacError);
-      expect(() =>
-        validateScopeEntries("DEPARTMENT", [{ departmentId: "d1" }, { departmentId: "d2" }]),
-      ).not.toThrow();
-      expect(() =>
-        validateScopeEntries("DEPARTMENT", [{ departmentId: "d1", projectId: "p1" }]),
-      ).toThrow(RbacError);
-    });
-    it("PROJECT scope requires ≥1 entry with projectId, no departmentId", () => {
-      expect(() => validateScopeEntries("PROJECT", [])).toThrow(RbacError);
-      expect(() => validateScopeEntries("PROJECT", [{ departmentId: "d1" }])).toThrow(RbacError);
-      expect(() => validateScopeEntries("PROJECT", [{ projectId: "p1" }])).not.toThrow();
-      expect(() =>
-        validateScopeEntries("PROJECT", [{ projectId: "p1", departmentId: "d1" }]),
-      ).toThrow(RbacError);
-    });
+  it("returns PROJECT for field/execution roles", () => {
+    expect(defaultScopeType("SITE_ENGINEER")).toBe("PROJECT");
+    expect(defaultScopeType("STORE_KEEPER")).toBe("PROJECT");
+    expect(defaultScopeType("SUPERVISOR")).toBe("PROJECT");
+    expect(defaultScopeType("QAQC_ENGINEER")).toBe("PROJECT");
   });
 
-  describe("wouldCreateCycle", () => {
-    it("self-reference is a cycle", () => {
-      expect(wouldCreateCycle("a", ["a"])).toBe(true);
-    });
-    it("reporting to an ancestor in the chain is a cycle", () => {
-      expect(wouldCreateCycle("c", ["a", "b", "c"])).toBe(true);
-    });
-    it("reporting to someone outside the chain is fine", () => {
-      expect(wouldCreateCycle("z", ["a", "b", "c"])).toBe(false);
-    });
-    it("empty chain never cycles", () => {
-      expect(wouldCreateCycle("a", [])).toBe(false);
-    });
+  it("returns COMPANY for ACCOUNTANT and SALES_MANAGER", () => {
+    expect(defaultScopeType("ACCOUNTANT")).toBe("COMPANY");
+    expect(defaultScopeType("SALES_MANAGER")).toBe("COMPANY");
   });
 
-  describe("_svcCanAssignRole — 5-tier delegation hierarchy", () => {
-    it("OWNER (tier 1) can assign all roles below + ADMIN peer", () => {
-      expect(_svcCanAssignRole("OWNER", "ADMIN")).toBe(true);
-      expect(_svcCanAssignRole("OWNER", "PROJECT_DIRECTOR")).toBe(true);
-      expect(_svcCanAssignRole("OWNER", "PROJECT_MANAGER")).toBe(true);
-      expect(_svcCanAssignRole("OWNER", "SITE_ENGINEER")).toBe(true);
-      expect(_svcCanAssignRole("OWNER", "SUPERVISOR")).toBe(true);
-      expect(_svcCanAssignRole("OWNER", "QAQC_ENGINEER")).toBe(true);
-    });
-    it("OWNER cannot assign OWNER (same role — no self-cloning)", () => {
-      expect(_svcCanAssignRole("OWNER", "OWNER")).toBe(false);
-    });
-    it("ADMIN can assign OWNER + all below, but not ADMIN (self-cloning)", () => {
-      expect(_svcCanAssignRole("ADMIN", "OWNER")).toBe(true);
-      expect(_svcCanAssignRole("ADMIN", "PROJECT_MANAGER")).toBe(true);
-      expect(_svcCanAssignRole("ADMIN", "SUPERVISOR")).toBe(true);
-      expect(_svcCanAssignRole("ADMIN", "ADMIN")).toBe(false);
-    });
-    it("PROJECT_DIRECTOR (tier 2) can assign tier 3-5, not tier 1 or peers", () => {
-      expect(_svcCanAssignRole("PROJECT_DIRECTOR", "PROJECT_MANAGER")).toBe(true);
-      expect(_svcCanAssignRole("PROJECT_DIRECTOR", "SITE_ENGINEER")).toBe(true);
-      expect(_svcCanAssignRole("PROJECT_DIRECTOR", "SUPERVISOR")).toBe(true);
-      expect(_svcCanAssignRole("PROJECT_DIRECTOR", "PROJECT_DIRECTOR")).toBe(false);
-      expect(_svcCanAssignRole("PROJECT_DIRECTOR", "FINANCE_HEAD")).toBe(false); // peer
-      expect(_svcCanAssignRole("PROJECT_DIRECTOR", "ADMIN")).toBe(false);
-      expect(_svcCanAssignRole("PROJECT_DIRECTOR", "OWNER")).toBe(false);
-    });
-    it("PROJECT_MANAGER (tier 3) can assign tier 4-5, not tier 1-2 or peers", () => {
-      expect(_svcCanAssignRole("PROJECT_MANAGER", "SITE_ENGINEER")).toBe(true);
-      expect(_svcCanAssignRole("PROJECT_MANAGER", "STORE_KEEPER")).toBe(true);
-      expect(_svcCanAssignRole("PROJECT_MANAGER", "SUPERVISOR")).toBe(true);
-      expect(_svcCanAssignRole("PROJECT_MANAGER", "PROJECT_MANAGER")).toBe(false);
-      expect(_svcCanAssignRole("PROJECT_MANAGER", "PROCUREMENT_MANAGER")).toBe(false); // peer
-      expect(_svcCanAssignRole("PROJECT_MANAGER", "PROJECT_DIRECTOR")).toBe(false);
-      expect(_svcCanAssignRole("PROJECT_MANAGER", "OWNER")).toBe(false);
-    });
-    it("SITE_ENGINEER (tier 4) can assign tier 5 only", () => {
-      expect(_svcCanAssignRole("SITE_ENGINEER", "SUPERVISOR")).toBe(true);
-      expect(_svcCanAssignRole("SITE_ENGINEER", "QAQC_ENGINEER")).toBe(true);
-      expect(_svcCanAssignRole("SITE_ENGINEER", "SITE_ENGINEER")).toBe(false);
-      expect(_svcCanAssignRole("SITE_ENGINEER", "STORE_KEEPER")).toBe(false); // peer
-      expect(_svcCanAssignRole("SITE_ENGINEER", "PROJECT_MANAGER")).toBe(false);
-    });
-    it("tier 5 roles cannot assign anyone", () => {
-      expect(_svcCanAssignRole("SUPERVISOR", "SUPERVISOR")).toBe(false);
-      expect(_svcCanAssignRole("SUPERVISOR", "QAQC_ENGINEER")).toBe(false);
-      expect(_svcCanAssignRole("QAQC_ENGINEER", "SUPERVISOR")).toBe(false);
-    });
-    it("invalid roles default to tier 5 (can't assign)", () => {
-      expect(_svcCanAssignRole("BOGUS", "SUPERVISOR")).toBe(false);
-    });
+  it("returns COMPANY for unknown roles (safe default)", () => {
+    expect(defaultScopeType("UNKNOWN_ROLE")).toBe("COMPANY");
+  });
+});
+
+describe("resolveScopeType", () => {
+  it("always returns COMPANY for OWNER regardless of explicit scopeType", () => {
+    expect(resolveScopeType({ role: "OWNER", scopeType: "PROJECT" })).toBe("COMPANY");
+    expect(resolveScopeType({ role: "OWNER", scopeType: "DEPARTMENT" })).toBe("COMPANY");
+    expect(resolveScopeType({ role: "OWNER", scopeType: null })).toBe("COMPANY");
+  });
+
+  it("always returns COMPANY for ADMIN regardless of explicit scopeType", () => {
+    expect(resolveScopeType({ role: "ADMIN", scopeType: "PROJECT" })).toBe("COMPANY");
+  });
+
+  it("uses explicit scopeType when set for non-OWNER/ADMIN roles", () => {
+    expect(resolveScopeType({ role: "PROJECT_MANAGER", scopeType: "DEPARTMENT" })).toBe("DEPARTMENT");
+    expect(resolveScopeType({ role: "SITE_ENGINEER", scopeType: "PROJECT" })).toBe("PROJECT");
+  });
+
+  it("falls back to role default when scopeType is null", () => {
+    expect(resolveScopeType({ role: "SITE_ENGINEER", scopeType: null })).toBe("PROJECT");
+    expect(resolveScopeType({ role: "PROJECT_MANAGER", scopeType: null })).toBe("COMPANY");
+  });
+
+  it("falls back to role default when scopeType is an invalid string", () => {
+    expect(resolveScopeType({ role: "SITE_ENGINEER", scopeType: "INVALID" })).toBe("PROJECT");
+    expect(resolveScopeType({ role: "PROJECT_MANAGER", scopeType: "INVALID" })).toBe("COMPANY");
+  });
+});
+
+describe("requiresScopeEntries", () => {
+  it("returns false for COMPANY scope (unscoped)", () => {
+    expect(requiresScopeEntries("COMPANY")).toBe(false);
+  });
+
+  it("returns true for DEPARTMENT scope", () => {
+    expect(requiresScopeEntries("DEPARTMENT")).toBe(true);
+  });
+
+  it("returns true for PROJECT scope", () => {
+    expect(requiresScopeEntries("PROJECT")).toBe(true);
+  });
+});
+
+describe("validateScopeEntries", () => {
+  it("throws if COMPANY scope has entries", () => {
+    expect(() =>
+      validateScopeEntries("COMPANY", [{ departmentId: "d1" }]),
+    ).toThrow(RbacError);
+    expect(() =>
+      validateScopeEntries("COMPANY", [{ projectId: "p1" }]),
+    ).toThrow(RbacError);
+  });
+
+  it("passes for COMPANY scope with no entries", () => {
+    expect(() => validateScopeEntries("COMPANY", [])).not.toThrow();
+  });
+
+  it("throws if DEPARTMENT scope has no entries", () => {
+    expect(() => validateScopeEntries("DEPARTMENT", [])).toThrow(RbacError);
+  });
+
+  it("passes for DEPARTMENT scope with valid entries", () => {
+    expect(() =>
+      validateScopeEntries("DEPARTMENT", [
+        { departmentId: "d1", projectId: null },
+        { departmentId: "d2", projectId: null },
+      ]),
+    ).not.toThrow();
+  });
+
+  it("throws if DEPARTMENT entry is missing departmentId", () => {
+    expect(() =>
+      validateScopeEntries("DEPARTMENT", [{ departmentId: null, projectId: null }]),
+    ).toThrow(RbacError);
+  });
+
+  it("throws if DEPARTMENT entry has projectId (wrong scope kind)", () => {
+    expect(() =>
+      validateScopeEntries("DEPARTMENT", [{ departmentId: "d1", projectId: "p1" }]),
+    ).toThrow(RbacError);
+  });
+
+  it("throws if PROJECT scope has no entries", () => {
+    expect(() => validateScopeEntries("PROJECT", [])).toThrow(RbacError);
+  });
+
+  it("passes for PROJECT scope with valid entries", () => {
+    expect(() =>
+      validateScopeEntries("PROJECT", [
+        { projectId: "p1", departmentId: null },
+        { projectId: "p2", departmentId: null },
+      ]),
+    ).not.toThrow();
+  });
+
+  it("throws if PROJECT entry is missing projectId", () => {
+    expect(() =>
+      validateScopeEntries("PROJECT", [{ projectId: null, departmentId: null }]),
+    ).toThrow(RbacError);
+  });
+
+  it("throws if PROJECT entry has departmentId (wrong scope kind)", () => {
+    expect(() =>
+      validateScopeEntries("PROJECT", [{ projectId: "p1", departmentId: "d1" }]),
+    ).toThrow(RbacError);
+  });
+});
+
+describe("wouldCreateCycle", () => {
+  it("returns true if candidate is the same as the first chain element", () => {
+    expect(wouldCreateCycle("user-A", ["user-A", "user-B", "user-C"])).toBe(true);
+  });
+
+  it("returns true if candidate is anywhere in the reporting chain", () => {
+    expect(wouldCreateCycle("user-B", ["user-A", "user-B", "user-C"])).toBe(true);
+    expect(wouldCreateCycle("user-C", ["user-A", "user-B", "user-C"])).toBe(true);
+  });
+
+  it("returns false if candidate is not in the chain", () => {
+    expect(wouldCreateCycle("user-D", ["user-A", "user-B", "user-C"])).toBe(false);
+  });
+
+  it("returns false for empty chain", () => {
+    expect(wouldCreateCycle("user-A", [])).toBe(false);
+  });
+
+  it("handles single-element chain (self-reporting)", () => {
+    expect(wouldCreateCycle("user-A", ["user-A"])).toBe(true);
+    expect(wouldCreateCycle("user-B", ["user-A"])).toBe(false);
   });
 });

@@ -5,13 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Phone, Printer, XCircle, Banknote,
-  TrendingUp, Loader2, X, IndianRupee, ShieldCheck,
+  TrendingUp, Loader2, IndianRupee, ShieldCheck,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../../sales/MobileChequeFields";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
 type PaymentStatus = "PENDING" | "PARTIAL" | "PAID";
@@ -640,40 +641,43 @@ export function MobileMaterialSaleDetailClient({
                 Balance due: <span className="font-bold tabular-nums">{formatCurrency(balanceDue)}</span>
               </div>
             ) : null}
-            <FormField label="Amount" required>
-              <input
-                type="text" inputMode="decimal"
-                step="any"
-                min="0"
-                value={payAmount}
-                onChange={(e) => setPayAmount(e.target.value)}
-                placeholder={String(balanceDue || totalAmount)}
-                className={inputClass}
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                required
-              />
-            </FormField>
-            <FormField label="Payment mode" required>
-              <select
-                value={payMode}
-                onChange={(e) => setPayMode(e.target.value)}
-                className={inputClass}
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              >
-                {PAYMENT_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </FormField>
-            <FormField label="Reference no (optional)">
-              <input
-                type="text"
-                value={payRef}
-                onChange={(e) => setPayRef(e.target.value)}
-                placeholder="UTR / cheque no"
-                className={inputClass}
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              />
-            </FormField>
-            {payMode === "CHEQUE" && <MobileChequeFields value={payCheque} onChange={setPayCheque} />}
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Payment Details</p>
+              <FormField label="Amount" required>
+                <input
+                  type="text" inputMode="decimal"
+                  step="any"
+                  min="0"
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                  placeholder={String(balanceDue || totalAmount)}
+                  className={inputClass}
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
+                  required
+                />
+              </FormField>
+              <FormField label="Payment mode" required>
+                <select
+                  value={payMode}
+                  onChange={(e) => setPayMode(e.target.value)}
+                  className={inputClass}
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
+                >
+                  {PAYMENT_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </FormField>
+              <FormField label="Reference no (optional)">
+                <input
+                  type="text"
+                  value={payRef}
+                  onChange={(e) => setPayRef(e.target.value)}
+                  placeholder="UTR / cheque no"
+                  className={inputClass}
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
+                />
+              </FormField>
+              {payMode === "CHEQUE" && <MobileChequeFields value={payCheque} onChange={setPayCheque} />}
+            </div>
             <div className="flex flex-col gap-2">
               <button
                 type="button"
@@ -702,25 +706,9 @@ export function MobileMaterialSaleDetailClient({
 /* ─── Modal ─── */
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[0.75rem] border p-4 pb-6"
-        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</p>
-          <button onClick={onClose} className="text-m-body press">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
+    <MobileDialog open={true} onClose={onClose} title={title}>
+      {children}
+    </MobileDialog>
   );
 }
 
@@ -728,7 +716,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 function FormField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+      <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
         {label}{required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
       </label>
       {children}
@@ -736,4 +724,4 @@ function FormField({ label, required, children }: { label: string; required?: bo
   );
 }
 
-const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";

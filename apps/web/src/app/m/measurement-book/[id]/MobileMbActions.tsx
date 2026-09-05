@@ -154,19 +154,24 @@ export function MobileMbActions({
                 </p>
               </div>
             </div>
-            <textarea
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              rows={3}
-              placeholder="Reason for rejection (e.g. qty doesn't match site, wrong BOQ item)…"
-              autoFocus
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section outline-none resize-none mb-3"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            />
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Rejection Reason
+              </p>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={2}
+                placeholder="Reason for rejection (e.g. qty doesn't match site, wrong BOQ item)…"
+                autoFocus
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+                style={{
+                  borderColor: "var(--color-line)",
+                  backgroundColor: "transparent",
+                  color: "var(--color-ink-950)",
+                }}
+              />
+            </div>
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => setShowRejectConfirm(false)}

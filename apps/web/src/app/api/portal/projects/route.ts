@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
 import { getPortalCustomer } from "@/lib/portal-auth";
 
@@ -6,7 +6,7 @@ import { getPortalCustomer } from "@/lib/portal-auth";
  * GET /api/portal/projects — list projects the customer has bookings in,
  * with construction progress (DPR-based updates + photos).
  */
-export const GET = async () => {
+export const GET = async (_req: NextRequest) => {
   const customer = await getPortalCustomer();
   if (!customer) {
     return NextResponse.json({ error: "Not logged in" }, { status: 401 });

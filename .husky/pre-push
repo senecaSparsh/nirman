@@ -1,0 +1,11 @@
+# Pre-push: run typecheck to prevent broken types from reaching remote.
+# This is the gate that catches type errors BEFORE they hit CI/Render.
+# Uses the already-generated Prisma client (postinstall runs db:generate).
+echo "Running typecheck before push..."
+pnpm typecheck
+if [ $? -ne 0 ]; then
+  echo "❌ Typecheck failed — fix the errors above before pushing."
+  echo "   To bypass temporarily: git push --no-verify (NOT recommended for main)"
+  exit 1
+fi
+echo "✅ Typecheck passed — pushing."

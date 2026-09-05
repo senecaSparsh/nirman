@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Plus, X, Search, Check } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 
 interface HsnSuggestion {
   hsnCode: string;
@@ -12,6 +13,15 @@ interface HsnSuggestion {
   gstRate: number;
   category: string | null;
 }
+
+// Common construction units — finite set prevents typos like "bags" vs "BAG".
+// Category default pre-selects, user can override from this list.
+const COMMON_UNITS = [
+  "BAG", "KG", "TON", "CUM", "SQFT", "SQM", "RMT", "NOS", "SET", "LTR", "BOX", "ROLL", "SHEET", "PAIR",
+] as const;
+
+// GST has exactly 5 standard slabs in India — a selector prevents invalid rates like 18.5%.
+const GST_SLABS = [0, 5, 12, 18, 28] as const;
 
 /**
  * Form content for creating a material — used inside MobileFabModal
@@ -166,8 +176,8 @@ export function MobileNewMaterialForm({
     return () => clearTimeout(timer);
   }, [showHsnPicker, hsnSearch]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(e?: React.FormEvent) {
+    e?.preventDefault();
     if (!name.trim()) {
       toast.error("Material name is required");
       return;
@@ -242,60 +252,35 @@ export function MobileNewMaterialForm({
         {/* Details */}
         <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Details</p>
-        {/* Name + Code */}
-        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <div>
-            <label
-              className="block text-m-caption font-bold mb-0"
-              style={{ color: "var(--color-ink-700)" }}
+        {/* Name (full width) + auto-code chip */}
+        <div>
+          <label
+            className="block text-m-caption font-bold mb-0"
+            style={{ color: "var(--color-ink-700)" }}
+          >
+            Name <span style={{ color: "var(--color-stop)" }}>*</span>
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. OPC Cement 53"
+            autoFocus
+            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+            style={{
+              borderColor: "var(--color-line)",
+              backgroundColor: "transparent",
+              color: "var(--color-ink-950)",
+            }}
+          />
+          {code === "AUTO" && autoCode ? (
+            <p
+              className="text-m-caption mt-1 font-mono"
+              style={{ color: "var(--color-ink-500)" }}
             >
-              Name <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. OPC Cement 53"
-              autoFocus
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "transparent",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-          <div>
-            <label
-              className="block text-m-caption font-bold mb-0"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              Code
-            </label>
-            <input
-              type="text"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="AUTO"
-              className="w-full h-7 px-1 text-m-caption font-mono outline-none border-b focus:border-b-2 transition-colors"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "transparent",
-                color: "var(--color-ink-950)",
-              }}
-            />
-            {code === "AUTO" && autoCode && (
-              <p
-                className="text-m-caption mt-1"
-                style={{ color: "var(--color-ink-700)" }}
-              >
-                Auto:{" "}
-                <span style={{ color: "var(--color-ink-500)" }}>
-                  {autoCode}
-                </span>
-              </p>
-            )}
-          </div>
+              Auto-code: <span style={{ color: "var(--color-signal-dark)" }}>{autoCode}</span>
+            </p>
+          ) : null}
         </div>
 
         {/* Grade + Specification (side by side) */}
@@ -383,18 +368,28 @@ export function MobileNewMaterialForm({
             >
               Unit <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
-            <input
-              type="text"
+            <select
               value={unit}
-              onChange={(e) => setUnit(e.target.value)}
-              placeholder="e.g. BAG"
+              onChange={(e) => {
+                setUnit(e.target.value);
+                haptic(10);
+              }}
               className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "transparent",
                 color: "var(--color-ink-950)",
               }}
-            />
+            >
+              <option value="">Select…</option>
+              {COMMON_UNITS.map((u) => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+              {/* Allow custom unit if the category default isn't in the common list */}
+              {unit && !COMMON_UNITS.includes(unit as (typeof COMMON_UNITS)[number]) ? (
+                <option value={unit}>{unit}</option>
+              ) : null}
+            </select>
           </div>
         </div>
         </div>
@@ -433,14 +428,14 @@ export function MobileNewMaterialForm({
                   setShowHsnPicker(true);
                   setHsnSearch("");
                 }}
-                className="shrink-0 grid place-items-center size-10 rounded-[0.5rem] border press"
+                className="shrink-0 grid place-items-center h-7 w-7 rounded-[0.375rem] border press"
                 style={{
                   borderColor: "var(--color-line)",
                   color: "var(--color-ink-700)",
                 }}
                 aria-label="Search HSN codes"
               >
-                <Search className="size-4" />
+                <Search className="size-3.5" />
               </button>
             </div>
           </div>
@@ -451,22 +446,24 @@ export function MobileNewMaterialForm({
             >
               GST Rate (%)
             </label>
-            <input
-              type="number"
+            <select
               value={gstRate}
               onChange={(e) => {
                 setGstRate(Number(e.target.value));
                 setHsnManuallySet(true);
+                haptic(10);
               }}
-              placeholder="0"
-              min={0}
               className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
               style={{
                 borderColor: "var(--color-line)",
                 backgroundColor: "transparent",
                 color: "var(--color-ink-950)",
               }}
-            />
+            >
+              {GST_SLABS.map((rate) => (
+                <option key={rate} value={rate}>{rate}%</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -567,27 +564,57 @@ export function MobileNewMaterialForm({
           ) : null}
         </div>
         </div>
-
-        {/* Submit */}
-        <button
-          type="submit"
-          disabled={saving}
-          className="flex items-center justify-center gap-1 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
-          style={{
-            backgroundColor: "var(--color-ink-950)",
-            color: "var(--color-paper)",
-          }}
-        >
-          {saving ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <>
-              <Plus className="size-4" />
-              <span>Create Material</span>
-            </>
-          )}
-        </button>
       </form>
+
+      {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+      <div
+        className="sticky bottom-0 left-0 right-0 z-20 border-t"
+        style={{
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
+        }}
+      >
+        <div className="flex items-center justify-between gap-3 px-1 py-2">
+          {/* Summary — material name + category */}
+          <div className="shrink-0 min-w-0">
+            <p
+              className="text-m-caption font-semibold uppercase tracking-wide truncate"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              {name.trim()
+                ? name.trim()
+                : categories.find((c) => c.id === categoryId)?.name ?? "New Material"}
+            </p>
+            <p
+              className="text-m-section font-bold tabular-nums"
+              style={{ color: "var(--color-ink-950)" }}
+            >
+              {unit.trim() ? unit.trim().toUpperCase() : "—"}
+            </p>
+          </div>
+
+          {/* Submit */}
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={saving}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50 select-none"
+            style={{
+              backgroundColor: "var(--color-ink-950)",
+              color: "var(--color-paper)",
+            }}
+          >
+            {saving ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <>
+                <Plus className="size-4" />
+                <span>Create Material</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
 
       {/* ── HSN Picker Overlay ── */}
       {showHsnPicker && (
@@ -631,11 +658,9 @@ export function MobileNewMaterialForm({
                 onChange={(e) => setHsnSearch(e.target.value)}
                 placeholder="Search by code or description…"
                 autoFocus
-                className="w-full h-10 rounded-[0.5rem] border pl-8 pr-3 text-m-body outline-none"
+                className="w-full h-7 pl-8 pr-3 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
                 style={{
-                  borderColor: "var(--color-line)",
                   backgroundColor: "transparent",
-                  color: "var(--color-ink-950)",
                 }}
               />
             </div>
@@ -703,9 +728,10 @@ export function MobileNewMaterialForm({
 }
 
 /**
- * Mobile bottom-sheet dialog for creating a material inline.
- * Legacy backdrop version — kept for backward compatibility.
- * Prefer wrapping <MobileNewMaterialForm> in <MobileFabModal> instead.
+ * Dialog wrapper for creating a material inline (from within other forms).
+ * Uses MobileFabModal for the modern spring-in animation + drag handle.
+ * For FAB-triggered creation, prefer MobileFabModal + MobileNewMaterialForm directly
+ * (with originRect from useFabModal) so the dialog springs from the FAB itself.
  */
 export function MobileNewMaterialDialog({
   open,
@@ -726,43 +752,17 @@ export function MobileNewMaterialDialog({
   }) => void;
   categories: { id: string; name: string; unit: string }[];
 }) {
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+    <MobileFabModal
+      open={open}
+      onClose={onClose}
+      title="New Material"
     >
-      <div
-        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <h2
-            className="text-m-section font-extrabold tracking-tight"
-            style={{ color: "var(--color-ink-950)" }}
-          >
-            New Material
-          </h2>
-          <button
-            onClick={onClose}
-            className="touch text-m-body press grid place-items-center rounded-[0.375rem]"
-            style={{ color: "var(--color-ink-700)" }}
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
-        <MobileNewMaterialForm
-          onClose={onClose}
-          onCreated={onCreated}
-          categories={categories}
-        />
-      </div>
-    </div>
+      <MobileNewMaterialForm
+        onClose={onClose}
+        onCreated={onCreated}
+        categories={categories}
+      />
+    </MobileFabModal>
   );
 }

@@ -379,17 +379,22 @@ export function MobileChangeOrderDetailClient({
       {/* Reject dialog */}
       {showReject && (
         <BottomSheet title="Reject Change Order" onClose={() => setShowReject(false)}>
-          <div className="space-y-3">
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Reason</label>
-              <textarea
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                rows={3}
-                placeholder="Why is this change order being rejected?"
-                className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              />
+          <div className="flex flex-col gap-3">
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Rejection Reason
+              </p>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Reason</label>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  rows={2}
+                  placeholder="Why is this change order being rejected?"
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                />
+              </div>
             </div>
             <button
               onClick={() => {
@@ -410,16 +415,21 @@ export function MobileChangeOrderDetailClient({
       {/* Approve dialog (with client approval) */}
       {showApprove && (
         <BottomSheet title="Approve Change Order" onClose={() => setShowApprove(false)}>
-          <div className="space-y-3">
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Client Approval By</label>
-              <input
-                value={clientApprovedBy}
-                onChange={(e) => setClientApprovedBy(e.target.value)}
-                placeholder="Client name (who approved)"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              />
+          <div className="flex flex-col gap-3">
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Client Approval
+              </p>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Client Approval By</label>
+                <input
+                  value={clientApprovedBy}
+                  onChange={(e) => setClientApprovedBy(e.target.value)}
+                  placeholder="Client name (who approved)"
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                />
+              </div>
             </div>
             <button
               onClick={() => {
@@ -439,92 +449,111 @@ export function MobileChangeOrderDetailClient({
       {/* Edit dialog */}
       {showEdit && (
         <BottomSheet title="Edit Change Order" onClose={() => setShowEdit(false)}>
-          <div className="space-y-3">
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Title</label>
-              <input
-                value={editForm.title}
-                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              />
+          <div className="flex flex-col gap-3">
+
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Details
+              </p>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Title</label>
+                <input
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                />
+              </div>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Description</label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  rows={2}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                />
+              </div>
             </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Description</label>
-              <textarea
-                value={editForm.description}
-                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                rows={3}
-                className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              />
+
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Classification
+              </p>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Type</label>
+                <select
+                  value={editForm.type}
+                  onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                >
+                  {Object.entries(TYPE_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Reason</label>
+                <select
+                  value={editForm.reason}
+                  onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                >
+                  {Object.entries(REASON_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Type</label>
-              <select
-                value={editForm.type}
-                onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              >
-                {Object.entries(TYPE_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
+
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Impact & Approval
+              </p>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Schedule Delta (days)</label>
+                <input
+                  type="number"
+                  value={editForm.scheduleDeltaDays}
+                  onChange={(e) => setEditForm({ ...editForm, scheduleDeltaDays: Number(e.target.value) })}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                />
+              </div>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Initiated By</label>
+                <input
+                  value={editForm.initiatedBy}
+                  onChange={(e) => setEditForm({ ...editForm, initiatedBy: e.target.value })}
+                  placeholder="Who initiated this change order"
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                />
+              </div>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Notes</label>
+                <textarea
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                  rows={1}
+                  placeholder="Optional notes"
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editForm.clientApprovalRequired}
+                  onChange={(e) => setEditForm({ ...editForm, clientApprovalRequired: e.target.checked })}
+                  className="size-4"
+                />
+                <span className="text-m-section" style={{ color: "var(--color-ink-950)" }}>Client Approval Required</span>
+              </label>
             </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Reason</label>
-              <select
-                value={editForm.reason}
-                onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              >
-                {Object.entries(REASON_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Schedule Delta (days)</label>
-              <input
-                type="number"
-                value={editForm.scheduleDeltaDays}
-                onChange={(e) => setEditForm({ ...editForm, scheduleDeltaDays: Number(e.target.value) })}
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              />
-            </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Initiated By</label>
-              <input
-                value={editForm.initiatedBy}
-                onChange={(e) => setEditForm({ ...editForm, initiatedBy: e.target.value })}
-                placeholder="Who initiated this change order"
-                className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              />
-            </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Notes</label>
-              <textarea
-                value={editForm.notes}
-                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                rows={2}
-                placeholder="Optional notes"
-                className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              />
-            </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={editForm.clientApprovalRequired}
-                onChange={(e) => setEditForm({ ...editForm, clientApprovalRequired: e.target.checked })}
-                className="size-4"
-              />
-              <span className="text-m-section" style={{ color: "var(--color-ink-950)" }}>Client Approval Required</span>
-            </label>
+
             <button
               onClick={() => {
                 if (!editForm.title.trim()) { toast.error("Title is required"); return; }

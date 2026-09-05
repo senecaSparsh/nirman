@@ -18,7 +18,7 @@ export default async function CallDetailPage({ params }: { params: Promise<{ id:
   );
 }
 
-async function CallDetailContent({ id }: { id: string }) {
+export async function CallDetailContent({ id }: { id: string }) {
   const role = await getUserRole();
   const company = await getCompany();
   const user = await requireUser();

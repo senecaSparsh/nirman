@@ -219,8 +219,8 @@ export default function MobileNewMaterialClient({
     );
   }
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
-  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" } as React.CSSProperties;
+  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
+  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" } as React.CSSProperties;
   const costValue = Number(standardCost) || 0;
   const totalWithGst = costValue * (1 + (Number(gstRate) || 0) / 100);
 
@@ -228,7 +228,10 @@ export default function MobileNewMaterialClient({
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
 
       {/* ── Identity ── */}
-      <SectionLabel>Identity</SectionLabel>
+      <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+          Identity
+        </p>
 
       {/* Name + Code — side by side */}
       <div className="grid grid-cols-2 gap-2">
@@ -246,7 +249,7 @@ export default function MobileNewMaterialClient({
           />
         </FormField>
         <div>
-          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
             Code
           </label>
           {code === "AUTO" ? (
@@ -311,8 +314,13 @@ export default function MobileNewMaterialClient({
         </FormField>
       </div>
 
+      </div>
+
       {/* ── Classification ── */}
-      <SectionLabel>Classification</SectionLabel>
+      <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+          Classification
+        </p>
 
       <div className="grid grid-cols-2 gap-2">
         <FormField label="Category" required>
@@ -341,8 +349,13 @@ export default function MobileNewMaterialClient({
         </FormField>
       </div>
 
+      </div>
+
       {/* ── Tax & Cost ── */}
-      <SectionLabel>Tax &amp; Cost</SectionLabel>
+      <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+          Tax &amp; Cost
+        </p>
 
       <div className="grid grid-cols-2 gap-2">
         <FormField label="HSN code">
@@ -440,20 +453,25 @@ export default function MobileNewMaterialClient({
           </span>
         </div>
       )}
+      </div>
 
       {/* ── Details ── */}
-      <SectionLabel>Details</SectionLabel>
+      <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+          Details
+        </p>
 
       <FormField label="Description">
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Brand, specs, storage instructions…"
-          rows={2}
+          rows={1}
           className={`${inputClass} resize-none`}
           style={inputStyle}
         />
       </FormField>
+      </div>
 
       {/* ── Submit ── */}
       <button
@@ -475,24 +493,6 @@ export default function MobileNewMaterialClient({
   );
 }
 
-/* ─── Section label — lightweight text separator with a hairline ─── */
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2 pt-2">
-      <span
-        className="text-m-caption font-bold uppercase tracking-wide"
-        style={{ color: "var(--color-ink-500)" }}
-      >
-        {children}
-      </span>
-      <span
-        className="flex-1 h-px"
-        style={{ backgroundColor: "var(--color-line)" }}
-      />
-    </div>
-  );
-}
-
 /* ─── Form field wrapper ─── */
 function FormField({
   label,
@@ -506,8 +506,8 @@ function FormField({
   return (
     <div>
       <label
-        className="block text-m-caption font-semibold mb-1"
-        style={{ color: "var(--color-ink-500)" }}
+        className="block text-m-caption font-bold mb-0"
+        style={{ color: "var(--color-ink-700)" }}
       >
         {label}
         {required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}

@@ -108,152 +108,160 @@ export default function MobileNewStockLocationClient({
 
   return (
     <div className="pb-32">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-        {/* Type selector */}
-        <div className="flex flex-col gap-2">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        {/* Type */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
             Type
           </p>
-          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-            Location Type <span style={{ color: "var(--color-stop)" }}>*</span>
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => { setType("COMPANY_WAREHOUSE"); haptic(10); }}
-              className="flex flex-col items-center gap-1.5 rounded-[0.5rem] border p-3 text-m-body press"
-              style={{
-                borderColor: type === "COMPANY_WAREHOUSE" ? "var(--color-ink-950)" : "var(--color-line)",
-                backgroundColor: type === "COMPANY_WAREHOUSE" ? "var(--color-concrete)" : "var(--color-paper)",
-              }}
-            >
-              <span
-                className="text-m-caption font-bold"
-                style={{ color: type === "COMPANY_WAREHOUSE" ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
+          <div className="flex flex-col gap-2">
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Location Type <span style={{ color: "var(--color-stop)" }}>*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => { setType("COMPANY_WAREHOUSE"); haptic(10); }}
+                className="flex flex-col items-center gap-1.5 rounded-[0.5rem] border p-3 text-m-body press"
+                style={{
+                  borderColor: type === "COMPANY_WAREHOUSE" ? "var(--color-ink-950)" : "var(--color-line)",
+                  backgroundColor: type === "COMPANY_WAREHOUSE" ? "var(--color-concrete)" : "var(--color-paper)",
+                }}
               >
-                Warehouse
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setType("PROJECT_SITE"); haptic(10); }}
-              className="flex flex-col items-center gap-1.5 rounded-[0.5rem] border p-3 text-m-body press"
-              style={{
-                borderColor: type === "PROJECT_SITE" ? "var(--color-ink-950)" : "var(--color-line)",
-                backgroundColor: type === "PROJECT_SITE" ? "var(--color-concrete)" : "var(--color-paper)",
-              }}
-            >
-              <span
-                className="text-m-caption font-bold"
-                style={{ color: type === "PROJECT_SITE" ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
+                <span
+                  className="text-m-caption font-bold"
+                  style={{ color: type === "COMPANY_WAREHOUSE" ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
+                >
+                  Warehouse
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setType("PROJECT_SITE"); haptic(10); }}
+                className="flex flex-col items-center gap-1.5 rounded-[0.5rem] border p-3 text-m-body press"
+                style={{
+                  borderColor: type === "PROJECT_SITE" ? "var(--color-ink-950)" : "var(--color-line)",
+                  backgroundColor: type === "PROJECT_SITE" ? "var(--color-concrete)" : "var(--color-paper)",
+                }}
               >
-                Project Site
-              </span>
-            </button>
+                <span
+                  className="text-m-caption font-bold"
+                  style={{ color: type === "PROJECT_SITE" ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
+                >
+                  Project Site
+                </span>
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Details */}
-        <div className="flex flex-col gap-2">
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
             Details
           </p>
-          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-            Location Name <span style={{ color: "var(--color-stop)" }}>*</span>
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={type === "COMPANY_WAREHOUSE" ? "e.g. Central Warehouse Pune" : "e.g. Site B - Kharadi"}
-            enterKeyHint="next"
-            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-          />
-        </div>
-
-        {/* Project (only for PROJECT_SITE) */}
-        {type === "PROJECT_SITE" && (
           <div className="flex flex-col gap-2">
-            <MobileSelectWithCreate
-              label="Project"
-              required
-              value={projectId}
-              onChange={setProjectId}
-              placeholder="Select project…"
-              options={projects.map((p) => ({ value: p.id, label: p.name }))}
-              inputClass="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-              renderDialog={({ open, onClose, onCreated, originRect }) => (
-                <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
-                  <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
-                </MobileFabModal>
-              )}
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Location Name <span style={{ color: "var(--color-stop)" }}>*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={type === "COMPANY_WAREHOUSE" ? "e.g. Central Warehouse Pune" : "e.g. Site B - Kharadi"}
+              enterKeyHint="next"
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
             />
           </div>
-        )}
+
+          {/* Project (only for PROJECT_SITE) */}
+          {type === "PROJECT_SITE" && (
+            <div className="flex flex-col gap-2">
+              <MobileSelectWithCreate
+                label="Project"
+                required
+                value={projectId}
+                onChange={setProjectId}
+                placeholder="Select project…"
+                options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                inputClass="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                renderDialog={({ open, onClose, onCreated, originRect }) => (
+                  <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+                    <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+                  </MobileFabModal>
+                )}
+              />
+            </div>
+          )}
+        </div>
 
         {/* Address */}
-        <div className="flex flex-col gap-2">
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
             Address
           </p>
-          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-            Address (optional)
-          </label>
-          <textarea
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="Street, city, landmark…"
-            rows={2}
-            enterKeyHint="done"
-            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-          />
-        </div>
-
-        {/* Geo-fence (GPS receipt validation) */}
-        <div className="flex flex-col gap-2">
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Geo-fence
-          </p>
-          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-            Geo-fence (optional)
-          </label>
-          <p className="text-m-caption mb-2" style={{ color: "var(--color-ink-400)" }}>
-            Set coordinates and radius to validate GPS-tagged receipts. Receipts outside the radius are flagged as off-site.
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              type="number"
-              step="any"
-              value={lat}
-              onChange={(e) => setLat(e.target.value)}
-              placeholder="Latitude"
-              enterKeyHint="next"
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-            />
-            <input
-              type="number"
-              step="any"
-              value={lng}
-              onChange={(e) => setLng(e.target.value)}
-              placeholder="Longitude"
-              enterKeyHint="next"
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+          <div className="flex flex-col gap-2">
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Address (optional)
+            </label>
+            <textarea
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Street, city, landmark…"
+              rows={2}
+              enterKeyHint="done"
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
               style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
             />
           </div>
-          <input
-            type="number"
-            value={geoRadius}
-            onChange={(e) => setGeoRadius(e.target.value)}
-            placeholder="Radius (metres, default 500)"
-            enterKeyHint="done"
-            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors mt-2"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-          />
+        </div>
+
+        {/* Geo-fence (GPS receipt validation) */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Geo-fence
+          </p>
+          <div className="flex flex-col gap-2">
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Geo-fence (optional)
+            </label>
+            <p className="text-m-caption mb-2" style={{ color: "var(--color-ink-400)" }}>
+              Set coordinates and radius to validate GPS-tagged receipts. Receipts outside the radius are flagged as off-site.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="number"
+                step="any"
+                value={lat}
+                onChange={(e) => setLat(e.target.value)}
+                placeholder="Latitude"
+                enterKeyHint="next"
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+              />
+              <input
+                type="number"
+                step="any"
+                value={lng}
+                onChange={(e) => setLng(e.target.value)}
+                placeholder="Longitude"
+                enterKeyHint="next"
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+              />
+            </div>
+            <input
+              type="number"
+              value={geoRadius}
+              onChange={(e) => setGeoRadius(e.target.value)}
+              placeholder="Radius (metres, default 500)"
+              enterKeyHint="done"
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors mt-2"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+            />
+          </div>
         </div>
       </form>
 

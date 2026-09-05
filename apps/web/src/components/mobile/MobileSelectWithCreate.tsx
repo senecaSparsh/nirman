@@ -1,17 +1,17 @@
 "use client";
 
 import { useState, useRef, type ReactNode } from "react";
-import { Plus } from "lucide-react";
 import { haptic } from "@/lib/haptic";
 
 /**
- * MobileSelectWithCreate — a <select> dropdown with a "+" button on the right
- * for inline creation. When the user taps "+", a bottom-sheet dialog is shown
- * (provided by the parent via `renderDialog`). The dialog's `onCreated`
- * callback adds the new entity to the options list and auto-selects it.
+ * MobileSelectWithCreate — a <select> dropdown whose last option is a
+ * "+ Create new …" entry that opens an inline creation dialog (provided
+ * by the parent via `renderDialog`). The dialog's `onCreated` callback
+ * adds the new entity to the options list and auto-selects it.
  *
- * Layout: [ select ────────────── ] [ + ]
- * The "+" button sits in the same row as the select, shrink-0.
+ * Layout: [ select ────────────── ]
+ * The create affordance lives inside the dropdown as the final option,
+ * so the field occupies the full available width (no side-by-side button).
  *
  * Usage:
  *   <MobileSelectWithCreate
@@ -59,9 +59,9 @@ export function MobileSelectWithCreate({
 }) {
   const [showDialog, setShowDialog] = useState(false);
   const [extraOptions, setExtraOptions] = useState<{ value: string; label: string }[]>([]);
-  const [originRect, setOriginRect] = useState<DOMRect | null>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const selectRef = useRef<HTMLSelectElement | null>(null);
 
+  const CREATE_VALUE = "__create__";
   const allOptions = [...options, ...extraOptions];
 
   function handleCreated(value: string, label: string) {
@@ -71,10 +71,13 @@ export function MobileSelectWithCreate({
   }
 
   function openDialog() {
-    if (triggerRef.current) {
-      setOriginRect(triggerRef.current.getBoundingClientRect());
-    }
+    haptic(10);
     setShowDialog(true);
+    // Reset the select back to the current value so the "__create__" option
+    // isn't left selected if the user cancels the dialog.
+    requestAnimationFrame(() => {
+      if (selectRef.current) selectRef.current.value = value;
+    });
   }
 
   return (
@@ -85,41 +88,31 @@ export function MobileSelectWithCreate({
           {required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
         </label>
       ) : null}
-      <div className="flex items-center gap-1.5">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={inputClass}
-          style={inputStyle}
-        >
-          {placeholder ? <option value="">{placeholder}</option> : null}
-          {allOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <button
-          ref={triggerRef}
-          type="button"
-          onClick={() => {
-            haptic(10);
+      <select
+        ref={selectRef}
+        value={value}
+        onChange={(e) => {
+          if (e.target.value === CREATE_VALUE) {
             openDialog();
-          }}
-          className="shrink-0 grid place-items-center self-stretch aspect-square rounded-[0.5rem] border text-m-body press"
-          style={{
-            borderColor: "var(--color-signal)",
-            backgroundColor: "var(--color-signal-wash)",
-            color: "var(--color-signal-dark)",
-          }}
-          aria-label={`Create new ${createLabel || label || "item"}`}
-          title={`Create new ${createLabel || label || "item"}`}
-        >
-          <Plus className="size-4" />
-        </button>
-      </div>
+          } else {
+            onChange(e.target.value);
+          }
+        }}
+        className={inputClass}
+        style={inputStyle}
+      >
+        {placeholder ? <option value="">{placeholder}</option> : null}
+        {allOptions.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+        <option value={CREATE_VALUE} style={{ color: "var(--color-signal-dark)", fontWeight: 600 }}>
+          + Create new {createLabel || label || "item"}
+        </option>
+      </select>
 
-      {renderDialog({ open: showDialog, onClose: () => setShowDialog(false), onCreated: handleCreated, originRect })}
+      {renderDialog({ open: showDialog, onClose: () => setShowDialog(false), onCreated: handleCreated, originRect: null })}
     </div>
   );
 }

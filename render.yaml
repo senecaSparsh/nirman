@@ -6,11 +6,14 @@
 #
 # The web service:
 #   - Installs deps with pnpm
+#   - Generates Prisma client (needed before build — the app imports @nirman/db)
 #   - Runs Prisma migrations (migrate deploy)
 #   - Runs the demo seed (creates company, users, sample data)
-#   - Sets demo passwords so the owner can sign in
-#   - Builds the Next.js app
-#   - Starts the production server
+#   - Builds the Next.js app with webpack (not Turbopack — avoids the
+#     "module factory is not available" production build bug, see
+#     vercel/next.js#86132, #88534, #86714)
+#   - Starts the production server with auto-recovery wrapper
+#     (graceful shutdown, crash restart, health checks)
 #
 # Required env vars (set in Render dashboard or via .env):
 #   NEXT_PUBLIC_APP_URL — the public URL of the deployed app (e.g. https://nirman.onrender.com)
@@ -18,6 +21,26 @@
 #
 # After first deploy, sign in with:
 #   amit@nirman.in / <SEED_PASSWORD>  (OWNER — full access)
+#
+# ── Reliability layers ───────────────────────────────────────────
+#
+#  1. **Build**: `next build --webpack` — Turbopack production builds have
+#     a known "module factory" bug triggered by `export *` patterns (our
+#     Prisma generated client uses this). Webpack is stable for builds.
+#     Dev still uses Turbopack (fast HMR) with the auto-recovery wrapper.
+#
+#  2. **Start**: `start-with-recovery.mjs` wraps `next start` with:
+#     - Graceful shutdown (30s drain on SIGTERM → zero-downtime deploys)
+#     - Crash auto-restart (max 5 in 10min, exponential backoff)
+#     - Health checks (polls /api/health every 30s, restarts on 3 failures)
+#     - DB warmup (waits for health before considering server "ready")
+#
+#  3. **Client**: `<ChunkErrorRecovery>` in the root layout auto-reloads
+#     the page when stale chunks fail to load (common after new deploys
+#     when users have old tabs open with cached chunk hashes).
+#
+#  4. **Service worker**: clears stale chunk caches on activation and
+#     bypasses caching in dev (see public/sw.js).
 
 databases:
   - name: nirman-db
@@ -34,24 +57,31 @@ services:
     plan: free
     region: oregon
     branch: main
-    healthCheckPath: /sign-in
+    healthCheckPath: /api/health
 
-    # Node + pnpm setup, build, then run migrations and production seed
+    # Node + pnpm setup, generate Prisma client, build, migrate, seed.
+    # IMPORTANT: db:generate runs BEFORE build — the app imports types from
+    # @nirman/db at build time, so the Prisma client must exist first.
     buildCommand: |
       corepack enable &&
       corepack prepare pnpm@latest --activate &&
       pnpm install --frozen-lockfile &&
-      pnpm build &&
       pnpm --filter @nirman/db generate &&
+      pnpm build &&
       pnpm --filter @nirman/db migrate:deploy &&
       pnpm --filter web seed:prod
 
-    # Start the production Next.js server
-    startCommand: cd apps/web && pnpm start
+    # Start the production Next.js server with auto-recovery wrapper.
+    # The wrapper handles graceful shutdown, crash restart, and health checks.
+    startCommand: cd apps/web && node scripts/start-with-recovery.mjs
 
     # Env vars that come from other Render services
     envVars:
       - key: DATABASE_URL
+        fromDatabase:
+          name: nirman-db
+          property: connectionString
+      - key: DIRECT_URL
         fromDatabase:
           name: nirman-db
           property: connectionString
@@ -64,12 +94,39 @@ services:
       - key: TURBO_TELEMETRY_DISABLED
         value: "1"
       - key: NODE_OPTIONS
-        # 440MB heap cap fits the 512MB free tier. On a paid plan (2GB+),
-        # increase to --max-old-space-size=1536 for headroom under load.
-        value: "--max-old-space-size=440"
+        # Auto-detected by the start wrapper based on available RAM.
+        # The wrapper reads cgroup limits and sets --max-old-space-size
+        # automatically. If you set a value here, it takes precedence.
+        # Leave empty to let the wrapper auto-tune for your plan size.
+        value: ""
       - key: BETTER_AUTH_URL
         value: https://nirman-inventory.onrender.com
       - key: NEXT_PUBLIC_APP_URL
         value: https://nirman-inventory.onrender.com
       - key: BETTER_AUTH_SECRET
         value: ec7e54b42ea884521fc293ab5f5a4bc842e2694c0736626262455f9033894347
+      - key: SEED_PASSWORD
+        value: nirman123
+      # Sentry error tracking (optional — leave empty to disable).
+      # Create a free account at sentry.io, get the DSN from Project Settings.
+      - key: SENTRY_DSN
+        sync: false  # set manually in Render dashboard if you want error tracking
+      - key: NEXT_PUBLIC_SENTRY_DSN
+        sync: false
+      - key: CRON_SECRET
+        sync: false  # shared secret for cron endpoints (/api/cron/*)
+
+# ── Cron jobs ───────────────────────────────────────────────────
+# Daily automated backup at 2am UTC. Exports all companies' data and
+# stores it in the BackupRecord table (30-day retention, auto-pruned).
+# Requires CRON_SECRET to be set on both the web service and this cron job.
+cronJobs:
+  - name: nirman-daily-backup
+    schedule: "0 2 * * *"  # daily at 2:00 AM UTC
+    command: |
+      curl -fsS -X POST \
+        -H "x-cron-secret: $CRON_SECRET" \
+        https://nirman-inventory.onrender.com/api/cron/backup \
+        || echo "backup failed"
+    instanceType: nano
+    scheduleTimezone: UTC

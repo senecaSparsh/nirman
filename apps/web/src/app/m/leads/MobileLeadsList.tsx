@@ -3,8 +3,15 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
-import { Phone, Calendar, Flame, TrendingUp, UserPlus } from "lucide-react";
-import {formatDate} from "@/lib/utils";
+import { Phone, Calendar, Flame, TrendingUp, UserPlus, Eye, Share2, Mail, IndianRupee, Building, User } from "lucide-react";
+import {formatDate, formatCurrency} from "@/lib/utils";
+import { toast } from "sonner";
+import { useLongPress } from "@/lib/use-long-press";
+import {
+  MobileOverviewSheet,
+  type OverviewRow,
+} from "@/components/mobile/v2/mobile-overview-sheet";
+import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -233,6 +240,7 @@ export function MobileLeadsList({
 
 /* ─── Lead card — pipeline-style with stage accent ─── */
 function LeadCard({ l }: { l: LeadListItem }) {
+  const router = useRouter();
   const stageColor = STAGE_COLORS[l.stage] ?? "var(--color-ink-500)";
   const priorityColor = PRIORITY_COLORS[l.priority] ?? "var(--color-ink-500)";
   const isHot = l.priority === "HOT";
@@ -240,86 +248,150 @@ function LeadCard({ l }: { l: LeadListItem }) {
   const now = new Date();
   const followUpOverdue = l.nextFollowUpAt && new Date(l.nextFollowUpAt) <= now;
 
+  // ── Long-press overview sheet (data already in the list item — no fetch) ──
+  const [overviewOpen, setOverviewOpen] = useState(false);
+  const [pressPoint, setPressPoint] = useState<{ x: number; y: number } | null>(null);
+  const { bind: longPressBind } = useLongPress((x, y) => {
+    setPressPoint({ x, y });
+    setOverviewOpen(true);
+  });
+
+  const budgetText =
+    l.budgetMin != null && l.budgetMax != null
+      ? `${formatCurrency(l.budgetMin)} – ${formatCurrency(l.budgetMax)}`
+      : l.budgetMin != null
+        ? `From ${formatCurrency(l.budgetMin)}`
+        : l.budgetMax != null
+          ? `Up to ${formatCurrency(l.budgetMax)}`
+          : "Not specified";
+
+  const overviewRows: OverviewRow[] = [
+    { icon: TrendingUp, label: "Source", value: l.source },
+    { icon: TrendingUp, label: "Status", value: STAGE_LABELS[l.stage] ?? l.stage, valueColor: stageColor },
+    { icon: Phone, label: "Phone", value: l.phone || "—" },
+    { icon: Mail, label: "Email", value: l.email ?? "—" },
+    { icon: IndianRupee, label: "Budget", value: budgetText },
+    { icon: User, label: "Assigned To", value: l.assignedToName ?? "Unassigned" },
+    { icon: Building, label: "Project Interest", value: l.projectName ?? "—" },
+  ];
+
+  const overviewActions: ContextAction[] = [
+    {
+      label: "View Full Details",
+      icon: Eye,
+      onPress: () => router.push(`/m/leads/${l.id}`),
+    },
+    {
+      label: "Share",
+      icon: Share2,
+      onPress: () => {
+        const url = `${window.location.origin}/m/leads/${l.id}`;
+        if (navigator.share) {
+          navigator.share({ title: l.name, url }).catch(() => {});
+        } else {
+          navigator.clipboard?.writeText(url).catch(() => {});
+          toast.success("Link copied");
+        }
+      },
+    },
+  ];
+
   return (
-    <Link
-      href={`/m/leads/${l.id}`}
-      className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
-      style={{
-        borderColor: "var(--color-line)",
-        backgroundColor: "var(--color-paper)",
-      }}
-    >
-      {/* Top accent strip */}
-      <div className="h-0.5 w-full" style={{ backgroundColor: stageColor }} />
+    <>
+      <div {...longPressBind}>
+        <Link
+          href={`/m/leads/${l.id}`}
+          className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
+          style={{
+            borderColor: "var(--color-line)",
+            backgroundColor: "var(--color-paper)",
+          }}
+        >
+          {/* Top accent strip */}
+          <div className="h-0.5 w-full" style={{ backgroundColor: stageColor }} />
 
-      <div className="p-2 flex flex-col gap-1 flex-1">
-        {/* Row 1: Name + priority indicator */}
-        <div className="flex items-center justify-between gap-1">
-          <p className="text-m-label font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
-            {l.name}
-          </p>
-          {isHot ? (
-            <Flame className="size-2.5 shrink-0" style={{ color: priorityColor }} />
-          ) : (
-            <span
-              className="size-1.5 rounded-full shrink-0"
-              style={{ backgroundColor: priorityColor }}
-            />
-          )}
-        </div>
+          <div className="p-2 flex flex-col gap-1 flex-1">
+            {/* Row 1: Name + priority indicator */}
+            <div className="flex items-center justify-between gap-1">
+              <p className="text-m-label font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+                {l.name}
+              </p>
+              {isHot ? (
+                <Flame className="size-2.5 shrink-0" style={{ color: priorityColor }} />
+              ) : (
+                <span
+                  className="size-1.5 rounded-full shrink-0"
+                  style={{ backgroundColor: priorityColor }}
+                />
+              )}
+            </div>
 
-        {/* Row 2: Stage badge + phone */}
-        <div className="flex items-center gap-1.5">
-          <span
-            className="text-m-caption font-bold uppercase shrink-0"
-            style={{ color: stageColor }}
-          >
-            {STAGE_LABELS[l.stage] ?? l.stage}
-          </span>
-          {l.phone ? (
-            <>
-              <span style={{ color: "var(--color-line)" }}>·</span>
-              <span className="text-m-caption truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
-                <Phone className="size-2" />
-                {l.phone}
+            {/* Row 2: Stage badge + phone */}
+            <div className="flex items-center gap-1.5">
+              <span
+                className="text-m-caption font-bold uppercase shrink-0"
+                style={{ color: stageColor }}
+              >
+                {STAGE_LABELS[l.stage] ?? l.stage}
               </span>
-            </>
-          ) : null}
-        </div>
+              {l.phone ? (
+                <>
+                  <span style={{ color: "var(--color-line)" }}>·</span>
+                  <span className="text-m-caption truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
+                    <Phone className="size-2" />
+                    {l.phone}
+                  </span>
+                </>
+              ) : null}
+            </div>
 
-        {/* Row 3: Project name */}
-        {l.projectName ? (
-          <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
-            {l.projectName}
-          </p>
-        ) : null}
+            {/* Row 3: Project name */}
+            {l.projectName ? (
+              <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
+                {l.projectName}
+              </p>
+            ) : null}
 
-        {/* Row 4: Bottom area — fixed height for equal card sizes */}
-        <div className="mt-auto pt-1 h-[1rem] flex items-center gap-1.5">
-          {isConverted ? (
-            <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-go)" }}>
-              Converted
-            </span>
-          ) : l.nextFollowUpAt ? (
-            <span
-              className="text-m-caption font-semibold flex items-center gap-0.5"
-              style={{ color: followUpOverdue ? "var(--color-stop)" : "var(--color-ink-500)" }}
-            >
-              <Calendar className="size-2" />
-              {formatDate(l.nextFollowUpAt)}
-            </span>
-          ) : l.score > 0 ? (
-            <span className="text-m-caption font-semibold flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
-              <TrendingUp className="size-2" />
-              Score {l.score}
-            </span>
-          ) : (
-            <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
-              {STAGE_LABELS[l.stage] ?? l.stage}
-            </span>
-          )}
-        </div>
+            {/* Row 4: Bottom area — fixed height for equal card sizes */}
+            <div className="mt-auto pt-1 h-[1rem] flex items-center gap-1.5">
+              {isConverted ? (
+                <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-go)" }}>
+                  Converted
+                </span>
+              ) : l.nextFollowUpAt ? (
+                <span
+                  className="text-m-caption font-semibold flex items-center gap-0.5"
+                  style={{ color: followUpOverdue ? "var(--color-stop)" : "var(--color-ink-500)" }}
+                >
+                  <Calendar className="size-2" />
+                  {formatDate(l.nextFollowUpAt)}
+                </span>
+              ) : l.score > 0 ? (
+                <span className="text-m-caption font-semibold flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
+                  <TrendingUp className="size-2" />
+                  Score {l.score}
+                </span>
+              ) : (
+                <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
+                  {STAGE_LABELS[l.stage] ?? l.stage}
+                </span>
+              )}
+            </div>
+          </div>
+        </Link>
       </div>
-    </Link>
+
+      {/* Long-press overview sheet */}
+      <MobileOverviewSheet
+        open={overviewOpen}
+        onClose={() => setOverviewOpen(false)}
+        origin={pressPoint}
+        title={l.name}
+        subtitle={STAGE_LABELS[l.stage] ?? l.stage}
+        accentColor={stageColor}
+        rows={overviewRows}
+        actions={overviewActions}
+      />
+    </>
   );
 }

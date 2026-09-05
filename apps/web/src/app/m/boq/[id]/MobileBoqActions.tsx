@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, Edit3, Trash2, AlertTriangle } from "lucide-react";
+import { Loader2, Edit3, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useOptimisticAction } from "@/lib/use-optimistic-action";
 import { ActionBar } from "@/components/mobile/v2/primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 interface FormState {
   serialNo: string;
@@ -114,151 +115,124 @@ export function MobileBoqEditDialog({
     }
   }
 
-  if (!open) return null;
-
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span
-              className="grid place-items-center size-7 rounded-[0.375rem]"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              <Edit3
-                className="size-3.5"
-                style={{ color: "var(--color-ink-600)" }}
-              />
-            </span>
-            <p
-              className="text-m-section font-bold"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              Edit BOQ Item
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-500)" }}
-            aria-label="Close"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
+    <MobileDialog open={open} onClose={onClose} title="Edit BOQ Item">
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {/* Serial No + Description */}
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Serial No. <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={form.serialNo}
-                onChange={(e) => set("serialNo", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-            <div className="col-span-2">
-              <label className={labelClass} style={labelStyle}>
-                Description <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={form.description}
-                onChange={(e) => set("description", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              />
+          {/* Item Details */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Item Details
+            </p>
+            {/* Serial No + Description */}
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Serial No. <span style={{ color: "var(--color-stop)" }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.serialNo}
+                  onChange={(e) => set("serialNo", e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div className="col-span-2">
+                <label className={labelClass} style={labelStyle}>
+                  Description <span style={{ color: "var(--color-stop)" }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.description}
+                  onChange={(e) => set("description", e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
             </div>
           </div>
 
           {/* Line item fields */}
           {isLineItem && (
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Unit <span style={{ color: "var(--color-stop)" }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.unit}
-                  onChange={(e) => set("unit", e.target.value)}
-                  placeholder="CUM"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Qty <span style={{ color: "var(--color-stop)" }}>*</span>
-                </label>
-                <input
-                  type="number"
-                  min={0.001}
-                  step="any"
-                  value={form.estimatedQty}
-                  onChange={(e) => set("estimatedQty", e.target.value)}
-                  inputMode="decimal"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Rate (₹) <span style={{ color: "var(--color-stop)" }}>*</span>
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  step="any"
-                  value={form.rate}
-                  onChange={(e) => set("rate", e.target.value)}
-                  inputMode="decimal"
-                  className={inputClass}
-                  style={inputStyle}
-                />
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Line Item Specs
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className={labelClass} style={labelStyle}>
+                    Unit <span style={{ color: "var(--color-stop)" }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.unit}
+                    onChange={(e) => set("unit", e.target.value)}
+                    placeholder="CUM"
+                    className={inputClass}
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass} style={labelStyle}>
+                    Qty <span style={{ color: "var(--color-stop)" }}>*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={0.001}
+                    step="any"
+                    value={form.estimatedQty}
+                    onChange={(e) => set("estimatedQty", e.target.value)}
+                    inputMode="decimal"
+                    className={inputClass}
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass} style={labelStyle}>
+                    Rate (₹) <span style={{ color: "var(--color-stop)" }}>*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={form.rate}
+                    onChange={(e) => set("rate", e.target.value)}
+                    inputMode="decimal"
+                    className={inputClass}
+                    style={inputStyle}
+                  />
+                </div>
               </div>
             </div>
           )}
 
           {/* Notes */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Notes
-            </label>
-            <textarea
-              value={form.notes}
-              onChange={(e) => set("notes", e.target.value)}
-              rows={2}
-              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section outline-none resize-none"
-              style={inputStyle}
-            />
+            </p>
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Notes
+              </label>
+              <textarea
+                value={form.notes}
+                onChange={(e) => set("notes", e.target.value)}
+                rows={1}
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+                style={inputStyle}
+              />
+            </div>
           </div>
 
           {/* Actions */}
@@ -290,8 +264,7 @@ export function MobileBoqEditDialog({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }
 

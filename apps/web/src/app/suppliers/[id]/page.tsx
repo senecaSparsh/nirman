@@ -21,7 +21,7 @@ export default function SupplierDetailPage({ params }: { params: Promise<{ id: s
   );
 }
 
-async function SupplierDetailContent({ params }: { params: Promise<{ id: string }> }) {
+export async function SupplierDetailContent({ params }: { params: Promise<{ id: string }> }) {
   await connection();
   const role = await getUserRole();
   if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) {

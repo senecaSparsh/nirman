@@ -16,9 +16,9 @@
  * fetch logic (with credentials); the SW is just the wake-up trigger.
  */
 
-const SHELL_CACHE = "nirman-shell-v3";
-const ASSET_CACHE = "nirman-assets-v2";
-const API_CACHE = "nirman-api-v2";
+const SHELL_CACHE = "nirman-shell-v4";
+const ASSET_CACHE = "nirman-assets-v3";
+const API_CACHE = "nirman-api-v3";
 
 const SHELL_URLS = ["/", "/manifest.webmanifest", "/icon.svg", "/field", "/m/site/field"];
 
@@ -117,7 +117,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static assets — stale-while-revalidate.
+  // Static assets — stale-while-revalidate with deploy detection.
+  // When a new build is deployed, Next.js content-hashes chunk filenames.
+  // A user with a stale tab may request a chunk that no longer exists → 404.
+  // On 404 for /_next/static/ chunks, we clear the asset cache and notify
+  // all clients to reload (so they pick up the new HTML with new chunk hashes).
   if (
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|woff2?)$/)
@@ -127,8 +131,23 @@ self.addEventListener("fetch", (event) => {
         const cache = await caches.open(ASSET_CACHE);
         const cached = await cache.match(req);
         const network = fetch(req)
-          .then((res) => {
-            if (res.ok) cache.put(req, res.clone());
+          .then(async (res) => {
+            if (res.ok) {
+              cache.put(req, res.clone());
+            } else if (res.status === 404 && url.pathname.startsWith("/_next/static/")) {
+              // Chunk no longer exists (new deploy) — clear stale chunks
+              // and tell clients to reload for the new chunk hashes.
+              console.warn("[sw] chunk 404 — clearing asset cache + notifying clients:", url.pathname);
+              await cache.keys().then((keys) =>
+                Promise.all(
+                  keys
+                    .filter((k) => new URL(k.url).pathname.startsWith("/_next/static/"))
+                    .map((k) => cache.delete(k)),
+                ),
+              );
+              const clients = await self.clients.matchAll({ includeUncontrolled: true });
+              for (const c of clients) c.postMessage({ type: "STALE_CHUNK" });
+            }
             return res;
           })
           .catch(() => cached);

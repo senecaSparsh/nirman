@@ -22,7 +22,7 @@ export default function ProjectAssignmentsPage() {
   );
 }
 
-async function ProjectAssignmentsContent() {
+export async function ProjectAssignmentsContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

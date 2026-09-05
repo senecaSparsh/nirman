@@ -494,14 +494,14 @@ function SupplierEditSheet({
     }
   }
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
     <div
@@ -526,33 +526,43 @@ function SupplierEditSheet({
           </button>
         </div>
         <div className="px-3 pb-4 flex flex-col gap-3">
-          <div>
-            <label className={labelClass} style={labelStyle}>Name *</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} style={inputStyle} />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Supplier Info
+            </p>
             <div>
-              <label className={labelClass} style={labelStyle}>GSTIN</label>
-              <input value={gstin} onChange={(e) => setGstin(e.target.value)} placeholder="22AAAAA0000A1Z5" className={`${inputClass} font-mono`} style={inputStyle} />
+              <label className={labelClass} style={labelStyle}>Name *</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} style={inputStyle} />
             </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>Lead Time (days)</label>
-              <input type="number" min="0" step="1" inputMode="numeric" value={leadTimeDays} onChange={(e) => setLeadTimeDays(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className={labelClass} style={labelStyle}>Phone</label>
-              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" inputMode="tel" className={inputClass} style={inputStyle} />
-            </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@firm.com" className={inputClass} style={inputStyle} />
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>GSTIN</label>
+                <input value={gstin} onChange={(e) => setGstin(e.target.value)} placeholder="22AAAAA0000A1Z5" className={`${inputClass} font-mono`} style={inputStyle} />
+              </div>
+              <div className="pl-2">
+                <label className={labelClass} style={labelStyle}>Lead Time (days)</label>
+                <input type="number" min="0" step="1" inputMode="numeric" value={leadTimeDays} onChange={(e) => setLeadTimeDays(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
+              </div>
             </div>
           </div>
-          <div>
-            <label className={labelClass} style={labelStyle}>Address</label>
-            <textarea rows={2} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Office address…" className="w-full rounded-[0.5rem] border px-2.5 py-2 text-m-section resize-none outline-none" style={inputStyle} />
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Contact
+            </p>
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>Phone</label>
+                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" inputMode="tel" className={inputClass} style={inputStyle} />
+              </div>
+              <div className="pl-2">
+                <label className={labelClass} style={labelStyle}>Email</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@firm.com" className={inputClass} style={inputStyle} />
+              </div>
+            </div>
+            <div>
+              <label className={labelClass} style={labelStyle}>Address</label>
+              <textarea rows={1} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Office address…" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
+            </div>
           </div>
           <div className="flex flex-col gap-2 pt-1">
             <button

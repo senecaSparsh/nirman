@@ -24,7 +24,7 @@ export default function WorkflowsPage() {
   );
 }
 
-async function WorkflowsContent() {
+export async function WorkflowsContent() {
   await connection();
   const role = await getUserRole();
   if (!hasPermission(role, PERM.CANVAS_VIEW)) {

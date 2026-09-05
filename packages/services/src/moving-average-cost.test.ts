@@ -1,59 +1,96 @@
+/**
+ * Unit tests for the pure Moving Average Cost functions in moving-average-cost.ts.
+ *
+ *   computeMovingAverageCost — newMAC = (oldQty×oldMAC + recvQty×recvCost) / (oldQty+recvQty)
+ *   stockValueAfterIssue     — remainingQty × MAC
+ *   movementDirection        — classify movement type as IN or OUT
+ */
 import { describe, it, expect } from "vitest";
-import Decimal from "decimal.js";
 import {
   computeMovingAverageCost,
   stockValueAfterIssue,
   movementDirection,
 } from "./moving-average-cost";
+import Decimal from "decimal.js";
 
 describe("computeMovingAverageCost", () => {
-  it("computes MAC for first receipt into empty stock", () => {
+  it("computes weighted average for first receipt", () => {
+    // old: 0 qty × 0 MAC, received: 100 × 50 → MAC = 5000/100 = 50
     const mac = computeMovingAverageCost(
-      new Decimal(0),
-      new Decimal(0),
-      new Decimal(100),
-      new Decimal(50),
+      new Decimal(0), new Decimal(0),
+      new Decimal(100), new Decimal(50),
     );
     expect(mac.toNumber()).toBe(50);
   });
 
-  it("blends old and new cost proportionally", () => {
-    // 100 units @ ₹50 = ₹5000, + 100 units @ ₹70 = ₹7000 → 200 units, ₹12000 → MAC = ₹60
+  it("computes weighted average for subsequent receipt", () => {
+    // old: 100 × 50, received: 50 × 60 → MAC = (5000 + 3000) / 150 = 53.33
     const mac = computeMovingAverageCost(
-      new Decimal(100),
-      new Decimal(50),
-      new Decimal(100),
-      new Decimal(70),
+      new Decimal(100), new Decimal(50),
+      new Decimal(50), new Decimal(60),
     );
-    expect(mac.toNumber()).toBe(60);
+    expect(mac.toNumber()).toBeCloseTo(53.3333, 3);
   });
 
-  it("weights correctly when quantities differ", () => {
-    // 200 units @ ₹40 = ₹8000, + 50 units @ ₹100 = ₹5000 → 250 units, ₹13000 → MAC = ₹52
+  it("handles receiving at same cost (MAC unchanged)", () => {
     const mac = computeMovingAverageCost(
-      new Decimal(200),
-      new Decimal(40),
-      new Decimal(50),
-      new Decimal(100),
+      new Decimal(100), new Decimal(50),
+      new Decimal(50), new Decimal(50),
     );
-    expect(mac.toNumber()).toBe(52);
+    expect(mac.toNumber()).toBe(50);
   });
 
-  it("throws when total qty is 0 (edge case)", () => {
+  it("handles receiving at lower cost (MAC decreases)", () => {
+    const mac = computeMovingAverageCost(
+      new Decimal(100), new Decimal(60),
+      new Decimal(100), new Decimal(40),
+    );
+    // (6000 + 4000) / 200 = 50
+    expect(mac.toNumber()).toBe(50);
+  });
+
+  it("throws when old MAC is negative", () => {
     expect(() =>
-      computeMovingAverageCost(
-        new Decimal(0),
-        new Decimal(0),
-        new Decimal(0),
-        new Decimal(50),
-      ),
-    ).toThrow("Cannot compute MAC: total quantity is zero");
+      computeMovingAverageCost(new Decimal(100), new Decimal(-1), new Decimal(50), new Decimal(50)),
+    ).toThrow("Old MAC cannot be negative");
   });
 
-  it("MAC does not change on issues (handled by caller, but verify the math)", () => {
-    // After issuing 50 of 200 @ ₹52, remaining 150 @ ₹52 = ₹7800
-    const value = stockValueAfterIssue(new Decimal(150), new Decimal(52));
-    expect(value.toNumber()).toBe(7800);
+  it("throws when received unit cost is negative", () => {
+    expect(() =>
+      computeMovingAverageCost(new Decimal(100), new Decimal(50), new Decimal(50), new Decimal(-1)),
+    ).toThrow("Received unit cost cannot be negative");
+  });
+
+  it("throws when old quantity is negative", () => {
+    expect(() =>
+      computeMovingAverageCost(new Decimal(-1), new Decimal(50), new Decimal(50), new Decimal(50)),
+    ).toThrow("Old quantity cannot be negative");
+  });
+
+  it("throws when received quantity is negative", () => {
+    expect(() =>
+      computeMovingAverageCost(new Decimal(100), new Decimal(50), new Decimal(-1), new Decimal(50)),
+    ).toThrow("Received quantity cannot be negative");
+  });
+
+  it("throws when both quantities are zero", () => {
+    expect(() =>
+      computeMovingAverageCost(new Decimal(0), new Decimal(0), new Decimal(0), new Decimal(50)),
+    ).toThrow("total quantity is zero");
+  });
+});
+
+describe("stockValueAfterIssue", () => {
+  it("computes remaining value = qty × MAC", () => {
+    expect(stockValueAfterIssue(new Decimal(100), new Decimal(50)).toNumber()).toBe(5000);
+  });
+
+  it("returns 0 when remaining qty is 0", () => {
+    expect(stockValueAfterIssue(new Decimal(0), new Decimal(50)).toNumber()).toBe(0);
+  });
+
+  it("returns 0 when MAC is 0", () => {
+    expect(stockValueAfterIssue(new Decimal(100), new Decimal(0)).toNumber()).toBe(0);
   });
 });
 
@@ -62,6 +99,7 @@ describe("movementDirection", () => {
     expect(movementDirection("PURCHASE_RECEIPT")).toBe("IN");
     expect(movementDirection("TRANSFER_IN")).toBe("IN");
     expect(movementDirection("ADJUSTMENT_IN")).toBe("IN");
+    expect(movementDirection("SCRAP_GENERATED")).toBe("IN");
   });
 
   it("classifies outbound movements", () => {
@@ -73,7 +111,7 @@ describe("movementDirection", () => {
     expect(movementDirection("SALE")).toBe("OUT");
   });
 
-  it("throws on unknown type", () => {
-    expect(() => movementDirection("UNKNOWN")).toThrow();
+  it("throws for unknown movement type", () => {
+    expect(() => movementDirection("UNKNOWN")).toThrow("Unknown StockMovementType");
   });
 });

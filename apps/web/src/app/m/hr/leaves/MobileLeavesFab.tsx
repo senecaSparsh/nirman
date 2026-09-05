@@ -1,39 +1,37 @@
 "use client";
 
-import { useState } from "react";
-import {Plus} from "lucide-react";
-import { MobileNewLeaveDialog } from "./MobileNewLeaveDialog";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileNewLeaveForm } from "./MobileNewLeaveDialog";
 
+/**
+ * MobileLeavesFab — FAB + spring-from-FAB modal for recording a leave
+ * from the mobile HR page.
+ *
+ * Mirrors MobileMaterialsFab / MobileEmployeesFab: the FAB morphs +→×
+ * on open, and the modal scales up from the FAB's on-screen position
+ * with a critically-damped spring (cubic-bezier(0.32, 0.72, 0, 1)) +
+ * backdrop blur — Apple-style symmetric enter/exit paths.
+ */
 export function MobileLeavesFab({
   employees,
 }: {
   employees: { id: string; name: string; trade: string | null }[];
 }) {
-  const [open, setOpen] = useState(false);
+  const fab = useFabModal();
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed right-3 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
-        style={{
-          bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
-          backgroundColor: "var(--color-ink-950)",
-          color: "var(--color-paper)",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-        }}
-        aria-label="Add new leave"
+      <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="Add new leave" />
+      <MobileFabModal
+        open={fab.isOpen}
+        onClose={fab.close}
+        originRect={fab.originRect}
+        title="Record Leave"
       >
-        <Plus className="size-5" />
-      </button>
-
-      {open && (
-        <MobileNewLeaveDialog
-          open={open}
-          onClose={() => setOpen(false)}
-          employees={employees}
-        />
-      )}
+        <MobileNewLeaveForm onClose={fab.close} employees={employees} />
+      </MobileFabModal>
     </>
   );
 }

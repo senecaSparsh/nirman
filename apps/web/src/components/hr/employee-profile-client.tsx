@@ -1,21 +1,27 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { toast } from "sonner";
 import {
   ArrowLeft, Phone, Mail, Briefcase, Calendar, MapPin, Users, UsersRound,
   Wallet, Clock, ListChecks, FileText, CalendarOff, Pencil, Trash2,
   CheckCircle2, Circle, AlertCircle, Loader2, UserCircle,
   IdCard, Building2, Navigation, Activity, Paperclip, Gift,
+  UserPlus, Ban, RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { MoneyCell, DateCell } from "@/components/ui/cells";
+import { Dialog } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { CreateAccountDialog } from "@/components/hr/create-account-dialog";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { useTabParam } from "@/lib/use-tab-param";
 
@@ -51,6 +57,13 @@ export type EmployeeProfileData = {
   noticePeriodDays: number | null;
   contractStartDate: string | null;
   contractEndDate: string | null;
+  // ── Contract / agreement tracking ──
+  contractStatus: "DRAFT" | "ISSUED" | "CONFIRMED" | "EXPIRED" | "TERMINATED" | null;
+  contractIssuedAt: string | null;
+  contractConfirmedAt: string | null;
+  // ── Auto-deposit ──
+  autoDepositEnabled: boolean | null;
+  autoDepositSetupAt: string | null;
   payDay: number | null;
   bankAccountHolder: string | null;
   bankAccountNumber: string | null;
@@ -210,19 +223,29 @@ function initials(name: string): string {
 
 export function EmployeeProfileClient({
   employee,
+  actorRole,
   permissions,
 }: {
   employee: EmployeeProfileData;
+  actorRole: string;
   permissions: { canManage: boolean; canManagePayroll: boolean; canAssignTasks: boolean };
 }) {
   const [tab, setTab] = useTabParam(
     ["overview", "attendance", "payroll", "tasks", "dprs", "leaves", "crew"] as const,
     "overview",
   );
+  const router = useRouter();
   const [showDelete, setShowDelete] = useState(false);
+  const [showCreateAccount, setShowCreateAccount] = useState(false);
+  const [showTerminate, setShowTerminate] = useState(false);
+  const [showSetupDeposit, setShowSetupDeposit] = useState(false);
+  const [availableNumbers, setAvailableNumbers] = useState<
+    { id: string; phoneNumber: string; label: string | null; department: string | null; status: string; monthlyCost: number | null; provider: string | null }[]
+  >([]);
 
   const openTasks = employee.tasks.filter((t) => t.status === "PENDING" || t.status === "IN_PROGRESS").length;
   const completedTasks = employee.tasks.filter((t) => t.status === "COMPLETED").length;
+  void openTasks; void completedTasks; // reserved for future stats summary
 
   return (
     <div className="space-y-5">
@@ -241,7 +264,62 @@ export function EmployeeProfileClient({
       <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
         {/* Sidebar — identity details, sticky on desktop */}
         <aside className="lg:sticky lg:top-4 lg:self-start">
-          <ProfileSidebar employee={employee} />
+          <ProfileSidebar
+            employee={employee}
+            canManage={permissions.canManage}
+            canManagePayroll={permissions.canManagePayroll}
+            onCreateAccount={async () => {
+              // Fetch available phone numbers
+              try {
+                const res = await fetch("/api/telephony/numbers/available");
+                if (res.ok) {
+                  const data = await res.json();
+                  setAvailableNumbers(data);
+                }
+              } catch { /* ignore — dialog handles empty list */ }
+              setShowCreateAccount(true);
+            }}
+            onTerminate={() => setShowTerminate(true)}
+            onGenerateAgreement={async () => {
+              try {
+                const res = await fetch(`/api/employees/${employee.id}/generate-agreement`, { method: "POST" });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                toast.success(data.message ?? "Agreement generated");
+                router.refresh();
+              } catch (err: unknown) {
+                toast.error(err instanceof Error ? err.message : "Failed to generate agreement");
+              }
+            }}
+            onConfirmAgreement={async () => {
+              try {
+                const res = await fetch(`/api/employees/${employee.id}/confirm-agreement`, { method: "POST" });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                toast.success(data.message ?? "Agreement confirmed");
+                router.refresh();
+              } catch (err: unknown) {
+                toast.error(err instanceof Error ? err.message : "Failed to confirm agreement");
+              }
+            }}
+            onGenerateAndConfirm={async () => {
+              try {
+                // Step 1: Generate
+                const genRes = await fetch(`/api/employees/${employee.id}/generate-agreement`, { method: "POST" });
+                const genData = await genRes.json();
+                if (!genRes.ok) throw new Error(genData.error);
+                // Step 2: Confirm
+                const confRes = await fetch(`/api/employees/${employee.id}/confirm-agreement`, { method: "POST" });
+                const confData = await confRes.json();
+                if (!confRes.ok) throw new Error(confData.error);
+                toast.success("Agreement generated & confirmed");
+                router.refresh();
+              } catch (err: unknown) {
+                toast.error(err instanceof Error ? err.message : "Failed to generate & confirm");
+              }
+            }}
+            onSetupDeposit={() => setShowSetupDeposit(true)}
+          />
         </aside>
 
         {/* Main — tabs + content */}
@@ -295,6 +373,48 @@ export function EmployeeProfileClient({
           title="Archive Employee"
           description={`Are you sure you want to archive ${employee.name}? This soft-deletes the record. Attendance, payroll, and DPR history are preserved.`}
           successMessage="Employee archived"
+        />
+      )}
+
+      {/* Create / Link account dialog */}
+      {showCreateAccount && (
+        <CreateAccountDialog
+          employeeId={employee.id}
+          employeeName={employee.name}
+          employeePhone={employee.phone}
+          employeeEmail={employee.email}
+          employeeDesignation={employee.designation}
+          employeeHierarchyLevel={employee.hierarchyLevel}
+          actorRole={actorRole}
+          projects={[]}
+          availableNumbers={availableNumbers}
+          onClose={() => setShowCreateAccount(false)}
+        />
+      )}
+
+      {/* Terminate confirm */}
+      {showTerminate && (
+        <TerminateDialog
+          employeeName={employee.name}
+          employeeId={employee.id}
+          onClose={() => setShowTerminate(false)}
+        />
+      )}
+
+      {/* Setup auto-deposit dialog */}
+      {showSetupDeposit && (
+        <SetupDepositDialog
+          employeeId={employee.id}
+          employeeName={employee.name}
+          existingBank={{
+            holder: employee.bankAccountHolder,
+            number: employee.bankAccountNumber,
+            ifsc: employee.bankIfsc,
+            name: employee.bankName,
+            branch: employee.bankBranch,
+            payDay: employee.payDay,
+          }}
+          onClose={() => setShowSetupDeposit(false)}
         />
       )}
     </div>
@@ -407,7 +527,7 @@ function ProfileHero({
           {/* Name + title + badges + contact pills */}
           <div className="min-w-0 flex-1 pb-2">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-[24px] font-bold leading-tight text-foreground">{employee.name}</h1>
+              <h1 className="text-title text-foreground">{employee.name}</h1>
               <Badge variant={employee.active ? "success" : "muted"} dot>
                 {employee.active ? "Active" : "Inactive"}
               </Badge>
@@ -543,7 +663,27 @@ function HeroStatTile({
 //  Profile Sidebar — sticky identity details (left column)
 // ───────────────────────────────────────────────────────────────
 
-function ProfileSidebar({ employee }: { employee: EmployeeProfileData }) {
+function ProfileSidebar({
+  employee,
+  canManage,
+  canManagePayroll,
+  onCreateAccount,
+  onTerminate,
+  onGenerateAgreement,
+  onConfirmAgreement,
+  onGenerateAndConfirm,
+  onSetupDeposit,
+}: {
+  employee: EmployeeProfileData;
+  canManage: boolean;
+  canManagePayroll: boolean;
+  onCreateAccount: () => void;
+  onTerminate: () => void;
+  onGenerateAgreement: () => void;
+  onConfirmAgreement: () => void;
+  onGenerateAndConfirm: () => void;
+  onSetupDeposit: () => void;
+}) {
   const u = employee.user;
   const phone = employee.phone ?? u?.phone ?? null;
   const email = employee.email ?? u?.email ?? null;
@@ -603,6 +743,11 @@ function ProfileSidebar({ employee }: { employee: EmployeeProfileData }) {
         )}
       </SidebarCard>
 
+      {/* Onboarding Checklist — shows where the employee is in the pipeline */}
+      <SidebarCard title="Onboarding Checklist" icon={ListChecks}>
+        <OnboardingChecklist employee={employee} canManage={canManage} canManagePayroll={canManagePayroll} />
+      </SidebarCard>
+
       {/* Login account */}
       <SidebarCard title="Login Account" icon={UserCircle}>
         {u ? (
@@ -617,15 +762,164 @@ function ProfileSidebar({ employee }: { employee: EmployeeProfileData }) {
             {u.lastLoginAt && (
               <SidebarRow icon={Clock} label="Last Login" value={formatDate(u.lastLoginAt)} />
             )}
+            {canManage && employee.active && (
+              <div className="py-2">
+                <Button variant="outline" size="sm" className="w-full text-destructive" onClick={onTerminate}>
+                  <Ban className="h-3.5 w-3.5" /> Terminate Employee
+                </Button>
+              </div>
+            )}
           </>
         ) : (
-          <p className="py-2 text-center text-caption text-muted-foreground">
-            No linked user account.<br />This worker has no app login.
-          </p>
+          <div className="py-2 space-y-2">
+            <p className="text-center text-caption text-muted-foreground">
+              No linked user account.<br />This worker has no app login.
+            </p>
+            {canManage && employee.active && (
+              <Button variant="outline" size="sm" className="w-full" onClick={onCreateAccount}>
+                <UserPlus className="h-3.5 w-3.5" /> Create Login
+              </Button>
+            )}
+          </div>
+        )}
+      </SidebarCard>
+
+      {/* Employment Agreement */}
+      <SidebarCard title="Employment Agreement" icon={FileText}>
+        {employee.contractStatus ? (
+          <>
+            <SidebarRow
+              icon={FileText}
+              label="Status"
+              value={contractStatusLabel(employee.contractStatus)}
+            />
+            {employee.contractIssuedAt && (
+              <SidebarRow icon={Calendar} label="Issued" value={formatDate(employee.contractIssuedAt)} />
+            )}
+            {employee.contractConfirmedAt && (
+              <SidebarRow icon={CheckCircle2} label="Confirmed" value={formatDate(employee.contractConfirmedAt)} />
+            )}
+            {employee.employmentType && (
+              <SidebarRow icon={Briefcase} label="Type" value={employee.employmentType.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())} />
+            )}
+            {canManage && employee.active && (
+              <div className="py-2 space-y-1.5">
+                <a
+                  href={`/print/employment-agreement/${employee.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-caption font-medium text-foreground hover:bg-muted transition-colors"
+                >
+                  <FileText className="h-3.5 w-3.5" /> View / Print Agreement
+                </a>
+                {employee.contractStatus === "ISSUED" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={onConfirmAgreement}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Confirm Agreement
+                  </Button>
+                )}
+                {employee.contractStatus === "DRAFT" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={onGenerateAgreement}
+                  >
+                    <FileText className="h-3.5 w-3.5" /> Generate Agreement
+                  </Button>
+                )}
+                {(employee.contractStatus === "ISSUED" || employee.contractStatus === "CONFIRMED" || employee.contractStatus === "EXPIRED") && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-muted-foreground"
+                    onClick={onGenerateAgreement}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" /> Regenerate (terms changed)
+                  </Button>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="py-2 space-y-2">
+            <p className="text-center text-caption text-muted-foreground">
+              No employment agreement.<br />Generate one to formalize terms.
+            </p>
+            {canManage && employee.active && (
+              <div className="space-y-1.5">
+                <Button size="sm" className="w-full" onClick={onGenerateAndConfirm}>
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Generate &amp; Confirm
+                </Button>
+                <Button variant="outline" size="sm" className="w-full" onClick={onGenerateAgreement}>
+                  <FileText className="h-3.5 w-3.5" /> Generate Only
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </SidebarCard>
+
+      {/* Auto-Deposit (Salary → Bank) */}
+      <SidebarCard title="Auto-Deposit" icon={Wallet}>
+        {employee.autoDepositEnabled ? (
+          <>
+            <SidebarRow icon={Wallet} label="Status" value="Enabled" />
+            <SidebarRow icon={Calendar} label="Pay Day" value={`${employee.payDay ?? 7}th of each month`} />
+            <SidebarRow icon={UserCircle} label="Holder" value={employee.bankAccountHolder ?? "—"} />
+            <SidebarRow icon={Building2} label="Bank" value={employee.bankName ?? "—"} />
+            {employee.bankBranch && (
+              <SidebarRow icon={MapPin} label="Branch" value={employee.bankBranch} />
+            )}
+            <SidebarRow
+              icon={Wallet}
+              label="Account"
+              value={employee.bankAccountNumber ? `****${employee.bankAccountNumber.slice(-4)}` : "—"}
+            />
+            <SidebarRow icon={Wallet} label="IFSC" value={employee.bankIfsc ?? "—"} />
+            {employee.autoDepositSetupAt && (
+              <SidebarRow icon={Calendar} label="Setup On" value={formatDate(employee.autoDepositSetupAt)} />
+            )}
+            {canManagePayroll && employee.active && (
+              <Button variant="outline" size="sm" className="w-full" onClick={onSetupDeposit}>
+                <Pencil className="h-3.5 w-3.5" /> Edit Bank Details
+              </Button>
+            )}
+          </>
+        ) : (
+          <div className="py-2 space-y-2">
+            {employee.contractStatus !== "CONFIRMED" && (
+              <p className="text-center text-meta text-amber-600 dark:text-amber-500">
+                {employee.contractStatus
+                  ? "Agreement not confirmed yet — bank details can be collected now."
+                  : "Agreement not issued yet — bank details can be collected now."}
+              </p>
+            )}
+            {canManagePayroll && employee.active && (
+              <Button variant="outline" size="sm" className="w-full" onClick={onSetupDeposit}>
+                <Wallet className="h-3.5 w-3.5" /> Setup Auto-Deposit
+              </Button>
+            )}
+          </div>
         )}
       </SidebarCard>
     </div>
   );
+}
+
+function contractStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    DRAFT: "Draft",
+    ISSUED: "Issued (pending confirmation)",
+    CONFIRMED: "Confirmed",
+    EXPIRED: "Expired",
+    TERMINATED: "Terminated",
+  };
+  return labels[status] ?? status;
 }
 
 function SidebarCard({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
@@ -1348,9 +1642,313 @@ function SectionCard({ title, icon: Icon, action, children }: { title: string; i
 
 function DossierTab({ employee, canManage }: { employee: EmployeeProfileData; canManage: boolean }) {
   const { attachments, benefits } = employee;
+  const router = useRouter();
+  const [editingTerms, setEditingTerms] = useState(false);
+  const [savingTerms, setSavingTerms] = useState(false);
+  const [termsForm, setTermsForm] = useState({
+    employmentType: employee.employmentType ?? "",
+    noticePeriodDays: employee.noticePeriodDays?.toString() ?? "",
+    contractStartDate: employee.contractStartDate ? employee.contractStartDate.split("T")[0] : "",
+    contractEndDate: employee.contractEndDate ? employee.contractEndDate.split("T")[0] : "",
+    probationEndDate: employee.probationEndDate ? employee.probationEndDate.split("T")[0] : "",
+    confirmationDate: employee.confirmationDate ? employee.confirmationDate.split("T")[0] : "",
+  });
+
+  // Statutory IDs
+  const [editingIds, setEditingIds] = useState(false);
+  const [savingIds, setSavingIds] = useState(false);
+  const [idsForm, setIdsForm] = useState({
+    panNumber: employee.panNumber ?? "",
+    aadhaarNumber: employee.aadhaarNumber ?? "",
+    pfNumber: employee.pfNumber ?? "",
+    esiNumber: employee.esiNumber ?? "",
+    uan: employee.uan ?? "",
+  });
+
+  // Emergency contact
+  const [editingEmergency, setEditingEmergency] = useState(false);
+  const [savingEmergency, setSavingEmergency] = useState(false);
+  const [emergencyForm, setEmergencyForm] = useState({
+    emergencyContactName: employee.emergencyContactName ?? "",
+    emergencyContactPhone: employee.emergencyContactPhone ?? "",
+    emergencyContactRelation: employee.emergencyContactRelation ?? "",
+  });
+
+  // Addresses
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [savingAddress, setSavingAddress] = useState(false);
+  const [addressForm, setAddressForm] = useState({
+    permanentAddress: employee.permanentAddress ?? "",
+    currentAddress: employee.currentAddress ?? "",
+  });
+
+  const saveDossierFields = async (fields: Record<string, unknown>) => {
+    const res = await fetch(`/api/employees/${employee.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fields),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error ?? "Failed to save");
+    }
+    toast.success("Dossier updated");
+    router.refresh();
+  };
+
+  const saveIds = async () => {
+    setSavingIds(true);
+    try {
+      await saveDossierFields({
+        panNumber: idsForm.panNumber || null,
+        aadhaarNumber: idsForm.aadhaarNumber || null,
+        pfNumber: idsForm.pfNumber || null,
+        esiNumber: idsForm.esiNumber || null,
+        uan: idsForm.uan || null,
+      });
+      setEditingIds(false);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSavingIds(false);
+    }
+  };
+
+  const saveEmergency = async () => {
+    setSavingEmergency(true);
+    try {
+      await saveDossierFields({
+        emergencyContactName: emergencyForm.emergencyContactName || null,
+        emergencyContactPhone: emergencyForm.emergencyContactPhone || null,
+        emergencyContactRelation: emergencyForm.emergencyContactRelation || null,
+      });
+      setEditingEmergency(false);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSavingEmergency(false);
+    }
+  };
+
+  const saveAddress = async () => {
+    setSavingAddress(true);
+    try {
+      await saveDossierFields({
+        permanentAddress: addressForm.permanentAddress || null,
+        currentAddress: addressForm.currentAddress || null,
+      });
+      setEditingAddress(false);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSavingAddress(false);
+    }
+  };
+
+  const saveTerms = async () => {
+    setSavingTerms(true);
+    try {
+      await saveDossierFields({
+        employmentType: termsForm.employmentType || null,
+        noticePeriodDays: termsForm.noticePeriodDays ? Number(termsForm.noticePeriodDays) : null,
+        contractStartDate: termsForm.contractStartDate || null,
+        contractEndDate: termsForm.contractEndDate || null,
+        probationEndDate: termsForm.probationEndDate || null,
+        confirmationDate: termsForm.confirmationDate || null,
+      });
+      setEditingTerms(false);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSavingTerms(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
+      {/* Employment Terms — editable */}
+      <SectionCard
+        title="Employment Terms"
+        icon={Briefcase}
+        action={canManage && !editingTerms ? (
+          <button onClick={() => setEditingTerms(true)} className="text-meta text-brand-strong hover:underline">Edit</button>
+        ) : undefined}
+      >
+        {editingTerms ? (
+          <div className="space-y-3 py-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label>Employment Type</Label>
+                <Select value={termsForm.employmentType} onChange={(e) => setTermsForm((f) => ({ ...f, employmentType: e.target.value }))}>
+                  <option value="">— Select —</option>
+                  <option value="PERMANENT">Permanent</option>
+                  <option value="CONTRACT">Contract</option>
+                  <option value="CASUAL">Casual</option>
+                  <option value="PROBATION">Probation</option>
+                  <option value="INTERN">Intern</option>
+                </Select>
+              </div>
+              <div>
+                <Label>Notice Period (days)</Label>
+                <Input type="number" min="0" value={termsForm.noticePeriodDays} onChange={(e) => setTermsForm((f) => ({ ...f, noticePeriodDays: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Contract Start Date</Label>
+                <Input type="date" value={termsForm.contractStartDate} onChange={(e) => setTermsForm((f) => ({ ...f, contractStartDate: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Contract End Date</Label>
+                <Input type="date" value={termsForm.contractEndDate} onChange={(e) => setTermsForm((f) => ({ ...f, contractEndDate: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Probation End Date</Label>
+                <Input type="date" value={termsForm.probationEndDate} onChange={(e) => setTermsForm((f) => ({ ...f, probationEndDate: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Confirmation Date</Label>
+                <Input type="date" value={termsForm.confirmationDate} onChange={(e) => setTermsForm((f) => ({ ...f, confirmationDate: e.target.value }))} />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setEditingTerms(false)} disabled={savingTerms}>Cancel</Button>
+              <Button size="sm" onClick={saveTerms} disabled={savingTerms}>
+                {savingTerms ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Save Terms
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-1.5 py-1">
+            <DossierRow label="Employment Type" value={employee.employmentType ? employee.employmentType.charAt(0) + employee.employmentType.slice(1).toLowerCase() : "—"} />
+            <DossierRow label="Notice Period" value={employee.noticePeriodDays ? `${employee.noticePeriodDays} days` : "—"} />
+            <DossierRow label="Contract Start" value={employee.contractStartDate ? formatDate(employee.contractStartDate) : "—"} />
+            <DossierRow label="Contract End" value={employee.contractEndDate ? formatDate(employee.contractEndDate) : "—"} />
+            <DossierRow label="Probation End" value={employee.probationEndDate ? formatDate(employee.probationEndDate) : "—"} />
+            <DossierRow label="Confirmation Date" value={employee.confirmationDate ? formatDate(employee.confirmationDate) : "—"} />
+          </div>
+        )}
+      </SectionCard>
+
+      {/* Statutory IDs — editable */}
+      <SectionCard
+        title="Statutory IDs"
+        icon={IdCard}
+        action={canManage && !editingIds ? (
+          <button onClick={() => setEditingIds(true)} className="text-meta text-brand-strong hover:underline">Edit</button>
+        ) : undefined}
+      >
+        {editingIds ? (
+          <div className="space-y-3 py-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div><Label>PAN Number</Label><Input value={idsForm.panNumber} onChange={(e) => setIdsForm((f) => ({ ...f, panNumber: e.target.value }))} placeholder="ABCDE1234F" /></div>
+              <div><Label>Aadhaar Number</Label><Input value={idsForm.aadhaarNumber} onChange={(e) => setIdsForm((f) => ({ ...f, aadhaarNumber: e.target.value }))} placeholder="XXXX XXXX XXXX" /></div>
+              <div><Label>PF Number</Label><Input value={idsForm.pfNumber} onChange={(e) => setIdsForm((f) => ({ ...f, pfNumber: e.target.value }))} placeholder="PF account number" /></div>
+              <div><Label>ESI Number</Label><Input value={idsForm.esiNumber} onChange={(e) => setIdsForm((f) => ({ ...f, esiNumber: e.target.value }))} placeholder="ESI insurance number" /></div>
+              <div><Label>UAN</Label><Input value={idsForm.uan} onChange={(e) => setIdsForm((f) => ({ ...f, uan: e.target.value }))} placeholder="Universal Account Number" /></div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setEditingIds(false)} disabled={savingIds}>Cancel</Button>
+              <Button size="sm" onClick={saveIds} disabled={savingIds}>
+                {savingIds ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Save IDs
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-1.5 py-1">
+            <DossierRow label="PAN" value={employee.panNumber ?? "—"} />
+            <DossierRow label="Aadhaar" value={employee.aadhaarNumber ?? "—"} />
+            <DossierRow label="PF Number" value={employee.pfNumber ?? "—"} />
+            <DossierRow label="ESI Number" value={employee.esiNumber ?? "—"} />
+            <DossierRow label="UAN" value={employee.uan ?? "—"} />
+          </div>
+        )}
+      </SectionCard>
+
+      {/* Emergency Contact — editable */}
+      <SectionCard
+        title="Emergency Contact"
+        icon={Phone}
+        action={canManage && !editingEmergency ? (
+          <button onClick={() => setEditingEmergency(true)} className="text-meta text-brand-strong hover:underline">Edit</button>
+        ) : undefined}
+      >
+        {editingEmergency ? (
+          <div className="space-y-3 py-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div><Label>Contact Name</Label><Input value={emergencyForm.emergencyContactName} onChange={(e) => setEmergencyForm((f) => ({ ...f, emergencyContactName: e.target.value }))} /></div>
+              <div><Label>Contact Phone</Label><Input value={emergencyForm.emergencyContactPhone} onChange={(e) => setEmergencyForm((f) => ({ ...f, emergencyContactPhone: e.target.value }))} placeholder="Mobile number" /></div>
+              <div className="col-span-2"><Label>Relation</Label><Input value={emergencyForm.emergencyContactRelation} onChange={(e) => setEmergencyForm((f) => ({ ...f, emergencyContactRelation: e.target.value }))} placeholder="Spouse, Parent, Sibling…" /></div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setEditingEmergency(false)} disabled={savingEmergency}>Cancel</Button>
+              <Button size="sm" onClick={saveEmergency} disabled={savingEmergency}>
+                {savingEmergency ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Save Contact
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-1.5 py-1">
+            <DossierRow label="Name" value={employee.emergencyContactName ?? "—"} />
+            <DossierRow label="Phone" value={employee.emergencyContactPhone ?? "—"} />
+            <DossierRow label="Relation" value={employee.emergencyContactRelation ?? "—"} />
+          </div>
+        )}
+      </SectionCard>
+
+      {/* Addresses — editable */}
+      <SectionCard
+        title="Addresses"
+        icon={MapPin}
+        action={canManage && !editingAddress ? (
+          <button onClick={() => setEditingAddress(true)} className="text-meta text-brand-strong hover:underline">Edit</button>
+        ) : undefined}
+      >
+        {editingAddress ? (
+          <div className="space-y-3 py-1">
+            <div className="space-y-2">
+              <Label>Permanent Address</Label>
+              <textarea
+                value={addressForm.permanentAddress}
+                onChange={(e) => setAddressForm((f) => ({ ...f, permanentAddress: e.target.value }))}
+                rows={2}
+                className="w-full rounded-md border border-border bg-card px-3 py-2 text-body text-foreground outline-none focus:border-primary"
+                placeholder="House no, street, city, state, PIN"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Current Address</Label>
+              <textarea
+                value={addressForm.currentAddress}
+                onChange={(e) => setAddressForm((f) => ({ ...f, currentAddress: e.target.value }))}
+                rows={2}
+                className="w-full rounded-md border border-border bg-card px-3 py-2 text-body text-foreground outline-none focus:border-primary"
+                placeholder="House no, street, city, state, PIN"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setEditingAddress(false)} disabled={savingAddress}>Cancel</Button>
+              <Button size="sm" onClick={saveAddress} disabled={savingAddress}>
+                {savingAddress ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Save Addresses
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2 py-1">
+            <div>
+              <div className="text-caption text-muted-foreground mb-0.5">Permanent</div>
+              <div className="text-caption text-foreground whitespace-pre-wrap">{employee.permanentAddress ?? "—"}</div>
+            </div>
+            <div>
+              <div className="text-caption text-muted-foreground mb-0.5">Current</div>
+              <div className="text-caption text-foreground whitespace-pre-wrap">{employee.currentAddress ?? "—"}</div>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
       {/* Attachments */}
       <SectionCard title="Documents & Attachments" icon={Paperclip}>
         {attachments.length === 0 ? (
@@ -1406,6 +2004,345 @@ function DossierTab({ employee, canManage }: { employee: EmployeeProfileData; ca
           </div>
         )}
       </SectionCard>
+    </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Terminate Dialog — soft-deletes employee + disables login + recycles phone
+// ───────────────────────────────────────────────────────────────
+
+function TerminateDialog({
+  employeeName,
+  employeeId,
+  onClose,
+}: {
+  employeeName: string;
+  employeeId: string;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [reason, setReason] = useState("Terminated by admin");
+  const [saving, setSaving] = useState(false);
+
+  async function handleTerminate() {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/employees/${employeeId}/terminate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to terminate");
+      toast.success(data.message ?? "Employee terminated");
+      router.refresh();
+      onClose();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={`Terminate ${employeeName}`}
+      description="This permanently terminates the employee. Their login is disabled and phone number recycled. All history is preserved."
+      size="sm"
+    >
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <label className="text-label font-medium text-foreground">Reason</label>
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            className="w-full rounded-md border border-border bg-card px-3 py-2 text-body text-foreground outline-none focus:border-primary"
+            placeholder="Termination reason"
+          />
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button variant="destructive" onClick={handleTerminate} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
+            Terminate
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Setup Auto-Deposit Dialog — bank details + payday for salary credit
+// ───────────────────────────────────────────────────────────────
+
+function SetupDepositDialog({
+  employeeId,
+  employeeName,
+  existingBank,
+  onClose,
+}: {
+  employeeId: string;
+  employeeName: string;
+  existingBank: {
+    holder: string | null;
+    number: string | null;
+    ifsc: string | null;
+    name: string | null;
+    branch: string | null;
+    payDay: number | null;
+  };
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [holder, setHolder] = useState(existingBank.holder ?? employeeName);
+  const [accountNumber, setAccountNumber] = useState(existingBank.number ?? "");
+  const [ifsc, setIfsc] = useState(existingBank.ifsc ?? "");
+  const [bankName, setBankName] = useState(existingBank.name ?? "");
+  const [branch, setBranch] = useState(existingBank.branch ?? "");
+  const [payDay, setPayDay] = useState(String(existingBank.payDay ?? 7));
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    if (!holder.trim() || !accountNumber.trim() || !ifsc.trim() || !bankName.trim()) {
+      toast.error("All bank details are required");
+      return;
+    }
+    const pd = Number(payDay);
+    if (pd < 1 || pd > 31) {
+      toast.error("Pay day must be between 1 and 31");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/employees/${employeeId}/setup-deposit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bankAccountHolder: holder.trim(),
+          bankAccountNumber: accountNumber.trim(),
+          bankIfsc: ifsc.trim().toUpperCase(),
+          bankName: bankName.trim(),
+          bankBranch: branch.trim() || null,
+          payDay: pd,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success(data.message ?? "Auto-deposit enabled");
+      router.refresh();
+      onClose();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={`Auto-Deposit Setup — ${employeeName}`}
+      description="Configure bank details for automatic salary credit on payday."
+      size="sm"
+    >
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <label className="text-label font-medium text-foreground">Account Holder Name *</label>
+          <input
+            type="text"
+            value={holder}
+            onChange={(e) => setHolder(e.target.value)}
+            className="w-full rounded-md border border-border bg-card px-3 py-2 text-body text-foreground outline-none focus:border-primary"
+            placeholder="Name as per bank record"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label className="text-label font-medium text-foreground">Account Number *</label>
+            <input
+              type="text"
+              value={accountNumber}
+              onChange={(e) => setAccountNumber(e.target.value)}
+              className="w-full rounded-md border border-border bg-card px-3 py-2 text-body text-foreground outline-none focus:border-primary"
+              placeholder="1234567890"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-label font-medium text-foreground">IFSC Code *</label>
+            <input
+              type="text"
+              value={ifsc}
+              onChange={(e) => setIfsc(e.target.value.toUpperCase())}
+              className="w-full rounded-md border border-border bg-card px-3 py-2 text-body text-foreground outline-none focus:border-primary"
+              placeholder="HDFC0001234"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label className="text-label font-medium text-foreground">Bank Name *</label>
+            <input
+              type="text"
+              value={bankName}
+              onChange={(e) => setBankName(e.target.value)}
+              className="w-full rounded-md border border-border bg-card px-3 py-2 text-body text-foreground outline-none focus:border-primary"
+              placeholder="HDFC Bank"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-label font-medium text-foreground">Branch</label>
+            <input
+              type="text"
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+              className="w-full rounded-md border border-border bg-card px-3 py-2 text-body text-foreground outline-none focus:border-primary"
+              placeholder="Connaught Place"
+            />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-label font-medium text-foreground">Pay Day (1-31) *</label>
+          <input
+            type="number"
+            min={1}
+            max={31}
+            value={payDay}
+            onChange={(e) => setPayDay(e.target.value)}
+            className="w-full rounded-md border border-border bg-card px-3 py-2 text-body text-foreground outline-none focus:border-primary"
+            placeholder="7"
+          />
+          <p className="text-caption text-muted-foreground">
+            Salary will be auto-credited on this day each month.
+          </p>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
+            Enable Auto-Deposit
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Onboarding Checklist — pipeline status for the employee
+//  Shows 6 steps: Profile → Employment Terms → Login → Agreement → Confirm → Deposit
+// ───────────────────────────────────────────────────────────────
+
+function OnboardingChecklist({
+  employee,
+  canManage,
+}: {
+  employee: EmployeeProfileData;
+  canManage: boolean;
+  canManagePayroll: boolean;
+}) {
+  // Step 1: Profile complete (has name, phone, trade/designation, wage)
+  const hasProfile = !!(employee.name && (employee.phone || employee.user?.phone) && (employee.designation || employee.trade));
+  const hasWage = employee.wageType === "DAILY" ? employee.dailyRate > 0 : (employee.monthlySalary ?? 0) > 0;
+
+  // Step 2: Employment terms filled (dossier: employmentType, notice period, contract dates)
+  const hasEmploymentTerms = !!(
+    employee.employmentType &&
+    employee.noticePeriodDays != null &&
+    (employee.employmentType !== "CONTRACT" || employee.contractStartDate) &&
+    (employee.employmentType !== "PROBATION" || employee.contractStartDate)
+  );
+
+  // Step 3: Login account created
+  const hasAccount = !!employee.userId;
+
+  // Step 4: Agreement generated
+  const agreementIssued = employee.contractStatus === "ISSUED" || employee.contractStatus === "CONFIRMED" || employee.contractStatus === "EXPIRED";
+  const agreementConfirmed = employee.contractStatus === "CONFIRMED" || employee.contractStatus === "EXPIRED";
+
+  // Step 5: Auto-deposit set up
+  const hasAutoDeposit = employee.autoDepositEnabled === true;
+
+  const steps = [
+    {
+      label: "Profile & Wage",
+      done: hasProfile && hasWage,
+      hint: !hasProfile ? "Missing name, phone, or designation" : !hasWage ? "Wage not set" : undefined,
+    },
+    {
+      label: "Employment Terms",
+      done: hasEmploymentTerms,
+      hint: !hasEmploymentTerms ? "Fill dossier: employment type, notice period" : undefined,
+    },
+    {
+      label: "Login Account",
+      done: hasAccount,
+      hint: !hasAccount ? "Create a login account for app access" : undefined,
+    },
+    {
+      label: "Agreement Issued",
+      done: agreementIssued,
+      hint: !agreementIssued ? "Generate the employment agreement" : undefined,
+    },
+    {
+      label: "Agreement Confirmed",
+      done: agreementConfirmed,
+      hint: agreementIssued && !agreementConfirmed ? "Confirm the signed agreement" : !agreementIssued ? "Issue agreement first" : undefined,
+    },
+    {
+      label: "Auto-Deposit",
+      done: hasAutoDeposit,
+      hint: !hasAutoDeposit ? agreementConfirmed ? "Set up bank details for salary credit" : "Confirm agreement first" : undefined,
+    },
+  ];
+
+  const completedCount = steps.filter((s) => s.done).length;
+  const isComplete = completedCount === steps.length;
+
+  return (
+    <div className="py-2 space-y-1.5">
+      {isComplete && (
+        <div className="flex items-center gap-1.5 rounded-md bg-green-50 dark:bg-green-950/30 px-2 py-1.5 text-caption text-green-700 dark:text-green-400 mb-1">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          <span className="font-medium">Onboarding complete</span>
+        </div>
+      )}
+      {steps.map((step, i) => (
+        <div key={i} className="flex items-start gap-2 py-0.5">
+          {step.done ? (
+            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-green-600" />
+          ) : (
+            <Circle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+          )}
+          <div className="min-w-0 flex-1">
+            <div className={cn("text-caption", step.done ? "text-foreground" : "text-muted-foreground")}>
+              {step.label}
+            </div>
+            {step.hint && canManage && (
+              <div className="text-meta text-muted-foreground/70">{step.hint}</div>
+            )}
+          </div>
+        </div>
+      ))}
+      {!isComplete && canManage && (
+        <div className="pt-1.5 text-meta text-muted-foreground">
+          {completedCount}/{steps.length} steps complete
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DossierRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between py-1">
+      <span className="text-caption text-muted-foreground">{label}</span>
+      <span className="text-caption font-medium text-foreground">{value}</span>
     </div>
   );
 }

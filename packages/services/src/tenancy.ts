@@ -21,6 +21,56 @@ import { ServiceError } from "./errors";
  *  - GL: rent payments credit Sales Revenue (rent income) + debit Cash
  */
 
+/**
+ * Validate a rent payment and compute net received.
+ * Pure function — no DB access.
+ *
+ * Throws if amount ≤ 0, TDS < 0, or TDS > amount.
+ *   netReceived = amount − tdsAmount
+ */
+export function validateRentPayment(
+  amount: Decimal,
+  tdsAmount: Decimal,
+): { netReceived: Decimal } {
+  if (!amount.gt(0)) throw new ServiceError("Amount must be > 0");
+  if (tdsAmount.lt(0)) throw new ServiceError("TDS amount cannot be negative");
+  if (tdsAmount.gt(amount)) throw new ServiceError("TDS amount cannot exceed rent amount");
+  const netReceived = amount.minus(tdsAmount);
+  return { netReceived };
+}
+
+/**
+ * Compute rent GST breakdown.
+ * Pure function — no DB access.
+ *
+ *   gstAmount      = amount × gstRate / 100
+ *   revenueAmount  = amount − gstAmount
+ */
+export function computeRentGst(
+  amount: Decimal,
+  gstRate: Decimal,
+): { gstAmount: Decimal; revenueAmount: Decimal } {
+  const gstAmount = amount.mul(gstRate).div(100);
+  const revenueAmount = amount.minus(gstAmount);
+  return { gstAmount, revenueAmount };
+}
+
+/**
+ * Apply a rent escalation.
+ * Pure function — no DB access.
+ *
+ *   increase = oldRent × escalationPercent / 100
+ *   newRent  = oldRent + increase  (rounded to 2 dp)
+ */
+export function computeEscalatedRent(
+  oldRent: Decimal,
+  escalationPercent: Decimal,
+): { increase: Decimal; newRent: Decimal } {
+  const increase = oldRent.mul(escalationPercent).div(100);
+  const newRent = oldRent.plus(increase).toDecimalPlaces(2);
+  return { increase, newRent };
+}
+
 export interface CreateTenancyInput {
   companyId: string;
   assetType: AssetType;

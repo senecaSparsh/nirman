@@ -5,6 +5,7 @@ import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { postScrapGeneration, reverseJournalEntry } from "./gl-posting";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * Scrap / "Create" Material Generation Service.
@@ -21,20 +22,40 @@ import { postScrapGeneration, reverseJournalEntry } from "./gl-posting";
  * ScrapGeneration + ScrapGenerationLine audit record.
  */
 
+/**
+ * Compute a scrap generation line's total value.
+ * Pure function — no DB access.
+ *
+ *   lineTotal = qty × unitCost
+ */
+export function computeScrapLineTotal(
+  qty: Decimal,
+  unitCost: Decimal,
+): Decimal {
+  return qty.times(unitCost);
+}
+
+/**
+ * Compute the total value of a scrap generation from its lines.
+ * Pure function — no DB access.
+ *
+ *   totalValue = Σ(qty × unitCost)
+ */
+export function computeScrapTotalValue(
+  lines: { qty: Decimal; unitCost: Decimal }[],
+): Decimal {
+  return lines.reduce(
+    (sum, l) => sum.plus(computeScrapLineTotal(l.qty, l.unitCost)),
+    new Decimal(0),
+  );
+}
+
 /** Generate a unique scrap generation number: SG-YYMMDD-NNNN */
 async function generateScrapNumber(tx: Prisma.TransactionClient): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `SG-${ymd}-`;
-  const existing = await tx.scrapGeneration.findMany({
-    where: { scrapNumber: { startsWith: prefix } },
-    select: { scrapNumber: true },
-  });
-  const maxSeq = existing.reduce((max, e) => {
-    const n = parseInt(e.scrapNumber?.slice(prefix.length) ?? "0", 10);
-    return n > max ? n : max;
-  }, 0);
-  return `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 export interface CreateScrapGenerationInput {

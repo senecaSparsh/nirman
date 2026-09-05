@@ -17,7 +17,7 @@ export default function RentalsPage() {
   );
 }
 
-async function RentalsContent() {
+export async function RentalsContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

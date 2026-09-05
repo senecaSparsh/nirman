@@ -6,6 +6,7 @@
   "packageManager": "pnpm@11.18.0",
   "scripts": {
     "dev": "turbo dev",
+    "dev:clean": "pnpm --filter web dev:clean",
     "build": "turbo build",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
@@ -15,11 +16,23 @@
     "db:push:force": "pnpm --filter @nirman/db push:force",
     "db:migrate": "pnpm --filter @nirman/db migrate",
     "db:studio": "pnpm --filter @nirman/db studio",
-    "postinstall": "pnpm --filter @nirman/db generate"
+    "postinstall": "pnpm --filter @nirman/db generate",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^3.2.7",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.4.1",
     "tsx": "^4.23.1",
     "turbo": "^2.5.0",
     "typescript": "^5.9.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix --max-warnings=0"
+    ],
+    "*.{json,md,css}": [
+      "prettier --write"
+    ]
   }
 }

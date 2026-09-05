@@ -1862,8 +1862,8 @@ function AddQuoteDialog({
     }
   }
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2";
-  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" };
+  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
+  const inputStyle = { backgroundColor: "transparent" };
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "var(--color-paper)" }}>
@@ -1983,7 +1983,7 @@ function AddQuoteDialog({
 
           {/* Source type picker — not all quotes arrive as files */}
           <div>
-            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>How was this quote received?</label>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>How was this quote received?</label>
             <div className="grid grid-cols-3 gap-1.5">
               {([
                 { value: "DOCUMENT", label: "PDF/Photo" },
@@ -2051,7 +2051,7 @@ function AddQuoteDialog({
           {/* Source note — mandatory for non-document sources */}
           {!["DOCUMENT", "LETTER", "EXCEL"].includes(quoteSource) ? (
             <div>
-              <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                 Source note <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
               <textarea
@@ -2345,7 +2345,7 @@ function AddQuoteDialog({
 
         {/* ── Notes ── */}
         <div>
-          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
             Notes (optional)
           </label>
           <textarea
@@ -2465,7 +2465,7 @@ function ApproveDialog({
                 You are selecting a quote that is <strong>not the cheapest</strong>. A reason is required.
               </p>
             </div>
-            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Reason for override *
             </label>
             <textarea
@@ -2473,8 +2473,8 @@ function ApproveDialog({
               onChange={(e) => onReasonChange(e.target.value)}
               rows={3}
               placeholder="e.g. Better delivery time, better payment terms, quality preference…"
-              className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none focus:ring-2 resize-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+              style={{ backgroundColor: "transparent" }}
             />
           </div>
         ) : null}

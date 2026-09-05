@@ -17,6 +17,28 @@ import { withSerializableTransaction } from "./transaction";
  *
  * Returns the updated HSN/GST values, or null if no suggestion was found.
  */
+
+/**
+ * Determine the auto-fill action for a material's HSN/GST.
+ * Pure function — no DB access.
+ *
+ * Returns one of:
+ *   "lookup_by_hsn"     — HSN is set but GST is 0, look up GST from HSN master
+ *   "suggest_from_name" — Neither HSN nor GST is set, suggest from material name
+ *   "already_set"       — Both HSN and GST are already set
+ *   "no_action"         — Can't determine (e.g. GST set but no HSN)
+ */
+export function determineAutoFillAction(
+  hsnCode: string | null,
+  gstRate: Decimal,
+): "lookup_by_hsn" | "suggest_from_name" | "already_set" | "no_action" {
+  const gstIsZero = new Decimal(gstRate).eq(0);
+  if (hsnCode && gstIsZero) return "lookup_by_hsn";
+  if (!hsnCode && gstIsZero) return "suggest_from_name";
+  if (hsnCode && !gstIsZero) return "already_set";
+  return "no_action";
+}
+
 export async function autoFillHsnGst(materialId: string): Promise<{
   hsnCode: string;
   gstRate: Decimal;

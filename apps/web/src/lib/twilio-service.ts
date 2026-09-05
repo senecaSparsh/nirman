@@ -297,3 +297,23 @@ export function mapTwilioDirection(twilioDirection: string): "INBOUND" | "OUTBOU
   if (twilioDirection.startsWith("outbound")) return "OUTBOUND";
   return "OUTBOUND"; // default
 }
+
+/**
+ * Validate a recording URL to prevent SSRF attacks.
+ * Only allows HTTPS URLs from twilio.com or *.twiliousercontent.com domains.
+ */
+export function isSafeRecordingUrl(url: string): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return false;
+    if (parsed.username || parsed.password) return false; // reject URLs with credentials
+    const host = parsed.hostname.toLowerCase();
+    // Allow twilio.com (exact) and *.twilio.com and *.twiliousercontent.com
+    if (host === "twilio.com" || host.endsWith(".twilio.com")) return true;
+    if (host === "twiliousercontent.com" || host.endsWith(".twiliousercontent.com")) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}

@@ -190,10 +190,10 @@ export function MobileUnitActions({
     patch(body, "Valuation updated", () => setShowValuation(false));
   }
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
-  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
+  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
     <>
@@ -219,60 +219,75 @@ export function MobileUnitActions({
           <div className="w-full rounded-t-[1rem] mx-auto max-w-md max-h-[85vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
             <SheetHeader title="Edit Unit" onClose={() => setShowEdit(false)} />
             <div className="px-3 pb-4 flex flex-col gap-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className={labelClass} style={labelStyle}>Type *</label>
-                  <select value={unitType} onChange={(e) => setUnitType(e.target.value as UnitType)} className={inputClass} style={inputStyle}>
-                    {TYPE_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Unit Basics
+                </p>
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>Type *</label>
+                    <select value={unitType} onChange={(e) => setUnitType(e.target.value as UnitType)} className={inputClass} style={inputStyle}>
+                      {TYPE_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="pl-2">
+                    <label className={labelClass} style={labelStyle}>Area *</label>
+                    <input type="number" step="any" min="0" inputMode="decimal" value={area} onChange={(e) => setArea(e.target.value)} className={inputClass} style={inputStyle} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>Area Unit</label>
+                    <input value={areaUnit} onChange={(e) => setAreaUnit(e.target.value)} className={inputClass} style={inputStyle} />
+                  </div>
+                  <div className="pl-2">
+                    <label className={labelClass} style={labelStyle}>Floor</label>
+                    <input type="number" inputMode="numeric" value={floor} onChange={(e) => setFloor(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                  </div>
                 </div>
                 <div>
-                  <label className={labelClass} style={labelStyle}>Area *</label>
-                  <input type="number" step="any" min="0" inputMode="decimal" value={area} onChange={(e) => setArea(e.target.value)} className={inputClass} style={inputStyle} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className={labelClass} style={labelStyle}>Area Unit</label>
-                  <input value={areaUnit} onChange={(e) => setAreaUnit(e.target.value)} className={inputClass} style={inputStyle} />
-                </div>
-                <div>
-                  <label className={labelClass} style={labelStyle}>Floor</label>
-                  <input type="number" inputMode="numeric" value={floor} onChange={(e) => setFloor(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
-                </div>
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>Wing</label>
-                <input value={wing} onChange={(e) => setWing(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>Asking Price (₹)</label>
-                <input type="number" min="0" inputMode="numeric" value={askingPrice} onChange={(e) => setAskingPrice(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className={labelClass} style={labelStyle}>Carpet Area</label>
-                  <input type="number" step="any" min="0" inputMode="decimal" value={carpetArea} onChange={(e) => setCarpetArea(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
-                </div>
-                <div>
-                  <label className={labelClass} style={labelStyle}>Super Built-Up</label>
-                  <input type="number" step="any" min="0" inputMode="decimal" value={superBuiltUpArea} onChange={(e) => setSuperBuiltUpArea(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                  <label className={labelClass} style={labelStyle}>Wing</label>
+                  <input value={wing} onChange={(e) => setWing(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Pricing
+                </p>
                 <div>
-                  <label className={labelClass} style={labelStyle}>Balcony Area</label>
-                  <input type="number" step="any" min="0" inputMode="decimal" value={balconyArea} onChange={(e) => setBalconyArea(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
-                </div>
-                <div>
-                  <label className={labelClass} style={labelStyle}>Clear Height</label>
-                  <input type="number" step="any" min="0" inputMode="decimal" value={clearHeight} onChange={(e) => setClearHeight(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                  <label className={labelClass} style={labelStyle}>Asking Price (₹)</label>
+                  <input type="number" min="0" inputMode="numeric" value={askingPrice} onChange={(e) => setAskingPrice(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
                 </div>
               </div>
-              <label className="flex items-center gap-2 text-m-body" style={{ color: "var(--color-ink-700)" }}>
-                <input type="checkbox" checked={hasLoadingDock} onChange={(e) => setHasLoadingDock(e.target.checked)} className="size-4" />
-                Has Loading Dock
-              </label>
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Area Details
+                </p>
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>Carpet Area</label>
+                    <input type="number" step="any" min="0" inputMode="decimal" value={carpetArea} onChange={(e) => setCarpetArea(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                  </div>
+                  <div className="pl-2">
+                    <label className={labelClass} style={labelStyle}>Super Built-Up</label>
+                    <input type="number" step="any" min="0" inputMode="decimal" value={superBuiltUpArea} onChange={(e) => setSuperBuiltUpArea(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>Balcony Area</label>
+                    <input type="number" step="any" min="0" inputMode="decimal" value={balconyArea} onChange={(e) => setBalconyArea(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                  </div>
+                  <div className="pl-2">
+                    <label className={labelClass} style={labelStyle}>Clear Height</label>
+                    <input type="number" step="any" min="0" inputMode="decimal" value={clearHeight} onChange={(e) => setClearHeight(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-m-body" style={{ color: "var(--color-ink-700)" }}>
+                  <input type="checkbox" checked={hasLoadingDock} onChange={(e) => setHasLoadingDock(e.target.checked)} className="size-4" />
+                  Has Loading Dock
+                </label>
+              </div>
               <ConfirmButtons onCancel={() => setShowEdit(false)} onConfirm={saveEdit} confirmLabel="Save" busy={busy} />
             </div>
           </div>
@@ -285,9 +300,14 @@ export function MobileUnitActions({
           <div className="w-full rounded-t-[1rem] mx-auto max-w-md" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
             <SheetHeader title="Update Status" onClose={() => setShowStatus(false)} />
             <div className="px-3 pb-4 flex flex-col gap-3">
-              <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as UnitStatus)} className={inputClass} style={inputStyle}>
-                {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Status
+                </p>
+                <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as UnitStatus)} className={inputClass} style={inputStyle}>
+                  {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </div>
               <ConfirmButtons onCancel={() => setShowStatus(false)} onConfirm={saveStatus} confirmLabel="Update" busy={busy} />
             </div>
           </div>
@@ -300,13 +320,18 @@ export function MobileUnitActions({
           <div className="w-full rounded-t-[1rem] mx-auto max-w-md" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
             <SheetHeader title="Update Valuation" onClose={() => setShowValuation(false)} />
             <div className="px-3 pb-4 flex flex-col gap-3">
-              <div>
-                <label className={labelClass} style={labelStyle}>Asking Price (₹)</label>
-                <input type="number" min="0" inputMode="numeric" value={valAskingPrice} onChange={(e) => setValAskingPrice(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>Current Valuation (₹)</label>
-                <input type="number" min="0" inputMode="numeric" value={valCurrentValuation} onChange={(e) => setValCurrentValuation(e.target.value)} className={inputClass} style={inputStyle} />
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Valuation
+                </p>
+                <div>
+                  <label className={labelClass} style={labelStyle}>Asking Price (₹)</label>
+                  <input type="number" min="0" inputMode="numeric" value={valAskingPrice} onChange={(e) => setValAskingPrice(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                </div>
+                <div>
+                  <label className={labelClass} style={labelStyle}>Current Valuation (₹)</label>
+                  <input type="number" min="0" inputMode="numeric" value={valCurrentValuation} onChange={(e) => setValCurrentValuation(e.target.value)} className={inputClass} style={inputStyle} />
+                </div>
               </div>
               <ConfirmButtons onCancel={() => setShowValuation(false)} onConfirm={saveValuation} confirmLabel="Update" busy={busy} />
             </div>

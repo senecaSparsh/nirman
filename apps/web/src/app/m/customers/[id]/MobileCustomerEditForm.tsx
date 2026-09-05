@@ -72,91 +72,98 @@ export function MobileCustomerEditForm({
   };
 
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
 
   return (
     <BottomSheet title="Edit Customer" onClose={onClose}>
-      <div className="space-y-3">
-        {/* Name */}
-        <div>
-          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
-            Name <span style={{ color: "var(--color-stop)" }}>*</span>
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={inputClass}
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-            placeholder="Customer name"
-            autoComplete="name"
-            enterKeyHint="next"
-          />
-        </div>
+      <div className="flex flex-col gap-3">
+        {/* ── Customer Details ── */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Customer Details
+          </p>
 
-        {/* Phone */}
-        <div>
-          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
-            Phone
-          </label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className={`${inputClass} font-mono`}
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-            placeholder="9876543210"
-            autoComplete="tel"
-            enterKeyHint="next"
-          />
-        </div>
+          {/* Name */}
+          <div>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Name <span style={{ color: "var(--color-stop)" }}>*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={inputClass}
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+              placeholder="Customer name"
+              autoComplete="name"
+              enterKeyHint="next"
+            />
+          </div>
 
-        {/* Email */}
-        <div>
-          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
-            Email
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={inputClass}
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-            placeholder="customer@example.com"
-            autoComplete="email"
-            enterKeyHint="next"
-          />
-        </div>
+          {/* Phone */}
+          <div>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Phone
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className={`${inputClass} font-mono`}
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+              placeholder="9876543210"
+              autoComplete="tel"
+              enterKeyHint="next"
+            />
+          </div>
 
-        {/* GSTIN */}
-        <div>
-          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
-            GSTIN
-          </label>
-          <input
-            type="text"
-            value={gstin}
-            onChange={(e) => setGstin(e.target.value.toUpperCase())}
-            className={`${inputClass} font-mono uppercase`}
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-            placeholder="22AAAAA0000A1Z5"
-            maxLength={15}
-          />
-        </div>
+          {/* Email */}
+          <div>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={inputClass}
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+              placeholder="customer@example.com"
+              autoComplete="email"
+              enterKeyHint="next"
+            />
+          </div>
 
-        {/* Address */}
-        <div>
-          <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
-            Address
-          </label>
-          <textarea
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            rows={2}
-            className={`${inputClass} resize-none`}
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-            placeholder="Billing address"
-          />
+          {/* GSTIN */}
+          <div>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              GSTIN
+            </label>
+            <input
+              type="text"
+              value={gstin}
+              onChange={(e) => setGstin(e.target.value.toUpperCase())}
+              className={`${inputClass} font-mono uppercase`}
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+              placeholder="22AAAAA0000A1Z5"
+              maxLength={15}
+            />
+          </div>
+
+          {/* Address */}
+          <div>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Address
+            </label>
+            <textarea
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              rows={1}
+              className={`${inputClass} resize-none`}
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+              placeholder="Billing address"
+            />
+          </div>
         </div>
 
         {/* Save button */}

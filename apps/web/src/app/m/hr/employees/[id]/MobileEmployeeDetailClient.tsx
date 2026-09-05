@@ -18,6 +18,7 @@ import {
   MobileStatusBadge,
 } from "@/components/mobile/v2/primitives";
 import { toast } from "sonner";
+import { CreateAccountDialog } from "@/components/hr/create-account-dialog";
 
 type WageType = "DAILY" | "MONTHLY" | "FIXED";
 
@@ -83,8 +84,19 @@ interface EmployeeData {
   crewName: string | null;
   crewProjectName: string | null;
   activeProjectName: string | null;
+  activeProjectId: string | null;
   reportingLocationName: string | null;
+  reportingLocationId: string | null;
   userId: string | null;
+  contractStatus: string | null;
+  autoDepositEnabled: boolean | null;
+  payDay: number | null;
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  employmentType: string | null;
+  noticePeriodDays: number | null;
+  contractStartDate: string | null;
+  contractEndDate: string | null;
   user: {
     email: string; role: string; phone: string | null; image: string | null;
     employeeCode: string | null; department: string | null;
@@ -108,12 +120,14 @@ interface StockLocationOption { id: string; name: string; }
 export function MobileEmployeeDetailClient({
   employee,
   canManage,
+  actorRole,
   notFound,
   projects,
   stockLocations,
 }: {
   employee?: EmployeeData;
   canManage: boolean;
+  actorRole: string;
   notFound?: boolean;
   projects: ProjectOption[];
   stockLocations: StockLocationOption[];
@@ -122,6 +136,10 @@ export function MobileEmployeeDetailClient({
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showCreateAccount, setShowCreateAccount] = useState(false);
+  const [availableNumbers, setAvailableNumbers] = useState<
+    { id: string; phoneNumber: string; label: string | null; department: string | null; status: string; monthlyCost: number | null; provider: string | null }[]
+  >([]);
 
   if (notFound || !employee) {
     return <MobileEmptyState icon={User} title="Employee not found" />;
@@ -316,7 +334,65 @@ export function MobileEmployeeDetailClient({
               {employee.user.lastLoginAt && <InfoField icon={<Clock className="size-3" />} label="Last Login" value={formatDate(employee.user.lastLoginAt)} />}
             </div>
           )}
+          {!employee.user && employee.active && (
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/telephony/numbers/available");
+                  if (res.ok) setAvailableNumbers(await res.json());
+                } catch { /* ignore */ }
+                setShowCreateAccount(true);
+              }}
+              className="mt-2 w-full h-8 rounded-[0.375rem] text-m-caption font-bold flex items-center justify-center gap-1 press"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            >
+              <UserCircle className="size-3.5" /> Create Login Account
+            </button>
+          )}
         </div>
+      </div>
+
+      {/* ── Agreement & Auto-Deposit ── */}
+      <MobileSectionTitle>Agreement & Deposit</MobileSectionTitle>
+      <div className="rounded-xl border border-border bg-card p-3 mb-3 space-y-2">
+        {/* Agreement status */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            <span className="text-m-body">Agreement</span>
+          </div>
+          <MobileStatusBadge
+            status={employee.contractStatus ?? "NOT_ISSUED"}
+            label={employee.contractStatus
+              ? employee.contractStatus.charAt(0) + employee.contractStatus.slice(1).toLowerCase()
+              : "Not issued"}
+          />
+        </div>
+        {/* Auto-deposit status */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+            <span className="text-m-body">Auto-Deposit</span>
+          </div>
+          <MobileStatusBadge
+            status={employee.autoDepositEnabled ? "PAID" : "DRAFT"}
+            label={employee.autoDepositEnabled ? "Active" : "Not set"}
+          />
+        </div>
+        {employee.autoDepositEnabled && employee.bankName && (
+          <div className="text-m-caption text-muted-foreground pt-1 border-t border-border">
+            {employee.bankName} · ····{employee.bankAccountNumber?.slice(-4) ?? ""}
+            {employee.payDay ? ` · Payday ${employee.payDay}` : ""}
+          </div>
+        )}
+        {canManage && !employee.contractStatus && (
+          <a
+            href={`/hr/employees/${employee.id}`}
+            className="block text-m-caption text-primary text-center pt-1"
+          >
+            Generate agreement from desktop →
+          </a>
+        )}
       </div>
 
       {/* ── Attendance ── */}
@@ -613,6 +689,22 @@ export function MobileEmployeeDetailClient({
           </div>
         </div>
       ) : null}
+
+      {/* ── Create login account dialog ── */}
+      {showCreateAccount && employee && (
+        <CreateAccountDialog
+          employeeId={employee.id}
+          employeeName={employee.name}
+          employeePhone={employee.phone}
+          employeeEmail={employee.email}
+          employeeDesignation={employee.designation}
+          employeeHierarchyLevel={employee.hierarchyLevel}
+          actorRole={actorRole}
+          projects={projects}
+          availableNumbers={availableNumbers}
+          onClose={() => setShowCreateAccount(false)}
+        />
+      )}
     </div>
   );
 }
@@ -668,9 +760,13 @@ function EmployeeEditSheet({
   const [dailyRate, setDailyRate] = useState(employee.dailyRate != null ? String(employee.dailyRate) : "");
   const [monthlySalary, setMonthlySalary] = useState(employee.monthlySalary != null ? String(employee.monthlySalary) : "");
   const [joinDate, setJoinDate] = useState(employee.joinDate ? employee.joinDate.split("T")[0] : "");
-  const [activeProjectId, setActiveProjectId] = useState("");
+  const [activeProjectId, setActiveProjectId] = useState(employee.activeProjectId ?? "");
   const [hierarchyLevel, setHierarchyLevel] = useState(employee.hierarchyLevel != null ? String(employee.hierarchyLevel) : "");
-  const [reportingLocationId, setReportingLocationId] = useState("");
+  const [reportingLocationId, setReportingLocationId] = useState(employee.reportingLocationId ?? "");
+  const [employmentType, setEmploymentType] = useState(employee.employmentType ?? "");
+  const [noticePeriodDays, setNoticePeriodDays] = useState(employee.noticePeriodDays != null ? String(employee.noticePeriodDays) : "");
+  const [contractStartDate, setContractStartDate] = useState(employee.contractStartDate ? employee.contractStartDate.split("T")[0] : "");
+  const [contractEndDate, setContractEndDate] = useState(employee.contractEndDate ? employee.contractEndDate.split("T")[0] : "");
   const [saving, setSaving] = useState(false);
 
   async function save() {
@@ -693,6 +789,10 @@ function EmployeeEditSheet({
           activeProjectId: activeProjectId || null,
           hierarchyLevel: hierarchyLevel ? Number(hierarchyLevel) : null,
           reportingLocationId: reportingLocationId || null,
+          employmentType: employmentType || null,
+          noticePeriodDays: noticePeriodDays ? Number(noticePeriodDays) : null,
+          contractStartDate: contractStartDate || null,
+          contractEndDate: contractEndDate || null,
         }),
       });
       const data = await res.json();
@@ -706,14 +806,14 @@ function EmployeeEditSheet({
     }
   }
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
     <div
@@ -738,103 +838,113 @@ function EmployeeEditSheet({
           </button>
         </div>
         <div className="px-3 pb-4 flex flex-col gap-3">
-          <div>
-            <label className={labelClass} style={labelStyle}>Name *</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} style={inputStyle} />
-          </div>
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Personal Info
+            </p>
             <div>
-              <label className={labelClass} style={labelStyle}>Trade</label>
-              <input value={trade} onChange={(e) => setTrade(e.target.value)} placeholder="e.g. Mason" className={inputClass} style={inputStyle} />
+              <label className={labelClass} style={labelStyle}>Name *</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} style={inputStyle} />
             </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>Designation</label>
-              <input value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="e.g. Site Engineer" className={inputClass} style={inputStyle} />
+            <div className="grid grid-cols-4 gap-1.5">
+              <div>
+                <label className={labelClass} style={labelStyle}>Trade</label>
+                <input value={trade} onChange={(e) => setTrade(e.target.value)} placeholder="e.g. Mason" className={inputClass} style={inputStyle} />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>Designation</label>
+                <input value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="e.g. Site Engineer" className={inputClass} style={inputStyle} />
+              </div>
             </div>
-          </div>
-          <div className="grid grid-cols-4 gap-1.5">
-            <div>
-              <label className={labelClass} style={labelStyle}>Phone</label>
-              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" inputMode="tel" className={inputClass} style={inputStyle} />
-            </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@firm.com" className={inputClass} style={inputStyle} />
-            </div>
-          </div>
-
-          {/* Wage type */}
-          <div>
-            <label className={labelClass} style={labelStyle}>Wage Type</label>
-            <div className="flex gap-1.5">
-              {(Object.keys(WAGE_TYPE_LABELS) as WageType[]).map((w) => (
-                <button
-                  key={w}
-                  type="button"
-                  onClick={() => setWageType(w)}
-                  className="flex-1 h-9 rounded-[0.5rem] border-2 text-m-caption font-bold text-m-body press"
-                  style={{
-                    borderColor: wageType === w ? "var(--color-ink-950)" : "var(--color-line)",
-                    backgroundColor: wageType === w ? "var(--color-ink-950)" : "var(--color-paper)",
-                    color: wageType === w ? "var(--color-paper)" : "var(--color-ink-500)",
-                  }}
-                >
-                  {WAGE_TYPE_LABELS[w]}
-                </button>
-              ))}
+            <div className="grid grid-cols-4 gap-1.5">
+              <div>
+                <label className={labelClass} style={labelStyle}>Phone</label>
+                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" inputMode="tel" className={inputClass} style={inputStyle} />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>Email</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@firm.com" className={inputClass} style={inputStyle} />
+              </div>
             </div>
           </div>
 
-          {/* Rate / Salary */}
-          {wageType === "DAILY" ? (
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Wage & Assignment
+            </p>
+            {/* Wage type */}
             <div>
-              <label className={labelClass} style={labelStyle}>Daily Rate (₹)</label>
-              <input type="number" min="0" step="any" inputMode="numeric" value={dailyRate} onChange={(e) => setDailyRate(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
+              <label className={labelClass} style={labelStyle}>Wage Type</label>
+              <div className="flex gap-1.5">
+                {(Object.keys(WAGE_TYPE_LABELS) as WageType[]).map((w) => (
+                  <button
+                    key={w}
+                    type="button"
+                    onClick={() => setWageType(w)}
+                    className="flex-1 h-9 rounded-[0.5rem] border-2 text-m-caption font-bold text-m-body press"
+                    style={{
+                      borderColor: wageType === w ? "var(--color-ink-950)" : "var(--color-line)",
+                      backgroundColor: wageType === w ? "var(--color-ink-950)" : "var(--color-paper)",
+                      color: wageType === w ? "var(--color-paper)" : "var(--color-ink-500)",
+                    }}
+                  >
+                    {WAGE_TYPE_LABELS[w]}
+                  </button>
+                ))}
+              </div>
             </div>
-          ) : (
-            <div>
-              <label className={labelClass} style={labelStyle}>Monthly Salary (₹)</label>
-              <input type="number" min="0" step="any" inputMode="numeric" value={monthlySalary} onChange={(e) => setMonthlySalary(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
-            </div>
-          )}
 
-          <div className="grid grid-cols-4 gap-1.5">
-            <div>
-              <label className={labelClass} style={labelStyle}>Join Date</label>
-              <input type="date" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} className={inputClass} style={inputStyle} />
+            {/* Rate / Salary */}
+            {wageType === "DAILY" ? (
+              <div>
+                <label className={labelClass} style={labelStyle}>Daily Rate (₹)</label>
+                <input type="number" min="0" step="any" inputMode="numeric" value={dailyRate} onChange={(e) => setDailyRate(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
+              </div>
+            ) : (
+              <div>
+                <label className={labelClass} style={labelStyle}>Monthly Salary (₹)</label>
+                <input type="number" min="0" step="any" inputMode="numeric" value={monthlySalary} onChange={(e) => setMonthlySalary(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
+              </div>
+            )}
+
+            <div className="grid grid-cols-4 gap-1.5">
+              <div>
+                <label className={labelClass} style={labelStyle}>Join Date</label>
+                <input type="date" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} className={inputClass} style={inputStyle} />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>Hierarchy Level</label>
+                <select value={hierarchyLevel} onChange={(e) => setHierarchyLevel(e.target.value)} className={inputClass} style={inputStyle}>
+                  <option value="">— None —</option>
+                  <option value="1">H1 — Management</option>
+                  <option value="2">H2 — Manager</option>
+                  <option value="3">H3 — Engineer</option>
+                  <option value="4">H4 — Supervisor</option>
+                  <option value="5">H5 — Skilled</option>
+                  <option value="6">H6 — Labor</option>
+                </select>
+              </div>
             </div>
+
             <div>
-              <label className={labelClass} style={labelStyle}>Hierarchy Level</label>
-              <select value={hierarchyLevel} onChange={(e) => setHierarchyLevel(e.target.value)} className={inputClass} style={inputStyle}>
+              <label className={labelClass} style={labelStyle}>Active Project</label>
+              <select value={activeProjectId} onChange={(e) => setActiveProjectId(e.target.value)} className={inputClass} style={inputStyle}>
                 <option value="">— None —</option>
-                <option value="1">H1 — Management</option>
-                <option value="2">H2 — Manager</option>
-                <option value="3">H3 — Engineer</option>
-                <option value="4">H4 — Supervisor</option>
-                <option value="5">H5 — Skilled</option>
-                <option value="6">H6 — Labor</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
               </select>
             </div>
-          </div>
 
-          <div>
-            <label className={labelClass} style={labelStyle}>Active Project</label>
-            <select value={activeProjectId} onChange={(e) => setActiveProjectId(e.target.value)} className={inputClass} style={inputStyle}>
-              <option value="">— None —</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className={labelClass} style={labelStyle}>Reporting Location</label>
-            <select value={reportingLocationId} onChange={(e) => setReportingLocationId(e.target.value)} className={inputClass} style={inputStyle}>
-              <option value="">— None —</option>
-              {stockLocations.map((l) => (
-                <option key={l.id} value={l.id}>{l.name}</option>
-              ))}
-            </select>
+            <div>
+              <label className={labelClass} style={labelStyle}>Reporting Location</label>
+              <select value={reportingLocationId} onChange={(e) => setReportingLocationId(e.target.value)} className={inputClass} style={inputStyle}>
+                <option value="">— None —</option>
+                {stockLocations.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="flex flex-col gap-2 pt-1">

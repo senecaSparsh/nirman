@@ -13,13 +13,17 @@ import {
 } from "@/lib/nav";
 
 // ─────────────────────────────────────────────────────────────────
-//  Test constants — the 6 roles in the system
+//  Test constants — representative roles from the 14-role system
+//  (defined in src/lib/roles.ts). The system uses PROJECT_MANAGER
+//  and SALES_MANAGER, not the legacy MANAGER/SALES from UserCompany.
+//  nav.ts normalizes legacy roles via migrateRole(), so both work,
+//  but tests use the canonical new-system names.
 // ─────────────────────────────────────────────────────────────────
 const OWNER = "OWNER";
 const ADMIN = "ADMIN";
-const MANAGER = "MANAGER";
+const PROJECT_MANAGER = "PROJECT_MANAGER";
 const SUPERVISOR = "SUPERVISOR";
-const SALES = "SALES";
+const SALES_MANAGER = "SALES_MANAGER";
 const ACCOUNTANT = "ACCOUNTANT";
 
 // ─────────────────────────────────────────────────────────────────
@@ -38,13 +42,13 @@ describe("worldsFor", () => {
     expect(worlds).toHaveLength(4);
   });
 
-  it("returns 4 worlds for MANAGER", () => {
-    const worlds = worldsFor(MANAGER);
+  it("returns 4 worlds for PROJECT_MANAGER", () => {
+    const worlds = worldsFor(PROJECT_MANAGER);
     expect(worlds).toHaveLength(4);
   });
 
-  it("returns only today and build for SALES (no People, no Books)", () => {
-    const worlds = worldsFor(SALES);
+  it("returns only today and build for SALES_MANAGER (no People, no Books)", () => {
+    const worlds = worldsFor(SALES_MANAGER);
     const keys = worlds.map((w) => w.key);
     expect(keys).toContain("today");
     expect(keys).toContain("build");
@@ -71,21 +75,22 @@ describe("worldsFor", () => {
   });
 
   it("filters items within sections by role", () => {
-    // SALES sees Acquire (Land Parcels), Construct (Projects is EVERYONE), and Sell
-    // but not Procure or Stock (those are OPS/ACCOUNTANT only)
-    const build = worldsFor(SALES).find((w) => w.key === "build");
+    // SALES_MANAGER sees Acquire (Land is SELLING), Procure (Quotations
+    // explicitly grants SALES_MANAGER), Construct (Projects is EVERYONE),
+    // and Sell — but not Stock (OPS/ACCOUNTANT only).
+    const build = worldsFor(SALES_MANAGER).find((w) => w.key === "build");
     expect(build).toBeDefined();
     const sectionLabels = build!.sections.map((s) => s.label);
     expect(sectionLabels).toContain("Sell");
-    expect(sectionLabels).toContain("Acquire"); // Land Parcels is SELLING
+    expect(sectionLabels).toContain("Acquire"); // Land is SELLING
     expect(sectionLabels).toContain("Construct"); // Projects is EVERYONE
-    expect(sectionLabels).not.toContain("Procure");
-    expect(sectionLabels).not.toContain("Stock");
+    expect(sectionLabels).toContain("Procure"); // Quotations grants SALES_MANAGER
+    expect(sectionLabels).not.toContain("Stock"); // OPS/ACCOUNTANT only
   });
 
   it("removes empty sections (no items for this role)", () => {
-    // SALES has no HR access, so HR world should not appear at all
-    const worlds = worldsFor(SALES);
+    // SALES_MANAGER has no HR access, so HR world should not appear at all
+    const worlds = worldsFor(SALES_MANAGER);
     expect(worlds.find((w) => w.key === "hr")).toBeUndefined();
   });
 
@@ -98,10 +103,10 @@ describe("worldsFor", () => {
 
   it("does not include Insights section for roles without REPORTS access", () => {
     // SUPERVISOR is in REPORTS, so let's test with a role that isn't
-    // Actually all roles except SALES are in REPORTS or BOOKS...
-    // SALES is in REPORTS too. So all roles see Insights.
-    // Let's verify SALES sees it:
-    const today = worldsFor(SALES).find((w) => w.key === "today");
+    // Actually all roles except SALES_MANAGER are in REPORTS or BOOKS...
+    // SALES_MANAGER is in REPORTS too. So all roles see Insights.
+    // Let's verify SALES_MANAGER sees it:
+    const today = worldsFor(SALES_MANAGER).find((w) => w.key === "today");
     const insights = today?.sections.find((s) => s.label === "Insights");
     expect(insights).toBeDefined();
   });
@@ -219,8 +224,8 @@ describe("homeWorldFor", () => {
     expect(homeWorldFor(SUPERVISOR).key).toBe("hr");
   });
 
-  it("SALES lands in Build", () => {
-    expect(homeWorldFor(SALES).key).toBe("build");
+  it("SALES_MANAGER lands in Build", () => {
+    expect(homeWorldFor(SALES_MANAGER).key).toBe("build");
   });
 
   it("ACCOUNTANT lands in Books with href /finance", () => {
@@ -237,8 +242,8 @@ describe("homeWorldFor", () => {
     expect(homeWorldFor(ADMIN).key).toBe("today");
   });
 
-  it("MANAGER lands in Today (default)", () => {
-    expect(homeWorldFor(MANAGER).key).toBe("today");
+  it("PROJECT_MANAGER lands in Build", () => {
+    expect(homeWorldFor(PROJECT_MANAGER).key).toBe("build");
   });
 
   it("Books world entry is /finance (not /reports)", () => {
@@ -246,9 +251,9 @@ describe("homeWorldFor", () => {
   });
 
   it("Books world is only visible to BOOKS roles", () => {
-    expect(WORLD_BY_KEY.finance.roles).toEqual(expect.arrayContaining(["OWNER", "ADMIN", "MANAGER", "ACCOUNTANT"]));
+    expect(WORLD_BY_KEY.finance.roles).toEqual(expect.arrayContaining(["OWNER", "ADMIN", "PROJECT_MANAGER", "ACCOUNTANT"]));
     expect(WORLD_BY_KEY.finance.roles).not.toContain("SUPERVISOR");
-    expect(WORLD_BY_KEY.finance.roles).not.toContain("SALES");
+    expect(WORLD_BY_KEY.finance.roles).not.toContain("SALES_MANAGER");
   });
 });
 
@@ -294,14 +299,14 @@ describe("linksFor", () => {
     expect(purchaseRegister?.group).toBeDefined();
   });
 
-  it("SALES sees Sales & Revenue report but not Purchase Register", () => {
-    const links = linksFor(SALES);
+  it("SALES_MANAGER sees Sales & Revenue report but not Purchase Register", () => {
+    const links = linksFor(SALES_MANAGER);
     expect(links.find((l) => l.href === "/reports/sales-revenue")).toBeDefined();
     expect(links.find((l) => l.href === "/reports/purchase-register")).toBeUndefined();
   });
 
-  it("SALES sees Project Progress report", () => {
-    const links = linksFor(SALES);
+  it("SALES_MANAGER sees Project Progress report", () => {
+    const links = linksFor(SALES_MANAGER);
     expect(links.find((l) => l.href === "/reports/project-progress")).toBeDefined();
   });
 
@@ -313,7 +318,7 @@ describe("linksFor", () => {
   });
 
   it("includes /reports (All Insights) link for all REPORTS roles", () => {
-    for (const role of [OWNER, ADMIN, MANAGER, SUPERVISOR, SALES, ACCOUNTANT]) {
+    for (const role of [OWNER, ADMIN, PROJECT_MANAGER, SUPERVISOR, SALES_MANAGER, ACCOUNTANT]) {
       const links = linksFor(role);
       expect(links.find((l) => l.href === "/reports")).toBeDefined();
     }
@@ -325,9 +330,9 @@ describe("linksFor", () => {
 // ─────────────────────────────────────────────────────────────────
 
 describe("settingsLinksFor", () => {
-  it("returns all 3 settings links for OWNER", () => {
+  it("returns all 6 settings links for OWNER", () => {
     const links = settingsLinksFor(OWNER);
-    expect(links).toHaveLength(3);
+    expect(links).toHaveLength(6);
     expect(links.find((l) => l.href === "/settings")).toBeDefined();
     expect(links.find((l) => l.href === "/settings/project-assignments")).toBeDefined();
   });
@@ -338,13 +343,13 @@ describe("settingsLinksFor", () => {
     expect(links.find((l) => l.href === "/settings")).toBeDefined();
   });
 
-  it("returns only Your Settings for MANAGER", () => {
-    const links = settingsLinksFor(MANAGER);
+  it("returns only Your Settings for PROJECT_MANAGER", () => {
+    const links = settingsLinksFor(PROJECT_MANAGER);
     expect(links.find((l) => l.href === "/me")).toBeDefined();
   });
 
-  it("returns only Your Settings for SALES", () => {
-    const links = settingsLinksFor(SALES);
+  it("returns only Your Settings for SALES_MANAGER", () => {
+    const links = settingsLinksFor(SALES_MANAGER);
     expect(links).toHaveLength(1);
     expect(links[0]?.href).toBe("/me");
   });

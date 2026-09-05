@@ -208,21 +208,24 @@ export default function MePage() {
           {/* Profile details / edit form */}
           {editingProfile ? (
             <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--color-line)" }}>
-              <div className="space-y-2.5">
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Profile
+                </p>
                 <div>
-                  <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                  <label className="text-m-caption font-bold uppercase block mb-0" style={{ color: "var(--color-ink-700)" }}>
                     Name
                   </label>
                   <input
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section font-medium outline-none"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                   />
                 </div>
                 <div>
-                  <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                  <label className="text-m-caption font-bold uppercase block mb-0" style={{ color: "var(--color-ink-700)" }}>
                     Phone
                   </label>
                   <input
@@ -230,8 +233,8 @@ export default function MePage() {
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
                     placeholder="—"
-                    className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section font-medium outline-none"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                   />
                 </div>
               </div>
@@ -282,9 +285,12 @@ export default function MePage() {
                   Change Password
                 </p>
               </div>
-              <div className="space-y-2.5">
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Security
+                </p>
                 <div>
-                  <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                  <label className="text-m-caption font-bold uppercase block mb-0" style={{ color: "var(--color-ink-700)" }}>
                     Current Password
                   </label>
                   <input
@@ -293,12 +299,12 @@ export default function MePage() {
                     onChange={(e) => setPasswordForm((f) => ({ ...f, currentPassword: e.target.value }))}
                     disabled={savingPassword}
                     placeholder="••••••••"
-                    className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section font-medium outline-none"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                   />
                 </div>
                 <div>
-                  <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                  <label className="text-m-caption font-bold uppercase block mb-0" style={{ color: "var(--color-ink-700)" }}>
                     New Password
                   </label>
                   <input
@@ -307,12 +313,12 @@ export default function MePage() {
                     onChange={(e) => setPasswordForm((f) => ({ ...f, newPassword: e.target.value }))}
                     disabled={savingPassword}
                     placeholder="At least 8 characters"
-                    className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section font-medium outline-none"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                   />
                 </div>
                 <div>
-                  <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                  <label className="text-m-caption font-bold uppercase block mb-0" style={{ color: "var(--color-ink-700)" }}>
                     Confirm New Password
                   </label>
                   <input
@@ -321,8 +327,8 @@ export default function MePage() {
                     onChange={(e) => setPasswordForm((f) => ({ ...f, confirmPassword: e.target.value }))}
                     disabled={savingPassword}
                     placeholder="••••••••"
-                    className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section font-medium outline-none"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                   />
                 </div>
               </div>

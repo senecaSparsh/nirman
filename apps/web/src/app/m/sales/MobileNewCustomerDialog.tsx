@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, X } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 /**
  * Mobile bottom-sheet dialog for creating a customer inline.
@@ -72,38 +73,9 @@ export function MobileNewCustomerDialog({
     }
   }
 
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <h2
-            className="text-m-section font-extrabold tracking-tight"
-            style={{ color: "var(--color-ink-950)" }}
-          >
-            New Customer
-          </h2>
-          <button
-            onClick={onClose}
-            className="touch text-m-body press grid place-items-center rounded-[0.375rem]"
-            style={{ color: "var(--color-ink-700)" }}
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+    <MobileDialog open={open} onClose={onClose} title="New Customer">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Details */}
           <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
             <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Details</p>
@@ -243,7 +215,6 @@ export function MobileNewCustomerDialog({
             )}
           </button>
         </form>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }

@@ -49,6 +49,8 @@ export function EmployeeQuickCreateDialog({
           phone: form.phone.trim() || null,
           wageType: form.wageType,
           dailyRate: form.dailyRate ? Number(form.dailyRate) : 0,
+          employmentType: "CASUAL",
+          noticePeriodDays: 0,
           active: true,
         }),
       });

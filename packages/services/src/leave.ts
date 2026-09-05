@@ -15,7 +15,7 @@ import { withSerializableTransaction } from "./transaction";
  *  - Approver must have HR_MANAGE permission (enforced at API layer)
  */
 
-function computeLeaveDays(start: Date, end: Date): Decimal {
+export function computeLeaveDays(start: Date, end: Date): Decimal {
   if (end < start) return new Decimal(0);
   let count = new Decimal(0);
   const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
@@ -183,33 +183,50 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
     // in the leave range so payroll picks them up correctly. UNPAID leave →
     // NON_PAID_LEAVE (counts as 0 in payroll); all other types → PAID_LEAVE
     // (counts as a full paid day). Uses upsert so re-approval is idempotent.
-    if (input.approve) {
-      const attendanceStatus = leave.type === "UNPAID" ? "NON_PAID_LEAVE" : "PAID_LEAVE";
-      const cur = new Date(leave.startDate.getFullYear(), leave.startDate.getMonth(), leave.startDate.getDate());
-      const last = new Date(leave.endDate.getFullYear(), leave.endDate.getMonth(), leave.endDate.getDate());
-      while (cur <= last) {
-        const dow = cur.getDay();
-        if (dow !== 0 && dow !== 6) { // skip Sundays and Saturdays (working days only)
-          await tx.workerAttendance.upsert({
-            where: {
-              employeeId_date: { employeeId: leave.employeeId, date: new Date(cur) },
-            },
-            create: {
-              employeeId: leave.employeeId,
-              companyId: input.companyId,
-              date: new Date(cur),
-              status: attendanceStatus,
-              hoursWorked: new Decimal(0),
-              notes: `Auto-created from approved ${leave.type} leave (${leave.id})`,
-            },
-            update: {
-              status: attendanceStatus,
-              notes: `Updated from approved ${leave.type} leave (${leave.id})`,
-            },
-          });
-        }
-        cur.setDate(cur.getDate() + 1);
+    //
+    // When rejecting, auto-create NON_PAID_LEAVE attendance rows for each
+    // working day in the range. The employee was absent (the leave request
+    // proves they didn't show up), and since the leave was rejected those
+    // days should be counted as unpaid in payroll. Without this, rejected
+    // leave days would have no attendance record at all — payroll would
+    // neither pay nor dock them, creating a silent gap.
+    const attendanceStatus = input.approve
+      ? (leave.type === "UNPAID" ? "NON_PAID_LEAVE" : "PAID_LEAVE")
+      : "NON_PAID_LEAVE";
+    // Use UTC date construction — leave.startDate/endDate are @db.Date fields
+    // which Prisma returns as UTC-midnight Date objects.  Constructing with
+    // `new Date(year, month, day)` (local midnight) would shift the date back
+    // by one day in timezones ahead of UTC (e.g. IST = UTC+5:30), causing the
+    // wrong day to be stored in WorkerAttendance.date.  Date.UTC keeps the
+    // calendar date stable regardless of server timezone.
+    const cur = new Date(Date.UTC(leave.startDate.getUTCFullYear(), leave.startDate.getUTCMonth(), leave.startDate.getUTCDate()));
+    const last = new Date(Date.UTC(leave.endDate.getUTCFullYear(), leave.endDate.getUTCMonth(), leave.endDate.getUTCDate()));
+    while (cur <= last) {
+      const dow = cur.getUTCDay();
+      if (dow !== 0 && dow !== 6) { // skip Sundays and Saturdays (working days only)
+        await tx.workerAttendance.upsert({
+          where: {
+            employeeId_date: { employeeId: leave.employeeId, date: new Date(cur) },
+          },
+          create: {
+            employeeId: leave.employeeId,
+            companyId: input.companyId,
+            date: new Date(cur),
+            status: attendanceStatus,
+            hoursWorked: new Decimal(0),
+            notes: input.approve
+              ? `Auto-created from approved ${leave.type} leave (${leave.id})`
+              : `Auto-created from rejected ${leave.type} leave — marked NPL (${leave.id})`,
+          },
+          update: {
+            status: attendanceStatus,
+            notes: input.approve
+              ? `Updated from approved ${leave.type} leave (${leave.id})`
+              : `Updated from rejected ${leave.type} leave — marked NPL (${leave.id})`,
+          },
+        });
       }
+      cur.setDate(cur.getDate() + 1);
     }
 
     await logAction(tx, {

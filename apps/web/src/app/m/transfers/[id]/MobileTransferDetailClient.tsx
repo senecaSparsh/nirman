@@ -32,6 +32,7 @@ import {
   Check,
 } from "lucide-react";
 import { MobileStatusBadge, ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
@@ -1566,217 +1567,88 @@ export function MobileTransferDetailClient({
 
       {/* ── Cancel confirmation modal ── */}
       {showCancel ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{
-            backgroundColor:
-              "color-mix(in srgb, var(--color-ink-950) 50%, transparent)",
-          }}
-          onClick={() => setShowCancel(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-t-[0.75rem] flex flex-col"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
+        <MobileDialog open={true} onClose={() => setShowCancel(false)} title="Cancel this transfer?">
+          <p
+            className="text-m-body mb-3"
+            style={{ color: "var(--color-ink-500)" }}
           >
-            <div
-              className="p-3 border-b"
-              style={{ borderColor: "var(--color-line)" }}
+            This will cancel the stock transfer from{" "}
+            {transfer.fromLocation.name} to {transfer.toLocation.name}. No
+            stock will be moved. This action cannot be undone.
+          </p>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => setShowCancel(false)}
+              disabled={acting !== null}
+              className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press disabled:opacity-50"
+              style={{
+                borderColor: "var(--color-line)",
+                backgroundColor: "var(--color-paper)",
+                color: "var(--color-ink-950)",
+              }}
             >
-              <p
-                className="text-m-section font-bold"
-                style={{ color: "var(--color-ink-950)" }}
-              >
-                Cancel this transfer?
-              </p>
-            </div>
-            <div className="p-3">
-              <p
-                className="text-m-body mb-3"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                This will cancel the stock transfer from{" "}
-                {transfer.fromLocation.name} to {transfer.toLocation.name}. No
-                stock will be moved. This action cannot be undone.
-              </p>
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => setShowCancel(false)}
-                  disabled={acting !== null}
-                  className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press disabled:opacity-50"
-                  style={{
-                    borderColor: "var(--color-line)",
-                    backgroundColor: "var(--color-paper)",
-                    color: "var(--color-ink-950)",
-                  }}
-                >
-                  Keep
-                </button>
-                <button
-                  onClick={() => void handleCancel()}
-                  disabled={acting !== null}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
-                  style={{
-                    backgroundColor: "var(--color-stop)",
-                    color: "var(--color-paper)",
-                  }}
-                >
-                  {acting === "cancel" ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <>
-                      <XCircle className="size-3.5" />
-                      <span>Cancel Transfer</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
+              Keep
+            </button>
+            <button
+              onClick={() => void handleCancel()}
+              disabled={acting !== null}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
+              style={{
+                backgroundColor: "var(--color-stop)",
+                color: "var(--color-paper)",
+              }}
+            >
+              {acting === "cancel" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <>
+                  <XCircle className="size-3.5" />
+                  <span>Cancel Transfer</span>
+                </>
+              )}
+            </button>
           </div>
-        </div>
+        </MobileDialog>
       ) : null}
 
       {/* ── Return to source confirmation modal ── */}
       {showReturn ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{
-            backgroundColor:
-              "color-mix(in srgb, var(--color-ink-950) 50%, transparent)",
-          }}
-          onClick={() => {
+        <MobileDialog
+          open={true}
+          onClose={() => {
             if (acting !== "return") setShowReturn(false);
           }}
+          title="Return to source?"
         >
-          <div
-            className="w-full max-w-md rounded-t-[0.75rem] flex flex-col"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className="flex items-center gap-2 p-3 border-b"
-              style={{ borderColor: "var(--color-line)" }}
-            >
-              <AlertTriangle
-                className="size-4 shrink-0"
-                style={{ color: "var(--color-stop)" }}
-              />
-              <p
-                className="text-m-section font-bold"
-                style={{ color: "var(--color-ink-950)" }}
-              >
-                Return to source?
-              </p>
-              <button
-                onClick={() => setShowReturn(false)}
-                className="text-m-body press shrink-0 p-1 ml-auto"
-              >
-                <XCircle
-                  className="size-4"
-                  style={{ color: "var(--color-ink-500)" }}
-                />
-              </button>
-            </div>
-            <div className="p-3 space-y-3">
-              <p
-                className="text-m-body"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                Return this transfer to {transfer.fromLocation.name}? Use this
-                when goods are damaged or wrong. A reason is required.
-              </p>
-              <div>
-                <label
-                  className="text-m-caption font-semibold uppercase tracking-wide block mb-1"
-                  style={{ color: "var(--color-ink-500)" }}
-                >
-                  Reason <span style={{ color: "var(--color-stop)" }}>*</span>
-                </label>
-                <textarea
-                  value={returnReason}
-                  onChange={(e) => setReturnReason(e.target.value)}
-                  placeholder="e.g. Goods damaged in transit"
-                  rows={3}
-                  className="w-full rounded-[0.5rem] border px-2.5 py-2 text-m-body outline-none resize-none"
-                  style={{
-                    borderColor: "var(--color-line)",
-                    backgroundColor: "var(--color-paper-2)",
-                    color: "var(--color-ink-950)",
-                  }}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => setShowReturn(false)}
-                  disabled={acting !== null}
-                  className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press disabled:opacity-50"
-                  style={{
-                    borderColor: "var(--color-line)",
-                    backgroundColor: "var(--color-paper)",
-                    color: "var(--color-ink-950)",
-                  }}
-                >
-                  Keep
-                </button>
-                <button
-                  onClick={() => void handleReturnToSource()}
-                  disabled={acting !== null}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
-                  style={{
-                    backgroundColor: "var(--color-stop)",
-                    color: "var(--color-paper)",
-                  }}
-                >
-                  {acting === "return" ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <>
-                      <RotateCcw className="size-3.5" />
-                      <span>Return to Source</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* ── Complete confirmation modal ── */}
-      {showComplete ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-          onClick={() => acting === null && setShowComplete(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-t-[1rem] p-4"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-center mb-2">
-              <div
-                className="w-10 h-1 rounded-full"
-                style={{ backgroundColor: "var(--color-line)" }}
-              />
-            </div>
-            <h3
-              className="text-m-section font-bold mb-2"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              Complete Transfer?
-            </h3>
+          <div className="space-y-3">
             <p
-              className="text-m-body mb-3"
+              className="text-m-body"
               style={{ color: "var(--color-ink-500)" }}
             >
-              This will force-complete the transfer from{" "}
-              {transfer.fromLocation.name} to {transfer.toLocation.name}. Stock
-              will be moved immediately. This action cannot be undone.
+              Return this transfer to {transfer.fromLocation.name}? Use this
+              when goods are damaged or wrong. A reason is required.
             </p>
+            <div>
+              <label
+                className="text-m-caption font-semibold uppercase tracking-wide block mb-1"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                Reason <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <textarea
+                value={returnReason}
+                onChange={(e) => setReturnReason(e.target.value)}
+                placeholder="e.g. Goods damaged in transit"
+                rows={3}
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+                style={{
+                  backgroundColor: "transparent",
+                }}
+              />
+            </div>
             <div className="flex flex-col gap-2">
               <button
-                onClick={() => setShowComplete(false)}
+                onClick={() => setShowReturn(false)}
                 disabled={acting !== null}
                 className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press disabled:opacity-50"
                 style={{
@@ -1788,26 +1660,76 @@ export function MobileTransferDetailClient({
                 Keep
               </button>
               <button
-                onClick={() => void handleComplete()}
+                onClick={() => void handleReturnToSource()}
                 disabled={acting !== null}
                 className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
                 style={{
-                  backgroundColor: "var(--color-go)",
+                  backgroundColor: "var(--color-stop)",
                   color: "var(--color-paper)",
                 }}
               >
-                {acting === "complete" ? (
+                {acting === "return" ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
                   <>
-                    <Check className="size-3.5" />
-                    <span>Complete Transfer</span>
+                    <RotateCcw className="size-3.5" />
+                    <span>Return to Source</span>
                   </>
                 )}
               </button>
             </div>
           </div>
-        </div>
+        </MobileDialog>
+      ) : null}
+
+      {/* ── Complete confirmation modal ── */}
+      {showComplete ? (
+        <MobileDialog
+          open={true}
+          onClose={() => acting === null && setShowComplete(false)}
+          title="Complete Transfer?"
+        >
+          <p
+            className="text-m-body mb-3"
+            style={{ color: "var(--color-ink-500)" }}
+          >
+            This will force-complete the transfer from{" "}
+            {transfer.fromLocation.name} to {transfer.toLocation.name}. Stock
+            will be moved immediately. This action cannot be undone.
+          </p>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => setShowComplete(false)}
+              disabled={acting !== null}
+              className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press disabled:opacity-50"
+              style={{
+                borderColor: "var(--color-line)",
+                backgroundColor: "var(--color-paper)",
+                color: "var(--color-ink-950)",
+              }}
+            >
+              Keep
+            </button>
+            <button
+              onClick={() => void handleComplete()}
+              disabled={acting !== null}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
+              style={{
+                backgroundColor: "var(--color-go)",
+                color: "var(--color-paper)",
+              }}
+            >
+              {acting === "complete" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <>
+                  <Check className="size-3.5" />
+                  <span>Complete Transfer</span>
+                </>
+              )}
+            </button>
+          </div>
+        </MobileDialog>
       ) : null}
     </div>
   );

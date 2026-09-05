@@ -2,14 +2,33 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, Plus, ShieldAlert } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { computeRiskLevel } from "@nirman/services/safety";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useWbsOptions } from "@/lib/use-wbs-options";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
-export function MobileNewHazardDialog({ open, onClose, projects }: { open: boolean; onClose: () => void; projects: { id: string; name: string }[] }) {
+/**
+ * MobileNewHazardForm — form content for reporting a new hazard.
+ *
+ * Used inside <MobileFabModal> (spring-from-FAB animation) on the
+ * safety page, or wrapped by <MobileNewHazardDialog> (legacy
+ * bottom-sheet backdrop) for backward compatibility.
+ * Mirrors MobileNewLeaveForm / MobileNewMaterialForm.
+ *
+ * No header or Cancel button here — the wrapper supplies the title
+ * and the close affordance (FAB morphs +→× in MobileFabModal, X
+ * button in the legacy bottom-sheet).
+ */
+export function MobileNewHazardForm({
+  onClose,
+  projects,
+}: {
+  onClose: () => void;
+  projects: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [attachments, setAttachments] = useState<{ url: string; fileName?: string }[]>([]);
@@ -18,11 +37,11 @@ export function MobileNewHazardDialog({ open, onClose, projects }: { open: boole
     location: "", mitigationPlan: "", targetResolutionDate: "", wbsNodeId: "",
   });
 
-  const wbsOptions = useWbsOptions(open ? form.projectId : null);
+  const wbsOptions = useWbsOptions(projects.length ? form.projectId : null);
 
   useEffect(() => {
-    if (open) setForm({ projectId: projects[0]?.id ?? "", title: "", description: "", likelihood: "2", severity: "2", location: "", mitigationPlan: "", targetResolutionDate: "", wbsNodeId: "" });
-  }, [open, projects]);
+    setForm({ projectId: projects[0]?.id ?? "", title: "", description: "", likelihood: "2", severity: "2", location: "", mitigationPlan: "", targetResolutionDate: "", wbsNodeId: "" });
+  }, [projects]);
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) { setForm((f) => ({ ...f, [k]: v })); }
 
@@ -48,86 +67,119 @@ export function MobileNewHazardDialog({ open, onClose, projects }: { open: boole
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Failed"); } finally { setSaving(false); }
   }
 
-  if (!open) return null;
+  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
+  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
+  const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
+  const sectionStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" };
+  const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
+  const sectionTitleStyle = { color: "var(--color-ink-950)" };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}>
-      <div className="mt-auto rounded-t-[1rem] max-h-[92vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}>
-        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <div className="flex items-center gap-2"><ShieldAlert className="size-4" style={{ color: "var(--color-signal)" }} /><h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Report Hazard</h2></div>
-          <button onClick={onClose} className="text-m-body press"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
+    <div className="flex flex-col gap-3">
+      {/* Details */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>Details</p>
+        <div>
+          <label className={labelClass} style={labelStyle}>Project</label>
+          <select value={form.projectId} onChange={(e) => set("projectId", e.target.value)} className={inputClass} style={inputStyle}>
+            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
         </div>
-        <div className="p-4 space-y-4">
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Project</label>
-            <select value={form.projectId} onChange={(e) => set("projectId", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Title</label>
-            <input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Unprotected edge at 5th floor" className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-          </div>
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Description</label>
-            <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="What is the hazard?" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-          </div>
-          {/* Risk assessment */}
-          <div className="rounded-[0.5rem] p-3" style={{ backgroundColor: "var(--color-concrete)" }}>
-            <p className="text-m-label font-semibold uppercase mb-2" style={{ color: "var(--color-ink-500)" }}>Risk Assessment</p>
-            <div className="grid grid-cols-2 gap-3 mb-2">
-              <div>
-                <label className="text-m-caption font-semibold mb-1 block" style={{ color: "var(--color-ink-500)" }}>Likelihood (1-5)</label>
-                <input type="range" min="1" max="5" value={form.likelihood} onChange={(e) => set("likelihood", e.target.value)} className="w-full" />
-                <p className="text-m-caption text-center tabular-nums" style={{ color: "var(--color-ink-950)" }}>{lk} — {["", "Rare", "Unlikely", "Possible", "Likely", "Certain"][lk]}</p>
-              </div>
-              <div>
-                <label className="text-m-caption font-semibold mb-1 block" style={{ color: "var(--color-ink-500)" }}>Severity (1-5)</label>
-                <input type="range" min="1" max="5" value={form.severity} onChange={(e) => set("severity", e.target.value)} className="w-full" />
-                <p className="text-m-caption text-center tabular-nums" style={{ color: "var(--color-ink-950)" }}>{sv} — {["", "Minor", "Moderate", "Serious", "Major", "Catastrophic"][sv]}</p>
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Score: {lk * sv}</span>
-              <span className="text-m-section font-bold uppercase" style={{ color: riskColor }}>{riskLevel}</span>
-            </div>
-          </div>
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Location</label>
-            <input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower B, east side" className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-          </div>
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>WBS Activity (optional)</label>
-            <select value={form.wbsNodeId} onChange={(e) => set("wbsNodeId", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} disabled={wbsOptions.length === 0}>
-              <option value="">{wbsOptions.length === 0 ? "No WBS nodes for this project" : "— None —"}</option>
-              {wbsOptions.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Mitigation Plan (optional)</label>
-            <textarea value={form.mitigationPlan} onChange={(e) => set("mitigationPlan", e.target.value)} rows={2} placeholder="How will the hazard be controlled?" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-          </div>
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Target Resolution Date</label>
-            <input type="date" value={form.targetResolutionDate} onChange={(e) => set("targetResolutionDate", e.target.value)} className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-          </div>
-
-          {/* Photo evidence */}
-          <div>
-            <label className="text-m-caption font-semibold mb-1 block" style={{ color: "var(--color-ink-500)" }}>
-              Photo Evidence
-            </label>
-            <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
-          </div>
-
-          <div className="flex gap-2 pt-2">
-            <button onClick={onClose} className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
-            <button onClick={onSave} disabled={saving} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
-              {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}{saving ? "Reporting…" : "Report"}
-            </button>
-          </div>
+        <div>
+          <label className={labelClass} style={labelStyle}>Title</label>
+          <input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Unprotected edge at 5th floor" className={inputClass} style={inputStyle} />
+        </div>
+        <div>
+          <label className={labelClass} style={labelStyle}>Location</label>
+          <input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower B, east side" className={inputClass} style={inputStyle} />
+        </div>
+        <div>
+          <label className={labelClass} style={labelStyle}>WBS Activity (optional)</label>
+          <select value={form.wbsNodeId} onChange={(e) => set("wbsNodeId", e.target.value)} className={inputClass} style={inputStyle} disabled={wbsOptions.length === 0}>
+            <option value="">{wbsOptions.length === 0 ? "No WBS nodes for this project" : "— None —"}</option>
+            {wbsOptions.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
+          </select>
         </div>
       </div>
+
+      {/* Description */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>Description</p>
+        <div>
+          <label className={labelClass} style={labelStyle}>Description</label>
+          <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="What is the hazard?" className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors" style={inputStyle} />
+        </div>
+      </div>
+
+      {/* Risk Assessment */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>Risk Assessment</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass} style={labelStyle}>Likelihood (1-5)</label>
+            <input type="range" min="1" max="5" value={form.likelihood} onChange={(e) => set("likelihood", e.target.value)} className="w-full" />
+            <p className="text-m-caption text-center tabular-nums" style={{ color: "var(--color-ink-950)" }}>{lk} — {["", "Rare", "Unlikely", "Possible", "Likely", "Certain"][lk]}</p>
+          </div>
+          <div>
+            <label className={labelClass} style={labelStyle}>Severity (1-5)</label>
+            <input type="range" min="1" max="5" value={form.severity} onChange={(e) => set("severity", e.target.value)} className="w-full" />
+            <p className="text-m-caption text-center tabular-nums" style={{ color: "var(--color-ink-950)" }}>{sv} — {["", "Minor", "Moderate", "Serious", "Major", "Catastrophic"][sv]}</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-m-caption" style={{ color: "var(--color-ink-700)" }}>Score: {lk * sv}</span>
+          <span className="text-m-section font-bold uppercase" style={{ color: riskColor }}>{riskLevel}</span>
+        </div>
+      </div>
+
+      {/* Mitigation */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>Mitigation</p>
+        <div>
+          <label className={labelClass} style={labelStyle}>Mitigation Plan (optional)</label>
+          <textarea value={form.mitigationPlan} onChange={(e) => set("mitigationPlan", e.target.value)} rows={2} placeholder="How will the hazard be controlled?" className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors" style={inputStyle} />
+        </div>
+        <div>
+          <label className={labelClass} style={labelStyle}>Target Resolution Date</label>
+          <input type="date" value={form.targetResolutionDate} onChange={(e) => set("targetResolutionDate", e.target.value)} className={inputClass} style={inputStyle} />
+        </div>
+      </div>
+
+      {/* Photo Evidence */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>Photo Evidence</p>
+        <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
+      </div>
+
+      <button onClick={onSave} disabled={saving} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+        {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}{saving ? "Reporting…" : "Report"}
+      </button>
     </div>
+  );
+}
+
+/**
+ * MobileNewHazardDialog — legacy bottom-sheet backdrop wrapper.
+ *
+ * Kept for backward compatibility / inline creation from other pages.
+ * Prefer wrapping <MobileNewHazardForm> in <MobileFabModal> instead —
+ * that gives the spring-from-FAB animation matching the materials and
+ * leaves pages.
+ */
+export function MobileNewHazardDialog({
+  open,
+  onClose,
+  projects,
+}: {
+  open: boolean;
+  onClose: () => void;
+  projects: { id: string; name: string }[];
+}) {
+  return (
+    <MobileDialog open={open} onClose={onClose} title="New Hazard">
+      <MobileNewHazardForm onClose={onClose} projects={projects} />
+    </MobileDialog>
   );
 }

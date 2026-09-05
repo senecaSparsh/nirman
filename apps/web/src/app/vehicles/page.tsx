@@ -27,6 +27,8 @@ async function VehiclesContent() {
     return <NoAccess what="vehicles" />;
   }
 
+  const canManage = hasPermission(role, PERM.VEHICLE_MANAGE);
+
   const vehicles = await prisma.vehicle.findMany({
     take: 500,
     where: { companyId: company.id, deletedAt: null },
@@ -72,7 +74,7 @@ async function VehiclesContent() {
           { label: "Transporters", value: uniqueTransporters, hint: "Unique transporters recorded across all vehicle trips." },
         ]}
       />
-      <VehiclesView vehicles={rows} />
+      <VehiclesView vehicles={rows} canManage={canManage} />
     </>
   );
 }

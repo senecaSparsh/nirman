@@ -9,7 +9,9 @@
     "push": "prisma db push",
     "push:force": "prisma db push --accept-data-loss",
     "migrate": "prisma migrate dev",
-    "migrate:deploy": "prisma db push --accept-data-loss && prisma db execute --file ./prisma/data-fixes.sql --schema ./prisma/schema.prisma",
+    "migrate:deploy": "prisma migrate deploy && prisma db execute --file ./prisma/data-fixes.sql --schema ./prisma/schema.prisma",
+    "migrate:status": "prisma migrate status",
+    "migrate:resolve": "prisma migrate resolve",
     "studio": "prisma studio"
   },
   "dependencies": {

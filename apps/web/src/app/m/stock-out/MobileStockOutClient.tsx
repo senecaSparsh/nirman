@@ -1,11 +1,11 @@
 "use client";
 
-import {useEffect, useState, useRef, type ReactNode} from "react";
+import {useEffect, useState, useRef} from "react";
 import {useRouter} from "next/navigation";
 import {
   ArrowRight, ArrowLeftRight, Package, MapPin, Plus, Trash2,
-  Send, Loader2, CheckCircle2, WifiOff, User, Truck,
-  ShieldCheck, Printer, Building2, Clock, Check, ChevronDown,
+  Send, Loader2, CheckCircle2, WifiOff, Truck,
+  ShieldCheck, Printer, Building2, Clock, Info,
 } from "lucide-react";
 import {formatNumber} from "@/lib/utils";
 import { toast } from "sonner";
@@ -15,12 +15,13 @@ import { useDrafts } from "@/lib/offline/use-drafts";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { DraftBanner } from "@/components/mobile/draft-banner";
 import { useUnsavedGuard } from "@/lib/use-unsaved-guard";
-import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
-import { BottomSheet } from "@/components/mobile/v2/bottom-sheet";
 import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewStockLocationDialog";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 import { VehicleCapture, type VehicleData } from "@/components/mobile/vehicle-capture";
+import { BottomSheet } from "@/components/mobile/v2/bottom-sheet";
+import { SelectorModal } from "@/components/mobile/v2/form-primitives";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 type Mode = "transfer" | "issue";
 
@@ -29,10 +30,14 @@ interface LocationItem {
   companyId?: string; companyName?: string | null;
 }
 interface ProjectItem { id: string; name: string; }
-interface MaterialItem { id: string; name: string; code: string; unit: string; }
+interface MaterialItem { id: string; name: string; code: string; unit: string; isLotTracked?: boolean; }
 interface UnitItem { id: string; unitNumber: string; builtAreaSqft?: number; }
+interface LotOption {
+  id: string; lotNumber: string; currentQty: number;
+  batchCode?: string | null; expiryDate?: string | null;
+}
 
-interface StockLine { materialId: string; qty: string; }
+interface StockLine { materialId: string; qty: string; lotNumber: string; }
 
 interface StockOutDraft {
   mode: Mode;
@@ -45,6 +50,9 @@ interface StockOutDraft {
   vehicle: VehicleData;
   notes: string;
   lines: StockLine[];
+  freight: string;
+  handlingFee: string;
+  markupPct: string;
 }
 
 const inputClass =
@@ -55,119 +63,85 @@ const inputStyle = {
     color: "var(--color-ink-950)",
   };
 
-// ── PickerSheet — a bottom-sheet list picker used by the merged route card.
-//    Tapping a half of the "from → to" card opens this sheet listing all
-//    options. The selected row is highlighted with a check. A "Create new"
-//    button at the bottom opens the parent-supplied creation dialog. ──
-function PickerSheet({
-  title,
-  open,
-  onClose,
-  options,
-  value,
-  onSelect,
-  createLabel,
-  renderCreateDialog,
+// ── Shared label/input styles (match new quotation / PO pages) ──
+const labelClass = "block text-m-caption font-bold mb-0";
+const labelStyle = { color: "var(--color-ink-700)" };
+
+// ── SelectorCard — prominent tappable underline-style selector ──
+function SelectorCard({
+  onClick, label, value, subvalue, required, icon: Icon,
 }: {
-  title: string;
-  open: boolean;
-  onClose: () => void;
-  options: { value: string; label: string; sublabel?: string }[];
-  value: string;
-  onSelect: (value: string) => void;
-  createLabel: string;
-  renderCreateDialog: (props: {
-    open: boolean;
-    onClose: () => void;
-    onCreated: (value: string, label: string) => void;
-  }) => ReactNode;
+  onClick: () => void;
+  label: string;
+  value?: string;
+  subvalue?: string | null;
+  required?: boolean;
+  icon?: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
 }) {
-  const [showCreate, setShowCreate] = useState(false);
-  if (!open) return null;
-
+  const hasValue = !!value;
   return (
-    <>
-      <BottomSheet title={title} onClose={onClose}>
-        <div className="flex flex-col gap-3">
-          {options.length === 0 ? (
-            <p className="text-m-body py-6 text-center" style={{ color: "var(--color-ink-700)" }}>
-              No options yet — create one below.
-            </p>
-          ) : (
-            options.map((opt) => {
-              const selected = opt.value === value;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => {
-                    haptic(10);
-                    onSelect(opt.value);
-                    onClose();
-                  }}
-                  className="flex items-center gap-1.5 rounded-[0.5rem] px-3 py-2.5 text-left press transition-colors"
-                  style={{
-                    backgroundColor: selected
-                      ? "color-mix(in srgb, var(--color-signal) 10%, transparent)"
-                      : "transparent",
-                  }}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className="text-m-body font-bold truncate"
-                      style={{ color: "var(--color-ink-500)" }}
-                    >
-                      {opt.label}
-                    </p>
-                    {opt.sublabel ? (
-                      <p
-                        className="text-m-caption truncate"
-                        style={{ color: "var(--color-ink-700)" }}
-                      >
-                        {opt.sublabel}
-                      </p>
-                    ) : null}
-                  </div>
-                  {selected ? (
-                    <Check
-                      className="size-4 shrink-0"
-                      style={{ color: "var(--color-signal-dark)" }}
-                    />
-                  ) : null}
-                </button>
-              );
-            })
-          )}
-        </div>
+    <div>
+      <label className={labelClass} style={labelStyle}>
+        {label}{required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
+      </label>
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors text-left flex items-center gap-1.5 press"
+        style={{
+          borderColor: "var(--color-line)",
+          backgroundColor: "transparent",
+          color: hasValue ? "var(--color-ink-950)" : "var(--color-ink-500)",
+        }}
+      >
+        {Icon ? <Icon className="size-3.5 shrink-0" style={{ color: "var(--color-steel)" }} /> : null}
+        {hasValue ? (
+          <span className="truncate">
+            {value}{subvalue ? <span className="font-normal" style={{ color: "var(--color-ink-700)" }}> · {subvalue}</span> : null}
+          </span>
+        ) : (
+          <span>— Select —</span>
+        )}
+      </button>
+    </div>
+  );
+}
 
-        <button
-          type="button"
-          onClick={() => {
-            haptic(10);
-            setShowCreate(true);
-          }}
-          className="mt-3 flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border border-dashed py-2.5 text-m-body font-bold press"
-          style={{
-            borderColor: "var(--color-signal)",
-            color: "var(--color-signal-dark)",
-            backgroundColor: "var(--color-signal-wash)",
-          }}
-        >
-          <Plus className="size-3.5" />
-          <span>Create new {createLabel}</span>
-        </button>
-      </BottomSheet>
-
-      {renderCreateDialog({
-        open: showCreate,
-        onClose: () => setShowCreate(false),
-        onCreated: (val: string) => {
-          setShowCreate(false);
-          onSelect(val);
-          onClose();
-        },
-      })}
-    </>
+// ── SelectorRow — compact tappable row for line item selectors ──
+function SelectorRow({
+  onClick, label, value, subvalue, required,
+}: {
+  onClick: () => void;
+  label: string;
+  value?: string;
+  subvalue?: string;
+  required?: boolean;
+}) {
+  const hasValue = !!value;
+  return (
+    <div>
+      <label className={labelClass} style={labelStyle}>
+        {label}{required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
+      </label>
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors text-left press"
+        style={{
+          borderColor: "var(--color-line)",
+          backgroundColor: "transparent",
+          color: hasValue ? "var(--color-ink-950)" : "var(--color-ink-500)",
+        }}
+      >
+        {hasValue ? (
+          <span className="truncate block">
+            {value}{subvalue ? <span className="font-normal" style={{ color: "var(--color-ink-700)" }}> · {subvalue}</span> : null}
+          </span>
+        ) : (
+          <span>— Select —</span>
+        )}
+      </button>
+    </div>
   );
 }
 
@@ -198,7 +172,7 @@ export function MobileStockOutClient({
   // ── Shared form state ──
   const [fromLocationId, setFromLocationId] = useState("");
   const [notes, setNotes] = useState("");
-  const [lines, setLines] = useState<StockLine[]>([{ materialId: "", qty: "" }]);
+  const [lines, setLines] = useState<StockLine[]>([{ materialId: "", qty: "", lotNumber: "" }]);
   const [submitting, setSubmitting] = useState(false);
 
   // ── Transfer-specific ──
@@ -213,10 +187,23 @@ export function MobileStockOutClient({
     vehicleNumber: "", vehicleType: "",
   });
 
-  // ── Route-card picker (merged from/to selector) ──
-  // "from" opens the source-location sheet; "to" opens the destination
-  // sheet (location for transfer mode, project for issue mode).
-  const [picker, setPicker] = useState<"from" | "to" | null>(null);
+  // ── Transfer inter-company charges (optional, transfer mode only) ──
+  const [freight, setFreight] = useState("");
+  const [handlingFee, setHandlingFee] = useState("");
+  const [markupPct, setMarkupPct] = useState("");
+
+  // ── Selector modal state (from / to-location / to-project / material / lot) ──
+  const [modal, setModal] = useState<{
+    type: "from" | "to-location" | "to-project" | "material" | "lot";
+    lineIndex?: number;
+  } | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState<
+    "location" | "project" | "material" | null
+  >(null);
+
+  // ── Lots cache (fetched on demand when a lot-tracked material is selected) ──
+  // Keyed by materialId. Fetched from /api/materials/{id}/lots.
+  const [lotsCache, setLotsCache] = useState<Record<string, LotOption[]>>({});
 
   // ── Success state ──
   const [success, setSuccess] = useState<{
@@ -260,7 +247,10 @@ export function MobileStockOutClient({
           setReceiverMobile(draft.receiverMobile);
           setVehicle(draft.vehicle);
           setNotes(draft.notes);
-          setLines(draft.lines.length > 0 ? draft.lines : [{ materialId: "", qty: "" }]);
+          setLines(draft.lines.length > 0 ? draft.lines : [{ materialId: "", qty: "", lotNumber: "" }]);
+          setFreight(draft.freight ?? "");
+          setHandlingFee(draft.handlingFee ?? "");
+          setMarkupPct(draft.markupPct ?? "");
           setDraftRestored(true);
         } else {
           if (locs.length > 0) setFromLocationId(locs[0]!.id);
@@ -270,7 +260,7 @@ export function MobileStockOutClient({
           } else if (projs.length > 0) {
             setProjectId(projs[0]!.id);
           }
-          if (mats.length > 0) setLines([{ materialId: mats[0]!.id, qty: "" }]);
+          if (mats.length > 0) setLines([{ materialId: mats[0]!.id, qty: "", lotNumber: "" }]);
         }
       } catch (err) {
         console.error("Failed to load stock-out options:", err);
@@ -288,9 +278,11 @@ export function MobileStockOutClient({
     saveDraft({
       mode, fromLocationId, toLocationId, projectId, builtUnitId,
       receiverName, receiverMobile, vehicle, notes, lines,
+      freight, handlingFee, markupPct,
     });
   }, [mode, fromLocationId, toLocationId, projectId, builtUnitId,
-      receiverName, receiverMobile, vehicle, notes, lines, loading,
+      receiverName, receiverMobile, vehicle, notes, lines,
+      freight, handlingFee, markupPct, loading,
       success, saveDraft]);
 
   // ── Fetch built units when project changes (issue mode) ──
@@ -315,7 +307,7 @@ export function MobileStockOutClient({
   // ── Line management ──
   const handleAddLine = () => {
     const defaultMatId = materials.length > 0 ? materials[0]!.id : "";
-    setLines([...lines, { materialId: defaultMatId, qty: "" }]);
+    setLines([...lines, { materialId: defaultMatId, qty: "", lotNumber: "" }]);
   };
   const handleRemoveLine = (index: number) => {
     if (lines.length === 1) return;
@@ -327,12 +319,41 @@ export function MobileStockOutClient({
     setLines(updated);
   };
 
+  // ── Fetch lots for a lot-tracked material (cached per materialId) ──
+  const fetchLots = async (materialId: string) => {
+    if (lotsCache[materialId]) return; // already cached
+    try {
+      const res = await fetch(`/api/materials/${materialId}/lots`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const lots: LotOption[] = (data?.lots ?? []).map((l: {
+        id: string; lotNumber: string; currentQty: number;
+        batchCode?: string | null; expiryDate?: string | null;
+      }) => ({
+        id: l.id, lotNumber: l.lotNumber, currentQty: l.currentQty,
+        batchCode: l.batchCode ?? null, expiryDate: l.expiryDate ?? null,
+      }));
+      setLotsCache((prev) => ({ ...prev, [materialId]: lots }));
+    } catch {
+      // best-effort — lot picker will just show empty
+    }
+  };
+
+  // ── Open lot selector for a line (fetches lots first) ──
+  const openLotPicker = (lineIndex: number) => {
+    const line = lines[lineIndex];
+    if (!line?.materialId) return;
+    haptic(10);
+    fetchLots(line.materialId);
+    setModal({ type: "lot", lineIndex });
+  };
+
   // ── Mode switch — clear destination-specific state ──
   const switchMode = (newMode: Mode) => {
     if (newMode === mode) return;
     haptic(5);
     setMode(newMode);
-    setPicker(null);
+    setModal(null);
     // Don't clear shared fields (fromLocationId, lines, notes)
     // Clear destination-specific state to avoid cross-contamination
     if (newMode === "transfer") {
@@ -343,6 +364,9 @@ export function MobileStockOutClient({
       setVehicle({ vehicleNumber: "", vehicleType: "" });
     } else {
       setToLocationId("");
+      setFreight("");
+      setHandlingFee("");
+      setMarkupPct("");
     }
   };
 
@@ -408,6 +432,16 @@ export function MobileStockOutClient({
       toast.error("Select source location");
       return;
     }
+    // Lot-tracked materials must have a lot selected
+    const missingLot = validLines.find((l) => {
+      const m = materials.find((mm) => mm.id === l.materialId);
+      return m?.isLotTracked && !l.lotNumber;
+    });
+    if (missingLot) {
+      const m = materials.find((mm) => mm.id === missingLot.materialId);
+      toast.error(`Select a lot/batch for ${m?.name ?? "material"}`);
+      return;
+    }
 
     setSubmitting(true);
     haptic(10);
@@ -425,8 +459,12 @@ export function MobileStockOutClient({
           fromLocationId,
           toLocationId,
           notes: notes.trim() || null,
+          freight: freight ? Number(freight) : undefined,
+          handlingFee: handlingFee ? Number(handlingFee) : undefined,
+          markupPct: markupPct ? Number(markupPct) : undefined,
           lines: validLines.map((l) => ({
             materialId: l.materialId, qty: Number(l.qty),
+            lotNumber: l.lotNumber.trim() || null,
           })),
         };
 
@@ -473,6 +511,7 @@ export function MobileStockOutClient({
           notes: notes.trim() || undefined,
           lines: validLines.map((l) => ({
             materialId: l.materialId, qty: Number(l.qty),
+            lotNumber: l.lotNumber.trim() || null,
           })),
           requireGatePass: true,
         };
@@ -612,7 +651,7 @@ export function MobileStockOutClient({
           <button
             onClick={() => {
               setSuccess(null);
-              setLines([{ materialId: materials[0]?.id ?? "", qty: "" }]);
+              setLines([{ materialId: materials[0]?.id ?? "", qty: "", lotNumber: "" }]);
               setNotes("");
             }}
             className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
@@ -628,6 +667,10 @@ export function MobileStockOutClient({
   const fromLoc = locations.find((l) => l.id === fromLocationId);
   const toLoc = locations.find((l) => l.id === toLocationId);
   const proj = projects.find((p) => p.id === projectId);
+
+  // Route flow state: 0 = nothing selected, 1 = origin only, 2 = both endpoints
+  const routeComplete = !!(fromLoc && (mode === "transfer" ? toLoc : proj));
+  const routeOrigin = !!fromLoc;
 
   return (
     <>
@@ -647,7 +690,10 @@ export function MobileStockOutClient({
             setReceiverMobile(draft.receiverMobile);
             setVehicle(draft.vehicle);
             setNotes(draft.notes);
-            setLines(draft.lines.length > 0 ? draft.lines : [{ materialId: "", qty: "" }]);
+            setLines(draft.lines.length > 0 ? draft.lines : [{ materialId: "", qty: "", lotNumber: "" }]);
+          setFreight(draft.freight ?? "");
+          setHandlingFee(draft.handlingFee ?? "");
+          setMarkupPct(draft.markupPct ?? "");
             setDraftRestored(true);
             haptic(10);
           }}
@@ -655,72 +701,92 @@ export function MobileStockOutClient({
         />
       )}
 
-      <div className="pb-32">
-        {/* ── Mode toggle — segmented control ── */}
+      <div className="pb-32 space-y-3">
+        {/* ══════ SECTION: MODE ══════ */}
         {(canTransfer && canIssue) ? (
-          <div className="grid grid-cols-2 gap-1 mb-3">
-            <button
-              type="button"
-              onClick={() => handleModeTap("transfer")}
-              onPointerDown={() => startLongPress("transfer")}
-              onPointerUp={cancelLongPress}
-              onPointerLeave={cancelLongPress}
-              onPointerCancel={cancelLongPress}
-              onContextMenu={(e) => e.preventDefault()}
-              className="rounded-[0.5rem] border py-2.5 px-2 flex flex-col items-center justify-center gap-1.5 text-m-body press transition-colors select-none"
-              style={{
-                borderColor: mode === "transfer" ? "var(--color-ink-950)" : "var(--color-line)",
-                backgroundColor: mode === "transfer" ? "var(--color-ink-950)" : "var(--color-paper)",
-                color: mode === "transfer" ? "var(--color-paper)" : "var(--color-ink-700)",
-                touchAction: "none",
-              }}
-            >
-              <ArrowLeftRight className="size-4" />
-              <span className="text-m-body font-bold">Transfer</span>
-              <span className="text-m-caption font-medium" style={{ opacity: 0.7 }}>
-                Location → Location
-              </span>
-              <span className="hold-label flex items-center justify-center gap-1 text-m-caption font-normal">
-                <span
-                  className="hold-dot inline-block size-1 rounded-full"
-                  style={{ backgroundColor: "currentColor" }}
-                />
-                Hold for list
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleModeTap("issue")}
-              onPointerDown={() => startLongPress("issue")}
-              onPointerUp={cancelLongPress}
-              onPointerLeave={cancelLongPress}
-              onPointerCancel={cancelLongPress}
-              onContextMenu={(e) => e.preventDefault()}
-              className="rounded-[0.5rem] border py-2.5 px-2 flex flex-col items-center justify-center gap-1.5 text-m-body press transition-colors select-none"
-              style={{
-                borderColor: mode === "issue" ? "var(--color-signal)" : "var(--color-line)",
-                backgroundColor: mode === "issue" ? "var(--color-signal)" : "var(--color-paper)",
-                color: mode === "issue" ? "var(--color-paper)" : "var(--color-ink-700)",
-                touchAction: "none",
-              }}
-            >
-              <Package className="size-4" />
-              <span className="text-m-body font-bold">Issue</span>
-              <span className="text-m-caption font-medium" style={{ opacity: 0.7 }}>
-                Location → Project
-              </span>
-              <span className="hold-label flex items-center justify-center gap-1 text-m-caption font-normal">
-                <span
-                  className="hold-dot inline-block size-1 rounded-full"
-                  style={{ backgroundColor: "currentColor" }}
-                />
-                Hold for list
-              </span>
-            </button>
+          <div className="grid grid-cols-2 gap-1">
+            {/* Transfer mode card */}
+            <div className="relative">
+              {/* Info chip on top-left border — expands to "i Hold for list" */}
+              <div
+                className="info-chip absolute -top-[0.625rem] left-2 z-10 flex items-center gap-1 px-1.5 h-5 rounded-full overflow-hidden"
+                style={{
+                  backgroundColor: "var(--color-paper-2)",
+                  border: "1px solid var(--color-line)",
+                  color: "var(--color-ink-500)",
+                }}
+              >
+                <Info className="size-2.5 shrink-0" />
+                <span className="info-chip-text text-[0.5rem] font-semibold leading-none">
+                  Hold for list
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleModeTap("transfer")}
+                onPointerDown={() => startLongPress("transfer")}
+                onPointerUp={cancelLongPress}
+                onPointerLeave={cancelLongPress}
+                onPointerCancel={cancelLongPress}
+                onContextMenu={(e) => e.preventDefault()}
+                className="w-full rounded-[0.5rem] border py-2.5 px-2 flex flex-col items-center justify-center gap-1.5 text-m-body press transition-colors select-none"
+                style={{
+                  borderColor: mode === "transfer" ? "var(--color-ink-950)" : "var(--color-line)",
+                  backgroundColor: mode === "transfer" ? "var(--color-ink-950)" : "var(--color-paper)",
+                  color: mode === "transfer" ? "var(--color-paper)" : "var(--color-ink-700)",
+                  touchAction: "none",
+                }}
+              >
+                <ArrowLeftRight className="size-4" />
+                <span className="text-m-body font-bold">Transfer</span>
+                <span className="text-m-caption font-medium" style={{ opacity: 0.7 }}>
+                  Location → Location
+                </span>
+              </button>
+            </div>
+            {/* Issue mode card */}
+            <div className="relative">
+              {/* Info chip on top-left border — expands to "i Hold for list" */}
+              <div
+                className="info-chip absolute -top-[0.625rem] left-2 z-10 flex items-center gap-1 px-1.5 h-5 rounded-full overflow-hidden"
+                style={{
+                  backgroundColor: "var(--color-paper-2)",
+                  border: "1px solid var(--color-line)",
+                  color: "var(--color-ink-500)",
+                }}
+              >
+                <Info className="size-2.5 shrink-0" />
+                <span className="info-chip-text text-[0.5rem] font-semibold leading-none">
+                  Hold for list
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleModeTap("issue")}
+                onPointerDown={() => startLongPress("issue")}
+                onPointerUp={cancelLongPress}
+                onPointerLeave={cancelLongPress}
+                onPointerCancel={cancelLongPress}
+                onContextMenu={(e) => e.preventDefault()}
+                className="w-full rounded-[0.5rem] border py-2.5 px-2 flex flex-col items-center justify-center gap-1.5 text-m-body press transition-colors select-none"
+                style={{
+                  borderColor: mode === "issue" ? "var(--color-signal)" : "var(--color-line)",
+                  backgroundColor: mode === "issue" ? "var(--color-signal)" : "var(--color-paper)",
+                  color: mode === "issue" ? "var(--color-paper)" : "var(--color-ink-700)",
+                  touchAction: "none",
+                }}
+              >
+                <Package className="size-4" />
+                <span className="text-m-body font-bold">Issue</span>
+                <span className="text-m-caption font-medium" style={{ opacity: 0.7 }}>
+                  Location → Project
+                </span>
+              </button>
+            </div>
           </div>
         ) : (
           <div
-            className="py-2 mb-3 flex items-center gap-1"
+            className="rounded-[0.625rem] border py-2.5 px-3 flex items-center gap-1.5"
             style={{
               borderColor: mode === "transfer" ? "var(--color-ink-950)" : "var(--color-signal)",
               backgroundColor: mode === "transfer" ? "var(--color-ink-950)" : "var(--color-signal)",
@@ -737,173 +803,197 @@ export function MobileStockOutClient({
           </div>
         )}
 
-        {/* ── Merged route card: from → to.
-            Tap either half to open a bottom-sheet picker. This merges the
-            old read-only "route summary" card with the separate From / To
-            <select> dropdowns into one tappable card — the user selects
-            directly in the card showing the from → to flow. ── */}
-        <div
-          className="rounded-[0.625rem] border mb-3 overflow-hidden"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-        >
-          <div className="flex items-stretch">
-            {/* From side */}
-            <button
-              type="button"
-              onClick={() => { haptic(10); setPicker("from"); }}
-              className="flex-1 min-w-0 p-3 text-center press transition-colors"
-              style={{
-                backgroundColor:
-                  fromLocationId
-                    ? "transparent"
-                    : "color-mix(in srgb, var(--color-signal) 6%, transparent)",
-              }}
-            >
-              <div className="flex items-center justify-center gap-1 mb-1">
-                <MapPin className="size-3" style={{ color: "var(--color-ink-700)" }} />
-                <span
-                  className="text-m-section font-extrabold tracking-tight"
-                  style={{ color: "var(--color-ink-700)" }}
-                >
-                  From
-                </span>
-              </div>
-              <p
-                className="text-m-body font-bold truncate"
-                style={{ color: fromLocationId ? "var(--color-ink-950)" : "var(--color-ink-400)" }}
-              >
-                {fromLoc?.name ?? "Select source"}
-              </p>
-              {fromLoc?.companyName ? (
-                <p className="text-m-caption truncate" style={{ color: "var(--color-ink-700)" }}>
-                  {fromLoc.companyName}
-                </p>
-              ) : null}
-              <ChevronDown
-                className="size-3 mx-auto mt-1"
-                style={{ color: "var(--color-ink-400)" }}
-              />
-            </button>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {/* ══════ SECTION: ROUTE (From → To) ══════ */}
+          <div
+            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Route
+            </p>
 
-            {/* Arrow divider */}
-            <div className="flex items-center justify-center px-1 shrink-0">
-              <ArrowRight className="size-4" style={{ color: "var(--color-signal)" }} />
+            {/* From + To as endpoints of the flow track (Amazon-style) */}
+            <div className="flex items-stretch gap-2">
+              {/* ── FROM (left endpoint) ── */}
+              <div className="flex flex-col shrink-0" style={{ width: "38%" }}>
+                <label className={labelClass} style={labelStyle}>
+                  From <span style={{ color: "var(--color-stop)" }}>*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => { haptic(10); setModal({ type: "from" }); }}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors text-left press truncate"
+                  style={{
+                    borderColor: routeOrigin ? "var(--color-go)" : "var(--color-line)",
+                    backgroundColor: "transparent",
+                    color: fromLoc ? "var(--color-ink-950)" : "var(--color-ink-500)",
+                  }}
+                >
+                  {fromLoc ? (
+                    <span className="truncate block">{fromLoc.name}</span>
+                  ) : (
+                    <span>— Select —</span>
+                  )}
+                </button>
+              </div>
+
+              {/* ── TRACK (center, connects the two endpoints) ── */}
+              <div className="relative flex-1 flex flex-col justify-end pb-1">
+                {/* Track line aligned with the selector underlines */}
+                <div className="relative h-2.5 flex items-center">
+                  <div className="relative flex-1 h-0.5 rounded-full" style={{ backgroundColor: "var(--color-line)" }}>
+                    {/* Filled portion */}
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+                      style={{
+                        width: routeComplete ? "100%" : routeOrigin ? "50%" : "0%",
+                        backgroundColor: routeComplete ? "var(--color-go)" : "var(--color-signal)",
+                      }}
+                    />
+                    {/* Traveling package dot — only when route is complete */}
+                    {routeComplete ? (
+                      <div
+                        className="route-package absolute size-2 rounded-full -top-[3px] shrink-0"
+                        style={{
+                          backgroundColor: "var(--color-signal)",
+                          border: "1.5px solid var(--color-paper)",
+                        }}
+                      />
+                    ) : null}
+                  </div>
+                </div>
+                {/* Flow direction label */}
+                <div className="flex items-center justify-center pt-1">
+                  <ArrowRight className="size-3" style={{ color: routeComplete ? "var(--color-go)" : "var(--color-ink-300)" }} />
+                </div>
+              </div>
+
+              {/* ── TO (right endpoint) ── */}
+              <div className="flex flex-col shrink-0" style={{ width: "38%" }}>
+                <label className={labelClass} style={labelStyle}>
+                  {mode === "transfer" ? "To Loc" : "To Proj"} <span style={{ color: "var(--color-stop)" }}>*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => { haptic(10); setModal(mode === "transfer" ? { type: "to-location" } : { type: "to-project" }); }}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors text-left press truncate"
+                  style={{
+                    borderColor: routeComplete ? "var(--color-go)" : "var(--color-line)",
+                    backgroundColor: "transparent",
+                    color: (mode === "transfer" ? toLoc?.name : proj?.name) ? "var(--color-ink-950)" : "var(--color-ink-500)",
+                  }}
+                >
+                  {mode === "transfer" ? (
+                    toLoc?.name ? <span className="truncate block">{toLoc.name}</span> : <span>— Select —</span>
+                  ) : (
+                    proj?.name ? <span className="truncate block">{proj.name}</span> : <span>— Select —</span>
+                  )}
+                </button>
+              </div>
             </div>
 
-            {/* To side */}
-            <button
-              type="button"
-              onClick={() => { haptic(10); setPicker("to"); }}
-              className="flex-1 min-w-0 p-3 text-center press transition-colors"
-              style={{
-                backgroundColor:
-                  (mode === "transfer" ? toLocationId : projectId)
-                    ? "transparent"
-                    : "color-mix(in srgb, var(--color-signal) 6%, transparent)",
-              }}
-            >
-              <div className="flex items-center justify-center gap-1 mb-1">
-                {mode === "transfer" ? (
-                  <MapPin className="size-3" style={{ color: "var(--color-ink-700)" }} />
-                ) : (
-                  <Building2 className="size-3" style={{ color: "var(--color-ink-700)" }} />
-                )}
-                <span
-                  className="text-m-section font-extrabold tracking-tight"
-                  style={{ color: "var(--color-ink-700)" }}
+            {/* Inter-company indicator + charges (transfer mode) */}
+            {mode === "transfer" &&
+            fromLoc?.companyId && toLoc?.companyId &&
+            fromLoc.companyId !== toLoc.companyId ? (
+              <>
+                <div
+                  className="rounded-[0.5rem] px-2.5 py-2 text-m-caption font-semibold flex items-center gap-1.5"
+                  style={{
+                    backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, transparent)",
+                    color: "var(--color-signal-dark, var(--color-signal))",
+                  }}
                 >
-                  To
-                </span>
+                  <Truck className="size-3.5 shrink-0" />
+                  <span>Inter-company transfer — transfer pricing applies</span>
+                </div>
+
+                {/* Inter-company STO charges */}
+                <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>
+                      Freight
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={freight}
+                      onChange={(e) => setFreight(e.target.value)}
+                      placeholder="0"
+                      className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                      style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>
+                      Handling
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={handlingFee}
+                      onChange={(e) => setHandlingFee(e.target.value)}
+                      placeholder="0"
+                      className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                      style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>
+                      Markup %
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={markupPct}
+                      onChange={(e) => setMarkupPct(e.target.value)}
+                      placeholder="0"
+                      className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                      style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                    />
+                  </div>
+                </div>
+              </>
+            ) : null}
+
+            {/* Built unit (issue mode, if the project has units) */}
+            {mode === "issue" && units.length > 0 ? (
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Built unit (optional)
+                </label>
+                <select
+                  value={builtUnitId}
+                  onChange={(e) => { setBuiltUnitId(e.target.value); haptic(10); }}
+                  className={inputClass}
+                  style={inputStyle}
+                >
+                  <option value="">General project allocation</option>
+                  {units.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      Unit {u.unitNumber}
+                      {u.builtAreaSqft ? ` (${u.builtAreaSqft} sqft)` : ""}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <p
-                className="text-m-body font-bold truncate"
-                style={{
-                  color:
-                    (mode === "transfer" ? toLocationId : projectId)
-                      ? "var(--color-ink-950)"
-                      : "var(--color-ink-400)",
-                }}
-              >
-                {mode === "transfer"
-                  ? (toLoc?.name ?? "Select destination")
-                  : (proj?.name ?? "Select project")}
-              </p>
-              {mode === "transfer" && toLoc?.companyName ? (
-                <p className="text-m-caption truncate" style={{ color: "var(--color-ink-700)" }}>
-                  {toLoc.companyName}
-                </p>
-              ) : null}
-              <ChevronDown
-                className="size-3 mx-auto mt-1"
-                style={{ color: "var(--color-ink-400)" }}
-              />
-            </button>
+            ) : null}
           </div>
-        </div>
 
-        {/* Inter-company indicator (transfer mode) */}
-        {mode === "transfer" &&
-        fromLoc?.companyId && toLoc?.companyId &&
-        fromLoc.companyId !== toLoc.companyId ? (
-          <div
-            className="rounded-[0.5rem] px-2.5 py-2 mb-3 text-m-caption font-semibold flex items-center gap-1.5"
-            style={{
-              backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, transparent)",
-              color: "var(--color-signal-dark, var(--color-signal))",
-            }}
-          >
-            <Truck className="size-3.5 shrink-0" />
-            <span>Inter-company transfer — transfer pricing applies</span>
-          </div>
-        ) : null}
-
-        {/* Built unit (issue mode, if the project has units) */}
-        {mode === "issue" && units.length > 0 ? (
-          <div className="mb-3">
-            <label
-              className="block text-m-caption font-semibold mb-1"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              Built unit (optional)
-            </label>
-            <select
-              value={builtUnitId}
-              onChange={(e) => setBuiltUnitId(e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              <option value="">General project allocation</option>
-              {units.map((u) => (
-                <option key={u.id} value={u.id}>
-                  Unit {u.unitNumber}
-                  {u.builtAreaSqft ? ` (${u.builtAreaSqft} sqft)` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {mode === "issue" ? (
             <>
-
-              {/* Receiver */}
+              {/* ══════ SECTION: RECEIVER ══════ */}
               <div
-                className="rounded-[0.625rem] border p-3 space-y-3"
+                className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               >
-                <div
-                  className="flex items-center gap-1.5 border-b pb-2"
-                  style={{ borderColor: "var(--color-line)" }}
-                >
-                  <User className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
-                  <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-700)" }}>
-                    Receiver
-                  </span>
-                </div>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Receiver
+                </p>
                 <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
-                    <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-700)" }}>
+                    <label className={labelClass} style={labelStyle}>
                       Name
                     </label>
                     <input
@@ -916,7 +1006,7 @@ export function MobileStockOutClient({
                     />
                   </div>
                   <div>
-                    <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-700)" }}>
+                    <label className={labelClass} style={labelStyle}>
                       Mobile
                     </label>
                     <input
@@ -931,8 +1021,11 @@ export function MobileStockOutClient({
                 </div>
               </div>
 
-              {/* Vehicle */}
-              <div className="space-y-3">
+              {/* ══════ SECTION: VEHICLE ══════ */}
+              <div
+                className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              >
                 <div
                   className="flex items-center gap-1.5 border-b pb-2"
                   style={{ borderColor: "var(--color-line)" }}
@@ -947,99 +1040,148 @@ export function MobileStockOutClient({
             </>
           ) : null}
 
-          {/* ── Material lines (shared) ── */}
-          <div className="flex items-center gap-1.5 mt-1">
-            <Package className="size-3" style={{ color: "var(--color-ink-500)" }} />
-            <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              Items
-            </span>
-            <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-line)" }} />
-          </div>
-
-          <div className="flex flex-col gap-3">
-            {lines.map((line, idx) => {
-              const mat = materials.find((m) => m.id === line.materialId);
-              return (
-                <div
-                  key={idx}
-                  className="rounded-[0.625rem] border overflow-hidden"
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                >
-                  <div
-                    className="flex items-center justify-between px-2 py-1"
-                    style={{ backgroundColor: "var(--color-paper-2)", borderBottom: "1px solid var(--color-line)" }}
-                  >
-                    <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-700)" }}>
-                      Item {idx + 1}
-                    </span>
-                    {lines.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveLine(idx)}
-                        className="text-m-body press"
-                        style={{ color: "var(--color-stop)" }}
-                      >
-                        <Trash2 className="size-2.5" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="p-2 flex flex-col gap-3.5">
-                    <MobileSelectWithCreate
-                      label=""
-                      value={line.materialId}
-                      onChange={(val) => handleLineChange(idx, "materialId", val)}
-                      options={materials.map((m) => ({ value: m.id, label: `${m.name} (${m.code})` }))}
-                      inputClass="w-full h-9 rounded-[0.375rem] border px-2 text-m-body outline-none"
-                      inputStyle={inputStyle}
-                      labelClass="hidden"
-                      renderDialog={({ open, onClose, onCreated }) => (
-                        <MobileNewMaterialDialog
-                          open={open}
-                          onClose={onClose}
-                          categories={[]}
-                          onCreated={(m) => onCreated(m.id, m.name)}
-                        />
-                      )}
-                    />
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        enterKeyHint="next"
-                        value={line.qty}
-                        onChange={(e) => handleLineChange(idx, "qty", e.target.value)}
-                        placeholder="Qty"
-                        className="flex-1 h-9 rounded-[0.375rem] border px-2 text-m-body font-bold tabular-nums outline-none"
-                        style={inputStyle}
-                      />
-                      {mat && (
-                        <span className="text-m-caption font-semibold shrink-0" style={{ color: "var(--color-ink-700)" }}>
-                          {mat.unit}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Add line */}
-          <button
-            type="button"
-            onClick={handleAddLine}
-            className="flex items-center justify-center gap-1 w-full rounded-[0.5rem] border border-dashed py-2.5 text-m-body press"
-            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+          {/* ══════ SECTION: ITEMS ══════ */}
+          <div
+            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
-            <Plus className="size-3.5" />
-            <span className="text-m-body font-bold">Add another item</span>
-          </button>
+            {/* Heading + inline Add button (rightmost) */}
+            <div className="flex items-center justify-between">
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Items ({lines.length})
+              </p>
+              <button
+                type="button"
+                onClick={handleAddLine}
+                className="flex items-center gap-1 text-m-caption font-bold press px-2 py-1 rounded-full"
+                style={{
+                  backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)",
+                  color: "var(--color-signal-dark, var(--color-signal))",
+                }}
+              >
+                <Plus className="size-3" />
+                <span>Add</span>
+              </button>
+            </div>
 
-          {/* Notes (shared) */}
-          <div>
-            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-              Notes (optional)
-            </label>
+            {/* Lines — 2-col grid when 2+ items, single column when 1 */}
+            <div className={lines.length > 1 ? "grid grid-cols-2 gap-2" : "flex flex-col gap-2"}>
+              {lines.map((line, idx) => {
+                const mat = materials.find((m) => m.id === line.materialId);
+                const lotTracked = mat?.isLotTracked === true;
+                const selectedLot = lotTracked && line.lotNumber
+                  ? lotsCache[line.materialId]?.find((l) => l.lotNumber === line.lotNumber)
+                  : null;
+                return (
+                  <div
+                    key={idx}
+                    className="rounded-[0.5rem] border p-2 flex flex-col gap-2.5"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+                  >
+                    {lines.length > 1 ? (
+                      <div className="flex items-center justify-between">
+                        <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-700)" }}>
+                          Item {idx + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLine(idx)}
+                          className="text-m-body press"
+                          style={{ color: "var(--color-stop)" }}
+                        >
+                          <Trash2 className="size-3" />
+                        </button>
+                      </div>
+                    ) : null}
+
+                    {/* Material + Qty — side by side (horizontal, like FAB popup) */}
+                    <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                      <div>
+                        <label className={labelClass} style={labelStyle}>
+                          Material <span style={{ color: "var(--color-stop)" }}>*</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => { haptic(10); setModal({ type: "material", lineIndex: idx }); }}
+                          className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors text-left press truncate"
+                          style={{
+                            borderColor: "var(--color-line)",
+                            backgroundColor: "transparent",
+                            color: mat ? "var(--color-ink-950)" : "var(--color-ink-500)",
+                          }}
+                        >
+                          {mat ? (
+                            <span className="truncate block">
+                              {mat.name}
+                              <span className="font-normal" style={{ color: "var(--color-ink-700)" }}> · {mat.code}</span>
+                            </span>
+                          ) : (
+                            <span>— Select —</span>
+                          )}
+                        </button>
+                      </div>
+                      <div>
+                        <label className={labelClass} style={labelStyle}>
+                          Qty{mat ? ` (${mat.unit})` : ""} <span style={{ color: "var(--color-stop)" }}>*</span>
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          enterKeyHint="next"
+                          value={line.qty}
+                          onChange={(e) => handleLineChange(idx, "qty", e.target.value)}
+                          placeholder="0"
+                          className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                          style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Lot — selector for lot-tracked materials, hidden otherwise */}
+                    {lotTracked ? (
+                      <div>
+                        <label className={labelClass} style={labelStyle}>
+                          Lot / Batch <span style={{ color: "var(--color-stop)" }}>*</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => openLotPicker(idx)}
+                          className="w-full h-7 px-1 text-m-caption font-mono outline-none border-b focus:border-b-2 transition-colors text-left press truncate"
+                          style={{
+                            borderColor: "var(--color-line)",
+                            backgroundColor: "transparent",
+                            color: line.lotNumber ? "var(--color-ink-950)" : "var(--color-ink-500)",
+                          }}
+                        >
+                          {selectedLot ? (
+                            <span className="truncate block">
+                              {selectedLot.lotNumber}
+                              <span className="font-normal" style={{ color: "var(--color-ink-700)" }}>
+                                {" "}· {selectedLot.currentQty} {mat?.unit ?? ""} avail
+                              </span>
+                            </span>
+                          ) : line.lotNumber ? (
+                            <span className="truncate block">{line.lotNumber}</span>
+                          ) : (
+                            <span>— Select lot —</span>
+                          )}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ══════ SECTION: NOTES ══════ */}
+          <div
+            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Notes
+            </p>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -1047,14 +1189,14 @@ export function MobileStockOutClient({
                 ? "e.g. Moving excess cement to Site B"
                 : "e.g. Issued for Tower A foundation concreting"}
               rows={2}
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+              className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
               style={inputStyle}
             />
           </div>
         </form>
       </div>
 
-      {/* ── Sticky bottom bar ── */}
+      {/* ══════ STICKY BOTTOM BAR ══════ */}
       <div
         className="fixed left-0 right-0 z-30 border-t backdrop-blur-sm"
         style={{
@@ -1063,21 +1205,24 @@ export function MobileStockOutClient({
           borderColor: "var(--color-line)",
         }}
       >
-        <div className="max-w-md mx-auto px-3.5 py-2 flex items-center gap-1">
-          <div className="shrink-0">
-            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-700)" }}>
-              {lines.filter((l) => Number(l.qty) > 0).length} items
-            </p>
-            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-              {formatNumber(lines.reduce((s, l) => s + (Number(l.qty) || 0), 0), 2)} units
-            </p>
+        <div className="max-w-md mx-auto px-3.5 py-2 flex items-center justify-between gap-2">
+          {/* Totals — compact, left-aligned (item count only; quantities can't be summed across mixed units) */}
+          <div className="shrink-0 flex flex-col gap-0.5">
+            <span className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-700)" }}>
+              {lines.filter((l) => l.materialId && Number(l.qty) > 0).length} {lines.filter((l) => l.materialId && Number(l.qty) > 0).length === 1 ? "item" : "items"}
+            </span>
+            <span className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              {mode === "transfer" ? "Transfer" : "Issue"}
+            </span>
           </div>
+
+          {/* Submit button */}
           <button
             type="button"
             onClick={(e) => { if (submitLongPress.wasLongPress()) return; handleSubmit(e as unknown as React.FormEvent); }}
             disabled={submitting}
             {...submitLongPress.longPressProps}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50 select-none"
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-body font-bold text-m-body press disabled:opacity-50 select-none"
             style={{
               backgroundColor: mode === "issue" ? "var(--color-signal)" : "var(--color-ink-950)",
               color: "var(--color-paper)",
@@ -1104,84 +1249,123 @@ export function MobileStockOutClient({
         </div>
       </div>
 
-      {/* ── Route-card picker sheets (merged from/to selection) ── */}
-      <PickerSheet
-        title="From Location"
-        open={picker === "from"}
-        onClose={() => setPicker(null)}
-        value={fromLocationId}
-        onSelect={setFromLocationId}
-        createLabel="location"
-        options={locations.map((l) => ({
-          value: l.id,
-          label: l.name,
-          sublabel: l.companyName ?? undefined,
-        }))}
-        renderCreateDialog={({ open, onClose, onCreated }) => (
-          <MobileNewStockLocationDialog
-            open={open}
-            onClose={onClose}
-            projects={[]}
-            onCreated={(l) => {
-              setLocations((prev) =>
-                prev.some((x) => x.id === l.id)
-                  ? prev
-                  : [...prev, { id: l.id, name: l.name, type: l.type }],
-              );
-              onCreated(l.id, l.name);
-            }}
-          />
-        )}
-      />
-      <PickerSheet
-        title={mode === "transfer" ? "To Location" : "To Project"}
-        open={picker === "to"}
-        onClose={() => setPicker(null)}
-        value={mode === "transfer" ? toLocationId : projectId}
-        onSelect={mode === "transfer" ? setToLocationId : setProjectId}
-        createLabel={mode === "transfer" ? "location" : "project"}
-        options={
-          mode === "transfer"
-            ? locations.map((l) => ({
-                value: l.id,
-                label: l.name,
-                sublabel: l.companyName ?? undefined,
-              }))
-            : projects.map((p) => ({ value: p.id, label: p.name }))
-        }
-        renderCreateDialog={
-          mode === "transfer"
-            ? ({ open, onClose, onCreated }) => (
-                <MobileNewStockLocationDialog
-                  open={open}
-                  onClose={onClose}
-                  projects={[]}
-                  onCreated={(l) => {
-                    setLocations((prev) =>
-                      prev.some((x) => x.id === l.id)
-                        ? prev
-                        : [...prev, { id: l.id, name: l.name, type: l.type }],
-                    );
-                    onCreated(l.id, l.name);
-                  }}
-                />
-              )
-            : ({ open, onClose, onCreated }) => (
-                <MobileNewProjectDialog
-                  open={open}
-                  onClose={onClose}
-                  onCreated={(p) => {
-                    setProjects((prev) =>
-                      prev.some((x) => x.id === p.id)
-                        ? prev
-                        : [...prev, { id: p.id, name: p.name }],
-                    );
-                    onCreated(p.id, p.name);
-                  }}
-                />
-              )
-        }
-      />
+      {/* ══════ SELECTOR MODAL ══════ */}
+      {modal ? (
+        <SelectorModal
+          title={
+            modal.type === "from" ? "Select From Location" :
+            modal.type === "to-location" ? "Select To Location" :
+            modal.type === "to-project" ? "Select To Project" :
+            modal.type === "lot" ? "Select Lot / Batch" :
+            "Select Material"
+          }
+          createLabel={
+            modal.type === "to-project" ? "project" :
+            modal.type === "material" ? "material" :
+            modal.type === "lot" ? undefined : "location"
+          }
+          items={
+            modal.type === "from" || modal.type === "to-location"
+              ? locations.map((l) => ({ id: l.id, label: l.name, sub: l.companyName ?? undefined }))
+              : modal.type === "to-project"
+                ? projects.map((p) => ({ id: p.id, label: p.name }))
+                : modal.type === "lot"
+                  ? (lotsCache[lines[modal.lineIndex ?? 0]?.materialId ?? ""] ?? []).map((l) => ({
+                      id: l.lotNumber,
+                      label: l.lotNumber,
+                      sub: `${l.currentQty} ${materials.find((m) => m.id === lines[modal.lineIndex ?? 0]?.materialId)?.unit ?? ""} avail${l.expiryDate ? ` · exp ${new Date(l.expiryDate).toLocaleDateString()}` : ""}`,
+                    }))
+                  : materials.map((m) => ({ id: m.id, label: m.name, sub: `${m.code} · ${m.unit}` }))
+          }
+          selectedId={
+            modal.type === "from" ? fromLocationId :
+            modal.type === "to-location" ? toLocationId :
+            modal.type === "to-project" ? projectId :
+            modal.type === "lot" ? (lines[modal.lineIndex ?? 0]?.lotNumber ?? "") :
+            (lines[modal.lineIndex ?? 0]?.materialId ?? "")
+          }
+          onSelect={(id) => {
+            if (modal.type === "from") setFromLocationId(id);
+            else if (modal.type === "to-location") setToLocationId(id);
+            else if (modal.type === "to-project") setProjectId(id);
+            else if (modal.type === "lot" && modal.lineIndex !== undefined) {
+              handleLineChange(modal.lineIndex, "lotNumber", id);
+            }
+            else if (modal.type === "material" && modal.lineIndex !== undefined) {
+              handleLineChange(modal.lineIndex, "materialId", id);
+              // Clear any stale lot when material changes
+              handleLineChange(modal.lineIndex, "lotNumber", "");
+            }
+            setModal(null);
+          }}
+          onClose={() => setModal(null)}
+          onCreate={
+            modal.type === "lot" ? undefined : () => {
+              if (modal) {
+                setShowCreateDialog(
+                  modal.type === "to-project" ? "project" :
+                  modal.type === "material" ? "material" : "location",
+                );
+              }
+            }
+          }
+        />
+      ) : null}
+
+      {/* ══════ INLINE CREATE DIALOGS ══════ */}
+      {showCreateDialog === "location" ? (
+        <MobileNewStockLocationDialog
+          open
+          onClose={() => setShowCreateDialog(null)}
+          projects={[]}
+          onCreated={(l) => {
+            setLocations((prev) =>
+              prev.some((x) => x.id === l.id)
+                ? prev
+                : [...prev, { id: l.id, name: l.name, type: l.type }],
+            );
+            if (modal?.type === "from") setFromLocationId(l.id);
+            else if (modal?.type === "to-location") setToLocationId(l.id);
+            setShowCreateDialog(null);
+            setModal(null);
+          }}
+        />
+      ) : null}
+      {showCreateDialog === "project" ? (
+        <MobileNewProjectDialog
+          open
+          onClose={() => setShowCreateDialog(null)}
+          onCreated={(p) => {
+            setProjects((prev) =>
+              prev.some((x) => x.id === p.id)
+                ? prev
+                : [...prev, { id: p.id, name: p.name }],
+            );
+            setProjectId(p.id);
+            setShowCreateDialog(null);
+            setModal(null);
+          }}
+        />
+      ) : null}
+      {showCreateDialog === "material" ? (
+        <MobileNewMaterialDialog
+          open
+          onClose={() => setShowCreateDialog(null)}
+          categories={[]}
+          onCreated={(m) => {
+            setMaterials((prev) =>
+              prev.some((x) => x.id === m.id)
+                ? prev
+                : [...prev, { id: m.id, name: m.name, code: m.code, unit: m.unit }],
+            );
+            if (modal?.lineIndex !== undefined) {
+              handleLineChange(modal.lineIndex, "materialId", m.id);
+            }
+            setShowCreateDialog(null);
+            setModal(null);
+          }}
+        />
+      ) : null}
     </>
   );
 }

@@ -591,8 +591,8 @@ export function MobileCallDetailClient({
                 value={newTag}
                 onChange={(e) => setNewTag(e.target.value)}
                 placeholder="Add a tag…"
-                className="flex-1 h-10 rounded-[0.5rem] border px-2.5 text-m-body outline-none"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
+                className="flex-1 h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={{ backgroundColor: "transparent" }}
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
               />
               <button
@@ -643,8 +643,8 @@ export function MobileCallDetailClient({
                 value={newNote}
                 onChange={(e) => setNewNote(e.target.value)}
                 placeholder="Add a note…"
-                className="flex-1 h-10 rounded-[0.5rem] border px-2.5 text-m-body outline-none"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
+                className="flex-1 h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={{ backgroundColor: "transparent" }}
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addNote())}
               />
               <button
@@ -800,8 +800,8 @@ export function MobileCallDetailClient({
                 <select
                   value={disposition}
                   onChange={(e) => setDisposition(e.target.value)}
-                  className="w-full h-10 rounded-[0.5rem] border px-2.5 text-m-body outline-none"
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ backgroundColor: "transparent" }}
                 >
                   <option value="">—</option>
                   <option value="CONNECTED">Connected</option>
@@ -823,8 +823,8 @@ export function MobileCallDetailClient({
                   value={notes2}
                   onChange={(e) => setNotes2(e.target.value)}
                   placeholder="Call summary…"
-                  className="w-full h-10 rounded-[0.5rem] border px-2.5 text-m-body outline-none"
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ backgroundColor: "transparent" }}
                 />
               </div>
               <div className="flex gap-2 pt-1">

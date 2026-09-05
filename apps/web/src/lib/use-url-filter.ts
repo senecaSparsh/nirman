@@ -80,7 +80,7 @@ export function useUrlQuery(
   key: string = "q",
   defaultValue: string = "",
   debounceMs: number = 300,
-): [string, (value: string) => void] {
+): [string, (value: string) => () => void] {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();

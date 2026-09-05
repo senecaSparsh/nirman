@@ -11,6 +11,7 @@ import {
 import {
   MobileSectionTitle,
 } from "@/components/mobile/v2/primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 import {formatCurrencyCompact, formatDate} from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import type { LegalDocRow, LegalDocType, LegalDocStatus } from "@/components/legal/legal-docs-section";
@@ -662,129 +663,124 @@ function MobileLegalDocForm({
   }
 
   const isATS = form.type === "AGREEMENT_TO_SELL";
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
-    backgroundColor: "var(--color-surface)",
-    borderColor: "var(--color-line)",
-    color: "var(--color-ink-900)",
+    backgroundColor: "transparent",
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <div className="absolute inset-0" style={{ backgroundColor: "rgba(0,0,0,0.4)" }} onClick={onClose} />
-      <div
-        className="relative w-full max-w-md rounded-t-[1rem] border-t max-h-[90vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-      >
-        {/* Header */}
-        <div className="sticky top-0 z-10 pt-2 pb-1" style={{ backgroundColor: "var(--color-paper)" }}>
-          <div className="w-8 h-0.5 rounded-full mx-auto mb-2" style={{ backgroundColor: "var(--color-ink-300)" }} />
-          <div className="flex items-center justify-between px-3 pb-2 border-b" style={{ borderColor: "var(--color-line)" }}>
-            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-              {editing ? "Edit Legal Document" : "Add Legal Document"}
-            </p>
-            <button onClick={onClose} className="press">
-              <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-            </button>
-          </div>
-        </div>
-
+    <MobileDialog open={true} onClose={onClose} title={editing ? "Edit Legal Document" : "Add Legal Document"}>
         {/* Body */}
-        <div className="p-3 space-y-3 pb-20">
-          {/* Type + Status */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Type *</label>
-              <select
-                value={form.type}
-                onChange={(e) => {
-                  const t = e.target.value as LegalDocType;
-                  const step = LEGAL_DOC_FLOW_MAP[t];
-                  if (step && !editing) {
-                    setForm((f) => ({ ...f, type: t, title: step.label, authority: step.defaultAuthority }));
-                  } else {
-                    setField("type", t);
-                  }
-                }}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {LEGAL_DOC_FLOW.map((s) => (
-                  <option key={s.type} value={s.type}>{s.label}</option>
-                ))}
-              </select>
+        <div className="flex flex-col gap-3 pb-20">
+          {/* Document Details */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Document Details
+            </p>
+            {/* Type + Status */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Type *</label>
+                <select
+                  value={form.type}
+                  onChange={(e) => {
+                    const t = e.target.value as LegalDocType;
+                    const step = LEGAL_DOC_FLOW_MAP[t];
+                    if (step && !editing) {
+                      setForm((f) => ({ ...f, type: t, title: step.label, authority: step.defaultAuthority }));
+                    } else {
+                      setField("type", t);
+                    }
+                  }}
+                  className={inputClass}
+                  style={inputStyle}
+                >
+                  {LEGAL_DOC_FLOW.map((s) => (
+                    <option key={s.type} value={s.type}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="pl-2">
+                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Status</label>
+                <select
+                  value={form.status}
+                  onChange={(e) => setField("status", e.target.value as LegalDocStatus)}
+                  className={inputClass}
+                  style={inputStyle}
+                >
+                  {(Object.keys(STATUS_STYLE) as LegalDocStatus[]).map((s) => (
+                    <option key={s} value={s}>{STATUS_STYLE[s].label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Status</label>
-              <select
-                value={form.status}
-                onChange={(e) => setField("status", e.target.value as LegalDocStatus)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {(Object.keys(STATUS_STYLE) as LegalDocStatus[]).map((s) => (
-                  <option key={s} value={s}>{STATUS_STYLE[s].label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
 
-          {/* Title */}
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Title *</label>
-            <input
-              type="text"
-              value={form.title}
-              onChange={(e) => setField("title", e.target.value)}
-              placeholder="e.g. Map Approval — Tower A"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Authority + Doc Number */}
-          <div className="grid grid-cols-2 gap-2">
+            {/* Title */}
             <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Authority</label>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Title *</label>
               <input
                 type="text"
-                value={form.authority}
-                onChange={(e) => setField("authority", e.target.value)}
-                placeholder="e.g. DDA, Fire Dept"
+                value={form.title}
+                onChange={(e) => setField("title", e.target.value)}
+                placeholder="e.g. Map Approval — Tower A"
                 className={inputClass}
                 style={inputStyle}
               />
             </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Ref. No.</label>
-              <input
-                type="text"
-                value={form.docNumber}
-                onChange={(e) => setField("docNumber", e.target.value)}
-                placeholder="e.g. DDA/LU/2024/123"
-                className={inputClass}
-                style={inputStyle}
-              />
+
+            {/* Authority + Doc Number */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Authority</label>
+                <input
+                  type="text"
+                  value={form.authority}
+                  onChange={(e) => setField("authority", e.target.value)}
+                  placeholder="e.g. DDA, Fire Dept"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div className="pl-2">
+                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Ref. No.</label>
+                <input
+                  type="text"
+                  value={form.docNumber}
+                  onChange={(e) => setField("docNumber", e.target.value)}
+                  placeholder="e.g. DDA/LU/2024/123"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
             </div>
           </div>
 
-          {/* Dates */}
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Issue Date</label>
-              <input type="date" value={form.issueDate} onChange={(e) => setField("issueDate", e.target.value)} className={inputClass} style={inputStyle} />
-            </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Valid From</label>
-              <input type="date" value={form.validFrom} onChange={(e) => setField("validFrom", e.target.value)} className={inputClass} style={inputStyle} />
-            </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Valid Till</label>
-              <input type="date" value={form.validTill} onChange={(e) => setField("validTill", e.target.value)} className={inputClass} style={inputStyle} />
+          {/* Validity Dates */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Validity Dates
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Issue Date</label>
+                <input type="date" value={form.issueDate} onChange={(e) => setField("issueDate", e.target.value)} className={inputClass} style={inputStyle} />
+              </div>
+              <div>
+                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Valid From</label>
+                <input type="date" value={form.validFrom} onChange={(e) => setField("validFrom", e.target.value)} className={inputClass} style={inputStyle} />
+              </div>
+              <div>
+                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Valid Till</label>
+                <input type="date" value={form.validTill} onChange={(e) => setField("validTill", e.target.value)} className={inputClass} style={inputStyle} />
+              </div>
             </div>
           </div>
 
-          {/* ATS-specific or amount */}
+          {/* Financial Details */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Financial Details
+            </p>
           {isATS ? (
             <div className="rounded-[0.5rem] border p-3 space-y-2" style={{ borderColor: "var(--color-brand)", backgroundColor: "rgba(59,130,246,0.05)" }}>
               <p className="text-m-section font-bold" style={{ color: "var(--color-brand)" }}>Agreement to Sell</p>
@@ -808,8 +804,13 @@ function MobileLegalDocForm({
               <input type="number" min={0} step="any" value={form.amount} onChange={(e) => setField("amount", e.target.value)} placeholder="50000" className={inputClass} style={inputStyle} />
             </div>
           )}
+          </div>
 
-          {/* Upload */}
+          {/* Attachment */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Attachment
+            </p>
           <div>
             <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Proof Document</label>
             {form.documentUrl ? (
@@ -835,18 +836,24 @@ function MobileLegalDocForm({
             )}
             <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} disabled={uploading} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip" />
           </div>
+          </div>
 
           {/* Notes */}
-          <div>
-            <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Notes</label>
-            <textarea
-              value={form.notes}
-              onChange={(e) => setField("notes", e.target.value)}
-              rows={2}
-              placeholder="Conditions, remarks, or additional details"
-              className={inputClass}
-              style={inputStyle}
-            />
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Notes
+            </p>
+            <div>
+              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Notes</label>
+              <textarea
+                value={form.notes}
+                onChange={(e) => setField("notes", e.target.value)}
+                rows={2}
+                placeholder="Conditions, remarks, or additional details"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
           </div>
         </div>
 
@@ -870,7 +877,6 @@ function MobileLegalDocForm({
             {saving ? "Saving…" : editing ? "Update" : "Add"}
           </button>
         </div>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }

@@ -7,9 +7,6 @@ import {
   Trash2,
   Loader2,
   CheckCircle2,
-  Search,
-  X,
-  ChevronRight,
   ChevronDown,
   User,
   MapPin,
@@ -41,6 +38,7 @@ import {
 } from "@/components/mobile/vehicle-capture";
 import { useSmartDefaults } from "@/lib/use-smart-defaults";
 import { SmartDefaultsBadge } from "@/components/mobile/v2/smart-defaults-badge";
+import { SelectorModal, SelectorCard, SelectorRow, TypeCard } from "@/components/mobile/v2/form-primitives";
 
 interface CustomerItem {
   id: string;
@@ -1107,12 +1105,12 @@ function SaleForm({
 
           {/* Payment type selector — 2 options */}
           <div className="grid grid-cols-2 gap-2">
-          <PaymentTypeCard
+          <TypeCard
             active={paymentType === "credit"}
             onClick={() => setPaymentType("credit")}
             label="Credit"
           />
-          <PaymentTypeCard
+          <TypeCard
             active={paymentType === "paid"}
             onClick={() => {
               setPaymentType("paid");
@@ -1444,7 +1442,6 @@ function SaleForm({
       {/* ══════ SELECTOR MODAL ══════ */}
       {modal ? (
         <SelectorModal
-          type={modal.type}
           title={
             modal.type === "customer"
               ? "Select Customer"
@@ -1575,375 +1572,6 @@ function SectionHeader({
         className="flex-1 h-px"
         style={{ backgroundColor: "var(--color-line)" }}
       />
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════
- * Payment type card — 3-way selector (Credit / Full / Partial)
- * ═══════════════════════════════════════════════════════════ */
-function PaymentTypeCard({
-  active,
-  onClick,
-  label,
-  sublabel,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  sublabel?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="border-b-2 px-1 py-1 flex flex-col items-center text-m-body press transition-colors"
-      style={
-        active
-          ? {
-              borderColor: "var(--color-ink-950)",
-              backgroundColor: "transparent",
-              color: "var(--color-ink-950)",
-            }
-          : {
-              borderColor: "var(--color-line)",
-              backgroundColor: "transparent",
-              color: "var(--color-ink-500)",
-            }
-      }
-    >
-      <span className="text-m-caption font-bold">{label}</span>
-      {sublabel ? (
-        <span
-          className="text-m-caption font-normal truncate w-full text-center"
-          style={
-            active
-              ? { color: "var(--color-ink-700)" }
-              : { color: "var(--color-ink-400)" }
-          }
-        >
-          {sublabel}
-        </span>
-      ) : null}
-    </button>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════
- * Selector card — prominent tappable card for customer/project
- * ═══════════════════════════════════════════════════════════ */
-function SelectorCard({
-  onClick,
-  icon: Icon,
-  label,
-  value,
-  subvalue,
-  placeholder,
-  required,
-  compact,
-}: {
-  onClick: () => void;
-  icon: React.ComponentType<{
-    className?: string;
-    style?: React.CSSProperties;
-  }>;
-  label: string;
-  value?: string;
-  subvalue?: string | null;
-  placeholder?: string;
-  required?: boolean;
-  compact?: boolean;
-}) {
-  const hasValue = !!value;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full flex items-center gap-1.5 text-m-body press text-left border-b focus:border-b-2 transition-colors pb-0.5"
-      style={{
-        borderColor: "var(--color-line)",
-        backgroundColor: "transparent",
-      }}
-    >
-      <div className="min-w-0 flex-1">
-        {hasValue ? (
-          <p
-            className="text-m-caption font-bold truncate"
-            style={{ color: "var(--color-ink-950)" }}
-          >
-            {value}
-            {subvalue && !compact ? (
-              <span
-                className="font-normal"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                {" "}{subvalue}
-              </span>
-            ) : null}
-          </p>
-        ) : (
-          <p
-            className="block text-m-caption font-bold mb-0"
-            style={{ color: "var(--color-ink-700)" }}
-          >
-            {label}
-            {required ? (
-              <span style={{ color: "var(--color-stop)" }}> *</span>
-            ) : null}
-          </p>
-        )}
-      </div>
-      <ChevronRight
-        className={`shrink-0 ${compact ? "size-3" : "size-3.5"}`}
-        style={{ color: "var(--color-ink-500)" }}
-      />
-    </button>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════
- * Selector row — compact tappable row for line item selectors
- * ═══════════════════════════════════════════════════════════ */
-function SelectorRow({
-  onClick,
-  icon: Icon,
-  label,
-  value,
-  subvalue,
-  required,
-  compact,
-}: {
-  onClick: () => void;
-  icon: React.ComponentType<{
-    className?: string;
-    style?: React.CSSProperties;
-  }>;
-  label: string;
-  value?: string;
-  subvalue?: string;
-  required?: boolean;
-  compact?: boolean;
-}) {
-  const hasValue = !!value;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full flex items-center gap-1.5 press text-left border-b focus:border-b-2 transition-colors pb-0.5"
-      style={{
-        borderColor: "var(--color-line)",
-        backgroundColor: "transparent",
-      }}
-    >
-      <div className="min-w-0 flex-1">
-        {hasValue ? (
-          <p
-            className="text-m-caption font-bold truncate"
-            style={{ color: "var(--color-ink-950)" }}
-          >
-            {value}
-            {subvalue ? (
-              <span
-                className="font-normal"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                {" "}
-                · {subvalue}
-              </span>
-            ) : null}
-          </p>
-        ) : (
-          <span
-            className="block text-m-caption font-bold mb-0"
-            style={{ color: "var(--color-ink-700)" }}
-          >
-            {label}
-            {required ? (
-              <span style={{ color: "var(--color-stop)" }}> *</span>
-            ) : null}
-          </span>
-        )}
-      </div>
-      <ChevronRight
-        className={`shrink-0 ${compact ? "size-2.5" : "size-3"}`}
-        style={{ color: "var(--color-ink-500)" }}
-      />
-    </button>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════
- * Selector modal — bottom-sheet with searchable list
- * ═══════════════════════════════════════════════════════════ */
-function SelectorModal({
-  title,
-  items,
-  selectedId,
-  onSelect,
-  onClose,
-  onCreate,
-  createLabel,
-}: {
-  type: "customer" | "project" | "material" | "location";
-  title: string;
-  items: { id: string; label: string; sub?: string }[];
-  selectedId: string;
-  onSelect: (id: string) => void;
-  onClose: () => void;
-  onCreate?: () => void;
-  createLabel?: string;
-}) {
-  const [query, setQuery] = useState("");
-
-  const filtered = useMemo(() => {
-    if (!query.trim()) return items;
-    const q = query.toLowerCase();
-    return items.filter(
-      (item) =>
-        item.label.toLowerCase().includes(q) ||
-        (item.sub?.toLowerCase().includes(q) ?? false),
-    );
-  }, [items, query]);
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{
-        backgroundColor:
-          "color-mix(in srgb, var(--color-ink-950) 50%, transparent)",
-      }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[0.75rem] flex flex-col"
-        style={{ backgroundColor: "var(--color-paper)", maxHeight: "80vh" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between p-3 border-b"
-          style={{ borderColor: "var(--color-line)" }}
-        >
-          <p
-            className="text-m-section font-bold"
-            style={{ color: "var(--color-ink-950)" }}
-          >
-            {title}
-          </p>
-          <button onClick={onClose} className="text-m-body press">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
-
-        {/* Search */}
-        <div
-          className="p-2 border-b"
-          style={{ borderColor: "var(--color-line)" }}
-        >
-          <div className="relative">
-            <Search
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
-              style={{ color: "var(--color-ink-500)" }}
-            />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search…"
-              autoFocus
-              className="w-full h-9 rounded-[0.5rem] border pl-8 pr-2 text-m-section outline-none"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper-2)",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-        </div>
-
-        {/* List */}
-        <div className="flex-1 overflow-y-auto overscroll-contain">
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Search
-                className="size-5 mb-1.5"
-                style={{ color: "var(--color-ink-300)" }}
-              />
-              <p
-                className="text-m-body font-semibold"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                No results
-              </p>
-            </div>
-          ) : (
-            filtered.map((item, i) => {
-              const isSelected = item.id === selectedId;
-              return (
-                <button
-                  key={item.id || i}
-                  onClick={() => onSelect(item.id)}
-                  className="w-full flex items-center gap-1 px-3 py-2.5 text-m-body press text-left"
-                  style={{
-                    backgroundColor: isSelected
-                      ? "color-mix(in srgb, var(--color-ink-950) 5%, transparent)"
-                      : "transparent",
-                    borderBottom: "1px solid var(--color-line)",
-                  }}
-                >
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className="text-m-section font-bold truncate"
-                      style={{
-                        color: isSelected
-                          ? "var(--color-ink-950)"
-                          : "var(--color-ink-900)",
-                      }}
-                    >
-                      {item.label}
-                    </p>
-                    {item.sub ? (
-                      <p
-                        className="text-m-caption truncate"
-                        style={{ color: "var(--color-ink-500)" }}
-                      >
-                        {item.sub}
-                      </p>
-                    ) : null}
-                  </div>
-                  {isSelected ? (
-                    <CheckCircle2
-                      className="size-4 shrink-0"
-                      style={{ color: "var(--color-go)" }}
-                    />
-                  ) : null}
-                </button>
-              );
-            })
-          )}
-        </div>
-
-        {/* Create new button */}
-        {onCreate ? (
-          <div
-            className="border-t p-2"
-            style={{ borderColor: "var(--color-line)" }}
-          >
-            <button
-              type="button"
-              onClick={onCreate}
-              className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
-              style={{
-                borderColor: "var(--color-signal)",
-                color: "var(--color-signal-dark)",
-              }}
-            >
-              <Plus className="size-3.5" />
-              {createLabel ?? "Create new"}
-            </button>
-          </div>
-        ) : null}
-      </div>
     </div>
   );
 }

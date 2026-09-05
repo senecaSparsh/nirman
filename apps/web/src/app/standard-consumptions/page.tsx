@@ -18,7 +18,7 @@ export default function StandardConsumptionsPage() {
   );
 }
 
-async function StandardConsumptionsContent() {
+export async function StandardConsumptionsContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

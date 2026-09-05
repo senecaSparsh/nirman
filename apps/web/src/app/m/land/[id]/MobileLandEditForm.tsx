@@ -172,240 +172,252 @@ export function MobileLandEditForm({
   };
 
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
-  const labelClass = "block text-m-caption font-semibold mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
-  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" };
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
+  const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" };
 
   return (
     <BottomSheet title="Edit Land Purchase" onClose={onClose}>
-      <div className="space-y-3">
-        {/* Seller Name */}
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Seller Name <span style={{ color: "var(--color-stop)" }}>*</span>
-          </label>
-          <input
-            type="text"
-            value={sellerName}
-            onChange={(e) => setSellerName(e.target.value)}
-            className={inputClass}
-            style={inputStyle}
-            placeholder="Seller name"
-          />
-        </div>
+      <div className="flex flex-col gap-3">
+        {/* ── Land Details ── */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Land Details
+          </p>
 
-        {/* Seller Contact */}
-        <div>
-          <label className={labelClass} style={labelStyle}>Seller Contact</label>
-          <input
-            type="tel"
-            value={sellerContact}
-            onChange={(e) => setSellerContact(e.target.value)}
-            className={`${inputClass} font-mono`}
-            style={inputStyle}
-            placeholder="9876543210"
-          />
-        </div>
-
-        {/* Purchase Date */}
-        <div>
-          <label className={labelClass} style={labelStyle}>Purchase Date</label>
-          <input
-            type="date"
-            value={purchaseDate}
-            onChange={(e) => setPurchaseDate(e.target.value)}
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
-
-        {/* Area + Unit */}
-        <div className="grid grid-cols-2 gap-2">
+          {/* Seller Name */}
           <div>
             <label className={labelClass} style={labelStyle}>
-              Total Area <span style={{ color: "var(--color-stop)" }}>*</span>
+              Seller Name <span style={{ color: "var(--color-stop)" }}>*</span>
+            </label>
+            <input
+              type="text"
+              value={sellerName}
+              onChange={(e) => setSellerName(e.target.value)}
+              className={inputClass}
+              style={inputStyle}
+              placeholder="Seller name"
+            />
+          </div>
+
+          {/* Seller Contact */}
+          <div>
+            <label className={labelClass} style={labelStyle}>Seller Contact</label>
+            <input
+              type="tel"
+              value={sellerContact}
+              onChange={(e) => setSellerContact(e.target.value)}
+              className={`${inputClass} font-mono`}
+              style={inputStyle}
+              placeholder="9876543210"
+            />
+          </div>
+
+          {/* Purchase Date */}
+          <div>
+            <label className={labelClass} style={labelStyle}>Purchase Date</label>
+            <input
+              type="date"
+              value={purchaseDate}
+              onChange={(e) => setPurchaseDate(e.target.value)}
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Area + Unit */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Total Area <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <input
+                type="text" inputMode="decimal"
+                step="any"
+                value={totalArea}
+                onChange={(e) => setTotalArea(e.target.value)}
+                className={`${inputClass} font-mono`}
+                style={inputStyle}
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <label className={labelClass} style={labelStyle}>Unit</label>
+              <select
+                value={areaUnit}
+                onChange={(e) => setAreaUnit(e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+              >
+                {AREA_UNITS.map((u) => (
+                  <option key={u} value={u}>{AREA_UNIT_LABELS[u]}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Total Cost */}
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Total Cost <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
             <input
               type="text" inputMode="decimal"
               step="any"
-              value={totalArea}
-              onChange={(e) => setTotalArea(e.target.value)}
+              value={totalCost}
+              onChange={(e) => setTotalCost(e.target.value)}
               className={`${inputClass} font-mono`}
               style={inputStyle}
               placeholder="0"
             />
           </div>
+
+          {/* Registry No */}
           <div>
-            <label className={labelClass} style={labelStyle}>Unit</label>
-            <select
-              value={areaUnit}
-              onChange={(e) => setAreaUnit(e.target.value)}
+            <label className={labelClass} style={labelStyle}>Registry No</label>
+            <input
+              type="text"
+              value={registryNo}
+              onChange={(e) => setRegistryNo(e.target.value)}
+              className={`${inputClass} font-mono`}
+              style={inputStyle}
+              placeholder="Registry document number"
+            />
+          </div>
+
+          {/* Location */}
+          <div>
+            <label className={labelClass} style={labelStyle}>Location</label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
               className={inputClass}
               style={inputStyle}
-            >
-              {AREA_UNITS.map((u) => (
-                <option key={u} value={u}>{AREA_UNIT_LABELS[u]}</option>
-              ))}
-            </select>
+              placeholder="Village, district, state"
+            />
+          </div>
+
+          {/* Document URL */}
+          <div>
+            <label className={labelClass} style={labelStyle}>Document URL (optional)</label>
+            <input
+              type="text"
+              value={documentUrl}
+              onChange={(e) => setDocumentUrl(e.target.value)}
+              className={inputClass}
+              style={inputStyle}
+              placeholder="https://..."
+            />
           </div>
         </div>
 
-        {/* Total Cost */}
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Total Cost <span style={{ color: "var(--color-stop)" }}>*</span>
-          </label>
-          <input
-            type="text" inputMode="decimal"
-            step="any"
-            value={totalCost}
-            onChange={(e) => setTotalCost(e.target.value)}
-            className={`${inputClass} font-mono`}
-            style={inputStyle}
-            placeholder="0"
-          />
-        </div>
-
-        {/* Registry No */}
-        <div>
-          <label className={labelClass} style={labelStyle}>Registry No</label>
-          <input
-            type="text"
-            value={registryNo}
-            onChange={(e) => setRegistryNo(e.target.value)}
-            className={`${inputClass} font-mono`}
-            style={inputStyle}
-            placeholder="Registry document number"
-          />
-        </div>
-
-        {/* Location */}
-        <div>
-          <label className={labelClass} style={labelStyle}>Location</label>
-          <input
-            type="text"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className={inputClass}
-            style={inputStyle}
-            placeholder="Village, district, state"
-          />
-        </div>
-
-        {/* Document URL */}
-        <div>
-          <label className={labelClass} style={labelStyle}>Document URL (optional)</label>
-          <input
-            type="text"
-            value={documentUrl}
-            onChange={(e) => setDocumentUrl(e.target.value)}
-            className={inputClass}
-            style={inputStyle}
-            placeholder="https://..."
-          />
-        </div>
-
-        {/* ── Land Type ── */}
-        <div className="border-t pt-3" style={{ borderColor: "var(--color-line)" }}>
-          <label className={labelClass} style={labelStyle}>Land Type</label>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setLandType("FREEHOLD")}
-              className={`rounded-[0.375rem] border py-2 text-m-body font-semibold press ${landType === "FREEHOLD" ? "border-ink-950 bg-ink-950 text-paper" : ""}`}
-              style={landType === "FREEHOLD"
-                ? { borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
-                : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
-            >
-              Freehold
-            </button>
-            <button
-              type="button"
-              onClick={() => setLandType("LEASEHOLD")}
-              className={`rounded-[0.375rem] border py-2 text-m-body font-semibold press ${landType === "LEASEHOLD" ? "border-ink-950 bg-ink-950 text-paper" : ""}`}
-              style={landType === "LEASEHOLD"
-                ? { borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
-                : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
-            >
-              Leasehold
-            </button>
+        {/* ── Land Type & Lease ── */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Land Type &amp; Lease
+          </p>
+          <div>
+            <label className={labelClass} style={labelStyle}>Land Type</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setLandType("FREEHOLD")}
+                className={`rounded-[0.375rem] border py-2 text-m-body font-semibold press ${landType === "FREEHOLD" ? "border-ink-950 bg-ink-950 text-paper" : ""}`}
+                style={landType === "FREEHOLD"
+                  ? { borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
+                  : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
+              >
+                Freehold
+              </button>
+              <button
+                type="button"
+                onClick={() => setLandType("LEASEHOLD")}
+                className={`rounded-[0.375rem] border py-2 text-m-body font-semibold press ${landType === "LEASEHOLD" ? "border-ink-950 bg-ink-950 text-paper" : ""}`}
+                style={landType === "LEASEHOLD"
+                  ? { borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
+                  : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
+              >
+                Leasehold
+              </button>
+            </div>
           </div>
-        </div>
 
-        {/* ── Lease details (leasehold only) ── */}
-        {isLeasehold && (
-          <div className="space-y-3">
-            <div>
-              <label className={labelClass} style={labelStyle}>Lease Type</label>
+          {/* ── Lease details (leasehold only) ── */}
+          {isLeasehold && (
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className={labelClass} style={labelStyle}>Lease Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setLeaseType("ONE_TIME")}
+                    className={`rounded-[0.375rem] border py-2 text-m-body font-semibold press ${leaseType === "ONE_TIME" ? "border-ink-950 bg-ink-950 text-paper" : ""}`}
+                    style={leaseType === "ONE_TIME"
+                      ? { borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
+                      : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
+                  >
+                    One-time
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLeaseType("YEARLY")}
+                    className={`rounded-[0.375rem] border py-2 text-m-body font-semibold press ${leaseType === "YEARLY" ? "border-ink-950 bg-ink-950 text-paper" : ""}`}
+                    style={leaseType === "YEARLY"
+                      ? { borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
+                      : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
+                  >
+                    Yearly
+                  </button>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setLeaseType("ONE_TIME")}
-                  className={`rounded-[0.375rem] border py-2 text-m-body font-semibold press ${leaseType === "ONE_TIME" ? "border-ink-950 bg-ink-950 text-paper" : ""}`}
-                  style={leaseType === "ONE_TIME"
-                    ? { borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
-                    : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
-                >
-                  One-time
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLeaseType("YEARLY")}
-                  className={`rounded-[0.375rem] border py-2 text-m-body font-semibold press ${leaseType === "YEARLY" ? "border-ink-950 bg-ink-950 text-paper" : ""}`}
-                  style={leaseType === "YEARLY"
-                    ? { borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
-                    : { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
-                >
-                  Yearly
-                </button>
+                <div>
+                  <label className={labelClass} style={labelStyle}>Lease Period (years)</label>
+                  <input
+                    type="text" inputMode="numeric"
+                    value={leasePeriodYears}
+                    onChange={(e) => setLeasePeriodYears(e.target.value)}
+                    className={`${inputClass} font-mono`}
+                    style={inputStyle}
+                    placeholder="99"
+                  />
+                </div>
+                <div></div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={labelClass} style={labelStyle}>Lease Start</label>
+                  <input
+                    type="date"
+                    value={leaseStartDate}
+                    onChange={(e) => setLeaseStartDate(e.target.value)}
+                    className={inputClass}
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass} style={labelStyle}>Lease End</label>
+                  <input
+                    type="date"
+                    value={leaseEndDate}
+                    onChange={(e) => setLeaseEndDate(e.target.value)}
+                    className={inputClass}
+                    style={inputStyle}
+                  />
+                </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className={labelClass} style={labelStyle}>Lease Period (years)</label>
-                <input
-                  type="text" inputMode="numeric"
-                  value={leasePeriodYears}
-                  onChange={(e) => setLeasePeriodYears(e.target.value)}
-                  className={`${inputClass} font-mono`}
-                  style={inputStyle}
-                  placeholder="99"
-                />
-              </div>
-              <div></div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className={labelClass} style={labelStyle}>Lease Start</label>
-                <input
-                  type="date"
-                  value={leaseStartDate}
-                  onChange={(e) => setLeaseStartDate(e.target.value)}
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>Lease End</label>
-                <input
-                  type="date"
-                  value={leaseEndDate}
-                  onChange={(e) => setLeaseEndDate(e.target.value)}
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* ── Cost Breakup (collapsible) ── */}
-        <div className="border-t pt-3" style={{ borderColor: "var(--color-line)" }}>
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <button
             type="button"
             onClick={() => setShowCostBreakup(!showCostBreakup)}
-            className="flex w-full items-center justify-between text-m-body font-bold text-m-body press"
+            className="flex w-full items-center justify-between text-m-section font-extrabold tracking-tight press"
             style={{ color: "var(--color-ink-950)" }}
           >
             <span>Cost Breakup</span>
@@ -413,7 +425,7 @@ export function MobileLandEditForm({
           </button>
 
           {showCostBreakup && (
-            <div className="mt-3 space-y-3">
+            <div className="flex flex-col gap-3">
               {/* Base Cost */}
               <div>
                 <label className={labelClass} style={labelStyle}>Base Cost (₹) — land price</label>

@@ -438,8 +438,8 @@ function ConvertForm({
           value={supplierId}
           onChange={setSupplierId}
           options={localSuppliers.map((s) => ({ value: s.id, label: s.name }))}
-          inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-          inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          inputClass="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+          inputStyle={{ backgroundColor: "transparent" }}
           labelClass="hidden"
           renderDialog={({ open, onClose, onCreated }) => (
             <MobileNewSupplierDialog
@@ -469,8 +469,8 @@ function ConvertForm({
             );
             if (!valid.some((l) => l.id === locationId) && valid[0]) setLocationId(valid[0].id);
           }}
-          className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+          style={{ backgroundColor: "transparent" }}
         >
           <option value="COMPANY">Company warehouse</option>
           <option value="PROJECT">Project site</option>
@@ -487,8 +487,8 @@ function ConvertForm({
           onChange={setLocationId}
           options={scopedLocations.map((l) => ({ value: l.id, label: l.name }))}
           placeholder={scopedLocations.length === 0 ? "No locations for this scope" : "Select location…"}
-          inputClass="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-          inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          inputClass="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+          inputStyle={{ backgroundColor: "transparent" }}
           labelClass="hidden"
           renderDialog={({ open, onClose, onCreated }) => (
             <MobileNewStockLocationDialog
@@ -512,8 +512,8 @@ function ConvertForm({
           type="date"
           value={expectedDate}
           onChange={(e) => setExpectedDate(e.target.value)}
-          className="w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+          style={{ backgroundColor: "transparent" }}
         />
       </div>
 
@@ -574,8 +574,8 @@ function ConvertForm({
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="PO notes"
-          className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section resize-none outline-none"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+          style={{ backgroundColor: "transparent" }}
         />
       </div>
 

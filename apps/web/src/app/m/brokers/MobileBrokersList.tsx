@@ -2,7 +2,13 @@
 
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import {Phone, Briefcase, Trash2, X} from "lucide-react";
+import {Phone, Briefcase, Trash2, X, Eye, Share2, FileText, Percent} from "lucide-react";
+import { useLongPress } from "@/lib/use-long-press";
+import {
+  MobileOverviewSheet,
+  type OverviewRow,
+} from "@/components/mobile/v2/mobile-overview-sheet";
+import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import {
   MobileSearchHeader,
   MobileCardGrid,
@@ -114,7 +120,7 @@ export function MobileBrokersList({
   );
 }
 
-/* ─── Broker card ─── */
+/* ─── Broker card — long-press opens overview sheet ─── */
 function BrokerCard({
   b,
   canEdit,
@@ -127,52 +133,105 @@ function BrokerCard({
   const hasDeals = b.dealCount > 0;
   const accentColor = hasDeals ? "var(--color-go)" : "var(--color-steel)";
 
+  // ── Long-press overview sheet (data already in list item — no fetch) ──
+  const [overviewOpen, setOverviewOpen] = useState(false);
+  const [pressPoint, setPressPoint] = useState<{ x: number; y: number } | null>(null);
+  const { bind: longPressBind } = useLongPress((x, y) => {
+    setPressPoint({ x, y });
+    setOverviewOpen(true);
+  });
+
+  const overviewRows: OverviewRow[] = [
+    ...(b.agency ? [{ icon: Briefcase, label: "Agency", value: b.agency }] : []),
+    ...(b.phone ? [{ icon: Phone, label: "Phone", value: b.phone, mono: true }] : []),
+    ...(b.defaultCommissionPercent != null
+      ? [{ icon: Percent, label: "Commission", value: `${formatNumber(b.defaultCommissionPercent, 2)}%` }]
+      : []),
+    { icon: FileText, label: "Deals", value: String(b.dealCount), valueColor: hasDeals ? "var(--color-go)" : undefined },
+    ...(b.notes ? [{ icon: FileText, label: "Notes", value: b.notes }] : []),
+  ];
+
+  const overviewActions: ContextAction[] = [
+    ...(canEdit
+      ? [{ label: "Edit", icon: Briefcase, onPress: onEdit } as ContextAction]
+      : []),
+    {
+      label: "Share",
+      icon: Share2,
+      onPress: () => {
+        const url = `${window.location.origin}/m/brokers`;
+        if (navigator.share) {
+          navigator.share({ title: b.name, url }).catch(() => {});
+        } else {
+          navigator.clipboard?.writeText(url).catch(() => {});
+          toast.success("Link copied");
+        }
+      },
+    },
+  ];
+
   return (
-    <div
-      className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden"
-      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-    >
-      <div className="h-0.5 w-full" style={{ backgroundColor: accentColor }} />
-      <button
-        onClick={onEdit}
-        disabled={!canEdit}
-        className="p-2 flex flex-col gap-1 flex-1 text-left active:scale-[0.98] transition-transform disabled:active:scale-100 press"
-      >
-        <div className="flex items-center justify-between gap-1">
-          <p className="text-m-label font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
-            {b.name}
-          </p>
-          {b.defaultCommissionPercent != null && (
-            <span className="text-m-caption font-bold tabular-nums shrink-0" style={{ color: "var(--color-steel)" }}>
-              {formatNumber(b.defaultCommissionPercent, 2)}%
-            </span>
-          )}
+    <>
+      <div {...longPressBind}>
+        <div
+          className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <div className="h-0.5 w-full" style={{ backgroundColor: accentColor }} />
+          <button
+            onClick={onEdit}
+            disabled={!canEdit}
+            className="p-2 flex flex-col gap-1 flex-1 text-left active:scale-[0.98] transition-transform disabled:active:scale-100 press"
+          >
+            <div className="flex items-center justify-between gap-1">
+              <p className="text-m-label font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+                {b.name}
+              </p>
+              {b.defaultCommissionPercent != null && (
+                <span className="text-m-caption font-bold tabular-nums shrink-0" style={{ color: "var(--color-steel)" }}>
+                  {formatNumber(b.defaultCommissionPercent, 2)}%
+                </span>
+              )}
+            </div>
+            {b.agency && (
+              <span className="text-m-caption font-semibold truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-700)" }}>
+                <Briefcase className="size-2" />
+                {b.agency}
+              </span>
+            )}
+            {b.phone && (
+              <span className="text-m-caption truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
+                <Phone className="size-2" />
+                {b.phone}
+              </span>
+            )}
+            <div className="mt-auto pt-1 h-[1rem] flex items-center">
+              {hasDeals ? (
+                <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+                  {b.dealCount} Deal{b.dealCount !== 1 ? "s" : ""}
+                </span>
+              ) : (
+                <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
+                  No deals yet
+                </span>
+              )}
+            </div>
+          </button>
         </div>
-        {b.agency && (
-          <span className="text-m-caption font-semibold truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-700)" }}>
-            <Briefcase className="size-2" />
-            {b.agency}
-          </span>
-        )}
-        {b.phone && (
-          <span className="text-m-caption truncate flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
-            <Phone className="size-2" />
-            {b.phone}
-          </span>
-        )}
-        <div className="mt-auto pt-1 h-[1rem] flex items-center">
-          {hasDeals ? (
-            <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
-              {b.dealCount} Deal{b.dealCount !== 1 ? "s" : ""}
-            </span>
-          ) : (
-            <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
-              No deals yet
-            </span>
-          )}
-        </div>
-      </button>
-    </div>
+      </div>
+
+      {/* Long-press overview sheet */}
+      <MobileOverviewSheet
+        open={overviewOpen}
+        onClose={() => setOverviewOpen(false)}
+        origin={pressPoint}
+        title={b.name}
+        subtitle={b.agency ?? undefined}
+        accentColor={accentColor}
+        rows={overviewRows}
+        actions={overviewActions}
+      />
+    </>
   );
 }
 
@@ -243,14 +302,14 @@ function BrokerEditSheet({
     }
   }
 
-  const inputClass = "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
     <div
@@ -306,27 +365,32 @@ function BrokerEditSheet({
             </div>
           ) : (
             <>
-              <div>
-                <label className={labelClass} style={labelStyle}>Name *</label>
-                <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} style={inputStyle} />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Broker Info
+                </p>
                 <div>
-                  <label className={labelClass} style={labelStyle}>Phone</label>
-                  <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" inputMode="tel" className={inputClass} style={inputStyle} />
+                  <label className={labelClass} style={labelStyle}>Name *</label>
+                  <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} style={inputStyle} />
+                </div>
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>Phone</label>
+                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" inputMode="tel" className={inputClass} style={inputStyle} />
+                  </div>
+                  <div className="pl-2">
+                    <label className={labelClass} style={labelStyle}>Agency</label>
+                    <input value={agency} onChange={(e) => setAgency(e.target.value)} placeholder="Sharma Properties" className={inputClass} style={inputStyle} />
+                  </div>
                 </div>
                 <div>
-                  <label className={labelClass} style={labelStyle}>Agency</label>
-                  <input value={agency} onChange={(e) => setAgency(e.target.value)} placeholder="Sharma Properties" className={inputClass} style={inputStyle} />
+                  <label className={labelClass} style={labelStyle}>Default Commission %</label>
+                  <input type="number" min="0" max="100" step="0.01" inputMode="decimal" value={commission} onChange={(e) => setCommission(e.target.value)} placeholder="e.g. 2.5" className={inputClass} style={inputStyle} />
                 </div>
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>Default Commission %</label>
-                <input type="number" min="0" max="100" step="0.01" inputMode="decimal" value={commission} onChange={(e) => setCommission(e.target.value)} placeholder="e.g. 2.5" className={inputClass} style={inputStyle} />
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>Notes</label>
-                <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any notes about this broker…" className="w-full rounded-[0.5rem] border px-2.5 py-2 text-m-section resize-none outline-none" style={inputStyle} />
+                <div>
+                  <label className={labelClass} style={labelStyle}>Notes</label>
+                  <textarea rows={1} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any notes about this broker…" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
+                </div>
               </div>
               <div className="flex flex-col gap-2 pt-1">
                 {canDelete ? (

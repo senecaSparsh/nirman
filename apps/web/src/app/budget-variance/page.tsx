@@ -18,7 +18,7 @@ export default function BudgetVariancePage() {
   );
 }
 
-async function BvContent() {
+export async function BvContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

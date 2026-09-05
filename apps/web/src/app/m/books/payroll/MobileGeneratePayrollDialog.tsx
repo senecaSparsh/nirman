@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, CalendarCheck, Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 const MONTHS = [
   "January",
@@ -84,98 +85,61 @@ export function MobileGeneratePayrollDialog({
     }
   }
 
-  if (!open) return null;
-
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span
-              className="grid place-items-center size-7 rounded-[0.375rem]"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              <CalendarCheck
-                className="size-3.5"
-                style={{ color: "var(--color-ink-600)" }}
-              />
-            </span>
-            <p
-              className="text-m-section font-bold"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              Generate Payroll
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-500)" }}
-            aria-label="Close"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
+    <MobileDialog open={open} onClose={onClose} title="Generate Payroll">
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {/* Month */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Month <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <select
-              value={form.month}
-              onChange={(e) => set("month", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              {MONTHS.map((m, i) => (
-                <option key={i} value={String(i + 1)}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Period */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Period
+            </p>
+            {/* Month */}
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Month <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <select
+                value={form.month}
+                onChange={(e) => set("month", e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+              >
+                {MONTHS.map((m, i) => (
+                  <option key={i} value={String(i + 1)}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Year */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Year <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="number"
-              min={2000}
-              max={2100}
-              value={form.year}
-              onChange={(e) => set("year", e.target.value)}
-              placeholder="2024"
-              inputMode="numeric"
-              autoFocus
-              className={inputClass}
-              style={inputStyle}
-            />
+            {/* Year */}
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Year <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <input
+                type="number"
+                min={2000}
+                max={2100}
+                value={form.year}
+                onChange={(e) => set("year", e.target.value)}
+                placeholder="2024"
+                inputMode="numeric"
+                autoFocus
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
           </div>
 
           <p
@@ -219,8 +183,7 @@ export function MobileGeneratePayrollDialog({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }
 

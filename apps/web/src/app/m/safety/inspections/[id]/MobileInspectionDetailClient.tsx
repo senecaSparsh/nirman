@@ -147,26 +147,31 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
       {/* Complete dialog */}
       {showComplete && (
         <BottomSheet title="Complete Inspection" onClose={() => setShowComplete(false)}>
-          <div className="space-y-3">
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Result</label>
-              <div className="grid grid-cols-2 gap-2">
-                {([["PASSED", "Passed"], ["PASSED_WITH_NOTES", "Passed w/ Notes"], ["FAILED", "Failed"], ["STOP_WORK", "Stop Work"]] as const).map(([val, label]) => (
-                  <button key={val} onClick={() => setCompleteForm((f) => ({ ...f, result: val }))} className="h-10 rounded-[0.5rem] border text-m-body font-bold text-m-body press" style={{ borderColor: completeForm.result === val ? RESULT_TONES[val] : "var(--color-line)", backgroundColor: completeForm.result === val ? RESULT_BG[val] : "var(--color-paper)", color: completeForm.result === val ? RESULT_TONES[val] : "var(--color-ink-700)" }}>{label}</button>
-                ))}
+          <div className="flex flex-col gap-3">
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Result
+              </p>
+              <div>
+                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Result</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([["PASSED", "Passed"], ["PASSED_WITH_NOTES", "Passed w/ Notes"], ["FAILED", "Failed"], ["STOP_WORK", "Stop Work"]] as const).map(([val, label]) => (
+                    <button key={val} onClick={() => setCompleteForm((f) => ({ ...f, result: val }))} className="h-10 rounded-[0.5rem] border text-m-body font-bold text-m-body press" style={{ borderColor: completeForm.result === val ? RESULT_TONES[val] : "var(--color-line)", backgroundColor: completeForm.result === val ? RESULT_BG[val] : "var(--color-paper)", color: completeForm.result === val ? RESULT_TONES[val] : "var(--color-ink-700)" }}>{label}</button>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Findings</label>
-              <textarea value={completeForm.findings} onChange={(e) => setCompleteForm((f) => ({ ...f, findings: e.target.value }))} rows={3} placeholder="What did you observe?" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-            </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Compliance Notes (optional)</label>
-              <textarea value={completeForm.complianceNotes} onChange={(e) => setCompleteForm((f) => ({ ...f, complianceNotes: e.target.value }))} rows={2} className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-            </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Follow-Up Actions (optional)</label>
-              <textarea value={completeForm.followUpActions} onChange={(e) => setCompleteForm((f) => ({ ...f, followUpActions: e.target.value }))} rows={2} className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Findings</label>
+                <textarea value={completeForm.findings} onChange={(e) => setCompleteForm((f) => ({ ...f, findings: e.target.value }))} rows={2} placeholder="What did you observe?" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={{ backgroundColor: "transparent" }} />
+              </div>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Compliance Notes (optional)</label>
+                <textarea value={completeForm.complianceNotes} onChange={(e) => setCompleteForm((f) => ({ ...f, complianceNotes: e.target.value }))} rows={1} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={{ backgroundColor: "transparent" }} />
+              </div>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Follow-Up Actions (optional)</label>
+                <textarea value={completeForm.followUpActions} onChange={(e) => setCompleteForm((f) => ({ ...f, followUpActions: e.target.value }))} rows={1} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={{ backgroundColor: "transparent" }} />
+              </div>
             </div>
             <button onClick={() => { if (!completeForm.findings.trim()) { toast.error("Findings required"); return; } doAction("complete", completeForm); }} disabled={acting === "complete"} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-go)", color: "var(--color-ink-950)" }}>
               {acting === "complete" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Submit Result

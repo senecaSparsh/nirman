@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { startTransition } from "react";
-import { X, Loader2, Building2, GitBranch } from "lucide-react";
+import { Loader2, Building2, GitBranch } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 interface FormState {
   name: string;
@@ -31,19 +32,25 @@ const BUSINESS_TYPES = [
 ];
 
 /**
- * MobileNewCompanyDialog — bottom-sheet form for creating a new company
- * from the mobile home page. Calls POST /api/companies.
+ * MobileNewCompanyForm — form content for creating a new company.
+ *
+ * Used inside <MobileFabModal> (spring-from-FAB animation) on the
+ * home page, or wrapped by <MobileNewCompanyDialog> (legacy
+ * bottom-sheet backdrop) for inline creation from other pages.
+ * Mirrors MobileNewLeaveForm / MobileNewMaterialForm.
+ *
+ * No header or Cancel button here — the wrapper supplies the title
+ * and the close affordance (FAB morphs +→× in MobileFabModal, X
+ * button in the legacy bottom-sheet).
  *
  * On success: switches to the new company and refreshes the page so the
  * orbit and company strip update immediately.
  */
-export function MobileNewCompanyDialog({
-  open,
+export function MobileNewCompanyForm({
   onClose,
   onCreated,
   parentOptions = [],
 }: {
-  open: boolean;
   onClose: () => void;
   onCreated?: (company: { id: string; name: string }) => void;
   parentOptions?: { id: string; name: string }[];
@@ -116,223 +123,223 @@ export function MobileNewCompanyDialog({
     }
   }
 
-  if (!open) return null;
-
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
+
+  const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
+  const sectionStyle = {
+    borderColor: "var(--color-line)",
+    backgroundColor: "var(--color-paper)",
+  };
+  const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
+  const sectionTitleStyle = { color: "var(--color-ink-950)" };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span
-              className="grid place-items-center size-7 rounded-[0.375rem]"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              <Building2
-                className="size-3.5"
-                style={{ color: "var(--color-ink-600)" }}
-              />
-            </span>
-            <p
-              className="text-m-section font-bold"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              New Company
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-500)" }}
-            aria-label="Close"
-          >
-            <X className="size-4" />
-          </button>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      {/* Details */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>
+          Details
+        </p>
+
+        {/* Name */}
+        <div>
+          <label className={labelClass} style={labelStyle}>
+            Company Name <span style={{ color: "var(--color-stop)" }}>*</span>
+          </label>
+          <input
+            type="text"
+            value={form.name}
+            onChange={(e) => set("name", e.target.value)}
+            placeholder="e.g. Nirman Realty Pvt Ltd"
+            autoFocus
+            enterKeyHint="next"
+            className={inputClass}
+            style={inputStyle}
+          />
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {/* Name */}
+        {/* Parent company (optional — for creating a child/subsidiary) */}
+        {parentOptions.length > 0 ? (
           <div>
             <label className={labelClass} style={labelStyle}>
-              Company Name <span style={{ color: "var(--color-stop)" }}>*</span>
+              Parent Company
+            </label>
+            <div className="relative">
+              <GitBranch
+                className="absolute left-1 top-1/2 -translate-y-1/2 size-3 pointer-events-none"
+                style={{ color: "var(--color-ink-500)" }}
+              />
+              <select
+                value={form.parentCompanyId}
+                onChange={(e) => set("parentCompanyId", e.target.value)}
+                className={`${inputClass} pl-5`}
+                style={inputStyle}
+              >
+                <option value="">None (independent)</option>
+                {parentOptions.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p
+              className="text-m-caption mt-1"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              Select a parent to create a subsidiary / branch.
+            </p>
+          </div>
+        ) : null}
+
+        {/* Business type + Currency */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Business Type
+            </label>
+            <select
+              value={form.businessType}
+              onChange={(e) => set("businessType", e.target.value)}
+              className={inputClass}
+              style={inputStyle}
+            >
+              <option value="">Select…</option>
+              {BUSINESS_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Currency
+            </label>
+            <select
+              value={form.currency}
+              onChange={(e) => set("currency", e.target.value)}
+              className={inputClass}
+              style={inputStyle}
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Tax & Address */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>
+          Tax & Address
+        </p>
+
+        {/* GSTIN + PAN */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              GSTIN
             </label>
             <input
               type="text"
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
-              placeholder="e.g. Nirman Realty Pvt Ltd"
-              autoFocus
+              value={form.gstin}
+              onChange={(e) => set("gstin", e.target.value.toUpperCase())}
+              placeholder="22AAAAA0000A1Z5"
               enterKeyHint="next"
               className={inputClass}
               style={inputStyle}
             />
           </div>
-
-          {/* Parent company (optional — for creating a child/subsidiary) */}
-          {parentOptions.length > 0 ? (
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Parent Company
-              </label>
-              <div className="relative">
-                <GitBranch
-                  className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 pointer-events-none"
-                  style={{ color: "var(--color-ink-500)" }}
-                />
-                <select
-                  value={form.parentCompanyId}
-                  onChange={(e) => set("parentCompanyId", e.target.value)}
-                  className={`${inputClass} pl-8`}
-                  style={inputStyle}
-                >
-                  <option value="">None (independent)</option>
-                  {parentOptions.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <p
-                className="text-m-caption mt-1"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                Select a parent to create a subsidiary / branch.
-              </p>
-            </div>
-          ) : null}
-
-          {/* Business type + Currency */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Business Type
-              </label>
-              <select
-                value={form.businessType}
-                onChange={(e) => set("businessType", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                <option value="">Select…</option>
-                {BUSINESS_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Currency
-              </label>
-              <select
-                value={form.currency}
-                onChange={(e) => set("currency", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {CURRENCIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* GSTIN + PAN */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                GSTIN
-              </label>
-              <input
-                type="text"
-                value={form.gstin}
-                onChange={(e) => set("gstin", e.target.value.toUpperCase())}
-                placeholder="22AAAAA0000A1Z5"
-                enterKeyHint="next"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                PAN
-              </label>
-              <input
-                type="text"
-                value={form.pan}
-                onChange={(e) => set("pan", e.target.value.toUpperCase())}
-                placeholder="AAAAA0000A"
-                enterKeyHint="next"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          {/* Address */}
           <div>
             <label className={labelClass} style={labelStyle}>
-              Address
+              PAN
             </label>
-            <textarea
-              value={form.address}
-              onChange={(e) => set("address", e.target.value)}
-              placeholder="Registered office address"
-              rows={2}
-              className={`${inputClass} py-2 resize-none`}
+            <input
+              type="text"
+              value={form.pan}
+              onChange={(e) => set("pan", e.target.value.toUpperCase())}
+              placeholder="AAAAA0000A"
+              enterKeyHint="next"
+              className={inputClass}
               style={inputStyle}
             />
           </div>
+        </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-m-section font-bold text-m-body press transition-transform active:scale-95 disabled:opacity-50"
-            style={{
-              backgroundColor: "var(--color-ink-950)",
-              color: "var(--color-paper)",
-            }}
-          >
-            {saving ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                <span>Creating…</span>
-              </>
-            ) : (
-              <>
-                <Building2 className="size-4" />
-                <span>Create Company</span>
-              </>
-            )}
-          </button>
-        </form>
+        {/* Address */}
+        <div>
+          <label className={labelClass} style={labelStyle}>
+            Address
+          </label>
+          <textarea
+            value={form.address}
+            onChange={(e) => set("address", e.target.value)}
+            placeholder="Registered office address"
+            rows={2}
+            className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
+            style={inputStyle}
+          />
+        </div>
       </div>
-    </div>
+
+      <button
+        type="submit"
+        disabled={saving}
+        className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+        style={{
+          backgroundColor: "var(--color-ink-950)",
+          color: "var(--color-paper)",
+        }}
+      >
+        {saving ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <Building2 className="size-4" />
+        )}
+        {saving ? "Creating…" : "Create Company"}
+      </button>
+    </form>
+  );
+}
+
+/**
+ * MobileNewCompanyDialog — legacy bottom-sheet backdrop wrapper.
+ *
+ * Kept for backward compatibility / inline creation from other pages.
+ * Prefer wrapping <MobileNewCompanyForm> in <MobileFabModal> instead —
+ * that gives the spring-from-FAB animation matching the materials and
+ * leaves pages.
+ */
+export function MobileNewCompanyDialog({
+  open,
+  onClose,
+  onCreated,
+  parentOptions = [],
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated?: (company: { id: string; name: string }) => void;
+  parentOptions?: { id: string; name: string }[];
+}) {
+  return (
+    <MobileDialog open={open} onClose={onClose} title="New Company">
+      <MobileNewCompanyForm
+        onClose={onClose}
+        onCreated={onCreated}
+        parentOptions={parentOptions}
+      />
+    </MobileDialog>
   );
 }

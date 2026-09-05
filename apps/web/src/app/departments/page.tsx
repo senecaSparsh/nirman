@@ -18,7 +18,7 @@ export default function DepartmentsPage() {
   );
 }
 
-async function DepartmentsContent() {
+export async function DepartmentsContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

@@ -70,10 +70,15 @@ export function MobileChequeFields({
   const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
-    <div className="space-y-3 pt-1">
-      <p className="text-m-caption font-bold" style={{ color: "var(--color-signal)" }}>
-        Cheque Details — pending until cleared
-      </p>
+    <div className="flex flex-col gap-3 pt-1">
+      {/* Cheque Details */}
+      <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+          Cheque Details
+        </p>
+        <p className="text-m-caption font-bold" style={{ color: "var(--color-signal)" }}>
+          Cheque Details — pending until cleared
+        </p>
 
       {/* Cheque No + Date */}
       <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
@@ -118,8 +123,13 @@ export function MobileChequeFields({
           style={inputStyle}
         />
       </div>
+      </div>
 
-      {/* Cheque photo */}
+      {/* Cheque Photo */}
+      <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+          Cheque Photo
+        </p>
       <div>
         <label className={labelClass} style={labelStyle}>
           Cheque Photo (front)
@@ -162,6 +172,7 @@ export function MobileChequeFields({
           onChange={handleFile}
           className="hidden"
         />
+      </div>
       </div>
     </div>
   );

@@ -23,6 +23,10 @@ import Decimal from "decimal.js";
  * so auto-generated IDs start fresh.
  */
 export async function resetDb() {
+  // Wait briefly for fire-and-forget operations (e.g. emitNotificationEvent)
+  // from the previous test to complete, preventing deadlocks with TRUNCATE.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
   const tables = await prisma.$queryRaw<{ tablename: string }[]>`
     SELECT tablename FROM pg_tables WHERE schemaname = 'public'
   `;

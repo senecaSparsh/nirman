@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import {
-  ScanLine, CheckCircle2, X, Package, Truck, Calendar, XCircle, Scale, Plus, AlertCircle, Printer, FileText,
+  ScanLine, CheckCircle2, X, Truck, Calendar, XCircle, Scale, Plus, AlertCircle, Printer, FileText,
 } from "lucide-react";
 import { formatNumber, formatCurrency } from "@/lib/utils";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 import {
   PhotoCapture, SignaturePad, GeoTagCapture, SelectField, TextField,
   WeighbridgeFields, GeoFenceStatus, ReceivingPhotoUpload,
@@ -777,33 +778,11 @@ export function MobileReceiveDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={() => { if (!submitting && !confirmLines && !showRejectConfirm) setOpen(false); }}
+    <MobileDialog
+      open={true}
+      onClose={() => { if (!submitting && !confirmLines && !showRejectConfirm) setOpen(false); }}
+      title={mode === "reject" ? "Reject Delivery" : "Receive Materials"}
     >
-      <div
-        className="w-full max-w-md rounded-t-[0.75rem] flex flex-col"
-        style={{ backgroundColor: "var(--color-paper)", maxHeight: "92vh" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="grid place-items-center size-7 rounded-[0.375rem] shrink-0" style={{ backgroundColor: mode === "reject" ? "color-mix(in srgb, var(--color-stop) 15%, transparent)" : "var(--color-concrete)" }}>
-              {mode === "reject" ? <XCircle className="size-3.5" style={{ color: "var(--color-stop)" }} /> : <Package className="size-3.5" style={{ color: "var(--color-ink-700)" }} />}
-            </span>
-            <div className="min-w-0">
-              <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
-                {mode === "reject" ? "Reject Delivery" : "Receive Materials"}
-              </p>
-              <p className="text-m-caption truncate font-mono" style={{ color: "var(--color-ink-500)" }}>{poNumber} · {supplierName}</p>
-            </div>
-          </div>
-          <button onClick={() => { if (!submitting && !confirmLines && !showRejectConfirm) setOpen(false); }} className="text-m-body press shrink-0 p-1">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
 
         {/* Auto-date + location badge */}
         <div className="flex items-center gap-3 px-3 py-2 border-b" style={{ borderColor: "var(--color-line)" }}>
@@ -840,39 +819,57 @@ export function MobileReceiveDialog({
         {mode === "reject" ? (
           /* ── REJECT MODE ── */
           <div className="flex-1 overflow-y-auto overscroll-contain">
-            <div className="p-3 space-y-3">
+            <div className="p-3 flex flex-col gap-3">
               <div className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-stop) 5%, transparent)" }}>
                 <p className="text-m-caption font-semibold" style={{ color: "var(--color-stop)" }}>
                   Goods will be refused entry. No stock will be received. A rejection record will be created for audit + supplier dispute resolution.
                 </p>
               </div>
-              <TextField label="Vehicle Number" value={vehicleNumber} onChange={setVehicleNumber} placeholder="MH-12-AB-1234" mono />
-              <TextField label="Challan Number" value={challanNumber} onChange={setChallanNumber} placeholder="Supplier challan no." mono />
-              <div>
-                <label className="text-m-caption font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--color-ink-500)" }}>
-                  Rejection Reason <span style={{ color: "var(--color-stop)" }}>*</span>
-                </label>
-                <textarea
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  placeholder="e.g. Damaged packaging, wrong material, expired stock..."
-                  rows={3}
-                  className="w-full rounded-[0.5rem] border px-2.5 py-2 text-m-body outline-none resize-none"
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
-                />
+              {/* Rejection Details */}
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Rejection Details
+                </p>
+                <TextField label="Vehicle Number" value={vehicleNumber} onChange={setVehicleNumber} placeholder="MH-12-AB-1234" mono />
+                <TextField label="Challan Number" value={challanNumber} onChange={setChallanNumber} placeholder="Supplier challan no." mono />
+                <div>
+                  <label className="text-m-caption font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--color-ink-500)" }}>
+                    Rejection Reason <span style={{ color: "var(--color-stop)" }}>*</span>
+                  </label>
+                  <textarea
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="e.g. Damaged packaging, wrong material, expired stock..."
+                    rows={3}
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+                    style={{ backgroundColor: "transparent" }}
+                  />
+                </div>
               </div>
-              <PhotoCapture photos={rejectPhotos} onChange={setRejectPhotos} mandatory />
-              <GeoTagCapture lat={geo?.lat ?? null} lng={geo?.lng ?? null} location={geo?.location ?? null} onChange={setGeo} mandatory />
-              <TextField label="Additional Notes" value={receiptNotes} onChange={setReceiptNotes} placeholder="Any extra context" />
+              {/* Evidence */}
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Evidence
+                </p>
+                <PhotoCapture photos={rejectPhotos} onChange={setRejectPhotos} mandatory />
+                <GeoTagCapture lat={geo?.lat ?? null} lng={geo?.lng ?? null} location={geo?.location ?? null} onChange={setGeo} mandatory />
+              </div>
+              {/* Notes */}
+              <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                  Notes
+                </p>
+                <TextField label="Additional Notes" value={receiptNotes} onChange={setReceiptNotes} placeholder="Any extra context" />
+              </div>
             </div>
           </div>
         ) : (
           /* ── RECEIVE MODE ── */
-          <div className="flex-1 overflow-y-auto overscroll-contain">
+          <div className="flex-1 overflow-y-auto overscroll-contain p-3 flex flex-col gap-3">
             {/* Line items with batch/lot + inspection */}
-            <div className="p-3 space-y-2">
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <div className="flex items-center justify-between mb-1">
-                <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                   Line Items ({lines.length})
                 </p>
                 <div className="flex items-center gap-2">
@@ -1062,10 +1059,10 @@ export function MobileReceiveDialog({
             </div>
 
             {/* Delivery & transport */}
-            <div className="px-3 pb-3 space-y-1.5 border-t pt-3" style={{ borderColor: "var(--color-line)" }}>
-              <p className="text-m-caption font-bold uppercase tracking-wide mb-1" style={{ color: "var(--color-steel)" }}>
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-1.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
                 Delivery & Transport
-                {deliveryTermsType ? <span className="ml-1 normal-case" style={{ color: "var(--color-ink-500)" }}>({deliveryTermsType.replace(/_/g, " ")})</span> : null}
+                {deliveryTermsType ? <span className="ml-1 text-m-caption font-normal normal-case" style={{ color: "var(--color-ink-500)" }}>({deliveryTermsType.replace(/_/g, " ")})</span> : null}
               </p>
               {needsVehicleFields ? (
                 <>
@@ -1093,8 +1090,8 @@ export function MobileReceiveDialog({
             {/* Kata Parchi (weight slip) — always shown.
                 Mandatory for non-quantifiable (bulk/loose) materials like CFT, BRASS, TON.
                 Optional for quantifiable (countable) materials like BAG, NOS, PIECE. */}
-            <div className="px-3 pb-3 space-y-2 border-t pt-3" style={{ borderColor: "var(--color-line)" }}>
-              <p className="text-m-caption font-bold uppercase tracking-wide flex items-center gap-1" style={{ color: "var(--color-steel)" }}>
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight flex items-center gap-1" style={{ color: "var(--color-ink-950)" }}>
                 <Scale className="size-3" /> Weighbridge (Kata Parchi)
                 {kataParchiRequired ? (
                   <span className="text-m-caption font-bold px-1 py-0.5 rounded-[0.25rem]" style={{ backgroundColor: "color-mix(in srgb, var(--color-stop) 12%, transparent)", color: "var(--color-stop)" }}>
@@ -1121,8 +1118,8 @@ export function MobileReceiveDialog({
             </div>
 
             {/* Documents */}
-            <div className="px-3 pb-3 space-y-1.5 border-t pt-3" style={{ borderColor: "var(--color-line)" }}>
-              <p className="text-m-caption font-bold uppercase tracking-wide mb-1" style={{ color: "var(--color-steel)" }}>Documents</p>
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-1.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>Documents</p>
 
               {/* Gate Pass No. / Receiving — toggle between the two modes */}
               <div>
@@ -1184,8 +1181,8 @@ export function MobileReceiveDialog({
             </div>
 
             {/* Proof of delivery — mandatory */}
-            <div className="px-3 pb-3 space-y-2 border-t pt-3" style={{ borderColor: "var(--color-line)" }}>
-              <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-stop)" }}>
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-stop)" }}>
                 Proof of Delivery (Mandatory)
               </p>
               {/* Photos + Signature side-by-side */}
@@ -1308,7 +1305,6 @@ export function MobileReceiveDialog({
             </div>
           </div>
         ) : null}
-      </div>
-    </div>
+    </MobileDialog>
   );
 }

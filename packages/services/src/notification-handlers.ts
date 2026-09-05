@@ -8,7 +8,7 @@
  */
 
 import { prisma } from "@nirman/db";
-import { sendNotification, renderTemplate } from "./notifications";
+import { sendNotification, renderTemplate, createInAppNotification } from "./notifications";
 import { EVENT_URGENCY, NotificationEventType } from "./notification-event-bus";
 
 /**
@@ -95,8 +95,17 @@ export async function processPendingNotifications(): Promise<{
       // Send via each enabled channel
       for (const channel of channels) {
         if (channel === "IN_APP") {
-          // In-app notifications are already stored in NotificationLog
-          // and surfaced via the /api/notifications/in-app endpoint
+          // Create an InAppNotification record so the notification bell
+          // dropdown can surface it via /api/notifications/in-app
+          await createInAppNotification({
+            companyId: log.companyId,
+            userId: log.recipient,
+            eventType: log.eventType,
+            title: (metadata.title as string) ?? log.eventType.replace(/_/g, " ").toLowerCase(),
+            message: log.message,
+            link: (metadata.link as string) ?? undefined,
+            metadata: metadata as Record<string, unknown>,
+          }).catch(() => {});
           continue;
         }
 
@@ -153,11 +162,27 @@ export async function processPendingNotifications(): Promise<{
   return { processed: pending.length, sent, failed };
 }
 
+/**
+ * Compute the IST hour (0-23.999...) from a UTC date.
+ * Pure function — no DB access, no `new Date()` side effect.
+ *
+ * IST = UTC + 5:30. The result is wrapped to [0, 24).
+ */
+export function getIstHour(date: Date): number {
+  return (date.getUTCHours() + 5 + 30 / 60) % 24;
+}
+
+/**
+ * Check if an IST hour falls within quiet hours (10 PM - 7 AM IST).
+ * Pure function — no DB access.
+ */
+export function isQuietHour(istHour: number): boolean {
+  return istHour >= 22 || istHour < 7;
+}
+
 /** Check if current time is within quiet hours (10 PM - 7 AM IST) */
 function isWithinQuietHours(): boolean {
-  const now = new Date();
-  const istHour = (now.getUTCHours() + 5 + 30 / 60) % 24;
-  return istHour >= 22 || istHour < 7;
+  return isQuietHour(getIstHour(new Date()));
 }
 
 /**

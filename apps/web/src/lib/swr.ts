@@ -15,7 +15,13 @@ export const swrConfig = {
   fetcher: swrFetcher,
   revalidateOnFocus: false,
   dedupingInterval: 2000,
-  errorRetryCount: 2,
+  errorRetryCount: 3,
+  isPaused: () => typeof navigator !== "undefined" && !navigator.onLine,
+  onError: (err: Error, key: string) => {
+    if (process.env.NODE_ENV === "development") {
+      console.warn(`SWR fetch error for ${key}:`, err.message);
+    }
+  },
 };
 
 export { SWRConfig };

@@ -24,7 +24,7 @@ export default function MyTasksPage() {
   );
 }
 
-async function MyTasksContent() {
+export async function MyTasksContent() {
   await connection();
   const role = await getUserRole();
   const currentUser = await getCurrentUser();

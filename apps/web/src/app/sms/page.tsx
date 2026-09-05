@@ -28,7 +28,7 @@ export default function SmsPage() {
   );
 }
 
-async function SmsContent() {
+export async function SmsContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

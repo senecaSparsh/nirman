@@ -182,10 +182,15 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
       {/* Mitigate dialog */}
       {showMitigate && (
         <BottomSheet title="Start Mitigation" onClose={() => setShowMitigate(false)}>
-          <div className="space-y-3">
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Mitigation Plan (optional)</label>
-              <textarea value={mitigationPlan} onChange={(e) => setMitigationPlan(e.target.value)} rows={3} placeholder="How will the hazard be controlled?" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+          <div className="flex flex-col gap-3">
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Mitigation Plan
+              </p>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Mitigation Plan (optional)</label>
+                <textarea value={mitigationPlan} onChange={(e) => setMitigationPlan(e.target.value)} rows={2} placeholder="How will the hazard be controlled?" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+              </div>
             </div>
             <button onClick={() => doAction("mitigate", mitigationPlan ? { mitigationPlan } : {})} disabled={acting === "mitigate"} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
               {acting === "mitigate" ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />} Start Mitigation
@@ -197,10 +202,15 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
       {/* Resolve dialog */}
       {showResolve && (
         <BottomSheet title="Resolve Hazard" onClose={() => setShowResolve(false)}>
-          <div className="space-y-3">
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Resolution Notes</label>
-              <textarea value={resolutionNotes} onChange={(e) => setResolutionNotes(e.target.value)} rows={3} placeholder="How was the hazard eliminated/controlled?" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+          <div className="flex flex-col gap-3">
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Resolution
+              </p>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Resolution Notes</label>
+                <textarea value={resolutionNotes} onChange={(e) => setResolutionNotes(e.target.value)} rows={2} placeholder="How was the hazard eliminated/controlled?" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+              </div>
             </div>
             <button onClick={() => { if (!resolutionNotes.trim()) { toast.error("Resolution notes required"); return; } doAction("resolve", { resolutionNotes }); }} disabled={acting === "resolve"} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-go)", color: "var(--color-ink-950)" }}>
               {acting === "resolve" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Confirm Resolution
@@ -211,36 +221,46 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
       {/* Edit dialog */}
       {showEdit && (
         <BottomSheet title="Edit Hazard" onClose={() => setShowEdit(false)}>
-          <div className="space-y-3">
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Title</label>
-              <input value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-            </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Description</label>
-              <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={3} className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col gap-3">
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Hazard Details
+              </p>
               <div>
-                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Likelihood (1-5)</label>
-                <input type="number" min={1} max={5} value={editForm.likelihood} onChange={(e) => setEditForm({ ...editForm, likelihood: e.target.value })} className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Title</label>
+                <input value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
               </div>
               <div>
-                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Severity (1-5)</label>
-                <input type="number" min={1} max={5} value={editForm.severity} onChange={(e) => setEditForm({ ...editForm, severity: e.target.value })} className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Description</label>
+                <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={2} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+              </div>
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                <div>
+                  <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Likelihood (1-5)</label>
+                  <input type="number" min={1} max={5} value={editForm.likelihood} onChange={(e) => setEditForm({ ...editForm, likelihood: e.target.value })} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                </div>
+                <div className="pl-2">
+                  <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Severity (1-5)</label>
+                  <input type="number" min={1} max={5} value={editForm.severity} onChange={(e) => setEditForm({ ...editForm, severity: e.target.value })} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                </div>
               </div>
             </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Location</label>
-              <input value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} placeholder="Where on site?" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-            </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Mitigation Plan</label>
-              <textarea value={editForm.mitigationPlan} onChange={(e) => setEditForm({ ...editForm, mitigationPlan: e.target.value })} rows={2} placeholder="How will the hazard be controlled?" className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
-            </div>
-            <div>
-              <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Target Resolution Date</label>
-              <input type="date" value={editForm.targetResolutionDate} onChange={(e) => setEditForm({ ...editForm, targetResolutionDate: e.target.value })} className="w-full rounded-[0.5rem] border px-3 py-2 text-m-section tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }} />
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+                Location & Mitigation
+              </p>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Location</label>
+                <input value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} placeholder="Where on site?" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+              </div>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Mitigation Plan</label>
+                <textarea value={editForm.mitigationPlan} onChange={(e) => setEditForm({ ...editForm, mitigationPlan: e.target.value })} rows={1} placeholder="How will the hazard be controlled?" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+              </div>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Target Resolution Date</label>
+                <input type="date" value={editForm.targetResolutionDate} onChange={(e) => setEditForm({ ...editForm, targetResolutionDate: e.target.value })} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+              </div>
             </div>
             <button onClick={saveEdit} disabled={acting === "edit"} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
               {acting === "edit" ? <Loader2 className="size-4 animate-spin" /> : <Pencil className="size-4" />} Save Changes

@@ -18,7 +18,7 @@ export default function WorkOrdersPage() {
   );
 }
 
-async function WoContent() {
+export async function WoContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

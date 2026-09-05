@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, CalendarDays } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewEmployeeDialog } from "@/app/m/hr/employees/MobileNewEmployeeDialog";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 type LeaveType =
   | "CASUAL"
@@ -39,12 +40,22 @@ interface FormState {
   reason: string;
 }
 
-export function MobileNewLeaveDialog({
-  open,
+/**
+ * MobileNewLeaveForm — form content for recording a leave.
+ *
+ * Used inside <MobileFabModal> (spring-from-FAB animation) on the
+ * leaves page, or wrapped by <MobileNewLeaveDialog> (legacy
+ * bottom-sheet backdrop) for inline creation from other pages.
+ * Mirrors MobileNewEmployeeForm / MobileNewMaterialForm.
+ *
+ * No header or Cancel button here — the wrapper supplies the title
+ * and the close affordance (FAB morphs +→× in MobileFabModal, X
+ * button in the legacy bottom-sheet).
+ */
+export function MobileNewLeaveForm({
   onClose,
   employees,
 }: {
-  open: boolean;
   onClose: () => void;
   employees: EmployeeOption[];
 }) {
@@ -104,8 +115,6 @@ export function MobileNewLeaveDialog({
     }
   }
 
-  if (!open) return null;
-
   const inputClass =
     "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
@@ -116,56 +125,31 @@ export function MobileNewLeaveDialog({
   const labelClass = "block text-m-caption font-bold mb-0";
   const labelStyle = { color: "var(--color-ink-700)" };
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1">
-            <span
-              className="grid place-items-center size-7 rounded-[0.375rem]"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              <CalendarDays
-                className="size-3.5"
-                style={{ color: "var(--color-ink-600)" }}
-              />
-            </span>
-            <p
-              className="text-m-section font-bold"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              Record Leave
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-700)" }}
-            aria-label="Close"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+  const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
+  const sectionStyle = {
+    borderColor: "var(--color-line)",
+    backgroundColor: "var(--color-paper)",
+  };
+  const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
+  const sectionTitleStyle = { color: "var(--color-ink-950)" };
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {/* Employee */}
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      {/* Details */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>
+          Details
+        </p>
+        <div
+          className="grid grid-cols-2 gap-2 divide-x"
+          style={{ borderColor: "var(--color-line)" }}
+        >
           <MobileSelectWithCreate
             label="Employee"
             required
             value={form.employeeId}
             onChange={(v) => set("employeeId", v)}
-            placeholder="— Select employee —"
+            placeholder="— Select —"
             options={employees.map((emp) => ({
               value: emp.id,
               label: emp.trade ? `${emp.name} (${emp.trade})` : emp.name,
@@ -184,112 +168,121 @@ export function MobileNewLeaveDialog({
               />
             )}
           />
-
-          {/* Leave Type */}
-          <div>
+          <div className="pl-2">
             <label className={labelClass} style={labelStyle}>
               Leave Type
             </label>
-            <div className="flex flex-wrap gap-1.5">
+            <select
+              value={form.type}
+              onChange={(e) => {
+                set("type", e.target.value as LeaveType);
+                haptic(10);
+              }}
+              className={inputClass}
+              style={inputStyle}
+            >
               {(Object.keys(LEAVE_TYPE_LABELS) as LeaveType[]).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => {
-                    set("type", t);
-                    haptic(10);
-                  }}
-                  className="h-8 px-2.5 rounded-[0.375rem] text-m-caption font-semibold text-m-body press"
-                  style={{
-                    color:
-                      form.type === t
-                        ? "var(--color-paper)"
-                        : "var(--color-ink-500)",
-                    backgroundColor:
-                      form.type === t
-                        ? "var(--color-ink-950)"
-                        : "var(--color-concrete)",
-                  }}
-                >
+                <option key={t} value={t}>
                   {LEAVE_TYPE_LABELS[t]}
-                </button>
+                </option>
               ))}
-            </div>
+            </select>
           </div>
+        </div>
+      </div>
 
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Start Date <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <input
-                type="date"
-                value={form.startDate}
-                onChange={(e) => set("startDate", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                End Date <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <input
-                type="date"
-                value={form.endDate}
-                onChange={(e) => set("endDate", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          {/* Reason */}
+      {/* Dates */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>
+          Dates
+        </p>
+        <div
+          className="grid grid-cols-2 gap-2 divide-x"
+          style={{ borderColor: "var(--color-line)" }}
+        >
           <div>
             <label className={labelClass} style={labelStyle}>
-              Reason (optional)
+              Start Date <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
-            <textarea
-              value={form.reason}
-              onChange={(e) => set("reason", e.target.value)}
-              rows={2}
-              placeholder="e.g. Family emergency"
-              className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
+            <input
+              type="date"
+              value={form.startDate}
+              onChange={(e) => set("startDate", e.target.value)}
+              className={inputClass}
               style={inputStyle}
             />
           </div>
-
-          {/* Actions */}
-          <div className="flex flex-col gap-3 ">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
-              style={{
-                borderColor: "var(--color-line)",
-                color: "var(--color-ink-700)",
-                backgroundColor: "var(--color-paper)",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
-              style={{
-                backgroundColor: "var(--color-ink-950)",
-                color: "var(--color-paper)",
-              }}
-            >
-              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-              {saving ? "Saving…" : "Record Leave"}
-            </button>
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              End Date <span style={{ color: "var(--color-stop)" }}>*</span>
+            </label>
+            <input
+              type="date"
+              value={form.endDate}
+              onChange={(e) => set("endDate", e.target.value)}
+              className={inputClass}
+              style={inputStyle}
+            />
           </div>
-        </form>
+        </div>
       </div>
-    </div>
+
+      {/* Notes */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>
+          Notes
+        </p>
+        <div>
+          <label className={labelClass} style={labelStyle}>
+            Reason (optional)
+          </label>
+          <textarea
+            value={form.reason}
+            onChange={(e) => set("reason", e.target.value)}
+            rows={2}
+            placeholder="e.g. Family emergency"
+            className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
+            style={inputStyle}
+          />
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        disabled={saving}
+        className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+        style={{
+          backgroundColor: "var(--color-ink-950)",
+          color: "var(--color-paper)",
+        }}
+      >
+        {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+        {saving ? "Saving…" : "Record Leave"}
+      </button>
+    </form>
+  );
+}
+
+/**
+ * MobileNewLeaveDialog — legacy bottom-sheet backdrop wrapper.
+ *
+ * Kept for backward compatibility / inline creation from other pages.
+ * Prefer wrapping <MobileNewLeaveForm> in <MobileFabModal> instead —
+ * that gives the spring-from-FAB animation matching the materials and
+ * employees pages.
+ */
+export function MobileNewLeaveDialog({
+  open,
+  onClose,
+  employees,
+}: {
+  open: boolean;
+  onClose: () => void;
+  employees: EmployeeOption[];
+}) {
+  return (
+    <MobileDialog open={open} onClose={onClose} title="New Leave">
+      <MobileNewLeaveForm onClose={onClose} employees={employees} />
+    </MobileDialog>
   );
 }

@@ -26,6 +26,26 @@ import { ServiceError } from "./errors";
 
 export type AdjustmentDirection = "IN" | "OUT";
 
+/**
+ * Validate a stock adjustment input and determine the movement type.
+ * Pure function — no DB access.
+ */
+export function validateStockAdjustmentInput(input: {
+  qty: Decimal | number | string;
+  reason: string;
+  direction: AdjustmentDirection;
+}): { qty: Decimal; movementType: "ADJUSTMENT_IN" | "ADJUSTMENT_OUT" } {
+  const qty = new Decimal(input.qty);
+  if (!qty.gt(0)) {
+    throw new ServiceError("Adjustment quantity must be greater than 0");
+  }
+  if (!input.reason || input.reason.trim().length === 0) {
+    throw new ServiceError("A reason is required for a manual stock adjustment");
+  }
+  const movementType = input.direction === "IN" ? "ADJUSTMENT_IN" : "ADJUSTMENT_OUT";
+  return { qty, movementType };
+}
+
 export interface RecordStockAdjustmentInput {
   materialId: string;
   locationId: string;

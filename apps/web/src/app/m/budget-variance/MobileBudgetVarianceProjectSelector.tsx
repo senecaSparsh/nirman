@@ -108,11 +108,9 @@ export function MobileBudgetVarianceProjectSelector({
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search projects…"
                   autoFocus
-                  className="w-full h-9 rounded-[0.5rem] border pl-8 pr-2 text-m-section outline-none"
+                  className="w-full h-7 pl-8 pr-2 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
                   style={{
-                    borderColor: "var(--color-line)",
-                    backgroundColor: "var(--color-paper)",
-                    color: "var(--color-ink-950)",
+                    backgroundColor: "transparent",
                   }}
                 />
               </div>

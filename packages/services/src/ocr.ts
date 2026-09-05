@@ -299,7 +299,7 @@ Rules:
 
 // ── Parsing helpers ──────────────────────────────────────────
 
-function parseDprOcrJson(content: string): DprOcrResult {
+export function parseDprOcrJson(content: string): DprOcrResult {
   try {
     const json = JSON.parse(content);
     return {
@@ -341,7 +341,7 @@ function parseDprOcrJson(content: string): DprOcrResult {
  *   - "Mason: 5" / "Labor: 10" / "Carpenter: 3"
  *   - "Progress: 25%"
  */
-function parseDprFromRawText(text: string): DprOcrResult {
+export function parseDprFromRawText(text: string): DprOcrResult {
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   const result: DprOcrResult = {
     materials: [],

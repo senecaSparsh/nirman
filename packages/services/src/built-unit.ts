@@ -10,6 +10,38 @@ import { withSerializableTransaction } from "./transaction";
  * Built Unit Service — create and manage sellable units within a project.
  */
 
+/**
+ * Validate a batch of built units before creation.
+ * Pure function — no DB access.
+ *
+ * Throws if no units, any area ≤ 0, or unit numbers are not unique.
+ */
+export function validateBuiltUnitsBatch(
+  units: { unitNumber: string; area: Decimal | number | string }[],
+): void {
+  if (units.length === 0) throw new ServiceError("Must create at least one unit");
+  for (const u of units) {
+    if (!new Decimal(u.area).gt(0)) throw new ServiceError(`Unit ${u.unitNumber} area must be > 0`);
+  }
+  const numbers = units.map((u) => u.unitNumber);
+  if (new Set(numbers).size !== numbers.length) {
+    throw new ServiceError("Unit numbers must be unique within the batch");
+  }
+}
+
+/**
+ * Compute the WIP capitalization delta for a unit.
+ * Pure function — no DB access.
+ *
+ *   delta = productionCost − alreadyCapitalized  (only positive deltas are capitalized)
+ */
+export function computeWipCapitalizationDelta(
+  productionCost: Decimal,
+  alreadyCapitalized: Decimal,
+): Decimal {
+  return productionCost.minus(alreadyCapitalized);
+}
+
 interface CreateBuiltUnitsInput {
   projectId: string;
   userId?: string;

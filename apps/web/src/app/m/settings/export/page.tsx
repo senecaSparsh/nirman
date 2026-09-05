@@ -206,23 +206,23 @@ export default function MobileExportPage() {
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-m-caption font-semibold block mb-0.5" style={{ color: "var(--color-ink-500)" }}>From</label>
+                  <label className="text-m-caption font-bold block mb-0" style={{ color: "var(--color-ink-700)" }}>From</label>
                   <input
                     type="date"
                     value={from}
                     onChange={(e) => setFrom(e.target.value)}
-                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body outline-none"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                   />
                 </div>
                 <div>
-                  <label className="text-m-caption font-semibold block mb-0.5" style={{ color: "var(--color-ink-500)" }}>To</label>
+                  <label className="text-m-caption font-bold block mb-0" style={{ color: "var(--color-ink-700)" }}>To</label>
                   <input
                     type="date"
                     value={to}
                     onChange={(e) => setTo(e.target.value)}
-                    className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body outline-none"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                   />
                 </div>
               </div>
@@ -245,8 +245,8 @@ export default function MobileExportPage() {
                   onChange={setSelectedProjectId}
                   placeholder="Select project…"
                   options={projects.map((p) => ({ value: p.id, label: p.name }))}
-                  inputClass="w-full rounded-[0.375rem] border pl-8 pr-2 py-1.5 text-m-body outline-none appearance-none"
-                  inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                  inputClass="w-full h-7 pl-8 pr-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors appearance-none"
+                  inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                   labelClass="hidden"
                   renderDialog={({ open, onClose, onCreated, originRect }) => (
                     <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">

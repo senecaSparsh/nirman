@@ -17,7 +17,7 @@ export default function CallsPage() {
   );
 }
 
-async function CallsContent() {
+export async function CallsContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

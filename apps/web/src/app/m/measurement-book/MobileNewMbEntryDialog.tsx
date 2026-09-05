@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, BookOpen, Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 interface BoqItemOption {
   id: string;
@@ -114,189 +115,158 @@ export function MobileNewMbEntryDialog({
     }
   }
 
-  if (!open) return null;
-
   const inputClass =
-    "w-full h-10 rounded-[0.5rem] border px-3 text-m-section outline-none";
+    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
+    backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "text-m-caption font-semibold block mb-1";
-  const labelStyle = { color: "var(--color-ink-500)" };
+  const labelClass = "block text-m-caption font-bold mb-0";
+  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span
-              className="grid place-items-center size-7 rounded-[0.375rem]"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              <BookOpen
-                className="size-3.5"
-                style={{ color: "var(--color-ink-600)" }}
-              />
-            </span>
-            <p
-              className="text-m-section font-bold"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              New Measurement Entry
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-500)" }}
-            aria-label="Close"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
+    <MobileDialog open={open} onClose={onClose} title="New MB Entry">
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {/* BOQ Item */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              BOQ Line Item <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <select
-              value={form.boqItemId}
-              onChange={(e) => onBoqItemChange(e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              <option value="">— Select BOQ item —</option>
-              {boqItems.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.serialNo} — {b.description}
-                  {b.unit ? ` (${b.unit})` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* WBS Node (optional, auto-suggested) */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              WBS Activity (optional)
-            </label>
-            <select
-              value={form.wbsNodeId}
-              onChange={(e) => set("wbsNodeId", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              <option value="">— None —</option>
-              {wbsNodes.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.code} — {w.name}
-                </option>
-              ))}
-            </select>
-            {suggestedWbsNode && form.wbsNodeId === suggestedWbsNode.id && (
-              <p
-                className="text-m-caption mt-1"
-                style={{ color: "var(--color-signal-dark)" }}
-              >
-                Auto-linked from BOQ item. Progress will update on approval.
-              </p>
-            )}
-            {!suggestedWbsNode && form.boqItemId && (
-              <p
-                className="text-m-caption mt-1"
-                style={{ color: "var(--color-stop)" }}
-              >
-                This BOQ item isn&apos;t linked to any WBS activity.
-              </p>
-            )}
-          </div>
-
-          {/* Measured Qty + Unit display */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Entry Details */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Entry Details
+            </p>
+            {/* BOQ Item */}
             <div>
               <label className={labelClass} style={labelStyle}>
-                Measured Qty{" "}
-                <span style={{ color: "var(--color-stop)" }}>*</span>
+                BOQ Line Item <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <select
+                value={form.boqItemId}
+                onChange={(e) => onBoqItemChange(e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+              >
+                <option value="">— Select BOQ item —</option>
+                {boqItems.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.serialNo} — {b.description}
+                    {b.unit ? ` (${b.unit})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* WBS Node (optional, auto-suggested) */}
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                WBS Activity (optional)
+              </label>
+              <select
+                value={form.wbsNodeId}
+                onChange={(e) => set("wbsNodeId", e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+              >
+                <option value="">— None —</option>
+                {wbsNodes.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.code} — {w.name}
+                  </option>
+                ))}
+              </select>
+              {suggestedWbsNode && form.wbsNodeId === suggestedWbsNode.id && (
+                <p
+                  className="text-m-caption mt-1"
+                  style={{ color: "var(--color-signal-dark)" }}
+                >
+                  Auto-linked from BOQ item. Progress will update on approval.
+                </p>
+              )}
+              {!suggestedWbsNode && form.boqItemId && (
+                <p
+                  className="text-m-caption mt-1"
+                  style={{ color: "var(--color-stop)" }}
+                >
+                  This BOQ item isn&apos;t linked to any WBS activity.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Measurement */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Measurement
+            </p>
+            {/* Measured Qty + Unit display */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Measured Qty{" "}
+                  <span style={{ color: "var(--color-stop)" }}>*</span>
+                </label>
+                <input
+                  type="number"
+                  min={0.001}
+                  step="any"
+                  value={form.measuredQty}
+                  onChange={(e) => set("measuredQty", e.target.value)}
+                  placeholder="0"
+                  inputMode="decimal"
+                  autoFocus={!!form.boqItemId}
+                  enterKeyHint="next"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div className="pl-2">
+                <label className={labelClass} style={labelStyle}>
+                  Unit
+                </label>
+                <div
+                  className="h-10 rounded-[0.5rem] border px-3 flex items-center text-m-section font-semibold"
+                  style={{
+                    borderColor: "var(--color-line)",
+                    backgroundColor: "var(--color-concrete)",
+                    color: selectedBoq?.unit
+                      ? "var(--color-ink-950)"
+                      : "var(--color-ink-400)",
+                  }}
+                >
+                  {selectedBoq?.unit ?? "—"}
+                </div>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Description <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
               <input
-                type="number"
-                min={0.001}
-                step="any"
-                value={form.measuredQty}
-                onChange={(e) => set("measuredQty", e.target.value)}
-                placeholder="0"
-                inputMode="decimal"
-                autoFocus={!!form.boqItemId}
+                type="text"
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
+                placeholder="e.g. PCC for foundation, 1st floor slab casting"
                 enterKeyHint="next"
                 className={inputClass}
                 style={inputStyle}
               />
             </div>
+
+            {/* Location Ref */}
             <div>
               <label className={labelClass} style={labelStyle}>
-                Unit
+                Location Reference (optional)
               </label>
-              <div
-                className="h-10 rounded-[0.5rem] border px-3 flex items-center text-m-section font-semibold"
-                style={{
-                  borderColor: "var(--color-line)",
-                  backgroundColor: "var(--color-concrete)",
-                  color: selectedBoq?.unit
-                    ? "var(--color-ink-950)"
-                    : "var(--color-ink-400)",
-                }}
-              >
-                {selectedBoq?.unit ?? "—"}
-              </div>
+              <input
+                type="text"
+                value={form.locationRef}
+                onChange={(e) => set("locationRef", e.target.value)}
+                placeholder="e.g. Grid A-3, Wing B, Plot 7"
+                enterKeyHint="done"
+                className={inputClass}
+                style={inputStyle}
+              />
             </div>
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Description <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={form.description}
-              onChange={(e) => set("description", e.target.value)}
-              placeholder="e.g. PCC for foundation, 1st floor slab casting"
-              enterKeyHint="next"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Location Ref */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Location Reference (optional)
-            </label>
-            <input
-              type="text"
-              value={form.locationRef}
-              onChange={(e) => set("locationRef", e.target.value)}
-              placeholder="e.g. Grid A-3, Wing B, Plot 7"
-              enterKeyHint="done"
-              className={inputClass}
-              style={inputStyle}
-            />
           </div>
 
           {/* Actions */}
@@ -328,8 +298,7 @@ export function MobileNewMbEntryDialog({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }
 

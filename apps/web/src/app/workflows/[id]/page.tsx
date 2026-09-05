@@ -26,7 +26,7 @@ export default function WorkflowEditorPage({ params }: { params: Promise<{ id: s
   );
 }
 
-async function WorkflowLoader({ params }: { params: Promise<{ id: string }> }) {
+export async function WorkflowLoader({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   await connection();
   const role = await getUserRole();

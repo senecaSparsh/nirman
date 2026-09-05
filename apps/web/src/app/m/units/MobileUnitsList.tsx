@@ -1,9 +1,17 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Building } from "lucide-react";
-import { formatNumber, formatCurrencyCompact } from "@/lib/utils";
+import { Building, Eye, Share2, IndianRupee, Maximize } from "lucide-react";
+import { formatNumber, formatCurrency, formatCurrencyCompact } from "@/lib/utils";
+import { toast } from "sonner";
+import { useLongPress } from "@/lib/use-long-press";
+import {
+  MobileOverviewSheet,
+  type OverviewRow,
+} from "@/components/mobile/v2/mobile-overview-sheet";
+import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
@@ -157,47 +165,114 @@ export function MobileUnitsList({
 }
 
 /* ----------------------------------------------------------------
- * Unit card — shared between flat and grouped views
+ * Unit card — shared between flat and grouped views.
+ * Long-press opens an overview sheet (data already in the list item).
  * ---------------------------------------------------------------- */
 function UnitCard({ u, showProject }: { u: UnitListItem; showProject: boolean }) {
+  const router = useRouter();
   const tone = STATUS_TONE[u.status] ?? "var(--color-ink-500)";
   const typeLabel = u.unitType.replace(/_/g, " ").toLowerCase();
 
+  // ── Long-press overview sheet (data already in the list item — no fetch) ──
+  const [overviewOpen, setOverviewOpen] = useState(false);
+  const [pressPoint, setPressPoint] = useState<{ x: number; y: number } | null>(null);
+  const { bind: longPressBind } = useLongPress((x, y) => {
+    setPressPoint({ x, y });
+    setOverviewOpen(true);
+  });
+
+  const overviewRows: OverviewRow[] = [
+    { icon: Building, label: "Unit No", value: u.unitNumber, mono: true },
+    { icon: Building, label: "Type", value: typeLabel },
+    { icon: Building, label: "Status", value: STATUS_LABEL[u.status] ?? u.status, valueColor: tone },
+    {
+      icon: Maximize,
+      label: "Area",
+      value: `${formatNumber(u.area, 0)} ${u.areaUnit}`,
+    },
+    ...(showProject
+      ? [{ icon: Building, label: "Project", value: u.projectName }]
+      : []),
+    {
+      icon: IndianRupee,
+      label: "Asking Price",
+      value: u.askingPrice != null ? formatCurrency(u.askingPrice) : "Not set",
+      valueColor: u.askingPrice != null ? "var(--color-steel)" : "var(--color-stop)",
+    },
+  ];
+
+  const overviewActions: ContextAction[] = [
+    {
+      label: "View Full Details",
+      icon: Eye,
+      onPress: () => router.push(`/m/units/${u.id}`),
+    },
+    {
+      label: "Share",
+      icon: Share2,
+      onPress: () => {
+        const url = `${window.location.origin}/m/units/${u.id}`;
+        if (navigator.share) {
+          navigator.share({ title: u.unitNumber, url }).catch(() => {});
+        } else {
+          navigator.clipboard?.writeText(url).catch(() => {});
+          toast.success("Link copied");
+        }
+      },
+    },
+  ];
+
   return (
-    <Link
-      href={`/m/units/${u.id}`}
-      className="flex flex-col rounded-[0.5rem] border p-2.5 text-m-body press overflow-hidden"
-      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-    >
-      {/* Top accent strip */}
-      <div className="h-0.5 -mx-2.5 -mt-2.5 mb-2" style={{ backgroundColor: tone }} />
-      <div className="flex items-start justify-between gap-2 mb-1">
-        <p className="text-m-section font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
-          {u.unitNumber}
-        </p>
-        <span
-          className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
-          style={{ backgroundColor: tone, color: "var(--color-paper)" }}
+    <>
+      <div {...longPressBind}>
+        <Link
+          href={`/m/units/${u.id}`}
+          className="flex flex-col rounded-[0.5rem] border p-2.5 text-m-body press overflow-hidden"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
-          {STATUS_LABEL[u.status] ?? u.status}
-        </span>
+          {/* Top accent strip */}
+          <div className="h-0.5 -mx-2.5 -mt-2.5 mb-2" style={{ backgroundColor: tone }} />
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <p className="text-m-section font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
+              {u.unitNumber}
+            </p>
+            <span
+              className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded shrink-0"
+              style={{ backgroundColor: tone, color: "var(--color-paper)" }}
+            >
+              {STATUS_LABEL[u.status] ?? u.status}
+            </span>
+          </div>
+          <p className="text-m-caption mb-1.5 truncate" style={{ color: "var(--color-ink-500)" }}>
+            {typeLabel} · {formatNumber(u.area, 0)} {u.areaUnit}
+            {showProject ? ` · ${u.projectName}` : ""}
+          </p>
+          <div className="flex items-baseline justify-between mt-auto">
+            <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+              Price
+            </span>
+            <span
+              className="text-m-label font-bold tabular-nums"
+              style={{ color: u.askingPrice != null ? "var(--color-steel)" : "var(--color-stop)" }}
+            >
+              {u.askingPrice != null ? formatCurrencyCompact(u.askingPrice) : "—"}
+            </span>
+          </div>
+        </Link>
       </div>
-      <p className="text-m-caption mb-1.5 truncate" style={{ color: "var(--color-ink-500)" }}>
-        {typeLabel} · {formatNumber(u.area, 0)} {u.areaUnit}
-        {showProject ? ` · ${u.projectName}` : ""}
-      </p>
-      <div className="flex items-baseline justify-between mt-auto">
-        <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-          Price
-        </span>
-        <span
-          className="text-m-label font-bold tabular-nums"
-          style={{ color: u.askingPrice != null ? "var(--color-steel)" : "var(--color-stop)" }}
-        >
-          {u.askingPrice != null ? formatCurrencyCompact(u.askingPrice) : "—"}
-        </span>
-      </div>
-    </Link>
+
+      {/* Long-press overview sheet */}
+      <MobileOverviewSheet
+        open={overviewOpen}
+        onClose={() => setOverviewOpen(false)}
+        origin={pressPoint}
+        title={u.unitNumber}
+        subtitle={`${typeLabel} · ${u.projectName}`}
+        accentColor={tone}
+        rows={overviewRows}
+        actions={overviewActions}
+      />
+    </>
   );
 }
 

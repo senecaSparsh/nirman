@@ -17,7 +17,7 @@ export default function LandDetailPage({ params }: { params: Promise<{ id: strin
   );
 }
 
-async function LandDetailContent({ params }: { params: Promise<{ id: string }> }) {
+export async function LandDetailContent({ params }: { params: Promise<{ id: string }> }) {
   await connection();
   const { id } = await params;
   const role = await getUserRole();

@@ -1,9 +1,17 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Receipt, Plus, Clock, CheckCircle2, XCircle } from "lucide-react";
-import { formatCurrencyCompact, formatDate } from "@/lib/utils";
+import { Receipt, Plus, Clock, CheckCircle2, XCircle, Eye, Share2, User, Calendar, IndianRupee, Tag, FileText } from "lucide-react";
+import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
+import { toast } from "sonner";
+import { useLongPress } from "@/lib/use-long-press";
+import {
+  MobileOverviewSheet,
+  type OverviewRow,
+} from "@/components/mobile/v2/mobile-overview-sheet";
+import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -111,38 +119,98 @@ export function MobileExpenseClaimsList({
       />
       <MobileSummaryStrip stats={stats} />
       <MobileCardGrid>
-        {filtered.map((claim) => {
-          const meta = STATUS_META[claim.status] ?? { label: claim.status, icon: Receipt, color: "text-muted-foreground" };
-          const StatusIcon = meta.icon;
-          return (
-            <Link
-              key={claim.id}
-              href={`/expense-claims?open=${claim.id}`}
-              className="block rounded-xl border border-border bg-card p-3.5 shadow-sm transition-colors active:bg-muted/40"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-body font-medium text-foreground">{claim.claimantName}</p>
-                  {claim.projectName && (
-                    <p className="mt-0.5 truncate text-caption text-muted-foreground">{claim.projectName}</p>
-                  )}
-                </div>
-                <div className="text-right">
-                  <p className="tnum text-body font-semibold text-foreground">{formatCurrencyCompact(claim.totalAmount)}</p>
-                </div>
-              </div>
-              <div className="mt-2 flex items-center justify-between">
-                <div className={`flex items-center gap-1 text-caption ${meta.color}`}>
-                  <StatusIcon className="size-3" />
-                  {meta.label}
-                </div>
-                <span className="text-caption text-muted-foreground">{formatDate(claim.submittedAt)}</span>
-              </div>
-            </Link>
-          );
-        })}
+        {filtered.map((claim) => (
+          <ClaimCard key={claim.id} claim={claim} />
+        ))}
       </MobileCardGrid>
       {filtered.length === 0 && <MobileNoResults query={query} />}
     </div>
+  );
+}
+
+/* ─── Claim card — long-press opens overview sheet ─── */
+function ClaimCard({ claim }: { claim: ExpenseClaimListItem }) {
+  const router = useRouter();
+  const meta = STATUS_META[claim.status] ?? { label: claim.status, icon: Receipt, color: "text-muted-foreground" };
+  const StatusIcon = meta.icon;
+
+  // ── Long-press overview sheet (data already in the list item — no fetch) ──
+  const [overviewOpen, setOverviewOpen] = useState(false);
+  const [pressPoint, setPressPoint] = useState<{ x: number; y: number } | null>(null);
+  const { bind: longPressBind } = useLongPress((x, y) => {
+    setPressPoint({ x, y });
+    setOverviewOpen(true);
+  });
+
+  const overviewRows: OverviewRow[] = [
+    { icon: User, label: "Claimant", value: claim.claimantName },
+    { icon: Calendar, label: "Date", value: formatDate(claim.submittedAt) },
+    { icon: IndianRupee, label: "Amount", value: formatCurrency(claim.totalAmount) },
+    { icon: Receipt, label: "Status", value: meta.label },
+    { icon: Tag, label: "Project", value: claim.projectName ?? "—" },
+    { icon: Calendar, label: "Submitted", value: formatDate(claim.submittedAt) },
+    { icon: FileText, label: "Description", value: claim.description ?? "—" },
+  ];
+
+  const overviewActions: ContextAction[] = [
+    {
+      label: "View Full Details",
+      icon: Eye,
+      onPress: () => router.push(`/m/expense-claims/${claim.id}`),
+    },
+    {
+      label: "Share",
+      icon: Share2,
+      onPress: () => {
+        const url = `${window.location.origin}/m/expense-claims/${claim.id}`;
+        if (navigator.share) {
+          navigator.share({ title: claim.claimantName, url }).catch(() => {});
+        } else {
+          navigator.clipboard?.writeText(url).catch(() => {});
+          toast.success("Link copied");
+        }
+      },
+    },
+  ];
+
+  return (
+    <>
+      <div {...longPressBind}>
+        <Link
+          href={`/expense-claims?open=${claim.id}`}
+          className="block rounded-xl border border-border bg-card p-3.5 shadow-sm transition-colors active:bg-muted/40"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-body font-medium text-foreground">{claim.claimantName}</p>
+              {claim.projectName && (
+                <p className="mt-0.5 truncate text-caption text-muted-foreground">{claim.projectName}</p>
+              )}
+            </div>
+            <div className="text-right">
+              <p className="tnum text-body font-semibold text-foreground">{formatCurrencyCompact(claim.totalAmount)}</p>
+            </div>
+          </div>
+          <div className="mt-2 flex items-center justify-between">
+            <div className={`flex items-center gap-1 text-caption ${meta.color}`}>
+              <StatusIcon className="size-3" />
+              {meta.label}
+            </div>
+            <span className="text-caption text-muted-foreground">{formatDate(claim.submittedAt)}</span>
+          </div>
+        </Link>
+      </div>
+
+      {/* Long-press overview sheet */}
+      <MobileOverviewSheet
+        open={overviewOpen}
+        onClose={() => setOverviewOpen(false)}
+        origin={pressPoint}
+        title={claim.claimantName}
+        subtitle={formatCurrency(claim.totalAmount)}
+        rows={overviewRows}
+        actions={overviewActions}
+      />
+    </>
   );
 }

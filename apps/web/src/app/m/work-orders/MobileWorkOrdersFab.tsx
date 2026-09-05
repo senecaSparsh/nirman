@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Plus } from "lucide-react";
-import { MobileNewWorkOrderDialog } from "./MobileNewWorkOrderDialog";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileNewWorkOrderForm } from "./MobileNewWorkOrderDialog";
 
 export function MobileWorkOrdersFab({
   projects,
@@ -11,32 +12,23 @@ export function MobileWorkOrdersFab({
   projects: { id: string; name: string }[];
   subcontractors: { id: string; name: string; trade: string | null }[];
 }) {
-  const [open, setOpen] = useState(false);
+  const fab = useFabModal();
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed right-3 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
-        style={{
-          bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
-          backgroundColor: "var(--color-ink-950)",
-          color: "var(--color-paper)",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-        }}
-        aria-label="Add new work order"
+      <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="Add new work order" />
+      <MobileFabModal
+        open={fab.isOpen}
+        onClose={fab.close}
+        originRect={fab.originRect}
+        title="New Work Order"
       >
-        <Plus className="size-5" />
-      </button>
-
-      {open && (
-        <MobileNewWorkOrderDialog
-          open={open}
-          onClose={() => setOpen(false)}
+        <MobileNewWorkOrderForm
+          onClose={fab.close}
           projects={projects}
           subcontractors={subcontractors}
         />
-      )}
+      </MobileFabModal>
     </>
   );
 }

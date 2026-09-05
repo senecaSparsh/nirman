@@ -26,6 +26,30 @@ import { withSerializableTransaction } from "./transaction";
  * is linked back to the legal doc via sourceLegalDocId.
  */
 
+/**
+ * Determine if a legal document should have a linked transfer duty cost.
+ * Pure function — no DB access.
+ *
+ * Conditions: type = TRANSFER_DUTY, obtained = true, status = APPROVED,
+ * amount > 0, and linked to a project.
+ */
+export function shouldHaveTransferDutyCost(doc: {
+  type: string;
+  obtained: boolean;
+  status: string;
+  amount: Decimal | number | null;
+  projectId: string | null;
+}): boolean {
+  return (
+    doc.type === "TRANSFER_DUTY" &&
+    doc.obtained &&
+    doc.status === "APPROVED" &&
+    doc.amount != null &&
+    new Decimal(doc.amount).gt(0) &&
+    doc.projectId != null
+  );
+}
+
 export interface CreateLegalDocInput {
   companyId: string;
   landPurchaseId?: string;

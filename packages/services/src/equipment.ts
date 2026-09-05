@@ -4,6 +4,7 @@ import { logAction } from "./audit";
 import { postEquipmentAcquisition, postEquipmentMaintenance, postEquipmentRetirement, postEquipmentSale } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 
 /**
  * Equipment Service — manage discrete, trackable assets (machinery, tools, vehicles).
@@ -84,7 +85,7 @@ interface AssignEquipmentInput {
 }
 
 export async function assignEquipment(input: AssignEquipmentInput) {
-  return withSerializableTransaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const equipment = await tx.equipment.findFirst({ where: { id: input.equipmentId, deletedAt: null } });
     if (!equipment) throw new ServiceError("Equipment not found", 404);
     if (equipment.status !== "AVAILABLE") {
@@ -120,8 +121,18 @@ export async function assignEquipment(input: AssignEquipmentInput) {
       entityId: assignment.id,
       after: { equipmentId: input.equipmentId, locationId: input.locationId, projectId: input.projectId ?? null, status: "ACTIVE" },
     });
-    return assignment;
+    return { assignment, companyId: equipment.companyId };
   });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.EQUIPMENT_ASSIGNED,
+    companyId: result.companyId,
+    entityType: "EquipmentAssignment",
+    entityId: result.assignment.id,
+    variables: { equipmentId: input.equipmentId, locationId: input.locationId },
+    timestamp: new Date(),
+  });
+  return result.assignment;
 }
 
 export async function returnEquipment(assignmentId: string, userId?: string) {
@@ -221,7 +232,11 @@ export async function recordMaintenance(input: RecordMaintenanceInput) {
   });
 }
 
-export async function completeMaintenance(equipmentId: string, userId?: string) {
+export async function completeMaintenance(
+  equipmentId: string,
+  userId?: string,
+  finalCost?: Decimal | number | string,
+) {
   return withSerializableTransaction(async (tx) => {
     const equipment = await tx.equipment.findFirst({ where: { id: equipmentId, deletedAt: null } });
     if (!equipment) throw new ServiceError("Equipment not found", 404);
@@ -230,6 +245,40 @@ export async function completeMaintenance(equipmentId: string, userId?: string) 
     }
 
     // End any open maintenance records
+    const openMaintenances = await tx.equipmentMaintenance.findMany({
+      where: { equipmentId, endDate: null },
+    });
+    if (openMaintenances.length === 0) {
+      throw new ServiceError("No open maintenance records found for this equipment");
+    }
+
+    // If a final cost is provided, update the maintenance records and post GL
+    let glPosted = false;
+    if (finalCost !== undefined) {
+      const costDecimal = new Decimal(finalCost);
+      if (costDecimal.lt(0)) throw new ServiceError("Maintenance cost cannot be negative");
+
+      for (const m of openMaintenances) {
+        const previousCost = new Decimal(m.cost);
+        const costDelta = costDecimal.minus(previousCost);
+        await tx.equipmentMaintenance.update({
+          where: { id: m.id },
+          data: { cost: costDecimal },
+        });
+        // Post GL only for the delta (the original cost was posted at record time)
+        if (!costDelta.equals(0)) {
+          await postEquipmentMaintenance(tx, {
+            companyId: equipment.companyId,
+            equipmentId,
+            maintenanceId: m.id,
+            cost: costDelta,
+            postedById: userId,
+          });
+          glPosted = true;
+        }
+      }
+    }
+
     await tx.equipmentMaintenance.updateMany({
       where: { equipmentId, endDate: null },
       data: { endDate: new Date() },
@@ -246,14 +295,14 @@ export async function completeMaintenance(equipmentId: string, userId?: string) 
       entityType: "Equipment",
       entityId: equipmentId,
       before: { status: "IN_MAINTENANCE" },
-      after: { status: "AVAILABLE" },
+      after: { status: "AVAILABLE", finalCost: finalCost?.toString() ?? null, glPosted },
     });
     return updated;
   });
 }
 
 export async function retireEquipment(equipmentId: string, userId?: string) {
-  return withSerializableTransaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const equipment = await tx.equipment.findFirst({ where: { id: equipmentId, deletedAt: null } });
     if (!equipment) throw new ServiceError("Equipment not found", 404);
     if (equipment.status === "RETIRED") throw new ServiceError("Equipment already retired");
@@ -291,8 +340,18 @@ export async function retireEquipment(equipmentId: string, userId?: string) {
       before: { status: equipment.status },
       after: { status: "RETIRED" },
     });
-    return updated;
+    return { updated, companyId: equipment.companyId };
   });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.EQUIPMENT_RETIRED,
+    companyId: result.companyId,
+    entityType: "Equipment",
+    entityId: equipmentId,
+    variables: { equipmentId, name: result.updated.name },
+    timestamp: new Date(),
+  });
+  return result.updated;
 }
 
 /**
@@ -350,7 +409,7 @@ export async function sellEquipment(
   },
   userId?: string,
 ) {
-  return withSerializableTransaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     const equipment = await tx.equipment.findFirst({ where: { id: equipmentId, deletedAt: null } });
     if (!equipment) throw new ServiceError("Equipment not found", 404);
     if (equipment.status === "SOLD") throw new ServiceError("Equipment already sold");
@@ -386,8 +445,18 @@ export async function sellEquipment(
       before: { status: equipment.status, currentValue: equipment.currentValue.toString() },
       after: { status: "SOLD", salePrice: salePrice.toString(), buyerName: input.buyerName ?? null },
     });
-    return updated;
+    return { updated, companyId: equipment.companyId, salePrice };
   });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.EQUIPMENT_SOLD,
+    companyId: result.companyId,
+    entityType: "Equipment",
+    entityId: equipmentId,
+    variables: { equipmentId, salePrice: result.salePrice.toFixed(2), buyerName: input.buyerName ?? "" },
+    timestamp: new Date(),
+  });
+  return result.updated;
 }
 
 /**

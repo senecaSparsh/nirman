@@ -97,7 +97,7 @@ async function logActivity(
   });
 }
 
-function userName(user: { name: string } | null | undefined): string {
+export function userName(user: { name: string } | null | undefined): string {
   return user?.name ?? "Someone";
 }
 

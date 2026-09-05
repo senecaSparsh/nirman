@@ -90,48 +90,55 @@ export function MobileSmsIngest() {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div>
-            <label
-              className="mb-1 block text-m-caption font-semibold uppercase"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Sender ID
-            </label>
-            <input
-              value={sender}
-              onChange={(e) => setSender(e.target.value)}
-              placeholder="e.g. HD-FBANK"
-              className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-              required
-            />
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {/* ── SMS Details ── */}
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              SMS Details
+            </p>
+            <div>
+              <label
+                className="mb-0 block text-m-caption font-bold uppercase"
+                style={{ color: "var(--color-ink-700)" }}
+              >
+                Sender ID
+              </label>
+              <input
+                value={sender}
+                onChange={(e) => setSender(e.target.value)}
+                placeholder="e.g. HD-FBANK"
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={{
+                  borderColor: "var(--color-line)",
+                  backgroundColor: "transparent",
+                  color: "var(--color-ink-950)",
+                }}
+                required
+              />
+            </div>
+            <div>
+              <label
+                className="mb-0 block text-m-caption font-bold uppercase"
+                style={{ color: "var(--color-ink-700)" }}
+              >
+                SMS Message
+              </label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Paste the full SMS text…"
+                rows={3}
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+                style={{
+                  borderColor: "var(--color-line)",
+                  backgroundColor: "transparent",
+                  color: "var(--color-ink-950)",
+                }}
+                required
+              />
+            </div>
           </div>
-          <div>
-            <label
-              className="mb-1 block text-m-caption font-semibold uppercase"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              SMS Message
-            </label>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Paste the full SMS text…"
-              rows={4}
-              className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-              required
-            />
-          </div>
+
           <button
             type="submit"
             disabled={saving}

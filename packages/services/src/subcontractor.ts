@@ -5,6 +5,7 @@ import { postProjectCost, postRaBillApproval, postJournalEntry, ACCT } from "./g
 import { reallocateProjectCosts } from "./valuation";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
+import { nextSequenceNumber } from "./sequence";
 
 /**
  * Subcontractor Management + RA Bills + TDS Service.
@@ -45,15 +46,7 @@ async function generateWorkOrderNumber(tx: Prisma.TransactionClient): Promise<st
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `WO-${ymd}-`;
-  const existing = await tx.subcontractorWorkOrder.findMany({
-    where: { workOrderNumber: { startsWith: prefix } },
-    select: { workOrderNumber: true },
-  });
-  const maxSeq = existing.reduce((max, e) => {
-    const n = parseInt(e.workOrderNumber.slice(prefix.length) ?? "0", 10);
-    return n > max ? n : max;
-  }, 0);
-  return `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 export interface CreateWorkOrderInput {
@@ -296,15 +289,7 @@ async function generateRaBillNumber(tx: Prisma.TransactionClient): Promise<strin
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `RA-${ymd}-`;
-  const existing = await tx.raBill.findMany({
-    where: { raBillNumber: { startsWith: prefix } },
-    select: { raBillNumber: true },
-  });
-  const maxSeq = existing.reduce((max, e) => {
-    const n = parseInt(e.raBillNumber.slice(prefix.length) ?? "0", 10);
-    return n > max ? n : max;
-  }, 0);
-  return `${prefix}${String(maxSeq + 1).padStart(4, "0")}`;
+  return nextSequenceNumber(tx, prefix, 4);
 }
 
 export interface CreateRaBillInput {

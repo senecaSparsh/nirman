@@ -19,7 +19,7 @@ export default function VendorsPage() {
   );
 }
 
-async function VendorsContent() {
+export async function VendorsContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

@@ -19,6 +19,53 @@ import { withSerializableTransaction } from "./transaction";
  * be more overhead than the purchase itself.
  */
 
+/**
+ * Compute a direct purchase line's financial values.
+ * Pure function — no DB access.
+ *
+ *   lineSubtotal = qty × unitCost
+ *   gstAmount    = lineSubtotal × gstRate / 100
+ *   lineTotal    = lineSubtotal + gstAmount
+ */
+export function computeDirectPurchaseLine(
+  qty: Decimal,
+  unitCost: Decimal,
+  gstRate: Decimal,
+): {
+  lineSubtotal: Decimal;
+  gstAmount: Decimal;
+  lineTotal: Decimal;
+} {
+  const lineSubtotal = qty.times(unitCost).toDecimalPlaces(2);
+  const gstAmount = lineSubtotal.times(gstRate).div(100).toDecimalPlaces(2);
+  const lineTotal = lineSubtotal.plus(gstAmount).toDecimalPlaces(2);
+  return { lineSubtotal, gstAmount, lineTotal };
+}
+
+/**
+ * Compute direct purchase header totals from line results.
+ * Pure function — no DB access.
+ *
+ *   billAmount = subtotal + gstTotal + roundOff
+ */
+export function computeDirectPurchaseTotals(
+  lines: { lineSubtotal: Decimal; gstAmount: Decimal }[],
+  roundOff: Decimal,
+): {
+  subtotal: Decimal;
+  gstTotal: Decimal;
+  billAmount: Decimal;
+} {
+  let subtotal = new Decimal(0);
+  let gstTotal = new Decimal(0);
+  for (const l of lines) {
+    subtotal = subtotal.plus(l.lineSubtotal);
+    gstTotal = gstTotal.plus(l.gstAmount);
+  }
+  const billAmount = subtotal.plus(gstTotal).plus(roundOff);
+  return { subtotal, gstTotal, billAmount };
+}
+
 /** Generate a unique bill number: P-NNNNNN (sequential, zero-padded) */
 async function generateBillNumber(): Promise<string> {
   const last = await prisma.directPurchase.findFirst({
@@ -105,9 +152,9 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
         const qty = new Decimal(line.qty);
         const unitCost = new Decimal(line.unitCost);
         const gstRate = line.gstRate ? new Decimal(line.gstRate) : new Decimal(0);
-        const lineSubtotal = qty.times(unitCost);
-        const gstAmount = lineSubtotal.times(gstRate).div(100);
-        const lineTotal = lineSubtotal.plus(gstAmount);
+        const lineSubtotal = qty.times(unitCost).toDecimalPlaces(2);
+        const gstAmount = lineSubtotal.times(gstRate).div(100).toDecimalPlaces(2);
+        const lineTotal = lineSubtotal.plus(gstAmount).toDecimalPlaces(2);
 
         subtotal = subtotal.plus(lineSubtotal);
         gstTotal = gstTotal.plus(gstAmount);

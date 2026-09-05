@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
-import {Search, Truck, Phone, User, MapPin, ChevronRight} from "lucide-react";
-import { Input } from "@/components/ui/input";
+import {Search, Truck, Phone, User, MapPin, ChevronRight, Plus, Loader2} from "lucide-react";
+import { toast } from "sonner";
+import { Input, Label } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { Dialog } from "@/components/ui/dialog";
@@ -57,9 +60,10 @@ const TYPE_COLORS: Record<string, string> = {
   OTHER: "bg-muted text-muted-foreground",
 };
 
-export function VehiclesView({ vehicles }: { vehicles: VehicleRow[] }) {
+export function VehiclesView({ vehicles, canManage = false }: { vehicles: VehicleRow[]; canManage?: boolean }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<VehicleRow | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -177,14 +181,21 @@ export function VehiclesView({ vehicles }: { vehicles: VehicleRow[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="relative max-w-sm">
-        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search vehicle no, driver, transporter…"
-          className="pl-9"
-        />
+      <div className="flex items-center gap-2 max-w-sm">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search vehicle no, driver, transporter…"
+            className="pl-9"
+          />
+        </div>
+        {canManage ? (
+          <Button onClick={() => setCreateOpen(true)} className="shrink-0">
+            <Plus className="h-4 w-4" /> New Vehicle
+          </Button>
+        ) : null}
       </div>
 
       {filtered.length === 0 && !query ? (
@@ -192,6 +203,13 @@ export function VehiclesView({ vehicles }: { vehicles: VehicleRow[] }) {
           icon={<Truck className="h-6 w-6" />}
           title="No vehicles yet"
           description="Vehicles are auto-created when you enter a vehicle number on any goods movement — receive, issue, transfer, sale, or return. Each movement logs a trip."
+          action={
+            canManage ? (
+              <Button onClick={() => setCreateOpen(true)} size="sm">
+                <Plus className="h-4 w-4" /> New Vehicle
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <DataTable
@@ -215,7 +233,176 @@ export function VehiclesView({ vehicles }: { vehicles: VehicleRow[] }) {
         open={!!selected}
         onOpenChange={(o) => { if (!o) setSelected(null); }}
       />
+
+      {canManage ? (
+        <NewVehicleDialog open={createOpen} onOpenChange={setCreateOpen} />
+      ) : null}
     </div>
+  );
+}
+
+const VEHICLE_TYPE_OPTIONS = [
+  { value: "TRUCK", label: "Truck (16-wheeler)" },
+  { value: "TEMPO", label: "Tempo" },
+  { value: "PICKUP", label: "Pickup" },
+  { value: "TRACTOR", label: "Tractor Trolley" },
+  { value: "MINI_TRUCK", label: "Mini Truck" },
+  { value: "AUTO", label: "Auto Rickshaw" },
+  { value: "CAR", label: "Car" },
+  { value: "BIKE", label: "Bike" },
+  { value: "CYCLE", label: "Cycle" },
+  { value: "HAND_CART", label: "Hand Cart" },
+  { value: "PORTER", label: "Porter (on shoulder)" },
+  { value: "OTHER", label: "Other" },
+];
+
+/**
+ * NewVehicleDialog — desktop modal for manually creating a Vehicle master
+ * record. Mirrors the mobile MobileNewVehicleForm. Vehicles normally
+ * auto-build from goods movements, but the owner can pre-register one here.
+ */
+function NewVehicleDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    vehicleNumber: "",
+    vehicleType: "TRUCK",
+    driverName: "",
+    driverPhone: "",
+    transporterName: "",
+  });
+
+  // Reset form whenever the dialog is opened fresh.
+  useEffect(() => {
+    if (!open) return;
+    setForm({
+      vehicleNumber: "",
+      vehicleType: "TRUCK",
+      driverName: "",
+      driverPhone: "",
+      transporterName: "",
+    });
+  }, [open]);
+
+  function set(key: keyof typeof form, value: string) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.vehicleNumber.trim()) {
+      toast.error("Vehicle number is required");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/vehicles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vehicleNumber: form.vehicleNumber.trim(),
+          vehicleType: form.vehicleType,
+          driverName: form.driverName.trim() || null,
+          driverPhone: form.driverPhone.trim() || null,
+          transporterName: form.transporterName.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to create vehicle");
+      toast.success(`Vehicle ${form.vehicleNumber.trim().toUpperCase()} created`);
+      onOpenChange(false);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="New Vehicle"
+      description="Pre-register a vehicle before its first trip. It will be auto-updated with trip info when used on a goods movement."
+      className="max-w-lg"
+    >
+      <form onSubmit={onSubmit} className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="v-number">Vehicle Number *</Label>
+            <Input
+              id="v-number"
+              value={form.vehicleNumber}
+              onChange={(e) => set("vehicleNumber", e.target.value)}
+              placeholder="e.g. MH-12-AB-1234"
+              required
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="v-type">Type</Label>
+            <select
+              id="v-type"
+              value={form.vehicleType}
+              onChange={(e) => set("vehicleType", e.target.value)}
+              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+            >
+              {VEHICLE_TYPE_OPTIONS.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="v-driver">Driver Name</Label>
+            <Input
+              id="v-driver"
+              value={form.driverName}
+              onChange={(e) => set("driverName", e.target.value)}
+              placeholder="e.g. Ramesh"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="v-phone">Driver Phone</Label>
+            <Input
+              id="v-phone"
+              type="tel"
+              value={form.driverPhone}
+              onChange={(e) => set("driverPhone", e.target.value)}
+              placeholder="e.g. 9876543210"
+            />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="v-transporter">Transporter</Label>
+          <Input
+            id="v-transporter"
+            value={form.transporterName}
+            onChange={(e) => set("transporterName", e.target.value)}
+            placeholder="e.g. ABC Transport (for third-party transport)"
+          />
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            {saving ? "Creating…" : "Create Vehicle"}
+          </Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 

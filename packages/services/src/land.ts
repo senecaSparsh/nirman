@@ -18,6 +18,55 @@ import { ServiceError } from "./errors";
  *    purpose (SELL / PROJECT / HOLD) and linked to a project when purpose=PROJECT.
  */
 
+/**
+ * Validate area conservation: sum of section areas must equal total area.
+ * Pure function — no DB access.
+ */
+export function validateAreaConservation(
+  sectionAreas: Decimal[],
+  totalArea: Decimal,
+): void {
+  const sumSections = sectionAreas.reduce((s, a) => s.plus(a), new Decimal(0));
+  if (!sumSections.equals(totalArea)) {
+    throw new ServiceError(
+      `Area conservation violated: Σ sections (${sumSections}) ≠ total area (${totalArea}). ` +
+      `Difference: ${sumSections.minus(totalArea)}`,
+    );
+  }
+}
+
+/**
+ * Allocate total cost pro-rata by area across sections.
+ * Pure function — no DB access.
+ *
+ *   childCosts[i] = totalCost × sectionAreas[i] / sumSaleableAreas
+ */
+export function allocateCostProRata(
+  totalCost: Decimal,
+  sectionAreas: Decimal[],
+): Decimal[] {
+  const sumSaleableAreas = sectionAreas.reduce((s, a) => s.plus(a), new Decimal(0));
+  if (!sumSaleableAreas.gt(0)) throw new ServiceError("Sum of section areas must be > 0");
+  return sectionAreas.map((area) => totalCost.times(area).div(sumSaleableAreas));
+}
+
+/**
+ * Validate a land purchase payment against the total cost.
+ * Pure function — no DB access.
+ *
+ * Throws if amount ≤ 0 or if cumulative payments would exceed total cost.
+ */
+export function validateLandPayment(
+  amount: Decimal,
+  totalPaid: Decimal,
+  totalCost: Decimal,
+): void {
+  if (!amount.gt(0)) throw new ServiceError("Payment amount must be > 0");
+  if (totalPaid.plus(amount).gt(totalCost)) {
+    throw new ServiceError(`Overpayment: cumulative ${totalPaid.plus(amount)} > total cost ${totalCost}`);
+  }
+}
+
 interface RecordLandPurchaseInput {
   companyId: string;
   projectId?: string;

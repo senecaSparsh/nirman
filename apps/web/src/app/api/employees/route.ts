@@ -4,6 +4,7 @@ import { prisma } from "@nirman/db";
 import { createEmployee } from "@nirman/services";
 import { apiHandler, getCompany, json, employeeSchema, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { normalizePhone } from "@/lib/phone-otp";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.HR_VIEW);
@@ -66,6 +67,55 @@ export const POST = apiHandler(async (req: NextRequest) => {
       return json({ error: "Invalid join date format" }, { status: 400 });
     }
   }
+  // ── Dedup detection: if the phone/email matches an existing User in
+  //    this company who isn't yet linked to an Employee, flag it so the UI
+  //    can offer to link instead of creating a duplicate. ──
+  let dedupSuggestion: { userId: string; userName: string; userEmail: string } | null = null;
+  if (parsed.data.phone) {
+    const normalizedPhone = normalizePhone(parsed.data.phone);
+    const existingUser = await prisma.user.findFirst({
+      where: { phoneNormalized: normalizedPhone, active: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        active: true,
+        memberships: { where: { companyId: company.id }, select: { id: true } },
+        employees: { where: { companyId: company.id, deletedAt: null }, select: { id: true } },
+      },
+    });
+    // Suggest link only if the user is a member of this company AND not
+    // already linked to an employee in this company
+    if (existingUser && existingUser.memberships.length > 0 && existingUser.employees.length === 0) {
+      dedupSuggestion = {
+        userId: existingUser.id,
+        userName: existingUser.name,
+        userEmail: existingUser.email,
+      };
+    }
+  }
+  if (!dedupSuggestion && parsed.data.email) {
+    const normalizedEmail = parsed.data.email.trim().toLowerCase();
+    const existingUser = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        active: true,
+        memberships: { where: { companyId: company.id }, select: { id: true } },
+        employees: { where: { companyId: company.id, deletedAt: null }, select: { id: true } },
+      },
+    });
+    if (existingUser && existingUser.active && existingUser.memberships.length > 0 && existingUser.employees.length === 0) {
+      dedupSuggestion = {
+        userId: existingUser.id,
+        userName: existingUser.name,
+        userEmail: existingUser.email,
+      };
+    }
+  }
+
   const created = await createEmployee({
     companyId: company.id,
     name: parsed.data.name,
@@ -83,8 +133,22 @@ export const POST = apiHandler(async (req: NextRequest) => {
     reportingLocationId: parsed.data.reportingLocationId || undefined,
     hierarchyLevel: parsed.data.hierarchyLevel ?? undefined,
     userId: user.id,
+    // Employment terms (dossier) — accepted at creation time
+    employmentType: parsed.data.employmentType ?? undefined,
+    noticePeriodDays: parsed.data.noticePeriodDays ?? undefined,
+    contractStartDate: parsed.data.contractStartDate ? new Date(parsed.data.contractStartDate) : undefined,
+    contractEndDate: parsed.data.contractEndDate ? new Date(parsed.data.contractEndDate) : undefined,
   });
   revalidatePath("/hr/employees");
   revalidatePath("/m/hr/employees");
-  return json({ ok: true, id: created.id, name: created.name, trade: created.trade }, { status: 201 });
+  return json(
+    {
+      ok: true,
+      id: created.id,
+      name: created.name,
+      trade: created.trade,
+      ...(dedupSuggestion ? { dedupSuggestion } : {}),
+    },
+    { status: 201 },
+  );
 });

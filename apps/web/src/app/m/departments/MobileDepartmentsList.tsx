@@ -282,59 +282,65 @@ function DepartmentFormDialog({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-        <div>
-          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-            Code *
-          </label>
-          <input
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="BOILER"
-            className="w-full h-7 px-1 text-m-caption font-mono outline-none border-b focus:border-b-2 transition-colors"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}
-            required
-          />
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      {/* Department Details */}
+      <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+          Department Details
+        </p>
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+          <div>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Code *
+            </label>
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="BOILER"
+              className="w-full h-7 px-1 text-m-caption font-mono outline-none border-b focus:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}
+              required
+            />
+          </div>
+          <div className="pl-2">
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Name *
+            </label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Boiler House"
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}
+              required
+            />
+          </div>
         </div>
-        <div>
-          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-            Name *
-          </label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Boiler House"
-            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}
-            required
-          />
-        </div>
-      </div>
 
-      <div>
-        <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-          Description
+        <div>
+          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+            Description
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            placeholder="What this department does…"
+            className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}
+          />
+        </div>
+
+        <label className="flex items-center gap-1 text-m-body" style={{ color: "var(--color-ink-500)" }}>
+          <input
+            type="checkbox"
+            checked={active}
+            onChange={(e) => setActive(e.target.checked)}
+            className="rounded"
+          />
+          Active department
         </label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={2}
-          placeholder="What this department does…"
-          className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}
-        />
       </div>
-
-      <label className="flex items-center gap-1 text-m-body" style={{ color: "var(--color-ink-500)" }}>
-        <input
-          type="checkbox"
-          checked={active}
-          onChange={(e) => setActive(e.target.checked)}
-          className="rounded"
-        />
-        Active department
-      </label>
 
       <div className="flex justify-end gap-1 pt-2">
         <button

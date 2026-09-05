@@ -23,7 +23,7 @@ export default function ExpensesPage() {
   );
 }
 
-async function ExpensesContent() {
+export async function ExpensesContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

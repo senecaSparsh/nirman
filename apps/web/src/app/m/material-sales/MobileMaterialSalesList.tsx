@@ -3,9 +3,14 @@
 import {useState, useMemo} from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { TrendingUp, Eye, Copy, Share2, IndianRupee } from "lucide-react";
+import { TrendingUp, Eye, Copy, Share2, IndianRupee, Calendar, User, Hash, Package } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
+import { useLongPress } from "@/lib/use-long-press";
+import {
+  MobileOverviewSheet,
+  type OverviewRow,
+} from "@/components/mobile/v2/mobile-overview-sheet";
 import { InteractiveListItem } from "@/components/mobile/v2/interactive-list-item";
 import { PageLead, NextActionCard } from "@/components/mobile/v2/guidance";
 import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
@@ -231,6 +236,44 @@ function SaleCard({s}: { s: MaterialSaleItem; onAction?: () => void }) {
 
   const statusLabel = isCancelled ? "Cancelled" : isPending ? "Unpaid" : "Paid";
 
+  // ── Long-press overview sheet (data already in the list item — no fetch) ──
+  const [overviewOpen, setOverviewOpen] = useState(false);
+  const [pressPoint, setPressPoint] = useState<{ x: number; y: number } | null>(null);
+  const { bind: longPressBind } = useLongPress((x, y) => {
+    setPressPoint({ x, y });
+    setOverviewOpen(true);
+  });
+
+  const overviewRows: OverviewRow[] = [
+    { icon: Hash, label: "Invoice No", value: s.saleNumber, mono: true },
+    { icon: Calendar, label: "Date", value: formatDate(s.saleDate) },
+    { icon: User, label: "Customer", value: s.customerName ?? "Walk-in customer" },
+    { icon: IndianRupee, label: "Total Amount", value: formatCurrency(s.totalAmount) },
+    { icon: IndianRupee, label: "Payment Status", value: statusLabel, valueColor: accentColor },
+    { icon: Package, label: "Items", value: `${s.lineCount} item${s.lineCount !== 1 ? "s" : ""}` },
+  ];
+
+  const overviewActions: ContextAction[] = [
+    {
+      label: "View Full Details",
+      icon: Eye,
+      onPress: () => router.push(`/m/material-sales/${s.id}`),
+    },
+    {
+      label: "Share",
+      icon: Share2,
+      onPress: () => {
+        const url = `${window.location.origin}/m/material-sales/${s.id}`;
+        if (navigator.share) {
+          navigator.share({ title: s.saleNumber, url }).catch(() => {});
+        } else {
+          navigator.clipboard?.writeText(url).catch(() => {});
+          toast.success("Link copied");
+        }
+      },
+    },
+  ];
+
   // Context menu actions
   const contextActions: ContextAction[] = [
     { label: "View Details", icon: Eye, onPress: () => router.push(`/m/material-sales/${s.id}`) },
@@ -261,12 +304,14 @@ function SaleCard({s}: { s: MaterialSaleItem; onAction?: () => void }) {
   ];
 
   return (
+    <>
     <InteractiveListItem
       contextActions={contextActions}
       menuTitle={s.saleNumber}
       menuSubtitle={s.customerName ?? undefined}
       className="rounded-[0.625rem]"
     >
+    <div {...longPressBind}>
     <Link
       href={`/m/material-sales/${s.id}`}
       className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
@@ -377,6 +422,20 @@ function SaleCard({s}: { s: MaterialSaleItem; onAction?: () => void }) {
         </div>
       </div>
     </Link>
+    </div>
     </InteractiveListItem>
+
+      {/* Long-press overview sheet */}
+      <MobileOverviewSheet
+        open={overviewOpen}
+        onClose={() => setOverviewOpen(false)}
+        origin={pressPoint}
+        title={s.saleNumber}
+        subtitle={s.customerName ?? "Walk-in customer"}
+        accentColor={accentColor}
+        rows={overviewRows}
+        actions={overviewActions}
+      />
+    </>
   );
 }

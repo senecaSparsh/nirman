@@ -370,11 +370,9 @@ export function SelectField({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full h-9 rounded-[0.5rem] border px-2.5 text-m-body font-semibold outline-none"
+        className="w-full h-7 px-1 text-m-caption font-semibold outline-none border-b focus:border-b-2 transition-colors"
         style={{
-          borderColor: "var(--color-line)",
-          backgroundColor: "var(--color-paper-2)",
-          color: "var(--color-ink-950)",
+          backgroundColor: "transparent",
         }}
       >
         <option value="">Select…</option>
@@ -414,11 +412,9 @@ export function TextField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`w-full h-9 rounded-[0.5rem] border px-2.5 text-m-body outline-none ${mono ? "font-mono" : ""}`}
+        className={`w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors ${mono ? "font-mono" : ""}`}
         style={{
-          borderColor: "var(--color-line)",
-          backgroundColor: "var(--color-paper-2)",
-          color: "var(--color-ink-950)",
+          backgroundColor: "transparent",
         }}
       />
     </div>
@@ -492,7 +488,11 @@ export function WeighbridgeFields({
   const labelColor = required ? reqColor : "var(--color-ink-500)";
 
   return (
-    <div className="grid grid-cols-4 gap-1.5">
+    <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+      <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+        Weighbridge Details
+      </p>
+      <div className="grid grid-cols-4 gap-1.5">
       <div>
         <label className="text-m-caption font-semibold uppercase tracking-wide block mb-0.5" style={{ color: labelColor }}>
           Slip No{required ? " *" : ""}
@@ -515,6 +515,7 @@ export function WeighbridgeFields({
         <label className="text-m-caption font-semibold uppercase tracking-wide block mb-0.5" style={{ color: "var(--color-go)" }}>Net (kg)</label>
         <input type="number" readOnly value={netWeight} placeholder="0" className="w-full h-8 rounded-[0.375rem] border px-1 text-m-caption text-right tabular-nums font-bold outline-none" style={{ borderColor: "color-mix(in srgb, var(--color-go) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-go) 5%, transparent)", color: "var(--color-ink-950)" }} />
       </div>
+    </div>
     </div>
   );
 }

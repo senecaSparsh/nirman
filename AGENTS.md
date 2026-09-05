@@ -8,18 +8,161 @@
 
 ## Commands
 
-- `pnpm dev` — run web dev server (Turbopack). Uses port 3000, falls back to 3001.
-- `pnpm build` / `pnpm lint` / `pnpm typecheck` — workspace-wide via Turbo.
-- `pnpm db:generate` — regenerate Prisma client after schema changes. **You MUST restart `pnpm dev` after regenerating** — the `globalForPrisma` singleton in `packages/db/src/index.ts` caches the `PrismaClient` instance in `globalThis`, which survives Turbopack hot reloads. A stale cached client will cause runtime `Cannot read properties of undefined (reading 'findMany')` errors for any model added after the client was first loaded.
+- `pnpm dev` — run web dev server (Turbopack) with **auto-recovery wrapper**. The
+  wrapper (`apps/web/scripts/dev-with-recovery.mjs`) monitors the dev server for
+  Turbopack cache-desync errors and automatically kills → clears `.next` → restarts
+  with exponential backoff. It also watches `node_modules/.pnpm` (dependency changes)
+  and `prisma/schema.prisma` (auto-runs `db:generate` + restart). Max 10 restarts per
+  5-minute window; counter resets after 5 min of stable uptime. Uses port 3000,
+  falls back to 3001. **This is the default — you should rarely need `dev:clean` or
+  `dev:raw` anymore.**
+- `pnpm dev:clean` — wipe `apps/web/.next` then start with the auto-recovery wrapper.
+  Use only if the wrapper itself is stuck in a loop (it will exit after 10 restarts
+  and tell you to run this).
+- `pnpm --filter web dev:raw` — bypass the wrapper and run `next dev --turbopack`
+  directly. Use for debugging the wrapper itself.
+- `pnpm build` — workspace-wide production build via Turbo. **Uses webpack, not
+  Turbopack** (`next build --webpack` in the web package). Turbopack production
+  builds have a known "module factory is not available" bug triggered by the
+  `export *` pattern in Prisma's generated client (vercel/next.js#86132, #88534,
+  #86714). Webpack is stable for production builds. Dev still uses Turbopack
+  (fast HMR) with the auto-recovery wrapper. Use `pnpm --filter web build:turbo`
+  only if you're testing a Turbopack-specific build issue.
+- `pnpm --filter web start:wrapped` — start production server with the
+  auto-recovery wrapper (`scripts/start-with-recovery.mjs`). Used by Render.
+  Handles graceful shutdown (30s drain on SIGTERM), crash auto-restart (max 5
+  in 10min), and health checks (polls `/api/health` every 30s, restarts on 3
+  consecutive failures). `pnpm --filter web start` runs `next start` directly
+  (no wrapper) for local testing.
+- `pnpm lint` / `pnpm typecheck` — workspace-wide via Turbo.
+- `pnpm db:generate` — regenerate Prisma client after schema changes. The auto-recovery
+  wrapper watches `schema.prisma` and will auto-run this + restart, but you can run it
+  manually too. **The `globalForPrisma` singleton in `packages/db/src/index.ts` caches
+  the `PrismaClient` instance in `globalThis`**, which survives Turbopack hot reloads.
+  A stale cached client will cause runtime `Cannot read properties of undefined (reading
+  'findMany')` errors for any model added after the client was first loaded. The wrapper
+  detects this error signature and auto-restarts.
 - `pnpm db:push` — push schema to DB (dev). `pnpm db:migrate` for migrations.
 - `pnpm db:studio` — Prisma Studio.
 - `pnpm --filter @nirman/services test` — run service unit tests (vitest).
 
 ## Conventions
 
+- **Self-healing dev server**: `pnpm dev` runs through a wrapper
+  (`apps/web/scripts/dev-with-recovery.mjs`) that eliminates manual cache-clearing
+  cycles. Three recovery layers: (1) **stdout monitoring** — watches for Turbopack
+  internal-error signatures (`module factory is not available`, `_buildManifest.js.tmp`
+  ENOENT, Prisma `Cannot read properties of undefined`, etc.) and auto-restarts with
+  `.next` cache clear + exponential backoff (500ms→4s). (2) **File watching** — monitors
+  `node_modules/.pnpm` for dependency changes and `prisma/schema.prisma` for schema
+  changes (auto-runs `db:generate` before restart). The schema watcher is **content-hash
+  gated** (sha256 of file bytes) with three self-sustaining guards to prevent the
+  infinite restart loop that `fs.watch` spurious events + `prisma generate` file writes
+  used to cause: (a) 5s startup grace period — ignore schema events right after the
+  dev server starts (watcher-attachment burst); (b) 15s post-generate cooldown — after
+  `db:generate` runs, ignore schema events and re-snapshot the hash so the post-generate
+  state becomes the new baseline; (c) content-hash comparison — only restart if the
+  file's bytes actually changed, ignoring stat/mtime-only events. (3) **Client-side
+  recovery** — `<ChunkErrorRecovery>` in the root layout detects browser-side
+  chunk-loading errors and auto hard-reloads the page once (sessionStorage guard
+  prevents loops). Safety rails: max 10 restarts per 5-min window, counter resets
+  after 5 min of stability, clean Ctrl+C handling. The wrapper uses zero external
+  dependencies (Node built-ins only). If you need to bypass it: `pnpm --filter web dev:raw`.
+- **Auto-scaling memory**: the app auto-detects available RAM (via cgroup limits
+  on Render/Docker/K8s, or `os.totalmem()` locally) and tunes all memory-dependent
+  settings automatically. **Upgrade your Render plan and everything adapts — no
+  config changes needed.** The detection runs once at startup in
+  `scripts/auto-memory.mjs` (start wrapper) and in `packages/db/src/index.ts` +
+  `src/lib/rate-limit.ts` (app code). Tuning profile:
+  - 512MB (free): heap=400MB, prisma=4 conns, rate=1x, concur=12, restart@80%
+  - 1GB: heap=800MB, prisma=8 conns, rate=2x, concur=25, restart@82%
+  - 2GB: heap=1600MB, prisma=16 conns, rate=4x, concur=50, restart@85%
+  - 4GB: heap=3200MB, prisma=20 conns, rate=4x, concur=100, restart@88%
+  - 8GB+: heap=6400MB, prisma=20 conns, rate=4x, concur=200, restart@90%
+  What auto-scales: `--max-old-space-size` (set by start wrapper if NODE_OPTIONS
+  is empty), Prisma `connection_limit` (appended to DATABASE_URL if not present),
+  rate limiter bucket capacities (read/write only — auth/webhook/heavy are fixed
+  security limits), memory monitor threshold fraction, max concurrency.
+  The `/api/health` endpoint reports the detected memory + current config for
+  debugging. Explicit env vars always take precedence over auto-detection.
+- **Production reliability**: 21 self-healing layers ensure zero-maintenance deploys:
+  **Build/Deploy:** (1) **Build** uses `next build --webpack` (not Turbopack) —
+  Turbopack production builds have a known "module factory" bug triggered by
+  `export *` in Prisma's generated client (vercel/next.js#86132, #88534). Webpack
+  is stable. (2) **Start** uses `scripts/start-with-recovery.mjs` — graceful
+  shutdown (30s drain on SIGTERM for zero-downtime Render deploys), crash auto-
+  restart (max 5 in 10min with exponential backoff), health checks (polls
+  `/api/health` every 30s, restarts on 3 consecutive failures — catches zombie
+  states). (3) **Memory monitoring** — the start wrapper reads the child process's
+  RSS from `/proc/[pid]/status` (sums all PIDs in the process group, including
+  `next start` workers) every 60s and proactively restarts if RSS exceeds 85% of
+  the heap limit (avoids OOM kills on Render free tier's 512MB). The child is
+  spawned with `detached: true` so the wrapper can kill the whole process tree
+  via `process.kill(-pid)`. **Client:** (4) **Client** `<ChunkErrorRecovery>`
+  (in root layout, works in both dev + prod) auto-reloads the page when stale chunks
+  fail to load. (5) **Service worker** (`public/sw.js`) detects 404s on `/_next/static/`
+  chunks, clears stale caches, notifies clients to reload. (6) **`global-error.tsx`**
+  catches errors in the root layout itself (without it, layout errors show a blank
+  white page). **Server:** (7) **`instrumentation.ts`** runs once at server startup —
+  validates env vars, initializes Sentry, installs global `unhandledRejection` +
+  `uncaughtException` handlers (prod: exits on uncaughtException so the wrapper can
+  restart cleanly). (8) **Env validation** (`src/lib/env-validation.ts`) — fails fast
+  with a clear message if required vars are missing (instead of cryptic runtime errors).
+  Also warns if `AUTH_BYPASS=true` is set in production. **CI/CD:** (9) **CI gate**
+  (`.github/workflows/ci.yml`) — runs typecheck + lint + unit tests + production build
+  on every PR. Blocks merge on typecheck/test failures. (10) **Git hooks** (husky) —
+  `pre-commit` runs lint-staged (eslint --fix on staged files), `pre-push` runs
+  `pnpm typecheck` (blocks push on type errors). Bypass: `git push --no-verify`.
+  **Monitoring/Backup:** (11) **Sentry** — if `SENTRY_DSN` is set, runtime errors
+  (server + client) are sent to Sentry with 10% trace sampling. `apiHandler` also
+  captures 500 errors directly via dynamic `Sentry.captureException`. No-op without
+  the DSN (zero overhead). Config in `sentry.server.config.ts` + `sentry.client.config.ts`.
+  (12) **Automated backups** — `POST /api/cron/backup` (cron-triggered, requires
+  `CRON_SECRET`, 120s timeout) exports all companies' data to the `BackupRecord` table
+  with 30-day retention (auto-pruned). Render cron job runs daily at 2am UTC. Health
+  endpoint at `/api/health` (public, no auth — reports liveness + DB reachability,
+  200/503). Render config in `render.yaml` uses `healthCheckPath: /api/health` and
+  `startCommand: node scripts/start-with-recovery.mjs`.
+  **Resilience (added round 2):** (13) **DB migration safety** — `migrate:deploy`
+  now uses `prisma migrate deploy` (not `db push --accept-data-loss`). The schema
+  has `directUrl = env("DIRECT_URL")` for non-pooled migration connections. Use
+  `pnpm --filter @nirman/db migrate:status` to check migration state. (14) **Prisma
+  connection pool** — `packages/db/src/index.ts` warns in production if
+  `DATABASE_URL` lacks `connection_limit=` (Render free Postgres has only 20
+  connections). `apiHandler` catches `P2024` (pool exhausted) → 503, `P1001` (DB
+  unreachable) → 503, `P1002` (timeout) → 504 — so the start wrapper / load balancer
+  can retry instead of returning a 500. (15) **API rate limiting** — in-memory
+  token-bucket limiter (`src/lib/rate-limit.ts`) with 5 presets: `read` (60/min,
+  30/sec), `write` (20/min, 5/sec), `auth` (5/min), `webhook` (30/min, 10/sec),
+  `heavy` (3/min). `apiHandler` auto-applies `read` for GET, `write` for mutations.
+  Authenticated users get per-user buckets (shared-NAT users don't starve each
+  other). Override: `{ rateLimit: "heavy" }` or `{ rateLimit: false }`. The
+  middleware also rate-limits `/api/auth/*sign-in*` and `*password*` endpoints
+  (10 attempts/IP/min) since Better-Auth's built-in rate limiter is disabled. (16)
+  **Request timeouts** — `src/lib/timeout.ts` provides `withTimeout(promise, ms,
+  msg)` that returns 504 on timeout. Applied to `/api/cron/backup` (120s) and
+  `/api/telephony/twilio/sync-calls` (30s for Twilio API fetch). (17) **Twilio
+  webhook error handling** — both `/api/telephony/webhook/twilio/voice` and
+  `/status` routes are wrapped in try/catch. Voice returns a fallback TwiML (so
+  Twilio doesn't retry); status returns 200 (so Twilio doesn't retry — call
+  metadata is non-critical and can be recovered via `sync-calls`). (18) **SWR
+  offline-aware** — `src/lib/swr.ts` sets `isPaused: () => !navigator.onLine` so
+  SWR stops polling when offline (saves battery on field devices). `errorRetryCount`
+  bumped to 3. `onError` logs fetch errors in dev for debugging. (19) **Hydration
+  safety** — `src/lib/use-today-date.ts` provides `useTodayDateState()` hook that
+  initializes to `""` during SSR and sets the real date in `useEffect`, preventing
+  `new Date()` timezone hydration mismatches. Used in all 12+ client components
+  that default a date input to today. (20) **Sentry in apiHandler** — 500 errors
+  are captured via `Sentry.captureException` (dynamic import, no-op without
+  `SENTRY_DSN`).
 - **DB**: all Prisma models live in `packages/db/prisma/schema.prisma`. Import the client and
   types from `@nirman/db` (`import { prisma, ... } from "@nirman/db"`). After any schema change,
-  run `pnpm db:generate` (and `pnpm db:push` against a running Postgres).
+  run `pnpm db:generate` (and `pnpm db:push` against a running Postgres). **Production migrations**
+  use `pnpm --filter @nirman/db migrate:deploy` which runs `prisma migrate deploy` (safe, ordered,
+  atomic). The schema has `directUrl = env("DIRECT_URL")` for non-pooled migration connections.
+  Never use `db push --accept-data-loss` in production — it can drop columns/tables. Use
+  `pnpm --filter @nirman/db migrate:status` to check migration state. The `DATABASE_URL` should
+  include `connection_limit=5&pool_timeout=10` (Render free Postgres has only 20 connections).
 - **Money/quantities**: use `Decimal` (`@db.Decimal(14,2)` for money, `(14,3)` for quantities).
   Never use JS `number` for money in the DB layer.
 - **Stock ledger**: NEVER mutate stock by updating a "current stock" column directly. Always use

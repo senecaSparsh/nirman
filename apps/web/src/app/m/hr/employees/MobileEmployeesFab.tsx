@@ -1,12 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { Plus } from "lucide-react";
-import { MobileNewEmployeeDialog } from "./MobileNewEmployeeDialog";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileNewEmployeeForm } from "./MobileNewEmployeeDialog";
 
 /**
- * MobileEmployeesFab — floating action button + dialog launcher for
- * adding a new employee from the mobile HR page.
+ * MobileEmployeesFab — FAB + spring-from-FAB modal for creating a new
+ * employee from the mobile HR page.
+ *
+ * Mirrors MobileMaterialsFab: the FAB morphs +→× on open, and the
+ * modal scales up from the FAB's on-screen position with a
+ * critically-damped spring (cubic-bezier(0.32, 0.72, 0, 1)) +
+ * backdrop blur — Apple-style symmetric enter/exit paths.
  */
 export function MobileEmployeesFab({
   projects,
@@ -15,32 +21,23 @@ export function MobileEmployeesFab({
   projects: { id: string; name: string }[];
   stockLocations: { id: string; name: string; type: string }[];
 }) {
-  const [open, setOpen] = useState(false);
+  const fab = useFabModal();
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed right-3 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
-        style={{
-          bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
-          backgroundColor: "var(--color-ink-950)",
-          color: "var(--color-paper)",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-        }}
-        aria-label="Add new employee"
+      <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="Add new employee" />
+      <MobileFabModal
+        open={fab.isOpen}
+        onClose={fab.close}
+        originRect={fab.originRect}
+        title="New Employee"
       >
-        <Plus className="size-5" />
-      </button>
-
-      {open && (
-        <MobileNewEmployeeDialog
-          open={open}
-          onClose={() => setOpen(false)}
+        <MobileNewEmployeeForm
+          onClose={fab.close}
           projects={projects}
           stockLocations={stockLocations}
         />
-      )}
+      </MobileFabModal>
     </>
   );
 }

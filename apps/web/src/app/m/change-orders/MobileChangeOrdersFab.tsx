@@ -1,39 +1,28 @@
 "use client";
 
-import { useState } from "react";
-import { Plus } from "lucide-react";
-import { MobileNewChangeOrderDialog } from "./MobileNewChangeOrderDialog";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileNewChangeOrderForm } from "./MobileNewChangeOrderDialog";
 
 export function MobileChangeOrdersFab({
   projects,
 }: {
   projects: { id: string; name: string }[];
 }) {
-  const [open, setOpen] = useState(false);
+  const fab = useFabModal();
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed right-3 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
-        style={{
-          bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
-          backgroundColor: "var(--color-ink-950)",
-          color: "var(--color-paper)",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-        }}
-        aria-label="Add new change order"
+      <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="Add new change order" />
+      <MobileFabModal
+        open={fab.isOpen}
+        onClose={fab.close}
+        originRect={fab.originRect}
+        title="New Change Order"
       >
-        <Plus className="size-5" />
-      </button>
-
-      {open && (
-        <MobileNewChangeOrderDialog
-          open={open}
-          onClose={() => setOpen(false)}
-          projects={projects}
-        />
-      )}
+        <MobileNewChangeOrderForm onClose={fab.close} projects={projects} />
+      </MobileFabModal>
     </>
   );
 }

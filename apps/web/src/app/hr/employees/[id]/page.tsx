@@ -120,6 +120,24 @@ async function EmployeeProfileContent({
     return <NoAccess what="employee" />;
   }
 
+  // ── Lazy contract expiry check ──
+  // If the employee has a contractEndDate that has passed and the contract
+  // is still ISSUED or CONFIRMED, auto-mark it as EXPIRED. This is a cheap
+  // check that runs on every profile view, keeping contract status current
+  // without needing a cron job.
+  if (
+    employee.contractEndDate &&
+    employee.contractEndDate < new Date() &&
+    (employee.contractStatus === "ISSUED" || employee.contractStatus === "CONFIRMED") &&
+    employee.active
+  ) {
+    await prisma.employee.update({
+      where: { id: employee.id },
+      data: { contractStatus: "EXPIRED" },
+    });
+    employee.contractStatus = "EXPIRED";
+  }
+
   // Tasks are assigned to the linked User, not the Employee record directly.
   let tasks: Array<{
     id: string; title: string; status: string; priority: string;
@@ -229,6 +247,13 @@ async function EmployeeProfileContent({
     noticePeriodDays: employee.noticePeriodDays,
     contractStartDate: employee.contractStartDate?.toISOString() ?? null,
     contractEndDate: employee.contractEndDate?.toISOString() ?? null,
+    // ── Contract / agreement tracking ──
+    contractStatus: employee.contractStatus,
+    contractIssuedAt: employee.contractIssuedAt?.toISOString() ?? null,
+    contractConfirmedAt: employee.contractConfirmedAt?.toISOString() ?? null,
+    // ── Auto-deposit ──
+    autoDepositEnabled: employee.autoDepositEnabled,
+    autoDepositSetupAt: employee.autoDepositSetupAt?.toISOString() ?? null,
     payDay: employee.payDay,
     bankAccountHolder: employee.bankAccountHolder,
     bankAccountNumber: employee.bankAccountNumber,
@@ -343,6 +368,7 @@ async function EmployeeProfileContent({
   return (
     <EmployeeProfileClient
       employee={data}
+      actorRole={role}
       permissions={{
         canManage,
         canManagePayroll,

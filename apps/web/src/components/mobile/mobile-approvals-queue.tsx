@@ -21,6 +21,7 @@ import { haptic } from "@/lib/haptic";
 import { useSnooze } from "@/lib/use-snooze";
 import { SnoozeButton } from "@/components/mobile/v2/snooze-button";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 // ── Types (mirrors the server-component payload) ───────────────
 
@@ -679,29 +680,23 @@ export function MobileApprovalsQueue({
 
  {/* ── Gate pass reject dialog ──────────────────────────── */}
  {rejectGp && (
- <div
- className="fixed inset-0 z-50 flex items-end justify-center"
- style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
- onClick={() => setRejectGp(null)}
- >
- <div
- className="w-full max-w-md rounded-t-[1rem] p-4 space-y-3"
- style={{ backgroundColor: "var(--color-paper)" }}
- onClick={(e) => e.stopPropagation()}
- >
- <div>
- <div className="text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>Reject {rejectGp.gatePassNumber}</div>
+ <MobileDialog open={true} onClose={() => setRejectGp(null)} title={`Reject ${rejectGp.gatePassNumber}`}>
+ <div className="flex flex-col gap-3">
+ <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+ <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+ Rejection Reason
+ </p>
  <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Provide a reason for rejection</div>
- </div>
  <textarea
  value={gpRejectReason}
  onChange={(e) => setGpRejectReason(e.target.value)}
  rows={3}
  placeholder="Why is this gate pass being rejected?"
- className="w-full rounded-[0.375rem] border px-3 py-2 text-m-body outline-none"
- style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+ className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+ style={{ backgroundColor: "transparent" }}
  autoFocus
  />
+ </div>
  <div className="flex justify-end gap-2">
  <button
  onClick={() => setRejectGp(null)}
@@ -720,7 +715,7 @@ export function MobileApprovalsQueue({
  </button>
  </div>
  </div>
- </div>
+ </MobileDialog>
  )}
  </div>
  );

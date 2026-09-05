@@ -18,7 +18,7 @@ export default function BoqPage() {
   );
 }
 
-async function BoqContent() {
+export async function BoqContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();

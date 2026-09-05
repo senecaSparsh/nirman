@@ -35,7 +35,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   );
 }
 
-async function ProjectDetailContent({ params }: { params: Promise<{ id: string }> }) {
+export async function ProjectDetailContent({ params }: { params: Promise<{ id: string }> }) {
   await connection();
   const { id } = await params;
   const role = await getUserRole();

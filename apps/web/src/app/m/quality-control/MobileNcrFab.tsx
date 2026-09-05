@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Plus } from "lucide-react";
-import { MobileNewNcrDialog } from "./MobileNewNcrDialog";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileNewNcrForm } from "./MobileNewNcrDialog";
 
 export function MobileNcrFab({
   projects,
@@ -11,32 +12,23 @@ export function MobileNcrFab({
   projects: { id: string; name: string }[];
   subcontractors: { id: string; name: string; trade: string | null }[];
 }) {
-  const [open, setOpen] = useState(false);
+  const fab = useFabModal();
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed right-3 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
-        style={{
-          bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
-          backgroundColor: "var(--color-ink-950)",
-          color: "var(--color-paper)",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-        }}
-        aria-label="Raise new NCR"
+      <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="Raise new NCR" />
+      <MobileFabModal
+        open={fab.isOpen}
+        onClose={fab.close}
+        originRect={fab.originRect}
+        title="Raise NCR"
       >
-        <Plus className="size-5" />
-      </button>
-
-      {open && (
-        <MobileNewNcrDialog
-          open={open}
-          onClose={() => setOpen(false)}
+        <MobileNewNcrForm
+          onClose={fab.close}
           projects={projects}
           subcontractors={subcontractors}
         />
-      )}
+      </MobileFabModal>
     </>
   );
 }

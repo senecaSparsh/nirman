@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2, Home, Sparkles, Layers } from "lucide-react";
+import { Loader2, Home, Sparkles, Layers, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 type UnitType =
   | "BHK_1"
@@ -74,17 +75,22 @@ interface FormState {
 }
 
 /**
- * MobileNewUnitDialog — bottom-sheet form for creating a single built unit.
- * Mirrors the desktop built-unit-form-dialog's API contract
- * (POST /api/built-units with an array body — we send a single-item array).
+ * MobileNewUnitForm — form content for creating a single built unit.
+ *
+ * Used inside <MobileFabModal> (spring-from-FAB animation) on the
+ * units page, or wrapped by <MobileNewUnitDialog> (legacy
+ * bottom-sheet backdrop) for inline creation from other pages.
+ * Mirrors MobileNewMaterialForm / MobileNewLeaveForm.
+ *
+ * No header or Cancel button here — the wrapper supplies the title
+ * and the close affordance (FAB morphs +→× in MobileFabModal, X
+ * button in the legacy bottom-sheet).
  */
-export function MobileNewUnitDialog({
-  open,
+export function MobileNewUnitForm({
   onClose,
   projects,
   defaultProjectId,
 }: {
-  open: boolean;
   onClose: () => void;
   projects: ProjectOption[];
   defaultProjectId?: string;
@@ -221,8 +227,6 @@ export function MobileNewUnitDialog({
     }
   }
 
-  if (!open) return null;
-
   const inputClass =
     "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
@@ -232,227 +236,81 @@ export function MobileNewUnitDialog({
   };
   const labelClass = "block text-m-caption font-bold mb-0";
   const labelStyle = { color: "var(--color-ink-700)" };
+  const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
+  const sectionStyle = {
+    borderColor: "var(--color-line)",
+    backgroundColor: "var(--color-paper)",
+  };
+  const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
+  const sectionTitleStyle = { color: "var(--color-ink-950)" };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      {/* Mode toggle — Single vs Generate Multiple */}
       <div
-        className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[90vh] overflow-y-auto"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-        onClick={(e) => e.stopPropagation()}
+        className="grid grid-cols-2 gap-1 rounded-[0.5rem] p-1"
+        style={{ backgroundColor: "var(--color-concrete)" }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1">
-            <span
-              className="grid place-items-center size-7 rounded-[0.375rem]"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              <Home
-                className="size-3.5"
-                style={{ color: "var(--color-ink-600)" }}
-              />
-            </span>
-            <p
-              className="text-m-section font-bold"
-              style={{ color: "var(--color-ink-950)" }}
-            >
-              {mode === "bulk" ? "Generate Units" : "New Built Unit"}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="touch grid place-items-center rounded-[0.375rem] text-m-body press"
-            style={{ color: "var(--color-ink-700)" }}
-            aria-label="Close"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
-        {/* Mode toggle — Single vs Generate Multiple */}
-        <div
-          className="grid grid-cols-2 gap-1 rounded-[0.5rem] p-1 mb-1"
-          style={{ backgroundColor: "var(--color-concrete)" }}
+        <button
+          type="button"
+          onClick={() => setMode("single")}
+          className="flex items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-m-label font-bold transition-colors press"
+          style={{
+            backgroundColor: mode === "single" ? "var(--color-paper)" : "transparent",
+            color: mode === "single" ? "var(--color-ink-950)" : "var(--color-ink-500)",
+          }}
         >
-          <button
-            type="button"
-            onClick={() => setMode("single")}
-            className="flex items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-m-label font-bold transition-colors press"
-            style={{
-              backgroundColor: mode === "single" ? "var(--color-paper)" : "transparent",
-              color: mode === "single" ? "var(--color-ink-950)" : "var(--color-ink-500)",
-            }}
-          >
-            <Home className="size-3" /> Single
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("bulk")}
-            className="flex items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-m-label font-bold transition-colors press"
-            style={{
-              backgroundColor: mode === "bulk" ? "var(--color-paper)" : "transparent",
-              color: mode === "bulk" ? "var(--color-ink-950)" : "var(--color-ink-500)",
-            }}
-          >
-            <Layers className="size-3" /> Generate Multiple
-          </button>
-        </div>
+          <Home className="size-3" /> Single
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("bulk")}
+          className="flex items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-m-label font-bold transition-colors press"
+          style={{
+            backgroundColor: mode === "bulk" ? "var(--color-paper)" : "transparent",
+            color: mode === "bulk" ? "var(--color-ink-950)" : "var(--color-ink-500)",
+          }}
+        >
+          <Layers className="size-3" /> Generate Multiple
+        </button>
+      </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          {/* Project */}
-          <MobileSelectWithCreate
-            label="Project"
-            required
-            value={form.projectId}
-            onChange={(v) => set("projectId", v)}
-            placeholder="— Select project —"
-            options={projects.map((p) => ({ value: p.id, label: p.name }))}
-            inputClass={inputClass}
-            inputStyle={inputStyle}
-            renderDialog={({ open, onClose, onCreated, originRect }) => (
-              <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
-                <MobileNewProjectDialog
-                  open={open}
-                  onClose={onClose}
-                  onCreated={(p) => onCreated(p.id, p.name)}
-                />
-              </MobileFabModal>
-            )}
-          />
+      {/* Details */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>
+          Details
+        </p>
 
-          {/* ── Bulk mode: generator fields ── */}
-          {mode === "bulk" ? (
-            <>
-              {/* Unit Type (full width in bulk mode) */}
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Unit Type
-                </label>
-                <select
-                  value={form.unitType}
-                  onChange={(e) => set("unitType", e.target.value as UnitType)}
-                  className={inputClass}
-                  style={inputStyle}
-                >
-                  {(Object.keys(UNIT_TYPE_LABELS) as UnitType[]).map((t) => (
-                    <option key={t} value={t}>
-                      {UNIT_TYPE_LABELS[t]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Prefix + Start No */}
-              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-                <div>
-                  <label className={labelClass} style={labelStyle}>
-                    Number Prefix
-                  </label>
-                  <input
-                    type="text"
-                    value={genPrefix}
-                    onChange={(e) => setGenPrefix(e.target.value)}
-                    placeholder="SHOP-"
-                    className={inputClass}
-                    style={inputStyle}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass} style={labelStyle}>
-                    Start No.
-                  </label>
-                  <input
-                    type="number"
-                    value={genStart}
-                    onChange={(e) => setGenStart(e.target.value)}
-                    placeholder="1"
-                    inputMode="numeric"
-                    className={inputClass}
-                    style={inputStyle}
-                  />
-                </div>
-              </div>
-
-              {/* Count + Units per floor */}
-              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-                <div>
-                  <label className={labelClass} style={labelStyle}>
-                    Count <span style={{ color: "var(--color-stop)" }}>*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={genCount}
-                    onChange={(e) => setGenCount(e.target.value)}
-                    placeholder="10"
-                    inputMode="numeric"
-                    className={inputClass}
-                    style={inputStyle}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass} style={labelStyle}>
-                    Units / Floor
-                  </label>
-                  <input
-                    type="number"
-                    value={genUnitsPerFloor}
-                    onChange={(e) => setGenUnitsPerFloor(e.target.value)}
-                    placeholder="0 = no auto-floor"
-                    inputMode="numeric"
-                    className={inputClass}
-                    style={inputStyle}
-                  />
-                </div>
-              </div>
-
-              {/* Preview */}
-              <div
-                className="rounded-[0.5rem] p-2 text-m-caption"
-                style={{
-                  backgroundColor: "var(--color-concrete)",
-                  color: "var(--color-ink-600)",
-                }}
-              >
-                <Sparkles className="inline size-3 mr-1" style={{ color: "var(--color-signal)" }} />
-                Preview:{" "}
-                <span className="font-bold" style={{ color: "var(--color-ink-500)" }}>
-                  {genPrefix}{genStart || "1"}
-                  {" – "}
-                  {genPrefix}{(parseInt(genStart) || 1) + (parseInt(genCount) || 1) - 1}
-                </span>
-                {"  "}({parseInt(genCount) || 0} units)
-              </div>
-            </>
-          ) : (
-            <>
-          {/* Unit Number + Type */}
-          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Unit Number{" "}
-                <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={form.unitNumber}
-                onChange={(e) => set("unitNumber", e.target.value)}
-                placeholder="e.g. A-101"
-                autoFocus
-                enterKeyHint="next"
-                className={inputClass}
-                style={inputStyle}
+        {/* Project */}
+        <MobileSelectWithCreate
+          label="Project"
+          required
+          value={form.projectId}
+          onChange={(v) => set("projectId", v)}
+          placeholder="— Select project —"
+          options={projects.map((p) => ({ value: p.id, label: p.name }))}
+          inputClass={inputClass}
+          inputStyle={inputStyle}
+          labelClass={labelClass}
+          labelStyle={labelStyle}
+          renderDialog={({ open, onClose, onCreated, originRect }) => (
+            <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+              <MobileNewProjectDialog
+                open={open}
+                onClose={onClose}
+                onCreated={(p) => onCreated(p.id, p.name)}
               />
-            </div>
+            </MobileFabModal>
+          )}
+        />
+
+        {/* ── Bulk mode: generator fields ── */}
+        {mode === "bulk" ? (
+          <>
+            {/* Unit Type (full width in bulk mode) */}
             <div>
               <label className={labelClass} style={labelStyle}>
-                Type
+                Unit Type
               </label>
               <select
                 value={form.unitType}
@@ -467,228 +325,356 @@ export function MobileNewUnitDialog({
                 ))}
               </select>
             </div>
-          </div>
 
-          {/* Floor + Wing */}
-          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Floor
-              </label>
-              <input
-                type="number"
-                value={form.floor}
-                onChange={(e) => set("floor", e.target.value)}
-                placeholder="e.g. 1"
-                inputMode="numeric"
-                className={inputClass}
-                style={inputStyle}
-              />
+            {/* Prefix + Start No */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Number Prefix
+                </label>
+                <input
+                  type="text"
+                  value={genPrefix}
+                  onChange={(e) => setGenPrefix(e.target.value)}
+                  placeholder="SHOP-"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Start No.
+                </label>
+                <input
+                  type="number"
+                  value={genStart}
+                  onChange={(e) => setGenStart(e.target.value)}
+                  placeholder="1"
+                  inputMode="numeric"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
             </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Wing / Section
-              </label>
-              <input
-                type="text"
-                value={form.wing}
-                onChange={(e) => set("wing", e.target.value)}
-                placeholder="e.g. A"
-                enterKeyHint="next"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-          </div>
 
-          {/* Area + Unit */}
-          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Area <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <input
-                type="number"
-                min={0}
-                step="any"
-                value={form.area}
-                onChange={(e) => set("area", e.target.value)}
-                placeholder="0"
-                inputMode="decimal"
-                className={inputClass}
-                style={inputStyle}
-              />
+            {/* Count + Units per floor */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Count <span style={{ color: "var(--color-stop)" }}>*</span>
+                </label>
+                <input
+                  type="number"
+                  value={genCount}
+                  onChange={(e) => setGenCount(e.target.value)}
+                  placeholder="10"
+                  inputMode="numeric"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Units / Floor
+                </label>
+                <input
+                  type="number"
+                  value={genUnitsPerFloor}
+                  onChange={(e) => setGenUnitsPerFloor(e.target.value)}
+                  placeholder="0 = no auto-floor"
+                  inputMode="numeric"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
             </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Unit
-              </label>
-              <select
-                value={form.areaUnit}
-                onChange={(e) => set("areaUnit", e.target.value as AreaUnit)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {(Object.keys(AREA_UNIT_LABELS) as AreaUnit[]).map((u) => (
-                  <option key={u} value={u}>
-                    {AREA_UNIT_LABELS[u]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
 
-          {/* Asking Price */}
+            {/* Preview */}
+            <div
+              className="rounded-[0.5rem] p-2 text-m-caption"
+              style={{
+                backgroundColor: "var(--color-concrete)",
+                color: "var(--color-ink-600)",
+              }}
+            >
+              <Sparkles className="inline size-3 mr-1" style={{ color: "var(--color-signal)" }} />
+              Preview:{" "}
+              <span className="font-bold" style={{ color: "var(--color-ink-500)" }}>
+                {genPrefix}{genStart || "1"}
+                {" – "}
+                {genPrefix}{(parseInt(genStart) || 1) + (parseInt(genCount) || 1) - 1}
+              </span>
+              {"  "}({parseInt(genCount) || 0} units)
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Unit Number + Type */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Unit Number{" "}
+                  <span style={{ color: "var(--color-stop)" }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.unitNumber}
+                  onChange={(e) => set("unitNumber", e.target.value)}
+                  placeholder="e.g. A-101"
+                  autoFocus
+                  enterKeyHint="next"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Type
+                </label>
+                <select
+                  value={form.unitType}
+                  onChange={(e) => set("unitType", e.target.value as UnitType)}
+                  className={inputClass}
+                  style={inputStyle}
+                >
+                  {(Object.keys(UNIT_TYPE_LABELS) as UnitType[]).map((t) => (
+                    <option key={t} value={t}>
+                      {UNIT_TYPE_LABELS[t]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Floor + Wing */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Floor
+                </label>
+                <input
+                  type="number"
+                  value={form.floor}
+                  onChange={(e) => set("floor", e.target.value)}
+                  placeholder="e.g. 1"
+                  inputMode="numeric"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Wing / Section
+                </label>
+                <input
+                  type="text"
+                  value={form.wing}
+                  onChange={(e) => set("wing", e.target.value)}
+                  placeholder="e.g. A"
+                  enterKeyHint="next"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            {/* Area + Unit */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Area <span style={{ color: "var(--color-stop)" }}>*</span>
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={form.area}
+                  onChange={(e) => set("area", e.target.value)}
+                  placeholder="0"
+                  inputMode="decimal"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>
+                  Unit
+                </label>
+                <select
+                  value={form.areaUnit}
+                  onChange={(e) => set("areaUnit", e.target.value as AreaUnit)}
+                  className={inputClass}
+                  style={inputStyle}
+                >
+                  {(Object.keys(AREA_UNIT_LABELS) as AreaUnit[]).map((u) => (
+                    <option key={u} value={u}>
+                      {AREA_UNIT_LABELS[u]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Pricing */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>
+          Pricing
+        </p>
+        <div>
+          <label className={labelClass} style={labelStyle}>
+            Asking Price (₹)
+          </label>
+          <input
+            type="number"
+            min={0}
+            step="any"
+            value={form.askingPrice}
+            onChange={(e) => set("askingPrice", e.target.value)}
+            placeholder="0"
+            inputMode="numeric"
+            enterKeyHint="done"
+            className={inputClass}
+            style={inputStyle}
+          />
+        </div>
+      </div>
+
+      {/* RERA Areas (optional) */}
+      <div className={sectionClass} style={sectionStyle}>
+        <p className={sectionTitleClass} style={sectionTitleStyle}>
+          RERA Areas (optional)
+        </p>
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <div>
             <label className={labelClass} style={labelStyle}>
-              Asking Price (₹)
+              Carpet Area
             </label>
             <input
               type="number"
               min={0}
               step="any"
-              value={form.askingPrice}
-              onChange={(e) => set("askingPrice", e.target.value)}
+              value={form.carpetArea}
+              onChange={(e) => set("carpetArea", e.target.value)}
               placeholder="0"
-              inputMode="numeric"
-              enterKeyHint="done"
+              inputMode="decimal"
               className={inputClass}
               style={inputStyle}
             />
           </div>
-
-          {/* RERA areas (optional) */}
-          <div
-            className="space-y-3 "
-            style={{
-              borderColor: "var(--color-line)",
-              backgroundColor: "var(--color-paper-2)",
-            }}
-          >
-            <p
-              className="text-m-caption font-bold uppercase"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              RERA Areas (optional)
-            </p>
-            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Carpet Area
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  step="any"
-                  value={form.carpetArea}
-                  onChange={(e) => set("carpetArea", e.target.value)}
-                  placeholder="0"
-                  inputMode="decimal"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Super Built-Up
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  step="any"
-                  value={form.superBuiltUpArea}
-                  onChange={(e) => set("superBuiltUpArea", e.target.value)}
-                  placeholder="0"
-                  inputMode="decimal"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Balcony Area
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  step="any"
-                  value={form.balconyArea}
-                  onChange={(e) => set("balconyArea", e.target.value)}
-                  placeholder="0"
-                  inputMode="decimal"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Clear Height
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  step="any"
-                  value={form.clearHeight}
-                  onChange={(e) => set("clearHeight", e.target.value)}
-                  placeholder="0"
-                  inputMode="decimal"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
-            </div>
-            <label
-              className="flex items-center gap-1 text-m-caption font-semibold"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              <input
-                type="checkbox"
-                checked={form.hasLoadingDock}
-                onChange={(e) => set("hasLoadingDock", e.target.checked)}
-                className="size-3.5"
-              />
-              Has Loading Dock
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Super Built-Up
             </label>
+            <input
+              type="number"
+              min={0}
+              step="any"
+              value={form.superBuiltUpArea}
+              onChange={(e) => set("superBuiltUpArea", e.target.value)}
+              placeholder="0"
+              inputMode="decimal"
+              className={inputClass}
+              style={inputStyle}
+            />
           </div>
-            </>
-          )}
-
-          {/* Actions */}
-          <div className="flex flex-col gap-3 ">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
-              style={{
-                borderColor: "var(--color-line)",
-                color: "var(--color-ink-700)",
-                backgroundColor: "var(--color-paper)",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
-              style={{
-                backgroundColor: "var(--color-ink-950)",
-                color: "var(--color-paper)",
-              }}
-            >
-              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-              {saving
-                ? "Creating…"
-                : mode === "bulk"
-                  ? `Generate ${parseInt(genCount) || 0} Units`
-                  : "Create Unit"}
-            </button>
+        </div>
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Balcony Area
+            </label>
+            <input
+              type="number"
+              min={0}
+              step="any"
+              value={form.balconyArea}
+              onChange={(e) => set("balconyArea", e.target.value)}
+              placeholder="0"
+              inputMode="decimal"
+              className={inputClass}
+              style={inputStyle}
+            />
           </div>
-        </form>
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Clear Height
+            </label>
+            <input
+              type="number"
+              min={0}
+              step="any"
+              value={form.clearHeight}
+              onChange={(e) => set("clearHeight", e.target.value)}
+              placeholder="0"
+              inputMode="decimal"
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+        </div>
+        <label
+          className="flex items-center gap-1 text-m-caption font-semibold"
+          style={{ color: "var(--color-ink-700)" }}
+        >
+          <input
+            type="checkbox"
+            checked={form.hasLoadingDock}
+            onChange={(e) => set("hasLoadingDock", e.target.checked)}
+            className="size-3.5"
+          />
+          Has Loading Dock
+        </label>
       </div>
-    </div>
+
+      <button
+        type="submit"
+        disabled={saving}
+        className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+        style={{
+          backgroundColor: "var(--color-ink-950)",
+          color: "var(--color-paper)",
+        }}
+      >
+        {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+        {saving
+          ? "Creating…"
+          : mode === "bulk"
+            ? `Generate ${parseInt(genCount) || 0} Units`
+            : "Create Unit"}
+      </button>
+    </form>
+  );
+}
+
+/**
+ * MobileNewUnitDialog — legacy bottom-sheet backdrop wrapper.
+ *
+ * Kept for backward compatibility / inline creation from other pages
+ * (e.g. MobileProjectUnitsFab). Prefer wrapping <MobileNewUnitForm>
+ * in <MobileFabModal> instead — that gives the spring-from-FAB
+ * animation matching the materials and leaves pages.
+ */
+export function MobileNewUnitDialog({
+  open,
+  onClose,
+  projects,
+  defaultProjectId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  projects: ProjectOption[];
+  defaultProjectId?: string;
+}) {
+  return (
+    <MobileDialog open={open} onClose={onClose} title="New Built Unit">
+      <MobileNewUnitForm
+        onClose={onClose}
+        projects={projects}
+        defaultProjectId={defaultProjectId}
+      />
+    </MobileDialog>
   );
 }
