@@ -32,3 +32,11 @@ __pycache__/
 
 # Runtime call recordings / uploaded audio
 apps/web/data/
+
+# Playwright test artifacts (regenerate on every run — never commit)
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Sentry build artifacts
+.sentry/

@@ -117,7 +117,7 @@ export function PortalDashboard({ customer }: { customer: PortalCustomer }) {
             N
           </div>
           <div>
-            <h1 className="text-title text-slate-900">{customer.companyName}</h1>
+            <h1 className="text-lg font-bold text-slate-900">{customer.companyName}</h1>
             <p className="text-xs text-slate-500">Customer Portal</p>
           </div>
         </div>

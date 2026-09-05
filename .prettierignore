@@ -1,0 +1,35 @@
+# Build output
+.next/
+dist/
+out/
+build/
+
+# Dependencies
+node_modules/
+
+# Generated files
+packages/db/src/generated/
+coverage/
+
+# Test artifacts (regenerate on every run — never commit)
+test-results/
+playwright-report/
+
+# Lock files (machine-generated, large diffs)
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Turbo cache
+.turbo/
+
+# Playwright MCP
+.playwright-mcp/
+
+# Prisma migrations (generated SQL — keep formatting as-is)
+packages/db/prisma/migrations/
+
+# Large non-code files
+*.webm
+*.png
+*.m4a
