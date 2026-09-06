@@ -28,7 +28,8 @@
 # Node 22 LTS — matches render.yaml (NODE_VERSION: 22.18.0)
 FROM node:22-bookworm-slim AS deps
 
-RUN corepack enable && corepack prepare pnpm@11.18.0 --activate
+# Install pnpm directly via npm (more reliable than corepack in Docker builds)
+RUN npm install -g pnpm@11.18.0
 
 WORKDIR /app
 
@@ -39,11 +40,7 @@ COPY packages/db/package.json ./packages/db/
 COPY packages/services/package.json ./packages/services/
 
 # Install ALL deps (including devDeps — needed for build)
-# Show verbose output so errors are visible in build logs
-RUN pnpm install --no-frozen-lockfile --reporter=append-output 2>&1 || \
-    (echo "=== PNPM INSTALL FAILED ===" && \
-     pnpm install --no-frozen-lockfile --verbose 2>&1 | tail -100 && \
-     exit 1)
+RUN pnpm install --no-frozen-lockfile
 
 # ── Stage 2: Build ──────────────────────────────────────────────────────────
 FROM deps AS builder
@@ -85,7 +82,7 @@ RUN pnpm build
 # ── Stage 3: Production runner ──────────────────────────────────────────────
 FROM node:22-bookworm-slim AS runner
 
-RUN corepack enable && corepack prepare pnpm@11.18.0 --activate
+RUN npm install -g pnpm@11.18.0
 
 WORKDIR /app
 
