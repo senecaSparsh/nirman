@@ -1,6 +1,8 @@
 # Deploying Nirman Inventory OS on a VPS with Coolify
 
-> **Cost**: ~$5–8/month (Hetzner CX22: 2 vCPU, 4 GB RAM, 40 GB disk, 20 TB bandwidth)
+> **Server**: HeavenCloud Mumbai — 8 GB plan (6 vCPU, 8 GB RAM, 90 GB SSD)
+> **Cost**: ₹680/month (~$8) — 5x cheaper than Render Pro (~$45–55/mo)
+> **Latency**: ~5-10ms to Indian users — faster than any foreign server
 > **Ease**: git push → auto-deploy (same workflow as Render)
 > **Render config is untouched** — `render.yaml` stays in the repo; this is an
 > alternative deploy target, not a replacement.
@@ -16,52 +18,61 @@
 | Uploads | Persistent volume (survives deploys/restarts) |
 | SSL | Coolify auto-provisions via Let's Encrypt |
 | Deploys | git push → Coolify builds → deploys automatically |
-| Cron (daily backup) | See "Cron" section below |
+| Cron (daily backup) | See Step 7 below |
+| Bandwidth | 1 Gbps unmetered (you'll use ~30-40 GB) |
+| DDoS protection | 100 Gbps included |
+| Uptime | 99.9% SLA |
 
 ---
 
-## Step 1 — Provision a VPS
+## Step 1 — Buy the VPS
 
-### Recommended: Hetzner Cloud
+1. Go to [heavencloud.in](https://heavencloud.in)
+2. Navigate to **India Budget VPS** → **Mumbai**
+3. Select the **8 GB plan**:
+   - 6 vCPU (Intel Xeon E5-2680 v4, dedicated cores)
+   - 8 GB DDR4 RAM
+   - 90 GB SSD
+   - 1 Gbps unmetered bandwidth
+   - DDoS protection up to 100 Gbps
+   - **₹680/month**
+4. Choose **OS**: Ubuntu 24.04 LTS
+5. Complete checkout (UPI / Razorpay / card accepted)
+6. You'll get an email with your server IP + root password (or SSH key setup via VirtFusion panel)
 
-1. Sign up at [hetzner.cloud](https://hetzner.cloud)
-2. Create a server:
-   - **Location**: Falkenstein (cheapest) or Ashburn (if your users are in India/US)
-   - **Image**: Ubuntu 24.04
-   - **Type**: CX22 (2 vCPU, 4 GB RAM) — **€4.59/month**
-   - **SSH key**: add your public key
-3. Note the server IP.
-
-### Alternatives
-
-| Provider | Equivalent | Price |
-|---|---|---|
-| Hetzner | CX22 (2 vCPU/4 GB) | ~$5/mo |
-| Contabo | VPS S (4 vCPU/8 GB) | ~$6/mo |
-| DigitalOcean | Basic Droplet (1 vCPU/2 GB) | ~$12/mo |
-| Vultr | Cloud Compute (1 vCPU/2 GB) | ~$12/mo |
-
-Hetzner gives the best value. Contabo has more RAM but slower CPUs.
+> **Why 8 GB, not 4 GB?** Coolify itself needs ~2 GB RAM to run. On a 4 GB
+> server, that leaves only 2 GB for Postgres + your app — tight. On 8 GB,
+> Coolify gets 2 GB, Postgres gets ~1 GB, and your Next.js app gets ~5 GB.
+> The auto-memory wrapper will tune to the 4 GB profile (16 Prisma connections,
+> 50 concurrent requests) — comfortable for 50 users.
+>
+> **Why HeavenCloud, not Hetzner?** Hetzner Singapore costs $22.99/mo
+> (~₹1,900) for a 4 GB server — nearly 3x more for half the RAM. Hetzner's
+> EU servers are cheaper (~₹950) but add ~200ms latency to every API call
+> from India. HeavenCloud is in Mumbai — 5-10ms latency, unmetered bandwidth,
+> and ₹680/mo. For an Indian construction company, this is the clear choice.
 
 ---
 
 ## Step 2 — Install Coolify
 
-SSH into your VPS:
+SSH into your server:
 
 ```bash
 ssh root@<your-server-ip>
 ```
 
-Run the Coolify installer (one command):
+Run the Coolify installer (one command, ~5 minutes):
 
 ```bash
 curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
 ```
 
-This installs Docker + Coolify and starts the Coolify dashboard. Takes ~5 minutes.
+This installs Docker + Coolify automatically (9 steps: packages, Docker,
+config, directories, firewall, images, containers, auto-update, Coolify itself).
 
-When done, open in your browser:
+When it finishes, open in your browser:
+
 ```
 http://<your-server-ip>:8000
 ```
@@ -72,24 +83,26 @@ Create your admin account. You're now in the Coolify dashboard.
 
 ## Step 3 — Connect your Git repo
 
-1. In Coolify, go to **Projects** → **New Project** → name it "Nirman"
+1. In Coolify: **Projects** → **New Project** → name it "Nirman"
 2. Inside the project → **New Resource** → **Public Repository** (or Private if your repo is private)
 3. Connect your GitHub/GitLab account (Coolify walks you through OAuth)
 4. Select the `nirman-inventory` repository
-5. Coolify detects `docker-compose.yml` automatically and shows it
+5. Coolify detects `docker-compose.yml` — **change it to `docker-compose.prod.yml`**:
+   - Service settings → **Build/Deploy** → **Docker Compose File** → set to `docker-compose.prod.yml`
+   - (The default `docker-compose.yml` is for local dev — Postgres only on port 5433)
 
 ---
 
 ## Step 4 — Configure environment variables
 
-In the Coolify service settings, go to **Environment Variables** and set:
+In Coolify → your service → **Environment Variables**, set these:
 
 ### Required
 
 | Variable | Value | Notes |
 |---|---|---|
-| `NEXT_PUBLIC_APP_URL` | `https://nirman.yourdomain.com` | Your domain (set DNS first, see Step 5) |
-| `BETTER_AUTH_SECRET` | (random 32+ chars) | Generate: `openssl rand -base64 32` |
+| `NEXT_PUBLIC_APP_URL` | `https://nirman.yourdomain.com` | Your domain (set DNS first — see Step 5) |
+| `BETTER_AUTH_SECRET` | (random 32+ chars) | Generate on the VPS: `openssl rand -base64 32` |
 | `POSTGRES_PASSWORD` | (strong password) | For the Postgres container |
 | `CRON_SECRET` | (random string) | Protects `/api/cron/*` endpoints |
 
@@ -97,7 +110,7 @@ In the Coolify service settings, go to **Environment Variables** and set:
 
 | Variable | Value | Notes |
 |---|---|---|
-| `SEED_PASSWORD` | `nirman123` (default) | Password for demo users. Change for production. |
+| `SEED_PASSWORD` | `nirman123` (default) | Password for demo users. Change for real production. |
 | `SENTRY_DSN` | (Sentry DSN URL) | Server-side error tracking. Leave empty to disable. |
 | `NEXT_PUBLIC_SENTRY_DSN` | (Sentry DSN URL) | Client-side error tracking. |
 | `POSTGRES_DB` | `nirman_inventory` | Default DB name |
@@ -110,7 +123,7 @@ baked into the client bundle at build time):
 
 | Arg | Value |
 |---|---|
-| `NEXT_PUBLIC_APP_URL` | `https://nirman.yourdomain.com` (same as the env var) |
+| `NEXT_PUBLIC_APP_URL` | `https://nirman.yourdomain.com` (must match the env var) |
 | `NEXT_PUBLIC_SENTRY_DSN` | (your Sentry DSN, or leave empty) |
 
 > **Why both build arg AND env var for NEXT_PUBLIC_APP_URL?**
@@ -126,27 +139,30 @@ baked into the client bundle at build time):
    ```
    nirman.yourdomain.com   A   <your-server-ip>
    ```
-2. In Coolify, go to your service → **Domains** → add `https://nirman.yourdomain.com`
-3. Coolify auto-provisions a Let's Encrypt SSL certificate (takes ~30s)
+2. In Coolify → your service → **Domains** → add `https://nirman.yourdomain.com`
+3. Coolify auto-provisions a Let's Encrypt SSL certificate (~30s)
 4. Update `NEXT_PUBLIC_APP_URL` and `BETTER_AUTH_URL` to match (both in env vars and build args)
 5. Trigger a redeploy
+
+> **No domain yet?** You can use the server IP directly for testing:
+> set `NEXT_PUBLIC_APP_URL` to `http://<your-server-ip>` and skip SSL.
+> Add a domain later when ready for production use.
 
 ---
 
 ## Step 6 — Deploy
 
-Click **Deploy** in Coolify. The build takes ~5–10 minutes on a 2 vCPU VPS:
+Click **Deploy** in Coolify. The build takes ~5–10 minutes on a 6 vCPU VPS:
 
 1. Docker pulls `node:22-bookworm-slim`
 2. `pnpm install --frozen-lockfile`
 3. `pnpm --filter @nirman/db generate` (Prisma client)
-4. `pnpm build` (Next.js webpack build — auto-detects RAM)
-5. `pnpm prune --prod` (strips dev deps)
-6. Slim runtime image assembled
+4. `pnpm build` (Next.js webpack build — auto-detects RAM, allocates ~5 GB heap)
+5. Slim runtime image assembled (dev deps kept — needed for migrations + seed)
 
 On container start:
 1. `prisma migrate deploy` (applies pending migrations)
-2. `seed:prod` (chart of accounts + demo user passwords)
+2. `seed:prod` (chart of accounts + demo user passwords — idempotent, safe every deploy)
 3. `start-with-recovery.mjs` (wraps `next start` with auto-restart + health checks)
 
 Watch the logs in Coolify → **Logs**. You should see:
@@ -159,18 +175,15 @@ Watch the logs in Coolify → **Logs**. You should see:
 ── Starting Next.js production server ──
 ```
 
-Once healthy, visit `https://nirman.yourdomain.com` and sign in with:
-```
-amit@nirman.in / <SEED_PASSWORD>   (OWNER — full access)
-```
+Once healthy, visit `https://nirman.yourdomain.com/api/health` — should return `200` with JSON showing liveness + DB reachability.
 
 ---
 
-## Step 6.5 — First deploy: load demo data (optional)
+## Step 6.5 — First deploy: load demo data
 
-On the very first deploy, the database will have the schema + chart of
-accounts but **no users or business data** (the demo seed is not run
-automatically because it wipes transactional data on every run).
+On the very first deploy, the database has the schema + chart of accounts but
+**no users or business data** (the demo seed is not run automatically because
+it wipes transactional data on every run).
 
 To load the demo dataset (company, users, projects, stock, suppliers, etc.):
 
@@ -185,7 +198,15 @@ If you forget step 5, every container restart will wipe all user-entered data
 and replace it with the demo dataset. The entrypoint prints a warning when
 `SEED_DEMO_DATA=true` is active.
 
-After the demo seed, sign in with the demo users listed above.
+After the demo seed, sign in with:
+```
+amit@nirman.in / <SEED_PASSWORD>   (OWNER — full access)
+anita@nirman.in / <SEED_PASSWORD>  (ADMIN)
+sneha@nirman.in / <SEED_PASSWORD>  (MANAGER)
+ravi@nirman.in / <SEED_PASSWORD>   (SUPERVISOR)
+priya@nirman.in / <SEED_PASSWORD>  (ACCOUNTANT)
+karan@nirman.in / <SEED_PASSWORD>  (SALES)
+```
 
 > **For a clean production deploy** (no demo data): skip this step entirely.
 > Create your real company + users through the app's onboarding flow instead.
@@ -195,28 +216,16 @@ After the demo seed, sign in with the demo users listed above.
 ## Step 7 — Set up the daily backup cron
 
 The app has a built-in backup endpoint (`POST /api/cron/backup`) that exports
-all data to the `BackupRecord` table with 30-day retention. You need to trigger
-it daily.
+all data to the `BackupRecord` table with 30-day retention. Set up a daily
+trigger:
 
-### Option A: Coolify Scheduled Task (recommended)
-
-1. In your web service → **Scheduled Tasks** → **Add**
+1. In Coolify → your web service → **Scheduled Tasks** → **Add**
 2. Command:
    ```
    curl -fsS -X POST -H "x-cron-secret: $CRON_SECRET" http://localhost:3000/api/cron/backup || echo "backup failed"
    ```
-3. Schedule: `0 2 * * *` (daily at 2:00 AM UTC)
-4. This runs inside the web container, so `localhost:3000` works.
-
-### Option B: Host crontab
-
-SSH into the VPS and add:
-```bash
-crontab -e
-```
-```cron
-0 2 * * * curl -fsS -X POST -H "x-cron-secret: YOUR_CRON_SECRET" https://nirman.yourdomain.com/api/cron/backup || echo "backup failed"
-```
+3. Schedule: `0 2 * * *` (daily at 2:00 AM UTC = 7:30 AM IST)
+4. This runs inside the web container, so `localhost:3000` works
 
 ---
 
@@ -225,20 +234,23 @@ crontab -e
 The `BackupRecord` table stores data *inside* Postgres, but if the volume is
 lost, both the live data and the backups are lost. Set up off-VPS backups:
 
-### Coolify volume backup
-
 1. Coolify → your `db` service → **Backups** → enable scheduled backups
 2. Choose a destination (S3, any S3-compatible storage, or local)
 3. Schedule: daily
 
-### Manual pg_dump (alternative)
+**Manual pg_dump** (alternative or one-off):
 
 ```bash
 # Run on the VPS — dumps to a file, copy it off-server
 docker exec nirman-db-1 pg_dump -U nirman nirman_inventory | gzip > backup_$(date +%Y%m%d).sql.gz
 ```
 
-Set up a cron on your local machine or another server to pull this file.
+Set up a cron on your local machine or another server to pull this file
+off the VPS regularly.
+
+> **HeavenCloud also offers automated backups** via the VirtFusion control
+> panel — enable this as an extra safety net. It backs up the entire VPS
+> (not just Postgres) so you can restore the whole server if needed.
 
 ---
 
@@ -279,32 +291,42 @@ npx prisma studio --url "postgresql://nirman:PASSWORD@your-server-ip:5432/nirman
 docker exec -it <container-name> sh
 ```
 
+### Patch the OS (monthly)
+
+```bash
+ssh root@<your-server-ip>
+apt update && apt upgrade -y
+# Reboot if a kernel update was installed:
+reboot
+```
+
+Coolify auto-restarts your containers after a reboot.
+
 ---
 
 ## Cost breakdown
 
 | Item | Monthly cost |
 |---|---|
-| Hetzner CX22 (2 vCPU, 4 GB RAM) | ~$5 |
-| Domain (if you don't have one) | ~$1 |
-| Off-site backup storage (S3/Backblaze B2) | ~$0.50 |
-| **Total** | **~$6.50/month** |
+| HeavenCloud 8 GB Mumbai (6 vCPU, 8 GB RAM, 90 GB SSD) | ₹680 (~$8) |
+| Domain (if you don't have one) | ₹85 (~$1) |
+| Off-site backup storage (Backblaze B2, 10 GB) | ₹4 (~$0.05) |
+| **Total** | **~₹770/month (~$9)** |
 
-Compare to Render Pro: ~$45–55/month. You save ~$40–48/month.
+Compare to Render Pro: ~$45–55/month (~₹3,800–4,700). You save ~₹3,000–3,900/month.
 
-### What you're trading
+### What you're trading vs Render Pro
 
 | Render Pro | VPS + Coolify |
 |---|---|
-| Managed Postgres with automated backups | You back up the volume yourself |
-| Zero server maintenance | You patch the OS (Ubuntu `apt update && apt upgrade` monthly) |
-| Auto-scaling | Fixed VPS size (manual upgrade: snapshot → larger server) |
-| DDoS protection | None (add Cloudflare free tier in front if needed) |
-| $45–55/mo | $6.50/mo |
+| Managed Postgres with automated backups | You back up the volume yourself (Step 8) |
+| Zero server maintenance | You patch the OS monthly (one command) |
+| Auto-scaling | Fixed VPS size (upgrade via HeavenCloud panel) |
+| Tier-1 infrastructure | Smaller provider (99.9% SLA, DDoS protected) |
+| $45–55/mo | ~$9/mo |
 
-For a 50-user internal ERP, the VPS trade-off is worth it. Put Cloudflare
-(free) in front for DDoS protection + caching, set up volume backups, and
-you're done.
+For a 50-user internal ERP, this trade-off is worth it. The monthly OS patch
+takes 2 minutes, and Coolify handles everything else (deploys, SSL, restarts).
 
 ---
 
@@ -312,10 +334,11 @@ you're done.
 
 ### Build fails: "out of memory"
 
-The build wrapper auto-detects RAM and sets `--max-old-space-size`. On a 4 GB
-VPS, it allocates ~3.2 GB for the build. If other containers are using RAM
-during the build, it may OOM. Fix: stop the `db` + `web` containers during
-builds (Coolify does this by default), or upgrade to an 8 GB VPS.
+The build wrapper auto-detects RAM and sets `--max-old-space-size`. On an 8 GB
+VPS, it allocates ~5 GB for the build — plenty. If Coolify's own containers
+are using RAM during the build, it may still OOM. Fix: Coolify stops the
+`db` + `web` containers during builds by default. If it still OOMs, reboot
+the VPS to clear any leaked memory and retry.
 
 ### Container restarts repeatedly
 
@@ -339,7 +362,7 @@ volume is mounted correctly: Coolify → your service → **Volumes** → verify
 This means the Prisma client is stale (a model was added to the schema but
 the client wasn't regenerated). The Dockerfile runs `pnpm --filter @nirman/db
 generate` before build, so this shouldn't happen. If it does, trigger a clean
-rebuild in Coolify (not a cached one): **Deploy** → **Rebuild from scratch**.
+rebuild in Coolify: **Deploy** → **Rebuild from scratch**.
 
 ### Want to switch back to Render
 
@@ -354,6 +377,7 @@ Render workflow was changed by adding these Docker files.
 |---|---|
 | `Dockerfile` | Multi-stage build: deps → build → slim runtime |
 | `.dockerignore` | Excludes node_modules, .next, .env, storage, docs from build context |
-| `docker-compose.yml` | Coolify orchestration: web + db + volumes + health checks |
+| `docker-compose.prod.yml` | Coolify orchestration: web + db + volumes + health checks |
+| `docker-compose.yml` | **Unchanged** — local dev Postgres on port 5433 |
 | `apps/web/scripts/docker-entrypoint.sh` | Runs migrations + seed, then execs the start wrapper |
 | `render.yaml` | **Unchanged** — Render deploy config, still works |

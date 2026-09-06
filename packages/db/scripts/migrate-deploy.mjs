@@ -100,12 +100,16 @@ async function main() {
     }
 
     if (!migrationName) break; // can't extract name — don't loop
-    if (resolvedMigrations.has(migrationName)) {
+
+    const isAlreadyExists = result.output.includes("already exists");
+
+    // If we already marked this migration as applied and it STILL fails,
+    // something is genuinely wrong — don't loop forever.
+    if (resolvedMigrations.has(migrationName) && !isAlreadyExists) {
       console.error(`[migrate:deploy] migration ${migrationName} failed again after resolve — giving up`);
       break;
     }
 
-    const isAlreadyExists = result.output.includes("already exists");
     console.log(
       `[migrate:deploy] Migration ${migrationName} failed${isAlreadyExists ? " (already exists — schema is in sync)" : ""}. ` +
         `Resolving and retrying.`,
@@ -122,9 +126,12 @@ async function main() {
     if (isAlreadyExists) {
       console.log(`[migrate:deploy] running: prisma migrate resolve --applied ${migrationName}`);
       await runCommand(["prisma", "migrate", "resolve", "--applied", migrationName], "migrate resolve (applied)");
+      resolvedMigrations.add(migrationName);
     }
+    // Note: we only add to resolvedMigrations when marked as applied.
+    // A rolled-back-only migration may fail again with P3018 (the actual
+    // error), and we need to be able to handle that on the next loop.
 
-    resolvedMigrations.add(migrationName);
     // Loop continues — will retry migrate deploy
   }
 
