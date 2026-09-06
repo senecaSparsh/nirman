@@ -29,7 +29,11 @@
 FROM node:22-bookworm-slim AS deps
 
 # Install pnpm directly via npm (more reliable than corepack in Docker builds)
-RUN npm install -g pnpm@11.18.0
+# Also install git + build tools needed by native deps (sharp, esbuild, prisma engines)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git python3 make g++ ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm install -g pnpm@11.18.0
 
 WORKDIR /app
 
@@ -40,7 +44,10 @@ COPY packages/db/package.json ./packages/db/
 COPY packages/services/package.json ./packages/services/
 
 # Install ALL deps (including devDeps — needed for build)
-RUN pnpm install --no-frozen-lockfile
+# --ignore-scripts skips the root postinstall (which runs prisma generate
+# and needs the schema file that isn't copied yet at this stage).
+# We run prisma generate explicitly later in the builder stage.
+RUN pnpm install --no-frozen-lockfile --ignore-scripts
 
 # ── Stage 2: Build ──────────────────────────────────────────────────────────
 FROM deps AS builder
