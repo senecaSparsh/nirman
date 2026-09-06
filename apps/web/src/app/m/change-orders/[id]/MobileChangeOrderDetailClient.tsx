@@ -8,6 +8,8 @@ import { haptic } from "@/lib/haptic";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import { ActionBar, MobileStatusBadge } from "@/components/mobile/v2/primitives";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 interface ChangeOrderDetail {
   id: string;
@@ -158,7 +160,7 @@ export function MobileChangeOrderDetailClient({
     <div className="space-y-4 pb-20">
       {/* Header */}
       <div
-        className="rounded-[0.5rem] border p-3"
+        className="rounded-[0.625rem] border p-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="flex items-center justify-between mb-2">
@@ -180,7 +182,7 @@ export function MobileChangeOrderDetailClient({
 
       {/* Description */}
       <div
-        className="rounded-[0.5rem] border p-3"
+        className="rounded-[0.625rem] border p-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <p className="text-m-label font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Description</p>
@@ -266,7 +268,7 @@ export function MobileChangeOrderDetailClient({
 
       {/* Approval timeline */}
       <div
-        className="rounded-[0.5rem] border p-3"
+        className="rounded-[0.625rem] border p-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <p className="text-m-label font-semibold uppercase mb-2" style={{ color: "var(--color-ink-500)" }}>Timeline</p>
@@ -287,7 +289,7 @@ export function MobileChangeOrderDetailClient({
 
       {/* Notes */}
       {co.notes && (
-        <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <p className="text-m-label font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Notes</p>
           <p className="text-m-section" style={{ color: "var(--color-ink-950)" }}>{co.notes}</p>
         </div>
@@ -378,7 +380,7 @@ export function MobileChangeOrderDetailClient({
 
       {/* Reject dialog */}
       {showReject && (
-        <BottomSheet title="Reject Change Order" onClose={() => setShowReject(false)}>
+        <MobileDialog open={showReject} onClose={() => setShowReject(false)} title="Reject Change Order">
           <div className="flex flex-col gap-3">
             <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
@@ -409,12 +411,12 @@ export function MobileChangeOrderDetailClient({
               Confirm Rejection
             </button>
           </div>
-        </BottomSheet>
+        </MobileDialog>
       )}
 
       {/* Approve dialog (with client approval) */}
       {showApprove && (
-        <BottomSheet title="Approve Change Order" onClose={() => setShowApprove(false)}>
+        <MobileDialog open={showApprove} onClose={() => setShowApprove(false)} title="Approve Change Order">
           <div className="flex flex-col gap-3">
             <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
@@ -444,11 +446,11 @@ export function MobileChangeOrderDetailClient({
               Confirm Approval
             </button>
           </div>
-        </BottomSheet>
+        </MobileDialog>
       )}
       {/* Edit dialog */}
       {showEdit && (
-        <BottomSheet title="Edit Change Order" onClose={() => setShowEdit(false)}>
+        <MobileDialog open={showEdit} onClose={() => setShowEdit(false)} title="Edit Change Order">
           <div className="flex flex-col gap-3">
 
             <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
@@ -480,31 +482,23 @@ export function MobileChangeOrderDetailClient({
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                 Classification
               </p>
-              <div>
-                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Type</label>
-                <select
-                  value={editForm.type}
-                  onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
-                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-                >
-                  {Object.entries(TYPE_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Reason</label>
-                <select
-                  value={editForm.reason}
-                  onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })}
-                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-                >
-                  {Object.entries(REASON_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                <div>
+                  <EnumSelect
+                    label="Type"
+                    value={editForm.type}
+                    onChange={(v) => setEditForm({ ...editForm, type: v })}
+                    options={Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label }))}
+                  />
+                </div>
+                <div className="pl-2">
+                  <EnumSelect
+                    label="Reason"
+                    value={editForm.reason}
+                    onChange={(v) => setEditForm({ ...editForm, reason: v })}
+                    options={Object.entries(REASON_LABELS).map(([value, label]) => ({ value, label }))}
+                  />
+                </div>
               </div>
             </div>
 
@@ -568,7 +562,7 @@ export function MobileChangeOrderDetailClient({
               Save Changes
             </button>
           </div>
-        </BottomSheet>
+        </MobileDialog>
       )}
       {confirmDialog}
     </div>
@@ -619,21 +613,3 @@ function ActionButton({
   );
 }
 
-function BottomSheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}>
-      <div
-        className="mt-auto rounded-t-[1rem] max-h-[60vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}
-      >
-        <div className="sticky top-0 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</h2>
-          <button onClick={onClose} className="text-m-body press">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
-        <div className="p-4">{children}</div>
-      </div>
-    </div>
-  );
-}

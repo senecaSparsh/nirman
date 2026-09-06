@@ -57,6 +57,8 @@ export function MobileNewSupplierClient({
   // ── Draft auto-save ──
   useEffect(() => {
     if (success) return;
+    const hasContent = form.name || form.gstin || form.phone || form.email || form.address || form.leadTimeDays;
+    if (!hasContent) return;
     saveDraft(form);
   }, [form, success, saveDraft]);
 
@@ -89,7 +91,7 @@ export function MobileNewSupplierClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Failed to create supplier");
       clearDraft();
       toast.success("Supplier created", {
@@ -112,7 +114,7 @@ export function MobileNewSupplierClient({
         >
           <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
         </div>
-        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
           Supplier Created
         </p>
         <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>

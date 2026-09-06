@@ -1102,6 +1102,7 @@ model MaterialLot {
   lotNumber   String
   batchCode   String?
   receivedDate DateTime
+  manufacturingDate DateTime?
   expiryDate  DateTime?
   initialQty  Decimal  @db.Decimal(14,3)
   currentQty  Decimal  @db.Decimal(14,3)
@@ -1926,6 +1927,7 @@ model MaterialIssueLine {
   materialId      String
   qty             Decimal @db.Decimal(14, 3)
   unitCost        Decimal @db.Decimal(14, 2)
+  lotNumber       String?  // lot/batch reference for lot-tracked materials
 
   materialIssue MaterialIssue @relation(fields: [materialIssueId], references: [id], onDelete: Cascade)
   material      Material      @relation(fields: [materialId], references: [id])
@@ -2090,6 +2092,7 @@ model StockTransferLine {
   stockTransferId String
   materialId      String
   qty             Decimal @db.Decimal(14, 3)
+  lotNumber       String?  // lot/batch reference for lot-tracked materials
   // Partial receipt: qtyReceived tracks how much has actually arrived at the
   // destination. Defaults to 0. When the transfer completes, qtyReceived may
   // be < qty (shortage/damage in transit). The difference is recorded as shortage.
@@ -2253,17 +2256,24 @@ model LandPurchase {
   // Like a sales order, a land purchase can be staged: book with a token
   // amount, create a payment schedule for the balance, and complete only
   // when all documents are uploaded + payment settled.
-  // COMPLETED = registry done + registry document uploaded.
-  purchaseStage      String   @default("COMPLETED") // "BOOKED" | "COMPLETED" | "CANCELLED"
+  // Lifecycle: BOOKED → BBA_SIGNED → REGISTERED → COMPLETED (or CANCELLED).
+  // BBA_SIGNED = BBA or ATS document uploaded (optional intermediate).
+  // REGISTERED = registry document uploaded (can still have balance due).
+  // COMPLETED = registry done + payment settled (or partialRegistryAllowed).
+  purchaseStage      String   @default("COMPLETED") // "BOOKED" | "BBA_SIGNED" | "REGISTERED" | "COMPLETED" | "CANCELLED"
   tokenAmount        Decimal? @db.Decimal(14, 2)    // initial booking amount paid
   tokenPaymentDate   DateTime?                       // when token was paid
   tokenPaymentMode   String?                         // how token was paid
   tokenChequePhotoUrl String?                        // cheque photo if token paid by cheque
   // ── Document uploads (gated completion) ──
   // Purchase is not "complete" until the registry document is uploaded.
-  // ATS (Agreement to Sell) and BBA are optional intermediate stages.
+  // ATS (Agreement to Sell) and BBA (Builder Buyer Agreement) are optional
+  // intermediate stages — uploading either transitions to BBA_SIGNED.
   atsDocumentUrl       String?    // Agreement to Sell — uploaded PDF/image
   atsDocumentName      String?    // original filename
+  bbaDocumentUrl       String?    // Builder Buyer Agreement — uploaded PDF/image
+  bbaDocumentName      String?    // original filename
+  bbaDate              DateTime?  // date BBA was executed
   registryDocumentUrl  String?    // Sale deed / registry document — REQUIRED for completion
   registryDocumentName String?    // original filename
   // ── Possession tracking ──

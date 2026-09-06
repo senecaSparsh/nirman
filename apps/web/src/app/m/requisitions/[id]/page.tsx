@@ -221,7 +221,7 @@ async function MobileRequisitionDetailContent({
               className="font-bold px-1.5 py-0.5 rounded"
               style={{
                 backgroundColor: neededUrgent ? "var(--color-stop)" : "var(--color-concrete)",
-                color: neededUrgent ? "#fff" : "var(--color-ink-500)",
+                color: neededUrgent ? "var(--color-paper)" : "var(--color-ink-500)",
               }}
             >
               {neededText}

@@ -727,7 +727,7 @@ function MobileQuoteUploadDialog({
         >
           <div>
             <p
-              className="text-m-section font-bold"
+              className="text-m-section font-extrabold tracking-tight"
               style={{ color: "var(--color-ink-950)" }}
             >
               Upload Vendor Quote
@@ -914,48 +914,48 @@ function MobileQuoteUploadDialog({
               </div>
             </div>
 
-            {/* Landed total override */}
-            <div>
-              <label
-                className="text-m-caption font-semibold block mb-1"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                Landed Total (delivered to site) *
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                step="any"
-                min="0"
-                placeholder={computedTotal > 0 ? String(computedTotal) : "0.00"}
-                value={landedTotal}
-                onChange={(e) => setLandedTotal(e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              />
-              <p
-                className="text-m-caption mt-0.5"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                Leave blank to use computed total from lines
-              </p>
-            </div>
-
-            {/* Valid until */}
-            <div>
-              <label
-                className="text-m-caption font-semibold block mb-1"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                Valid Until
-              </label>
-              <input
-                type="date"
-                value={validUntil}
-                onChange={(e) => setValidUntil(e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              />
+            {/* Landed total + Valid until */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label
+                  className="text-m-caption font-semibold block mb-1"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  Landed Total (delivered to site) *
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  step="any"
+                  min="0"
+                  placeholder={computedTotal > 0 ? String(computedTotal) : "0.00"}
+                  value={landedTotal}
+                  onChange={(e) => setLandedTotal(e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+                <p
+                  className="text-m-caption mt-0.5"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  Leave blank to use computed total from lines
+                </p>
+              </div>
+              <div className="pl-2">
+                <label
+                  className="text-m-caption font-semibold block mb-1"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  Valid Until
+                </label>
+                <input
+                  type="date"
+                  value={validUntil}
+                  onChange={(e) => setValidUntil(e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
             </div>
           </div>
 
@@ -1038,23 +1038,33 @@ function MobileQuoteUploadDialog({
             </div>
           </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={saving || uploading}
-            className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press disabled:opacity-50"
+          {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+          <div
+            className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-3 px-4 py-2"
             style={{
-              backgroundColor: "var(--color-ink-950)",
-              color: "var(--color-paper)",
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
             }}
           >
-            {saving ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Upload className="size-3.5" />
-            )}
-            {saving ? "Saving…" : "Upload Quote"}
-          </button>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="submit"
+                disabled={saving || uploading}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--color-ink-950)",
+                  color: "var(--color-paper)",
+                }}
+              >
+                {saving ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Upload className="size-3.5" />
+                )}
+                {saving ? "Saving…" : "Upload Quote"}
+              </button>
+            </div>
+          </div>
         </form>
       </div>
 
@@ -1081,6 +1091,7 @@ function MobileQuoteUploadDialog({
       {showNewSupplier ? (
         <MobileNewSupplierDialog
           open
+          nested
           onClose={() => setShowNewSupplier(false)}
           onCreated={(s) => {
             setLocalSuppliers((p) => [...p, { id: s.id, name: s.name }]);
@@ -1135,7 +1146,7 @@ function SupplierPickerModal({
           style={{ borderColor: "var(--color-line)" }}
         >
           <p
-            className="text-m-section font-bold"
+            className="text-m-section font-extrabold tracking-tight"
             style={{ color: "var(--color-ink-950)" }}
           >
             Select Supplier
@@ -1251,7 +1262,7 @@ function WaiveDialog({
           style={{ borderColor: "var(--color-line)" }}
         >
           <p
-            className="text-m-section font-bold"
+            className="text-m-section font-extrabold tracking-tight"
             style={{ color: "var(--color-ink-950)" }}
           >
             Waive Quote Requirement
@@ -1400,7 +1411,7 @@ function MobileEditQuoteDialog({
         >
           <div>
             <p
-              className="text-m-section font-bold"
+              className="text-m-section font-extrabold tracking-tight"
               style={{ color: "var(--color-ink-950)" }}
             >
               Edit Quote
@@ -1427,41 +1438,41 @@ function MobileEditQuoteDialog({
             <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Pricing
             </p>
-            {/* Landed total */}
-            <div>
-              <label
-                className="text-m-caption font-semibold block mb-1"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                Landed Total (₹) *
-              </label>
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={landedTotal}
-                onChange={(e) => setLandedTotal(e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-                required
-              />
-            </div>
-
-            {/* Valid until */}
-            <div>
-              <label
-                className="text-m-caption font-semibold block mb-1"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                Valid Until
-              </label>
-              <input
-                type="date"
-                value={validUntil}
-                onChange={(e) => setValidUntil(e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              />
+            {/* Landed total + Valid until */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label
+                  className="text-m-caption font-semibold block mb-1"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  Landed Total (₹) *
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={landedTotal}
+                  onChange={(e) => setLandedTotal(e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                  required
+                />
+              </div>
+              <div className="pl-2">
+                <label
+                  className="text-m-caption font-semibold block mb-1"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  Valid Until
+                </label>
+                <input
+                  type="date"
+                  value={validUntil}
+                  onChange={(e) => setValidUntil(e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
             </div>
           </div>
 
@@ -1524,23 +1535,33 @@ function MobileEditQuoteDialog({
             </div>
           </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press disabled:opacity-50"
+          {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+          <div
+            className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-3 px-4 py-2"
             style={{
-              backgroundColor: "var(--color-ink-950)",
-              color: "var(--color-paper)",
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
             }}
           >
-            {saving ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Pencil className="size-3.5" />
-            )}
-            {saving ? "Saving…" : "Save Changes"}
-          </button>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--color-ink-950)",
+                  color: "var(--color-paper)",
+                }}
+              >
+                {saving ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Pencil className="size-3.5" />
+                )}
+                {saving ? "Saving…" : "Save Changes"}
+              </button>
+            </div>
+          </div>
         </form>
       </div>
     </>

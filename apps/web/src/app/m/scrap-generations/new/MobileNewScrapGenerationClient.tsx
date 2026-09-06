@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
+import { useDrafts } from "@/lib/offline/use-drafts";
+import { DraftBanner } from "@/components/mobile/draft-banner";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
@@ -56,13 +58,42 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
 
   const [success, setSuccess] = useState<{ scrapNumber: string; totalValue: number } | null>(null);
 
+  // ── Draft auto-save ──
+  const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<{
+    toLocationId: string;
+    projectId: string;
+    sourceMaterialId: string;
+    notes: string;
+    lines: ScrapLine[];
+  }>("scrap", "scrap-new");
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  useEffect(() => {
+    if (success) return;
+    const hasContent = toLocationId || projectId || sourceMaterialId || notes ||
+      lines.some((l) => l.materialId || l.qty || l.unitCost);
+    if (!hasContent) return;
+    saveDraft({ toLocationId, projectId, sourceMaterialId, notes, lines });
+  }, [toLocationId, projectId, sourceMaterialId, notes, lines, success, saveDraft]);
+
+  useEffect(() => {
+    if (draft && !draftRestored && hasDraft) {
+      if (draft.toLocationId) setToLocationId(draft.toLocationId);
+      if (draft.projectId) setProjectId(draft.projectId);
+      if (draft.sourceMaterialId) setSourceMaterialId(draft.sourceMaterialId);
+      if (draft.notes) setNotes(draft.notes);
+      if (draft.lines?.length > 0) setLines(draft.lines);
+      setDraftRestored(true);
+    }
+  }, [draft, hasDraft, draftRestored]);
+
   // Load options
   useEffect(() => {
     let cancelled = false;
     async function loadData() {
       try {
         const [locRes, projRes, matRes] = await Promise.all([
-          fetch("/api/stock-locations").then((r) => (r.ok ? r.json() : [])),
+          fetch("/api/stock-locations?group=true").then((r) => (r.ok ? r.json() : [])),
           fetch("/api/projects").then((r) => (r.ok ? r.json() : [])),
           fetch("/api/materials").then((r) => (r.ok ? r.json() : { rows: [] })),
         ]);
@@ -75,7 +106,7 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
         const mats = matRes?.rows ?? [];
         if (mats.length > 0) {
           setMaterials(mats);
-          setLines([{ materialId: mats[0].id, qty: "", unitCost: "" }]);
+          setLines([{ materialId: "", qty: "", unitCost: "" }]);
         }
       } catch (err) {
         console.error("Failed to load form options:", err);
@@ -88,8 +119,7 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
   }, []);
 
   const handleAddLine = () => {
-    const defaultMatId = materials.length > 0 ? materials[0]!.id : "";
-    setLines([...lines, { materialId: defaultMatId, qty: "", unitCost: "" }]);
+    setLines([...lines, { materialId: "", qty: "", unitCost: "" }]);
   };
 
   const handleRemoveLine = (index: number) => {
@@ -143,6 +173,7 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
       }
 
       const data = await res.json();
+      clearDraft();
       setSuccess({ scrapNumber: data.scrapNumber, totalValue });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create scrap generation");
@@ -161,7 +192,7 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
         >
           <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
         </div>
-        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
           Scrap Generated
         </p>
         <p className="text-m-caption font-mono mb-3" style={{ color: "var(--color-ink-700)" }}>
@@ -188,8 +219,9 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
           <button
             onClick={() => {
               setSuccess(null);
-              setLines([{ materialId: materials[0]?.id ?? "", qty: "", unitCost: "" }]);
+              setLines([{ materialId: "", qty: "", unitCost: "" }]);
               setNotes("");
+              setDraftRestored(true);
             }}
             className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
@@ -214,7 +246,16 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
   const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
 
   return (
-    <div>
+    <div className="pb-32">
+
+      {hasDraft && !draftRestored && !success ? (
+        <DraftBanner
+          formName="scrap-new"
+          updatedAt={draftUpdatedAt}
+          onRestore={() => setDraftRestored(true)}
+          onDiscard={() => { clearDraft(); setDraftRestored(true); }}
+        />
+      ) : null}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {/* Destination & Linkage */}
@@ -222,7 +263,7 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
           <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
             Destination & Linkage
           </p>
-          {/* ── Destination ── */}
+          {/* ── Destination (full width) ── */}
           <MobileSelectWithCreate
             label="Destination location"
             required
@@ -232,6 +273,7 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
               value: loc.id,
               label: `${loc.name} (${loc.type.replace(/_/g, " ").toLowerCase()})`,
             }))}
+            placeholder="Select location"
             inputClass={inputClass}
             inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
             renderDialog={({ open, onClose, onCreated }) => (
@@ -247,57 +289,69 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
             )}
           />
 
-          {/* ── Project (optional) ── */}
-          <MobileSelectWithCreate
-            label="Project (optional)"
-            value={projectId}
-            onChange={setProjectId}
-            options={projects.map((proj) => ({ value: proj.id, label: proj.name }))}
-            placeholder="No project linkage"
-            inputClass={inputClass}
-            inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-            renderDialog={({ open, onClose, onCreated, originRect }) => (
-              <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
-                <MobileNewProjectDialog
+          {/* ── Project + Source material side-by-side ── */}
+          <div className="grid grid-cols-2 gap-3">
+            <MobileSelectWithCreate
+              label="Project"
+              value={projectId}
+              onChange={setProjectId}
+              options={projects.map((proj) => ({ value: proj.id, label: proj.name }))}
+              placeholder="None"
+              inputClass={inputClass}
+              inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              renderDialog={({ open, onClose, onCreated, originRect }) => (
+                <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+                  <MobileNewProjectDialog
+                    open={open}
+                    onClose={onClose}
+                    onCreated={(p) => {
+                      setProjects((prev) => [...prev, { id: p.id, name: p.name }]);
+                      onCreated(p.id, p.name);
+                    }}
+                  />
+                </MobileFabModal>
+              )}
+            />
+
+            <MobileSelectWithCreate
+              label="Source material"
+              value={sourceMaterialId}
+              onChange={setSourceMaterialId}
+              options={materials.map((mat) => ({ value: mat.id, label: `${mat.name} (${mat.code})` }))}
+              placeholder="None"
+              inputClass={inputClass}
+              inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              renderDialog={({ open, onClose, onCreated }) => (
+                <MobileNewMaterialDialog
                   open={open}
                   onClose={onClose}
-                  onCreated={(p) => {
-                    setProjects((prev) => [...prev, { id: p.id, name: p.name }]);
-                    onCreated(p.id, p.name);
+                  categories={[]}
+                  onCreated={(m) => {
+                    setMaterials((prev) => [...prev, { id: m.id, name: m.name, code: m.code, unit: m.unit }]);
+                    onCreated(m.id, `${m.name} (${m.code})`);
                   }}
                 />
-              </MobileFabModal>
-            )}
-          />
-
-          {/* ── Source material (optional) ── */}
-          <MobileSelectWithCreate
-            label="Source material (optional)"
-            value={sourceMaterialId}
-            onChange={setSourceMaterialId}
-            options={materials.map((mat) => ({ value: mat.id, label: `${mat.name} (${mat.code})` }))}
-            placeholder="No source material"
-            inputClass={inputClass}
-            inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-            renderDialog={({ open, onClose, onCreated }) => (
-              <MobileNewMaterialDialog
-                open={open}
-                onClose={onClose}
-                categories={[]}
-                onCreated={(m) => {
-                  setMaterials((prev) => [...prev, { id: m.id, name: m.name, code: m.code, unit: m.unit }]);
-                  onCreated(m.id, `${m.name} (${m.code})`);
-                }}
-              />
-            )}
-          />
+              )}
+            />
+          </div>
         </div>
 
         {/* Line Items */}
         <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Line Items
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+              Line Items
+            </p>
+            <button
+              type="button"
+              onClick={handleAddLine}
+              className="flex items-center gap-1 text-m-caption font-bold press"
+              style={{ color: "var(--color-go)" }}
+            >
+              <Plus className="size-3" />
+              <span>Add line</span>
+            </button>
+          </div>
           <div>
             <div className="flex flex-col gap-3">
               {lines.map((line, idx) => {
@@ -312,6 +366,8 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
                     {/* Material selector */}
                     <MobileSelectWithCreate
                       label="Material"
+                      required
+                      placeholder="— Select material —"
                       value={line.materialId}
                       onChange={(val) => handleLineChange(idx, "materialId", val)}
                       options={materials.map((mat) => ({ value: mat.id, label: `${mat.name} (${mat.code})` }))}
@@ -343,7 +399,7 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
                           min="0"
                           value={line.qty}
                           onChange={(e) => handleLineChange(idx, "qty", e.target.value)}
-                          placeholder="0"
+                          placeholder="Qty"
                           className={`${inputClass} text-m-caption tabular-nums`}
                           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                         />
@@ -358,7 +414,7 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
                           min="0"
                           value={line.unitCost}
                           onChange={(e) => handleLineChange(idx, "unitCost", e.target.value)}
-                          placeholder="0"
+                          placeholder="Cost"
                           className={`${inputClass} text-m-caption tabular-nums`}
                           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                         />
@@ -367,8 +423,8 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
 
                     {/* Line total + remove */}
                     <div className="flex items-center justify-between mt-2">
-                      <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
-                        {formatCurrency(lineTotal)}
+                      <span className="text-m-caption font-bold tabular-nums" style={{ color: lineTotal > 0 ? "var(--color-go)" : "var(--color-ink-300)" }}>
+                        {lineTotal > 0 ? formatCurrency(lineTotal) : "—"}
                       </span>
                       {lines.length > 1 ? (
                         <button
@@ -385,17 +441,6 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
                 );
               })}
             </div>
-
-            {/* Add line button */}
-            <button
-              type="button"
-              onClick={handleAddLine}
-              className="flex items-center justify-center gap-1 w-full rounded-[0.375rem] border border-dashed py-2 mt-2 text-m-body press"
-              style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
-            >
-              <Plus className="size-3" />
-              <span className="text-m-label font-semibold">Add line item</span>
-            </button>
           </div>
         </div>
 
@@ -424,26 +469,37 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
           <span className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-700)" }}>
             Total Scrap Value
           </span>
-          <span className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
-            {formatCurrency(totalValue)}
+          <span className="text-m-section font-bold tabular-nums" style={{ color: totalValue > 0 ? "var(--color-go)" : "var(--color-ink-300)" }}>
+            {totalValue > 0 ? formatCurrency(totalValue) : "—"}
           </span>
         </div>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="flex items-center justify-center gap-1 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
-          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+        {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+        <div
+          className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
+          style={{
+            backgroundColor: "var(--color-paper)",
+            borderColor: "var(--color-line)",
+          }}
         >
-          {submitting ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <>
-              <Send className="size-4" />
-              <span>Generate Scrap Slip</span>
-            </>
-          )}
-        </button>
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 flex items-center justify-center gap-1 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            >
+              {submitting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <>
+                  <Send className="size-4" />
+                  <span>Generate Scrap Slip</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </form>
     </div>
   );

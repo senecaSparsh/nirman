@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Save, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { BottomSheet } from "@/components/mobile/v2/bottom-sheet";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { formatCurrency } from "@/lib/utils";
 
 interface LandData {
@@ -243,17 +244,12 @@ export function MobileLandEditForm({
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>Unit</label>
-              <select
+              <EnumSelect
+                label="Unit"
                 value={areaUnit}
-                onChange={(e) => setAreaUnit(e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {AREA_UNITS.map((u) => (
-                  <option key={u} value={u}>{AREA_UNIT_LABELS[u]}</option>
-                ))}
-              </select>
+                onChange={(v) => setAreaUnit(v)}
+                options={AREA_UNITS.map((u) => ({ value: u, label: AREA_UNIT_LABELS[u] ?? u }))}
+              />
             </div>
           </div>
 

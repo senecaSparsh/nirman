@@ -402,7 +402,7 @@ function ReqCard({ req, onAction }: { req: RequisitionListItem; onAction?: () =>
                 backgroundColor: neededUrgent
                   ? neededColor
                   : "var(--color-concrete)",
-                color: neededUrgent ? "#fff" : "var(--color-ink-500)",
+                color: neededUrgent ? "var(--color-paper)" : "var(--color-ink-500)",
               }}
             >
               {neededText}

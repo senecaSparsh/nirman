@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { SupplierReturnStatus } from "@nirman/db";
-import { createSupplierReturn, recordVehicleTrip } from "@nirman/services";
+import { createSupplierReturn, recordVehicleTrip, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission, supplierReturnSchema, toNum } from "@/lib/server";
 
@@ -107,6 +107,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
     revalidatePath("/m/suppliers");
     return json({ ok: true, id: ret.id, returnNumber: ret.returnNumber }, { status: 201 });
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to create supplier return") }, { status: 400 });
+    if (err instanceof ServiceError) {
+      return json({ error: err.message }, { status: err.status ?? 400 });
+    }
+    return json({ error: "Failed to create supplier return" }, { status: 500 });
   }
 });

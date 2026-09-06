@@ -19,6 +19,7 @@ import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog"
 import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewStockLocationDialog";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 import { ScanButton } from "@/components/mobile/v2/scan-button";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { useSmartDefaults } from "@/lib/use-smart-defaults";
 import { SmartDefaultsBadge } from "@/components/mobile/v2/smart-defaults-badge";
 import { SelectorModal } from "@/components/mobile/v2/form-primitives";
@@ -81,7 +82,7 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
   const [expectedDate, setExpectedDate] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<PoLine[]>(
-    [{ materialId: materials[0]?.id ?? "", qty: "", unitCost: "", gstRate: String(materials[0]?.gstRate ?? 0) }],
+    [{ materialId: "", qty: "", unitCost: "", gstRate: "0" }],
   );
   const [charges, setCharges] = useState<PoCharge[]>([]);
 
@@ -147,6 +148,9 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
   // Auto-save draft
   useEffect(() => {
     if (success) return;
+    const hasContent = supplierId || projectId || locationId || expectedDate || notes ||
+      lines.some((l) => l.materialId || l.qty);
+    if (!hasContent) return;
     saveDraft({ supplierId, scope, projectId, destinationLocationId: locationId, expectedDate, notes, lines, charges });
   }, [supplierId, scope, projectId, locationId, expectedDate, notes, lines, charges, success, saveDraft]);
 
@@ -164,7 +168,7 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
   }
 
   const handleAddLine = () => {
-    setLines([...lines, { materialId: materials[0]?.id ?? "", qty: "", unitCost: "", gstRate: String(materials[0]?.gstRate ?? 0) }]);
+    setLines([...lines, { materialId: "", qty: "", unitCost: "", gstRate: "0" }]);
   };
 
   // Scan barcode → find material → add a line pre-filled with it
@@ -317,7 +321,7 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
             <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
           )}
         </div>
-        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
           {isQueued ? "Purchase Order Queued" : "Purchase Order Created"}
         </p>
         <p className="text-m-caption font-mono mb-3" style={{ color: "var(--color-ink-700)" }}>
@@ -364,7 +368,7 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
           <button
             onClick={() => {
               setSuccess(null);
-              setLines([{ materialId: materials[0]?.id ?? "", qty: "", unitCost: "", gstRate: String(materials[0]?.gstRate ?? 0) }]);
+              setLines([{ materialId: "", qty: "", unitCost: "", gstRate: "0" }]);
               setCharges([]);
               setNotes("");
               setExpectedDate("");
@@ -383,16 +387,16 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
   if (suppliers.length === 0 || materials.length === 0 || locations.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>Missing master data</p>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>Missing master data</p>
         <p className="text-m-body mb-4" style={{ color: "var(--color-ink-700)" }}>
           You need these before creating a purchase order:
         </p>
-        <div className="flex flex-col gap-3 w-full max-w-xs">
+        <div className="flex flex-wrap gap-3 w-full max-w-sm justify-center">
           {suppliers.length === 0 && (
             <button
               type="button"
               onClick={() => setGuardDialog("supplier")}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
+              className="flex-1 min-w-[140px] flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
               style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
             >
               <Plus className="size-3.5" /> Add a Supplier
@@ -402,7 +406,7 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
             <button
               type="button"
               onClick={() => setGuardDialog("material")}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
+              className="flex-1 min-w-[140px] flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
               style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
             >
               <Plus className="size-3.5" /> Add a Material
@@ -412,7 +416,7 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
             <button
               type="button"
               onClick={() => setGuardDialog("location")}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
+              className="flex-1 min-w-[140px] flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
               style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
             >
               <Plus className="size-3.5" /> Add a Stock Location
@@ -427,6 +431,7 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
         {guardDialog === "supplier" ? (
           <MobileNewSupplierDialog
             open
+            nested
             onClose={() => setGuardDialog(null)}
             onCreated={(s) => { setSuppliers((p) => [...p, { id: s.id, name: s.name, phone: null }]); setGuardDialog(null); }}
           />
@@ -434,6 +439,7 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
         {guardDialog === "material" ? (
           <MobileNewMaterialDialog
             open
+            nested
             onClose={() => setGuardDialog(null)}
             categories={categories}
             onCreated={(m) => { setMaterials((p) => [...p, { id: m.id, name: m.name, code: m.code, unit: m.unit, gstRate: m.gstRate }]); setGuardDialog(null); }}
@@ -442,6 +448,7 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
         {guardDialog === "location" ? (
           <MobileNewStockLocationDialog
             open
+            nested
             onClose={() => setGuardDialog(null)}
             projects={[]}
             onCreated={(l) => { setLocations((p) => [...p, { id: l.id, name: l.name, type: l.type, projectId: null }]); setGuardDialog(null); }}
@@ -732,7 +739,7 @@ function PoForm({
                         min="0"
                         value={line.qty}
                         onChange={(e) => onLineChange(idx, "qty", e.target.value)}
-                        placeholder="0"
+                        placeholder="Qty"
                         className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
                         style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                       />
@@ -747,7 +754,7 @@ function PoForm({
                         min="0"
                         value={line.unitCost}
                         onChange={(e) => onLineChange(idx, "unitCost", e.target.value)}
-                        placeholder="0"
+                        placeholder="Cost"
                         className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
                         style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                       />
@@ -771,7 +778,7 @@ function PoForm({
                         min="0"
                         value={line.gstRate}
                         onChange={(e) => onLineChange(idx, "gstRate", e.target.value)}
-                        placeholder="0"
+                        placeholder="0%"
                         className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
                         style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                       />
@@ -781,8 +788,8 @@ function PoForm({
                         Total
                       </span>
                       <div className="flex items-center gap-1">
-                        <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-                          {formatCurrency(lineTotal + lineGst)}
+                        <span className="text-m-caption font-bold tabular-nums" style={{ color: lineTotal > 0 ? "var(--color-ink-500)" : "var(--color-ink-300)" }}>
+                          {lineTotal > 0 ? formatCurrency(lineTotal + lineGst) : "—"}
                         </span>
                         {lineGstRate > 0 ? (
                           <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-700)" }}>
@@ -860,7 +867,7 @@ function PoForm({
                           next[idx] = { ...next[idx]!, amount: e.target.value };
                           setCharges(next);
                         }}
-                        placeholder="0"
+                        placeholder="Amount"
                         className="flex-1 h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
                         style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                       />
@@ -1028,20 +1035,20 @@ function PoForm({
       {showCreateDialog === "supplier" ? (
         <MobileNewSupplierDialog
           open
+          nested
           onClose={closeCreateDialog}
           onCreated={(s) => handleCreated("supplier", s.id, s.name)}
         />
       ) : null}
       {showCreateDialog === "project" ? (
-        <MobileNewProjectDialog
-          open
-          onClose={closeCreateDialog}
-          onCreated={(p) => handleCreated("project", p.id, p.name)}
-        />
+        <MobileFabModal open onClose={closeCreateDialog} title="New Project" nested>
+          <MobileNewProjectDialog open onClose={closeCreateDialog} onCreated={(p) => handleCreated("project", p.id, p.name)} />
+        </MobileFabModal>
       ) : null}
       {showCreateDialog === "location" ? (
         <MobileNewStockLocationDialog
           open
+          nested
           onClose={closeCreateDialog}
           onCreated={(l) => handleCreated("location", l.id, l.name, { type: l.type, projectId: scope === "PROJECT" ? projectId : null })}
         />
@@ -1049,6 +1056,7 @@ function PoForm({
       {showCreateDialog === "material" ? (
         <MobileNewMaterialDialog
           open
+          nested
           onClose={closeCreateDialog}
           categories={categories}
           onCreated={(m) => handleCreated("material", m.id, m.name, { code: m.code, unit: m.unit, gstRate: m.gstRate })}
@@ -1099,7 +1107,7 @@ function ScopeCard({
       {sublabel ? (
         <span
           className="text-m-caption font-semibold truncate w-full text-center"
-          style={active ? { color: "color-mix(in srgb, #fff 70%, transparent)" } : { color: "var(--color-ink-700)" }}
+          style={active ? { color: "color-mix(in srgb, var(--color-paper) 70%, transparent)" } : { color: "var(--color-ink-700)" }}
         >
           {sublabel}
         </span>

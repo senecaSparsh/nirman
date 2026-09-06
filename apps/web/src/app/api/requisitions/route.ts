@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { RequisitionStatus } from "@nirman/db";
-import { createRequisition } from "@nirman/services";
+import { createRequisition, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission, requisitionSchema, toNum } from "@/lib/server";
 
@@ -75,6 +75,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
     revalidatePath("/m/procurement");
     return json({ ok: true, id: req.id, reqNumber: req.reqNumber }, { status: 201 });
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to create indent") }, { status: 400 });
+    if (err instanceof ServiceError) {
+      return json({ error: err.message }, { status: err.status ?? 400 });
+    }
+    return json({ error: "Failed to create indent" }, { status: 500 });
   }
 });

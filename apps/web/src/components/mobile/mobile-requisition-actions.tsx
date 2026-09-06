@@ -21,6 +21,7 @@ import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
 import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewStockLocationDialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 interface WinningQuoteData {
   id: string;
@@ -455,13 +456,11 @@ function ConvertForm({
       </div>
 
       <div>
-        <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
-          Procurement scope
-        </label>
-        <select
+        <EnumSelect
+          label="Procurement scope"
           value={scope}
-          onChange={(e) => {
-            const next = e.target.value as "COMPANY" | "PROJECT";
+          onChange={(v) => {
+            const next = v as "COMPANY" | "PROJECT";
             setScope(next);
             // Reset location if it's not valid for the new scope
             const valid = localLocations.filter((l) =>
@@ -469,12 +468,11 @@ function ConvertForm({
             );
             if (!valid.some((l) => l.id === locationId) && valid[0]) setLocationId(valid[0].id);
           }}
-          className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-          style={{ backgroundColor: "transparent" }}
-        >
-          <option value="COMPANY">Company warehouse</option>
-          <option value="PROJECT">Project site</option>
-        </select>
+          options={[
+            { value: "COMPANY", label: "Company warehouse" },
+            { value: "PROJECT", label: "Project site" },
+          ]}
+        />
       </div>
 
       <div>

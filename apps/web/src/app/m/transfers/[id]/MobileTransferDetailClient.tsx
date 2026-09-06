@@ -891,7 +891,7 @@ export function MobileTransferDetailClient({
             />
           </div>
           <div
-            className="rounded-[0.625rem] border p-3 space-y-3"
+            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
             style={{
               borderColor: "var(--color-line)",
               backgroundColor: "var(--color-paper)",
@@ -1164,7 +1164,7 @@ export function MobileTransferDetailClient({
             if (!hasAnyCost) return null;
             return (
               <div
-                className="rounded-[0.5rem] border p-3 mt-2"
+                className="rounded-[0.625rem] border p-3 mt-2"
                 style={{
                   borderColor: "var(--color-line)",
                   backgroundColor: "var(--color-paper-2)",

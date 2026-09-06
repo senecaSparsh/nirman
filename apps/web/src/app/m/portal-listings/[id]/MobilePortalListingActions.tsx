@@ -209,7 +209,7 @@ export function MobilePortalListingActions({
                 <AlertTriangle className="size-5" style={{ color: "var(--color-stop)" }} />
               </div>
               <div>
-                <h3 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
+                <h3 className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                   Delist this property?
                 </h3>
                 <p className="text-m-body mt-1" style={{ color: "var(--color-ink-500)" }}>
@@ -258,8 +258,8 @@ export function MobilePortalListingActions({
               <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
             </div>
             <div className="flex items-center justify-between px-3 pb-2">
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Edit Listing</p>
-              <button onClick={() => setShowEdit(false)} className="text-m-body press p-1">
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Edit Listing</p>
+              <button type="button" onClick={() => setShowEdit(false)} className="text-m-body press p-1">
                 <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
               </button>
             </div>
@@ -300,7 +300,7 @@ export function MobilePortalListingActions({
                   <input value={editFurnishing} onChange={(e) => setEditFurnishing(e.target.value)} placeholder="e.g. Semi-furnished" className={inputClass} style={inputStyle} />
                 </div>
               </div>
-              <div className="flex flex-col gap-2 pt-1">
+              <div className="flex gap-2 pt-1">
                 <button onClick={() => setShowEdit(false)} disabled={busy !== null} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
                 <button onClick={saveEdit} disabled={busy !== null || !editTitle.trim()} className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", opacity: busy !== null || !editTitle.trim() ? 0.5 : 1 }}>
                   {busy === "edit" ? <Loader2 className="size-3.5 animate-spin" /> : "Save"}
@@ -327,8 +327,8 @@ export function MobilePortalListingActions({
               <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
             </div>
             <div className="flex items-center justify-between px-3 pb-2">
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Delete Listing?</p>
-              <button onClick={() => setShowDelete(false)} className="text-m-body press p-1">
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Delete Listing?</p>
+              <button type="button" onClick={() => setShowDelete(false)} className="text-m-body press p-1">
                 <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
               </button>
             </div>
@@ -336,7 +336,7 @@ export function MobilePortalListingActions({
               <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
                 This will permanently delete this portal listing record. This cannot be undone.
               </p>
-              <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
                 <button onClick={() => setShowDelete(false)} disabled={busy !== null} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
                 <button onClick={handleDelete} disabled={busy !== null} className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1" style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}>
                   {busy === "delete" ? <Loader2 className="size-3.5 animate-spin" /> : "Delete"}

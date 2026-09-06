@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { hashPassword } from "better-auth/crypto";
 import {type Role} from "@/lib/roles";
-import { json } from "@/lib/server";
-import { withSerializableTransaction } from "@nirman/services";
+import { json, ForbiddenError, UnauthorizedError } from "@/lib/server";
+import { withSerializableTransaction, ServiceError } from "@nirman/services";
 
 /**
  * POST /api/auth/demo-login — one-click login provisioning (DEV ONLY).
@@ -56,99 +56,129 @@ const ROLE_EMAILS: Partial<Record<Role, string>> = {
 };
 
 export const POST = async (req: NextRequest) => {
-  // Hard dev-only gate. Demo login is NEVER available in production,
-  // even if AUTH_BYPASS is accidentally set.
-  if (process.env.NODE_ENV === "production") {
-    return json({ error: "Demo login is disabled in production." }, { status: 403 });
-  }
-
-  let body: { role?: string };
   try {
-    body = await req.json();
-  } catch {
-    return json({ error: "Invalid JSON body." }, { status: 400 });
-  }
-
-  const role = body.role as Role | undefined;
-  if (!role || !DEMO_ROLES.includes(role)) {
-    return json({ error: `role must be one of: ${DEMO_ROLES.join(", ")}` }, { status: 400 });
-  }
-
-  const email = ROLE_EMAILS[role]!;
-  const name = ROLE_NAMES[role]!;
-  const hashed = await hashPassword(DEMO_PASSWORD);
-
-  // Resolve (or create) the user for this role, then ensure they have a
-  // credential Account with the demo password. Everything in one
-  // transaction so a partial failure can't leave a passwordless account.
-  const result = await withSerializableTransaction(async (tx) => {
-    // Prefer an existing user that already has this role (matches seed).
-    let user = await tx.user.findFirst({
-      where: { role },
-      select: { id: true, email: true, name: true, role: true, companyId: true },
-    });
-
-    // Otherwise fall back to the canonical demo email for the role, then
-    // to creating a fresh user.
-    if (!user) {
-      user = await tx.user.findUnique({
-        where: { email },
-        select: { id: true, email: true, name: true, role: true, companyId: true },
-      });
+    // Hard dev-only gate. Demo login is NEVER available in production,
+    // even if AUTH_BYPASS is accidentally set.
+    if (process.env.NODE_ENV === "production") {
+      return json({ error: "Demo login is disabled in production." }, { status: 403 });
     }
 
-    if (!user) {
-      const company = await tx.company.findFirst({
-        where: { deletedAt: null },
-        select: { id: true },
-      });
-      user = await tx.user.create({
-        data: {
-          email,
-          name,
-          role,
-          emailVerified: true,
-          companyId: company?.id ?? null,
-        },
+    let body: { role?: string };
+    try {
+      body = await req.json();
+    } catch {
+      return json({ error: "Invalid JSON body." }, { status: 400 });
+    }
+
+    const role = body.role as Role | undefined;
+    if (!role || !DEMO_ROLES.includes(role)) {
+      return json({ error: `role must be one of: ${DEMO_ROLES.join(", ")}` }, { status: 400 });
+    }
+
+    const email = ROLE_EMAILS[role]!;
+    const name = ROLE_NAMES[role]!;
+    const hashed = await hashPassword(DEMO_PASSWORD);
+
+    // Resolve (or create) the user for this role, then ensure they have a
+    // credential Account with the demo password. Everything in one
+    // transaction so a partial failure can't leave a passwordless account.
+    const result = await withSerializableTransaction(async (tx) => {
+      // Prefer an existing user that already has this role (matches seed).
+      let user = await tx.user.findFirst({
+        where: { role },
         select: { id: true, email: true, name: true, role: true, companyId: true },
       });
-      if (company) {
-        await tx.userCompany.create({
-          data: { userId: user.id, companyId: company.id, role },
+
+      // Otherwise fall back to the canonical demo email for the role, then
+      // to creating a fresh user.
+      if (!user) {
+        user = await tx.user.findUnique({
+          where: { email },
+          select: { id: true, email: true, name: true, role: true, companyId: true },
         });
       }
-    }
 
-    // Ensure the role on the User row matches the requested role so the
-    // one-click button always lands you in the right experience.
-    if (user.role !== role) {
-      await tx.user.update({ where: { id: user.id }, data: { role } });
-    }
+      if (!user) {
+        const company = await tx.company.findFirst({
+          where: { deletedAt: null },
+          select: { id: true },
+        });
+        user = await tx.user.create({
+          data: {
+            email,
+            name,
+            role,
+            emailVerified: true,
+            companyId: company?.id ?? null,
+          },
+          select: { id: true, email: true, name: true, role: true, companyId: true },
+        });
+        if (company) {
+          await tx.userCompany.create({
+            data: { userId: user.id, companyId: company.id, role },
+          });
+        }
+      }
 
-    // Upsert the credential Account with the demo password. Better-Auth
-    // looks up accounts by (providerId="credential", accountId=user.id).
-    const existing = await tx.account.findFirst({
-      where: { userId: user.id, providerId: "credential" },
-      select: { id: true },
+      // Ensure the role on the User row matches the requested role so the
+      // one-click button always lands you in the right experience.
+      if (user.role !== role) {
+        await tx.user.update({ where: { id: user.id }, data: { role } });
+      }
+
+      // Upsert the credential Account with the demo password. Better-Auth
+      // looks up accounts by (providerId="credential", accountId=user.id).
+      const existing = await tx.account.findFirst({
+        where: { userId: user.id, providerId: "credential" },
+        select: { id: true },
+      });
+      if (existing) {
+        await tx.account.update({
+          where: { id: existing.id },
+          data: { password: hashed },
+        });
+      } else {
+        await tx.account.create({
+          data: {
+            userId: user.id,
+            providerId: "credential",
+            accountId: user.id,
+            password: hashed,
+          },
+        });
+      }
+
+      return user;
     });
-    if (existing) {
-      await tx.account.update({
-        where: { id: existing.id },
-        data: { password: hashed },
-      });
-    } else {
-      await tx.account.create({
-        data: {
-          userId: user.id,
-          providerId: "credential",
-          accountId: user.id,
-          password: hashed,
-        },
-      });
+
+    return json({ email: result.email, password: DEMO_PASSWORD, role });
+  } catch (err: unknown) {
+    if (err instanceof ServiceError) {
+      return json({ error: err.message }, { status: err.status ?? 400 });
     }
-
-    return user;
-  });
-
-  return json({ email: result.email, password: DEMO_PASSWORD, role });
+    if (err instanceof SyntaxError && err.message.includes("JSON")) {
+      return json({ error: "Malformed JSON in request body" }, { status: 400 });
+    }
+    if (err instanceof ForbiddenError) {
+      return json({ error: err.message }, { status: 403 });
+    }
+    if (err instanceof UnauthorizedError) {
+      return json({ error: err.message }, { status: 401 });
+    }
+    const prismaCode = (err as { code?: string })?.code;
+    if (prismaCode === "P2024") {
+      console.error("[auth] Prisma P2024: connection pool exhausted");
+      return json({ error: "Database busy — please retry shortly", retryable: true }, { status: 503, headers: { "Retry-After": "5" } });
+    }
+    if (prismaCode === "P1001") {
+      console.error("[auth] Prisma P1001: database unreachable");
+      return json({ error: "Database unreachable — please retry shortly", retryable: true }, { status: 503, headers: { "Retry-After": "10" } });
+    }
+    if (prismaCode === "P1002") {
+      console.error("[auth] Prisma P1002: database timeout");
+      return json({ error: "Database request timed out — please retry", retryable: true }, { status: 504 });
+    }
+    console.error("[auth] Unhandled error:", err);
+    return json({ error: "Authentication failed" }, { status: 500 });
+  }
 };

@@ -1,18 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2, FolderOpen, LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 // haptic is a function: haptic(pattern) — use haptic(10) for light, haptic(20) for medium
 import { formatCurrency } from "@/lib/utils";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 type ChangeOrderType = "ADDITION" | "DELETION" | "MODIFICATION" | "ACCELERATION" | "DECELERATION" | "VARIATION";
 type ChangeOrderReason = "CLIENT_REQUEST" | "SITE_CONDITION" | "DESIGN_CHANGE" | "ERROR_OMISSION" | "REGULATORY" | "VALUE_ENGINEERING" | "OTHER";
 
+interface BoqLineItem {
+  id: string;
+  serialNo: string;
+  description: string;
+  unit: string | null;
+  estimatedQty: number | null;
+  rate: number | null;
+}
+
 interface Line {
+  boqItemId: string;
   description: string;
   originalQty: string;
   revisedQty: string;
@@ -60,6 +72,8 @@ export function MobileNewChangeOrderForm({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [boqItems, setBoqItems] = useState<BoqLineItem[]>([]);
+  const [loadingBoq, setLoadingBoq] = useState(false);
   const [form, setForm] = useState({
     projectId: projects[0]?.id ?? "",
     title: "",
@@ -71,8 +85,47 @@ export function MobileNewChangeOrderForm({
     notes: "",
   });
   const [lines, setLines] = useState<Line[]>([
-    { description: "", originalQty: "0", revisedQty: "0", unit: "", rate: "0" },
+    { boqItemId: "", description: "", originalQty: "0", revisedQty: "0", unit: "", rate: "0" },
   ]);
+
+  // Fetch BOQ items when the project changes so each change-order line
+  // can optionally link back to a BOQ line item (enables auto-updating
+  // the BOQ when the change order is approved).
+  const fetchBoqItems = useCallback(async (projectId: string) => {
+    if (!projectId) { setBoqItems([]); return; }
+    setLoadingBoq(true);
+    try {
+      const res = await fetch(`/api/boq/tree?projectId=${projectId}`);
+      const data = await res.json();
+      // Flatten the tree to LINE_ITEM type only
+      const flat: BoqLineItem[] = [];
+      function walk(nodes: unknown[]) {
+        for (const n of nodes) {
+          if (typeof n === "object" && n !== null && "type" in n && (n as Record<string, unknown>).type === "LINE_ITEM") {
+            const node = n as Record<string, unknown>;
+            flat.push({
+              id: node.id as string,
+              serialNo: node.serialNo as string,
+              description: node.description as string,
+              unit: node.unit as string | null,
+              estimatedQty: node.estimatedQty as number | null,
+              rate: node.rate as number | null,
+            });
+          }
+          if (typeof n === "object" && n !== null && "children" in n) {
+            const children = (n as Record<string, unknown>).children;
+            if (Array.isArray(children)) walk(children);
+          }
+        }
+      }
+      walk(data.tree ?? []);
+      setBoqItems(flat);
+    } catch {
+      setBoqItems([]);
+    } finally {
+      setLoadingBoq(false);
+    }
+  }, []);
 
   useEffect(() => {
     setForm({
@@ -85,8 +138,13 @@ export function MobileNewChangeOrderForm({
       initiatedBy: "",
       notes: "",
     });
-    setLines([{ description: "", originalQty: "0", revisedQty: "0", unit: "", rate: "0" }]);
+    setLines([{ boqItemId: "", description: "", originalQty: "0", revisedQty: "0", unit: "", rate: "0" }]);
   }, [projects]);
+
+  useEffect(() => {
+    if (form.projectId) fetchBoqItems(form.projectId);
+    else setBoqItems([]);
+  }, [form.projectId, fetchBoqItems]);
 
   // Compute live cost delta
   const costDelta = lines.reduce((sum, l) => {
@@ -106,7 +164,7 @@ export function MobileNewChangeOrderForm({
 
   function addLine() {
     haptic(10);
-    setLines((prev) => [...prev, { description: "", originalQty: "0", revisedQty: "0", unit: "", rate: "0" }]);
+    setLines((prev) => [...prev, { boqItemId: "", description: "", originalQty: "0", revisedQty: "0", unit: "", rate: "0" }]);
   }
 
   function removeLine(i: number) {
@@ -151,6 +209,7 @@ export function MobileNewChangeOrderForm({
           initiatedBy: form.initiatedBy || null,
           notes: form.notes || null,
           lines: lines.map((l) => ({
+            boqItemId: l.boqItemId || null,
             description: l.description.trim(),
             originalQty: parseFloat(l.originalQty) || 0,
             revisedQty: parseFloat(l.revisedQty) || 0,
@@ -200,16 +259,13 @@ export function MobileNewChangeOrderForm({
           <label className={labelClass} style={labelStyle}>
             Project
           </label>
-          <select
+          <MobileSelectWithCreate
+            label="Project"
             value={form.projectId}
-            onChange={(e) => set("projectId", e.target.value)}
-            className={inputClass}
-            style={inputStyle}
-          >
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
+            onChange={(v) => set("projectId", v)}
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            icon={FolderOpen}
+          />
         </div>
         <div>
           <label className={labelClass} style={labelStyle}>
@@ -241,30 +297,20 @@ export function MobileNewChangeOrderForm({
           style={{ borderColor: "var(--color-line)" }}
         >
           <div>
-            <label className={labelClass} style={labelStyle}>
-              Type
-            </label>
-            <select
+            <EnumSelect
+              label="Type"
               value={form.type}
-              onChange={(e) => set("type", e.target.value as ChangeOrderType)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
+              onChange={(v) => set("type", v as ChangeOrderType)}
+              options={TYPES}
+            />
           </div>
           <div className="pl-2">
-            <label className={labelClass} style={labelStyle}>
-              Reason
-            </label>
-            <select
+            <EnumSelect
+              label="Reason"
               value={form.reason}
-              onChange={(e) => set("reason", e.target.value as ChangeOrderReason)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              {REASONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-            </select>
+              onChange={(v) => set("reason", v as ChangeOrderReason)}
+              options={REASONS}
+            />
           </div>
         </div>
       </div>
@@ -336,6 +382,33 @@ export function MobileNewChangeOrderForm({
                   </button>
                 )}
               </div>
+              <MobileSelectWithCreate
+                label="BOQ Item"
+                value={l.boqItemId}
+                onChange={(v) => {
+                  // Auto-fill description / unit / rate from the selected
+                  // BOQ line item so the operator doesn't re-type them.
+                  const item = boqItems.find((b) => b.id === v);
+                  updateLine(i, {
+                    boqItemId: v,
+                    ...(item ? {
+                      description: item.description,
+                      unit: item.unit ?? "",
+                      rate: item.rate?.toString() ?? "0",
+                      originalQty: item.estimatedQty?.toString() ?? "0",
+                    } : {}),
+                  });
+                }}
+                options={boqItems.map((b) => ({
+                  value: b.id,
+                  label: b.description,
+                  sub: `${b.serialNo}${b.unit ? ` · ${b.unit}` : ""}`,
+                }))}
+                placeholder="— Not in BOQ (new item) —"
+                icon={LinkIcon}
+                compact
+                disabled={loadingBoq || !form.projectId}
+              />
               <input
                 value={l.description}
                 onChange={(e) => updateLine(i, { description: e.target.value })}

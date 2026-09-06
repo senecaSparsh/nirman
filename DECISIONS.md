@@ -88,7 +88,7 @@ If you catch yourself planning to "build the rent module" or "add the sale lifec
 | D18 | Owner-only subdivision undo (un-partition) | ✅ `LAND_UNPARTITION` action | ✅ | ✅ land hub unpartition button + API | ✅ mobile land detail | Transcript §2.4 | T05 (closed) |
 | D19 | Broker + commission tracking on sales | ✅ `Broker` model, `brokerageAmount`, `brokerId` | ✅ | ✅ sell dialog "Deal Source" section + `/brokers` page | ✅ mobile sale form broker section | Transcript §3.1 | T06 (closed) |
 | D20 | Cheque photo + bank + payment mode on sales/payments | ✅ `chequePhotoUrl`, `paymentMode` | ✅ | ✅ `ChequeFields` component in sell dialog | ✅ mobile `MobileChequeFields` | Transcript §3.1 | T06 (closed) |
-| D21 | Purchase lifecycle mirror (PO → BBA/ATS → Registry → Complete) | ✅ `purchaseStage` BOOKED/COMPLETED | ✅ `completeLandPurchase()` + token payment tracking | ✅ land hub + land view + land detail drawer with BOOKED badge + complete dialog | ✅ mobile land list + detail with stage badges + complete flow | Transcript §3.6 | T02 (closed) |
+| D21 | Purchase lifecycle mirror (PO → BBA/ATS → Registry → Complete) | ✅ `purchaseStage` BOOKED/BBA_SIGNED/REGISTERED/COMPLETED/CANCELLED + BBA document fields | ✅ `completeLandPurchase()` + `uploadLandPurchaseDocument()` with stage transitions + token payment tracking | ✅ land hub + land view + land detail drawer with stage badges + BBA/ATS/Registry document uploads + complete dialog | ✅ mobile land list + detail with stage badges + BBA upload + complete flow | Transcript §3.6 | T02 (closed) |
 | D22 | Land type Freehold vs Leasehold | ✅ `LandType` enum | ✅ | ✅ desktop wizard + land hub | ✅ mobile wizard + detail + edit form | Transcript §2.2 | T05 (closed) |
 
 ### Tier 3 — Genuine new builds (not in schema)
@@ -98,7 +98,7 @@ If you catch yourself planning to "build the rent module" or "add the sale lifec
 | D23 | BOQ (Bill of Quantities) per project — optional, engineer estimates pre-construction | ✅ Done (BoqItem model + service + desktop + mobile) | Transcript §7 | — |
 | D24 | HSN/SAC auto-fetch from government GST portal | ✅ Done (pluggable provider: CBIC free snapshot + FastGST API; integration config + API route + 9 unit tests) | Transcript §1.1 | — |
 | D25 | Standard cost "pull from previous purchase" on material form | ✅ Done (desktop + mobile) | Transcript §1.1 | T03 |
-| D26 | Generic document-attachment infrastructure (polymorphic, any entity) | ✅ Done (EntityAttachment model + API + AttachmentList component) | Transcript §4.1 | — |
+| D26 | Generic document-attachment infrastructure (polymorphic, any entity) | ✅ Done (EntityAttachment model + API + AttachmentList component, wired into sale/land/project detail pages on desktop + mobile) | Transcript §4.1 | — |
 
 ### Tier 4 — Mobile UX polish (mega plan, in progress)
 

@@ -126,9 +126,9 @@ export function MobileLandList({
   const filtered = useMemo(() => {
     let result = items;
     // Apply filter chip
-    if (filter === "booked") result = result.filter((p) => p.purchaseStage === "BOOKED");
+    if (filter === "booked") result = result.filter((p) => p.purchaseStage === "BOOKED" || p.purchaseStage === "BBA_SIGNED" || p.purchaseStage === "REGISTERED");
     else if (filter === "possessed") result = result.filter((p) => p.isPossessed);
-    else if (filter === "balance") result = result.filter((p) => p.purchaseStage === "BOOKED" && !p.isPossessed);
+    else if (filter === "balance") result = result.filter((p) => (p.purchaseStage === "BOOKED" || p.purchaseStage === "BBA_SIGNED" || p.purchaseStage === "REGISTERED") && !p.isPossessed);
     // Apply search query
     if (!query.trim()) return result;
     const q = query.toLowerCase();
@@ -527,6 +527,22 @@ function PurchaseCard({
               style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 12%, transparent)", color: "var(--color-signal)" }}
             >
               BOOKED
+            </span>
+          )}
+          {p.purchaseStage === "BBA_SIGNED" && (
+            <span
+              className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-m-caption font-bold"
+              style={{ backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)", color: "var(--color-steel)" }}
+            >
+              BBA SIGNED
+            </span>
+          )}
+          {p.purchaseStage === "REGISTERED" && (
+            <span
+              className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-m-caption font-bold"
+              style={{ backgroundColor: "color-mix(in srgb, var(--color-primary, var(--color-ink-700)) 12%, transparent)", color: "var(--color-primary, var(--color-ink-700))" }}
+            >
+              REGISTERED
             </span>
           )}
           {p.isPossessed && (

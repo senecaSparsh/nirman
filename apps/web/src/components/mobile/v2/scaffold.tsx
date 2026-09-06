@@ -586,8 +586,7 @@ export interface SummaryStat {
 }
 
 /**
- * Compact KPI strip for list pages. Standard: rounded-[0.625rem], border,
- * p-2.5, mb-3. Renders stats in a 4-col grid (or fewer if < 4 stats).
+ * Compact KPI strip — centered stats inside a subtle bordered box.
  */
 export function MobileSummaryStrip({ stats }: { stats: SummaryStat[] }) {
   const toneColor = (tone?: SummaryStat["tone"]) =>
@@ -599,19 +598,17 @@ export function MobileSummaryStrip({ stats }: { stats: SummaryStat[] }) {
           ? "var(--color-signal-dark)"
           : "var(--color-ink-950)";
 
-  const cols = stats.length >= 4 ? "grid-cols-4" : stats.length === 3 ? "grid-cols-3" : "grid-cols-2";
-
   return (
     <div
-      className={`grid ${cols} gap-1.5 rounded-[0.625rem] border p-2.5 mb-3`}
+      className="flex items-baseline justify-around py-2.5 mb-3 rounded-[0.625rem] border"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
       }}
     >
       {stats.map((s) => (
-        <div key={s.label} className="text-center overflow-hidden min-w-0">
-          <p className="text-m-label truncate" style={{ color: "var(--color-ink-500)" }}>
+        <div key={s.label} className="flex flex-col items-center min-w-0">
+          <p className="text-m-label truncate" style={{ color: "var(--color-ink-400)" }}>
             {s.label}
           </p>
           <p className="text-m-figure truncate" style={{ color: toneColor(s.tone) }}>

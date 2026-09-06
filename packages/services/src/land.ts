@@ -659,7 +659,9 @@ export interface LandPurchaseOrderInput {
  * creates a payment schedule for the balance. The purchase is not
  * "complete" until the registry document is uploaded.
  *
- * Lifecycle: BOOKED → COMPLETED (registry doc uploaded + payment settled)
+ * Lifecycle: BOOKED → BBA_SIGNED → REGISTERED → COMPLETED (registry doc uploaded + payment settled)
+ * Can also complete directly from BOOKED or BBA_SIGNED (backward compat —
+ * jumps straight to COMPLETED if registry doc + payment are ready).
  */
 export async function recordLandPurchaseOrder(input: LandPurchaseOrderInput) {
   const totalArea = new Decimal(input.totalArea);
@@ -888,10 +890,11 @@ export async function recordLandPurchasePayment(input: RecordLandPurchasePayment
 export interface UploadLandPurchaseDocumentInput {
   landPurchaseId: string;
   userId?: string;
-  documentType: "ATS" | "REGISTRY";
+  documentType: "ATS" | "BBA" | "REGISTRY";
   documentUrl: string;
   documentName?: string;
   registryNo?: string;
+  bbaDate?: string; // ISO date — when BBA was executed
 }
 
 export async function uploadLandPurchaseDocument(input: UploadLandPurchaseDocumentInput) {
@@ -899,15 +902,30 @@ export async function uploadLandPurchaseDocument(input: UploadLandPurchaseDocume
     const lp = await tx.landPurchase.findUnique({ where: { id: input.landPurchaseId } });
     if (!lp) throw new ServiceError("Land purchase not found", 404);
     if (lp.deletedAt) throw new ServiceError("Land purchase is deleted");
+    if (lp.purchaseStage === "COMPLETED") throw new ServiceError("Land purchase is already completed");
+    if (lp.purchaseStage === "CANCELLED") throw new ServiceError("Cannot upload documents on a cancelled purchase");
 
     const data: Prisma.LandPurchaseUpdateInput = {};
+
     if (input.documentType === "ATS") {
       data.atsDocumentUrl = input.documentUrl;
       data.atsDocumentName = input.documentName ?? null;
+      // ATS is equivalent to BBA for stage purposes — transition to BBA_SIGNED
+      if (lp.purchaseStage === "BOOKED") data.purchaseStage = "BBA_SIGNED";
+    } else if (input.documentType === "BBA") {
+      data.bbaDocumentUrl = input.documentUrl;
+      data.bbaDocumentName = input.documentName ?? null;
+      if (input.bbaDate) data.bbaDate = new Date(input.bbaDate);
+      if (lp.purchaseStage === "BOOKED") data.purchaseStage = "BBA_SIGNED";
     } else if (input.documentType === "REGISTRY") {
       data.registryDocumentUrl = input.documentUrl;
       data.registryDocumentName = input.documentName ?? null;
       if (input.registryNo) data.registryNo = input.registryNo;
+      // Registry document uploaded → transition to REGISTERED
+      // (completion requires payment settlement too — done via completeLandPurchase)
+      if (lp.purchaseStage === "BOOKED" || lp.purchaseStage === "BBA_SIGNED") {
+        data.purchaseStage = "REGISTERED";
+      }
     }
 
     const updated = await tx.landPurchase.update({ where: { id: input.landPurchaseId }, data });
@@ -919,7 +937,7 @@ export async function uploadLandPurchaseDocument(input: UploadLandPurchaseDocume
         action: "LAND_PURCHASE_DOCUMENT_UPLOAD",
         entityType: "LandPurchase",
         entityId: input.landPurchaseId,
-        after: { documentType: input.documentType, documentName: input.documentName },
+        after: { documentType: input.documentType, documentName: input.documentName, newStage: data.purchaseStage ?? lp.purchaseStage },
       });
     }
 

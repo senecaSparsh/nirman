@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
@@ -628,7 +629,7 @@ export function MobileLandWizard({
                       step === i + 1
                         ? "var(--color-paper)"
                         : step > i + 1
-                          ? "#fff"
+                          ? "var(--color-paper)"
                           : "var(--color-ink-500)",
                   }}
                 >
@@ -765,23 +766,12 @@ export function MobileLandWizard({
                     />
                   </div>
                   <div className="pl-2">
-                    <label className={labelClass} style={labelStyle}>
-                      Unit
-                    </label>
-                    <select
+                    <EnumSelect
+                      label="Unit"
                       value={land.areaUnit}
-                      onChange={(e) =>
-                        setLandField("areaUnit", e.target.value as AreaUnit)
-                      }
-                      className={inputClass}
-                      style={inputStyle}
-                    >
-                      {(Object.keys(AREA_UNIT_LABELS) as AreaUnit[]).map((u) => (
-                        <option key={u} value={u}>
-                          {AREA_UNIT_LABELS[u]}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(v) => setLandField("areaUnit", v as AreaUnit)}
+                      options={(Object.keys(AREA_UNIT_LABELS) as AreaUnit[]).map((u) => ({ value: u, label: AREA_UNIT_LABELS[u] }))}
+                    />
                   </div>
                 </div>
               </div>
@@ -1326,28 +1316,28 @@ export function MobileLandWizard({
                         onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))}
                         placeholder="Amount ₹"
                       />
-                      <select
-                        className={inputClass}
-                        style={inputStyle}
+                      <EnumSelect
+                        label=""
                         value={c.frequency}
-                        onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, frequency: e.target.value as "ONE_TIME" | "RECURRING" } : x))}
-                      >
-                        <option value="ONE_TIME">One-time</option>
-                        <option value="RECURRING">Recurring</option>
-                      </select>
+                        onChange={(v) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, frequency: v as "ONE_TIME" | "RECURRING" } : x))}
+                        options={[
+                          { value: "ONE_TIME", label: "One-time" },
+                          { value: "RECURRING", label: "Recurring" },
+                        ]}
+                      />
                     </div>
                     {c.frequency === "RECURRING" && (
-                      <select
-                        className={inputClass}
-                        style={inputStyle}
+                      <EnumSelect
+                        label=""
                         value={c.interval}
-                        onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, interval: e.target.value as typeof c.interval } : x))}
-                      >
-                        <option value="MONTHLY">Monthly</option>
-                        <option value="QUARTERLY">Quarterly</option>
-                        <option value="HALF_YEARLY">Half-Yearly</option>
-                        <option value="YEARLY">Yearly</option>
-                      </select>
+                        onChange={(v) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, interval: v as typeof c.interval } : x))}
+                        options={[
+                          { value: "MONTHLY", label: "Monthly" },
+                          { value: "QUARTERLY", label: "Quarterly" },
+                          { value: "HALF_YEARLY", label: "Half-Yearly" },
+                          { value: "YEARLY", label: "Yearly" },
+                        ]}
+                      />
                     )}
                   </div>
                 ))}
@@ -2198,7 +2188,8 @@ function MobileSectionEditor({
       {/* PROJECT: select or create */}
       {section.purpose === "PROJECT" && (
         <MobileSelectWithCreate
-          label="Project *"
+          label="Project"
+          required
           value={section.projectId}
           onChange={(v) => onUpdate({ projectId: v, projectCreateName: "" })}
           placeholder="Select a project…"
@@ -2206,7 +2197,7 @@ function MobileSectionEditor({
           inputClass={inputClass}
           inputStyle={inputStyle}
           renderDialog={({ open, onClose, onCreated, originRect }) => (
-            <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+            <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project" nested>
               <MobileNewProjectDialog
                 open={open}
                 onClose={onClose}

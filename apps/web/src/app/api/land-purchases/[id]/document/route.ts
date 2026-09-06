@@ -5,8 +5,8 @@ import { apiHandler, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
- * POST /api/land-purchases/[id]/document — upload a document (ATS or Registry) for a land purchase.
- * Body: { documentType: "ATS" | "REGISTRY", documentUrl, documentName?, registryNo? }
+ * POST /api/land-purchases/[id]/document — upload a document (ATS, BBA, or Registry) for a land purchase.
+ * Body: { documentType: "ATS" | "BBA" | "REGISTRY", documentUrl, documentName?, registryNo?, bbaDate? }
  */
 export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.ASSETS_MANAGE);
@@ -16,9 +16,10 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
   const documentUrl = body?.documentUrl as string;
   const documentName = body?.documentName as string | undefined;
   const registryNo = body?.registryNo as string | undefined;
+  const bbaDate = body?.bbaDate as string | undefined;
 
-  if (!documentType || !["ATS", "REGISTRY"].includes(documentType)) {
-    return json({ error: "documentType must be ATS or REGISTRY" }, { status: 400 });
+  if (!documentType || !["ATS", "BBA", "REGISTRY"].includes(documentType)) {
+    return json({ error: "documentType must be ATS, BBA, or REGISTRY" }, { status: 400 });
   }
   if (!documentUrl) {
     return json({ error: "documentUrl is required" }, { status: 400 });
@@ -28,10 +29,11 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
     await uploadLandPurchaseDocument({
       landPurchaseId: id,
       userId: user.id,
-      documentType: documentType as "ATS" | "REGISTRY",
+      documentType: documentType as "ATS" | "BBA" | "REGISTRY",
       documentUrl,
       documentName,
       registryNo,
+      bbaDate,
     });
     revalidatePath("/land");
     revalidatePath(`/land/${id}`);

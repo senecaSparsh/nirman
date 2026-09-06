@@ -2,9 +2,11 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import {Camera, X, Loader2} from "lucide-react";
+import {Camera, X, Loader2, Plus} from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 export const VEHICLE_TYPE_OPTIONS = [
   { value: "TRUCK", label: "Truck" },
@@ -59,6 +61,8 @@ export function VehicleCapture({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [blurTimeout, setBlurTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [showCreateType, setShowCreateType] = useState(false);
+  const [customType, setCustomType] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Debounced search for vehicle autocomplete
@@ -170,38 +174,20 @@ export function VehicleCapture({
           ) : null}
         </div>
         <div className="pl-2">
-          <div
-            className="flex items-center justify-between gap-1 pb-0.5 border-b focus-within:border-b-2 transition-colors"
-            style={{ borderColor: "var(--color-line)" }}
-          >
-            <span className="text-m-caption font-bold shrink-0" style={labelStyle}>
-              Type:
-            </span>
-            <select
-              value={value.vehicleType}
-              onChange={(e) => {
-                if (e.target.value === "__create__") {
-                  const custom = prompt("Enter vehicle type:");
-                  if (custom && custom.trim()) {
-                    onChange({ ...value, vehicleType: custom.trim().toUpperCase().replace(/\s+/g, "_") });
-                  }
-                  e.target.value = value.vehicleType;
-                  return;
-                }
-                onChange({ ...value, vehicleType: e.target.value });
-              }}
-              className="flex-1 min-w-0 h-7 px-1 text-m-caption text-right outline-none"
-              style={{ backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-            >
-              <option value="">Select…</option>
-              {VEHICLE_TYPE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-              <option value="__create__" style={{ color: "var(--color-signal-dark)", fontWeight: 600 }}>
-                + Create new type
-              </option>
-            </select>
-          </div>
+          <EnumSelect
+            label="Type:"
+            value={value.vehicleType}
+            onChange={(v) => onChange({ ...value, vehicleType: v })}
+            placeholder="Select…"
+            options={VEHICLE_TYPE_OPTIONS}
+            inline
+            align="right"
+            onCreate={() => {
+              setCustomType("");
+              setShowCreateType(true);
+            }}
+            createLabel="Create new type"
+          />
         </div>
       </div>
 
@@ -273,6 +259,57 @@ export function VehicleCapture({
         )}
       </div>
       </div>
+
+      {/* Create new vehicle type dialog */}
+      <MobileDialog
+        open={showCreateType}
+        onClose={() => setShowCreateType(false)}
+        title="New Vehicle Type"
+        nested
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const trimmed = customType.trim();
+            if (!trimmed) {
+              toast.error("Enter a vehicle type name");
+              return;
+            }
+            const code = trimmed.toUpperCase().replace(/\s+/g, "_");
+            haptic([10, 40, 80]);
+            onChange({ ...value, vehicleType: code });
+            setShowCreateType(false);
+            setCustomType("");
+            toast.success(`Vehicle type "${code}" added`);
+          }}
+          className="flex flex-col gap-3"
+        >
+          <div>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Type name <span style={{ color: "var(--color-stop)" }}>*</span>
+            </label>
+            <input
+              type="text"
+              value={customType}
+              onChange={(e) => setCustomType(e.target.value)}
+              placeholder="e.g. Eicher, JCB, Tipper"
+              autoFocus
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+            />
+          </div>
+          <div className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2" style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}>
+            <button
+              type="submit"
+              className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            >
+              <Plus className="size-4" />
+              Add Type
+            </button>
+          </div>
+        </form>
+      </MobileDialog>
     </div>
   );
 }

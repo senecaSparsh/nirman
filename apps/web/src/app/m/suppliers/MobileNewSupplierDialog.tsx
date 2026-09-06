@@ -79,38 +79,30 @@ export function MobileNewSupplierForm({
           <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
             Identity
           </p>
-          {/* Name */}
-          <div>
-            <label
-              className="block text-m-caption font-bold mb-0"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              Name <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. ABC Cement Suppliers"
-              autoFocus
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Tax & Phone */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Tax & Phone
-          </p>
-          {/* GSTIN + Phone */}
+          {/* Name + GSTIN */}
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
+              <label
+                className="block text-m-caption font-bold mb-0"
+                style={{ color: "var(--color-ink-700)" }}
+              >
+                Name <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. ABC Cement"
+                autoFocus
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={{
+                  borderColor: "var(--color-line)",
+                  backgroundColor: "var(--color-paper)",
+                  color: "var(--color-ink-950)",
+                }}
+              />
+            </div>
+            <div className="pl-2">
               <label
                 className="block text-m-caption font-bold mb-0"
                 style={{ color: "var(--color-ink-700)" }}
@@ -130,7 +122,17 @@ export function MobileNewSupplierForm({
                 }}
               />
             </div>
-            <div className="pl-2">
+          </div>
+        </div>
+
+        {/* Contact */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Contact
+          </p>
+          {/* Phone + Email */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
               <label
                 className="block text-m-caption font-bold mb-0"
                 style={{ color: "var(--color-ink-700)" }}
@@ -150,33 +152,26 @@ export function MobileNewSupplierForm({
                 }}
               />
             </div>
-          </div>
-        </div>
-
-        {/* Email */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Email
-          </p>
-          <div>
-            <label
-              className="block text-m-caption font-bold mb-0"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="contact@abcsuppliers.com"
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-                color: "var(--color-ink-500)",
-              }}
-            />
+            <div className="pl-2">
+              <label
+                className="block text-m-caption font-bold mb-0"
+                style={{ color: "var(--color-ink-700)" }}
+              >
+                Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="contact@abc.com"
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={{
+                  borderColor: "var(--color-line)",
+                  backgroundColor: "transparent",
+                  color: "var(--color-ink-500)",
+                }}
+              />
+            </div>
           </div>
         </div>
 
@@ -207,25 +202,35 @@ export function MobileNewSupplierForm({
           </div>
         </div>
 
-        {/* Submit */}
-        <button
-          type="submit"
-          disabled={saving}
-          className="flex items-center justify-center gap-1 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+        {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+        <div
+          className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
           style={{
-            backgroundColor: "var(--color-ink-950)",
-            color: "var(--color-paper)",
+            backgroundColor: "var(--color-paper)",
+            borderColor: "var(--color-line)",
           }}
         >
-          {saving ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <>
-              <Plus className="size-4" />
-              <span>Create Supplier</span>
-            </>
-          )}
-        </button>
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 flex items-center justify-center gap-1 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+              style={{
+                backgroundColor: "var(--color-ink-950)",
+                color: "var(--color-paper)",
+              }}
+            >
+              {saving ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <>
+                  <Plus className="size-4" />
+                  <span>Create Supplier</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </form>
     </>
   );
@@ -240,13 +245,15 @@ export function MobileNewSupplierDialog({
   open,
   onClose,
   onCreated,
+  nested,
 }: {
   open: boolean;
   onClose: () => void;
   onCreated: (supplier: { id: string; name: string }) => void;
+  nested?: boolean;
 }) {
   return (
-    <MobileDialog open={open} onClose={onClose} title="New Supplier">
+    <MobileDialog open={open} onClose={onClose} title="New Supplier" nested={nested}>
       <MobileNewSupplierForm onClose={onClose} onCreated={onCreated} />
     </MobileDialog>
   );

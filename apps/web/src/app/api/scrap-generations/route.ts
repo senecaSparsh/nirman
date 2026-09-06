@@ -43,8 +43,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
 const lineSchema = z.object({
   materialId: z.string().min(1),
-  qty: z.union([z.number(), z.string()]),
-  unitCost: z.union([z.number(), z.string()]),
+  qty: z.coerce.number().finite().positive("Quantity must be greater than 0"),
+  unitCost: z.coerce.number().finite().nonnegative("Unit cost must be 0 or greater"),
 });
 
 const createSchema = z.object({

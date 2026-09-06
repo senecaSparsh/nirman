@@ -6,9 +6,21 @@ import {
   Pencil, Trash2, Loader2, X, Tag, TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type UnitStatus = "PLANNED" | "UNDER_CONSTRUCTION" | "AVAILABLE" | "HOLD" | "SOLD";
 type UnitType = "BHK_1" | "BHK_2" | "BHK_3" | "BHK_4" | "SHOP" | "OFFICE" | "WAREHOUSE_UNIT" | "VILLA" | "OTHER";
+type AreaUnit = "SQFT" | "SQM" | "SQYD" | "ACRE" | "BIGHA" | "KATHA" | "HECTARE";
+
+const AREA_UNIT_LABELS: Record<AreaUnit, string> = {
+  SQFT: "sq.ft",
+  SQM: "sq.m",
+  SQYD: "sq.yd",
+  ACRE: "acre",
+  BIGHA: "bigha",
+  KATHA: "katha",
+  HECTARE: "hectare",
+};
 
 // ── Extracted module-level components (avoid "Cannot create components during render") ──
 function SheetHeader({ title, onClose }: { title: string; onClose: () => void }) {
@@ -18,7 +30,7 @@ function SheetHeader({ title, onClose }: { title: string; onClose: () => void })
         <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
       </div>
       <div className="flex items-center justify-between px-3 pb-2">
-        <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</p>
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>{title}</p>
         <button onClick={onClose} className="text-m-body press p-1">
           <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
         </button>
@@ -29,7 +41,7 @@ function SheetHeader({ title, onClose }: { title: string; onClose: () => void })
 
 function ConfirmButtons({ onCancel, onConfirm, confirmLabel, busy }: { onCancel: () => void; onConfirm: () => void; confirmLabel: string; busy: boolean }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex gap-2">
       <button onClick={onCancel} disabled={busy} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
       <button onClick={onConfirm} disabled={busy} className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", opacity: busy ? 0.5 : 1 }}>
         {busy ? <Loader2 className="size-3.5 animate-spin" /> : confirmLabel}
@@ -105,7 +117,7 @@ export function MobileUnitActions({
   const [floor, setFloor] = useState(initialFloor != null ? String(initialFloor) : "");
   const [wing, setWing] = useState(initialWing ?? "");
   const [area, setArea] = useState(initialArea);
-  const [areaUnit, setAreaUnit] = useState(initialAreaUnit);
+  const [areaUnit, setAreaUnit] = useState<AreaUnit>(initialAreaUnit as AreaUnit);
   const [askingPrice, setAskingPrice] = useState(initialAskingPrice ?? "");
   const [carpetArea, setCarpetArea] = useState(initialCarpetArea ?? "");
   const [superBuiltUpArea, setSuperBuiltUpArea] = useState(initialSuperBuiltUpArea ?? "");
@@ -225,10 +237,13 @@ export function MobileUnitActions({
                 </p>
                 <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
-                    <label className={labelClass} style={labelStyle}>Type *</label>
-                    <select value={unitType} onChange={(e) => setUnitType(e.target.value as UnitType)} className={inputClass} style={inputStyle}>
-                      {TYPE_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </select>
+                    <EnumSelect
+                      label="Type"
+                      required
+                      value={unitType}
+                      onChange={(v) => setUnitType(v as UnitType)}
+                      options={TYPE_OPTIONS}
+                    />
                   </div>
                   <div className="pl-2">
                     <label className={labelClass} style={labelStyle}>Area *</label>
@@ -237,8 +252,15 @@ export function MobileUnitActions({
                 </div>
                 <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
-                    <label className={labelClass} style={labelStyle}>Area Unit</label>
-                    <input value={areaUnit} onChange={(e) => setAreaUnit(e.target.value)} className={inputClass} style={inputStyle} />
+                    <EnumSelect
+                      label="Area Unit"
+                      value={areaUnit}
+                      onChange={(v) => setAreaUnit(v as AreaUnit)}
+                      options={(Object.keys(AREA_UNIT_LABELS) as AreaUnit[]).map((u) => ({
+                        value: u,
+                        label: AREA_UNIT_LABELS[u],
+                      }))}
+                    />
                   </div>
                   <div className="pl-2">
                     <label className={labelClass} style={labelStyle}>Floor</label>
@@ -304,9 +326,13 @@ export function MobileUnitActions({
                 <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                   Status
                 </p>
-                <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as UnitStatus)} className={inputClass} style={inputStyle}>
-                  {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
+                <EnumSelect
+                  label=""
+                  inline
+                  value={newStatus}
+                  onChange={(v) => setNewStatus(v as UnitStatus)}
+                  options={STATUS_OPTIONS}
+                />
               </div>
               <ConfirmButtons onCancel={() => setShowStatus(false)} onConfirm={saveStatus} confirmLabel="Update" busy={busy} />
             </div>
@@ -324,13 +350,15 @@ export function MobileUnitActions({
                 <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                   Valuation
                 </p>
-                <div>
-                  <label className={labelClass} style={labelStyle}>Asking Price (₹)</label>
-                  <input type="number" min="0" inputMode="numeric" value={valAskingPrice} onChange={(e) => setValAskingPrice(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
-                </div>
-                <div>
-                  <label className={labelClass} style={labelStyle}>Current Valuation (₹)</label>
-                  <input type="number" min="0" inputMode="numeric" value={valCurrentValuation} onChange={(e) => setValCurrentValuation(e.target.value)} className={inputClass} style={inputStyle} />
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>Asking Price (₹)</label>
+                    <input type="number" min="0" inputMode="numeric" value={valAskingPrice} onChange={(e) => setValAskingPrice(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                  </div>
+                  <div className="pl-2">
+                    <label className={labelClass} style={labelStyle}>Current Valuation (₹)</label>
+                    <input type="number" min="0" inputMode="numeric" value={valCurrentValuation} onChange={(e) => setValCurrentValuation(e.target.value)} className={inputClass} style={inputStyle} />
+                  </div>
                 </div>
               </div>
               <ConfirmButtons onCancel={() => setShowValuation(false)} onConfirm={saveValuation} confirmLabel="Update" busy={busy} />
@@ -348,7 +376,7 @@ export function MobileUnitActions({
               <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
                 This will archive unit <span className="font-bold">{unitNumber}</span>. The unit will be hidden but historical references are preserved. This cannot be undone.
               </p>
-              <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
                 <button onClick={() => setShowDelete(false)} disabled={busy} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
                 <button onClick={handleDelete} disabled={busy} className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1" style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}>
                   {busy ? <Loader2 className="size-3.5 animate-spin" /> : "Archive"}

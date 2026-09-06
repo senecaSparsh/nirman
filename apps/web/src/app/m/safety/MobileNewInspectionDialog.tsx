@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 const inputClass =
   "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
@@ -105,21 +106,13 @@ export function MobileNewInspectionForm({
           Details
         </p>
         <div>
-          <label className={labelClass} style={labelStyle}>
-            Project
-          </label>
-          <select
+          <MobileSelectWithCreate
+            label="Project"
             value={form.projectId}
-            onChange={(e) => set("projectId", e.target.value)}
-            className={inputClass}
-            style={inputStyle}
-          >
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => set("projectId", v)}
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            icon={FolderOpen}
+          />
         </div>
         <div>
           <label className={labelClass} style={labelStyle}>
@@ -140,44 +133,57 @@ export function MobileNewInspectionForm({
         <p className={sectionTitleClass} style={sectionTitleStyle}>
           Schedule
         </p>
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Scheduled Date
-          </label>
-          <input
-            type="date"
-            value={form.scheduledDate}
-            onChange={(e) => set("scheduledDate", e.target.value)}
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Inspector Name (optional)
-          </label>
-          <input
-            value={form.inspectorName}
-            onChange={(e) => set("inspectorName", e.target.value)}
-            placeholder="e.g. External safety auditor"
-            className={inputClass}
-            style={inputStyle}
-          />
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+          <div>
+            <label className={labelClass} style={labelStyle}>
+              Scheduled Date
+            </label>
+            <input
+              type="date"
+              value={form.scheduledDate}
+              onChange={(e) => set("scheduledDate", e.target.value)}
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+          <div className="pl-2">
+            <label className={labelClass} style={labelStyle}>
+              Inspector Name (optional)
+            </label>
+            <input
+              value={form.inspectorName}
+              onChange={(e) => set("inspectorName", e.target.value)}
+              placeholder="e.g. External safety auditor"
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
         </div>
       </div>
 
-      <button
-        type="submit"
-        disabled={saving}
-        className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+      {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+      <div
+        className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
         style={{
-          backgroundColor: "var(--color-ink-950)",
-          color: "var(--color-paper)",
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
         }}
       >
-        {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-        {saving ? "Scheduling…" : "Schedule"}
-      </button>
+        <div className="flex items-center justify-end gap-3">
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex-1 h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+            style={{
+              backgroundColor: "var(--color-ink-950)",
+              color: "var(--color-paper)",
+            }}
+          >
+            {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+            {saving ? "Scheduling…" : "Schedule"}
+          </button>
+        </div>
+      </div>
     </form>
   );
 }

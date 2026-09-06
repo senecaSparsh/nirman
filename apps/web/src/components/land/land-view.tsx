@@ -52,6 +52,12 @@ const landPurchaseColumns: Column<LandPurchaseRowType>[] = [
             {p.purchaseStage === "BOOKED" && (
               <span className="rounded-full bg-warning/15 px-1.5 py-0.5 text-caption font-semibold text-warning">BOOKED</span>
             )}
+            {p.purchaseStage === "BBA_SIGNED" && (
+              <span className="rounded-full bg-info/15 px-1.5 py-0.5 text-caption font-semibold text-info">BBA SIGNED</span>
+            )}
+            {p.purchaseStage === "REGISTERED" && (
+              <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-caption font-semibold text-primary">REGISTERED</span>
+            )}
             {p.isPossessed && (
               <span className="rounded-full bg-success/15 px-1.5 py-0.5 text-caption font-semibold text-success">POSSESSED</span>
             )}

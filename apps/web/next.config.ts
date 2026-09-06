@@ -27,15 +27,13 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ["lucide-react", "recharts", "@xyflow/react"],
   },
   async headers() {
-    // In dev, don't cache static assets — Turbopack recompiles chunks on
-    // every change and immutable caching prevents the browser from picking
-    // up the new code (the #1 cause of "my changes don't show up" reports).
+    // In dev, do NOT set custom Cache-Control on /_next/static/ — Next.js 16
+    // Turbopack manages chunk loading/caching internally and custom headers
+    // break its chunk-loading protocol (the "module factory is not available"
+    // desync). Only set API no-store in dev. Static chunk caching is left to
+    // Turbopack's defaults.
     if (process.env.NODE_ENV === "development") {
       return [
-        {
-          source: "/_next/static/:path*",
-          headers: [{ key: "Cache-Control", value: "no-store" }],
-        },
         {
           source: "/api/:path*",
           headers: [{ key: "Cache-Control", value: "no-store" }],
@@ -54,5 +52,31 @@ const nextConfig: NextConfig = {
     ];
   },
 };
+
+// ── Dev header guard ─────────────────────────────────────────────
+// Runtime check: if someone accidentally re-adds Cache-Control on
+// /_next/static/ in dev, warn loudly. This is the #1 enabler of the
+// Turbopack "module factory is not available" chunk desync loop.
+if (process.env.NODE_ENV === "development") {
+  Promise.resolve(nextConfig.headers?.()).then((headers) => {
+    if (!headers) return;
+    for (const h of headers) {
+      if (h.source.includes("/_next/static/")) {
+        const hasCacheControl = h.headers?.some(
+          (hdr: { key: string }) => hdr.key.toLowerCase() === "cache-control",
+        );
+        if (hasCacheControl) {
+          console.warn(
+            "\x1b[33m⚠ [next.config] Cache-Control header detected on /_next/static/ in dev mode. " +
+              "This breaks Turbopack's chunk-loading protocol and causes " +
+              '"module factory is not available" desync loops. Remove it.\x1b[0m',
+          );
+        }
+      }
+    }
+  }).catch(() => {
+    // headers() may throw — Next.js will handle the error separately.
+  });
+}
 
 export default withBundleAnalyzer(nextConfig);

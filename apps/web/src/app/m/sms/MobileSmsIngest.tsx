@@ -82,7 +82,7 @@ export function MobileSmsIngest() {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <h2 className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
             Paste Bank SMS
           </h2>
           <button onClick={() => !saving && setOpen(false)}>

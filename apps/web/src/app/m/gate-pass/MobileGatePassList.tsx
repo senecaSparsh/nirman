@@ -21,6 +21,7 @@ import {
   FileText,
   Navigation,
   X,
+  FolderOpen,
 } from "lucide-react";
 import { formatNumber, formatDate } from "@/lib/utils";
 import {
@@ -33,6 +34,8 @@ import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type GatePassRow = {
   id: string;
@@ -657,6 +660,7 @@ export function MobileGatePassFormDialog({
         body: JSON.stringify({
           locationId,
           projectId: projectId || undefined,
+          category: "MANUAL",
           destination: destination.trim() || undefined,
           purpose: purpose.trim() || undefined,
           vehicleNumber: vehicleNumber.trim() || undefined,
@@ -703,32 +707,28 @@ export function MobileGatePassFormDialog({
               <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                 Location <span className="">*</span>
               </label>
-              <select
+              <MobileSelectWithCreate
+                label="Location"
+                required
                 value={locationId}
-                onChange={(e) => setLocationId(e.target.value)}
-                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-              >
-                <option value="">Select location…</option>
-                {locations.map((l) => (
-                  <option key={l.id} value={l.id}>{l.name}</option>
-                ))}
-              </select>
+                onChange={setLocationId}
+                options={locations.map((l) => ({ value: l.id, label: l.name }))}
+                placeholder="Select location…"
+              />
             </div>
             {projects.length > 0 && (
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Project (optional)
                 </label>
-                <select
-                  value={projectId}
-                  onChange={(e) => setProjectId(e.target.value)}
-                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-                >
-                  <option value="">No project</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
+                <MobileSelectWithCreate
+                label="Project"
+                value={projectId}
+                onChange={setProjectId}
+                options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                placeholder="No project"
+                icon={FolderOpen}
+              />
               </div>
             )}
           </div>
@@ -785,18 +785,12 @@ export function MobileGatePassFormDialog({
                 />
               </div>
               <div className="pl-2">
-                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-                  Vehicle Type
-                </label>
-                <select
+                <EnumSelect
+                  label="Vehicle Type"
                   value={vehicleType}
-                  onChange={(e) => setVehicleType(e.target.value)}
-                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-                >
-                  {Object.entries(VEHICLE_TYPE_LABELS).map(([v, label]) => (
-                    <option key={v} value={v}>{label}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setVehicleType(v)}
+                  options={Object.entries(VEHICLE_TYPE_LABELS).map(([v, label]) => ({ value: v, label }))}
+                />
               </div>
             </div>
 

@@ -20,10 +20,14 @@ export function MobileNewCustomerDialog({
   open,
   onClose,
   onCreated,
+  nested,
 }: {
   open: boolean;
   onClose: () => void;
   onCreated: (customer: { id: string; name: string }) => void;
+  /** When true, disables backdrop blur — use when opened inside another
+   *  modal to avoid double-blur ("blurry inside blurry"). */
+  nested?: boolean;
 }) {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -74,7 +78,7 @@ export function MobileNewCustomerDialog({
   }
 
   return (
-    <MobileDialog open={open} onClose={onClose} title="New Customer">
+    <MobileDialog open={open} onClose={onClose} title="New Customer" nested={nested}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Details */}
           <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
@@ -124,7 +128,7 @@ export function MobileNewCustomerDialog({
                 }}
               />
             </div>
-            <div>
+            <div className="pl-2">
               <label
                 className="block text-m-caption font-bold mb-0"
                 style={{ color: "var(--color-ink-700)" }}
@@ -195,25 +199,35 @@ export function MobileNewCustomerDialog({
           </div>
           </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center justify-center gap-1 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+          {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+          <div
+            className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
             style={{
-              backgroundColor: "var(--color-ink-950)",
-              color: "var(--color-paper)",
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
             }}
           >
-            {saving ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <>
-                <Plus className="size-4" />
-                <span>Create Customer</span>
-              </>
-            )}
-          </button>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-1 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--color-ink-950)",
+                  color: "var(--color-paper)",
+                }}
+              >
+                {saving ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <>
+                    <Plus className="size-4" />
+                    <span>Create Customer</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </form>
     </MobileDialog>
   );

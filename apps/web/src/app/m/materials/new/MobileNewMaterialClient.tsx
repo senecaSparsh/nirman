@@ -10,7 +10,9 @@ import { formatCurrencyCompact } from "@/lib/utils";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { HsnSacSearch } from "@/components/hsn-sac-search";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewCategoryDialog } from "./MobileNewCategoryDialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 interface Category {
   id: string;
@@ -142,7 +144,7 @@ export default function MobileNewMaterialClient({
         >
           <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
         </div>
-        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
           {isEdit ? "Material Updated" : "Material Created"}
         </p>
         <p className="text-m-body font-mono mb-3" style={{ color: "var(--color-ink-500)" }}>
@@ -191,7 +193,7 @@ export default function MobileNewMaterialClient({
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <Package className="size-8 mx-auto mb-2" style={{ color: "var(--color-ink-300)" }} />
-          <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
             No material categories
           </p>
           <p className="text-m-caption mb-4" style={{ color: "var(--color-ink-500)" }}>
@@ -323,30 +325,33 @@ export default function MobileNewMaterialClient({
         </p>
 
       <div className="grid grid-cols-2 gap-2">
-        <FormField label="Category" required>
-          <select
+        <div>
+          <MobileSelectWithCreate
+            label="Category"
+            required
             value={categoryId}
-            onChange={(e) => handleCategoryChange(e.target.value)}
-            className={inputClass}
-            style={inputStyle}
-          >
-            {categoryList.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </FormField>
-        <FormField label="Unit" required>
-          <select
-            value={unit}
-            onChange={(e) => { setUnit(e.target.value); haptic(10); }}
-            className={inputClass}
-            style={inputStyle}
-          >
-            {COMMON_UNITS.map((u) => (
-              <option key={u} value={u}>{u}</option>
-            ))}
-          </select>
-        </FormField>
+            onChange={handleCategoryChange}
+            options={categoryList.map((c) => ({ value: c.id, label: c.name }))}
+            renderDialog={({ open, onClose, onCreated }) => (
+              <MobileNewCategoryDialog
+                open={open}
+                onClose={onClose}
+                onCreated={(cat) => {
+                  setCategoryList((prev) => [...prev, cat]);
+                  setUnit(cat.unit);
+                  onCreated(cat.id, cat.name);
+                }}
+              />
+            )}
+          />
+        </div>
+        <EnumSelect
+          label="Unit"
+          required
+          value={unit}
+          onChange={(v) => setUnit(v)}
+          options={COMMON_UNITS.map((u) => ({ value: u, label: u }))}
+        />
       </div>
 
       </div>

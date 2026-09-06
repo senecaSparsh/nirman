@@ -7,6 +7,7 @@ import { Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileNewCustomerDialog } from "@/app/m/sales/MobileNewCustomerDialog";
@@ -208,7 +209,7 @@ export function MobileNewTenancyDialog({
                       : "var(--color-paper)",
                   color:
                     form.assetType === "BUILT_UNIT"
-                      ? "#fff"
+                      ? "var(--color-paper)"
                       : "var(--color-ink-500)",
                 }}
               >
@@ -232,7 +233,7 @@ export function MobileNewTenancyDialog({
                       ? "var(--color-ink-950)"
                       : "var(--color-paper)",
                   color:
-                    form.assetType === "LAND" ? "#fff" : "var(--color-ink-500)",
+                    form.assetType === "LAND" ? "var(--color-paper)" : "var(--color-ink-500)",
                 }}
               >
                 Land Parcel
@@ -242,25 +243,14 @@ export function MobileNewTenancyDialog({
 
           {/* Asset Selector */}
           <div>
-            <label className={labelClass} style={labelStyle}>
-              {form.assetType === "LAND" ? "Land Parcel" : "Built Unit"}{" "}
-              <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <select
+            <MobileSelectWithCreate
+              label={form.assetType === "LAND" ? "Land Parcel" : "Built Unit"}
+              required
               value={form.assetId}
-              onChange={(e) => set("assetId", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              <option value="">
-                — Select {form.assetType === "LAND" ? "parcel" : "unit"} —
-              </option>
-              {assets.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.label}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => set("assetId", v)}
+              options={assets.map((a) => ({ value: a.id, label: a.label }))}
+              placeholder={`— Select ${form.assetType === "LAND" ? "parcel" : "unit"} —`}
+            />
             {assets.length === 0 && (
               <p
                 className="text-m-caption mt-1"
@@ -517,43 +507,22 @@ export function MobileNewTenancyDialog({
 
           {/* SAC Code — determines GST rate on rental income */}
           <div>
-            <label className={labelClass} style={labelStyle}>
-              SAC Code (GST on rent)
-            </label>
-            <select
+            <EnumSelect
+              label="SAC Code (GST on rent)"
               value={form.sacCode}
-              onChange={(e) => set("sacCode", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              <option value="997313">
-                997313 — Construction equipment rental (18%)
-              </option>
-              <option value="997314">
-                997314 — Office machinery rental (18%)
-              </option>
-              <option value="997317">
-                997317 — Other machinery rental (18%)
-              </option>
-              <option value="997319">
-                997319 — Other equipment rental (18%)
-              </option>
-              <option value="997323">
-                997323 — Furniture & fixtures rental (18%)
-              </option>
-              <option value="997329">
-                997329 — General goods rental (18%)
-              </option>
-              <option value="997212">
-                997212 — Non-residential property rent (18%)
-              </option>
-              <option value="997211">
-                997211 — Residential property rent (exempt)
-              </option>
-              <option value="9973">
-                9973 — Leasing/rental (parent heading, 18%)
-              </option>
-            </select>
+              onChange={(v) => set("sacCode", v)}
+              options={[
+                { value: "997313", label: "997313 — Construction equipment rental (18%)" },
+                { value: "997314", label: "997314 — Office machinery rental (18%)" },
+                { value: "997317", label: "997317 — Other machinery rental (18%)" },
+                { value: "997319", label: "997319 — Other equipment rental (18%)" },
+                { value: "997323", label: "997323 — Furniture & fixtures rental (18%)" },
+                { value: "997329", label: "997329 — General goods rental (18%)" },
+                { value: "997212", label: "997212 — Non-residential property rent (18%)" },
+                { value: "997211", label: "997211 — Residential property rent (exempt)" },
+                { value: "9973", label: "9973 — Leasing/rental (parent heading, 18%)" },
+              ]}
+            />
             <p
               className="text-m-caption mt-1"
               style={{ color: "var(--color-ink-700)" }}
@@ -618,33 +587,28 @@ export function MobileNewTenancyDialog({
           )}
           </div>
 
-          {/* Actions */}
-          <div className="flex flex-col gap-3 ">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
-              style={{
-                borderColor: "var(--color-line)",
-                color: "var(--color-ink-700)",
-                backgroundColor: "var(--color-paper)",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
-              style={{
-                backgroundColor: "var(--color-ink-950)",
-                color: "var(--color-paper)",
-              }}
-            >
-              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-              {saving ? "Creating…" : "Create Tenancy"}
-            </button>
+          {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+          <div
+            className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-3 -mb-3 px-3 py-2"
+            style={{
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+            }}
+          >
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--color-ink-950)",
+                  color: "var(--color-paper)",
+                }}
+              >
+                {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+                {saving ? "Creating…" : "Create Tenancy"}
+              </button>
+            </div>
           </div>
         </form>
     </MobileDialog>

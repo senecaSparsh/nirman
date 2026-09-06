@@ -28,6 +28,7 @@ import {
   type MobileChequeState,
 } from "../../sales/MobileChequeFields";
 import { haptic } from "@/lib/haptic";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { useLongPressNav } from "@/lib/use-long-press-nav";
 import { useUnsavedGuard } from "@/lib/use-unsaved-guard";
 import { MobileNewCustomerDialog } from "@/app/m/sales/MobileNewCustomerDialog";
@@ -239,6 +240,10 @@ export default function MobileNewMaterialSaleClient({
     if (loading) return;
     // Don't save after successful submit
     if (success) return;
+    // Only save when the user has entered something meaningful
+    const hasContent = customerId || projectId || partyName || notes ||
+      lines.some((l) => l.materialId || l.qty);
+    if (!hasContent) return;
     saveDraft({
       customerId,
       projectId,
@@ -546,7 +551,7 @@ export default function MobileNewMaterialSaleClient({
           )}
         </div>
         <p
-          className="text-m-section font-bold mb-1"
+          className="text-m-section font-extrabold tracking-tight mb-1"
           style={{ color: "var(--color-ink-950)" }}
         >
           {isQueued
@@ -657,8 +662,8 @@ export default function MobileNewMaterialSaleClient({
               setSuccess(null);
               setLines([
                 {
-                  materialId: materials[0]?.id ?? "",
-                  locationId: locations[0]?.id ?? "",
+                  materialId: "",
+                  locationId: "",
                   qty: "",
                   unitPrice: "",
                 },
@@ -1074,9 +1079,9 @@ function SaleForm({
                     <div className="flex items-center gap-1">
                       <span
                         className="text-m-caption font-bold tabular-nums"
-                        style={{ color: "var(--color-ink-950)" }}
+                        style={{ color: lineTotal > 0 ? "var(--color-ink-950)" : "var(--color-ink-300)" }}
                       >
-                        {formatCurrency(lineTotal)}
+                        {lineTotal > 0 ? formatCurrency(lineTotal) : "—"}
                       </span>
                       {mat && mat.gstRate > 0 ? (
                         <span
@@ -1165,16 +1170,13 @@ function SaleForm({
                         color: "var(--color-ink-950)",
                       }}
                     />
-                    <div
-                      className="flex items-center gap-0.5 rounded-[0.25rem] px-1.5 h-5 press shrink-0"
-                      style={{
-                        backgroundColor: "var(--color-paper-2)",
-                      }}
-                    >
-                      <select
+                    <div className="shrink-0">
+                      <EnumSelect
+                        label=""
+                        inline
                         value={split.mode}
-                        onChange={(e) => {
-                          const mode = e.target.value as PaymentMode;
+                        onChange={(v) => {
+                          const mode = v as PaymentMode;
                           setPaymentSplits((prev) =>
                             prev.map((s) =>
                               s.id === split.id
@@ -1191,18 +1193,7 @@ function SaleForm({
                             ),
                           );
                         }}
-                        className="text-m-caption font-bold outline-none cursor-pointer appearance-none bg-transparent"
-                        style={{
-                          color: "var(--color-ink-950)",
-                        }}
-                      >
-                        {PAYMENT_MODES.map((mode) => (
-                          <option key={mode} value={mode}>{mode}</option>
-                        ))}
-                      </select>
-                      <ChevronDown
-                        className="size-2.5 shrink-0 pointer-events-none"
-                        style={{ color: "var(--color-ink-500)" }}
+                        options={PAYMENT_MODES.map((mode) => ({ value: mode, label: mode }))}
                       />
                     </div>
                     {/* Add payment — plus button next to selector */}
@@ -1511,6 +1502,7 @@ function SaleForm({
       <MobileNewCustomerDialog
         open={showNewCustomerDialog}
         onClose={() => setShowNewCustomerDialog(false)}
+        nested
         onCreated={(c) => {
           setExtraCustomers((prev) => [
             ...prev,
@@ -1527,6 +1519,7 @@ function SaleForm({
         open={showNewMaterialDialog}
         onClose={() => setShowNewMaterialDialog(false)}
         categories={[]}
+        nested
         onCreated={(m) => {
           const newMat: MaterialItem = {
             id: m.id,

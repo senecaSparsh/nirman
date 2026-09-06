@@ -61,7 +61,7 @@ async function MobilePoDetailContent({
       approvedBy: { select: { name: true } },
       selectedQuote: { select: { deliveryTermsType: true } },
       lines: {
-        include: { material: { select: { id: true, code: true, name: true, unit: true, hsnCode: true, gstRate: true, baseUnit: true, secondaryUnit: true, uomConversionFactor: true } } },
+        include: { material: { select: { id: true, code: true, name: true, unit: true, hsnCode: true, gstRate: true, baseUnit: true, secondaryUnit: true, uomConversionFactor: true, isLotTracked: true } } },
         orderBy: { material: { name: "asc" } },
       },
       charges: { orderBy: { createdAt: "asc" } },
@@ -118,6 +118,7 @@ async function MobilePoDetailContent({
     baseUnit: l.material.baseUnit,
     secondaryUnit: l.material.secondaryUnit,
     uomConversionFactor: l.material.uomConversionFactor ? Number(l.material.uomConversionFactor) : null,
+    isLotTracked: l.material.isLotTracked,
   }));
 
   const receipts = po.goodsReceipts.map((gr) => ({
@@ -570,6 +571,7 @@ async function MobilePoDetailContent({
               baseUnit: l.baseUnit,
               secondaryUnit: l.secondaryUnit,
               uomConversionFactor: l.uomConversionFactor,
+              isLotTracked: l.isLotTracked,
             }))}
           />
         </div>

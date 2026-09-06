@@ -1,4 +1,5 @@
 import { MobileShellV2 } from "@/components/mobile/v2/mobile-shell";
+import { ChunkErrorRecovery } from "@/components/dev/chunk-error-recovery";
 
 /**
  * Mobile route group layout.
@@ -14,5 +15,10 @@ import { MobileShellV2 } from "@/components/mobile/v2/mobile-shell";
  * <Suspense>.
  */
 export default function MobileLayout({ children }: { children: React.ReactNode }) {
-  return <MobileShellV2>{children}</MobileShellV2>;
+  return (
+    <MobileShellV2>
+      {children}
+      <ChunkErrorRecovery />
+    </MobileShellV2>
+  );
 }

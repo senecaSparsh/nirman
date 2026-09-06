@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Phone, Mail, BadgeCheck, MapPin, Hammer,
   ClipboardList, Wallet, Package, AlertCircle,
-  Pencil, X, Loader2,
+  Pencil, Loader2,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
@@ -16,6 +16,7 @@ import {
   MobileStatusBadge,
 } from "@/components/mobile/v2/primitives";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { toast } from "sonner";
 
 /* ─── Types ─── */
@@ -522,46 +523,28 @@ function SubcontractorEditSheet({
   const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full rounded-t-[1rem] mx-auto max-w-md max-h-[85vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-center pt-2 pb-1">
-          <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
-        </div>
-        <div className="flex items-center justify-between px-3 pb-2">
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-            Edit Subcontractor
-          </p>
-          <button onClick={onClose} className="text-m-body press p-1">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
-        <div className="px-3 pb-4 flex flex-col gap-3">
+    <MobileDialog open={true} onClose={onClose} title="Edit Subcontractor">
+      <div className="px-3 pb-4 flex flex-col gap-3">
           <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
             <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Subcontractor Info
             </p>
-            <div>
-              <label className={labelClass} style={labelStyle}>Name *</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} style={inputStyle} />
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>Name *</label>
+                <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} style={inputStyle} />
+              </div>
+              <div className="pl-2">
+                <label className={labelClass} style={labelStyle}>Trade</label>
+                <input value={trade} onChange={(e) => setTrade(e.target.value)} placeholder="e.g. Civil, Electrical, Plumbing" className={inputClass} style={inputStyle} />
+              </div>
             </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>Trade</label>
-              <input value={trade} onChange={(e) => setTrade(e.target.value)} placeholder="e.g. Civil, Electrical, Plumbing" className={inputClass} style={inputStyle} />
-            </div>
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
               <div>
                 <label className={labelClass} style={labelStyle}>GSTIN</label>
                 <input value={gstin} onChange={(e) => setGstin(e.target.value)} placeholder="22AAAAA0000A1Z5" className={`${inputClass} font-mono`} style={inputStyle} />
               </div>
-              <div>
+              <div className="pl-2">
                 <label className={labelClass} style={labelStyle}>Phone</label>
                 <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" inputMode="tel" className={inputClass} style={inputStyle} />
               </div>
@@ -599,7 +582,6 @@ function SubcontractorEditSheet({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }

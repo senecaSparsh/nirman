@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Users, CheckCircle2, Search, ChevronDown, ChevronRight, CheckCheck, Loader2, MapPin, X } from "lucide-react";
+import { Users, CheckCircle2, Search, ChevronDown, ChevronRight, CheckCheck, Loader2, MapPin, X, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrencyCompact } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
@@ -12,6 +12,7 @@ import { useSmartDefaults } from "@/lib/use-smart-defaults";
 import { useNearestProject } from "@/lib/use-nearest-project";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 type AttendanceStatus = "PRESENT" | "ABSENT" | "HALF_DAY" | "OVERTIME" | "LEAVE" | "LATE" | "PAID_LEAVE" | "NON_PAID_LEAVE";
 
@@ -335,16 +336,17 @@ export function MobileAttendanceForm({
             <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
               Project (optional)
             </label>
-            <div className="flex gap-1.5">
-              <select
-                value={fProject}
-                onChange={(e) => setFProject(e.target.value)}
-                className="flex-1 h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                style={inputStyle}
-              >
-                <option value="">All workers</option>
-                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+            <div className="flex gap-1.5 items-center">
+              <div className="flex-1">
+                <MobileSelectWithCreate
+                  label="Project"
+                  value={fProject}
+                  onChange={setFProject}
+                  options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                  placeholder="All workers"
+                  icon={FolderOpen}
+                />
+              </div>
               <button
                 type="button"
                 onClick={requestGps}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 interface CostComponent {
   id: string;
@@ -206,33 +207,29 @@ export function MobileLandCostComponentDialog({
                 />
               </div>
               <div className="pl-2">
-                <label className={labelCls} style={labelStyle}>Frequency *</label>
-                <select
+                <EnumSelect
+                  label="Frequency"
                   value={form.frequency}
-                  onChange={(e) => set("frequency", e.target.value as "ONE_TIME" | "RECURRING")}
-                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                  style={inputStyle}
-                >
-                  <option value="ONE_TIME">One-time</option>
-                  <option value="RECURRING">Recurring</option>
-                </select>
+                  onChange={(v) => set("frequency", v as "ONE_TIME" | "RECURRING")}
+                  required
+                  options={[
+                    { value: "ONE_TIME", label: "One-time" },
+                    { value: "RECURRING", label: "Recurring" },
+                  ]}
+                />
               </div>
             </div>
 
             {form.frequency === "RECURRING" && (
               <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
-                  <label className={labelCls} style={labelStyle}>Interval *</label>
-                  <select
+                  <EnumSelect
+                    label="Interval"
                     value={form.interval}
-                    onChange={(e) => set("interval", e.target.value as typeof form.interval)}
-                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                    style={inputStyle}
-                  >
-                    {Object.entries(INTERVAL_LABELS).map(([v, l]) => (
-                      <option key={v} value={v}>{l}</option>
-                    ))}
-                  </select>
+                    onChange={(v) => set("interval", v as typeof form.interval)}
+                    required
+                    options={Object.entries(INTERVAL_LABELS).map(([v, l]) => ({ value: v, label: l }))}
+                  />
                 </div>
                 <div className="pl-2">
                   <label className={labelCls} style={labelStyle}>Occurrences</label>
@@ -291,38 +288,47 @@ export function MobileLandCostComponentDialog({
             </div>
           </div>
 
-          <div className="flex justify-between gap-2 pt-2">
-            <div>
-              {editing && (
+          {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+          <div
+            className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
+            style={{
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+            }}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                {editing && (
+                  <button
+                    type="button"
+                    onClick={onDelete}
+                    disabled={saving}
+                    className="flex items-center gap-1 rounded-[0.5rem] border py-2 px-3 text-m-body font-bold press disabled:opacity-50"
+                    style={{ borderColor: "var(--color-signal)", color: "var(--color-signal)" }}
+                  >
+                    <Trash2 className="size-3.5" /> Delete
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={onDelete}
+                  onClick={onClose}
                   disabled={saving}
-                  className="flex items-center gap-1 rounded-[0.5rem] border py-2 px-3 text-m-body font-bold press disabled:opacity-50"
-                  style={{ borderColor: "var(--color-signal)", color: "var(--color-signal)" }}
+                  className="flex-1 rounded-[0.5rem] border py-2 px-4 text-m-body font-bold press disabled:opacity-50"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 >
-                  <Trash2 className="size-3.5" /> Delete
+                  Cancel
                 </button>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={saving}
-                className="flex-1 rounded-[0.5rem] border py-2 px-4 text-m-body font-bold press disabled:opacity-50"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex items-center gap-1.5 rounded-[0.5rem] py-2 px-4 text-m-body font-bold press disabled:opacity-50"
-                style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
-              >
-                {saving ? <Loader2 className="size-3.5 animate-spin" /> : editing ? "Save" : "Add Cost"}
-              </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex items-center gap-1.5 rounded-[0.5rem] py-2 px-4 text-m-body font-bold press disabled:opacity-50"
+                  style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
+                >
+                  {saving ? <Loader2 className="size-3.5 animate-spin" /> : editing ? "Save" : "Add Cost"}
+                </button>
+              </div>
             </div>
           </div>
         </form>

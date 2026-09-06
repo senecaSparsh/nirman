@@ -17,6 +17,7 @@ import {
   MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 interface LeadActivity {
   id: string;
@@ -380,7 +381,7 @@ export function MobileLeadDetailClient({
         <div>
           <MobileSectionTitle>Notes</MobileSectionTitle>
           <div
-            className="rounded-[0.5rem] border p-3"
+            className="rounded-[0.625rem] border p-3"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             <p className="text-m-label leading-relaxed" style={{ color: "var(--color-ink-700)" }}>
@@ -450,28 +451,8 @@ export function MobileLeadDetailClient({
 
       {/* ── Stage progression sheet ── */}
       {showStageSheet ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => setShowStageSheet(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md max-h-[80vh] overflow-y-auto"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-center pt-2 pb-1">
-              <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
-            </div>
-            <div className="flex items-center justify-between px-3 pb-2">
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-                Move Lead
-              </p>
-              <button onClick={() => setShowStageSheet(false)} className="text-m-body press p-1">
-                <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-              </button>
-            </div>
-            <div className="px-3 pb-4 flex flex-col gap-3">
+        <MobileDialog open={showStageSheet} onClose={() => setShowStageSheet(false)} title="Move Lead">
+          <div className="px-3 pb-4 flex flex-col gap-3">
               <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
                 <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                   Stage Transition
@@ -535,8 +516,7 @@ export function MobileLeadDetailClient({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+        </MobileDialog>
       ) : null}
     </div>
   );
@@ -698,41 +678,41 @@ function LogActivityForm({ leadId }: { leadId: string }) {
             />
           </div>
 
-          {/* Outcome */}
-          <div>
-            <label className="text-m-caption font-bold uppercase mb-0 block" style={{ color: "var(--color-ink-700)" }}>
-              Outcome
-            </label>
-            <input
-              type="text"
-              value={outcome}
-              onChange={(e) => setOutcome(e.target.value)}
-              placeholder="e.g. Callback scheduled, warm lead"
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "transparent",
-                color: "var(--color-ink-950)",
-              }}
-            />
-          </div>
-
-          {/* Next follow-up */}
-          <div>
-            <label className="text-m-caption font-bold uppercase mb-0 block" style={{ color: "var(--color-ink-700)" }}>
-              Next Follow-up
-            </label>
-            <input
-              type="date"
-              value={nextFollowUp}
-              onChange={(e) => setNextFollowUp(e.target.value)}
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "transparent",
-                color: "var(--color-ink-950)",
-              }}
-            />
+          {/* Outcome + Next follow-up */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <label className="text-m-caption font-bold uppercase mb-0 block" style={{ color: "var(--color-ink-700)" }}>
+                Outcome
+              </label>
+              <input
+                type="text"
+                value={outcome}
+                onChange={(e) => setOutcome(e.target.value)}
+                placeholder="e.g. Callback scheduled, warm lead"
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={{
+                  borderColor: "var(--color-line)",
+                  backgroundColor: "transparent",
+                  color: "var(--color-ink-950)",
+                }}
+              />
+            </div>
+            <div className="pl-2">
+              <label className="text-m-caption font-bold uppercase mb-0 block" style={{ color: "var(--color-ink-700)" }}>
+                Next Follow-up
+              </label>
+              <input
+                type="date"
+                value={nextFollowUp}
+                onChange={(e) => setNextFollowUp(e.target.value)}
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={{
+                  borderColor: "var(--color-line)",
+                  backgroundColor: "transparent",
+                  color: "var(--color-ink-950)",
+                }}
+              />
+            </div>
           </div>
         </div>
 

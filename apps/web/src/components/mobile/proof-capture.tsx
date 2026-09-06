@@ -494,26 +494,26 @@ export function WeighbridgeFields({
       </p>
       <div className="grid grid-cols-4 gap-1.5">
       <div>
-        <label className="text-m-caption font-semibold uppercase tracking-wide block mb-0.5" style={{ color: labelColor }}>
+        <label className="text-m-caption font-bold block mb-0" style={{ color: labelColor }}>
           Slip No{required ? " *" : ""}
         </label>
-        <input type="text" value={ticketNo} onChange={(e) => onTicketNoChange(e.target.value)} placeholder="KP-001" className="w-full h-8 rounded-[0.375rem] border px-1.5 text-m-caption font-mono outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
+        <input type="text" value={ticketNo} onChange={(e) => onTicketNoChange(e.target.value)} placeholder="KP-001" className="w-full h-7 px-1 text-m-caption font-mono outline-none border-b focus:border-b-2 transition-colors" style={{ backgroundColor: "transparent" }} />
       </div>
       <div>
-        <label className="text-m-caption font-semibold uppercase tracking-wide block mb-0.5" style={{ color: labelColor }}>
+        <label className="text-m-caption font-bold block mb-0" style={{ color: labelColor }}>
           Gross{required ? " *" : ""}
         </label>
-        <input type="number" inputMode="decimal" step="0.001" value={grossWeight} onChange={(e) => { onGrossChange(e.target.value); calcNet(e.target.value, tareWeight); }} placeholder="0" className="w-full h-8 rounded-[0.375rem] border px-1 text-m-caption text-right tabular-nums outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
+        <input type="number" inputMode="decimal" step="0.001" value={grossWeight} onChange={(e) => { onGrossChange(e.target.value); calcNet(e.target.value, tareWeight); }} placeholder="0" className="w-full h-7 px-1 text-m-caption text-right tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={{ backgroundColor: "transparent" }} />
       </div>
       <div>
-        <label className="text-m-caption font-semibold uppercase tracking-wide block mb-0.5" style={{ color: labelColor }}>
+        <label className="text-m-caption font-bold block mb-0" style={{ color: labelColor }}>
           Tare{required ? " *" : ""}
         </label>
-        <input type="number" inputMode="decimal" step="0.001" value={tareWeight} onChange={(e) => { onTareChange(e.target.value); calcNet(grossWeight, e.target.value); }} placeholder="0" className="w-full h-8 rounded-[0.375rem] border px-1 text-m-caption text-right tabular-nums outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
+        <input type="number" inputMode="decimal" step="0.001" value={tareWeight} onChange={(e) => { onTareChange(e.target.value); calcNet(grossWeight, e.target.value); }} placeholder="0" className="w-full h-7 px-1 text-m-caption text-right tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={{ backgroundColor: "transparent" }} />
       </div>
       <div>
-        <label className="text-m-caption font-semibold uppercase tracking-wide block mb-0.5" style={{ color: "var(--color-go)" }}>Net (kg)</label>
-        <input type="number" readOnly value={netWeight} placeholder="0" className="w-full h-8 rounded-[0.375rem] border px-1 text-m-caption text-right tabular-nums font-bold outline-none" style={{ borderColor: "color-mix(in srgb, var(--color-go) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-go) 5%, transparent)", color: "var(--color-ink-950)" }} />
+        <label className="text-m-caption font-bold block mb-0" style={{ color: "var(--color-go)" }}>Net (kg)</label>
+        <input type="number" readOnly value={netWeight} placeholder="0" className="w-full h-7 px-1 text-m-caption text-right tabular-nums font-bold outline-none border-b focus:border-b-2 transition-colors" style={{ backgroundColor: "transparent" }} />
       </div>
     </div>
     </div>

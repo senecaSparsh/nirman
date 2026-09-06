@@ -455,7 +455,7 @@ function DeleteConfirm({
   return (
     <MobileDialog open={true} onClose={onClose} title={`Delete ${customerName}?`}>
           <div
-            className="rounded-[0.5rem] border p-3 mb-3"
+            className="rounded-[0.625rem] border p-3 mb-3"
             style={{ borderColor: "var(--color-stop)", backgroundColor: `color-mix(in srgb, var(--color-stop) 5%, transparent)` }}
           >
             <p className="text-m-label" style={{ color: "var(--color-ink-700)" }}>

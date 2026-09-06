@@ -158,6 +158,7 @@ interface CreateTransferInput {
   lines: {
     materialId: string;
     qty: Decimal | number | string;
+    lotNumber?: string | null;
   }[];
 }
 
@@ -215,6 +216,7 @@ export async function createTransfer(input: CreateTransferInput) {
           create: input.lines.map((l) => ({
             materialId: l.materialId,
             qty: new Decimal(l.qty),
+            lotNumber: l.lotNumber ?? null,
           })),
         },
       },
@@ -318,6 +320,8 @@ export async function dispatchTransfer(
         refType: "STOCK_TRANSFER",
         refId: transferId,
         userId,
+        lotNumber: line.lotNumber ?? undefined,
+        companyId: transfer.fromLocation.companyId,
       });
       // Persist the source MAC on the line for completeTransfer to use
       await tx.stockTransferLine.update({
@@ -468,6 +472,8 @@ export async function completeTransfer(transferId: string, userId?: string, proo
             refType: "STOCK_TRANSFER",
             refId: transferId,
             userId,
+            lotNumber: line.lotNumber ?? undefined,
+            companyId: transfer.fromLocation.companyId,
           });
           const sourceMac = outResult.newMAC;
           const recvQty = getReceivedQty(line.id, new Decimal(line.qty));
@@ -502,6 +508,8 @@ export async function completeTransfer(transferId: string, userId?: string, proo
             refType: "STOCK_TRANSFER",
             refId: transferId,
             userId,
+            lotNumber: line.lotNumber ?? undefined,
+            companyId: transfer.toLocation.companyId,
           });
         }
         // Record shortage (lost in transit) as ADJUSTMENT_OUT at SOURCE —
@@ -519,6 +527,8 @@ export async function completeTransfer(transferId: string, userId?: string, proo
             refType: "STOCK_TRANSFER_SHORTAGE",
             refId: transferId,
             userId,
+            lotNumber: line.lotNumber ?? undefined,
+            companyId: transfer.fromLocation.companyId,
           });
         }
         await tx.stockTransferLine.update({
@@ -650,6 +660,8 @@ export async function completeTransfer(transferId: string, userId?: string, proo
             refType: "STOCK_TRANSFER_SHORTAGE",
             refId: transferId,
             userId,
+            lotNumber: line.lotNumber ?? undefined,
+            companyId: transfer.fromLocation.companyId,
           });
         }
         await tx.stockTransferLine.update({
@@ -686,6 +698,8 @@ export async function completeTransfer(transferId: string, userId?: string, proo
             refType: "STOCK_TRANSFER",
             refId: transferId,
             userId,
+            lotNumber: line.lotNumber ?? undefined,
+            companyId: transfer.toLocation.companyId,
           });
         }
         // Record shortage (lost in transit) as ADJUSTMENT_OUT at SOURCE —
@@ -702,6 +716,8 @@ export async function completeTransfer(transferId: string, userId?: string, proo
             refType: "STOCK_TRANSFER_SHORTAGE",
             refId: transferId,
             userId,
+            lotNumber: line.lotNumber ?? undefined,
+            companyId: transfer.fromLocation.companyId,
           });
         }
         await tx.stockTransferLine.update({
@@ -799,6 +815,8 @@ export async function returnTransferToSource(transferId: string, userId?: string
         refType: "STOCK_TRANSFER",
         refId: transferId,
         userId,
+        lotNumber: line.lotNumber ?? undefined,
+        companyId: transfer.fromLocation.companyId,
       });
     }
 

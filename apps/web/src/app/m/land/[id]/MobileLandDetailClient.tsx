@@ -16,9 +16,11 @@ import { MobileLandCostComponentDialog } from "./MobileLandCostComponentDialog";
 import { MobileLegalDocsSection } from "@/components/legal/mobile-legal-docs-section";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../../sales/MobileChequeFields";
 import { MobileDocUploader } from "../../MobileDocUploader";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import { mobileStatusColor, ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { useConfirm } from "@/lib/use-confirm";
 import { toast } from "sonner";
 
@@ -148,6 +150,9 @@ interface LandData {
   // Documents
   atsDocumentUrl?: string | null;
   atsDocumentName?: string | null;
+  bbaDocumentUrl?: string | null;
+  bbaDocumentName?: string | null;
+  bbaDate?: string | null;
   registryDocumentUrl?: string | null;
   registryDocumentName?: string | null;
   // Possession
@@ -293,7 +298,10 @@ export function MobileLandDetailClient({
   const [compPartialRegistry, setCompPartialRegistry] = useState(false);
 
   const isBooked = data?.purchaseStage === "BOOKED";
+  const isBbaSigned = data?.purchaseStage === "BBA_SIGNED";
+  const isRegistered = data?.purchaseStage === "REGISTERED";
   const isCompleted = data?.purchaseStage === "COMPLETED";
+  const isStaged = isBooked || isBbaSigned || isRegistered;
   const totalPaid = data?.totalPaid ?? 0;
   const totalCost = data?.totalCost ?? 0;
   const balanceDue = Math.max(0, totalCost - totalPaid);
@@ -389,7 +397,7 @@ export function MobileLandDetailClient({
     }
   }
 
-  async function uploadLandDocument(documentType: "ATS" | "REGISTRY", url: string, fileName?: string) {
+  async function uploadLandDocument(documentType: "ATS" | "BBA" | "REGISTRY", url: string, fileName?: string) {
     if (!data) return;
     setDocUploading(true);
     try {
@@ -508,7 +516,23 @@ export function MobileLandDetailClient({
                 className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-full"
                 style={{ color: "var(--color-signal)", backgroundColor: "color-mix(in srgb, var(--color-signal) 12%, transparent)" }}
               >
-                Awaiting Registry
+                Booked — awaiting BBA/ATS
+              </span>
+            )}
+            {isBbaSigned && (
+              <span
+                className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-full"
+                style={{ color: "var(--color-steel)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
+              >
+                BBA/ATS signed
+              </span>
+            )}
+            {isRegistered && (
+              <span
+                className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-full"
+                style={{ color: "var(--color-primary, var(--color-ink-700))", backgroundColor: "color-mix(in srgb, var(--color-primary, var(--color-ink-700)) 12%, transparent)" }}
+              >
+                Registered
               </span>
             )}
             {isCompleted && (
@@ -955,7 +979,7 @@ export function MobileLandDetailClient({
               return (
                 <div className="mt-1.5 rounded-[0.375rem] border px-3 py-2 text-m-label leading-snug"
                   style={{
-                    borderColor: "rgba(100,116,139,0.4)",
+                    borderColor: "var(--color-line)",
                     backgroundColor: "rgba(100,116,139,0.1)",
                     color: "var(--color-steel)",
                   }}>
@@ -991,7 +1015,7 @@ export function MobileLandDetailClient({
               </button>
             </div>
             <div
-              className="rounded-[0.5rem] border p-3 mb-2"
+              className="rounded-[0.625rem] border p-3 mb-2"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
             >
               <MobileCadastrePlan parcels={sortedParcels} />
@@ -1224,7 +1248,7 @@ export function MobileLandDetailClient({
             </div>
           )}
 
-          {/* Document uploads — ATS + Registry */}
+          {/* Document uploads — ATS + BBA + Registry */}
           <p className="text-m-caption font-bold uppercase tracking-wide mb-1.5 px-0.5" style={{ color: "var(--color-steel)" }}>
             Purchase Documents
           </p>
@@ -1254,6 +1278,33 @@ export function MobileLandDetailClient({
                   url=""
                   label="Upload ATS"
                   onUpload={(url, name) => uploadLandDocument("ATS", url, name)}
+                />
+              ) : (
+                <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>Not uploaded</p>
+              )}
+            </div>
+            {/* BBA */}
+            <div className="px-2.5 py-2" style={{ borderBottom: "1px solid var(--color-line)" }}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>
+                  Builder Buyer Agreement (BBA)
+                </span>
+                {data.bbaDocumentUrl ? (
+                  <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-go)" }}>Uploaded</span>
+                ) : (
+                  <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-400)" }}>Optional</span>
+                )}
+              </div>
+              {data.bbaDocumentUrl ? (
+                <a href={data.bbaDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-m-caption text-m-body press" style={{ color: "var(--color-ink-600)" }}>
+                  <ExternalLink className="size-2.5" />
+                  <span className="truncate">{data.bbaDocumentName || "View BBA"}</span>
+                </a>
+              ) : canManage ? (
+                <MobileDocUploader
+                  url=""
+                  label="Upload BBA"
+                  onUpload={(url, name) => uploadLandDocument("BBA", url, name)}
                 />
               ) : (
                 <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>Not uploaded</p>
@@ -1290,8 +1341,13 @@ export function MobileLandDetailClient({
           </div>
           {docUploading && <p className="text-m-caption mb-2" style={{ color: "var(--color-ink-500)" }}>Uploading…</p>}
 
+          {/* Additional attachments — generic polymorphic document store */}
+          <div className="rounded-[0.5rem] border p-2.5 mb-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <AttachmentList entityType="LandPurchase" entityId={data.id} maxAttachments={20} />
+          </div>
+
           {/* Complete + Payment actions */}
-          {isBooked && canManage && (
+          {isStaged && canManage && (
             <div className="flex gap-2 mb-2">
               <button
                 onClick={() => setShowPayment(true)}
@@ -1352,7 +1408,7 @@ export function MobileLandDetailClient({
                   .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to un-divide"));
               }}
               className="w-full flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-m-label font-semibold text-m-body press"
-              style={{ borderColor: "rgba(100,116,139,0.4)", backgroundColor: "rgba(100,116,139,0.1)", color: "var(--color-steel)" }}
+              style={{ borderColor: "var(--color-line)", backgroundColor: "rgba(100,116,139,0.1)", color: "var(--color-steel)" }}
             >
               <Split className="size-3 rotate-180" />
               Un-divide Land
@@ -1449,27 +1505,31 @@ export function MobileLandDetailClient({
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                 Payment Details
               </p>
-              <div>
-                <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Amount *</label>
-                <input
-                  type="number" inputMode="decimal" step="0.01" min="0" max={balanceDue}
-                  value={payAmount} onChange={(e) => setPayAmount(e.target.value)}
-                  placeholder={balanceDue.toFixed(2)} required autoFocus
-                  className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
-                  style={{ backgroundColor: "transparent" }}
-                />
-              </div>
-              <div>
-                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Mode</label>
-                <select
-                  value={payMode} onChange={(e) => setPayMode(e.target.value)}
-                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                  style={{ backgroundColor: "transparent" }}
-                >
-                  {["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"].map((m) => (
-                    <option key={m} value={m}>{m.replace("_", " ")}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                <div>
+                  <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Amount *</label>
+                  <input
+                    type="number" inputMode="decimal" step="0.01" min="0" max={balanceDue}
+                    value={payAmount} onChange={(e) => setPayAmount(e.target.value)}
+                    placeholder={balanceDue.toFixed(2)} required autoFocus
+                    className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ backgroundColor: "transparent" }}
+                  />
+                </div>
+                <div className="pl-2">
+                  <EnumSelect
+                    label="Mode"
+                    value={payMode}
+                    onChange={(v) => setPayMode(v)}
+                    options={[
+                      { value: "CASH", label: "CASH" },
+                      { value: "BANK_TRANSFER", label: "BANK TRANSFER" },
+                      { value: "CHEQUE", label: "CHEQUE" },
+                      { value: "UPI", label: "UPI" },
+                      { value: "OTHER", label: "OTHER" },
+                    ]}
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Reference</label>
@@ -2483,39 +2543,39 @@ function SellSheet({
           <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
             Pricing
           </p>
-          <div>
-            <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
-              Sale Price (₹)
-            </p>
-            <input
-              type="text" inputMode="decimal"
-              value={salePrice}
-              onChange={(e) => setSalePrice(e.target.value)}
-              placeholder="Enter sale price"
-              className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
-              style={{ backgroundColor: "transparent" }}
-            />
-            {price > 0 ? (
-              <p className="text-m-caption mt-1 flex items-center gap-1" style={{ color: profit >= 0 ? "var(--color-go)" : "var(--color-stop)" }}>
-                {profit >= 0 ? <TrendingUp className="size-2.5" /> : <TrendingDown className="size-2.5" />}
-                Profit: {formatCurrency(profit)} ({profitPct > 0 ? "+" : ""}{profitPct}%)
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
+                Sale Price (₹)
               </p>
-            ) : null}
-          </div>
-
-          {/* Initial payment (optional) */}
-          <div>
-            <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
-              Initial Payment (₹) <span style={{ color: "var(--color-ink-500)" }}>(optional)</span>
-            </p>
-            <input
-              type="text" inputMode="decimal"
-              value={initialPayment}
-              onChange={(e) => setInitialPayment(e.target.value)}
-              placeholder="Token / deposit amount"
-              className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
-              style={{ backgroundColor: "transparent" }}
-            />
+              <input
+                type="text" inputMode="decimal"
+                value={salePrice}
+                onChange={(e) => setSalePrice(e.target.value)}
+                placeholder="Enter sale price"
+                className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                style={{ backgroundColor: "transparent" }}
+              />
+              {price > 0 ? (
+                <p className="text-m-caption mt-1 flex items-center gap-1" style={{ color: profit >= 0 ? "var(--color-go)" : "var(--color-stop)" }}>
+                  {profit >= 0 ? <TrendingUp className="size-2.5" /> : <TrendingDown className="size-2.5" />}
+                  Profit: {formatCurrency(profit)} ({profitPct > 0 ? "+" : ""}{profitPct}%)
+                </p>
+              ) : null}
+            </div>
+            <div className="pl-2">
+              <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
+                Initial Payment (₹) <span style={{ color: "var(--color-ink-500)" }}>(optional)</span>
+              </p>
+              <input
+                type="text" inputMode="decimal"
+                value={initialPayment}
+                onChange={(e) => setInitialPayment(e.target.value)}
+                placeholder="Token / deposit amount"
+                className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                style={{ backgroundColor: "transparent" }}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -2592,36 +2652,37 @@ function ValuationSheet({
         <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
           Valuation
         </p>
-        <div>
-          <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
-            Current Valuation (₹)
-          </p>
-          <input
-            type="text" inputMode="decimal"
-            value={valuation}
-            onChange={(e) => setValuation(e.target.value)}
-            className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
-            style={{ backgroundColor: "transparent" }}
-          />
-          {gain !== 0 ? (
-            <p className="text-m-caption mt-1" style={{ color: gain >= 0 ? "var(--color-go)" : "var(--color-stop)" }}>
-              {gain >= 0 ? "+" : ""}{formatCurrency(gain)} ({gainPct > 0 ? "+" : ""}{gainPct}%)
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+          <div>
+            <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
+              Current Valuation (₹)
             </p>
-          ) : null}
-        </div>
-
-        <div>
-          <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
-            Asking Price (₹) <span style={{ color: "var(--color-ink-500)" }}>(optional)</span>
-          </p>
-          <input
-            type="text" inputMode="decimal"
-            value={askingPrice}
-            onChange={(e) => setAskingPrice(e.target.value)}
-            placeholder="List price for sale"
-            className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
-            style={{ backgroundColor: "transparent" }}
-          />
+            <input
+              type="text" inputMode="decimal"
+              value={valuation}
+              onChange={(e) => setValuation(e.target.value)}
+              className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+              style={{ backgroundColor: "transparent" }}
+            />
+            {gain !== 0 ? (
+              <p className="text-m-caption mt-1" style={{ color: gain >= 0 ? "var(--color-go)" : "var(--color-stop)" }}>
+                {gain >= 0 ? "+" : ""}{formatCurrency(gain)} ({gainPct > 0 ? "+" : ""}{gainPct}%)
+              </p>
+            ) : null}
+          </div>
+          <div className="pl-2">
+            <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
+              Asking Price (₹) <span style={{ color: "var(--color-ink-500)" }}>(optional)</span>
+            </p>
+            <input
+              type="text" inputMode="decimal"
+              value={askingPrice}
+              onChange={(e) => setAskingPrice(e.target.value)}
+              placeholder="List price for sale"
+              className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+              style={{ backgroundColor: "transparent" }}
+            />
+          </div>
         </div>
       </div>
 
@@ -2652,7 +2713,7 @@ function DeleteSheet({
 }) {
   return (
     <BottomSheet title={`Delete ${parcel.number}?`} onClose={onClose}>
-      <div className="rounded-[0.5rem] border p-3 mb-3" style={{ borderColor: "var(--color-stop)", backgroundColor: `color-mix(in srgb, var(--color-stop) 5%, transparent)` }}>
+      <div className="rounded-[0.625rem] border p-3 mb-3" style={{ borderColor: "var(--color-stop)", backgroundColor: `color-mix(in srgb, var(--color-stop) 5%, transparent)` }}>
         <p className="text-m-label" style={{ color: "var(--color-ink-700)" }}>
           Parcel <span className="font-bold font-mono">{parcel.number}</span> will be permanently deleted.
         </p>

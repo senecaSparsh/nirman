@@ -109,6 +109,26 @@ async function deleteDraft(key: string): Promise<void> {
   }
 }
 
+// Check if a draft's data is effectively empty (all values are empty/falsy).
+// This cleans up stale drafts saved before the hasContent guards were added.
+function isDraftEmpty(data: unknown): boolean {
+  if (data === null || data === undefined) return true;
+  if (typeof data === "string") return data.trim() === "";
+  if (typeof data === "number" || typeof data === "boolean") return !data;
+  if (Array.isArray(data)) return data.length === 0;
+  if (typeof data === "object") {
+    return Object.values(data).every((v) => {
+      if (v === null || v === undefined) return true;
+      if (typeof v === "string") return v.trim() === "";
+      if (typeof v === "number" || typeof v === "boolean") return !v;
+      if (Array.isArray(v)) return v.length === 0 || isDraftEmpty(v);
+      if (typeof v === "object") return isDraftEmpty(v);
+      return false;
+    });
+  }
+  return false;
+}
+
 export type DraftSaveStatus = "idle" | "saving" | "saved" | "unsaved";
 
 export function useDrafts<T>(
@@ -136,6 +156,11 @@ export function useDrafts<T>(
     getDraft(formKey).then((d) => {
       if (cancelled) return;
       if (d) {
+        // Discard stale empty drafts (saved before hasContent guards were added)
+        if (isDraftEmpty(d.data)) {
+          void deleteDraft(formKey);
+          return;
+        }
         setDraft(d.data as T);
         setHasDraft(true);
         setDraftUpdatedAt(d.updatedAt);

@@ -22,6 +22,7 @@ import { formatDate, cn } from "@/lib/utils";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 export type AssignmentRow = {
   id: string;
@@ -389,19 +390,12 @@ function AssignmentFormDialog({
 
           {/* Scoped role */}
           <div>
-            <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-700)" }}>
-              Scoped role
-            </label>
-            <select
+            <EnumSelect
+              label="Scoped role"
               value={scopedRole}
-              onChange={(e) => setScopedRole(e.target.value)}
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{ backgroundColor: "transparent" }}
-            >
-              {SCOPED_ROLE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
+              onChange={(v) => setScopedRole(v)}
+              options={SCOPED_ROLE_OPTIONS}
+            />
             <p className="mt-1 text-m-caption" style={{ color: "var(--color-ink-400)" }}>
               The role the user acts as within this project. OWNER/ADMIN see all projects regardless.
             </p>

@@ -91,7 +91,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
   return (
     <div className="space-y-4 pb-20">
       {/* Header */}
-      <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+      <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <div className="flex items-center justify-between mb-2">
           <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{hazard.hazardNumber}</p>
           <MobileStatusBadge status={hazard.status} />
@@ -101,7 +101,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
       </div>
 
       {/* Risk assessment */}
-      <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: riskBg }}>
+      <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: riskBg }}>
         <p className="text-m-label font-semibold uppercase mb-2" style={{ color: "var(--color-ink-500)" }}>Risk Assessment</p>
         <div className="flex items-center justify-between mb-2">
           <div>
@@ -125,7 +125,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
       </div>
 
       {/* Description */}
-      <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+      <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <p className="text-m-label font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Description</p>
         <p className="text-m-section leading-relaxed" style={{ color: "var(--color-ink-950)" }}>{hazard.description}</p>
       </div>
@@ -139,7 +139,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
 
       {/* Mitigation plan */}
       {hazard.mitigationPlan && (
-        <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <p className="text-m-label font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Mitigation Plan</p>
           <p className="text-m-section" style={{ color: "var(--color-ink-950)" }}>{hazard.mitigationPlan}</p>
         </div>
@@ -147,14 +147,14 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
 
       {/* Resolution */}
       {hazard.resolutionNotes && (
-        <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <p className="text-m-label font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Resolution Notes</p>
           <p className="text-m-section" style={{ color: "var(--color-ink-950)" }}>{hazard.resolutionNotes}</p>
         </div>
       )}
 
       {/* Timeline */}
-      <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+      <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <p className="text-m-label font-semibold uppercase mb-2" style={{ color: "var(--color-ink-500)" }}>Timeline</p>
         <div className="space-y-1.5">
           <TimelineRow label="Identified" date={hazard.identifiedAt} name={hazard.identifiedByName} />
@@ -310,7 +310,7 @@ function BottomSheet({ title, onClose, children }: { title: string; onClose: () 
     <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}>
       <div className="mt-auto rounded-t-[1rem] max-h-[70vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}>
         <div className="sticky top-0 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</h2>
+          <h2 className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>{title}</h2>
           <button onClick={onClose} className="text-m-body press"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
         </div>
         <div className="p-4">{children}</div>

@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   User, Phone, Mail, Briefcase, IndianRupee, Calendar, Clock,
-  Pencil, X, Loader2, Trash2, Wallet, ListChecks, FileText,
+  Pencil, Loader2, Trash2, Wallet, ListChecks, FileText,
   CalendarOff, UsersRound, MapPin, UserCircle, MessageSquare,
-  IdCard, Building2, Activity,
+  IdCard, Building2, Activity, FolderOpen,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
@@ -17,6 +17,9 @@ import {
   MobileStatCard,
   MobileStatusBadge,
 } from "@/components/mobile/v2/primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { toast } from "sonner";
 import { CreateAccountDialog } from "@/components/hr/create-account-dialog";
 
@@ -647,23 +650,8 @@ export function MobileEmployeeDetailClient({
 
       {/* ── Delete confirmation ── */}
       {showDelete ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => setShowDelete(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-center pt-2 pb-1">
-              <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
-            </div>
-            <div className="px-4 pb-4">
-              <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
-                Archive Employee
-              </p>
+        <MobileDialog open={showDelete} onClose={() => setShowDelete(false)} title="Archive Employee">
+          <div className="px-4 pb-4">
               <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>
                 Archive {employee.name}? Attendance, payroll, and DPR history are preserved.
               </p>
@@ -686,8 +674,7 @@ export function MobileEmployeeDetailClient({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+        </MobileDialog>
       ) : null}
 
       {/* ── Create login account dialog ── */}
@@ -816,28 +803,8 @@ function EmployeeEditSheet({
   const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full rounded-t-[1rem] mx-auto max-w-md max-h-[85vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-center pt-2 pb-1">
-          <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
-        </div>
-        <div className="flex items-center justify-between px-3 pb-2">
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-            Edit Employee
-          </p>
-          <button onClick={onClose} className="text-m-body press p-1">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
-        <div className="px-3 pb-4 flex flex-col gap-3">
+    <MobileDialog open={true} onClose={onClose} title="Edit Employee">
+      <div className="px-3 pb-4 flex flex-col gap-3">
           <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
             <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Personal Info
@@ -913,37 +880,42 @@ function EmployeeEditSheet({
                 <input type="date" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} className={inputClass} style={inputStyle} />
               </div>
               <div>
-                <label className={labelClass} style={labelStyle}>Hierarchy Level</label>
-                <select value={hierarchyLevel} onChange={(e) => setHierarchyLevel(e.target.value)} className={inputClass} style={inputStyle}>
-                  <option value="">— None —</option>
-                  <option value="1">H1 — Management</option>
-                  <option value="2">H2 — Manager</option>
-                  <option value="3">H3 — Engineer</option>
-                  <option value="4">H4 — Supervisor</option>
-                  <option value="5">H5 — Skilled</option>
-                  <option value="6">H6 — Labor</option>
-                </select>
+                <EnumSelect
+                  label="Hierarchy Level"
+                  value={hierarchyLevel}
+                  onChange={(v) => setHierarchyLevel(v)}
+                  placeholder="— None —"
+                  options={[
+                    { value: "1", label: "H1 — Management" },
+                    { value: "2", label: "H2 — Manager" },
+                    { value: "3", label: "H3 — Engineer" },
+                    { value: "4", label: "H4 — Supervisor" },
+                    { value: "5", label: "H5 — Skilled" },
+                    { value: "6", label: "H6 — Labor" },
+                  ]}
+                />
               </div>
             </div>
 
             <div>
-              <label className={labelClass} style={labelStyle}>Active Project</label>
-              <select value={activeProjectId} onChange={(e) => setActiveProjectId(e.target.value)} className={inputClass} style={inputStyle}>
-                <option value="">— None —</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+              <MobileSelectWithCreate
+                label="Active Project"
+                value={activeProjectId}
+                onChange={setActiveProjectId}
+                options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                placeholder="— None —"
+                icon={FolderOpen}
+              />
             </div>
 
             <div>
-              <label className={labelClass} style={labelStyle}>Reporting Location</label>
-              <select value={reportingLocationId} onChange={(e) => setReportingLocationId(e.target.value)} className={inputClass} style={inputStyle}>
-                <option value="">— None —</option>
-                {stockLocations.map((l) => (
-                  <option key={l.id} value={l.id}>{l.name}</option>
-                ))}
-              </select>
+              <MobileSelectWithCreate
+                label="Reporting Location"
+                value={reportingLocationId}
+                onChange={setReportingLocationId}
+                options={stockLocations.map((l) => ({ value: l.id, label: l.name }))}
+                placeholder="— None —"
+              />
             </div>
           </div>
 
@@ -966,7 +938,6 @@ function EmployeeEditSheet({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }

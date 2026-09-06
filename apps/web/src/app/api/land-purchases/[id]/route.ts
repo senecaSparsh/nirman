@@ -77,6 +77,9 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
     // Documents
     atsDocumentUrl: lp.atsDocumentUrl,
     atsDocumentName: lp.atsDocumentName,
+    bbaDocumentUrl: lp.bbaDocumentUrl,
+    bbaDocumentName: lp.bbaDocumentName,
+    bbaDate: lp.bbaDate ? lp.bbaDate.toISOString() : null,
     registryDocumentUrl: lp.registryDocumentUrl,
     registryDocumentName: lp.registryDocumentName,
     // Payments

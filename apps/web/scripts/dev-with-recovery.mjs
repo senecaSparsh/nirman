@@ -29,6 +29,14 @@
  *  - Clean Ctrl+C handling — kills the child tree and exits immediately.
  *  - All restarts are logged with timestamps for visibility.
  *
+ * **Deterministic-error fallback (round 2):** if the SAME error signature
+ * recurs 3+ times consecutively after cache clears, the error is
+ * deterministic (caused by code/config, not a transient cache desync).
+ * Restarting won't fix it — the same compilation produces the same error.
+ * Instead of looping until max-restarts and exiting, the wrapper falls back
+ * to `next dev` (webpack, no --turbopack) which is slower but stable for
+ * dev. This ensures the developer always has a working dev server.
+ *
  * Usage:
  *   node scripts/dev-with-recovery.mjs          # wraps `next dev --turbopack`
  *   node scripts/dev-with-recovery.mjs --clean  # clear .next before starting
@@ -49,6 +57,9 @@ const NEXT_DIR = join(WEB_DIR, ".next");
 const REPO_ROOT = join(WEB_DIR, "../..");
 const PRISMA_SCHEMA = join(REPO_ROOT, "packages/db/prisma/schema.prisma");
 const PNPM_STORE = join(REPO_ROOT, "node_modules/.pnpm");
+// Turbopack persistent cache locations (cleared on hard restart).
+const TURBO_CACHE_DIR = join(WEB_DIR, ".next/dev/cache");
+const NODE_MODULES_CACHE = join(REPO_ROOT, "node_modules/.cache");
 
 // ── Config ──────────────────────────────────────────────────────
 const MAX_RESTARTS = 10;
@@ -56,6 +67,10 @@ const RESTART_WINDOW_MS = 5 * 60 * 1000; // 5 min
 const STABLE_UPTIME_RESET_MS = 5 * 60 * 1000; // 5 min of stability resets counter
 const INITIAL_BACKOFF_MS = 500;
 const MAX_BACKOFF_MS = 4000;
+// If the same error signature recurs this many times consecutively,
+// the error is deterministic (code/config issue, not transient cache
+// desync). Fall back to webpack dev instead of looping.
+const DETERMINISTIC_ERROR_THRESHOLD = 3;
 
 // Self-sustaining watcher gates (prevent the restart loop caused by
 // macOS fs.watch spurious events + prisma generate touching files).
@@ -99,6 +114,11 @@ let startTime = 0;
 let isShuttingDown = false;
 let isRestarting = false;
 let fileWatcherDebounce = null;
+// Deterministic-error tracking: if the same signature recurs
+// DETERMINISTIC_ERROR_THRESHOLD times, fall back to webpack dev.
+let lastErrorSignature = null;
+let consecutiveSameErrorCount = 0;
+let useWebpackFallback = false;
 
 // ── Schema-content tracking (prevents false-positive restart loops) ──
 // We hash the schema.prisma content and only restart when it ACTUALLY
@@ -142,6 +162,31 @@ function clearNextCache() {
       log("cleared .next cache");
     } catch (err) {
       logWarn(`could not clear .next: ${err.message}`);
+    }
+  }
+}
+
+/**
+ * Deep cache clear — also wipes Turbopack's persistent cache and
+ * node_modules/.cache. Used when a deterministic error recurs (the
+ * standard .next clear isn't enough).
+ */
+function clearAllCaches() {
+  clearNextCache();
+  if (existsSync(TURBO_CACHE_DIR)) {
+    try {
+      rmSync(TURBO_CACHE_DIR, { recursive: true, force: true });
+      log("cleared Turbopack persistent cache (.next/dev/cache)");
+    } catch (err) {
+      logWarn(`could not clear Turbopack cache: ${err.message}`);
+    }
+  }
+  if (existsSync(NODE_MODULES_CACHE)) {
+    try {
+      rmSync(NODE_MODULES_CACHE, { recursive: true, force: true });
+      log("cleared node_modules/.cache");
+    } catch (err) {
+      logWarn(`could not clear node_modules/.cache: ${err.message}`);
     }
   }
 }
@@ -216,6 +261,9 @@ function resetStableTimer() {
       log(`server stable for ${STABLE_UPTIME_RESET_MS / 1000}s — resetting restart counter (was ${restartCount})`);
       restartCount = 0;
       restartTimestamps = [];
+      // Reset deterministic-error tracking after stability.
+      consecutiveSameErrorCount = 0;
+      lastErrorSignature = null;
     }
   }, STABLE_UPTIME_RESET_MS);
 }
@@ -237,9 +285,16 @@ function startDevServer(args = []) {
   }, SCHEMA_STARTUP_GRACE_MS);
 
   const cmd = process.platform === "win32" ? "npx.cmd" : "npx";
-  const fullArgs = ["next", "dev", "--turbopack", ...args];
+  // When useWebpackFallback is set (deterministic Turbopack failure),
+  // run `next dev --webpack`. In Next.js 16, Turbopack is the DEFAULT
+  // for dev, so merely omitting --turbopack still uses Turbopack. We
+  // must explicitly pass --webpack to get the stable webpack bundler.
+  // Webpack dev is slower but doesn't have the cache-desync issues.
+  const bundlerFlag = useWebpackFallback ? ["--webpack"] : ["--turbopack"];
+  const fullArgs = ["next", "dev", ...bundlerFlag, ...args];
 
-  log(`starting: next dev --turbopack ${args.join(" ")}`.trim());
+  const bundlerLabel = useWebpackFallback ? "webpack (fallback)" : "turbopack";
+  log(`starting: next dev ${bundlerFlag.join(" ")} [${bundlerLabel}]`);
 
   childProcess = spawn(cmd, fullArgs, {
     cwd: WEB_DIR,
@@ -299,11 +354,51 @@ function handleTurbopackError(errorText, source) {
   const signature = ERROR_SIGNATURES.find((s) => errorText.includes(s)) || "unknown";
   logError(`Turbopack error detected via ${source}: "${signature}"`);
 
+  // Track consecutive identical errors to detect deterministic failures.
+  // If the same signature keeps recurring, clearing .next won't help —
+  // the code/config produces the same error every time.
+  if (signature === lastErrorSignature) {
+    consecutiveSameErrorCount++;
+  } else {
+    lastErrorSignature = signature;
+    consecutiveSameErrorCount = 1;
+  }
+
+  // Deterministic error: same signature 3+ times → fall back to webpack.
+  // Turbopack is faster for dev but has known desync issues with certain
+  // code patterns (e.g. process.env in dynamic chunks, export * in CJS).
+  // Webpack dev is slower but stable — a slow dev server beats a broken one.
+  if (
+    consecutiveSameErrorCount >= DETERMINISTIC_ERROR_THRESHOLD &&
+    !useWebpackFallback
+  ) {
+    logWarn(
+      `same error "${signature}" recurred ${consecutiveSameErrorCount}x — ` +
+      `deterministic failure, not transient cache desync. ` +
+      `Falling back to webpack dev (next dev without --turbopack).`,
+    );
+    useWebpackFallback = true;
+    consecutiveSameErrorCount = 0;
+    lastErrorSignature = null;
+    // Deep clear all caches before switching bundlers.
+    if (childProcess?.pid) killProcessTree(childProcess.pid);
+    isRestarting = true;
+    setTimeout(() => {
+      if (isShuttingDown) return;
+      clearAllCaches();
+      isRestarting = false;
+      startDevServer();
+    }, 1000);
+    return;
+  }
+
   if (!canRestart()) return;
-  scheduleRestart("turbopack-error", true);
+  // Use deep cache clear on 2nd+ occurrence of the same error.
+  const deepClear = consecutiveSameErrorCount >= 2;
+  scheduleRestart("turbopack-error", true, deepClear);
 }
 
-function scheduleRestart(reason, clearCache = false) {
+function scheduleRestart(reason, clearCache = false, deepClear = false) {
   if (isRestarting || isShuttingDown) return;
   isRestarting = true;
 
@@ -311,7 +406,7 @@ function scheduleRestart(reason, clearCache = false) {
   recordRestart();
   log(
     `restart #${restartCount} (${reason}) in ${(backoff / 1000).toFixed(1)}s` +
-    (clearCache ? " + clear .next" : ""),
+    (deepClear ? " + deep clear all caches" : clearCache ? " + clear .next" : ""),
   );
 
   // Kill the current process.
@@ -321,7 +416,8 @@ function scheduleRestart(reason, clearCache = false) {
 
   setTimeout(() => {
     if (isShuttingDown) return;
-    if (clearCache) clearNextCache();
+    if (deepClear) clearAllCaches();
+    else if (clearCache) clearNextCache();
     isRestarting = false;
     startDevServer();
   }, backoff);
@@ -449,7 +545,8 @@ if (shouldCleanStart) {
 
 log("dev server with auto-recovery starting up");
 log(`config: max ${MAX_RESTARTS} restarts / ${RESTART_WINDOW_MS / 1000}s window, ` +
-    `backoff ${INITIAL_BACKOFF_MS}-${MAX_BACKOFF_MS}ms`);
+    `backoff ${INITIAL_BACKOFF_MS}-${MAX_BACKOFF_MS}ms, ` +
+    `webpack fallback after ${DETERMINISTIC_ERROR_THRESHOLD} identical errors`);
 
 startFileWatcher();
 startDevServer();

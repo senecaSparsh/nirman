@@ -197,29 +197,37 @@ export function MobileNewSubcontractorClient({
           </div>
         </div>
 
-        {/* Submit */}
-        <div className="flex gap-1 pt-2">
-          <button
-            type="button"
-            onClick={() => (onClose ? onClose() : router.back())}
-            disabled={saving}
-            className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
-            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving || !name.trim()}
-            className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press"
-            style={{
-              backgroundColor: "var(--color-ink-950)",
-              color: "var(--color-paper)",
-              opacity: saving || !name.trim() ? 0.5 : 1,
-            }}
-          >
-            {saving ? "Adding…" : "Add Subcontractor"}
-          </button>
+        {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+        <div
+          className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
+          style={{
+            backgroundColor: "var(--color-paper)",
+            borderColor: "var(--color-line)",
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => (onClose ? onClose() : router.back())}
+              disabled={saving}
+              className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
+              style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !name.trim()}
+              className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press"
+              style={{
+                backgroundColor: "var(--color-ink-950)",
+                color: "var(--color-paper)",
+                opacity: saving || !name.trim() ? 0.5 : 1,
+              }}
+            >
+              {saving ? "Adding…" : "Add Subcontractor"}
+            </button>
+          </div>
         </div>
       </form>
     </div>

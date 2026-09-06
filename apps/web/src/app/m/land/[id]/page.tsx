@@ -209,6 +209,9 @@ async function MobileLandDetailContent({ params }: { params: Promise<{ id: strin
     // Documents
     atsDocumentUrl: purchase.atsDocumentUrl,
     atsDocumentName: purchase.atsDocumentName,
+    bbaDocumentUrl: purchase.bbaDocumentUrl,
+    bbaDocumentName: purchase.bbaDocumentName,
+    bbaDate: purchase.bbaDate ? purchase.bbaDate.toISOString() : null,
     registryDocumentUrl: purchase.registryDocumentUrl,
     registryDocumentName: purchase.registryDocumentName,
     // Possession

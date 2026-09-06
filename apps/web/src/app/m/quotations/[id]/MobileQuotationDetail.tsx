@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ActionBar } from "@/components/mobile/v2/primitives";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import {
   Trophy,
   Plus,
@@ -26,6 +27,7 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { downloadCSV } from "@/lib/export";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 // Compact currency for table cells — drops ".00", drops ₹ symbol spacing
 // e.g. ₹5,700.00 → 5,700 · ₹1,234.50 → 1,234.5 · ₹9,356.00 → 9,356
@@ -1872,7 +1874,7 @@ function AddQuoteDialog({
         <button onClick={onClose} className="p-1 press" style={{ color: "var(--color-ink-700)" }}>
           <X className="size-5" />
         </button>
-        <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
           Add Supplier Quote
         </p>
       </div>
@@ -1947,19 +1949,17 @@ function AddQuoteDialog({
             </div>
           ) : (
             <div className="space-y-2">
-              <select
+              <MobileSelectWithCreate
+                label="Supplier"
                 value={supplierId}
-                onChange={(e) => setSupplierId(e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                <option value="">Select supplier…</option>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}{s.phone ? ` · ${s.phone}` : ""}
-                  </option>
-                ))}
-              </select>
+                onChange={setSupplierId}
+                placeholder="Select supplier…"
+                options={suppliers.map((s) => ({
+                  value: s.id,
+                  label: s.name,
+                  sub: s.phone ?? undefined,
+                }))}
+              />
               <button
                 onClick={() => setShowNewSupplier(true)}
                 className="flex items-center gap-1 text-m-label font-bold press"
@@ -2109,18 +2109,18 @@ function AddQuoteDialog({
               />
             </div>
             <div>
-              <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Delivery basis <span style={{ color: "var(--color-stop)" }}>*</span></label>
-              <select
+              <EnumSelect
+                label="Delivery basis"
+                required
                 value={deliveryTermsType}
-                onChange={(e) => changeDeliveryType(e.target.value as "DELIVERED_SITE" | "EX_WORKS" | "FOR_STATION" | "CUSTOM")}
-                className={`${inputClass} text-m-body py-1.5`}
-                style={inputStyle}
-              >
-                <option value="DELIVERED_SITE">Delivered to site</option>
-                <option value="EX_WORKS">Ex-works (we pick up)</option>
-                <option value="FOR_STATION">FOR station</option>
-                <option value="CUSTOM">Custom (specify)</option>
-              </select>
+                onChange={(v) => changeDeliveryType(v as "DELIVERED_SITE" | "EX_WORKS" | "FOR_STATION" | "CUSTOM")}
+                options={[
+                  { value: "DELIVERED_SITE", label: "Delivered to site" },
+                  { value: "EX_WORKS", label: "Ex-works (we pick up)" },
+                  { value: "FOR_STATION", label: "FOR station" },
+                  { value: "CUSTOM", label: "Custom (specify)" },
+                ]}
+              />
               {deliveryTermsType === "CUSTOM" ? (
                 <input
                   type="text"
@@ -2162,17 +2162,17 @@ function AddQuoteDialog({
             </div>
             {/* Copy-from-previous supplier shortcut */}
             {existingQuotes.length > 0 ? (
-              <select
+              <MobileSelectWithCreate
+                label="Copy from"
                 value=""
-                onChange={(e) => { if (e.target.value) copyFromQuote(e.target.value); e.target.value = ""; }}
-                className="text-m-caption font-semibold rounded-[0.25rem] border px-1.5 py-1"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-steel-dark)" }}
-              >
-                <option value="">Copy from…</option>
-                {existingQuotes.map((q) => (
-                  <option key={q.id} value={q.id}>{q.supplierName}</option>
-                ))}
-              </select>
+                onChange={(v) => { if (v) copyFromQuote(v); }}
+                placeholder="Copy from…"
+                compact
+                options={existingQuotes.map((q) => ({
+                  value: q.id,
+                  label: q.supplierName,
+                }))}
+              />
             ) : null}
           </div>
           {lines.map((l) => {
@@ -2409,7 +2409,7 @@ function ApproveDialog({
         <button onClick={onCancel} className="p-1 press" style={{ color: "var(--color-ink-700)" }}>
           <X className="size-5" />
         </button>
-        <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
           Select Winning Quote
         </p>
       </div>

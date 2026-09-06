@@ -6,6 +6,7 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 type Priority = "low" | "medium" | "high" | "urgent";
 
@@ -201,49 +202,43 @@ export function MobileNewTaskForm({
             style={inputStyle}
           />
         </div>
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Assign To <span style={{ color: "var(--color-stop)" }}>*</span>
-          </label>
-          <select
-            value={form.assignedToId}
-            onChange={(e) => set("assignedToId", e.target.value)}
-            className={inputClass}
-            style={inputStyle}
-          >
-            <option value="">— Select team member —</option>
-            {assignees.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name} ({a.role})
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Priority
-          </label>
-          <div className="flex gap-1.5">
-            {(Object.keys(PRIORITY_LABELS) as Priority[]).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => {
-                  set("priority", p);
-                  haptic(10);
-                }}
-                className="flex-1 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press"
-                style={{
-                  color: form.priority === p ? "#fff" : PRIORITY_COLORS[p],
-                  backgroundColor:
-                    form.priority === p
-                      ? PRIORITY_COLORS[p]
-                      : `color-mix(in srgb, ${PRIORITY_COLORS[p]} 8%, transparent)`,
-                }}
-              >
-                {PRIORITY_LABELS[p]}
-              </button>
-            ))}
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+          <div>
+            <MobileSelectWithCreate
+              label="Assign To"
+              required
+              value={form.assignedToId}
+              onChange={(v) => set("assignedToId", v)}
+              options={assignees.map((a) => ({ value: a.id, label: `${a.name} (${a.role})` }))}
+              placeholder="— Select team member —"
+            />
+          </div>
+          <div className="pl-2">
+            <label className={labelClass} style={labelStyle}>
+              Priority
+            </label>
+            <div className="flex gap-1.5">
+              {(Object.keys(PRIORITY_LABELS) as Priority[]).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => {
+                    set("priority", p);
+                    haptic(10);
+                  }}
+                  className="flex-1 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press"
+                  style={{
+                    color: form.priority === p ? "var(--color-paper)" : PRIORITY_COLORS[p],
+                    backgroundColor:
+                      form.priority === p
+                        ? PRIORITY_COLORS[p]
+                        : `color-mix(in srgb, ${PRIORITY_COLORS[p]} 8%, transparent)`,
+                  }}
+                >
+                  {PRIORITY_LABELS[p]}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -352,18 +347,29 @@ export function MobileNewTaskForm({
         )}
       </div>
 
-      <button
-        type="submit"
-        disabled={saving}
-        className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+      {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+      <div
+        className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
         style={{
-          backgroundColor: "var(--color-ink-950)",
-          color: "var(--color-paper)",
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
         }}
       >
-        {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-        {saving ? "Assigning…" : "Assign Task"}
-      </button>
+        <div className="flex items-center justify-end gap-3">
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex-1 h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+            style={{
+              backgroundColor: "var(--color-ink-950)",
+              color: "var(--color-paper)",
+            }}
+          >
+            {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+            {saving ? "Assigning…" : "Assign Task"}
+          </button>
+        </div>
+      </div>
     </form>
   );
 }

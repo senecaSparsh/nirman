@@ -6,6 +6,7 @@ import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 interface BoqItemOption {
   id: string;
@@ -134,44 +135,30 @@ export function MobileNewMbEntryDialog({
               Entry Details
             </p>
             {/* BOQ Item */}
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                BOQ Line Item <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <select
-                value={form.boqItemId}
-                onChange={(e) => onBoqItemChange(e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                <option value="">— Select BOQ item —</option>
-                {boqItems.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.serialNo} — {b.description}
-                    {b.unit ? ` (${b.unit})` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <MobileSelectWithCreate
+              label="BOQ Line Item"
+              required
+              value={form.boqItemId}
+              onChange={onBoqItemChange}
+              placeholder="— Select BOQ item —"
+              options={boqItems.map((b) => ({
+                value: b.id,
+                label: `${b.serialNo} — ${b.description}${b.unit ? ` (${b.unit})` : ""}`,
+              }))}
+            />
 
             {/* WBS Node (optional, auto-suggested) */}
             <div>
-              <label className={labelClass} style={labelStyle}>
-                WBS Activity (optional)
-              </label>
-              <select
+              <MobileSelectWithCreate
+                label="WBS Activity"
                 value={form.wbsNodeId}
-                onChange={(e) => set("wbsNodeId", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                <option value="">— None —</option>
-                {wbsNodes.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.code} — {w.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => set("wbsNodeId", v)}
+                placeholder="— None —"
+                options={wbsNodes.map((w) => ({
+                  value: w.id,
+                  label: `${w.code} — ${w.name}`,
+                }))}
+              />
               {suggestedWbsNode && form.wbsNodeId === suggestedWbsNode.id && (
                 <p
                   className="text-m-caption mt-1"
@@ -269,33 +256,28 @@ export function MobileNewMbEntryDialog({
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex flex-col gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
-              style={{
-                borderColor: "var(--color-line)",
-                color: "var(--color-ink-500)",
-                backgroundColor: "transparent",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
-              style={{
-                backgroundColor: "var(--color-ink-950)",
-                color: "var(--color-paper)",
-              }}
-            >
-              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-              {saving ? "Adding…" : "Add Entry"}
-            </button>
+          {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+          <div
+            className="sticky bottom-0 left-0 right-0 z-20 border-t"
+            style={{
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+            }}
+          >
+            <div className="px-3.5 py-2 flex items-center justify-end gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--color-ink-950)",
+                  color: "var(--color-paper)",
+                }}
+              >
+                {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+                {saving ? "Adding…" : "Add Entry"}
+              </button>
+            </div>
           </div>
         </form>
     </MobileDialog>

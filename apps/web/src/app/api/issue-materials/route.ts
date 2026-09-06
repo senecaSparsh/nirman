@@ -19,7 +19,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!location) return json({ error: "Source location not found in your company" }, { status: 404 });
 
   // Gate pass mode: if requireGatePass=true, create a PENDING issue + gate pass (no stock movements)
-  const requireGatePass = body?.requireGatePass === true;
+  const requireGatePass = parsed.data.requireGatePass === true;
 
   try {
     const common = {

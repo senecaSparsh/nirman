@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 type WageType = "DAILY" | "MONTHLY" | "FIXED";
 
@@ -192,23 +194,20 @@ export function MobileNewEmployeeForm({
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>
-                Hierarchy
-              </label>
-              <select
+              <EnumSelect
+                label="Hierarchy"
                 value={form.hierarchyLevel}
-                onChange={(e) => { set("hierarchyLevel", e.target.value); haptic(10); }}
-                className={inputClass}
-                style={inputStyle}
-              >
-                <option value="">Unassigned</option>
-                <option value="1">H1 — Management</option>
-                <option value="2">H2 — Manager</option>
-                <option value="3">H3 — Engineer</option>
-                <option value="4">H4 — Supervisor</option>
-                <option value="5">H5 — Skilled</option>
-                <option value="6">H6 — Labor</option>
-              </select>
+                onChange={(v) => set("hierarchyLevel", v)}
+                options={[
+                  { value: "1", label: "H1 — Management" },
+                  { value: "2", label: "H2 — Manager" },
+                  { value: "3", label: "H3 — Engineer" },
+                  { value: "4", label: "H4 — Supervisor" },
+                  { value: "5", label: "H5 — Skilled" },
+                  { value: "6", label: "H6 — Labor" },
+                ]}
+                placeholder="Unassigned"
+              />
             </div>
           </div>
 
@@ -287,21 +286,15 @@ export function MobileNewEmployeeForm({
           {/* Wage Type (selector) + Rate/Salary — side by side */}
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
-              <label className={labelClass} style={labelStyle}>
-                Wage Type
-              </label>
-              <select
+              <EnumSelect
+                label="Wage Type"
                 value={form.wageType}
-                onChange={(e) => { set("wageType", e.target.value as WageType); haptic(10); }}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {(Object.keys(WAGE_TYPE_LABELS) as WageType[]).map((w) => (
-                  <option key={w} value={w}>
-                    {WAGE_TYPE_LABELS[w]}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => set("wageType", v as WageType)}
+                options={(Object.keys(WAGE_TYPE_LABELS) as WageType[]).map((w) => ({
+                  value: w,
+                  label: WAGE_TYPE_LABELS[w],
+                }))}
+              />
             </div>
             <div>
               <label className={labelClass} style={labelStyle}>
@@ -327,22 +320,19 @@ export function MobileNewEmployeeForm({
           <p className={sectionTitleClass} style={sectionTitleStyle}>Employment Terms</p>
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
-              <label className={labelClass} style={labelStyle}>
-                Employment Type
-              </label>
-              <select
-                className={inputClass}
-                style={inputStyle}
+              <EnumSelect
+                label="Employment Type"
                 value={form.employmentType}
-                onChange={(e) => set("employmentType", e.target.value)}
-              >
-                <option value="">— Select —</option>
-                <option value="PERMANENT">Permanent</option>
-                <option value="CONTRACT">Contract</option>
-                <option value="CASUAL">Casual</option>
-                <option value="PROBATION">Probation</option>
-                <option value="INTERN">Intern</option>
-              </select>
+                onChange={(v) => set("employmentType", v)}
+                placeholder="— Select —"
+                options={[
+                  { value: "PERMANENT", label: "Permanent" },
+                  { value: "CONTRACT", label: "Contract" },
+                  { value: "CASUAL", label: "Casual" },
+                  { value: "PROBATION", label: "Probation" },
+                  { value: "INTERN", label: "Intern" },
+                ]}
+              />
             </div>
             <div>
               <label className={labelClass} style={labelStyle}>
@@ -410,19 +400,14 @@ export function MobileNewEmployeeForm({
               <label className={labelClass} style={labelStyle}>
                 Active Project
               </label>
-              <select
+              <MobileSelectWithCreate
+                label="Active Project"
                 value={form.activeProjectId}
-                onChange={(e) => set("activeProjectId", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                <option value="">— None —</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => set("activeProjectId", v)}
+                options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                placeholder="— None —"
+                icon={FolderOpen}
+              />
             </div>
           </div>
 
@@ -431,38 +416,42 @@ export function MobileNewEmployeeForm({
             <label className={labelClass} style={labelStyle}>
               Reporting Location
             </label>
-            <select
+            <MobileSelectWithCreate
+              label="Reporting Location"
               value={form.reportingLocationId}
-              onChange={(e) => set("reportingLocationId", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              <option value="">— None (manual attendance) —</option>
-              {stockLocations.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => set("reportingLocationId", v)}
+              options={stockLocations.map((l) => ({ value: l.id, label: l.name }))}
+              placeholder="— None (manual attendance) —"
+            />
             <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-700)" }}>
               Auto-marks PRESENT when employee enters this location&apos;s geo-fence.
             </p>
           </div>
         </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+          {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+          <div
+            className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
             style={{
-              backgroundColor: "var(--color-ink-950)",
-              color: "var(--color-paper)",
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
             }}
           >
-            {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-            {saving ? "Adding…" : "Add Employee"}
-          </button>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+                style={{
+                  backgroundColor: "var(--color-ink-950)",
+                  color: "var(--color-paper)",
+                }}
+              >
+                {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+                {saving ? "Adding…" : "Add Employee"}
+              </button>
+            </div>
+          </div>
         </form>
   );
 }

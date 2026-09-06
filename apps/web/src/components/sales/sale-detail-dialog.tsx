@@ -12,6 +12,7 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { StatusPill } from "@/components/page";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import { PaymentDialog } from "./payment-dialog";
 import { DepositDialog } from "./deposit-dialog";
@@ -209,6 +210,9 @@ export function SaleDetailDialog({
     saleDeedNo: d?.saleDeedNo ?? sale.saleDeedNo,
     atsNo: d?.atsNo ?? sale.atsNo,
     atsDate: d?.atsDate ?? sale.atsDate,
+    bbaDate: d?.bbaDate ?? sale.bbaDate,
+    bbaDocumentUrl: d?.bbaDocumentUrl ?? sale.bbaDocumentUrl,
+    atsDocumentUrl: d?.atsDocumentUrl ?? sale.atsDocumentUrl,
     allowRegistryBeforeFullPayment: d?.allowRegistryBeforeFullPayment ?? sale.allowRegistryBeforeFullPayment,
   };
   const assetLabel = cur.assetType === "LAND"
@@ -249,6 +253,12 @@ export function SaleDetailDialog({
               <StatusPill status={cur.status} />
               <StatusPill status={saleStage} />
               <StatusPill status={cur.paymentStatus} />
+              {/* Show BBA/ATS signed badge when BBA or ATS document is uploaded but sale not yet completed */}
+              {!isCompleted && !isCancelled && (cur.bbaDate || cur.bbaDocumentUrl || cur.atsDocumentUrl) && (
+                <span className="inline-flex items-center gap-1 rounded-sm border border-info/40 bg-info/10 px-1.5 py-0.5 text-caption font-medium text-info">
+                  BBA/ATS Signed
+                </span>
+              )}
               <span className="text-meta text-muted-foreground">{formatDate(sale.saleDate)}</span>
             </div>
 
@@ -508,6 +518,11 @@ export function SaleDetailDialog({
                 </div>
               </div>
               {docUploading && <p className="text-micro text-muted-foreground">Uploading…</p>}
+            </div>
+
+            {/* Additional attachments — generic polymorphic document store */}
+            <div className="rounded-lg border p-3">
+              <AttachmentList entityType="AssetSale" entityId={sale.id} maxAttachments={20} />
             </div>
 
             {/* Deal terms */}

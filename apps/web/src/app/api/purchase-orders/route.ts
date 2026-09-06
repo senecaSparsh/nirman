@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { PurchaseOrderStatus } from "@nirman/db";
-import { createPurchaseOrder } from "@nirman/services";
+import { createPurchaseOrder, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, getCompanyGroupIds, json, purchaseOrderSchema, requirePermission, toNum } from "@/lib/server";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
@@ -115,6 +115,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
     revalidatePath("/m/procurement");
     return json(po, { status: 201 });
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to create purchase order") }, { status: 400 });
+    if (err instanceof ServiceError) {
+      return json({ error: err.message }, { status: err.status ?? 400 });
+    }
+    return json({ error: "Failed to create purchase order" }, { status: 500 });
   }
 });

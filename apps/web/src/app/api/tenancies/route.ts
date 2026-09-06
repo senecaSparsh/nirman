@@ -107,6 +107,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       securityDeposit: parsed.data.securityDeposit ?? 0,
       rentAgreementNo: parsed.data.rentAgreementNo ?? undefined,
       sacCode: parsed.data.sacCode ?? undefined,
+      escalationPercent: parsed.data.escalationPercent ?? undefined,
+      escalationIntervalMonths: parsed.data.escalationIntervalMonths ?? undefined,
       rentFreeDays: parsed.data.rentFreeDays ?? 0,
       draftDocumentUrl: parsed.data.draftDocumentUrl ?? undefined,
       draftDocumentName: parsed.data.draftDocumentName ?? undefined,

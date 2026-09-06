@@ -234,7 +234,7 @@ async function MobileWbsDetailContent({
         <SectionHead title={`MB Entries (${node.mbEntries.length})`} />
         {node.mbEntries.length === 0 ? (
           <div
-            className="rounded-[0.5rem] border p-3 text-center"
+            className="rounded-[0.625rem] border p-3 text-center"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             <BookOpen className="size-5 mx-auto mb-1.5" style={{ color: "var(--color-ink-300)" }} />

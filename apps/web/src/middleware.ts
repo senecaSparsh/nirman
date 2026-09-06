@@ -81,6 +81,42 @@ export function isAuthRateLimitedPath(pathname: string): boolean {
   return /sign-in|sign-up|password/.test(pathname);
 }
 
+// ── Edge-compatible auth rate limiter ──────────────────────────
+// Simple in-memory token bucket for auth endpoints. Edge runtime can't
+// use node:os/node:fs (the main rate-limit.ts), so this is a lightweight
+// standalone limiter. State persists within a single instance (Render
+// single-instance deploy). 10 attempts per IP per minute.
+const authBuckets = new Map<string, { count: number; resetAt: number }>();
+const AUTH_WINDOW_MS = 60_000;
+const AUTH_MAX_ATTEMPTS = 10;
+
+function checkAuthRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const bucket = authBuckets.get(ip);
+  if (!bucket || now > bucket.resetAt) {
+    authBuckets.set(ip, { count: 1, resetAt: now + AUTH_WINDOW_MS });
+    return true;
+  }
+  bucket.count++;
+  return bucket.count <= AUTH_MAX_ATTEMPTS;
+}
+
+// Periodically evict expired buckets (runs on each call, cheap).
+function evictAuthBuckets() {
+  const now = Date.now();
+  for (const [key, bucket] of authBuckets) {
+    if (now > bucket.resetAt) authBuckets.delete(key);
+  }
+}
+
+function getClientIp(req: NextRequest): string {
+  const xff = req.headers.get("x-forwarded-for");
+  if (xff) return xff.split(",")[0]?.trim() ?? "";
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp) return realIp.trim();
+  return "local";
+}
+
 export function middleware(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl;
 
@@ -151,6 +187,19 @@ export function middleware(req: NextRequest) {
   // Redirecting API routes here would serve HTML to fetch() callers,
   // causing JSON parse errors ("Fetch failed loading").
   if (pathname.startsWith("/api/")) {
+    // Rate-limit auth endpoints (sign-in, sign-up, password) to prevent
+    // brute-force attacks. Better-Auth's built-in rate limiter is disabled,
+    // so this is the primary gate.
+    if (isAuthRateLimitedPath(pathname)) {
+      evictAuthBuckets();
+      const ip = getClientIp(req);
+      if (!checkAuthRateLimit(ip)) {
+        return NextResponse.json(
+          { error: "Too many attempts. Please wait a minute and try again." },
+          { status: 429, headers: { "Retry-After": "60" } },
+        );
+      }
+    }
     return NextResponse.next();
   }
 
@@ -181,9 +230,13 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Run on all routes except static assets, API routes (auth handled by
-  // apiHandler/getSession returning 401 JSON), and files with extensions.
-  // Excluding /api/* here avoids running UA regex + cookie logic on every
+  // Run on all routes except static assets, non-auth API routes, and files
+  // with extensions. Auth API routes (/api/auth/*) ARE included so the
+  // rate limiter can protect sign-in/sign-up/password endpoints. Other API
+  // routes are excluded to avoid running UA regex + cookie logic on every
   // API call — a meaningful saving under load.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api|.*\\..*).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|api/auth/telephony|api/portal|api/telephony|api/health|api/cron|.*\\..*).*)",
+    "/api/auth/(.*)",
+  ],
 };

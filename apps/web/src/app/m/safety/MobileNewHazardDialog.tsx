@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { computeRiskLevel } from "@nirman/services/safety";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useWbsOptions } from "@/lib/use-wbs-options";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 /**
  * MobileNewHazardForm — form content for reporting a new hazard.
@@ -82,10 +83,13 @@ export function MobileNewHazardForm({
       <div className={sectionClass} style={sectionStyle}>
         <p className={sectionTitleClass} style={sectionTitleStyle}>Details</p>
         <div>
-          <label className={labelClass} style={labelStyle}>Project</label>
-          <select value={form.projectId} onChange={(e) => set("projectId", e.target.value)} className={inputClass} style={inputStyle}>
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          <MobileSelectWithCreate
+            label="Project"
+            value={form.projectId}
+            onChange={(v) => set("projectId", v)}
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            icon={FolderOpen}
+          />
         </div>
         <div>
           <label className={labelClass} style={labelStyle}>Title</label>
@@ -96,11 +100,14 @@ export function MobileNewHazardForm({
           <input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower B, east side" className={inputClass} style={inputStyle} />
         </div>
         <div>
-          <label className={labelClass} style={labelStyle}>WBS Activity (optional)</label>
-          <select value={form.wbsNodeId} onChange={(e) => set("wbsNodeId", e.target.value)} className={inputClass} style={inputStyle} disabled={wbsOptions.length === 0}>
-            <option value="">{wbsOptions.length === 0 ? "No WBS nodes for this project" : "— None —"}</option>
-            {wbsOptions.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
-          </select>
+          <MobileSelectWithCreate
+            label="WBS Activity (optional)"
+            value={form.wbsNodeId}
+            onChange={(v) => set("wbsNodeId", v)}
+            options={wbsOptions.map((w) => ({ value: w.id, label: w.label }))}
+            placeholder={wbsOptions.length === 0 ? "No WBS nodes for this project" : "— None —"}
+            disabled={wbsOptions.length === 0}
+          />
         </div>
       </div>
 
@@ -153,9 +160,20 @@ export function MobileNewHazardForm({
         <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
       </div>
 
-      <button onClick={onSave} disabled={saving} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
-        {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}{saving ? "Reporting…" : "Report"}
-      </button>
+      {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+      <div
+        className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
+        style={{
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
+        }}
+      >
+        <div className="flex items-center justify-end gap-3">
+          <button onClick={onSave} disabled={saving} className="flex-1 h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+            {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}{saving ? "Reporting…" : "Report"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

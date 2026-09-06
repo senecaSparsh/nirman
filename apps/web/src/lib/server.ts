@@ -349,7 +349,7 @@ export const purchaseOrderSchema = z.object({
   procurementScope: z.enum(["COMPANY", "PROJECT"]),
   projectId: z.string().optional().nullable(),
   destinationLocationId: z.string().min(1, "Destination location is required"),
-  expectedDate: z.string().optional().nullable(),
+  expectedDate: z.string().optional().nullable().refine((v) => !v || !isNaN(new Date(v).getTime()), "Invalid date"),
   notes: z.string().max(2000).optional().nullable(),
   lines: z.array(purchaseOrderLineSchema).min(1, "At least one line item is required"),
   charges: z.array(purchaseOrderChargeSchema).optional().default([]),
@@ -457,6 +457,7 @@ export const issueMaterialsSchema = z.object({
   driverPhone: z.string().max(20).optional(),
   // Round-off to match physical bill totals
   roundOff: z.coerce.number().optional().nullable(),
+  requireGatePass: z.boolean().optional(),
   lines: z.array(transferLineSchema).min(1, "At least one line is required"),
 }).refine(
   (data) => (data.projectId ? !data.departmentId : !!data.departmentId),
@@ -855,6 +856,7 @@ export const materialSaleSchema = z.object({
   vehiclePhotoUrl: z.string().optional(),
   driverName: z.string().max(100).optional(),
   driverPhone: z.string().max(20).optional(),
+  requireGatePass: z.boolean().optional(),
   notes: z.string().optional().nullable(),
 });
 
@@ -1005,7 +1007,7 @@ export const equipmentSchema = z.object({
   serialNumber: z.string().optional().nullable(),
   category: z.string().optional().nullable(),
   acquisitionCost: z.coerce.number().finite().nonnegative("Cost must be >= 0").default(0),
-  purchaseDate: z.string().optional().nullable(),
+  purchaseDate: z.string().optional().nullable().refine((v) => !v || !isNaN(new Date(v).getTime()), "Invalid date"),
   notes: z.string().optional().nullable(),
 });
 
@@ -1036,7 +1038,7 @@ export const requisitionLineSchema = z.object({
 export const requisitionSchema = z.object({
   projectId: z.string().min(1, "Project is required"),
   phaseId: z.string().optional().nullable(),
-  neededByDate: z.string().optional().nullable(),
+  neededByDate: z.string().optional().nullable().refine((v) => !v || !isNaN(new Date(v).getTime()), "Invalid date"),
   notes: z.string().optional().nullable(),
   lines: z.array(requisitionLineSchema).min(1, "At least one line is required"),
 });
@@ -1600,10 +1602,23 @@ export async function getCurrentUserMembership(): Promise<{
  * Returns 401 if no session is found (unless AUTH_BYPASS is set).
  * Mutations (POST/PATCH/PUT/DELETE) automatically write an AuditLog
  * entry on success when `audit` options are provided.
+ *
+ * **Auto-applies rate limiting**: GET → `read` preset, mutations → `write`
+ * preset. Override with `{ rateLimit: "heavy" }` or `{ rateLimit: false }`.
+ *
+ * **Prisma error mapping**: P2024 (pool exhausted) → 503, P1001 (DB
+ * unreachable) → 503, P1002 (timeout) → 504 — so the start wrapper / load
+ * balancer can retry instead of returning a 500.
+ *
+ * **Sentry**: 500 errors are captured via `Sentry.captureException`
+ * (dynamic import, no-op without `SENTRY_DSN`).
  */
 export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
   fn: (req: TReq, ctx: TCtx) => Promise<Response>,
-  opts: { audit?: { action: string; entityType: string; entityIdFrom?: (req: TReq, res: Response) => string | undefined } } = {},
+  opts: {
+    audit?: { action: string; entityType: string; entityIdFrom?: (req: TReq, res: Response) => string | undefined };
+    rateLimit?: "read" | "write" | "auth" | "webhook" | "heavy" | false;
+  } = {},
 ) {
   return async (req: Request, ctx: TCtx): Promise<Response> => {
     try {
@@ -1611,6 +1626,18 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
       if (!session) {
         return json({ error: "Unauthorized" }, { status: 401 });
       }
+
+      // Auto-apply rate limiting (unless explicitly disabled).
+      const rlPreset = opts.rateLimit === undefined
+        ? (req.method === "GET" ? "read" : "write")
+        : opts.rateLimit;
+      if (rlPreset) {
+        const { rateLimit, RATE_LIMITS } = await import("@/lib/rate-limit");
+        const user = await getCurrentUser();
+        const rl = rateLimit(req, RATE_LIMITS[rlPreset], user?.id);
+        if (rl) return rl;
+      }
+
       const res = await fn(req as TReq, ctx);
       // Best-effort audit logging for mutations
       if (opts.audit && (req.method === "POST" || req.method === "PATCH" || req.method === "PUT" || req.method === "DELETE")) {
@@ -1643,9 +1670,44 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
       if (err instanceof UnauthorizedError) {
         return json({ error: err.message }, { status: 401 });
       }
+
+      // Prisma error code mapping — transient DB errors get retryable status
+      // codes so the start wrapper / load balancer can retry.
+      const prismaCode = (err as { code?: string })?.code;
+      if (prismaCode) {
+        if (prismaCode === "P2024") {
+          // Connection pool exhausted — the DB can't keep up. 503 tells
+          // the load balancer to retry and the start wrapper to consider
+          // a restart if it persists.
+          console.error("[apiHandler] Prisma P2024: connection pool exhausted");
+          return json({ error: "Database busy — please retry shortly", retryable: true }, { status: 503, headers: { "Retry-After": "5" } });
+        }
+        if (prismaCode === "P1001") {
+          // DB unreachable — the DB is down or network is partitioned.
+          console.error("[apiHandler] Prisma P1001: database unreachable");
+          return json({ error: "Database unreachable — please retry shortly", retryable: true }, { status: 503, headers: { "Retry-After": "10" } });
+        }
+        if (prismaCode === "P1002") {
+          // DB timeout — query took too long.
+          console.error("[apiHandler] Prisma P1002: database timeout");
+          return json({ error: "Database request timed out — please retry", retryable: true }, { status: 504 });
+        }
+      }
+
       // Log the full error server-side but don't leak internal details to the client
       console.error("[apiHandler] Unhandled error:", err);
       const status = (err as { status?: number })?.status ?? 500;
+
+      // Capture 500s in Sentry (no-op without SENTRY_DSN).
+      if (status >= 500) {
+        try {
+          const Sentry = await import("@sentry/nextjs");
+          Sentry.captureException(err);
+        } catch {
+          // Sentry not available — continue without.
+        }
+      }
+
       return json({ error: status === 500 ? "Internal server error" : (err instanceof Error ? err.message : "Request failed") }, { status });
     }
   };

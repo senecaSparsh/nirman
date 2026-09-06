@@ -9,6 +9,7 @@ import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCrea
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type UnitType =
   | "BHK_1"
@@ -308,23 +309,15 @@ export function MobileNewUnitForm({
         {mode === "bulk" ? (
           <>
             {/* Unit Type (full width in bulk mode) */}
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Unit Type
-              </label>
-              <select
-                value={form.unitType}
-                onChange={(e) => set("unitType", e.target.value as UnitType)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {(Object.keys(UNIT_TYPE_LABELS) as UnitType[]).map((t) => (
-                  <option key={t} value={t}>
-                    {UNIT_TYPE_LABELS[t]}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <EnumSelect
+              label="Unit Type"
+              value={form.unitType}
+              onChange={(v) => set("unitType", v as UnitType)}
+              options={(Object.keys(UNIT_TYPE_LABELS) as UnitType[]).map((t) => ({
+                value: t,
+                label: UNIT_TYPE_LABELS[t],
+              }))}
+            />
 
             {/* Prefix + Start No */}
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
@@ -427,23 +420,15 @@ export function MobileNewUnitForm({
                   style={inputStyle}
                 />
               </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Type
-                </label>
-                <select
-                  value={form.unitType}
-                  onChange={(e) => set("unitType", e.target.value as UnitType)}
-                  className={inputClass}
-                  style={inputStyle}
-                >
-                  {(Object.keys(UNIT_TYPE_LABELS) as UnitType[]).map((t) => (
-                    <option key={t} value={t}>
-                      {UNIT_TYPE_LABELS[t]}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <EnumSelect
+                label="Type"
+                value={form.unitType}
+                onChange={(v) => set("unitType", v as UnitType)}
+                options={(Object.keys(UNIT_TYPE_LABELS) as UnitType[]).map((t) => ({
+                  value: t,
+                  label: UNIT_TYPE_LABELS[t],
+                }))}
+              />
             </div>
 
             {/* Floor + Wing */}
@@ -496,23 +481,15 @@ export function MobileNewUnitForm({
                   style={inputStyle}
                 />
               </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Unit
-                </label>
-                <select
-                  value={form.areaUnit}
-                  onChange={(e) => set("areaUnit", e.target.value as AreaUnit)}
-                  className={inputClass}
-                  style={inputStyle}
-                >
-                  {(Object.keys(AREA_UNIT_LABELS) as AreaUnit[]).map((u) => (
-                    <option key={u} value={u}>
-                      {AREA_UNIT_LABELS[u]}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <EnumSelect
+                label="Unit"
+                value={form.areaUnit}
+                onChange={(v) => set("areaUnit", v as AreaUnit)}
+                options={(Object.keys(AREA_UNIT_LABELS) as AreaUnit[]).map((u) => ({
+                  value: u,
+                  label: AREA_UNIT_LABELS[u],
+                }))}
+              />
             </div>
           </>
         )}
@@ -629,22 +606,33 @@ export function MobileNewUnitForm({
         </label>
       </div>
 
-      <button
-        type="submit"
-        disabled={saving}
-        className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+      {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+      <div
+        className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
         style={{
-          backgroundColor: "var(--color-ink-950)",
-          color: "var(--color-paper)",
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
         }}
       >
-        {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-        {saving
-          ? "Creating…"
-          : mode === "bulk"
-            ? `Generate ${parseInt(genCount) || 0} Units`
-            : "Create Unit"}
-      </button>
+        <div className="flex items-center justify-end gap-3">
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex-1 h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+            style={{
+              backgroundColor: "var(--color-ink-950)",
+              color: "var(--color-paper)",
+            }}
+          >
+            {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+            {saving
+              ? "Creating…"
+              : mode === "bulk"
+                ? `Generate ${parseInt(genCount) || 0} Units`
+                : "Create Unit"}
+          </button>
+        </div>
+      </div>
     </form>
   );
 }

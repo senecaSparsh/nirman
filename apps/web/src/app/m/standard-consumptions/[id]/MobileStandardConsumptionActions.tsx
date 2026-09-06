@@ -136,17 +136,19 @@ export function MobileStandardConsumptionActions({
                 <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                   Benchmark Details
                 </p>
-                <div>
-                  <label className={labelClass} style={labelStyle}>Work Type *</label>
-                  <input value={workType} onChange={(e) => setWorkType(e.target.value)} placeholder="e.g. Foundation, Plastering" className={inputClass} style={inputStyle} />
-                </div>
-                <div>
-                  <label className={labelClass} style={labelStyle}>Material *</label>
-                  <select value={materialId} onChange={(e) => setMaterialId(e.target.value)} className={inputClass} style={inputStyle}>
-                    {materials.map((m) => (
-                      <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>Work Type *</label>
+                    <input value={workType} onChange={(e) => setWorkType(e.target.value)} placeholder="e.g. Foundation, Plastering" className={inputClass} style={inputStyle} />
+                  </div>
+                  <div className="pl-2">
+                    <label className={labelClass} style={labelStyle}>Material *</label>
+                    <select value={materialId} onChange={(e) => setMaterialId(e.target.value)} className={inputClass} style={inputStyle}>
+                      {materials.map((m) => (
+                        <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
               <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
@@ -177,7 +179,7 @@ export function MobileStandardConsumptionActions({
                   <textarea rows={1} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes…" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
                 </div>
               </div>
-              <div className="flex flex-col gap-2 pt-1">
+              <div className="flex gap-2 pt-1">
                 <button onClick={() => setShowEdit(false)} disabled={saving} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
                 <button onClick={save} disabled={saving || !workType.trim()} className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", opacity: saving || !workType.trim() ? 0.5 : 1 }}>
                   {saving ? <Loader2 className="size-3.5 animate-spin" /> : "Save"}

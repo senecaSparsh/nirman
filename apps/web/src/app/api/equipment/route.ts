@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { EquipmentStatus } from "@nirman/db";
-import { createEquipment } from "@nirman/services";
+import { createEquipment, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum, equipmentSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
@@ -105,6 +105,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
     revalidatePath("/m/equipment");
     return json({ ok: true, id: eq.id }, { status: 201 });
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to create equipment") }, { status: 400 });
+    if (err instanceof ServiceError) {
+      return json({ error: err.message }, { status: err.status ?? 400 });
+    }
+    return json({ error: "Failed to create equipment" }, { status: 500 });
   }
 });

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type ProjectType =
   | "RESIDENTIAL"
@@ -232,7 +233,7 @@ export function MobileNewProjectDialog({
     <div className="space-y-3">
       {/* ── Main fields — one big border box ── */}
       <div
-        className="rounded-[0.625rem] border p-3 space-y-3"
+        className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
           <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
@@ -263,42 +264,30 @@ export function MobileNewProjectDialog({
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>
-                Type
-              </label>
-              <select
+              <EnumSelect
+                label="Type"
                 value={form.type}
-                onChange={(e) => set("type", e.target.value as ProjectType)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {(Object.keys(TYPE_LABELS) as ProjectType[]).map((t) => (
-                  <option key={t} value={t}>
-                    {TYPE_LABELS[t]}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => set("type", v as ProjectType)}
+                options={(Object.keys(TYPE_LABELS) as ProjectType[]).map((t) => ({
+                  value: t,
+                  label: TYPE_LABELS[t],
+                }))}
+              />
             </div>
           </div>
 
           {/* Status + LCI Threshold (side by side) */}
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
-              <label className={labelClass} style={labelStyle}>
-                Status
-              </label>
-              <select
+              <EnumSelect
+                label="Status"
                 value={form.status}
-                onChange={(e) => set("status", e.target.value as ProjectStatus)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {(Object.keys(STATUS_LABELS) as ProjectStatus[]).map((s) => (
-                  <option key={s} value={s}>
-                    {STATUS_LABELS[s]}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => set("status", v as ProjectStatus)}
+                options={(Object.keys(STATUS_LABELS) as ProjectStatus[]).map((s) => ({
+                  value: s,
+                  label: STATUS_LABELS[s],
+                }))}
+              />
             </div>
             <div>
               <label className={labelClass} style={labelStyle}>
@@ -416,7 +405,7 @@ export function MobileNewProjectDialog({
 
       {/* ── RERA Registration — collapsible ── */}
       <div
-        className="rounded-[0.625rem] border p-3 space-y-3"
+        className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
           <button
@@ -499,7 +488,7 @@ export function MobileNewProjectDialog({
 
       {/* ── ATS — Agreement to Sell — collapsible ── */}
       <div
-        className="rounded-[0.625rem] border p-3 space-y-3"
+        className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
           <button
@@ -620,35 +609,30 @@ export function MobileNewProjectDialog({
           )}
       </div>
 
-          {/* Actions */}
-          <div className="flex flex-col gap-3 ">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
-              style={{
-                borderColor: "var(--color-line)",
-                color: "var(--color-ink-700)",
-                backgroundColor: "var(--color-paper)",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
-              style={{
-                backgroundColor: "var(--color-ink-950)",
-                color: "var(--color-paper)",
-              }}
-            >
-              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-              {saving ? "Creating…" : "Create Project"}
-            </button>
-          </div>
+      {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+      <div
+        className="sticky bottom-0 left-0 right-0 z-20 border-t"
+        style={{
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
+        }}
+      >
+        <div className="px-3.5 py-2 flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={saving}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+            style={{
+              backgroundColor: "var(--color-ink-950)",
+              color: "var(--color-paper)",
+            }}
+          >
+            {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+            {saving ? "Creating…" : "Create Project"}
+          </button>
         </div>
+      </div>
+    </div>
   );
 }

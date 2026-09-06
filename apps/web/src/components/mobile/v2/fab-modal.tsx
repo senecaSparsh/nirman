@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * ═══════════════════════════════════════════════════════════════════
@@ -29,6 +30,7 @@ export function MobileFabModal({
   originRect,
   children,
   title,
+  nested,
 }: {
   open: boolean;
   onClose: () => void;
@@ -37,6 +39,9 @@ export function MobileFabModal({
   originRect?: DOMRect | null;
   children: ReactNode;
   title?: string;
+  /** When true, disables backdrop blur — use for dialogs opened inside
+   *  other dialogs to avoid double-blur ("blurry inside blurry"). */
+  nested?: boolean;
 }) {
   const [mounted, setMounted] = useState(open);
   const [visible, setVisible] = useState(false);
@@ -82,53 +87,56 @@ export function MobileFabModal({
     originY = `${originRect.top + originRect.height / 2}px`;
   }
 
-  // Reduced motion: plain cross-fade, no scale or blur
-  if (prefersReducedMotion) {
-    return (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        onClick={onClose}
-        style={{
-          backgroundColor: visible
-            ? "color-mix(in srgb, var(--color-ink-950) 45%, transparent)"
-            : "transparent",
-          transition: "background-color 0.2s ease",
-        }}
-      >
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="relative w-full max-w-md max-h-[85vh] overflow-y-auto rounded-[1rem]"
-          style={{
-            backgroundColor: "var(--color-paper)",
-            opacity: visible ? 1 : 0,
-            transition: "opacity 0.2s ease",
-            boxShadow: "0 20px 60px -10px rgba(0,0,0,0.3)",
-          }}
-        >
-          {title ? (
-            <div className="px-4 pt-4 pb-2">
-              <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-                {title}
-              </h2>
-            </div>
-          ) : null}
-          <div className="px-4 pb-4 pt-1">{children}</div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
+  // Render via portal at document.body so the modal escapes any parent
+  // backdrop-filter stacking context (which would blur the modal content).
+  // Without the portal, a dialog opened inside another dialog's DOM tree
+  // gets caught in the outer dialog's backdrop-filter, causing "blurry
+  // inside blurry" — the inner content appears blurred even though it's
+  // on top. The portal moves the modal to the document root where no
+  // parent backdrop-filter can affect it.
+  const modalContent = prefersReducedMotion ? (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={onClose}
       style={{
-        // Backdrop: dim + blur that animates in with the dialog
+        backgroundColor: visible
+          ? "color-mix(in srgb, var(--color-ink-950) 45%, transparent)"
+          : "transparent",
+        transition: "background-color 0.2s ease",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-md max-h-[85vh] overflow-y-auto rounded-[1rem]"
+        style={{
+          backgroundColor: "var(--color-paper)",
+          opacity: visible ? 1 : 0,
+          transition: "opacity 0.2s ease",
+          boxShadow: "0 20px 60px -10px rgba(0,0,0,0.3)",
+        }}
+      >
+        {title ? (
+          <div className="px-4 pt-4 pb-2">
+            <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
+              {title}
+            </h2>
+          </div>
+        ) : null}
+        <div className="px-4 pb-4 pt-1">{children}</div>
+      </div>
+    </div>
+  ) : (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+      style={{
+        // Backdrop: dim + blur that animates in with the dialog.
+        // Nested modals skip blur to avoid double-blur on the page behind.
         backgroundColor: visible
           ? "color-mix(in srgb, var(--color-ink-950) 45%, transparent)"
           : "color-mix(in srgb, var(--color-ink-950) 0%, transparent)",
-        backdropFilter: visible ? "blur(8px)" : "blur(0px)",
-        WebkitBackdropFilter: visible ? "blur(8px)" : "blur(0px)",
+        backdropFilter: nested ? undefined : (visible ? "blur(8px)" : "blur(0px)"),
+        WebkitBackdropFilter: nested ? undefined : (visible ? "blur(8px)" : "blur(0px)"),
         transition:
           "background-color 0.3s cubic-bezier(0.32, 0.72, 0, 1), backdrop-filter 0.3s cubic-bezier(0.32, 0.72, 0, 1)",
       }}
@@ -172,6 +180,8 @@ export function MobileFabModal({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
 
 /** Hook: watch prefers-reduced-motion. */

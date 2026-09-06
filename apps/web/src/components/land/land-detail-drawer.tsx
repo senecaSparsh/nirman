@@ -55,10 +55,16 @@ export function LandDetailDrawer({
                 <span className="flex items-center gap-1"><FileText className="h-3 w-3" />{purchase.registryNo}</span>
               )}
             </div>
-            {(purchase.purchaseStage === "BOOKED" || purchase.isPossessed) && (
+            {(purchase.purchaseStage === "BOOKED" || purchase.purchaseStage === "BBA_SIGNED" || purchase.purchaseStage === "REGISTERED" || purchase.isPossessed) && (
               <div className="mt-1.5 flex items-center gap-1.5">
                 {purchase.purchaseStage === "BOOKED" && (
                   <Badge variant="warning">BOOKED</Badge>
+                )}
+                {purchase.purchaseStage === "BBA_SIGNED" && (
+                  <Badge variant="default">BBA SIGNED</Badge>
+                )}
+                {purchase.purchaseStage === "REGISTERED" && (
+                  <Badge variant="brand">REGISTERED</Badge>
                 )}
                 {purchase.isPossessed && (
                   <Badge variant="success">

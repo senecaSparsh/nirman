@@ -69,23 +69,23 @@ function createPrismaClient(): PrismaClient {
   });
 
   // Auto-scale connection pool if DATABASE_URL doesn't specify one.
-  if (process.env.NODE_ENV === "production") {
-    const dbUrl = process.env.DATABASE_URL || "";
-    if (dbUrl && !dbUrl.includes("connection_limit=")) {
-      const recommended = getRecommendedConnectionLimit();
-      const totalMB = detectTotalMemoryMB();
-      console.log(
-        `[db] auto-scaling: ${totalMB}MB RAM detected → connection_limit=${recommended} ` +
-        `(add ?connection_limit=X to DATABASE_URL to override)`,
-      );
-      // Append connection_limit to DATABASE_URL for this process.
-      // Prisma reads it from the env var at query time.
-      const separator = dbUrl.includes("?") ? "&" : "?";
-      process.env.DATABASE_URL = `${dbUrl}${separator}connection_limit=${recommended}&pool_timeout=10`;
-    } else if (dbUrl && dbUrl.includes("connection_limit=")) {
-      const match = dbUrl.match(/connection_limit=(\d+)/);
-      console.log(`[db] DATABASE_URL has explicit connection_limit=${match?.[1]} — using that`);
-    }
+  // Runs in both dev and production — the dev server also needs adequate
+  // connections for concurrent requests during development/testing.
+  const dbUrl = process.env.DATABASE_URL || "";
+  if (dbUrl && !dbUrl.includes("connection_limit=")) {
+    const recommended = getRecommendedConnectionLimit();
+    const totalMB = detectTotalMemoryMB();
+    console.log(
+      `[db] auto-scaling: ${totalMB}MB RAM detected → connection_limit=${recommended} ` +
+      `(add ?connection_limit=X to DATABASE_URL to override)`,
+    );
+    // Append connection_limit to DATABASE_URL for this process.
+    // Prisma reads it from the env var at query time.
+    const separator = dbUrl.includes("?") ? "&" : "?";
+    process.env.DATABASE_URL = `${dbUrl}${separator}connection_limit=${recommended}&pool_timeout=10`;
+  } else if (dbUrl && dbUrl.includes("connection_limit=")) {
+    const match = dbUrl.match(/connection_limit=(\d+)/);
+    console.log(`[db] DATABASE_URL has explicit connection_limit=${match?.[1]} — using that`);
   }
 
   return client;

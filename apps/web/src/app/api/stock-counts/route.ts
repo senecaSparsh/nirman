@@ -48,10 +48,19 @@ export const GET = apiHandler(async () => {
 
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.INVENTORY_MANAGE);
+  const company = await getCompany();
   const body = await req.json();
   const parsed = stockCountSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  // Verify the location belongs to the current company
+  const location = await prisma.stockLocation.findFirst({
+    where: { id: parsed.data.locationId, companyId: company.id, deletedAt: null },
+    select: { id: true },
+  });
+  if (!location) {
+    return json({ error: "Location not found" }, { status: 404 });
   }
   try {
     const count = await createStockCount({
@@ -64,6 +73,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
     revalidatePath("/m/stock");
     return json({ ok: true, id: count.id }, { status: 201 });
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to create stock inventory") }, { status: 400 });
+    if (err instanceof Error && err.name === "ServiceError") {
+      return json({ error: err.message }, { status: 400 });
+    }
+    return json({ error: "Failed to create stock inventory" }, { status: 500 });
   }
 });

@@ -24,6 +24,7 @@ import { ProjectDetailActions } from "./project-detail-actions";
 import { PhasesSection, type PhaseRow } from "./phases-section";
 import { BuiltUnitFormDialog } from "@/components/built-units/built-unit-form-dialog";
 import { LegalDocsSection } from "@/components/legal/legal-docs-section";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 import { ProjectCostFormDialog } from "@/components/finance/project-cost-form-dialog";
 import { useTabParam } from "@/lib/use-tab-param";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
@@ -357,6 +358,9 @@ export function ProjectHub({
             canManage={data.canManageLegal ?? false}
             context="PROJECT"
           />
+          <div className="mt-3 rounded-lg border p-3">
+            <AttachmentList entityType="Project" entityId={data.project.id} maxAttachments={20} />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

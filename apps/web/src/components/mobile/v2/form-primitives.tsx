@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, type ComponentType, type CSSProperties } from "react";
+import { useState, useMemo, useEffect, type ComponentType, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { ChevronRight, Search, X, CheckCircle2, Plus } from "lucide-react";
 import { haptic } from "@/lib/haptic";
 
@@ -226,6 +227,116 @@ export function UnderlineInput({
   );
 }
 
+/* ── Enum select — fixed-option picker using the same bottom-sheet UI ──
+ * Use this for small enum/fixed-option selectors (status, type, unit, mode,
+ * GST slab, etc.). Uses the same SelectorModal bottom-sheet as entity
+ * selectors so ALL dropdowns have the same UI pattern.
+ *
+ * For entity selectors with many options (customer, project, supplier,
+ * material), use SelectorCard + SelectorModal or MobileSelectWithCreate
+ * instead — those support search and create-new. */
+export function EnumSelect({
+  label,
+  value,
+  onChange,
+  options,
+  required,
+  placeholder,
+  inline,
+  align = "left",
+  onCreate,
+  createLabel,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  required?: boolean;
+  placeholder?: string;
+  /** Inline mode — label and value on the same line (e.g. "Type: ____").
+   *  Tapping the value opens the bottom-sheet picker. */
+  inline?: boolean;
+  /** Text alignment of the inline value. */
+  align?: "left" | "right";
+  /** When provided, adds a "+ Create new" button to the picker. */
+  onCreate?: () => void;
+  /** Label for the create button. Defaults to "Create new". */
+  createLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const selected = options.find((o) => o.value === value);
+  const displayValue = selected?.label ?? placeholder ?? "Select…";
+
+  // Build items for SelectorModal — include placeholder as "none" option
+  const items = [
+    ...(placeholder ? [{ id: "", label: placeholder, sub: undefined as string | undefined }] : []),
+    ...options.map((o) => ({ id: o.value, label: o.label, sub: undefined as string | undefined })),
+  ];
+
+  // SelectorModal handles closing itself before calling onCreate, so
+  // we just pass it through directly.
+  if (inline) {
+    return (
+      <>
+        <div
+          className="flex items-center justify-between gap-1 pb-0.5 border-b focus-within:border-b-2 transition-colors cursor-pointer press"
+          style={{ borderColor: "var(--color-line)" }}
+          onClick={() => { haptic(10); setOpen(true); }}
+        >
+          {label ? (
+            <span className="text-m-caption font-bold shrink-0" style={{ color: "var(--color-ink-700)" }}>
+              {label}{required ? " *" : ""}
+            </span>
+          ) : null}
+          <span
+            className={`flex-1 min-w-0 h-7 leading-7 px-1 text-m-caption font-bold truncate ${align === "right" ? "text-right" : "text-left"}`}
+            style={{ color: selected ? "var(--color-ink-950)" : "var(--color-ink-400)" }}
+          >
+            {displayValue}
+          </span>
+          <ChevronRight className="shrink-0 size-2.5" style={{ color: "var(--color-ink-500)" }} />
+        </div>
+
+        {open ? (
+          <SelectorModal
+            title={label}
+            items={items}
+            selectedId={value}
+            onSelect={(id) => { onChange(id); setOpen(false); }}
+            onClose={() => setOpen(false)}
+            onCreate={onCreate}
+            createLabel={createLabel}
+          />
+        ) : null}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <SelectorCard
+        onClick={() => { haptic(10); setOpen(true); }}
+        label={placeholder ?? label}
+        value={selected?.label}
+        required={required}
+      />
+
+      {open ? (
+        <SelectorModal
+          title={label}
+          items={items}
+          selectedId={value}
+          onSelect={(id) => { onChange(id); setOpen(false); }}
+          onClose={() => setOpen(false)}
+          onCreate={onCreate}
+          createLabel={createLabel}
+        />
+      ) : null}
+    </>
+  );
+}
+
 /* ── Sticky action bar — bottom-pinned summary + submit ── */
 export function StickyActionBar({
   summaryLabel,
@@ -295,6 +406,16 @@ export function SelectorModal({
   createLabel?: string;
 }) {
   const [query, setQuery] = useState("");
+  // Portal to document.body so the sheet escapes any parent modal's
+  // `transform` / `backdrop-filter` stacking context. Without this, a
+  // SelectorModal opened inside a MobileFabModal gets caught in the
+  // outer modal's `transform: scale(1)` (which creates a containing
+  // block for fixed descendants) and `backdrop-filter: blur(8px)`,
+  // causing "blur inside blur" + the sheet being clipped to the modal
+  // panel instead of covering the full viewport.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const filtered = useMemo(() => {
     if (!query.trim()) return items;
     const q = query.toLowerCase();
@@ -303,7 +424,7 @@ export function SelectorModal({
     );
   }, [items, query]);
 
-  return (
+  const sheet = (
     <div
       className="fixed inset-0 z-[60] flex items-end justify-center"
       style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
@@ -347,7 +468,10 @@ export function SelectorModal({
             </div>
           ) : (
             filtered.map((item, i) => {
-              const isSelected = item.id === selectedId;
+              // The placeholder/none option (id="") is a "clear" action,
+              // not a real selection — never show it as selected.
+              const isPlaceholder = item.id === "";
+              const isSelected = !isPlaceholder && item.id === selectedId;
               return (
                 <button
                   key={item.id || i}
@@ -359,7 +483,16 @@ export function SelectorModal({
                   }}
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-m-section font-bold truncate" style={{ color: isSelected ? "var(--color-ink-950)" : "var(--color-ink-900)" }}>
+                    <p
+                      className="text-m-section font-bold truncate"
+                      style={{
+                        color: isSelected
+                          ? "var(--color-ink-950)"
+                          : isPlaceholder
+                            ? "var(--color-ink-500)"
+                            : "var(--color-ink-900)",
+                      }}
+                    >
                       {item.label}
                     </p>
                     {item.sub ? (
@@ -378,7 +511,15 @@ export function SelectorModal({
           <div className="border-t p-2" style={{ borderColor: "var(--color-line)" }}>
             <button
               type="button"
-              onClick={() => { haptic(10); onCreate(); }}
+              onClick={() => {
+                haptic(10);
+                // Close the picker first so the create dialog (which is
+                // z-50, below this z-[60] sheet) isn't hidden behind us.
+                // The parent's onClose unmounts this portal; after a
+                // short delay the create dialog opens cleanly on top.
+                onClose();
+                setTimeout(() => onCreate(), 150);
+              }}
               className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
               style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
             >
@@ -390,4 +531,8 @@ export function SelectorModal({
       </div>
     </div>
   );
+
+  // Render at document.body so the sheet is never caught inside a
+  // parent modal's transform/backdrop-filter stacking context.
+  return mounted ? createPortal(sheet, document.body) : null;
 }

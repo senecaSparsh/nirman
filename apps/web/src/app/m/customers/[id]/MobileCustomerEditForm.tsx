@@ -100,38 +100,38 @@ export function MobileCustomerEditForm({
             />
           </div>
 
-          {/* Phone */}
-          <div>
-            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-              Phone
-            </label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className={`${inputClass} font-mono`}
-              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-              placeholder="9876543210"
-              autoComplete="tel"
-              enterKeyHint="next"
-            />
-          </div>
-
-          {/* Email */}
-          <div>
-            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={inputClass}
-              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-              placeholder="customer@example.com"
-              autoComplete="email"
-              enterKeyHint="next"
-            />
+          {/* Phone + Email */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                Phone
+              </label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className={`${inputClass} font-mono`}
+                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                placeholder="9876543210"
+                autoComplete="tel"
+                enterKeyHint="next"
+              />
+            </div>
+            <div className="pl-2">
+              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={inputClass}
+                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                placeholder="customer@example.com"
+                autoComplete="email"
+                enterKeyHint="next"
+              />
+            </div>
           </div>
 
           {/* GSTIN */}

@@ -149,7 +149,10 @@ export function useApiAction() {
           onClick: () => mutateRef.current?.(opts),
         },
       });
-      throw lastError;
+      // Don't re-throw — the error is already surfaced via `error` state +
+      // toast. Re-throwing causes unhandled promise rejections in event
+      // handlers (onClick={() => mutate(...)}) that callers don't catch.
+      return null;
     },
     [router],
   );

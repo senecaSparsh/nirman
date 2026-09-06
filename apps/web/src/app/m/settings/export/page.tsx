@@ -171,7 +171,7 @@ export default function MobileExportPage() {
       {/* Options panel — shown when a report is selected */}
       {report ? (
         <div
-          className="rounded-[0.625rem] border p-3 space-y-3"
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           {/* Format */}
@@ -188,7 +188,7 @@ export default function MobileExportPage() {
                   style={{
                     borderColor: format === f ? "var(--color-ink-950)" : "var(--color-line)",
                     backgroundColor: format === f ? "var(--color-ink-950)" : "var(--color-paper)",
-                    color: format === f ? "#fff" : "var(--color-ink-700)",
+                    color: format === f ? "var(--color-paper)" : "var(--color-ink-700)",
                   }}
                 >
                   {f === "xlsx" ? <FileSpreadsheet className="size-3.5" /> : <FileText className="size-3.5" />}

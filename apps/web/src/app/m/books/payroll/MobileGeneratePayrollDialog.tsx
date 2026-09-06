@@ -6,6 +6,7 @@ import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 const MONTHS = [
   "January",
@@ -103,42 +104,34 @@ export function MobileGeneratePayrollDialog({
             <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Period
             </p>
-            {/* Month */}
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Month <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <select
-                value={form.month}
-                onChange={(e) => set("month", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {MONTHS.map((m, i) => (
-                  <option key={i} value={String(i + 1)}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Year */}
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Year <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <input
-                type="number"
-                min={2000}
-                max={2100}
-                value={form.year}
-                onChange={(e) => set("year", e.target.value)}
-                placeholder="2024"
-                inputMode="numeric"
-                autoFocus
-                className={inputClass}
-                style={inputStyle}
-              />
+            {/* Month + Year */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <EnumSelect
+                  label="Month"
+                  required
+                  value={form.month}
+                  onChange={(v) => set("month", v)}
+                  options={MONTHS.map((m, i) => ({ value: String(i + 1), label: m }))}
+                />
+              </div>
+              <div className="pl-2">
+                <label className={labelClass} style={labelStyle}>
+                  Year <span style={{ color: "var(--color-stop)" }}>*</span>
+                </label>
+                <input
+                  type="number"
+                  min={2000}
+                  max={2100}
+                  value={form.year}
+                  onChange={(e) => set("year", e.target.value)}
+                  placeholder="2024"
+                  inputMode="numeric"
+                  autoFocus
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
             </div>
           </div>
 
@@ -154,33 +147,28 @@ export function MobileGeneratePayrollDialog({
             processing.
           </p>
 
-          {/* Actions */}
-          <div className="flex flex-col gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
-              style={{
-                borderColor: "var(--color-line)",
-                color: "var(--color-ink-500)",
-                backgroundColor: "transparent",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
-              style={{
-                backgroundColor: "var(--color-ink-950)",
-                color: "var(--color-paper)",
-              }}
-            >
-              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-              {saving ? "Generating…" : "Generate Payroll"}
-            </button>
+          {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+          <div
+            className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-3 -mb-3 px-3 py-2"
+            style={{
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+            }}
+          >
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--color-ink-950)",
+                  color: "var(--color-paper)",
+                }}
+              >
+                {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+                {saving ? "Generating…" : "Generate Payroll"}
+              </button>
+            </div>
           </div>
         </form>
     </MobileDialog>

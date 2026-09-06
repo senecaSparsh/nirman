@@ -87,7 +87,7 @@ export function MobileBudgetVarianceProjectSelector({
               className="flex items-center justify-between p-3 border-b"
               style={{ borderColor: "var(--color-line)" }}
             >
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                 Select Project
               </p>
               <button onClick={() => setOpen(false)} className="text-m-body press">

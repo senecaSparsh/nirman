@@ -8,6 +8,8 @@ import { cn, formatCurrencyCompact, formatCurrency } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { useOptimisticAction } from "@/lib/use-optimistic-action";
 import { ActionBar } from "@/components/mobile/v2/primitives";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 interface PoPayload {
   id: string;
@@ -360,22 +362,20 @@ function MobilePayDialog({
               />
             </div>
             <div className="pl-2">
-              <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
-                Mode *
-              </label>
-              <select
+              <EnumSelect
+                label="Mode"
+                required
                 value={paymentMode}
-                onChange={(e) => setPaymentMode(e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                <option value="BANK">Bank</option>
-                <option value="NEFT">NEFT</option>
-                <option value="RTGS">RTGS</option>
-                <option value="UPI">UPI</option>
-                <option value="CHEQUE">Cheque</option>
-                <option value="CASH">Cash</option>
-              </select>
+                onChange={(v) => setPaymentMode(v)}
+                options={[
+                  { value: "BANK", label: "Bank" },
+                  { value: "NEFT", label: "NEFT" },
+                  { value: "RTGS", label: "RTGS" },
+                  { value: "UPI", label: "UPI" },
+                  { value: "CHEQUE", label: "Cheque" },
+                  { value: "CASH", label: "Cash" },
+                ]}
+              />
             </div>
           </div>
 
@@ -413,19 +413,19 @@ function MobilePayDialog({
                 className={inputClass}
                 style={inputStyle}
               />
-              <select
+              <EnumSelect
+                label=""
                 value={tdsSection}
-                onChange={(e) => setTdsSection(e.target.value)}
-                className={`${inputClass} pl-2`}
-                style={inputStyle}
-              >
-                <option value="">Section…</option>
-                <option value="194C">194C — Contract</option>
-                <option value="194I">194I — Rent</option>
-                <option value="194J">194J — Professional</option>
-                <option value="194Q">194Q — Purchase</option>
-                <option value="194H">194H — Commission</option>
-              </select>
+                onChange={(v) => setTdsSection(v)}
+                placeholder="Section…"
+                options={[
+                  { value: "194C", label: "194C — Contract" },
+                  { value: "194I", label: "194I — Rent" },
+                  { value: "194J", label: "194J — Professional" },
+                  { value: "194Q", label: "194Q — Purchase" },
+                  { value: "194H", label: "194H — Commission" },
+                ]}
+              />
             </div>
           </div>
 
@@ -597,23 +597,15 @@ function MobileAddLineDialog({
             >
               Material *
             </label>
-            <select
-              value={materialId}
-              onChange={(e) => setMaterialId(e.target.value)}
-              className={inputClass}
-              style={inputStyle}
+            <MobileSelectWithCreate
+              label="Material"
               required
-            >
-              {materials.length === 0 ? (
-                <option value="">Loading materials…</option>
-              ) : (
-                materials.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} ({m.code})
-                  </option>
-                ))
-              )}
-            </select>
+              value={materialId}
+              onChange={setMaterialId}
+              options={materials.map((m) => ({ value: m.id, label: m.name, sub: m.code }))}
+              placeholder={materials.length === 0 ? "Loading materials…" : "Select material…"}
+              disabled={materials.length === 0}
+            />
           </div>
 
           {/* Quantity + Unit cost */}

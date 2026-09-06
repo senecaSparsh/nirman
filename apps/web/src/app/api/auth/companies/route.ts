@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { json } from "@/lib/server";
+import { ServiceError } from "@nirman/services";
+import { json, ForbiddenError, UnauthorizedError } from "@/lib/server";
 
 /**
  * GET /api/auth/companies?email=...
@@ -16,38 +17,68 @@ import { json } from "@/lib/server";
  * a B2B app where the email is the login key.
  */
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const email = searchParams.get("email")?.trim().toLowerCase();
+  try {
+    const { searchParams } = new URL(req.url);
+    const email = searchParams.get("email")?.trim().toLowerCase();
 
-  if (!email) {
-    return json({ companies: [] });
-  }
+    if (!email) {
+      return json({ companies: [] });
+    }
 
-  const user = await prisma.user.findUnique({
-    where: { email },
-    select: {
-      memberships: {
-        select: {
-          role: true,
-          company: {
-            select: { id: true, name: true, deletedAt: true },
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        memberships: {
+          select: {
+            role: true,
+            company: {
+              select: { id: true, name: true, deletedAt: true },
+            },
           },
         },
       },
-    },
-  });
+    });
 
-  if (!user) {
-    return json({ companies: [] });
+    if (!user) {
+      return json({ companies: [] });
+    }
+
+    const companies = user.memberships
+      .filter((m) => m.company.deletedAt === null)
+      .map((m) => ({
+        id: m.company.id,
+        name: m.company.name,
+        role: m.role,
+      }));
+
+    return json({ companies });
+  } catch (err: unknown) {
+    if (err instanceof ServiceError) {
+      return json({ error: err.message }, { status: err.status ?? 400 });
+    }
+    if (err instanceof SyntaxError && err.message.includes("JSON")) {
+      return json({ error: "Malformed JSON in request body" }, { status: 400 });
+    }
+    if (err instanceof ForbiddenError) {
+      return json({ error: err.message }, { status: 403 });
+    }
+    if (err instanceof UnauthorizedError) {
+      return json({ error: err.message }, { status: 401 });
+    }
+    const prismaCode = (err as { code?: string })?.code;
+    if (prismaCode === "P2024") {
+      console.error("[apiHandler] Prisma P2024: connection pool exhausted");
+      return json({ error: "Database busy — please retry shortly", retryable: true }, { status: 503, headers: { "Retry-After": "5" } });
+    }
+    if (prismaCode === "P1001") {
+      console.error("[apiHandler] Prisma P1001: database unreachable");
+      return json({ error: "Database unreachable — please retry shortly", retryable: true }, { status: 503, headers: { "Retry-After": "10" } });
+    }
+    if (prismaCode === "P1002") {
+      console.error("[apiHandler] Prisma P1002: database timeout");
+      return json({ error: "Database request timed out — please retry", retryable: true }, { status: 504 });
+    }
+    console.error("[apiHandler] Unhandled error:", err);
+    return json({ error: "Internal server error" }, { status: 500 });
   }
-
-  const companies = user.memberships
-    .filter((m) => m.company.deletedAt === null)
-    .map((m) => ({
-      id: m.company.id,
-      name: m.company.name,
-      role: m.role,
-    }));
-
-  return json({ companies });
 }

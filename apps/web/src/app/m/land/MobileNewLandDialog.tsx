@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 
@@ -255,21 +256,12 @@ export function MobileNewLandDialog({
                 />
               </div>
               <div className="pl-2">
-                <label className={labelClass} style={labelStyle}>
-                  Unit
-                </label>
-                <select
+                <EnumSelect
+                  label="Unit"
                   value={form.areaUnit}
-                  onChange={(e) => set("areaUnit", e.target.value as AreaUnit)}
-                  className={inputClass}
-                  style={inputStyle}
-                >
-                  {(Object.keys(AREA_UNIT_LABELS) as AreaUnit[]).map((u) => (
-                    <option key={u} value={u}>
-                      {AREA_UNIT_LABELS[u]}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => set("areaUnit", v as AreaUnit)}
+                  options={(Object.keys(AREA_UNIT_LABELS) as AreaUnit[]).map((u) => ({ value: u, label: AREA_UNIT_LABELS[u] }))}
+                />
               </div>
             </div>
 
@@ -333,33 +325,28 @@ export function MobileNewLandDialog({
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex flex-col gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
-              style={{
-                borderColor: "var(--color-line)",
-                color: "var(--color-ink-500)",
-                backgroundColor: "transparent",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
-              style={{
-                backgroundColor: "var(--color-ink-950)",
-                color: "var(--color-paper)",
-              }}
-            >
-              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-              {saving ? "Creating…" : "Record Purchase"}
-            </button>
+          {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+          <div
+            className="sticky bottom-0 left-0 right-0 z-20 border-t"
+            style={{
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+            }}
+          >
+            <div className="px-3.5 py-2 flex items-center justify-end gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--color-ink-950)",
+                  color: "var(--color-paper)",
+                }}
+              >
+                {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+                {saving ? "Creating…" : "Record Purchase"}
+              </button>
+            </div>
           </div>
         </form>
     </MobileDialog>

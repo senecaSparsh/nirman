@@ -67,13 +67,11 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
   const { getDefault, recordDefaults } = useSmartDefaults("requisition");
   const [defaultsApplied, setDefaultsApplied] = useState(false);
 
-  const [projectId, setProjectId] = useState(data.projects[0]?.id ?? "");
+  const [projectId, setProjectId] = useState("");
   const [neededByDate, setNeededByDate] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<ReqLine[]>(
-    data.materials.length > 0
-      ? [{ materialId: data.materials[0]!.id, qty: "", notes: "", preferredSupplierId: "" }]
-      : [{ materialId: "", qty: "", notes: "", preferredSupplierId: "" }],
+    [{ materialId: "", qty: "", notes: "", preferredSupplierId: "" }],
   );
 
   // Apply smart defaults on mount (if no draft to restore)
@@ -87,8 +85,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
   }, [hasDraft, draftRestored, defaultsApplied, getDefault, data.projects]);
 
   function addLine() {
-    const defaultMat = data.materials[0]?.id ?? "";
-    setLines([...lines, { materialId: defaultMat, qty: "", notes: "", preferredSupplierId: "" }]);
+    setLines([...lines, { materialId: "", qty: "", notes: "", preferredSupplierId: "" }]);
   }
 
   function removeLine(idx: number) {
@@ -102,6 +99,9 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
 
   // Auto-save draft
   useEffect(() => {
+    const hasContent = projectId || neededByDate || notes ||
+      lines.some((l) => l.materialId || l.qty);
+    if (!hasContent) return;
     saveDraft({ projectId, neededByDate, notes, lines });
   }, [projectId, neededByDate, notes, lines, saveDraft]);
 
@@ -162,7 +162,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const result = await res.json();
+      const result = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(result.error ?? "Failed to create indent");
       toast.success(`Indent ${result.reqNumber ?? "created"} submitted`);
       clearDraft();
@@ -218,7 +218,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
       <form onSubmit={handleSubmit} className="space-y-3">
         {/* ── Project + date ── */}
         <div
-          className="rounded-[0.625rem] border p-3 space-y-3"
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <div className="flex items-center gap-1.5 border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
@@ -234,13 +234,14 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
               <MobileSelectWithCreate
                 label="Project"
                 required
+                placeholder="— Select project —"
                 value={projectId}
                 onChange={setProjectId}
                 options={data.projects.map((p) => ({ value: p.id, label: p.name }))}
                 inputClass={inputClass}
                 inputStyle={inputStyle}
                 renderDialog={({ open, onClose, onCreated, originRect }) => (
-                  <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+                  <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project" nested>
                     <MobileNewProjectDialog
                       open={open}
                       onClose={onClose}
@@ -267,7 +268,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
 
         {/* ── Material lines ── */}
         <div
-          className="rounded-[0.625rem] border p-3 space-y-3"
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
@@ -300,6 +301,8 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
                       <MobileSelectWithCreate
                         label=""
                         createLabel="material"
+                        required
+                        placeholder="— Select material —"
                         value={line.materialId}
                         onChange={(val) => updateLine(idx, "materialId", val)}
                         options={data.materials.map((m) => ({ value: m.id, label: `${m.name} (${m.code})` }))}
@@ -312,6 +315,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
                             onClose={onClose}
                             categories={[]}
                             onCreated={(m) => onCreated(m.id, m.name)}
+                            nested
                           />
                         )}
                       />
@@ -347,17 +351,14 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
                   <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                     {data.suppliers.length > 0 ? (
                       <div>
-                        <select
+                        <MobileSelectWithCreate
+                          label="Preferred Supplier"
                           value={line.preferredSupplierId}
-                          onChange={(e) => updateLine(idx, "preferredSupplierId", e.target.value)}
-                          className={`${inputClass} text-m-label`}
-                          style={inputStyle}
-                        >
-                          <option value="">No preferred supplier</option>
-                          {data.suppliers.map((s) => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
-                          ))}
-                        </select>
+                          onChange={(val) => updateLine(idx, "preferredSupplierId", val)}
+                          options={data.suppliers.map((s) => ({ value: s.id, label: s.name }))}
+                          placeholder="No preferred supplier"
+                          compact
+                        />
                       </div>
                     ) : null}
                     <div className={data.suppliers.length === 0 ? "col-span-2" : ""}>

@@ -18,7 +18,6 @@ import {
   Clock,
   User,
   Tag as TagIcon,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
@@ -29,6 +28,8 @@ import {
   ActionBar,
   MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 type CallDirection = "INBOUND" | "OUTBOUND" | "INTERNAL";
 type CallStatus = "RINGING" | "ANSWERED" | "MISSED" | "BUSY" | "REJECTED" | "FAILED" | "VOICEMAIL";
@@ -234,7 +235,10 @@ export function MobileCallDetailClient({
     try {
       await fetch(`/api/calls/${call.id}/tags?tagId=${tagId}`, { method: "DELETE" });
       setTags(tags.filter((t) => t.callTag.id !== tagId));
-    } catch {}
+    } catch (e) {
+      console.error("Failed to remove tag", e);
+      toast.error("Could not remove tag.");
+    }
   }
 
   async function saveDisposition() {
@@ -577,7 +581,7 @@ export function MobileCallDetailClient({
               >
                 {t.callTag.name}
                 {canEdit && (
-                  <button onClick={() => removeTag(t.callTag.id)} className="ml-0.5 press">
+                  <button type="button" onClick={() => removeTag(t.callTag.id)} className="ml-0.5 press">
                     ×
                   </button>
                 )}
@@ -714,28 +718,8 @@ export function MobileCallDetailClient({
 
       {/* ── Delete confirmation bottom sheet ── */}
       {showDelete && (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => setShowDelete(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-center pt-2 pb-1">
-              <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
-            </div>
-            <div className="flex items-center justify-between px-3 pb-2">
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-                Delete this call?
-              </p>
-              <button onClick={() => setShowDelete(false)} className="text-m-body press p-1">
-                <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-              </button>
-            </div>
-            <div className="px-3 pb-4">
+        <MobileDialog open={showDelete} onClose={() => setShowDelete(false)} title="Delete this call?">
+          <div className="px-3 pb-4">
               <div
                 className="rounded-[0.5rem] p-2.5 mb-3 flex items-start gap-2"
                 style={{ backgroundColor: "color-mix(in srgb, var(--color-stop) 8%, transparent)" }}
@@ -765,54 +749,30 @@ export function MobileCallDetailClient({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+        </MobileDialog>
       )}
 
       {/* ── Disposition editor bottom sheet ── */}
       {showDisposition && (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => setShowDisposition(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md max-h-[85vh] overflow-y-auto"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-center pt-2 pb-1">
-              <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
-            </div>
-            <div className="flex items-center justify-between px-3 pb-2 sticky top-0" style={{ backgroundColor: "var(--color-paper)" }}>
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-                Disposition & Notes
-              </p>
-              <button onClick={() => setShowDisposition(false)} className="text-m-body press p-1">
-                <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-              </button>
-            </div>
-            <div className="px-3 pb-4 space-y-3">
+        <MobileDialog open={showDisposition} onClose={() => setShowDisposition(false)} title="Disposition & Notes">
+          <div className="px-3 pb-4 space-y-3">
               <div>
-                <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
-                  Disposition
-                </label>
-                <select
+                <EnumSelect
+                  label="Disposition"
                   value={disposition}
-                  onChange={(e) => setDisposition(e.target.value)}
-                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                  style={{ backgroundColor: "transparent" }}
-                >
-                  <option value="">—</option>
-                  <option value="CONNECTED">Connected</option>
-                  <option value="VOICEMAIL_LEFT">Voicemail left</option>
-                  <option value="CALLBACK_REQUESTED">Callback requested</option>
-                  <option value="FOLLOW_UP">Follow up</option>
-                  <option value="DEAL_CLOSED">Deal closed</option>
-                  <option value="COMPLAINT">Complaint</option>
-                  <option value="INQUIRY">Inquiry</option>
-                  <option value="OTHER">Other</option>
-                </select>
+                  onChange={(v) => setDisposition(v)}
+                  placeholder="—"
+                  options={[
+                    { value: "CONNECTED", label: "Connected" },
+                    { value: "VOICEMAIL_LEFT", label: "Voicemail left" },
+                    { value: "CALLBACK_REQUESTED", label: "Callback requested" },
+                    { value: "FOLLOW_UP", label: "Follow up" },
+                    { value: "DEAL_CLOSED", label: "Deal closed" },
+                    { value: "COMPLAINT", label: "Complaint" },
+                    { value: "INQUIRY", label: "Inquiry" },
+                    { value: "OTHER", label: "Other" },
+                  ]}
+                />
               </div>
               <div>
                 <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
@@ -848,8 +808,7 @@ export function MobileCallDetailClient({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+        </MobileDialog>
       )}
     </div>
   );

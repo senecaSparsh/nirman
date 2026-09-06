@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { startTransition } from "react";
-import { Loader2, Building2, GitBranch } from "lucide-react";
+import { Loader2, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 interface FormState {
   name: string;
@@ -169,28 +171,13 @@ export function MobileNewCompanyForm({
         {/* Parent company (optional — for creating a child/subsidiary) */}
         {parentOptions.length > 0 ? (
           <div>
-            <label className={labelClass} style={labelStyle}>
-              Parent Company
-            </label>
-            <div className="relative">
-              <GitBranch
-                className="absolute left-1 top-1/2 -translate-y-1/2 size-3 pointer-events-none"
-                style={{ color: "var(--color-ink-500)" }}
-              />
-              <select
-                value={form.parentCompanyId}
-                onChange={(e) => set("parentCompanyId", e.target.value)}
-                className={`${inputClass} pl-5`}
-                style={inputStyle}
-              >
-                <option value="">None (independent)</option>
-                {parentOptions.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <MobileSelectWithCreate
+              label="Parent Company"
+              value={form.parentCompanyId}
+              onChange={(v) => set("parentCompanyId", v)}
+              options={parentOptions.map((p) => ({ value: p.id, label: p.name }))}
+              placeholder="None (independent)"
+            />
             <p
               className="text-m-caption mt-1"
               style={{ color: "var(--color-ink-500)" }}
@@ -203,39 +190,21 @@ export function MobileNewCompanyForm({
         {/* Business type + Currency */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelClass} style={labelStyle}>
-              Business Type
-            </label>
-            <select
+            <EnumSelect
+              label="Business Type"
               value={form.businessType}
-              onChange={(e) => set("businessType", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              <option value="">Select…</option>
-              {BUSINESS_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => set("businessType", v)}
+              placeholder="Select…"
+              options={BUSINESS_TYPES.map((t) => ({ value: t, label: t }))}
+            />
           </div>
           <div>
-            <label className={labelClass} style={labelStyle}>
-              Currency
-            </label>
-            <select
+            <EnumSelect
+              label="Currency"
               value={form.currency}
-              onChange={(e) => set("currency", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              {CURRENCIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => set("currency", v)}
+              options={CURRENCIES.map((c) => ({ value: c, label: c }))}
+            />
           </div>
         </div>
       </div>

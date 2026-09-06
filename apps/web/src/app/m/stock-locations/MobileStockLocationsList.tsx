@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {MapPin, Pencil, Trash2, Loader2, Warehouse, Building2, Eye, Share2, Package, IndianRupee} from "lucide-react";
+import {MapPin, Pencil, Trash2, Loader2, Warehouse, Building2, Eye, Share2, Package, IndianRupee, FolderOpen} from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { useLongPress } from "@/lib/use-long-press";
 import {
@@ -14,8 +14,10 @@ import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileFab } from "@/components/mobile/v2/scaffold";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileNewStockLocationForm } from "./MobileNewStockLocationDialog";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 
 type LocationType = "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT" | "CENTRAL_WAREHOUSE";
@@ -347,29 +349,7 @@ function EditLocationDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full sm:max-w-md rounded-t-[0.75rem] sm:rounded-[0.75rem] p-5 max-h-[90vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-            Edit Location
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-m-caption press rounded-[0.375rem] px-2 py-1"
-            style={{ color: "var(--color-ink-400)" }}
-          >
-            Cancel
-          </button>
-        </div>
-
+    <MobileDialog open={true} onClose={onClose} title="Edit Location">
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1">
             <label className="text-m-caption font-medium" style={{ color: "var(--color-ink-600)" }}>
@@ -384,21 +364,14 @@ function EditLocationDialog({
           </div>
 
           {isProjectSite && (
-            <div className="space-y-1">
-              <label className="text-m-caption font-medium" style={{ color: "var(--color-ink-600)" }}>
-                Project
-              </label>
-              <select
-                value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
-                className="w-full rounded-[0.625rem] border px-3 py-2.5 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              >
-                <option value="">Select project…</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
+            <MobileSelectWithCreate
+              label="Project"
+              value={projectId}
+              onChange={(v) => setProjectId(v)}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              placeholder="Select project…"
+              icon={FolderOpen}
+            />
           )}
 
           <div className="space-y-1">
@@ -471,7 +444,6 @@ function EditLocationDialog({
             )}
           </button>
         </form>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }

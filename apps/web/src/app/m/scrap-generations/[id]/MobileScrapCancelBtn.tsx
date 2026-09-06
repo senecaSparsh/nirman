@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, Loader2, X } from "lucide-react";
+import { Ban, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 /**
  * Cancel button for the scrap generation detail page.
@@ -45,29 +46,8 @@ export function MobileScrapCancelBtn({ scrapId, scrapNumber }: { scrapId: string
         Cancel Scrap Generation
       </button>
 
-      {show ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => setShow(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-center pt-2 pb-1">
-              <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
-            </div>
-            <div className="flex items-center justify-between px-3 pb-2">
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-                Cancel Scrap Generation?
-              </p>
-              <button onClick={() => setShow(false)} className="text-m-body press p-1">
-                <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-              </button>
-            </div>
-            <div className="px-3 pb-4">
+      <MobileDialog open={show} onClose={() => setShow(false)} title="Cancel Scrap Generation?">
+            <div className="pb-4">
               <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
                 This will reverse the stock addition and GL entries for scrap <span className="font-mono font-bold">{scrapNumber}</span>. The scrap materials will be removed from the destination location. This cannot be undone.
               </p>
@@ -90,9 +70,7 @@ export function MobileScrapCancelBtn({ scrapId, scrapNumber }: { scrapId: string
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileDialog>
     </>
   );
 }

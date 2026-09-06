@@ -102,6 +102,11 @@ interface CreateDirectPurchaseInput {
     qty: Decimal | number | string;
     unitCost: Decimal | number | string;
     gstRate?: Decimal | number | string;
+    // ── Lot tracking (optional, per line) ──
+    lotNumber?: string;           // explicit lot to receive into (auto-generated if omitted)
+    batchCode?: string;           // batch code from the supplier bill
+    expiryDate?: Date;            // expiry date from the supplier bill
+    manufacturingDate?: Date;     // manufacturing date from the supplier bill
   }[];
 }
 
@@ -160,6 +165,10 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
         gstTotal = gstTotal.plus(gstAmount);
 
         // Receive stock: record a PURCHASE_RECEIPT movement (adds qty, updates MAC)
+        // Pass companyId explicitly (avoids an extra StockLocation lookup in
+        // recordMovement) and forward lot metadata so lot-tracked materials
+        // either receive into the specified lot or auto-create one with full
+        // batch/expiry/manufacturing/supplier details.
         await recordMovement(tx, {
           materialId: line.materialId,
           movementType: "PURCHASE_RECEIPT",
@@ -168,6 +177,12 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
           unitCost,
           refType: "DIRECT_PURCHASE",
           userId: input.createdById,
+          companyId: input.companyId,
+          lotNumber: line.lotNumber,
+          lotBatchCode: line.batchCode,
+          lotExpiryDate: line.expiryDate,
+          lotManufacturingDate: line.manufacturingDate,
+          lotSupplierId: input.supplierId,
         });
 
         lineData.push({ materialId: line.materialId, qty, unitCost, gstRate, lineTotal });

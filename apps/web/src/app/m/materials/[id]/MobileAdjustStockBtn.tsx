@@ -8,6 +8,7 @@ import { MobileFab } from "@/components/mobile/v2/scaffold";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { formatCurrency, formatNumber } from "@/lib/utils";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 type StockItem = {
   locationId: string;
@@ -261,35 +262,23 @@ export function MobileAdjustStockBtn({
               Stock Location
             </p>
             <div>
-              <label
-                className="block text-m-caption font-bold mb-0"
-                style={{ color: "var(--color-ink-700)" }}
-              >
-                Stock Location
-              </label>
-              <select
+              <MobileSelectWithCreate
+                label="Stock Location"
                 value={locationId}
-                onChange={(e) => setLocationId(e.target.value)}
+                onChange={setLocationId}
+                options={locations.map((l) => ({
+                  value: l.id,
+                  label: l.name,
+                  sub: l.projectName ?? undefined,
+                }))}
+                placeholder={locations.length === 0 ? "No locations available" : "— Select location —"}
                 disabled={locLoading || locations.length === 0}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {locations.length === 0 ? (
-                  <option value="">No locations available</option>
-                ) : (
-                  locations.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                      {l.projectName ? ` · ${l.projectName}` : ""}
-                    </option>
-                  ))
-                )}
-              </select>
+              />
             </div>
 
             {selectedStock && (
               <div
-                className="rounded-[0.5rem] border p-3 space-y-1"
+                className="rounded-[0.625rem] border p-3 space-y-1"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
               >
                 <div className="flex items-baseline justify-between">
@@ -388,7 +377,7 @@ export function MobileAdjustStockBtn({
 
             {qtyNum > 0 && (
               <div
-                className="flex items-baseline justify-between rounded-[0.5rem] border p-3"
+                className="flex items-baseline justify-between rounded-[0.625rem] border p-3"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
               >
                 <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
@@ -428,39 +417,47 @@ export function MobileAdjustStockBtn({
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => setShow(false)}
-              disabled={saving}
-              className="flex-1 h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press"
-              style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press flex items-center justify-center gap-1.5"
-              style={
-                direction === "IN"
-                  ? { backgroundColor: "var(--color-go)", color: "var(--color-paper)" }
-                  : { backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }
-              }
-            >
-              {saving ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : direction === "IN" ? (
-                <>
-                  <Plus className="size-4" /> Add
-                </>
-              ) : (
-                <>
-                  <Minus className="size-4" /> Remove
-                </>
-              )}
-            </button>
+          {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+          <div
+            className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
+            style={{
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShow(false)}
+                disabled={saving}
+                className="flex-1 h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press"
+                style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press flex items-center justify-center gap-1.5"
+                style={
+                  direction === "IN"
+                    ? { backgroundColor: "var(--color-go)", color: "var(--color-paper)" }
+                    : { backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }
+                }
+              >
+                {saving ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : direction === "IN" ? (
+                  <>
+                    <Plus className="size-4" /> Add
+                  </>
+                ) : (
+                  <>
+                    <Minus className="size-4" /> Remove
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </MobileFabModal>

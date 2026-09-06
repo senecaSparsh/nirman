@@ -21,6 +21,16 @@
  * This component installs global error handlers that detect these failures
  * and automatically hard-reload the page.
  *
+ * **Recovery strategy (round 2):** a plain `window.location.reload()` may
+ * still serve stale chunks from the browser's HTTP cache or a leftover
+ * service worker. The recovery now does a three-step clean reload:
+ *   1. Unregister any service workers (a stale SW from a previous prod
+ *      build will serve cached chunks that no longer match the dev server).
+ *   2. Clear the Cache Storage API (SW caches) if accessible.
+ *   3. Navigate with a cache-busting query param (`?__dc=timestamp`) which
+ *      forces the browser to re-fetch the HTML (and thus the new chunk
+ *      hashes referenced in it) instead of serving from cache.
+ *
  * Loop prevention: a sessionStorage flag ensures we only auto-reload ONCE
  * per session per error type. If the error persists after the reload, the
  * user sees the error and can manually clear cache. The flag auto-clears
@@ -98,14 +108,41 @@ export function ChunkErrorRecovery() {
       return () => clearTimeout(timer);
     }
 
-    const doReload = (context: string, detail: unknown) => {
+    const doReload = async (context: string, detail: unknown) => {
       if (alreadyReloadedRecently()) return; // double-check inside handler
       console.warn(`[chunk-recovery] ${context} — auto-reloading once.`, detail);
       markReloaded();
-      // Hard reload — bypass browser cache to force fresh chunk fetch.
-      // In production this picks up new chunk hashes from the new HTML.
-      // In dev this forces Turbopack to recompile fresh chunks.
-      window.location.reload();
+
+      // Step 1: Unregister any service workers. A stale SW from a previous
+      // production build will intercept requests and serve cached chunks
+      // that don't match the current dev server's chunk URLs.
+      if ("serviceWorker" in navigator) {
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map((r) => r.unregister().catch(() => {})));
+        } catch {
+          // SW API may be unavailable (insecure context, private mode).
+        }
+      }
+
+      // Step 2: Clear the Cache Storage API (SW caches). This removes any
+      // cached _next/static chunks that the SW may have stored.
+      if ("caches" in window) {
+        try {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k).catch(() => {})));
+        } catch {
+          // Cache API may be unavailable.
+        }
+      }
+
+      // Step 3: Navigate with a cache-busting query param. This forces the
+      // browser to re-fetch the HTML document (not serve from cache), which
+      // references the current chunk URLs. We use replace() so the broken
+      // page doesn't stay in history.
+      const url = new URL(window.location.href);
+      url.searchParams.set("__dc", Date.now().toString());
+      window.location.replace(url.toString());
     };
 
     const handleError = (event: ErrorEvent) => {

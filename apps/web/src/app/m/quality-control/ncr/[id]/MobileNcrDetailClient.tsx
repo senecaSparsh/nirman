@@ -9,6 +9,8 @@ import { haptic } from "@/lib/haptic";
 import { formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import { ActionBar, MobileStatusBadge } from "@/components/mobile/v2/primitives";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 interface NcrDetail {
   id: string;
@@ -177,7 +179,7 @@ export function MobileNcrDetailClient({
   return (
     <div className="space-y-4 pb-20">
       {/* Header */}
-      <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+      <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <div className="flex items-center justify-between mb-2">
           <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{ncr.ncrNumber}</p>
           <MobileStatusBadge status={ncr.status} />
@@ -190,7 +192,7 @@ export function MobileNcrDetailClient({
       </div>
 
       {/* Description */}
-      <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+      <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <p className="text-m-label font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Description</p>
         <p className="text-m-section leading-relaxed" style={{ color: "var(--color-ink-950)" }}>{ncr.description}</p>
       </div>
@@ -228,7 +230,7 @@ export function MobileNcrDetailClient({
       )}
 
       {/* Timeline */}
-      <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+      <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <p className="text-m-label font-semibold uppercase mb-2" style={{ color: "var(--color-ink-500)" }}>Timeline</p>
         <div className="space-y-1.5">
           <TimelineRow label="Raised" date={ncr.raisedAt} name={ncr.raisedByName} />
@@ -253,10 +255,10 @@ export function MobileNcrDetailClient({
       {ncr.capa ? (
         <CapaSection capa={ncr.capa} />
       ) : ncr.status === "CAPA_REQUIRED" && canManage ? (
-        <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <div className="flex items-center gap-2 mb-2">
             <ShieldCheck className="size-4" style={{ color: "var(--color-signal)" }} />
-            <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>CAPA Required</p>
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>CAPA Required</p>
           </div>
           <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
             Create a Corrective And Preventive Action plan for this NCR.
@@ -326,24 +328,23 @@ export function MobileNcrDetailClient({
 
       {/* Review dialog */}
       {showReview && (
-        <BottomSheet title="Review NCR" onClose={() => setShowReview(false)}>
+        <MobileDialog open={showReview} onClose={() => setShowReview(false)} title="Review NCR">
           <div className="flex flex-col gap-3">
             <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                 Review Details
               </p>
               <div>
-                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Outcome</label>
-                <select
+                <EnumSelect
+                  label="Outcome"
                   value={reviewForm.outcome}
-                  onChange={(e) => setReviewForm((f) => ({ ...f, outcome: e.target.value as "CAPA_REQUIRED" | "ACCEPTED" | "REJECTED" }))}
-                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-                >
-                  <option value="CAPA_REQUIRED">CAPA Required</option>
-                  <option value="ACCEPTED">Accepted (with concession)</option>
-                  <option value="REJECTED">Rejected (rework required)</option>
-                </select>
+                  onChange={(v) => setReviewForm((f) => ({ ...f, outcome: v as "CAPA_REQUIRED" | "ACCEPTED" | "REJECTED" }))}
+                  options={[
+                    { value: "CAPA_REQUIRED", label: "CAPA Required" },
+                    { value: "ACCEPTED", label: "Accepted (with concession)" },
+                    { value: "REJECTED", label: "Rejected (rework required)" },
+                  ]}
+                />
               </div>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Review Notes</label>
@@ -370,12 +371,12 @@ export function MobileNcrDetailClient({
               Submit Review
             </button>
           </div>
-        </BottomSheet>
+        </MobileDialog>
       )}
 
       {/* Close NCR dialog */}
       {showClose && (
-        <BottomSheet title="Close NCR" onClose={() => setShowClose(false)}>
+        <MobileDialog open={showClose} onClose={() => setShowClose(false)} title="Close NCR">
           <div className="flex flex-col gap-3">
             <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
@@ -406,12 +407,12 @@ export function MobileNcrDetailClient({
               Confirm Closure
             </button>
           </div>
-        </BottomSheet>
+        </MobileDialog>
       )}
 
       {/* Create CAPA dialog */}
       {showCapa && (
-        <BottomSheet title="Create CAPA" onClose={() => setShowCapa(false)}>
+        <MobileDialog open={showCapa} onClose={() => setShowCapa(false)} title="Create CAPA">
           <div className="flex flex-col gap-3">
             <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
@@ -450,12 +451,12 @@ export function MobileNcrDetailClient({
               Create CAPA
             </button>
           </div>
-        </BottomSheet>
+        </MobileDialog>
       )}
 
       {/* Verify CAPA dialog */}
       {showVerify && (
-        <BottomSheet title="Verify CAPA" onClose={() => setShowVerify(false)}>
+        <MobileDialog open={showVerify} onClose={() => setShowVerify(false)} title="Verify CAPA">
           <div className="flex flex-col gap-3">
             <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
@@ -479,12 +480,12 @@ export function MobileNcrDetailClient({
               </button>
             </div>
           </div>
-        </BottomSheet>
+        </MobileDialog>
       )}
 
       {/* Close CAPA dialog */}
       {showCapaClose && (
-        <BottomSheet title="Close CAPA" onClose={() => setShowCapaClose(false)}>
+        <MobileDialog open={showCapaClose} onClose={() => setShowCapaClose(false)} title="Close CAPA">
           <div className="flex flex-col gap-3">
             <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
@@ -499,7 +500,7 @@ export function MobileNcrDetailClient({
               {acting === "close" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Confirm Closure
             </button>
           </div>
-        </BottomSheet>
+        </MobileDialog>
       )}
       {confirmDialog}
     </div>
@@ -581,16 +582,4 @@ function ActionButton({ onClick, loading, icon: Icon, label, variant }: { onClic
   );
 }
 
-function BottomSheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}>
-      <div className="mt-auto rounded-t-[1rem] max-h-[80vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}>
-        <div className="sticky top-0 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</h2>
-          <button onClick={onClose} className="text-m-body press"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
-        </div>
-        <div className="p-4">{children}</div>
-      </div>
-    </div>
-  );
-}
+

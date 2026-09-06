@@ -36,6 +36,7 @@ import { ScopeEditorDialog } from "@/components/settings/scope-editor-dialog";
 import { PermissionsEditorDialog } from "@/components/settings/permissions-editor-dialog";
 import { ResetPasswordDialog } from "@/components/settings/reset-password-dialog";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 interface TeamMember {
   id: string;
@@ -993,32 +994,22 @@ function AddMemberForm({
           />
         </div>
         <div>
-          <label
-            className="block text-m-caption font-bold mb-0"
-            style={{ color: "var(--color-ink-700)" }}
-          >
-            Department
-          </label>
-          <select
+          <EnumSelect
+            label="Department"
             value={department}
-            onChange={(e) => setDepartment(e.target.value)}
-            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-            style={{
-              borderColor: "var(--color-line)",
-              backgroundColor: "var(--color-paper)",
-              color: "var(--color-ink-500)",
-            }}
-          >
-            <option value="">Select…</option>
-            <option value="Construction">Construction</option>
-            <option value="Procurement">Procurement</option>
-            <option value="Finance">Finance</option>
-            <option value="HR">HR</option>
-            <option value="Sales">Sales</option>
-            <option value="Administration">Administration</option>
-            <option value="Quality">Quality</option>
-            <option value="Stores">Stores</option>
-          </select>
+            onChange={(v) => setDepartment(v)}
+            placeholder="Select…"
+            options={[
+              { value: "Construction", label: "Construction" },
+              { value: "Procurement", label: "Procurement" },
+              { value: "Finance", label: "Finance" },
+              { value: "HR", label: "HR" },
+              { value: "Sales", label: "Sales" },
+              { value: "Administration", label: "Administration" },
+              { value: "Quality", label: "Quality" },
+              { value: "Stores", label: "Stores" },
+            ]}
+          />
         </div>
       </div>
 
@@ -1084,7 +1075,7 @@ function AddMemberForm({
                       }}
                       className="flex items-center gap-1 h-8 px-2.5 rounded-[0.375rem] text-m-caption font-semibold text-m-body press"
                       style={{
-                        color: isCurrent ? "#fff" : meta.color,
+                        color: isCurrent ? "var(--color-paper)" : meta.color,
                         backgroundColor: isCurrent
                           ? meta.color
                           : `color-mix(in srgb, ${meta.color} 8%, transparent)`,
@@ -1133,25 +1124,35 @@ function AddMemberForm({
         </p>
       </div>
 
-      {/* Submit */}
-      <button
-        type="submit"
-        disabled={submitting}
-        className="flex items-center justify-center gap-1.5 w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 mt-1"
+      {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+      <div
+        className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
         style={{
-          backgroundColor: "var(--color-ink-950)",
-          color: "var(--color-paper)",
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
         }}
       >
-        {submitting ? (
-          <Loader2 className="size-4 animate-spin" />
-        ) : (
-          <>
-            <UserPlus className="size-4" />
-            Add Member
-          </>
-        )}
-      </button>
+        <div className="flex items-center justify-end gap-3">
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50"
+            style={{
+              backgroundColor: "var(--color-ink-950)",
+              color: "var(--color-paper)",
+            }}
+          >
+            {submitting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <>
+                <UserPlus className="size-4" />
+                Add Member
+              </>
+            )}
+          </button>
+        </div>
+      </div>
     </form>
   );
 }
@@ -1337,32 +1338,22 @@ function EditMemberDialog({
           {/* Department + Joining Date */}
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
-              <label
-                className="block text-m-caption font-bold mb-0"
-                style={{ color: "var(--color-ink-700)" }}
-              >
-                Department
-              </label>
-              <select
+              <EnumSelect
+                label="Department"
                 value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                style={{
-                  borderColor: "var(--color-line)",
-                  backgroundColor: "transparent",
-                  color: "var(--color-ink-950)",
-                }}
-              >
-                <option value="">Select…</option>
-                <option value="Construction">Construction</option>
-                <option value="Procurement">Procurement</option>
-                <option value="Finance">Finance</option>
-                <option value="HR">HR</option>
-                <option value="Sales">Sales</option>
-                <option value="Administration">Administration</option>
-                <option value="Quality">Quality</option>
-                <option value="Stores">Stores</option>
-              </select>
+                onChange={(v) => setDepartment(v)}
+                placeholder="Select…"
+                options={[
+                  { value: "Construction", label: "Construction" },
+                  { value: "Procurement", label: "Procurement" },
+                  { value: "Finance", label: "Finance" },
+                  { value: "HR", label: "HR" },
+                  { value: "Sales", label: "Sales" },
+                  { value: "Administration", label: "Administration" },
+                  { value: "Quality", label: "Quality" },
+                  { value: "Stores", label: "Stores" },
+                ]}
+              />
             </div>
             <div>
               <label
@@ -1385,32 +1376,28 @@ function EditMemberDialog({
             </div>
           </div>
 
-          {/* Submit */}
-          <div className="flex gap-1 mt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press"
-              style={{
-                borderColor: "var(--color-line)",
-                color: "var(--color-ink-700)",
-                backgroundColor: "var(--color-paper)",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-[2] h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
-              style={{
-                backgroundColor: "var(--color-ink-950)",
-                color: "var(--color-paper)",
-              }}
-            >
-              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-              {saving ? "Saving…" : "Save Changes"}
-            </button>
+          {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+          <div
+            className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-3 -mb-3 px-3 py-2"
+            style={{
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+            }}
+          >
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--color-ink-950)",
+                  color: "var(--color-paper)",
+                }}
+              >
+                {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+                {saving ? "Saving…" : "Save Changes"}
+              </button>
+            </div>
           </div>
         </form>
     </MobileDialog>

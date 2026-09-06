@@ -55,12 +55,12 @@ async function LeaseExpiryContent() {
     <div className="px-3 py-3">
       {/* Summary banner */}
       <div
-        className="rounded-[0.5rem] border p-3 mb-3"
+        className="rounded-[0.625rem] border p-3 mb-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
       >
         <div className="flex items-center gap-2 mb-2">
           <CalendarClock className="size-4" style={{ color: "var(--color-signal)" }} />
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
             Lease Expiry Alerts
           </p>
         </div>

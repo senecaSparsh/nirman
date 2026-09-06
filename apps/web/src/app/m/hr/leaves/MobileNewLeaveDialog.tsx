@@ -8,6 +8,7 @@ import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewEmployeeDialog } from "@/app/m/hr/employees/MobileNewEmployeeDialog";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type LeaveType =
   | "CASUAL"
@@ -169,24 +170,15 @@ export function MobileNewLeaveForm({
             )}
           />
           <div className="pl-2">
-            <label className={labelClass} style={labelStyle}>
-              Leave Type
-            </label>
-            <select
+            <EnumSelect
+              label="Leave Type"
               value={form.type}
-              onChange={(e) => {
-                set("type", e.target.value as LeaveType);
-                haptic(10);
-              }}
-              className={inputClass}
-              style={inputStyle}
-            >
-              {(Object.keys(LEAVE_TYPE_LABELS) as LeaveType[]).map((t) => (
-                <option key={t} value={t}>
-                  {LEAVE_TYPE_LABELS[t]}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => set("type", v as LeaveType)}
+              options={(Object.keys(LEAVE_TYPE_LABELS) as LeaveType[]).map((t) => ({
+                value: t,
+                label: LEAVE_TYPE_LABELS[t],
+              }))}
+            />
           </div>
         </div>
       </div>
@@ -247,18 +239,29 @@ export function MobileNewLeaveForm({
         </div>
       </div>
 
-      <button
-        type="submit"
-        disabled={saving}
-        className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+      {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+      <div
+        className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
         style={{
-          backgroundColor: "var(--color-ink-950)",
-          color: "var(--color-paper)",
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
         }}
       >
-        {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-        {saving ? "Saving…" : "Record Leave"}
-      </button>
+        <div className="flex items-center justify-end gap-3">
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex-1 h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+            style={{
+              backgroundColor: "var(--color-ink-950)",
+              color: "var(--color-paper)",
+            }}
+          >
+            {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+            {saving ? "Saving…" : "Record Leave"}
+          </button>
+        </div>
+      </div>
     </form>
   );
 }

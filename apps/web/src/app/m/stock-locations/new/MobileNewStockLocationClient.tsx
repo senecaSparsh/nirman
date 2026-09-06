@@ -76,7 +76,7 @@ export default function MobileNewStockLocationClient({
         >
           <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
         </div>
-        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
           Location Created
         </p>
         <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>

@@ -4,11 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
-import {Loader2, Play, Check, Ban, Trash2, X} from "lucide-react";
+import {Loader2, Play, Check, Ban, Trash2} from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import { ActionBar, MobileStatusBadge } from "@/components/mobile/v2/primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 interface InspectionDetail {
   id: string; inspectionNumber: string; title: string; status: string; result: string | null;
@@ -55,7 +56,7 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
   return (
     <div className="space-y-4 pb-20">
       {/* Header */}
-      <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+      <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <div className="flex items-center justify-between mb-2">
           <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{inspection.inspectionNumber}</p>
           <MobileStatusBadge status={inspection.status} />
@@ -66,7 +67,7 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
 
       {/* Result banner */}
       {inspection.result && (
-        <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: resultBg }}>
+        <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: resultBg }}>
           <div className="flex items-center justify-between">
             <p className="text-m-label font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Result</p>
             <span className="text-m-section font-bold uppercase" style={{ color: resultTone ?? undefined }}>{inspection.result.replace(/_/g, " ")}</span>
@@ -83,19 +84,19 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
 
       {/* Findings */}
       {inspection.findings && (
-        <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <p className="text-m-label font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Findings</p>
           <p className="text-m-section" style={{ color: "var(--color-ink-950)" }}>{inspection.findings}</p>
         </div>
       )}
       {inspection.complianceNotes && (
-        <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <p className="text-m-label font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Compliance Notes</p>
           <p className="text-m-section" style={{ color: "var(--color-ink-950)" }}>{inspection.complianceNotes}</p>
         </div>
       )}
       {inspection.followUpActions && (
-        <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <p className="text-m-label font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Follow-Up Actions</p>
           <p className="text-m-section" style={{ color: "var(--color-ink-950)" }}>{inspection.followUpActions}</p>
         </div>
@@ -118,7 +119,7 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
       )}
 
       {/* Timeline */}
-      <div className="rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+      <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <p className="text-m-label font-semibold uppercase mb-2" style={{ color: "var(--color-ink-500)" }}>Timeline</p>
         <div className="space-y-1.5">
           <TimelineRow label="Scheduled" date={inspection.scheduledDate} name={null} />
@@ -146,7 +147,7 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
 
       {/* Complete dialog */}
       {showComplete && (
-        <BottomSheet title="Complete Inspection" onClose={() => setShowComplete(false)}>
+        <MobileDialog open={showComplete} onClose={() => setShowComplete(false)} title="Complete Inspection">
           <div className="flex flex-col gap-3">
             <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
@@ -177,7 +178,7 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
               {acting === "complete" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Submit Result
             </button>
           </div>
-        </BottomSheet>
+        </MobileDialog>
       )}
       {confirmDialog}
     </div>
@@ -216,16 +217,4 @@ function ActionButton({ onClick, loading, icon: Icon, label, variant }: { onClic
   );
 }
 
-function BottomSheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}>
-      <div className="mt-auto rounded-t-[1rem] max-h-[85vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}>
-        <div className="sticky top-0 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</h2>
-          <button onClick={onClose} className="text-m-body press"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
-        </div>
-        <div className="p-4">{children}</div>
-      </div>
-    </div>
-  );
-}
+

@@ -72,7 +72,7 @@ export default async function MobileCrmPage() {
 
       {totalOutstanding > 0 && (
         <div
-          className="rounded-[0.5rem] border p-3"
+          className="rounded-[0.625rem] border p-3"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Outstanding Receivables</p>

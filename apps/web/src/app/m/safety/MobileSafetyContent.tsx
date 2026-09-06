@@ -71,7 +71,7 @@ export function MobileSafetyContent({
               {count > 0 && (
                 <span
                   className="ml-0.5 px-1 rounded text-m-caption tabular-nums"
-                  style={{ backgroundColor: active ? "rgba(255,255,255,0.2)" : "var(--color-concrete)" }}
+                  style={{ backgroundColor: active ? "color-mix(in srgb, var(--color-paper) 20%, transparent)" : "var(--color-concrete)" }}
                 >
                   {count}
                 </span>

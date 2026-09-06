@@ -209,19 +209,19 @@ export function MobileNewBoqItemDialog({
                 <label className={labelClass} style={labelStyle}>
                   Parent (optional)
                 </label>
-                <select
+                <MobileSelectWithCreate
+                  label="Parent"
                   value={form.parentId}
-                  onChange={(e) => set("parentId", e.target.value)}
-                  className={inputClass}
-                  style={inputStyle}
-                >
-                  <option value="">— Top-level (no parent) —</option>
-                  {parentItems.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.serialNo} · {p.description}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => set("parentId", v)}
+                  placeholder="— Top-level (no parent) —"
+                  options={parentItems.map((p) => ({
+                    value: p.id,
+                    label: p.serialNo,
+                    sub: p.description,
+                  }))}
+                  inputClass={inputClass}
+                  inputStyle={inputStyle}
+                />
               </div>
             )}
 
@@ -355,33 +355,28 @@ export function MobileNewBoqItemDialog({
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex flex-col gap-3 ">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
-              style={{
-                borderColor: "var(--color-line)",
-                color: "var(--color-ink-700)",
-                backgroundColor: "var(--color-paper)",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
-              style={{
-                backgroundColor: "var(--color-ink-950)",
-                color: "var(--color-paper)",
-              }}
-            >
-              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-              {saving ? "Adding…" : "Add Item"}
-            </button>
+          {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+          <div
+            className="sticky bottom-0 left-0 right-0 z-20 border-t"
+            style={{
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+            }}
+          >
+            <div className="px-3.5 py-2 flex items-center justify-end gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--color-ink-950)",
+                  color: "var(--color-paper)",
+                }}
+              >
+                {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+                {saving ? "Adding…" : "Add Item"}
+              </button>
+            </div>
           </div>
         </form>
     </MobileDialog>

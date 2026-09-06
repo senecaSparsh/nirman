@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { SaleStatus } from "@nirman/db";
-import { createMaterialSale, createMaterialSaleRequest, executeMaterialSale, recordVehicleTrip } from "@nirman/services";
+import { createMaterialSale, createMaterialSaleRequest, executeMaterialSale, recordVehicleTrip, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, materialSaleSchema, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -85,7 +85,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
 
-  const requireGatePass = body?.requireGatePass === true;
+  const requireGatePass = parsed.data.requireGatePass === true;
 
   try {
     const saleInput = {
@@ -146,7 +146,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
     revalidatePath("/finance");
     return json({ ok: true, id: sale.id, saleNumber: sale.saleNumber }, { status: 201 });
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to create material sale") }, { status: 400 });
+    if (err instanceof ServiceError) {
+      return json({ error: err.message }, { status: err.status ?? 400 });
+    }
+    return json({ error: "Failed to create material sale" }, { status: 500 });
   }
 });
 
@@ -177,7 +180,10 @@ export const PATCH = apiHandler(async (req: NextRequest) => {
       revalidatePath("/finance");
       return json({ ok: true });
     } catch (err: unknown) {
-      return json({ error: (err instanceof Error ? err.message : "Failed to execute sale") }, { status: 400 });
+      if (err instanceof ServiceError) {
+        return json({ error: err.message }, { status: err.status ?? 400 });
+      }
+      return json({ error: "Failed to execute sale" }, { status: 500 });
     }
   }
 

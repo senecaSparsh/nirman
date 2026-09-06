@@ -506,19 +506,19 @@ export function MobileNewFinanceDialog({
                     <label className={labelClass} style={labelStyle}>
                       Subcontractor (optional)
                     </label>
-                    <select
+                    <MobileSelectWithCreate
+                      label="Subcontractor"
                       value={costForm.subcontractorId}
-                      onChange={(e) => setCost("subcontractorId", e.target.value)}
-                      className={inputClass}
-                      style={inputStyle}
-                    >
-                      <option value="">— None —</option>
-                      {subcontractors.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}{s.trade ? ` (${s.trade})` : ""}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(v) => setCost("subcontractorId", v)}
+                      placeholder="— None —"
+                      options={subcontractors.map((s) => ({
+                        value: s.id,
+                        label: s.name,
+                        sub: s.trade ?? undefined,
+                      }))}
+                      inputClass={inputClass}
+                      inputStyle={inputStyle}
+                    />
                   </div>
                 )}
 
@@ -548,37 +548,32 @@ export function MobileNewFinanceDialog({
             </>
           )}
 
-          {/* Actions */}
-          <div className="flex flex-col gap-3 ">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
-              style={{
-                borderColor: "var(--color-line)",
-                color: "var(--color-ink-700)",
-                backgroundColor: "var(--color-paper)",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
-              style={{
-                backgroundColor: "var(--color-ink-950)",
-                color: "var(--color-paper)",
-              }}
-            >
-              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-              {saving
-                ? "Saving…"
-                : tab === "expense"
-                  ? "Record Expense"
-                  : "Add Cost"}
-            </button>
+          {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+          <div
+            className="sticky bottom-0 left-0 right-0 z-20 border-t"
+            style={{
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+            }}
+          >
+            <div className="px-3.5 py-2 flex items-center justify-end gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--color-ink-950)",
+                  color: "var(--color-paper)",
+                }}
+              >
+                {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+                {saving
+                  ? "Saving…"
+                  : tab === "expense"
+                    ? "Record Expense"
+                    : "Add Cost"}
+              </button>
+            </div>
           </div>
         </form>
     </MobileDialog>

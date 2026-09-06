@@ -8,8 +8,14 @@ import { syncQueue } from "@/lib/offline/queue";
  * Registers the field PWA service worker and wires the Background Sync
  * wake-up message to the offline queue's sync processor. Mounted once in
  * the root layout so every page gets offline app-shell caching + sync.
+ *
+ * `isDev` is passed from the Server Component layout (where
+ * `process.env.NODE_ENV` is safely inlined) rather than read here. Reading
+ * `process.env` inside this dynamically-imported (`ssr:false`) client chunk
+ * forces Turbopack to load the `process.js` polyfill as a separate chunk,
+ * which desyncs on every recompile ("module factory is not available").
  */
-export function SwRegister() {
+export function SwRegister({ isDev }: { isDev: boolean }) {
   const router = useRouter();
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -18,7 +24,7 @@ export function SwRegister() {
     // Only register in production + secure contexts; in dev the SW caching
     // interferes with HMR and Turbopack. The offline queue still works in dev
     // (it just syncs immediately since navigator.onLine is true).
-    if (process.env.NODE_ENV !== "production") {
+    if (isDev) {
       // Dev mode: unregister any stale SW from a previous production build.
       // A leftover SW will stale-cache _next/static chunks and cause
       // ReferenceErrors when Turbopack recompiles and changes chunk content

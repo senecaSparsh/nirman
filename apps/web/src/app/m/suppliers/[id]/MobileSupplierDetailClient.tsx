@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Phone, Mail, MapPin, BadgeCheck,
-  FileText, Banknote, Pencil, X, Loader2, Trash2,
+  FileText, Banknote, Pencil, Loader2, Trash2,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { mobileStatusColor, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";
@@ -504,28 +505,8 @@ function SupplierEditSheet({
   const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full rounded-t-[1rem] mx-auto max-w-md max-h-[85vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-center pt-2 pb-1">
-          <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
-        </div>
-        <div className="flex items-center justify-between px-3 pb-2">
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-            Edit Supplier
-          </p>
-          <button onClick={onClose} className="text-m-body press p-1">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
-        <div className="px-3 pb-4 flex flex-col gap-3">
+    <MobileDialog open={true} onClose={onClose} title="Edit Supplier">
+      <div className="px-3 pb-4 flex flex-col gap-3">
           <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
             <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Supplier Info
@@ -583,7 +564,6 @@ function SupplierEditSheet({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }

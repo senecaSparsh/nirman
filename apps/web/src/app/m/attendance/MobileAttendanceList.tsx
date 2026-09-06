@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { CalendarCheck, X } from "lucide-react";
+import { CalendarCheck, X, FolderOpen } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -15,6 +15,7 @@ import {
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 type AttendanceStatusFilter =
   | "ALL"
@@ -161,21 +162,16 @@ export function MobileAttendanceList({
           }}
         />
         {projects.length > 0 ? (
-          <select
-            value={projectFilter}
-            onChange={(e) => setProjectFilter(e.target.value)}
-            className="flex-1 rounded-[0.5rem] border px-2.5 py-1.5 text-m-body font-medium outline-none"
-            style={{
-              borderColor: projectFilter ? "var(--color-ink-950)" : "var(--color-line)",
-              backgroundColor: "var(--color-paper)",
-              color: "var(--color-ink-950)",
-            }}
-          >
-            <option value="">All projects</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
+          <div className="flex-1">
+            <MobileSelectWithCreate
+              label="Project"
+              value={projectFilter}
+              onChange={setProjectFilter}
+              placeholder="All projects"
+              icon={FolderOpen}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            />
+          </div>
         ) : null}
         {(dateFilter || projectFilter) ? (
           <button

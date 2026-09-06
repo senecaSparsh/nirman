@@ -22,6 +22,7 @@ import {
   MobileEmptyState,
   ActionBar,
 } from "@/components/mobile/v2/primitives";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 export type ClaimLine = {
   id: string;
@@ -345,7 +346,7 @@ export function MobileExpenseClaimDetailClient({
       {showReject && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-card p-4 shadow-xl">
-            <h3 className="text-m-section font-bold mb-2">Reject claim</h3>
+            <h3 className="text-m-section font-extrabold tracking-tight mb-2">Reject claim</h3>
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
@@ -377,21 +378,21 @@ export function MobileExpenseClaimDetailClient({
       {showPay && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-card p-4 shadow-xl">
-            <h3 className="text-m-section font-bold mb-2">Mark as paid</h3>
-            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-steel)" }}>
-              Payment mode
-            </label>
-            <select
+            <h3 className="text-m-section font-extrabold tracking-tight mb-2">Mark as paid</h3>
+            <div className="mb-3">
+            <EnumSelect
+              label="Payment mode"
               value={payMode}
-              onChange={(e) => setPayMode(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background p-2 text-m-body mb-3"
-            >
-              <option value="BANK_TRANSFER">Bank Transfer</option>
-              <option value="CASH">Cash</option>
-              <option value="CHEQUE">Cheque</option>
-              <option value="UPI">UPI</option>
-              <option value="OTHER">Other</option>
-            </select>
+              onChange={setPayMode}
+              options={[
+                { value: "BANK_TRANSFER", label: "Bank Transfer" },
+                { value: "CASH", label: "Cash" },
+                { value: "CHEQUE", label: "Cheque" },
+                { value: "UPI", label: "UPI" },
+                { value: "OTHER", label: "Other" },
+              ]}
+            />
+            </div>
             <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-steel)" }}>
               Reference no. (optional)
             </label>

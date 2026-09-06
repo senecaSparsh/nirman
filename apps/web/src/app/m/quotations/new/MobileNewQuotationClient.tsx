@@ -6,6 +6,7 @@ import { FileText, Plus, Trash2, Loader2, Check, Search, X, Package, MapPin, War
 import { toast } from "sonner";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
@@ -195,7 +196,7 @@ export function MobileNewQuotationClient({
       <form onSubmit={onSubmit} className="space-y-4">
         {/* ── Details — one big border box ── */}
         <div
-          className="rounded-[0.625rem] border p-3 space-y-3"
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
@@ -231,7 +232,7 @@ export function MobileNewQuotationClient({
                 labelClass={labelClass}
                 labelStyle={labelStyle}
                 renderDialog={({ open, onClose, onCreated, originRect }) => (
-                  <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+                  <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project" nested>
                     <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
                   </MobileFabModal>
                 )}
@@ -322,18 +323,7 @@ export function MobileNewQuotationClient({
 
           {/* Location picker overlay */}
           {showLocationPicker ? (
-            <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={() => setShowLocationPicker(false)}>
-              <div
-                className="w-full max-h-[80vh] overflow-y-auto rounded-t-[1rem] p-3 space-y-3"
-                style={{ backgroundColor: "var(--color-canvas)" }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between sticky top-0 pb-2 border-b" style={{ borderColor: "var(--color-line)" }}>
-                  <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Select delivery location</p>
-                  <button type="button" onClick={() => setShowLocationPicker(false)}>
-                    <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-                  </button>
-                </div>
+            <MobileDialog open={showLocationPicker} onClose={() => setShowLocationPicker(false)} title="Select delivery location" nested>
                 {locationGroups.map((g) => (
                   <div key={g.companyId} className="space-y-3">
                     <div className="flex items-center gap-1.5 pt-2 pb-1">
@@ -376,8 +366,7 @@ export function MobileNewQuotationClient({
                     )}
                   </div>
                 ))}
-              </div>
-            </div>
+            </MobileDialog>
           ) : null}
 
           {/* Notes */}
@@ -398,7 +387,7 @@ export function MobileNewQuotationClient({
 
         {/* ── Materials — one big border box ── */}
         <div
-          className="rounded-[0.625rem] border p-3 space-y-3"
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <div className="flex items-center justify-between">
@@ -475,22 +464,32 @@ export function MobileNewQuotationClient({
           </button>
         </div>
 
-        {/* ── Submit ── */}
-        <button
-          type="submit"
-          disabled={saving || !title.trim() || !requiredByDate || lines.length === 0}
-          className="flex w-full items-center justify-center gap-1 rounded-[0.625rem] py-3.5 text-m-section font-bold text-m-body press transition-transform active:scale-95 disabled:opacity-50"
-          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+        {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+        <div
+          className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
+          style={{
+            backgroundColor: "var(--color-paper)",
+            borderColor: "var(--color-line)",
+          }}
         >
-          {saving ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <>
-              <Check className="size-4" />
-              <span>Create Quotation Request</span>
-            </>
-          )}
-        </button>
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="submit"
+              disabled={saving || !title.trim() || !requiredByDate || lines.length === 0}
+              className="flex-1 flex items-center justify-center gap-1 rounded-[0.625rem] py-3.5 text-m-section font-bold text-m-body press transition-transform active:scale-95 disabled:opacity-50"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            >
+              {saving ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <>
+                  <Check className="size-4" />
+                  <span>Create Quotation Request</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </form>
 
       {/* ── Material picker modal ── */}
@@ -592,6 +591,7 @@ export function MobileNewQuotationClient({
         open={showNewMaterialDialog}
         onClose={() => setShowNewMaterialDialog(false)}
         categories={[]}
+        nested
         onCreated={(m) => {
           const newMat: Material = {
             id: m.id,

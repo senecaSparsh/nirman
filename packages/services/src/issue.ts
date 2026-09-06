@@ -133,6 +133,7 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
     }
 
     // Create MaterialIssue + lines (audit record)
+    const roundOff = input.roundOff ? new Decimal(input.roundOff) : new Decimal(0);
     const materialIssue = await tx.materialIssue.create({
       data: {
         issueNumber: await generateIssueNumber(tx),
@@ -141,6 +142,8 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
         issuedById: input.issuedById,
         notes: input.notes,
         totalCost,
+        roundOff,
+        totalAmount: totalCost.plus(roundOff),
         builtUnitId: input.builtUnitId ?? null,
         requisitionId: input.requisitionId ?? null,
         receiverName: input.receiverName,
@@ -151,10 +154,11 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
         driverName: input.driverName,
         driverPhone: input.driverPhone,
         lines: {
-          create: lineResults.map((l) => ({
+          create: lineResults.map((l, i) => ({
             materialId: l.materialId,
             qty: l.qty,
             unitCost: l.unitCost,
+            lotNumber: input.lines[i]?.lotNumber ?? null,
           })),
         },
       },
@@ -260,6 +264,7 @@ export async function createMaterialIssueRequest(input: IssueMaterialsInput) {
             materialId: l.materialId,
             qty: new Decimal(l.qty),
             unitCost: new Decimal(0), // will be set at execution time (MAC)
+            lotNumber: l.lotNumber ?? null,
           })),
         },
       },
@@ -331,6 +336,7 @@ export async function executeMaterialIssue(issueId: string, userId?: string) {
         refId: issueId,
         userId: userId ?? issue.issuedById ?? undefined,
         companyId: issue.project.companyId,
+        lotNumber: line.lotNumber ?? undefined,
       });
 
       const lineCost = new Decimal(line.qty).times(result.newMAC);
@@ -483,6 +489,7 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
         issuedById: input.issuedById,
         notes: input.notes,
         totalCost,
+        totalAmount: totalCost,
         requisitionId: input.requisitionId ?? null,
         receiverName: input.receiverName,
         receiverMobile: input.receiverMobile,
@@ -492,10 +499,11 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
         driverName: input.driverName,
         driverPhone: input.driverPhone,
         lines: {
-          create: lineResults.map((l) => ({
+          create: lineResults.map((l, i) => ({
             materialId: l.materialId,
             qty: l.qty,
             unitCost: l.unitCost,
+            lotNumber: input.lines[i]?.lotNumber ?? null,
           })),
         },
       },

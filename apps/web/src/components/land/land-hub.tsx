@@ -17,6 +17,7 @@ import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { SellAssetDialog } from "@/components/sales/sell-asset-dialog";
 import { StatusPill } from "@/components/page";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 import { LandPurchaseFormDialog, type LandPurchaseEditInitial } from "./land-purchase-form-dialog";
 import { LandPurchasePaymentDialog } from "./land-purchase-payment-dialog";
 import { LandPaymentScheduleDialog } from "./land-payment-schedule-dialog";
@@ -81,6 +82,9 @@ export type LandHubData = {
     // ── Documents ──
     atsDocumentUrl?: string | null;
     atsDocumentName?: string | null;
+    bbaDocumentUrl?: string | null;
+    bbaDocumentName?: string | null;
+    bbaDate?: string | null;
     registryDocumentUrl?: string | null;
     registryDocumentName?: string | null;
     // ── Possession ──
@@ -233,7 +237,10 @@ export function LandHub({ data }: { data: LandHubData }) {
   const [confirm, confirmDialog] = useConfirm();
 
   const isBooked = purchase.purchaseStage === "BOOKED";
+  const isBbaSigned = purchase.purchaseStage === "BBA_SIGNED";
+  const isRegistered = purchase.purchaseStage === "REGISTERED";
   const isCompleted = purchase.purchaseStage === "COMPLETED";
+  const isStaged = isBooked || isBbaSigned || isRegistered;
   const totalPaid = purchase.totalPaid ?? 0;
   const balanceDue = purchase.balanceDue ?? 0;
   const payments = purchase.payments ?? [];
@@ -262,7 +269,7 @@ export function LandHub({ data }: { data: LandHubData }) {
     }
   }
 
-  async function uploadLandDocument(documentType: "ATS" | "REGISTRY", photos: { url: string; fileName?: string }[]) {
+  async function uploadLandDocument(documentType: "ATS" | "BBA" | "REGISTRY", photos: { url: string; fileName?: string }[]) {
     if (photos.length === 0) return;
     const photo = photos[0];
     if (!photo) return;
@@ -410,7 +417,17 @@ export function LandHub({ data }: { data: LandHubData }) {
                 )}
                 {isBooked && (
                   <span className="inline-flex items-center gap-1 rounded-sm border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-caption font-medium text-warning">
-                    Booked — awaiting registry
+                    Booked — awaiting BBA/ATS
+                  </span>
+                )}
+                {isBbaSigned && (
+                  <span className="inline-flex items-center gap-1 rounded-sm border border-info/40 bg-info/10 px-1.5 py-0.5 text-caption font-medium text-info">
+                    BBA/ATS signed — awaiting registry
+                  </span>
+                )}
+                {isRegistered && (
+                  <span className="inline-flex items-center gap-1 rounded-sm border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-caption font-medium text-primary">
+                    Registered — awaiting completion
                   </span>
                 )}
                 {isCompleted && (
@@ -421,7 +438,7 @@ export function LandHub({ data }: { data: LandHubData }) {
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
-              {isBooked && permissions.canEdit && (
+              {isStaged && permissions.canEdit && (
                 <Button size="sm" onClick={() => setCompleteOpen(true)}>
                   <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Complete
                 </Button>
@@ -451,7 +468,7 @@ export function LandHub({ data }: { data: LandHubData }) {
           </div>
 
           {/* Staged purchase banner — shows payment progress + document status */}
-          {(isBooked || payments.length > 0) && (
+          {(isStaged || payments.length > 0) && (
             <div className="mt-3 grid grid-cols-2 gap-3 rounded-lg border border-border bg-subtle/40 p-3 sm:grid-cols-4">
               <div>
                 <p className="text-caption text-muted-foreground">Total Cost</p>
@@ -710,7 +727,7 @@ export function LandHub({ data }: { data: LandHubData }) {
               <TabsTrigger value="legal">
                 <span className="flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" /> Legal <CountBadge n={data.legalDocs?.length ?? 0} /></span>
               </TabsTrigger>
-              {(isBooked || payments.length > 0) && (
+              {(isStaged || payments.length > 0) && (
                 <TabsTrigger value="payments">
                   <span className="flex items-center gap-1.5"><Banknote className="h-3.5 w-3.5" /> Payments <CountBadge n={payments.length} /></span>
                 </TabsTrigger>
@@ -832,7 +849,7 @@ export function LandHub({ data }: { data: LandHubData }) {
               />
             </TabsContent>
 
-            {(isBooked || payments.length > 0) && (
+            {(isStaged || payments.length > 0) && (
               <TabsContent value="payments">
                 <div className="space-y-4">
                   {/* Payment summary + actions */}
@@ -895,13 +912,13 @@ export function LandHub({ data }: { data: LandHubData }) {
                     </div>
                   )}
 
-                  {/* Document uploads — ATS + Registry */}
+                  {/* Document uploads — ATS + BBA + Registry */}
                   <div className="rounded-lg border p-3 space-y-3">
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4 text-muted-foreground" />
                       <p className="text-label text-muted-foreground">Purchase Documents</p>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-3 gap-3">
                       {/* ATS */}
                       <div className="space-y-1.5">
                         <p className="text-caption font-medium">Agreement to Sell (ATS)</p>
@@ -914,6 +931,20 @@ export function LandHub({ data }: { data: LandHubData }) {
                         )}
                         {permissions.canEdit && (
                           <PhotoUploader photos={[]} onChange={(photos) => uploadLandDocument("ATS", photos)} maxPhotos={1} label="Upload ATS" className="mt-1" />
+                        )}
+                      </div>
+                      {/* BBA */}
+                      <div className="space-y-1.5">
+                        <p className="text-caption font-medium">Builder Buyer Agreement (BBA)</p>
+                        {purchase.bbaDocumentUrl ? (
+                          <a href={purchase.bbaDocumentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-caption text-primary hover:underline">
+                            <ExternalLink className="h-3 w-3" /> {purchase.bbaDocumentName ?? "View BBA"}
+                          </a>
+                        ) : (
+                          <p className="text-micro text-muted-foreground">Not uploaded</p>
+                        )}
+                        {permissions.canEdit && (
+                          <PhotoUploader photos={[]} onChange={(photos) => uploadLandDocument("BBA", photos)} maxPhotos={1} label="Upload BBA" className="mt-1" />
                         )}
                       </div>
                       {/* Registry */}
@@ -932,6 +963,11 @@ export function LandHub({ data }: { data: LandHubData }) {
                       </div>
                     </div>
                     {docUploading && <p className="text-micro text-muted-foreground">Uploading…</p>}
+                  </div>
+
+                  {/* Additional attachments — generic polymorphic document store */}
+                  <div className="rounded-lg border p-3">
+                    <AttachmentList entityType="LandPurchase" entityId={purchase.id} maxAttachments={20} />
                   </div>
                 </div>
               </TabsContent>

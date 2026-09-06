@@ -3,7 +3,7 @@
 import {useEffect, useState, useRef} from "react";
 import {useRouter} from "next/navigation";
 import {
-  ArrowRight, ArrowLeftRight, Package, MapPin, Plus, Trash2,
+  ArrowLeftRight, Package, MapPin, Plus, Trash2,
   Send, Loader2, CheckCircle2, WifiOff, Truck,
   ShieldCheck, Printer, Building2, Clock, Info,
 } from "lucide-react";
@@ -20,6 +20,7 @@ import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog"
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 import { VehicleCapture, type VehicleData } from "@/components/mobile/vehicle-capture";
 import { BottomSheet } from "@/components/mobile/v2/bottom-sheet";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { SelectorModal } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
@@ -260,7 +261,7 @@ export function MobileStockOutClient({
           } else if (projs.length > 0) {
             setProjectId(projs[0]!.id);
           }
-          if (mats.length > 0) setLines([{ materialId: mats[0]!.id, qty: "", lotNumber: "" }]);
+          if (mats.length > 0) setLines([{ materialId: "", qty: "", lotNumber: "" }]);
         }
       } catch (err) {
         console.error("Failed to load stock-out options:", err);
@@ -275,6 +276,12 @@ export function MobileStockOutClient({
   // ── Auto-save draft ──
   useEffect(() => {
     if (loading || success) return;
+    // Only save when the user has entered something meaningful
+    const hasContent = fromLocationId || toLocationId || projectId || builtUnitId ||
+      receiverName || receiverMobile || notes ||
+      lines.some((l) => l.materialId || l.qty) ||
+      freight || handlingFee || markupPct;
+    if (!hasContent) return;
     saveDraft({
       mode, fromLocationId, toLocationId, projectId, builtUnitId,
       receiverName, receiverMobile, vehicle, notes, lines,
@@ -443,17 +450,23 @@ export function MobileStockOutClient({
       return;
     }
 
+    // Mode-specific validation before entering submitting state
+    if (mode === "transfer") {
+      if (!toLocationId) { toast.error("Select destination location"); return; }
+      if (fromLocationId === toLocationId) {
+        toast.error("Source and destination must be different");
+        return;
+      }
+    } else {
+      if (!projectId) { toast.error("Select target project"); return; }
+    }
+
     setSubmitting(true);
     haptic(10);
 
     try {
       if (mode === "transfer") {
         // ── Transfer submit ──
-        if (!toLocationId) { toast.error("Select destination location"); return; }
-        if (fromLocationId === toLocationId) {
-          toast.error("Source and destination must be different");
-          return;
-        }
 
         const payload = {
           fromLocationId,
@@ -484,7 +497,7 @@ export function MobileStockOutClient({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error ?? "Failed to create transfer");
 
         haptic([10, 40, 80]);
@@ -495,7 +508,6 @@ export function MobileStockOutClient({
         });
       } else {
         // ── Issue submit ──
-        if (!projectId) { toast.error("Select target project"); return; }
 
         const payload = {
           fromLocationId,
@@ -534,7 +546,7 @@ export function MobileStockOutClient({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || "Failed to issue materials");
 
         clearDraft();
@@ -605,7 +617,7 @@ export function MobileStockOutClient({
             <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
           )}
         </div>
-        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
           {label}
         </p>
         <p className="text-m-body mb-4" style={{ color: "var(--color-ink-700)" }}>
@@ -651,7 +663,7 @@ export function MobileStockOutClient({
           <button
             onClick={() => {
               setSuccess(null);
-              setLines([{ materialId: materials[0]?.id ?? "", qty: "", lotNumber: "" }]);
+              setLines([{ materialId: "", qty: "", lotNumber: "" }]);
               setNotes("");
             }}
             className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
@@ -813,17 +825,17 @@ export function MobileStockOutClient({
               Route
             </p>
 
-            {/* From + To as endpoints of the flow track (Amazon-style) */}
-            <div className="flex items-stretch gap-2">
-              {/* ── FROM (left endpoint) ── */}
-              <div className="flex flex-col shrink-0" style={{ width: "38%" }}>
+            {/* From + To — clean side-by-side with a centered arrow */}
+            <div className="flex items-end gap-2">
+              {/* ── FROM ── */}
+              <div className="flex flex-col flex-1 min-w-0">
                 <label className={labelClass} style={labelStyle}>
                   From <span style={{ color: "var(--color-stop)" }}>*</span>
                 </label>
                 <button
                   type="button"
                   onClick={() => { haptic(10); setModal({ type: "from" }); }}
-                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors text-left press truncate"
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors text-left flex items-center gap-1 press truncate"
                   style={{
                     borderColor: routeOrigin ? "var(--color-go)" : "var(--color-line)",
                     backgroundColor: "transparent",
@@ -838,46 +850,23 @@ export function MobileStockOutClient({
                 </button>
               </div>
 
-              {/* ── TRACK (center, connects the two endpoints) ── */}
-              <div className="relative flex-1 flex flex-col justify-end pb-1">
-                {/* Track line aligned with the selector underlines */}
-                <div className="relative h-2.5 flex items-center">
-                  <div className="relative flex-1 h-0.5 rounded-full" style={{ backgroundColor: "var(--color-line)" }}>
-                    {/* Filled portion */}
-                    <div
-                      className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
-                      style={{
-                        width: routeComplete ? "100%" : routeOrigin ? "50%" : "0%",
-                        backgroundColor: routeComplete ? "var(--color-go)" : "var(--color-signal)",
-                      }}
-                    />
-                    {/* Traveling package dot — only when route is complete */}
-                    {routeComplete ? (
-                      <div
-                        className="route-package absolute size-2 rounded-full -top-[3px] shrink-0"
-                        style={{
-                          backgroundColor: "var(--color-signal)",
-                          border: "1.5px solid var(--color-paper)",
-                        }}
-                      />
-                    ) : null}
-                  </div>
-                </div>
-                {/* Flow direction label */}
-                <div className="flex items-center justify-center pt-1">
-                  <ArrowRight className="size-3" style={{ color: routeComplete ? "var(--color-go)" : "var(--color-ink-300)" }} />
-                </div>
+              {/* ── ARROW ── */}
+              <div className="pb-1.5 shrink-0">
+                <ArrowLeftRight
+                  className="size-3.5"
+                  style={{ color: routeComplete ? "var(--color-go)" : "var(--color-ink-300)" }}
+                />
               </div>
 
-              {/* ── TO (right endpoint) ── */}
-              <div className="flex flex-col shrink-0" style={{ width: "38%" }}>
+              {/* ── TO ── */}
+              <div className="flex flex-col flex-1 min-w-0">
                 <label className={labelClass} style={labelStyle}>
                   {mode === "transfer" ? "To Loc" : "To Proj"} <span style={{ color: "var(--color-stop)" }}>*</span>
                 </label>
                 <button
                   type="button"
                   onClick={() => { haptic(10); setModal(mode === "transfer" ? { type: "to-location" } : { type: "to-project" }); }}
-                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors text-left press truncate"
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors text-left flex items-center gap-1 press truncate"
                   style={{
                     borderColor: routeComplete ? "var(--color-go)" : "var(--color-line)",
                     backgroundColor: "transparent",
@@ -920,7 +909,7 @@ export function MobileStockOutClient({
                       inputMode="decimal"
                       value={freight}
                       onChange={(e) => setFreight(e.target.value)}
-                      placeholder="0"
+                      placeholder="Amount"
                       className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
                       style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                     />
@@ -934,7 +923,7 @@ export function MobileStockOutClient({
                       inputMode="decimal"
                       value={handlingFee}
                       onChange={(e) => setHandlingFee(e.target.value)}
-                      placeholder="0"
+                      placeholder="Amount"
                       className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
                       style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                     />
@@ -948,7 +937,7 @@ export function MobileStockOutClient({
                       inputMode="decimal"
                       value={markupPct}
                       onChange={(e) => setMarkupPct(e.target.value)}
-                      placeholder="0"
+                      placeholder="0%"
                       className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
                       style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                     />
@@ -963,20 +952,19 @@ export function MobileStockOutClient({
                 <label className={labelClass} style={labelStyle}>
                   Built unit (optional)
                 </label>
-                <select
+                <MobileSelectWithCreate
+                  label="Built unit"
                   value={builtUnitId}
-                  onChange={(e) => { setBuiltUnitId(e.target.value); haptic(10); }}
-                  className={inputClass}
-                  style={inputStyle}
-                >
-                  <option value="">General project allocation</option>
-                  {units.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      Unit {u.unitNumber}
-                      {u.builtAreaSqft ? ` (${u.builtAreaSqft} sqft)` : ""}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => { setBuiltUnitId(v); haptic(10); }}
+                  placeholder="General project allocation"
+                  options={units.map((u) => ({
+                    value: u.id,
+                    label: `Unit ${u.unitNumber}`,
+                    sub: u.builtAreaSqft ? `${u.builtAreaSqft} sqft` : undefined,
+                  }))}
+                  inputClass={inputClass}
+                  inputStyle={inputStyle}
+                />
               </div>
             ) : null}
           </div>
@@ -1130,7 +1118,7 @@ export function MobileStockOutClient({
                           enterKeyHint="next"
                           value={line.qty}
                           onChange={(e) => handleLineChange(idx, "qty", e.target.value)}
-                          placeholder="0"
+                          placeholder="Qty"
                           className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
                           style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                         />
@@ -1332,20 +1320,26 @@ export function MobileStockOutClient({
         />
       ) : null}
       {showCreateDialog === "project" ? (
-        <MobileNewProjectDialog
+        <MobileFabModal
           open
           onClose={() => setShowCreateDialog(null)}
-          onCreated={(p) => {
-            setProjects((prev) =>
-              prev.some((x) => x.id === p.id)
-                ? prev
-                : [...prev, { id: p.id, name: p.name }],
-            );
-            setProjectId(p.id);
-            setShowCreateDialog(null);
-            setModal(null);
-          }}
-        />
+          title="New Project"
+        >
+          <MobileNewProjectDialog
+            open
+            onClose={() => setShowCreateDialog(null)}
+            onCreated={(p) => {
+              setProjects((prev) =>
+                prev.some((x) => x.id === p.id)
+                  ? prev
+                  : [...prev, { id: p.id, name: p.name }],
+              );
+              setProjectId(p.id);
+              setShowCreateDialog(null);
+              setModal(null);
+            }}
+          />
+        </MobileFabModal>
       ) : null}
       {showCreateDialog === "material" ? (
         <MobileNewMaterialDialog

@@ -212,30 +212,32 @@ export default function MePage() {
                 <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                   Profile
                 </p>
-                <div>
-                  <label className="text-m-caption font-bold uppercase block mb-0" style={{ color: "var(--color-ink-700)" }}>
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-                  />
-                </div>
-                <div>
-                  <label className="text-m-caption font-bold uppercase block mb-0" style={{ color: "var(--color-ink-700)" }}>
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    value={editPhone}
-                    onChange={(e) => setEditPhone(e.target.value)}
-                    placeholder="—"
-                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-                  />
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div>
+                    <label className="text-m-caption font-bold uppercase block mb-0" style={{ color: "var(--color-ink-700)" }}>
+                      Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                      style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                    />
+                  </div>
+                  <div className="pl-2">
+                    <label className="text-m-caption font-bold uppercase block mb-0" style={{ color: "var(--color-ink-700)" }}>
+                      Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      placeholder="—"
+                      className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                      style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                    />
+                  </div>
                 </div>
               </div>
               <div className="flex flex-col gap-2 mt-3">
@@ -303,33 +305,35 @@ export default function MePage() {
                     style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                   />
                 </div>
-                <div>
-                  <label className="text-m-caption font-bold uppercase block mb-0" style={{ color: "var(--color-ink-700)" }}>
-                    New Password
-                  </label>
-                  <input
-                    type="password"
-                    value={passwordForm.newPassword}
-                    onChange={(e) => setPasswordForm((f) => ({ ...f, newPassword: e.target.value }))}
-                    disabled={savingPassword}
-                    placeholder="At least 8 characters"
-                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-                  />
-                </div>
-                <div>
-                  <label className="text-m-caption font-bold uppercase block mb-0" style={{ color: "var(--color-ink-700)" }}>
-                    Confirm New Password
-                  </label>
-                  <input
-                    type="password"
-                    value={passwordForm.confirmPassword}
-                    onChange={(e) => setPasswordForm((f) => ({ ...f, confirmPassword: e.target.value }))}
-                    disabled={savingPassword}
-                    placeholder="••••••••"
-                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-                  />
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div>
+                    <label className="text-m-caption font-bold uppercase block mb-0" style={{ color: "var(--color-ink-700)" }}>
+                      New Password
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordForm.newPassword}
+                      onChange={(e) => setPasswordForm((f) => ({ ...f, newPassword: e.target.value }))}
+                      disabled={savingPassword}
+                      placeholder="At least 8 characters"
+                      className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                      style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                    />
+                  </div>
+                  <div className="pl-2">
+                    <label className="text-m-caption font-bold uppercase block mb-0" style={{ color: "var(--color-ink-700)" }}>
+                      Confirm New Password
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordForm.confirmPassword}
+                      onChange={(e) => setPasswordForm((f) => ({ ...f, confirmPassword: e.target.value }))}
+                      disabled={savingPassword}
+                      placeholder="••••••••"
+                      className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                      style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                    />
+                  </div>
                 </div>
               </div>
               <div className="flex flex-col gap-2 mt-3">

@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useWbsOptions } from "@/lib/use-wbs-options";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type IncidentType = "ACCIDENT" | "NEAR_MISS" | "INJURY" | "FATALITY" | "PROPERTY_DAMAGE" | "ENVIRONMENTAL" | "FIRE" | "STRUCTURAL" | "OTHER";
 type IncidentSeverity = "FIRST_AID" | "LOST_TIME" | "SERIOUS" | "FATAL" | "PROPERTY_ONLY";
@@ -84,10 +86,13 @@ export function MobileNewIncidentForm({ onClose, projects }: { onClose: () => vo
         <p className={sectionTitleClass} style={sectionTitleStyle}>Details</p>
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <div>
-            <label className={labelClass} style={labelStyle}>Project</label>
-            <select value={form.projectId} onChange={(e) => set("projectId", e.target.value)} className={inputClass} style={inputStyle}>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <MobileSelectWithCreate
+              label="Project"
+              value={form.projectId}
+              onChange={(v) => set("projectId", v)}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              icon={FolderOpen}
+            />
           </div>
           <div className="pl-2">
             <label className={labelClass} style={labelStyle}>Title</label>
@@ -96,12 +101,20 @@ export function MobileNewIncidentForm({ onClose, projects }: { onClose: () => vo
         </div>
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <div>
-            <label className={labelClass} style={labelStyle}>Type</label>
-            <select value={form.type} onChange={(e) => set("type", e.target.value as IncidentType)} className={inputClass} style={inputStyle}>{TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
+            <EnumSelect
+              label="Type"
+              value={form.type}
+              onChange={(v) => set("type", v as IncidentType)}
+              options={TYPES}
+            />
           </div>
           <div className="pl-2">
-            <label className={labelClass} style={labelStyle}>Severity</label>
-            <select value={form.severity} onChange={(e) => set("severity", e.target.value as IncidentSeverity)} className={inputClass} style={inputStyle}>{SEVERITIES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select>
+            <EnumSelect
+              label="Severity"
+              value={form.severity}
+              onChange={(v) => set("severity", v as IncidentSeverity)}
+              options={SEVERITIES}
+            />
           </div>
         </div>
       </div>
@@ -133,11 +146,14 @@ export function MobileNewIncidentForm({ onClose, projects }: { onClose: () => vo
           <input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower B, 5th floor" className={inputClass} style={inputStyle} />
         </div>
         <div>
-          <label className={labelClass} style={labelStyle}>WBS Activity (optional)</label>
-          <select value={form.wbsNodeId} onChange={(e) => set("wbsNodeId", e.target.value)} className={inputClass} style={inputStyle} disabled={wbsOptions.length === 0}>
-            <option value="">{wbsOptions.length === 0 ? "No WBS nodes for this project" : "— None —"}</option>
-            {wbsOptions.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
-          </select>
+          <MobileSelectWithCreate
+            label="WBS Activity (optional)"
+            value={form.wbsNodeId}
+            onChange={(v) => set("wbsNodeId", v)}
+            options={wbsOptions.map((w) => ({ value: w.id, label: w.label }))}
+            placeholder={wbsOptions.length === 0 ? "No WBS nodes for this project" : "— None —"}
+            disabled={wbsOptions.length === 0}
+          />
         </div>
       </div>
 
@@ -170,15 +186,26 @@ export function MobileNewIncidentForm({ onClose, projects }: { onClose: () => vo
         <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
       </div>
 
-      <button
-        type="submit"
-        disabled={saving}
-        className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
-        style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+      {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+      <div
+        className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
+        style={{
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
+        }}
       >
-        {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-        {saving ? "Reporting…" : "Report"}
-      </button>
+        <div className="flex items-center justify-end gap-3">
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex-1 h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+          >
+            {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+            {saving ? "Reporting…" : "Report"}
+          </button>
+        </div>
+      </div>
     </form>
   );
 }

@@ -10,6 +10,7 @@ import { formatCurrency } from "@/lib/utils";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type TdsCategory = "INDIVIDUAL" | "COMPANY" | "OTHER";
 
@@ -265,10 +266,20 @@ export function MobileNewWorkOrderForm({
             />
             <div>
               <label className={labelClass} style={labelStyle}>Subcontractor <span style={{ color: "var(--color-stop)" }}>*</span></label>
-              <select value={form.subcontractorId} onChange={(e) => set("subcontractorId", e.target.value)} className={inputClass} style={inputStyle}>
-                <option value="">— Select subcontractor —</option>
-                {subcontractors.map((s) => (<option key={s.id} value={s.id}>{s.name}{s.trade ? ` (${s.trade})` : ""}</option>))}
-              </select>
+              <MobileSelectWithCreate
+                label="Subcontractor"
+                required
+                value={form.subcontractorId}
+                onChange={(v) => set("subcontractorId", v)}
+                placeholder="— Select subcontractor —"
+                options={subcontractors.map((s) => ({
+                  value: s.id,
+                  label: s.name,
+                  sub: s.trade ?? undefined,
+                }))}
+                inputClass={inputClass}
+                inputStyle={inputStyle}
+              />
             </div>
             <div>
               <label className={labelClass} style={labelStyle}>Work Title <span style={{ color: "var(--color-stop)" }}>*</span></label>
@@ -304,12 +315,16 @@ export function MobileNewWorkOrderForm({
                 <input type="number" min={0} max={100} step="any" value={form.retentionPct} onChange={(e) => set("retentionPct", e.target.value)} inputMode="decimal" className={inputClass} style={inputStyle} />
               </div>
               <div className="pl-2">
-                <label className={labelClass} style={labelStyle}>TDS Category</label>
-                <select value={form.tdsCategory} onChange={(e) => set("tdsCategory", e.target.value as TdsCategory)} className={inputClass} style={inputStyle}>
-                  <option value="INDIVIDUAL">Individual (1%)</option>
-                  <option value="COMPANY">Company (2%)</option>
-                  <option value="OTHER">Other (2%)</option>
-                </select>
+                <EnumSelect
+                  label="TDS Category"
+                  value={form.tdsCategory}
+                  onChange={(v) => set("tdsCategory", v as TdsCategory)}
+                  options={[
+                    { value: "INDIVIDUAL", label: "Individual (1%)" },
+                    { value: "COMPANY", label: "Company (2%)" },
+                    { value: "OTHER", label: "Other (2%)" },
+                  ]}
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
@@ -421,15 +436,23 @@ export function MobileNewWorkOrderForm({
             );
           })()}
 
-          {/* Actions */}
-          <div className="flex flex-col gap-2 pt-1">
-            <button type="button" onClick={() => setStep(1)} disabled={saving} className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)", backgroundColor: "transparent" }}>
-              Back
-            </button>
-            <button type="submit" disabled={saving || selectedLines.length === 0} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
-              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-              {saving ? "Issuing…" : "Issue Work Order"}
-            </button>
+          {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+          <div
+            className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-3 -mb-3 px-3 py-2"
+            style={{
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={() => setStep(1)} disabled={saving} className="rounded-[0.5rem] border px-4 py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)", backgroundColor: "transparent" }}>
+                Back
+              </button>
+              <button type="submit" disabled={saving || selectedLines.length === 0} className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+                {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+                {saving ? "Issuing…" : "Issue Work Order"}
+              </button>
+            </div>
           </div>
         </form>
       )}
@@ -439,8 +462,8 @@ export function MobileNewWorkOrderForm({
         <div className="fixed inset-0 z-[60] flex items-end justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={() => setShowBoqPicker(false)}>
           <div className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[70vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Select Bill of Quantities Items</p>
-              <button onClick={() => setShowBoqPicker(false)} className="grid place-items-center size-7 rounded-[0.375rem] press" style={{ color: "var(--color-ink-500)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Select Bill of Quantities Items</p>
+              <button type="button" onClick={() => setShowBoqPicker(false)} className="grid place-items-center size-7 rounded-[0.375rem] press" style={{ color: "var(--color-ink-500)" }}>
                 <X className="size-4" />
               </button>
             </div>

@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Trash2, Plus } from "lucide-react";
+import { Loader2, Trash2, Plus, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../sales/MobileChequeFields";
 import { MobileDocUploader } from "../MobileDocUploader";
 import { formatCurrency } from "@/lib/utils";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 const AREA_UNITS = ["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"] as const;
 const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as const;
@@ -178,19 +180,18 @@ export function MobileLandPurchaseOrderDialog({
             <div>
               <label className={labelClass} style={labelStyle}>Seller *</label>
               {sellers.length > 0 ? (
-                <select
+                <MobileSelectWithCreate
+                  label="Seller"
+                  required
                   value={sellerId}
-                  onChange={(e) => {
-                    setSellerId(e.target.value);
-                    const s = sellers.find((s) => s.id === e.target.value);
+                  onChange={(v) => {
+                    setSellerId(v);
+                    const s = sellers.find((s) => s.id === v);
                     if (s) { setSellerName(s.name); setSellerContact(s.phone ?? ""); }
                   }}
-                  className={inputClass}
-                  style={inputStyle}
-                >
-                  <option value="">— Select seller —</option>
-                  {sellers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                  options={sellers.map((s) => ({ value: s.id, label: s.name }))}
+                  placeholder="— Select seller —"
+                />
               ) : null}
               <input
                 type="text"
@@ -215,16 +216,14 @@ export function MobileLandPurchaseOrderDialog({
             </div>
             {projects.length > 0 && (
               <div>
-                <label className={labelClass} style={labelStyle}>Project</label>
-                <select
+                <MobileSelectWithCreate
+                  label="Project"
                   value={projectId}
-                  onChange={(e) => setProjectId(e.target.value)}
-                  className={inputClass}
-                  style={inputStyle}
-                >
-                  <option value="">— None —</option>
-                  {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
+                  onChange={setProjectId}
+                  options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                  placeholder="— None —"
+                  icon={FolderOpen}
+                />
               </div>
             )}
           </div>
@@ -257,28 +256,38 @@ export function MobileLandPurchaseOrderDialog({
                 />
               </div>
               <div>
-                <label className={labelClass} style={labelStyle}>Unit</label>
-                <select
+                <EnumSelect
+                  label="Unit"
                   value={areaUnit}
-                  onChange={(e) => setAreaUnit(e.target.value as (typeof AREA_UNITS)[number])}
-                  className={inputClass}
-                  style={inputStyle}
-                >
-                  {AREA_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                </select>
+                  onChange={(v) => setAreaUnit(v as (typeof AREA_UNITS)[number])}
+                  options={AREA_UNITS.map((u) => ({ value: u, label: u }))}
+                />
               </div>
             </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>Total Cost (₹) *</label>
-              <input
-                type="number" inputMode="decimal" step="0.01" min="0"
-                value={totalCost}
-                onChange={(e) => setTotalCost(e.target.value)}
-                placeholder="0"
-                className={`${inputClass} font-bold tabular-nums`}
-                style={inputStyle}
-                required
-              />
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label className={labelClass} style={labelStyle}>Total Cost (₹) *</label>
+                <input
+                  type="number" inputMode="decimal" step="0.01" min="0"
+                  value={totalCost}
+                  onChange={(e) => setTotalCost(e.target.value)}
+                  placeholder="0"
+                  className={`${inputClass} font-bold tabular-nums`}
+                  style={inputStyle}
+                  required
+                />
+              </div>
+              <div className="pl-2">
+                <label className={labelClass} style={labelStyle}>Registry No.</label>
+                <input
+                  type="text"
+                  value={registryNo}
+                  onChange={(e) => setRegistryNo(e.target.value)}
+                  placeholder="e.g. SR-1234/2025"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
             </div>
             <div>
               <label className={labelClass} style={labelStyle}>Location</label>
@@ -287,17 +296,6 @@ export function MobileLandPurchaseOrderDialog({
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="Village, city, district"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>Registry No.</label>
-              <input
-                type="text"
-                value={registryNo}
-                onChange={(e) => setRegistryNo(e.target.value)}
-                placeholder="e.g. SR-1234/2025"
                 className={inputClass}
                 style={inputStyle}
               />
@@ -325,15 +323,12 @@ export function MobileLandPurchaseOrderDialog({
               )}
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>Payment Mode</label>
-              <select
+              <EnumSelect
+                label="Payment Mode"
                 value={tokenPaymentMode}
-                onChange={(e) => setTokenPaymentMode(e.target.value as (typeof PAYMENT_MODES)[number])}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {PAYMENT_MODES.map((m) => <option key={m} value={m}>{m.replace("_", " ")}</option>)}
-              </select>
+                onChange={(v) => setTokenPaymentMode(v as (typeof PAYMENT_MODES)[number])}
+                options={PAYMENT_MODES.map((m) => ({ value: m, label: m.replace("_", " ") }))}
+              />
             </div>
             {tokenPaymentMode === "CHEQUE" && (
               <MobileChequeFields value={tokenCheque} onChange={setTokenCheque} />
@@ -451,24 +446,32 @@ export function MobileLandPurchaseOrderDialog({
             )}
           </div>
 
-          {/* Actions */}
-          <div className="flex flex-col gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold text-m-body press"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
-              style={{ backgroundColor: "var(--color-signal)", color: "var(--color-paper)" }}
-            >
-              {saving ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Book Land"}
-            </button>
+          {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+          <div
+            className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
+            style={{
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+            }}
+          >
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold text-m-body press"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
+                style={{ backgroundColor: "var(--color-signal)", color: "var(--color-paper)" }}
+              >
+                {saving ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Book Land"}
+              </button>
+            </div>
           </div>
         </form>
     </MobileDialog>

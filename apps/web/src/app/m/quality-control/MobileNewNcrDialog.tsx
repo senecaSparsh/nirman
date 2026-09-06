@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useWbsOptions } from "@/lib/use-wbs-options";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type NcrCategory = "MATERIAL" | "WORKMANSHIP" | "DESIGN" | "DOCUMENT" | "PROCESS" | "SAFETY" | "OTHER";
 type NcrSeverity = "CRITICAL" | "MAJOR" | "MINOR" | "OBSERVATION";
@@ -152,17 +154,14 @@ export function MobileNewNcrForm({
       {/* Details */}
       <div className={sectionClass} style={sectionStyle}>
         <p className={sectionTitleClass} style={sectionTitleStyle}>Details</p>
-        <div>
-          <label className={labelClass} style={labelStyle}>Project</label>
-          <select
-            value={form.projectId}
-            onChange={(e) => set("projectId", e.target.value)}
-            className={inputClass}
-            style={inputStyle}
-          >
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        </div>
+        <MobileSelectWithCreate
+          label="Project"
+          value={form.projectId}
+          onChange={(v) => set("projectId", v)}
+          placeholder="— Select project —"
+          icon={FolderOpen}
+          options={projects.map((p) => ({ value: p.id, label: p.name }))}
+        />
         <div>
           <label className={labelClass} style={labelStyle}>Title</label>
           <input
@@ -175,26 +174,20 @@ export function MobileNewNcrForm({
         </div>
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <div>
-            <label className={labelClass} style={labelStyle}>Category</label>
-            <select
+            <EnumSelect
+              label="Category"
               value={form.category}
-              onChange={(e) => set("category", e.target.value as NcrCategory)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-            </select>
+              onChange={(v) => set("category", v as NcrCategory)}
+              options={CATEGORIES}
+            />
           </div>
           <div className="pl-2">
-            <label className={labelClass} style={labelStyle}>Severity</label>
-            <select
+            <EnumSelect
+              label="Severity"
               value={form.severity}
-              onChange={(e) => set("severity", e.target.value as NcrSeverity)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              {SEVERITIES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
+              onChange={(v) => set("severity", v as NcrSeverity)}
+              options={SEVERITIES.map((s) => ({ value: s.value, label: s.label }))}
+            />
           </div>
         </div>
         <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
@@ -232,30 +225,24 @@ export function MobileNewNcrForm({
           />
         </div>
         <div>
-          <label className={labelClass} style={labelStyle}>WBS Activity (optional)</label>
-          <select
+          <MobileSelectWithCreate
+            label="WBS Activity"
             value={form.wbsNodeId}
-            onChange={(e) => set("wbsNodeId", e.target.value)}
-            className={inputClass}
-            style={inputStyle}
+            onChange={(v) => set("wbsNodeId", v)}
+            placeholder={wbsOptions.length === 0 ? "No WBS nodes for this project" : "— None —"}
             disabled={wbsOptions.length === 0}
-          >
-            <option value="">{wbsOptions.length === 0 ? "No WBS nodes for this project" : "— None —"}</option>
-            {wbsOptions.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
-          </select>
+            options={wbsOptions.map((w) => ({ value: w.id, label: w.label }))}
+          />
         </div>
         <div>
-          <label className={labelClass} style={labelStyle}>BOQ Item (optional)</label>
-          <select
+          <MobileSelectWithCreate
+            label="BOQ Item"
             value={form.boqItemId}
-            onChange={(e) => set("boqItemId", e.target.value)}
-            className={inputClass}
-            style={inputStyle}
+            onChange={(v) => set("boqItemId", v)}
+            placeholder={boqOptions.length === 0 ? "No BOQ items for this project" : "— None —"}
             disabled={boqOptions.length === 0}
-          >
-            <option value="">{boqOptions.length === 0 ? "No BOQ items for this project" : "— None —"}</option>
-            {boqOptions.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
-          </select>
+            options={boqOptions.map((b) => ({ value: b.id, label: b.label }))}
+          />
         </div>
       </div>
 
@@ -274,18 +261,17 @@ export function MobileNewNcrForm({
             />
           </div>
           <div className="pl-2">
-            <label className={labelClass} style={labelStyle}>Subcontractor</label>
-            <select
+            <MobileSelectWithCreate
+              label="Subcontractor"
               value={form.subcontractorId}
-              onChange={(e) => set("subcontractorId", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              <option value="">— None —</option>
-              {subcontractors.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}{s.trade ? ` (${s.trade})` : ""}</option>
-              ))}
-            </select>
+              onChange={(v) => set("subcontractorId", v)}
+              placeholder="— None —"
+              options={subcontractors.map((s) => ({
+                value: s.id,
+                label: s.name,
+                sub: s.trade ?? undefined,
+              }))}
+            />
           </div>
         </div>
       </div>

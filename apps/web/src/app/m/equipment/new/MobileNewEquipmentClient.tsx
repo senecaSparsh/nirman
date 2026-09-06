@@ -45,6 +45,9 @@ export default function MobileNewEquipmentClient({
 
   useEffect(() => {
     if (success) return;
+    const hasContent = assetTag || name || model || serialNumber || category ||
+      acquisitionCost || purchaseDate || notes;
+    if (!hasContent) return;
     saveDraft({ assetTag, name, model, serialNumber, category, acquisitionCost, purchaseDate, notes });
   }, [assetTag, name, model, serialNumber, category, acquisitionCost, purchaseDate, notes, success, saveDraft]);
 
@@ -125,7 +128,7 @@ export default function MobileNewEquipmentClient({
         >
           <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
         </div>
-        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
           Equipment Registered
         </p>
         <p className="text-m-body mb-4" style={{ color: "var(--color-ink-700)" }}>
@@ -184,27 +187,28 @@ export default function MobileNewEquipmentClient({
           Identity
         </p>
         <div className="flex flex-col gap-3">
-          <Field label="Asset Tag" required>
-            <input
-              type="text"
-              value={assetTag}
-              onChange={(e) => setAssetTag(e.target.value)}
-              placeholder="e.g. EQ-001"
-              className="w-full px-1 py-1 text-m-caption font-mono font-bold outline-none border-b focus:border-b-2 transition-colors"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-            />
-          </Field>
-
-          <Field label="Equipment Name" required>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Concrete Mixer 1"
-              className="w-full px-1 py-1 text-m-caption font-bold outline-none border-b focus:border-b-2 transition-colors"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-            />
-          </Field>
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <Field label="Asset Tag" required>
+              <input
+                type="text"
+                value={assetTag}
+                onChange={(e) => setAssetTag(e.target.value)}
+                placeholder="e.g. EQ-001"
+                className="w-full px-1 py-1 text-m-caption font-mono font-bold outline-none border-b focus:border-b-2 transition-colors"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+              />
+            </Field>
+            <Field label="Equipment Name" required className="pl-2">
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Concrete Mixer 1"
+                className="w-full px-1 py-1 text-m-caption font-bold outline-none border-b focus:border-b-2 transition-colors"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+              />
+            </Field>
+          </div>
 
           <Field label="Category">
             <input
@@ -227,7 +231,7 @@ export default function MobileNewEquipmentClient({
         <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
           Specifications
         </p>
-        <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <Field label="Model">
             <input
               type="text"
@@ -238,8 +242,7 @@ export default function MobileNewEquipmentClient({
               style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
             />
           </Field>
-
-          <Field label="Serial Number">
+          <Field label="Serial Number" className="pl-2">
             <input
               type="text"
               value={serialNumber}
@@ -260,7 +263,7 @@ export default function MobileNewEquipmentClient({
         <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
           Valuation
         </p>
-        <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <Field label="Acquisition Cost">
             <div className="relative">
               <IndianRupee
@@ -279,8 +282,7 @@ export default function MobileNewEquipmentClient({
               />
             </div>
           </Field>
-
-          <Field label="Purchase Date">
+          <Field label="Purchase Date" className="pl-2">
             <input
               type="date"
               value={purchaseDate}
@@ -376,14 +378,15 @@ function SectionHeader({
 
 /* ─── Field wrapper ─── */
 function Field({
-  label, required, children,
+  label, required, className, children,
 }: {
   label: string;
   required?: boolean;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div>
+    <div className={className}>
       <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
         {label}{required ? " *" : ""}
       </label>

@@ -8,6 +8,7 @@ import { haptic } from "@/lib/haptic";
 import { formatCurrencyCompact } from "@/lib/utils";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { MobileEmptyState, MobileCta } from "@/components/mobile/v2/primitives";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 interface UnitOption {
   id: string;
@@ -140,20 +141,18 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
           <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
             Unit &amp; Portal
           </p>
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Unit to List <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <select value={form.builtUnitId} onChange={(e) => onUnitChange(e.target.value)} className={inputClass} style={inputStyle}>
-              <option value="">— Select available unit —</option>
-              {units.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.unitNumber} · {u.unitType} · {u.projectName} · {u.area} {u.areaUnit}
-                  {u.askingPrice ? ` · ${formatCurrencyCompact(u.askingPrice)}` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
+          <MobileSelectWithCreate
+            label="Unit to List"
+            required
+            value={form.builtUnitId}
+            onChange={onUnitChange}
+            placeholder="— Select available unit —"
+            options={units.map((u) => ({
+              value: u.id,
+              label: `${u.unitNumber} · ${u.unitType} · ${u.projectName} · ${u.area} ${u.areaUnit}`,
+              sub: u.askingPrice ? formatCurrencyCompact(u.askingPrice) : undefined,
+            }))}
+          />
 
           <div>
             <label className={labelClass} style={labelStyle}>Portal</label>
@@ -289,26 +288,41 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-2 pt-2">
-          <button
-            type="button"
-            onClick={() => router.push("/m/portal-listings")}
-            disabled={saving}
-            className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
-            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)", backgroundColor: "transparent" }}
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex-[2] h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-          >
-            {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-            {saving ? "Creating…" : "Create Listing"}
-          </button>
+        {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+        <div
+          className="sticky bottom-0 left-0 right-0 z-20 border-t"
+          style={{
+            backgroundColor: "var(--color-paper)",
+            borderColor: "var(--color-line)",
+          }}
+        >
+          <div className="px-3.5 py-2 flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => router.push("/m/portal-listings")}
+              disabled={saving}
+              className="rounded-[0.5rem] py-2.5 px-4 text-m-section font-bold text-m-body press disabled:opacity-50 border"
+              style={{
+                borderColor: "var(--color-line)",
+                color: "var(--color-ink-500)",
+                backgroundColor: "transparent",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+              style={{
+                backgroundColor: "var(--color-ink-950)",
+                color: "var(--color-paper)",
+              }}
+            >
+              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+              {saving ? "Creating…" : "Create Listing"}
+            </button>
+          </div>
         </div>
       </form>
     </div>

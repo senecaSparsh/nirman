@@ -381,7 +381,7 @@ async function MobileProjectDetailContent({
             <>
       {/* ── Units ── */}
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
+        <h2 className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
           Units ({units.length})
         </h2>
         <Link

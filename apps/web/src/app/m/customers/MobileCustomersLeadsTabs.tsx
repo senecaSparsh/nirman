@@ -61,7 +61,7 @@ export function MobileCustomersLeadsTabs({
           <span
             className="ml-0.5 px-1.5 rounded-full text-m-caption"
             style={{
-              backgroundColor: tab === "customers" ? "rgba(255,255,255,0.2)" : "var(--color-concrete)",
+              backgroundColor: tab === "customers" ? "color-mix(in srgb, var(--color-paper) 20%, transparent)" : "var(--color-concrete)",
             }}
           >
             {customers.length}
@@ -80,7 +80,7 @@ export function MobileCustomersLeadsTabs({
           <span
             className="ml-0.5 px-1.5 rounded-full text-m-caption"
             style={{
-              backgroundColor: tab === "leads" ? "rgba(255,255,255,0.2)" : "var(--color-concrete)",
+              backgroundColor: tab === "leads" ? "color-mix(in srgb, var(--color-paper) 20%, transparent)" : "var(--color-concrete)",
             }}
           >
             {leadCount}

@@ -14,8 +14,10 @@ import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../MobileChequeFields";
 import { MobileDocUploader } from "../../MobileDocUploader";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type AssetType = "LAND" | "BUILT_UNIT" | "PROJECT";
 type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
@@ -1392,19 +1394,12 @@ export function MobileSaleDetailClient({
                 ) : null}
               </div>
               <div>
-                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-                  Mode
-                </label>
-                <select
+                <EnumSelect
+                  label="Mode"
                   value={payMode}
-                  onChange={(e) => setPayMode(e.target.value as (typeof PAYMENT_MODES)[number])}
-                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
-                >
-                  {PAYMENT_MODES.map((m) => (
-                    <option key={m} value={m}>{m.replace("_", " ")}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setPayMode(v as (typeof PAYMENT_MODES)[number])}
+                  options={PAYMENT_MODES.map((m) => ({ value: m, label: m.replace("_", " ") }))}
+                />
               </div>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
@@ -1467,17 +1462,12 @@ export function MobileSaleDetailClient({
                 />
               </div>
               <div>
-                <label className="text-m-caption font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-600)" }}>
-                  Payment Mode
-                </label>
-                <select
+                <EnumSelect
+                  label="Payment Mode"
                   value={depMode}
-                  onChange={(e) => setDepMode(e.target.value as (typeof PAYMENT_MODES)[number])}
-                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                  style={{ backgroundColor: "transparent" }}
-                >
-                  {PAYMENT_MODES.map((m) => <option key={m} value={m}>{m.replaceAll("_", " ")}</option>)}
-                </select>
+                  onChange={(v) => setDepMode(v as (typeof PAYMENT_MODES)[number])}
+                  options={PAYMENT_MODES.map((m) => ({ value: m, label: m.replaceAll("_", " ") }))}
+                />
               </div>
               <div>
                 <label className="text-m-caption font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-600)" }}>
@@ -1533,19 +1523,12 @@ export function MobileSaleDetailClient({
               </div>
 
               <div>
-                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-                  Payment Mode
-                </label>
-                <select
+                <EnumSelect
+                  label="Payment Mode"
                   value={compPayMode}
-                  onChange={(e) => setCompPayMode(e.target.value as (typeof PAYMENT_MODES)[number])}
-                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
-                >
-                  {PAYMENT_MODES.map((m) => (
-                    <option key={m} value={m}>{m.replace("_", " ")}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setCompPayMode(v as (typeof PAYMENT_MODES)[number])}
+                  options={PAYMENT_MODES.map((m) => ({ value: m, label: m.replace("_", " ") }))}
+                />
               </div>
 
               <div>
@@ -1561,6 +1544,11 @@ export function MobileSaleDetailClient({
                   style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
                 />
               </div>
+            </div>
+
+            {/* Additional attachments — generic polymorphic document store */}
+            <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <AttachmentList entityType="AssetSale" entityId={saleId} maxAttachments={20} />
             </div>
 
             {/* Compliance documents */}
@@ -1851,7 +1839,7 @@ function SaleLifecycleTimeline({
 
   return (
     <div
-      className="rounded-[0.5rem] border p-3 mb-2"
+      className="rounded-[0.625rem] border p-3 mb-2"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <p className="text-m-caption font-bold uppercase tracking-wider mb-2.5" style={{ color: "var(--color-steel)" }}>

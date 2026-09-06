@@ -10,6 +10,7 @@ import { FeedbackButton } from "@/components/feedback/feedback-button";
 // via a client wrapper (ssr:false dynamic imports can't be used directly
 // in Server Components).
 import { LazySwRegister } from "@/components/lazy-sw-register";
+import { ChunkErrorRecovery } from "@/components/dev/chunk-error-recovery";
 import { CurrencyProvider } from "@/components/currency-provider";
 import { runWithCurrencyMode, type CurrencyMode } from "@/lib/currency-server";
 import { swrConfig, SWRConfig } from "@/lib/swr";
@@ -132,7 +133,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             },
           }}
         />
-        <LazySwRegister />
+        <LazySwRegister isDev={process.env.NODE_ENV !== "production"} />
+        <ChunkErrorRecovery />
       </body>
     </html>
   ));

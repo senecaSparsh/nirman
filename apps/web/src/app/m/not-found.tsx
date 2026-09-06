@@ -22,7 +22,7 @@ export default function MobileNotFound() {
       </div>
       <div className="space-y-1.5">
         <h2
-          className="text-m-section font-bold"
+          className="text-m-section font-extrabold tracking-tight"
           style={{ color: "var(--color-ink-950)" }}
         >
           Page not found

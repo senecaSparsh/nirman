@@ -55,7 +55,7 @@ export function MobileProjectTabs({
                   className="badge-pulse grid place-items-center min-w-4 h-4 px-1 rounded-full text-m-caption font-bold leading-none tabular-nums"
                   style={{
                     backgroundColor: isActive ? "var(--color-paper)" : "var(--color-stop)",
-                    color: isActive ? "var(--color-ink-950)" : "#fff",
+                    color: isActive ? "var(--color-ink-950)" : "var(--color-paper)",
                     fontSize: "0.625rem",
                   }}
                 >

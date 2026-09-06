@@ -6,6 +6,7 @@ import {Loader2, Save, CheckCircle2} from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 interface CompanyData {
   id: string;
@@ -102,7 +103,7 @@ export function MobileCompanyEditClient({
     return (
       <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
         <CheckCircle2 className="size-12 mb-3" style={{ color: "var(--color-go)" }} />
-        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
           Company details saved
         </p>
         <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
@@ -173,36 +174,36 @@ export function MobileCompanyEditClient({
             />
           </div>
 
-          {/* GSTIN */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              GSTIN
-            </label>
-            <input
-              type="text"
-              value={form.gstin}
-              onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))}
-              placeholder="22AAAAA0000A1Z5"
-              maxLength={15}
-              className={`${inputClass} uppercase`}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* PAN */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              PAN
-            </label>
-            <input
-              type="text"
-              value={form.pan}
-              onChange={(e) => setForm((f) => ({ ...f, pan: e.target.value.toUpperCase() }))}
-              placeholder="AAAAA0000A"
-              maxLength={10}
-              className={`${inputClass} uppercase`}
-              style={inputStyle}
-            />
+          {/* GSTIN + PAN */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                GSTIN
+              </label>
+              <input
+                type="text"
+                value={form.gstin}
+                onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))}
+                placeholder="22AAAAA0000A1Z5"
+                maxLength={15}
+                className={`${inputClass} uppercase`}
+                style={inputStyle}
+              />
+            </div>
+            <div className="pl-2">
+              <label className={labelClass} style={labelStyle}>
+                PAN
+              </label>
+              <input
+                type="text"
+                value={form.pan}
+                onChange={(e) => setForm((f) => ({ ...f, pan: e.target.value.toUpperCase() }))}
+                placeholder="AAAAA0000A"
+                maxLength={10}
+                className={`${inputClass} uppercase`}
+                style={inputStyle}
+              />
+            </div>
           </div>
 
           {/* Address */}
@@ -220,54 +221,43 @@ export function MobileCompanyEditClient({
             />
           </div>
 
-          {/* Phone */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Phone
-            </label>
-            <input
-              type="tel"
-              value={form.phone}
-              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-              placeholder="+91 98765 43210"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Email */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Email
-            </label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              placeholder="accounts@company.com"
-              className={inputClass}
-              style={inputStyle}
-            />
+          {/* Phone + Email */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Phone
+              </label>
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                placeholder="+91 98765 43210"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+            <div className="pl-2">
+              <label className={labelClass} style={labelStyle}>
+                Email
+              </label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="accounts@company.com"
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
           </div>
 
           {/* Currency */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Currency
-            </label>
-            <select
-              value={form.currency}
-              onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
-              className={inputClass}
-              style={inputStyle}
-            >
-              {["INR", "USD", "EUR", "GBP", "AED"].map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
+          <EnumSelect
+            label="Currency"
+            value={form.currency}
+            onChange={(v) => setForm((f) => ({ ...f, currency: v }))}
+            options={["INR", "USD", "EUR", "GBP", "AED"].map((c) => ({ value: c, label: c }))}
+          />
         </div>
 
         {/* Submit */}

@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Loader2, X, Pencil } from "lucide-react";
+import { Trash2, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 export function MobileMaterialDeleteBtn({ materialId, materialName }: { materialId: string; materialName: string }) {
   const router = useRouter();
@@ -47,40 +48,19 @@ export function MobileMaterialDeleteBtn({ materialId, materialName }: { material
         </button>
       </div>
 
-      {show ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => setShow(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-center pt-2 pb-1">
-              <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
-            </div>
-            <div className="flex items-center justify-between px-3 pb-2">
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Archive Material?</p>
-              <button onClick={() => setShow(false)} className="text-m-body press p-1">
-                <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-              </button>
-            </div>
-            <div className="px-3 pb-4">
+      <MobileDialog open={show} onClose={() => setShow(false)} title="Archive Material?">
+            <div className="pb-4">
               <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
                 This will archive <span className="font-bold">{materialName}</span>. The material will be hidden from lists but existing stock movements and references are preserved. This cannot be undone.
               </p>
-              <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
                 <button onClick={() => setShow(false)} disabled={deleting} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
                 <button onClick={handleDelete} disabled={deleting} className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1" style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}>
                   {deleting ? <Loader2 className="size-3.5 animate-spin" /> : "Archive"}
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileDialog>
     </>
   );
 }

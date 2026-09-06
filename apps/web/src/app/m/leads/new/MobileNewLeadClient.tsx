@@ -3,8 +3,10 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ContactRound } from "lucide-react";
+import { ArrowLeft, ContactRound, FolderOpen } from "lucide-react";
 import { haptic } from "@/lib/haptic";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 const SOURCES = [
   ["PORTAL", "Property portal"],
@@ -205,26 +207,21 @@ export function MobileNewLeadClient({
           </div>
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
-              <label className={labelClass} style={labelStyle}>Source *</label>
-              <select
+              <EnumSelect
+                label="Source"
                 value={form.source}
-                onChange={(e) => set("source", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {SOURCES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
+                onChange={(v) => set("source", v)}
+                required
+                options={SOURCES.map(([v, l]) => ({ value: v, label: l }))}
+              />
             </div>
             <div className="pl-2">
-              <label className={labelClass} style={labelStyle}>Priority</label>
-              <select
+              <EnumSelect
+                label="Priority"
                 value={form.priority}
-                onChange={(e) => set("priority", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {PRIORITIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
+                onChange={(v) => set("priority", v)}
+                options={PRIORITIES.map(([v, l]) => ({ value: v, label: l }))}
+              />
             </div>
           </div>
         </div>
@@ -235,40 +232,32 @@ export function MobileNewLeadClient({
             Project Interest
           </p>
           <div>
-            <label className={labelClass} style={labelStyle}>Project (optional)</label>
-            <select
+            <MobileSelectWithCreate
+              label="Project"
               value={form.projectId}
-              onChange={(e) => set("projectId", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              <option value="">Any project</option>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+              onChange={(v) => set("projectId", v)}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              placeholder="Any project"
+              icon={FolderOpen}
+            />
           </div>
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
-              <label className={labelClass} style={labelStyle}>Interested unit</label>
-              <select
+              <MobileSelectWithCreate
+                label="Interested unit"
                 value={form.interestedUnitId}
-                onChange={(e) => set("interestedUnitId", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                <option value="">Not decided</option>
-                {filteredUnits.map((u) => <option key={u.id} value={u.id}>{u.projectName} · {u.label}</option>)}
-              </select>
+                onChange={(v) => set("interestedUnitId", v)}
+                options={filteredUnits.map((u) => ({ value: u.id, label: `${u.projectName} · ${u.label}` }))}
+                placeholder="Not decided"
+              />
             </div>
             <div className="pl-2">
-              <label className={labelClass} style={labelStyle}>Unit type</label>
-              <select
+              <EnumSelect
+                label="Unit type"
                 value={form.interestedUnitType}
-                onChange={(e) => set("interestedUnitType", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              >
-                {UNIT_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
+                onChange={(v) => set("interestedUnitType", v)}
+                options={UNIT_TYPES.map(([v, l]) => ({ value: v, label: l }))}
+              />
             </div>
           </div>
         </div>
@@ -309,16 +298,13 @@ export function MobileNewLeadClient({
             </div>
           </div>
           <div>
-            <label className={labelClass} style={labelStyle}>Owner (assigned to)</label>
-            <select
+            <MobileSelectWithCreate
+              label="Owner (assigned to)"
               value={form.assignedToId}
-              onChange={(e) => set("assignedToId", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              <option value="">Unassigned</option>
-              {assignees.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
+              onChange={(v) => set("assignedToId", v)}
+              options={assignees.map((a) => ({ value: a.id, label: a.name }))}
+              placeholder="Unassigned"
+            />
           </div>
         </div>
 
@@ -350,29 +336,37 @@ export function MobileNewLeadClient({
           </div>
         </div>
 
-        {/* Submit */}
-        <div className="flex gap-1 pt-2">
-          <button
-            type="button"
-            onClick={() => (onClose ? onClose() : router.back())}
-            disabled={saving}
-            className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
-            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving || !form.name.trim() || !form.phone.trim()}
-            className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press"
-            style={{
-              backgroundColor: "var(--color-ink-950)",
-              color: "var(--color-paper)",
-              opacity: saving || !form.name.trim() || !form.phone.trim() ? 0.5 : 1,
-            }}
-          >
-            {saving ? "Adding…" : "Add Lead"}
-          </button>
+        {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+        <div
+          className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
+          style={{
+            backgroundColor: "var(--color-paper)",
+            borderColor: "var(--color-line)",
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => (onClose ? onClose() : router.back())}
+              disabled={saving}
+              className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
+              style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !form.name.trim() || !form.phone.trim()}
+              className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press"
+              style={{
+                backgroundColor: "var(--color-ink-950)",
+                color: "var(--color-paper)",
+                opacity: saving || !form.name.trim() || !form.phone.trim() ? 0.5 : 1,
+              }}
+            >
+              {saving ? "Adding…" : "Add Lead"}
+            </button>
+          </div>
         </div>
       </form>
     </div>

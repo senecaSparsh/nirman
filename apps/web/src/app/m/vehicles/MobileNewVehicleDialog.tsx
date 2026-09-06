@@ -6,6 +6,7 @@ import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 const VEHICLE_TYPE_OPTIONS = [
   { value: "TRUCK", label: "Truck (16-wheeler)" },
@@ -134,21 +135,12 @@ export function MobileNewVehicleForm({ onClose }: { onClose: () => void }) {
             />
           </div>
           <div>
-            <label className={labelClass} style={labelStyle}>
-              Type
-            </label>
-            <select
+            <EnumSelect
+              label="Type"
               value={form.vehicleType}
-              onChange={(e) => set("vehicleType", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              {VEHICLE_TYPE_OPTIONS.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => set("vehicleType", v)}
+              options={VEHICLE_TYPE_OPTIONS.map((t) => ({ value: t.value, label: t.label }))}
+            />
           </div>
         </div>
       </div>
@@ -207,18 +199,29 @@ export function MobileNewVehicleForm({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
-      <button
-        type="submit"
-        disabled={saving}
-        className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+      {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+      <div
+        className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
         style={{
-          backgroundColor: "var(--color-ink-950)",
-          color: "var(--color-paper)",
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
         }}
       >
-        {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-        {saving ? "Creating…" : "Create Vehicle"}
-      </button>
+        <div className="flex items-center justify-end gap-3">
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex-1 h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+            style={{
+              backgroundColor: "var(--color-ink-950)",
+              color: "var(--color-paper)",
+            }}
+          >
+            {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+            {saving ? "Creating…" : "Create Vehicle"}
+          </button>
+        </div>
+      </div>
     </form>
   );
 }

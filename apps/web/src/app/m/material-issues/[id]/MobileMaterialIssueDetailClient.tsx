@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Package, Printer, MapPin, User, Truck, Phone,
-  AlertCircle, Loader2, X, Ban, FileText, CheckCircle2,
+  AlertCircle, Loader2, Ban, FileText, CheckCircle2,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
@@ -14,6 +14,7 @@ import {
   MobileStatCard,
 } from "@/components/mobile/v2/primitives";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { toast } from "sonner";
 
 interface IssueLine {
@@ -326,7 +327,7 @@ export function MobileMaterialIssueDetailClient({
         <div>
           <MobileSectionTitle>Notes</MobileSectionTitle>
           <div
-            className="rounded-[0.5rem] border p-3"
+            className="rounded-[0.625rem] border p-3"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             <p className="text-m-label leading-relaxed" style={{ color: "var(--color-ink-700)" }}>
@@ -338,28 +339,8 @@ export function MobileMaterialIssueDetailClient({
 
       {/* ── Cancel confirmation ── */}
       {showCancel ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => setShowCancel(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-center pt-2 pb-1">
-              <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
-            </div>
-            <div className="flex items-center justify-between px-3 pb-2">
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-                Cancel Material Issue?
-              </p>
-              <button onClick={() => setShowCancel(false)} className="text-m-body press p-1">
-                <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-              </button>
-            </div>
-            <div className="px-3 pb-4">
+        <MobileDialog open={showCancel} onClose={() => setShowCancel(false)} title="Cancel Material Issue?">
+          <div className="px-3 pb-4">
               <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
                 This will reverse the stock issue, restore materials to the source location, and reverse GL entries. This cannot be undone.
               </p>
@@ -382,8 +363,7 @@ export function MobileMaterialIssueDetailClient({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+        </MobileDialog>
       ) : null}
     </div>
   );

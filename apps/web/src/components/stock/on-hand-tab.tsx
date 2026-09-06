@@ -6,6 +6,7 @@ import { Boxes, ChevronDown, AlertTriangle, SlidersHorizontal, ClipboardCheck } 
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { AdjustStockDialog } from "@/components/materials/adjust-stock-dialog";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { formatCurrency, formatNumber } from "@/lib/utils";
@@ -62,21 +63,18 @@ export function OnHandTab({ stock, locations }: { stock: StockRow[]; locations: 
   }, [stock, locationFilter, categoryFilter, lowStockOnly, lowStockIds]);
 
   const locationSelect = (
-    <div className="relative shrink-0" style={{ width: 180 }}>
-      <select
+    <div className="shrink-0" style={{ width: 180 }}>
+      <MobileSelectWithCreate
+        label="Location"
         value={locationFilter}
-        onChange={(e) => setLocationFilter(e.target.value)}
-        style={{ width: 180 }}
-        className="h-8 shrink-0 appearance-none rounded-md border border-input bg-card pl-2.5 pr-7 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
-      >
-        <option value="">All locations</option>
-        {locations.map((l) => (
-          <option key={l.id} value={l.id}>
-            {l.name} ({l.type === "COMPANY_WAREHOUSE" ? "Warehouse" : "Site"})
-          </option>
-        ))}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+        onChange={setLocationFilter}
+        options={locations.map((l) => ({
+          value: l.id,
+          label: l.name,
+          sub: l.type === "COMPANY_WAREHOUSE" ? "Warehouse" : "Site",
+        }))}
+        placeholder="All locations"
+      />
     </div>
   );
 

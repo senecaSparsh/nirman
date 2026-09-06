@@ -1,11 +1,66 @@
 import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
 
+// ── Custom plugin: no-process-env-node-env-in-client ─────────────
+// Flags `process.env.NODE_ENV` references ONLY in files that start with
+// the `"use client"` directive. In such files (especially dynamically-
+// imported ones via next/dynamic ssr:false), Turbopack includes the
+// process.js polyfill as a separate chunk which desyncs on recompile
+// ("module factory is not available"). Server Components, API routes,
+// and middleware are safe — they run on the server where process.env is
+// natively available and inlined by the server bundler.
+const noProcessEnvInClientPlugin = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description:
+        "Disallow process.env.NODE_ENV in client components (causes Turbopack chunk desync)",
+    },
+    schema: [],
+    messages: {
+      noNodeEnv:
+        "process.env.NODE_ENV in a \"use client\" file forces Turbopack to load the process.js polyfill as a separate chunk, which desyncs ('module factory is not available') in dynamically-imported (next/dynamic ssr:false) chunks. Pass isDev as a prop from the nearest Server Component instead.",
+    },
+  },
+  create(context) {
+    const sourceCode = context.sourceCode ?? context.getSourceCode();
+    const text = sourceCode.text;
+    // Only apply to files with a "use client" directive at the top
+    // (within the first 50 chars — allows for whitespace/comments).
+    const header = text.slice(0, 200);
+    if (!/"use client"|'use client'/.test(header)) return {};
+    return {
+      MemberExpression(node) {
+        if (
+          node.object?.type === "MemberExpression" &&
+          node.object.object?.type === "Identifier" &&
+          node.object.object.name === "process" &&
+          node.object.property?.type === "Identifier" &&
+          node.object.property.name === "env" &&
+          node.property?.type === "Identifier" &&
+          node.property.name === "NODE_ENV"
+        ) {
+          context.report({ node, messageId: "noNodeEnv" });
+        }
+      },
+    };
+  },
+};
+
 const eslintConfig = [
   ...nextCoreWebVitals,
   ...nextTypescript,
   {
     ignores: [".next/**", "node_modules/**"],
+  },
+  {
+    plugins: {
+      nirman: {
+        rules: {
+          "no-process-env-node-env-in-client": noProcessEnvInClientPlugin,
+        },
+      },
+    },
   },
   {
     rules: {
@@ -39,6 +94,10 @@ const eslintConfig = [
       // refactored to the compiler's preferred form.
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/purity": "warn",
+      // Prevent process.env.NODE_ENV in client components — causes Turbopack
+      // chunk desync in dynamically-imported (next/dynamic ssr:false) chunks.
+      // Only fires in files with a "use client" directive.
+      "nirman/no-process-env-node-env-in-client": "warn",
     },
   },
 ];

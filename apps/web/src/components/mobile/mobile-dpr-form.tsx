@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, CheckCircle2, Repeat, Zap, Loader2, Send, MapPin, ScanLine } from "lucide-react";
+import { Plus, X, CheckCircle2, Repeat, Zap, Loader2, Send, MapPin, ScanLine, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { SearchableMaterialPicker } from "@/components/mobile/searchable-material-picker";
@@ -12,6 +12,8 @@ import { DraftBanner } from "@/components/mobile/draft-banner";
 import { formatRelativeTime } from "@/lib/utils";
 import { useSmartDefaults } from "@/lib/use-smart-defaults";
 import { useNearestProject } from "@/lib/use-nearest-project";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type MaterialLine = { materialId: string; qty: string; unitCost: string };
 type LaborLine = { employeeId: string; crewId: string; hoursWorked: string; taskDescription: string };
@@ -453,14 +455,17 @@ export function MobileDprForm({
         toast.info("No attendance records for today at this project");
         return;
       }
-      // Map attendance records to labor lines — each present worker gets a line
+      // Map attendance records to labor lines — each present worker gets a line.
+      // Auto-fill taskDescription with the worker's trade (from the attendance
+      // API) so the line isn't silently dropped by the submit filter / backend
+      // schema, both of which require a non-empty taskDescription.
       const pulled: LaborLine[] = records
         .filter((r: { status?: string; checkInAt?: string | null }) => r.status === "PRESENT" || r.status === "HALF_DAY" || r.checkInAt)
-        .map((r: { employeeId: string | null; employeeName?: string; status?: string; hoursWorked?: number | null }) => ({
+        .map((r: { employeeId: string | null; employeeName?: string; trade?: string | null; status?: string; hoursWorked?: number | null }) => ({
           employeeId: r.employeeId ?? "",
           crewId: "",
           hoursWorked: r.hoursWorked ? String(r.hoursWorked) : r.status === "HALF_DAY" ? "4" : "8",
-          taskDescription: "",
+          taskDescription: r.trade?.trim() || "Site work",
         }));
       if (pulled.length === 0) {
         toast.info("No checked-in workers found for today");
@@ -600,11 +605,18 @@ export function MobileDprForm({
       <SectionCard title="Details">
       {/* ── SECTION: Basic info ─────────────────────────── */}
       <FormField label="Project" required>
-        <div className="flex gap-1.5">
-          <select value={fProject} onChange={(e) => onProjectChange(e.target.value)} className={`${inputClass} flex-1`} style={inputStyle}>
-            <option value="">Select project…</option>
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+        <div className="flex gap-1.5 items-center">
+          <div className="flex-1">
+            <MobileSelectWithCreate
+              label="Project"
+              required
+              value={fProject}
+              onChange={onProjectChange}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              placeholder="Select project…"
+              icon={FolderOpen}
+            />
+          </div>
           <button
             type="button"
             onClick={requestGps}
@@ -618,16 +630,20 @@ export function MobileDprForm({
         </div>
       </FormField>
 
-      <FormField label="Work type" required>
-        <select value={fWorkType} onChange={(e) => setFWorkType(e.target.value)} className={inputClass} style={inputStyle}>
-          <option value="Foundation">Foundation &amp; Substructure</option>
-          <option value="Structure">RCC Structural Concrete</option>
-          <option value="Masonry">Brickwork &amp; Masonry</option>
-          <option value="Finishing">Plaster, Tile &amp; Finishing</option>
-          <option value="Plumbing">Plumbing &amp; MEP</option>
-          <option value="Electrical">Electrical Works</option>
-        </select>
-      </FormField>
+      <EnumSelect
+        label="Work type"
+        required
+        value={fWorkType}
+        onChange={(v) => setFWorkType(v)}
+        options={[
+          { value: "Foundation", label: "Foundation & Substructure" },
+          { value: "Structure", label: "RCC Structural Concrete" },
+          { value: "Masonry", label: "Brickwork & Masonry" },
+          { value: "Finishing", label: "Plaster, Tile & Finishing" },
+          { value: "Plumbing", label: "Plumbing & MEP" },
+          { value: "Electrical", label: "Electrical Works" },
+        ]}
+      />
 
       <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
         <FormField label="Work Qty">
@@ -643,20 +659,23 @@ export function MobileDprForm({
             style={inputStyle}
           />
         </FormField>
-        <FormField label="Unit">
-          <select value={fWorkUnit} onChange={(e) => setFWorkUnit(e.target.value)} className={inputClass} style={inputStyle}>
-            <option value="sqft">sqft</option>
-            <option value="sqm">sqm</option>
-            <option value="cubic meter">cubic meter</option>
-            <option value="cubic ft">cubic ft</option>
-            <option value="rmt">rmt (running metre)</option>
-            <option value="nos">nos</option>
-            <option value="kg">kg</option>
-            <option value="ton">ton</option>
-            <option value="bag">bag</option>
-            <option value="set">set</option>
-          </select>
-        </FormField>
+        <EnumSelect
+          label="Unit"
+          value={fWorkUnit}
+          onChange={(v) => setFWorkUnit(v)}
+          options={[
+            { value: "sqft", label: "sqft" },
+            { value: "sqm", label: "sqm" },
+            { value: "cubic meter", label: "cubic meter" },
+            { value: "cubic ft", label: "cubic ft" },
+            { value: "rmt", label: "rmt (running metre)" },
+            { value: "nos", label: "nos" },
+            { value: "kg", label: "kg" },
+            { value: "ton", label: "ton" },
+            { value: "bag", label: "bag" },
+            { value: "set", label: "set" },
+          ]}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
@@ -862,14 +881,22 @@ export function MobileDprForm({
                   <X className="size-3" style={{ color: "var(--color-stop)" }} />
                 </button>
               </div>
-              <select value={l.employeeId} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, employeeId: e.target.value, crewId: e.target.value ? "" : m.crewId } : m))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors mb-1.5" style={inputStyle}>
-                <option value="">Individual worker…</option>
-                {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.name} {emp.trade ? `(${emp.trade})` : ""}</option>)}
-              </select>
-              <select value={l.crewId} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, crewId: e.target.value, employeeId: e.target.value ? "" : m.employeeId } : m))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors mb-1.5" style={inputStyle}>
-                <option value="">Or crew…</option>
-                {crews.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <MobileSelectWithCreate
+                label="Worker"
+                value={l.employeeId}
+                onChange={(v) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, employeeId: v, crewId: v ? "" : m.crewId } : m))}
+                options={employees.map((emp) => ({ value: emp.id, label: emp.name, sub: emp.trade ?? undefined }))}
+                placeholder="Individual worker…"
+                compact
+              />
+              <MobileSelectWithCreate
+                label="Crew"
+                value={l.crewId}
+                onChange={(v) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, crewId: v, employeeId: v ? "" : m.employeeId } : m))}
+                options={crews.map((c) => ({ value: c.id, label: c.name }))}
+                placeholder="Or crew…"
+                compact
+              />
               <div className="grid grid-cols-2 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Hours" value={l.hoursWorked} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, hoursWorked: e.target.value } : m))} className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={inputStyle} />
                 <input placeholder="Task description" value={l.taskDescription} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, taskDescription: e.target.value } : m))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={inputStyle} />

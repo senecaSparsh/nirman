@@ -63,7 +63,13 @@ interface MovementInput {
   // ── Lot tracking ──
   lotId?: string;       // explicit lot to move into/out of
   lotNumber?: string;   // alternative: resolve by lot number (requires companyId)
-  companyId?: string;   // required when lotNumber is used or a lot needs to be created
+  companyId?: string;   // required when lotNumber is used or a lot needs to be created.
+                        // If omitted, auto-derived from the StockLocation's companyId.
+  // ── Lot metadata (propagated to MaterialLot on auto-create) ──
+  lotBatchCode?: string;          // batch code from GRN line
+  lotExpiryDate?: Date;           // expiry date from GRN line
+  lotManufacturingDate?: Date;    // manufacturing date from GRN line
+  lotSupplierId?: string;         // supplier from GRN/PO
   // ── UOM conversion ──
   qtyUnit?: "base" | "secondary"; // defaults to "base"; if "secondary", qty is converted via toBaseUnit
 }
@@ -96,6 +102,7 @@ export async function recordMovement(
     where: { id: input.materialId, deletedAt: null },
     select: {
       isLotTracked: true,
+      code: true,
       baseUnit: true,
       secondaryUnit: true,
       uomConversionFactor: true,
@@ -120,61 +127,105 @@ export async function recordMovement(
   let lotId: string | undefined = input.lotId;
 
   if (material?.isLotTracked) {
+    // Auto-derive companyId from the StockLocation if not explicitly provided.
+    // This makes lot tracking work transparently for all callers without
+    // requiring each one to pass companyId.
+    let companyId = input.companyId;
+    if (!companyId) {
+      const loc = await tx.stockLocation.findUnique({
+        where: { id: locationId },
+        select: { companyId: true },
+      });
+      companyId = loc?.companyId;
+    }
+
     if (!lotId && !input.lotNumber) {
       if (direction === "IN") {
-        // IN movements without a lot reference can auto-create a lot if lotNumber
-        // is provided; but if neither is given, we cannot track the receipt.
+        // Auto-generate a lot number for IN movements when none is provided.
+        // Format: AUTO-{materialCode}-{YYYYMMDDHHmmss} — unique per receipt event.
+        const now = new Date();
+        const ts = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
+        const autoLotNumber = `AUTO-${material.code}-${ts}`;
+        if (!companyId) {
+          throw new ServiceError(
+            `Material ${input.materialId} is lot-tracked: could not determine companyId for auto-lot creation`,
+          );
+        }
+        const recvCost = new Decimal(input.unitCost ?? 0);
+        const created = await tx.materialLot.create({
+          data: {
+            materialId: input.materialId,
+            companyId,
+            lotNumber: autoLotNumber,
+            receivedDate: new Date(),
+            batchCode: input.lotBatchCode ?? null,
+            manufacturingDate: input.lotManufacturingDate ?? null,
+            expiryDate: input.lotExpiryDate ?? null,
+            initialQty: moveQty,
+            currentQty: moveQty,
+            unitCost: recvCost,
+            supplierId: input.lotSupplierId ?? null,
+          },
+        });
+        lotId = created.id;
+      } else {
+        // For OUT movements without a specific lot, use FIFO by receivedDate.
+        if (!companyId) {
+          throw new ServiceError(
+            `Material ${input.materialId} is lot-tracked: could not determine companyId for FIFO lot selection`,
+          );
+        }
+        // FIFO: find the oldest lot with available stock
+        const fifoLot = await tx.materialLot.findFirst({
+          where: {
+            materialId: input.materialId,
+            companyId,
+            deletedAt: null,
+            currentQty: { gt: 0 },
+          },
+          orderBy: { receivedDate: "asc" },
+        });
+        if (!fifoLot) {
+          throw new ServiceError(
+            `No lot with available stock found for material ${input.materialId} (FIFO)`,
+          );
+        }
+        lotId = fifoLot.id;
+      }
+    } else if (!lotId && input.lotNumber) {
+      if (!companyId) {
         throw new ServiceError(
-          `Material ${input.materialId} is lot-tracked: a lotId or lotNumber is required for IN movements`,
+          `Material ${input.materialId} is lot-tracked: could not determine companyId to resolve lot ${input.lotNumber}`,
         );
       }
-      // For OUT movements without a specific lot, use FIFO by receivedDate.
-      if (!input.companyId) {
-        throw new ServiceError(
-          `Material ${input.materialId} is lot-tracked: a companyId is required for FIFO lot selection on OUT movements`,
-        );
-      }
-      // FIFO: find the oldest lot with available stock
-      const fifoLot = await tx.materialLot.findFirst({
-        where: {
-          materialId: input.materialId,
-          companyId: input.companyId,
-          deletedAt: null,
-          currentQty: { gt: 0 },
-        },
-        orderBy: { receivedDate: "asc" },
-      });
-      if (!fifoLot) {
-        throw new ServiceError(
-          `No lot with available stock found for material ${input.materialId} (FIFO)`,
-        );
-      }
-      lotId = fifoLot.id;
-    } else if (!lotId && input.lotNumber && input.companyId) {
       // Resolve lot by lotNumber + companyId
       const lot = await tx.materialLot.findUnique({
         where: {
           materialId_lotNumber_companyId: {
             materialId: input.materialId,
             lotNumber: input.lotNumber,
-            companyId: input.companyId,
+            companyId,
           },
         },
       });
       if (lot && !lot.deletedAt) {
         lotId = lot.id;
       } else if (direction === "IN") {
-        // Auto-create the lot on receipt (IN movement) instead of throwing
+        // Auto-create the lot on receipt (IN movement) with full metadata
         const recvCost = new Decimal(input.unitCost ?? 0);
         const created = await tx.materialLot.create({
           data: {
             materialId: input.materialId,
-            companyId: input.companyId,
+            companyId,
             lotNumber: input.lotNumber,
             receivedDate: new Date(),
+            batchCode: input.lotBatchCode ?? null,
+            manufacturingDate: input.lotManufacturingDate ?? null,
+            expiryDate: input.lotExpiryDate ?? null,
             initialQty: moveQty,
             currentQty: moveQty,
             unitCost: recvCost,
+            supplierId: input.lotSupplierId ?? null,
           },
         });
         lotId = created.id;
@@ -202,18 +253,22 @@ export async function recordMovement(
               currentQty: new Decimal(existingLot.currentQty).plus(moveQty),
             },
           });
-        } else if (input.lotNumber && input.companyId) {
+        } else if (input.lotNumber && companyId) {
           // Auto-create the lot on receipt
           const created = await tx.materialLot.create({
             data: {
               id: lotId,
               materialId: input.materialId,
-              companyId: input.companyId,
+              companyId,
               lotNumber: input.lotNumber,
               receivedDate: new Date(),
+              batchCode: input.lotBatchCode ?? null,
+              manufacturingDate: input.lotManufacturingDate ?? null,
+              expiryDate: input.lotExpiryDate ?? null,
               initialQty: moveQty,
               currentQty: moveQty,
               unitCost: recvCost,
+              supplierId: input.lotSupplierId ?? null,
             },
           });
           lotId = created.id;
@@ -335,6 +390,14 @@ export async function recordTransfer(
     refType?: string;
     refId?: string;
     userId?: string;
+    // ── Lot tracking ──
+    lotNumber?: string;   // specific lot to transfer (FIFO if omitted)
+    companyId?: string;   // auto-derived from locations if omitted
+    // ── Lot metadata (for IN side when auto-creating) ──
+    lotBatchCode?: string;
+    lotExpiryDate?: Date;
+    lotManufacturingDate?: Date;
+    lotSupplierId?: string;
   },
 ) {
   if (!new Decimal(opts.qty).gt(0)) {
@@ -351,9 +414,12 @@ export async function recordTransfer(
     refType: opts.refType,
     refId: opts.refId,
     userId: opts.userId,
+    lotNumber: opts.lotNumber,
+    companyId: opts.companyId,
   });
 
   // Destination: TRANSFER_IN at the source's MAC (cost flows with goods)
+  // Pass the resolved lotId from the OUT side so the IN side uses the same lot
   const inResult = await recordMovement(tx, {
     materialId: opts.materialId,
     movementType: "TRANSFER_IN",
@@ -364,6 +430,12 @@ export async function recordTransfer(
     refType: opts.refType,
     refId: opts.refId,
     userId: opts.userId,
+    lotId: outResult.lotId, // reuse the same lot
+    companyId: opts.companyId,
+    lotBatchCode: opts.lotBatchCode,
+    lotExpiryDate: opts.lotExpiryDate,
+    lotManufacturingDate: opts.lotManufacturingDate,
+    lotSupplierId: opts.lotSupplierId,
   });
 
   return { out: outResult, in: inResult };

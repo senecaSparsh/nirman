@@ -13,6 +13,7 @@ import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from 
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
 type PaymentStatus = "PENDING" | "PARTIAL" | "PAID";
@@ -643,29 +644,30 @@ export function MobileMaterialSaleDetailClient({
             ) : null}
             <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Payment Details</p>
-              <FormField label="Amount" required>
-                <input
-                  type="text" inputMode="decimal"
-                  step="any"
-                  min="0"
-                  value={payAmount}
-                  onChange={(e) => setPayAmount(e.target.value)}
-                  placeholder={String(balanceDue || totalAmount)}
-                  className={inputClass}
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
-                  required
-                />
-              </FormField>
-              <FormField label="Payment mode" required>
-                <select
-                  value={payMode}
-                  onChange={(e) => setPayMode(e.target.value)}
-                  className={inputClass}
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
-                >
-                  {PAYMENT_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </FormField>
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                <FormField label="Amount" required>
+                  <input
+                    type="text" inputMode="decimal"
+                    step="any"
+                    min="0"
+                    value={payAmount}
+                    onChange={(e) => setPayAmount(e.target.value)}
+                    placeholder={String(balanceDue || totalAmount)}
+                    className={inputClass}
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
+                    required
+                  />
+                </FormField>
+                <div className="pl-2">
+                  <EnumSelect
+                    label="Payment mode"
+                    required
+                    value={payMode}
+                    onChange={(v) => setPayMode(v)}
+                    options={PAYMENT_MODES.map((m) => ({ value: m, label: m }))}
+                  />
+                </div>
+              </div>
               <FormField label="Reference no (optional)">
                 <input
                   type="text"

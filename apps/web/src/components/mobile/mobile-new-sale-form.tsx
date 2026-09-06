@@ -2,13 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, ShoppingCart, IndianRupee, Building2, MapPin, ShieldCheck, Plus, Trash2 } from "lucide-react";
+import { Loader2, ShoppingCart, IndianRupee, Building2, MapPin, ShieldCheck, Plus, Trash2, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewCustomerDialog } from "@/app/m/sales/MobileNewCustomerDialog";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "@/app/m/sales/MobileChequeFields";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 // ── Expense heads (same as desktop SaleExpenseGrid) ──
 type ExpenseHead = "REGISTRY" | "STAMP_DUTY" | "TRANSFER" | "LEASE_RENT" | "GST" | "OTHER";
@@ -445,17 +446,15 @@ export function MobileNewSaleForm({
                     No sellable projects.
                   </p>
                 ) : (
-                  <select
+                  <MobileSelectWithCreate
+                    label="Project"
+                    required
                     value={projectId}
-                    onChange={(e) => onProjectChange(e.target.value)}
-                    className={inputClassSm}
-                    style={inputStyleSm}
-                  >
-                    <option value="">Select…</option>
-                    {sellableProjects.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
+                    onChange={onProjectChange}
+                    options={sellableProjects.map((p) => ({ value: p.id, label: p.name }))}
+                    placeholder="Select…"
+                    icon={FolderOpen}
+                  />
                 )}
               </FormFieldSm>
             ) : (
@@ -465,16 +464,14 @@ export function MobileNewSaleForm({
                     No {assetType === "BUILT_UNIT" ? "units" : "parcels"}.
                   </p>
                 ) : (
-                  <select
+                  <MobileSelectWithCreate
+                    label={assetType === "BUILT_UNIT" ? "Unit" : "Parcel"}
+                    required
                     value={selectedAssetId}
-                    onChange={(e) => onAssetChange(e.target.value)}
-                    className={inputClassSm}
-                    style={inputStyleSm}
-                  >
-                    {assetOptions.map((a) => (
-                      <option key={a.id} value={a.id}>{a.label}</option>
-                    ))}
-                  </select>
+                    onChange={onAssetChange}
+                    options={assetOptions.map((a) => ({ value: a.id, label: a.label }))}
+                    placeholder="Select…"
+                  />
                 )}
                 {selectedAsset && (
                   <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
@@ -620,10 +617,10 @@ export function MobileNewSaleForm({
               <>
                 {brokers.length > 0 && (
                   <FormFieldSm label="Select from Broker Master">
-                    <select
+                    <MobileSelectWithCreate
+                      label="Broker"
                       value={brokerId}
-                      onChange={(e) => {
-                        const id = e.target.value;
+                      onChange={(id) => {
                         setBrokerId(id);
                         const b = brokers.find((x) => x.id === id);
                         if (b) {
@@ -635,16 +632,13 @@ export function MobileNewSaleForm({
                           }
                         }
                       }}
-                      className={inputClassSm}
-                      style={inputStyleSm}
-                    >
-                      <option value="">— Or type manually below —</option>
-                      {brokers.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name}{b.agency ? ` · ${b.agency}` : ""}
-                        </option>
-                      ))}
-                    </select>
+                      options={brokers.map((b) => ({
+                        value: b.id,
+                        label: b.name,
+                        sub: b.agency ? b.agency : undefined,
+                      }))}
+                      placeholder="— Or type manually below —"
+                    />
                   </FormFieldSm>
                 )}
                 <div className="grid grid-cols-2 gap-1.5">
@@ -742,18 +736,12 @@ export function MobileNewSaleForm({
               </div>
             </FormFieldSm>
             <FormFieldSm label="Mode">
-              <select
+              <EnumSelect
+                label=""
                 value={initialPaymentMode}
-                onChange={(e) => setInitialPaymentMode(e.target.value)}
-                className={inputClassSm}
-                style={inputStyleSm}
-              >
-                {PAYMENT_MODES.map((m) => (
-                  <option key={m} value={m}>
-                    {m.replace(/_/g, " ")}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setInitialPaymentMode(v)}
+                options={PAYMENT_MODES.map((m) => ({ value: m, label: m.replace(/_/g, " ") }))}
+              />
             </FormFieldSm>
             {initialPaymentMode === "CHEQUE" && (
               <MobileChequeFields value={initialCheque} onChange={setInitialCheque} />
@@ -930,24 +918,21 @@ export function MobileNewSaleForm({
                   <span className="text-m-caption font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
                     {EXPENSE_HEADS.find((h) => h.value === exp.head)?.label ?? exp.head}
                   </span>
-                  <select
+                  <EnumSelect
+                    label=""
+                    inline
                     value={exp.borneBy}
-                    onChange={(e) => {
+                    onChange={(v) => {
                       const next = [...expenses];
-                      next[i] = { ...exp, borneBy: e.target.value as "CLIENT" | "SELLER" | "NA" };
+                      next[i] = { ...exp, borneBy: v as "CLIENT" | "SELLER" | "NA" };
                       setExpenses(next);
                     }}
-                    className="text-m-caption font-bold px-1 py-0.5 rounded-[0.25rem] border outline-none"
-                    style={{
-                      borderColor: exp.borneBy === "NA" ? "var(--color-line)" : "var(--color-ink-950)",
-                      backgroundColor: exp.borneBy === "NA" ? "var(--color-paper)" : "var(--color-concrete)",
-                      color: "var(--color-ink-950)",
-                    }}
-                  >
-                    <option value="NA">N/A</option>
-                    <option value="CLIENT">Client</option>
-                    <option value="SELLER">Seller</option>
-                  </select>
+                    options={[
+                      { value: "NA", label: "N/A" },
+                      { value: "CLIENT", label: "Client" },
+                      { value: "SELLER", label: "Seller" },
+                    ]}
+                  />
                 </div>
                 {exp.borneBy !== "NA" && (
                   <div className="relative">

@@ -6,6 +6,7 @@ import {Loader2} from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type ProjectType =
   | "RESIDENTIAL"
@@ -193,38 +194,26 @@ export function MobileEditProjectDialog({
             {/* Type + Status */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelClass} style={labelStyle}>
-                  Type
-                </label>
-                <select
+                <EnumSelect
+                  label="Type"
                   value={form.type}
-                  onChange={(e) => set("type", e.target.value as ProjectType)}
-                  className={inputClass}
-                  style={inputStyle}
-                >
-                  {(Object.keys(TYPE_LABELS) as ProjectType[]).map((t) => (
-                    <option key={t} value={t}>
-                      {TYPE_LABELS[t]}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => set("type", v as ProjectType)}
+                  options={(Object.keys(TYPE_LABELS) as ProjectType[]).map((t) => ({
+                    value: t,
+                    label: TYPE_LABELS[t],
+                  }))}
+                />
               </div>
               <div>
-                <label className={labelClass} style={labelStyle}>
-                  Status
-                </label>
-                <select
+                <EnumSelect
+                  label="Status"
                   value={form.status}
-                  onChange={(e) => set("status", e.target.value as ProjectStatus)}
-                  className={inputClass}
-                  style={inputStyle}
-                >
-                  {(Object.keys(STATUS_LABELS) as ProjectStatus[]).map((s) => (
-                    <option key={s} value={s}>
-                      {STATUS_LABELS[s]}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => set("status", v as ProjectStatus)}
+                  options={(Object.keys(STATUS_LABELS) as ProjectStatus[]).map((s) => ({
+                    value: s,
+                    label: STATUS_LABELS[s],
+                  }))}
+                />
               </div>
             </div>
 
@@ -415,33 +404,28 @@ export function MobileEditProjectDialog({
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex flex-col gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] border text-m-section font-bold text-m-body press disabled:opacity-50"
-              style={{
-                borderColor: "var(--color-line)",
-                color: "var(--color-ink-500)",
-                backgroundColor: "transparent",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
-              style={{
-                backgroundColor: "var(--color-ink-950)",
-                color: "var(--color-paper)",
-              }}
-            >
-              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-              {saving ? "Saving…" : "Save Changes"}
-            </button>
+          {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+          <div
+            className="sticky bottom-0 left-0 right-0 z-20 border-t"
+            style={{
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+            }}
+          >
+            <div className="px-3.5 py-2 flex items-center justify-end gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--color-ink-950)",
+                  color: "var(--color-paper)",
+                }}
+              >
+                {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+                {saving ? "Saving…" : "Save Changes"}
+              </button>
+            </div>
           </div>
         </form>
     </MobileDialog>

@@ -64,9 +64,29 @@
   state becomes the new baseline; (c) content-hash comparison — only restart if the
   file's bytes actually changed, ignoring stat/mtime-only events. (3) **Client-side
   recovery** — `<ChunkErrorRecovery>` in the root layout detects browser-side
-  chunk-loading errors and auto hard-reloads the page once (sessionStorage guard
-  prevents loops). Safety rails: max 10 restarts per 5-min window, counter resets
-  after 5 min of stability, clean Ctrl+C handling. The wrapper uses zero external
+  chunk-loading errors and auto-reloads the page with a **three-step clean reload**:
+  (a) unregister any stale service workers, (b) clear the Cache Storage API (SW caches),
+  (c) navigate with a cache-busting `?__dc=timestamp` query param to force fresh HTML
+  + chunk fetch. sessionStorage guard prevents loops (one reload per 30s).
+  **Deterministic-error fallback (round 2):** if the SAME error signature recurs 3+
+  times consecutively after cache clears, the error is deterministic (caused by
+  code/config, not a transient cache desync). Instead of looping until max-restarts
+  and exiting, the wrapper falls back to `next dev --webpack` (stable webpack bundler)
+  which is slower but doesn't have Turbopack's chunk-desync issues. This ensures the
+  developer always has a working dev server. On 2nd+ occurrence of the same error,
+  the wrapper also does a **deep cache clear** (`.next` + `node_modules/.cache` +
+  Turbopack persistent cache) instead of just `.next`.
+  **Prevention guards (round 2):** (a) ESLint custom rule
+  `nirman/no-process-env-node-env-in-client` flags `process.env.NODE_ENV` in `"use client"`
+  files — this is the pattern that triggers the Turbopack `process.js` polyfill chunk
+  desync in dynamically-imported (`next/dynamic` ssr:false) chunks. Server Components
+  can safely read `process.env` — pass the result as a prop (e.g.
+  `isDev={process.env.NODE_ENV !== "production"}`). (b) `next.config.ts` runtime guard
+  warns if someone re-adds `Cache-Control` on `/_next/static/` in dev (this breaks
+  Turbopack's chunk-loading protocol). (c) `next.config.ts` no longer sets any custom
+  headers on `/_next/static/` in dev — Turbopack manages chunk caching natively.
+  Safety rails: max 10 restarts per 5-min window, counter resets after 5 min of
+  stability, clean Ctrl+C handling. The wrapper uses zero external
   dependencies (Node built-ins only). If you need to bypass it: `pnpm --filter web dev:raw`.
 - **Auto-scaling memory**: the app auto-detects available RAM (via cgroup limits
   on Render/Docker/K8s, or `os.totalmem()` locally) and tunes all memory-dependent

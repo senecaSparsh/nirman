@@ -11,7 +11,7 @@ export default function HrLayout({ children }: { children: React.ReactNode }) {
             <HardHat className="h-4 w-4 text-[var(--color-world-hr)]" />
           </span>
           <div>
-            <h1 className="text-title text-foreground">People</h1>
+            <div className="text-title text-foreground">People</div>
             <p className="mt-0.5 text-meta text-muted-foreground">
               Labour, attendance and time &mdash; and what it all costs
             </p>

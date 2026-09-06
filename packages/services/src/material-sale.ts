@@ -100,6 +100,7 @@ export interface MaterialSaleLineInput {
   qty: Decimal | number | string;
   unitPrice: Decimal | number | string;
   gstRate?: Decimal | number | string; // GST % on this line (e.g. 5, 12, 18). Default 0.
+  lotNumber?: string; // explicit lot to sell from (for lot-tracked materials); if omitted, FIFO is used
 }
 
 export interface CreateMaterialSaleInput {
@@ -159,6 +160,7 @@ export async function createMaterialSale(input: CreateMaterialSaleInput) {
       lineTotal: Decimal;
       unitCost: Decimal; // MAC at time of sale
       isScrap: boolean;
+      lotNumber?: string;
     }[] = [];
 
     for (const line of input.lines) {
@@ -212,6 +214,7 @@ export async function createMaterialSale(input: CreateMaterialSaleInput) {
         lineTotal,
         unitCost,
         isScrap: material.isScrap,
+        lotNumber: line.lotNumber,
       });
 
       if (material.isScrap) {
@@ -281,6 +284,8 @@ export async function createMaterialSale(input: CreateMaterialSaleInput) {
         refType: "MATERIAL_SALE",
         refId: sale.id,
         userId: input.userId,
+        companyId: input.companyId,
+        lotNumber: line.lotNumber,
       });
     }
 
@@ -524,6 +529,7 @@ export async function executeMaterialSale(saleId: string, userId?: string) {
         refType: "MATERIAL_SALE",
         refId: sale.id,
         userId,
+        companyId: sale.companyId,
       });
     }
 
@@ -618,6 +624,7 @@ export async function cancelMaterialSale(id: string, companyId: string, userId?:
           refType: "MATERIAL_SALE",
           refId: sale.id,
           userId,
+          companyId: sale.companyId,
         });
       }
     }
@@ -812,6 +819,7 @@ export async function createMaterialSaleReturn(
         refType: "MATERIAL_SALE_RETURN",
         refId: saleReturn.id,
         userId: input.userId,
+        companyId: sale.companyId,
       });
     }
 

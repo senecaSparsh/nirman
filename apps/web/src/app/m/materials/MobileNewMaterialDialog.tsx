@@ -6,6 +6,8 @@ import { Loader2, Plus, X, Search, Check } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 interface HsnSuggestion {
   hsnCode: string;
@@ -305,7 +307,7 @@ export function MobileNewMaterialForm({
               }}
             />
           </div>
-          <div>
+          <div className="pl-2">
             <label
               className="block text-m-caption font-bold mb-0"
               style={{ color: "var(--color-ink-700)" }}
@@ -334,62 +336,33 @@ export function MobileNewMaterialForm({
         {/* Category + Unit (side by side) */}
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <div>
-            <label
-              className="block text-m-caption font-bold mb-0"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              Category <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <select
+            <MobileSelectWithCreate
+              label="Category"
+              required
               value={categoryId}
-              onChange={(e) => {
-                setCategoryId(e.target.value);
+              onChange={(v) => {
+                setCategoryId(v);
                 haptic(10);
               }}
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "transparent",
-                color: "var(--color-ink-950)",
-              }}
-            >
-              <option value="">Select…</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              options={categories.map((c) => ({ value: c.id, label: c.name }))}
+              placeholder="Select…"
+            />
           </div>
-          <div>
-            <label
-              className="block text-m-caption font-bold mb-0"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              Unit <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <select
+          <div className="pl-2">
+            <EnumSelect
+              label="Unit"
+              required
               value={unit}
-              onChange={(e) => {
-                setUnit(e.target.value);
-                haptic(10);
-              }}
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "transparent",
-                color: "var(--color-ink-950)",
-              }}
-            >
-              <option value="">Select…</option>
-              {COMMON_UNITS.map((u) => (
-                <option key={u} value={u}>{u}</option>
-              ))}
-              {/* Allow custom unit if the category default isn't in the common list */}
-              {unit && !COMMON_UNITS.includes(unit as (typeof COMMON_UNITS)[number]) ? (
-                <option value={unit}>{unit}</option>
-              ) : null}
-            </select>
+              onChange={(v) => setUnit(v)}
+              placeholder="Select…"
+              options={[
+                ...COMMON_UNITS.map((u) => ({ value: u, label: u })),
+                // Allow custom unit if the category default isn't in the common list
+                ...(unit && !COMMON_UNITS.includes(unit as (typeof COMMON_UNITS)[number])
+                  ? [{ value: unit, label: unit }]
+                  : []),
+              ]}
+            />
           </div>
         </div>
         </div>
@@ -397,75 +370,65 @@ export function MobileNewMaterialForm({
         {/* Tax */}
         <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Tax</p>
-        {/* HSN Code + GST Rate (side by side) */}
-        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <div>
-            <label
-              className="block text-m-caption font-bold mb-0"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              HSN Code
-            </label>
-            <div className="flex items-center gap-1.5">
-              <input
-                type="text"
-                value={hsnCode}
-                onChange={(e) => {
-                  setHsnCode(e.target.value);
+          {/* HSN Code + GST Rate (side by side, symmetric) */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            {/* HSN Code — inline label + input with search icon */}
+            <div className="pr-2">
+              <div
+                className="flex items-center justify-between gap-1 pb-0.5 border-b focus-within:border-b-2 transition-colors"
+                style={{ borderColor: "var(--color-line)" }}
+              >
+                <span className="text-m-caption font-bold shrink-0" style={{ color: "var(--color-ink-700)" }}>
+                  HSN Code
+                </span>
+                <div className="flex items-center gap-1 flex-1 min-w-0 justify-end">
+                  <input
+                    type="text"
+                    value={hsnCode}
+                    onChange={(e) => {
+                      setHsnCode(e.target.value);
+                      setHsnManuallySet(true);
+                    }}
+                    placeholder="2523"
+                    className="flex-1 min-w-0 h-7 px-1 text-m-caption text-right outline-none"
+                    style={{
+                      backgroundColor: "transparent",
+                      color: "var(--color-ink-950)",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowHsnPicker(true);
+                      setHsnSearch("");
+                    }}
+                    className="shrink-0 grid place-items-center size-5 rounded-[0.25rem] border press"
+                    style={{
+                      borderColor: "var(--color-line)",
+                      color: "var(--color-ink-500)",
+                    }}
+                    aria-label="Search HSN codes"
+                  >
+                    <Search className="size-3" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            {/* GST Rate — inline EnumSelect, same underline style */}
+            <div className="pl-2">
+              <EnumSelect
+                label="GST %"
+                value={String(gstRate)}
+                onChange={(v) => {
+                  setGstRate(Number(v));
                   setHsnManuallySet(true);
                 }}
-                placeholder="e.g. 2523"
-                className="flex-1 h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                style={{
-                  borderColor: "var(--color-line)",
-                  backgroundColor: "transparent",
-                  color: "var(--color-ink-950)",
-                }}
+                options={GST_SLABS.map((rate) => ({ value: String(rate), label: `${rate}%` }))}
+                inline
+                align="right"
               />
-              <button
-                type="button"
-                onClick={() => {
-                  setShowHsnPicker(true);
-                  setHsnSearch("");
-                }}
-                className="shrink-0 grid place-items-center h-7 w-7 rounded-[0.375rem] border press"
-                style={{
-                  borderColor: "var(--color-line)",
-                  color: "var(--color-ink-700)",
-                }}
-                aria-label="Search HSN codes"
-              >
-                <Search className="size-3.5" />
-              </button>
             </div>
           </div>
-          <div>
-            <label
-              className="block text-m-caption font-bold mb-0"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              GST Rate (%)
-            </label>
-            <select
-              value={gstRate}
-              onChange={(e) => {
-                setGstRate(Number(e.target.value));
-                setHsnManuallySet(true);
-                haptic(10);
-              }}
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "transparent",
-                color: "var(--color-ink-950)",
-              }}
-            >
-              {GST_SLABS.map((rate) => (
-                <option key={rate} value={rate}>{rate}%</option>
-              ))}
-            </select>
-          </div>
-        </div>
 
         {/* HSN auto-suggestion hint */}
         {hsnSuggestions.length > 0 && !hsnManuallySet && (
@@ -738,6 +701,7 @@ export function MobileNewMaterialDialog({
   onClose,
   onCreated,
   categories,
+  nested,
 }: {
   open: boolean;
   onClose: () => void;
@@ -751,12 +715,14 @@ export function MobileNewMaterialDialog({
     standardCost: number;
   }) => void;
   categories: { id: string; name: string; unit: string }[];
+  nested?: boolean;
 }) {
   return (
     <MobileFabModal
       open={open}
       onClose={onClose}
       title="New Material"
+      nested={nested}
     >
       <MobileNewMaterialForm
         onClose={onClose}

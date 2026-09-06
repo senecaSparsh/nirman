@@ -1051,7 +1051,7 @@ function ActionSheet({
     <MobileDialog open={true} onClose={onClose} title={isActivate ? "Activate tenancy?" : "Terminate tenancy?"}>
         <div className="p-3">
           <div
-            className="rounded-[0.5rem] border p-3 mb-3"
+            className="rounded-[0.625rem] border p-3 mb-3"
             style={{
               borderColor: isActivate ? "var(--color-go)" : "var(--color-stop)",
               backgroundColor: `color-mix(in srgb, ${isActivate ? "var(--color-go)" : "var(--color-stop)"} 5%, transparent)`,
@@ -1350,7 +1350,7 @@ function EscalateSheet({
     <MobileDialog open={true} onClose={onClose} title="Apply rent escalation?">
         <div className="p-3">
           <div
-            className="rounded-[0.5rem] border p-3 mb-3"
+            className="rounded-[0.625rem] border p-3 mb-3"
             style={{ borderColor: "var(--color-signal)", backgroundColor: "color-mix(in srgb, var(--color-signal) 5%, transparent)" }}
           >
             <p className="text-m-label mb-1" style={{ color: "var(--color-ink-700)" }}>

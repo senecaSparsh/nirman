@@ -1,19 +1,25 @@
 "use client";
 
-import { useState, useRef, type ReactNode } from "react";
+import { useState, type ReactNode, type ComponentType, type CSSProperties } from "react";
 import { haptic } from "@/lib/haptic";
+import { SelectorCard, SelectorRow, SelectorModal } from "@/components/mobile/v2/form-primitives";
 
 /**
- * MobileSelectWithCreate — a <select> dropdown whose last option is a
- * "+ Create new …" entry that opens an inline creation dialog (provided
- * by the parent via `renderDialog`). The dialog's `onCreated` callback
- * adds the new entity to the options list and auto-selects it.
+ * MobileSelectWithCreate — a unified entity selector that uses the same
+ * `SelectorCard` + `SelectorModal` bottom-sheet pattern as the "holy grail"
+ * Material Sale form. The trigger is a tappable card/row with a label and
+ * chevron; tapping opens a searchable bottom-sheet list with an optional
+ * "+ Create new" button at the bottom.
  *
- * Layout: [ select ────────────── ]
- * The create affordance lives inside the dropdown as the final option,
- * so the field occupies the full available width (no side-by-side button).
+ * This replaces the old native `<select>` implementation so ALL entity
+ * selectors across the app have the same UI pattern — no inconsistency.
  *
- * Usage:
+ * The API is backward-compatible with the previous version: callers that
+ * pass `inputClass`/`inputStyle`/`labelClass`/`labelStyle` still work
+ * (those props are now ignored — styling is handled by SelectorCard for
+ * visual consistency).
+ *
+ * Usage (with create):
  *   <MobileSelectWithCreate
  *     label="Project"
  *     value={projectId}
@@ -23,6 +29,15 @@ import { haptic } from "@/lib/haptic";
  *     renderDialog={({ open, onClose, onCreated }) => (
  *       <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => { onCreated(p.id, p.name); }} />
  *     )}
+ *   />
+ *
+ * Usage (without create — just a searchable entity picker):
+ *   <MobileSelectWithCreate
+ *     label="Supplier"
+ *     value={supplierId}
+ *     onChange={setSupplierId}
+ *     options={suppliers.map(s => ({ value: s.id, label: s.name, sub: s.balanceOwed > 0 ? `Owes ${formatCurrency(s.balanceOwed)}` : undefined }))}
+ *     placeholder="— Select supplier —"
  *   />
  */
 export function MobileSelectWithCreate({
@@ -34,85 +49,96 @@ export function MobileSelectWithCreate({
   placeholder,
   renderDialog,
   createLabel,
-  inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors",
-  inputStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "transparent",
-    color: "var(--color-ink-950)",
-  },
-  labelClass = "block text-m-caption font-bold mb-0",
-  labelStyle = { color: "var(--color-ink-700)" } as React.CSSProperties,
+  icon,
+  subvalue,
+  compact,
+  disabled,
+  // Deprecated styling props — kept for backward compat but ignored.
+  inputClass: _inputClass,
+  inputStyle: _inputStyle,
+  labelClass: _labelClass,
+  labelStyle: _labelStyle,
 }: {
   label: string;
   required?: boolean;
   value: string;
   onChange: (value: string) => void;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; sub?: string }[];
   placeholder?: string;
-  renderDialog: (props: { open: boolean; onClose: () => void; onCreated: (value: string, label: string) => void; originRect: DOMRect | null }) => ReactNode;
-  /** Label for the "+" button's aria-label and title. Falls back to `label`, then "item". */
+  /** When provided, adds a "+ Create new" button to the picker and renders
+   *  the dialog when tapped. When omitted, the selector is a simple picker. */
+  renderDialog?: (props: { open: boolean; onClose: () => void; onCreated: (value: string, label: string) => void; originRect: DOMRect | null }) => ReactNode;
+  /** Label for the create button's text. Falls back to `label`, then "item". */
   createLabel?: string;
+  /** Optional icon for the selector trigger (lucide component). */
+  icon?: ComponentType<{ className?: string; style?: CSSProperties }>;
+  /** Optional subvalue shown next to the value in the trigger. */
+  subvalue?: string | null;
+  /** Compact mode — smaller icons, for line-item level selectors. */
+  compact?: boolean;
+  /** When true, the trigger is disabled (e.g. while loading options). */
+  disabled?: boolean;
+  /** @deprecated Use the default SelectorCard styling. */
   inputClass?: string;
+  /** @deprecated Use the default SelectorCard styling. */
   inputStyle?: React.CSSProperties;
+  /** @deprecated Use the default SelectorCard styling. */
   labelClass?: string;
+  /** @deprecated Use the default SelectorCard styling. */
   labelStyle?: React.CSSProperties;
 }) {
+  const [showPicker, setShowPicker] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
-  const [extraOptions, setExtraOptions] = useState<{ value: string; label: string }[]>([]);
-  const selectRef = useRef<HTMLSelectElement | null>(null);
+  const [extraOptions, setExtraOptions] = useState<{ value: string; label: string; sub?: string }[]>([]);
 
-  const CREATE_VALUE = "__create__";
   const allOptions = [...options, ...extraOptions];
+  const selected = allOptions.find((o) => o.value === value);
 
-  function handleCreated(value: string, label: string) {
-    setExtraOptions((prev) => [...prev, { value, label }]);
-    onChange(value);
+  // Build items for SelectorModal — include a "none" option if placeholder is set
+  const items = [
+    ...(placeholder ? [{ id: "", label: placeholder, sub: undefined as string | undefined }] : []),
+    ...allOptions.map((o) => ({ id: o.value, label: o.label, sub: o.sub })),
+  ];
+
+  function handleCreated(newValue: string, newLabel: string) {
+    setExtraOptions((prev) => [...prev, { value: newValue, label: newLabel }]);
+    onChange(newValue);
     setShowDialog(false);
   }
 
-  function openDialog() {
-    haptic(10);
+  // SelectorModal handles closing itself before calling onCreate, so
+  // we just pass handleOpenCreate which only needs to open the dialog.
+  function handleOpenCreate() {
     setShowDialog(true);
-    // Reset the select back to the current value so the "__create__" option
-    // isn't left selected if the user cancels the dialog.
-    requestAnimationFrame(() => {
-      if (selectRef.current) selectRef.current.value = value;
-    });
   }
 
-  return (
-    <div>
-      {label ? (
-        <label className={labelClass} style={labelStyle}>
-          {label}
-          {required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
-        </label>
-      ) : null}
-      <select
-        ref={selectRef}
-        value={value}
-        onChange={(e) => {
-          if (e.target.value === CREATE_VALUE) {
-            openDialog();
-          } else {
-            onChange(e.target.value);
-          }
-        }}
-        className={inputClass}
-        style={inputStyle}
-      >
-        {placeholder ? <option value="">{placeholder}</option> : null}
-        {allOptions.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-        <option value={CREATE_VALUE} style={{ color: "var(--color-signal-dark)", fontWeight: 600 }}>
-          + Create new {createLabel || label || "item"}
-        </option>
-      </select>
+  const Trigger = compact ? SelectorRow : SelectorCard;
 
-      {renderDialog({ open: showDialog, onClose: () => setShowDialog(false), onCreated: handleCreated, originRect: null })}
-    </div>
+  return (
+    <>
+      <Trigger
+        onClick={() => { if (!disabled) { haptic(10); setShowPicker(true); } }}
+        icon={icon}
+        label={placeholder ?? label}
+        value={selected?.label}
+        subvalue={subvalue ?? selected?.sub}
+        required={required}
+        compact={compact}
+      />
+
+      {showPicker ? (
+        <SelectorModal
+          title={label}
+          items={items}
+          selectedId={value}
+          onSelect={(id) => { onChange(id); setShowPicker(false); }}
+          onClose={() => setShowPicker(false)}
+          onCreate={renderDialog ? handleOpenCreate : undefined}
+          createLabel={`Create new ${createLabel || label || "item"}`}
+        />
+      ) : null}
+
+      {renderDialog?.({ open: showDialog, onClose: () => setShowDialog(false), onCreated: handleCreated, originRect: null })}
+    </>
   );
 }

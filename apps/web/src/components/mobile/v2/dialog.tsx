@@ -21,14 +21,18 @@ export function MobileDialog({
   onClose,
   title,
   children,
+  nested,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /** When true, disables backdrop blur — use for dialogs opened inside
+   *  other dialogs to avoid double-blur. */
+  nested?: boolean;
 }) {
   return (
-    <MobileFabModal open={open} onClose={onClose} title={title}>
+    <MobileFabModal open={open} onClose={onClose} title={title} nested={nested}>
       {children}
     </MobileFabModal>
   );

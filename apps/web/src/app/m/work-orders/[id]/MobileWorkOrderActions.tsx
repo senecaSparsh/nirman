@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ActionBar } from "@/components/mobile/v2/primitives";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type Status = "DRAFT" | "ISSUED" | "ACTIVE" | "COMPLETED" | "CLOSED";
 
@@ -164,7 +165,7 @@ export function MobileWorkOrderActions({
               <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
             </div>
             <div className="flex items-center justify-between px-3 pb-2">
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Pay Advance</p>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Pay Advance</p>
               <button onClick={() => setShowAdvance(false)} className="text-m-body press p-1">
                 <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
               </button>
@@ -174,25 +175,31 @@ export function MobileWorkOrderActions({
                 <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                   Payment Details
                 </p>
-                <div>
-                  <label className={labelClass} style={labelStyle}>Amount (₹) *</label>
-                  <input type="number" min="0" step="any" inputMode="numeric" value={advanceAmount} onChange={(e) => setAdvanceAmount(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
-                </div>
-                <div>
-                  <label className={labelClass} style={labelStyle}>Payment Mode</label>
-                  <select value={advanceMode} onChange={(e) => setAdvanceMode(e.target.value)} className={inputClass} style={inputStyle}>
-                    <option value="BANK">Bank Transfer</option>
-                    <option value="CASH">Cash</option>
-                    <option value="CHEQUE">Cheque</option>
-                    <option value="UPI">UPI</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div>
+                    <label className={labelClass} style={labelStyle}>Amount (₹) *</label>
+                    <input type="number" min="0" step="any" inputMode="numeric" value={advanceAmount} onChange={(e) => setAdvanceAmount(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
+                  </div>
+                  <div className="pl-2">
+                    <EnumSelect
+                      label="Payment Mode"
+                      value={advanceMode}
+                      onChange={setAdvanceMode}
+                      options={[
+                        { value: "BANK", label: "Bank Transfer" },
+                        { value: "CASH", label: "Cash" },
+                        { value: "CHEQUE", label: "Cheque" },
+                        { value: "UPI", label: "UPI" },
+                      ]}
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Reference No.</label>
                   <input value={advanceRef} onChange={(e) => setAdvanceRef(e.target.value)} placeholder="UTR / Cheque no." className={inputClass} style={inputStyle} />
                 </div>
               </div>
-              <div className="flex flex-col gap-2 pt-1">
+              <div className="flex gap-2 pt-1">
                 <button onClick={() => setShowAdvance(false)} disabled={acting !== null} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
                 <button
                   onClick={() => {
@@ -227,7 +234,7 @@ export function MobileWorkOrderActions({
               <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
             </div>
             <div className="flex items-center justify-between px-3 pb-2">
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Release Retention?</p>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Release Retention?</p>
               <button onClick={() => setShowRetention(false)} className="text-m-body press p-1">
                 <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
               </button>
@@ -236,7 +243,7 @@ export function MobileWorkOrderActions({
               <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
                 This will release the retention amount held against this work order back to the subcontractor. If the defect liability period has not elapsed, this may require an override reason.
               </p>
-              <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
                 <button onClick={() => setShowRetention(false)} disabled={acting !== null} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
                 <button
                   onClick={() => doAction("release-retention")}

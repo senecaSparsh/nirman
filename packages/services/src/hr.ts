@@ -909,14 +909,42 @@ export async function bulkRecordAttendance(input: BulkAttendanceInput) {
     for (const r of input.records) {
       if (!validEmployeeIds.has(r.employeeId)) continue; // skip unknown workers in bulk mode
 
+      // ── Auto-compute hoursWorked from check-in/check-out if not provided ──
+      let hoursWorked: Decimal | number | undefined = r.hoursWorked;
+      let status = r.status;
+      if (r.checkIn && r.checkOut && hoursWorked == null) {
+        const checkInDate = combineTimeWithDate(dateOnly, r.checkIn);
+        const checkOutDate = combineTimeWithDate(dateOnly, r.checkOut);
+        const diffMs = checkOutDate.getTime() - checkInDate.getTime();
+        // Handle overnight shifts: if check-out is before check-in, assume it's the next day
+        const adjustedDiffMs = diffMs <= 0 ? diffMs + 24 * 60 * 60 * 1000 : diffMs;
+        if (adjustedDiffMs > 0) {
+          hoursWorked = new Decimal(adjustedDiffMs).div(1000 * 60 * 60); // ms → hours
+        }
+      }
+      // If hoursWorked is still null and status is not explicitly set, default to PRESENT
+      if (hoursWorked == null && !status) {
+        status = "PRESENT";
+      }
+      // ── Auto-classify status from hours using the 85% rule ──
+      // Only override if the caller passed a generic PRESENT but we have
+      // enough data to be more precise. Don't override explicit ABSENT/LEAVE/etc.
+      if (hoursWorked != null && (status === "PRESENT" || status === "LATE" || status === "HALF_DAY" || status === "OVERTIME")) {
+        const autoStatus = computeStatusFromHours(hoursWorked);
+        // Only upgrade from PRESENT to a more specific status (LATE/HALF_DAY/OVERTIME)
+        // Don't downgrade an explicit OVERTIME to PRESENT, etc.
+        if (autoStatus === "LATE" || autoStatus === "HALF_DAY" || autoStatus === "OVERTIME") {
+          status = autoStatus;
+        }
+      }
+
       const data = {
         companyId: input.companyId,
         projectId: input.projectId ?? null,
         checkIn: r.checkIn ? combineTimeWithDate(dateOnly, r.checkIn) : null,
         checkOut: r.checkOut ? combineTimeWithDate(dateOnly, r.checkOut) : null,
-        hoursWorked: r.hoursWorked != null ? new Decimal(r.hoursWorked) : null,
-        status: r.status,
-        notes: r.notes ?? null,
+        hoursWorked: hoursWorked != null ? new Decimal(hoursWorked) : null,
+        status,
         recordedById: input.recordedById ?? null,
         checkInLat: r.checkInLat ?? null,
         checkInLng: r.checkInLng ?? null,
@@ -928,11 +956,19 @@ export async function bulkRecordAttendance(input: BulkAttendanceInput) {
 
       const existing = existingByEmployeeId.get(r.employeeId);
       if (existing) {
-        toUpdate.push({ where: { id: existing.id }, data });
+        // Issue 8: Don't overwrite existing notes with null when the bulk
+        // re-save doesn't include notes. Only set notes if the incoming
+        // record actually has them; otherwise preserve the existing value.
+        const updateData: Prisma.WorkerAttendanceUpdateInput = { ...data };
+        if (r.notes != null) {
+          updateData.notes = r.notes;
+        }
+        toUpdate.push({ where: { id: existing.id }, data: updateData });
       } else {
-        toCreate.push({ employeeId: r.employeeId, date: dateOnly, ...data });
+        // For new records, set notes from the incoming record (or null).
+        toCreate.push({ employeeId: r.employeeId, date: dateOnly, ...data, notes: r.notes ?? null });
       }
-      results.push({ employeeId: r.employeeId, status: r.status });
+      results.push({ employeeId: r.employeeId, status });
     }
 
     if (toCreate.length > 0) {
@@ -1033,10 +1069,16 @@ export async function generatePayroll(input: GeneratePayrollInput) {
 
     for (const emp of employees) {
       const attendances = attendancesByEmployee.get(emp.id) ?? [];
-      // Skip workers with no attendance in the period (nothing to pay).
-      if (attendances.length === 0) continue;
+      // For DAILY wage workers, no attendance means nothing to pay — skip.
+      // For MONTHLY/FIXED employees, salary is owed even without daily
+      // attendance records, so we synthesize a full-month line.
+      if (attendances.length === 0 && emp.wageType === "DAILY") continue;
 
-      const daysWorked = computeDaysWorked(attendances);
+      // When a MONTHLY/FIXED employee has no attendance records, treat them
+      // as having worked the full period so they receive their full salary.
+      const daysWorked = attendances.length === 0
+        ? new Decimal(workingDays)
+        : computeDaysWorked(attendances);
       // Apply the "4 lates = 1 half-day" deduction rule (owner's explicit policy).
       // Each 4 LATE days in the month deducts 0.5 from daysWorked.
       const lateHalfDayDeductions = computeLateHalfDayDeductions(attendances);

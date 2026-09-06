@@ -165,48 +165,48 @@ export function MobileNewSubcontractorDialog({
             <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Contact &amp; Address
             </p>
-            {/* Phone */}
-            <div>
-              <label
-                className="block text-m-caption font-bold mb-0"
-                style={{ color: "var(--color-ink-700)" }}
-              >
-                Phone
-              </label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="9876543210"
-                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                style={{
-                  borderColor: "var(--color-line)",
-                  backgroundColor: "transparent",
-                  color: "var(--color-ink-950)",
-                }}
-              />
-            </div>
-
-            {/* Email */}
-            <div>
-              <label
-                className="block text-m-caption font-bold mb-0"
-                style={{ color: "var(--color-ink-700)" }}
-              >
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="contact@abcworks.com"
-                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                style={{
-                  borderColor: "var(--color-line)",
-                  backgroundColor: "transparent",
-                  color: "var(--color-ink-950)",
-                }}
-              />
+            {/* Phone + Email */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div>
+                <label
+                  className="block text-m-caption font-bold mb-0"
+                  style={{ color: "var(--color-ink-700)" }}
+                >
+                  Phone
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="9876543210"
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{
+                    borderColor: "var(--color-line)",
+                    backgroundColor: "transparent",
+                    color: "var(--color-ink-950)",
+                  }}
+                />
+              </div>
+              <div className="pl-2">
+                <label
+                  className="block text-m-caption font-bold mb-0"
+                  style={{ color: "var(--color-ink-700)" }}
+                >
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="contact@abcworks.com"
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{
+                    borderColor: "var(--color-line)",
+                    backgroundColor: "transparent",
+                    color: "var(--color-ink-950)",
+                  }}
+                />
+              </div>
             </div>
 
             {/* Address */}
@@ -232,25 +232,35 @@ export function MobileNewSubcontractorDialog({
             </div>
           </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+          {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+          <div
+            className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
             style={{
-              backgroundColor: "var(--color-ink-950)",
-              color: "var(--color-paper)",
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
             }}
           >
-            {saving ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <>
-                <Plus className="size-4" />
-                <span>Create Subcontractor</span>
-              </>
-            )}
-          </button>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--color-ink-950)",
+                  color: "var(--color-paper)",
+                }}
+              >
+                {saving ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <>
+                    <Plus className="size-4" />
+                    <span>Create Subcontractor</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </form>
     </MobileDialog>
   );

@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import {
   PhotoCapture, SignaturePad, GeoTagCapture, SelectField, TextField,
   WeighbridgeFields, GeoFenceStatus, ReceivingPhotoUpload,
@@ -29,6 +31,7 @@ interface ReceiveLine {
   baseUnit: string;
   secondaryUnit: string | null;
   uomConversionFactor: number | null;
+  isLotTracked: boolean;
 }
 
 interface ConfirmLine {
@@ -83,6 +86,10 @@ export function MobileReceiveDialog({
   const [lineLots, setLineLots] = useState<Record<string, string>>({});
   const [lineBatches, setLineBatches] = useState<Record<string, string>>({});
   const [lineInspection, setLineInspection] = useState<Record<string, string>>({});
+  // Lot-tracked material fields: expiry, manufacturing date, inspection remarks
+  const [lineExpiryDate, setLineExpiryDate] = useState<Record<string, string>>({});
+  const [lineMfgDate, setLineMfgDate] = useState<Record<string, string>>({});
+  const [lineInspectionRemarks, setLineInspectionRemarks] = useState<Record<string, string>>({});
   // Weight-based receiving: per-line toggle + weight input
   const [lineByWeight, setLineByWeight] = useState<Record<string, boolean>>({});
   const [lineWeights, setLineWeights] = useState<Record<string, string>>({});
@@ -404,6 +411,9 @@ export function MobileReceiveDialog({
     setLineLots({});
     setLineBatches({});
     setLineInspection({});
+    setLineExpiryDate({});
+    setLineMfgDate({});
+    setLineInspectionRemarks({});
     setLineByWeight({});
     setLineWeights({});
     setGatePassNo("");
@@ -554,7 +564,10 @@ export function MobileReceiveDialog({
           unitCost: l.unitCost,
           lotNumber: lineLots[l.id] || undefined,
           batchCode: lineBatches[l.id] || undefined,
+          expiryDate: lineExpiryDate[l.id] || undefined,
+          manufacturingDate: lineMfgDate[l.id] || undefined,
           inspectionStatus: lineInspection[l.id] || undefined,
+          inspectionRemarks: lineInspectionRemarks[l.id] || undefined,
         };
       })
       .filter(Boolean) as {
@@ -564,7 +577,10 @@ export function MobileReceiveDialog({
       unitCost: number;
       lotNumber?: string;
       batchCode?: string;
+      expiryDate?: string;
+      manufacturingDate?: string;
       inspectionStatus?: string;
+      inspectionRemarks?: string;
     }[];
 
     const notesCombined = receiptNotes.trim() || null;
@@ -688,7 +704,7 @@ export function MobileReceiveDialog({
           <div className="size-16 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 15%, transparent)" }}>
             <CheckCircle2 className="size-8" style={{ color: "var(--color-go)" }} />
           </div>
-          <h2 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>GRN Recorded</h2>
+          <h2 className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>GRN Recorded</h2>
           <p className="text-m-section mt-1 text-center" style={{ color: "var(--color-steel)" }}>
             Stock updated · PO is now <span className="font-semibold">{lastNewStatus}</span>
           </p>
@@ -903,16 +919,19 @@ export function MobileReceiveDialog({
                   </div>
                   <input type="text" placeholder="Material name" value={quickAddName} onChange={(e) => setQuickAddName(e.target.value)} className="w-full h-8 rounded-[0.375rem] border px-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
                   <div className="grid grid-cols-2 gap-2">
-                    <select value={quickAddCategory} onChange={(e) => setQuickAddCategory(e.target.value)} className="h-8 rounded-[0.375rem] border px-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}>
-                      <option value="">Select category…</option>
-                      {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+                    <MobileSelectWithCreate
+                      label="Category"
+                      value={quickAddCategory}
+                      onChange={setQuickAddCategory}
+                      placeholder="Select category…"
+                      options={categories.map((c) => ({ value: c.id, label: c.name }))}
+                    />
                     <div className="flex gap-1">
                       <input type="text" placeholder="Unit" value={quickAddUnit} onChange={(e) => setQuickAddUnit(e.target.value)} className="w-16 h-8 rounded-[0.375rem] border px-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
                       <input type="number" inputMode="decimal" placeholder="Cost" value={quickAddCost} onChange={(e) => setQuickAddCost(e.target.value)} className="flex-1 h-8 rounded-[0.375rem] border px-2 text-m-body text-right tabular-nums outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
                     </div>
                   </div>
-                  <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
                     <button type="button" onClick={() => setShowQuickAdd(false)} className="flex-1 h-7 rounded-[0.25rem] text-m-caption font-bold border press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}>Cancel</button>
                     <button type="button" onClick={handleQuickAdd} disabled={quickAddLoading} className="flex-1 h-7 rounded-[0.25rem] text-m-caption font-bold press" style={{ backgroundColor: "var(--color-signal)", color: "var(--color-paper)" }}>
                       {quickAddLoading ? "Creating…" : "Create + auto-fill HSN/GST"}
@@ -1021,11 +1040,55 @@ export function MobileReceiveDialog({
                           {/* Lot/Batch */}
                           <input type="text" placeholder="Lot/Batch" value={lineLots[l.id] ?? ""} onChange={(e) => setLineLots((s) => ({ ...s, [l.id]: e.target.value }))} className="h-8 rounded-[0.25rem] border px-1.5 text-m-caption outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
                           {/* Inspection */}
-                          <select value={lineInspection[l.id] ?? ""} onChange={(e) => setLineInspection((s) => ({ ...s, [l.id]: e.target.value }))} className="h-8 rounded-[0.25rem] border px-1.5 text-m-caption font-semibold outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}>
-                            <option value="">Inspect…</option>
-                            {INSPECTION_STATUSES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                          </select>
+                          <EnumSelect
+                            label=""
+                            inline
+                            placeholder="Inspect…"
+                            value={lineInspection[l.id] ?? ""}
+                            onChange={(v) => setLineInspection((s) => ({ ...s, [l.id]: v }))}
+                            options={INSPECTION_STATUSES}
+                          />
                         </div>
+
+                        {/* Lot-tracked fields: expiry + manufacturing date (only for lot-tracked materials) */}
+                        {l.isLotTracked ? (
+                          <div className="grid grid-cols-2 gap-1.5 mb-1">
+                            <div>
+                              <label className="text-m-caption font-semibold uppercase tracking-wide block mb-0.5" style={{ color: "var(--color-ink-500)" }}>Expiry</label>
+                              <input
+                                type="date"
+                                value={lineExpiryDate[l.id] ?? ""}
+                                onChange={(e) => setLineExpiryDate((s) => ({ ...s, [l.id]: e.target.value }))}
+                                className="w-full h-8 rounded-[0.25rem] border px-1.5 text-m-caption outline-none"
+                                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-m-caption font-semibold uppercase tracking-wide block mb-0.5" style={{ color: "var(--color-ink-500)" }}>Mfg Date</label>
+                              <input
+                                type="date"
+                                value={lineMfgDate[l.id] ?? ""}
+                                onChange={(e) => setLineMfgDate((s) => ({ ...s, [l.id]: e.target.value }))}
+                                className="w-full h-8 rounded-[0.25rem] border px-1.5 text-m-caption outline-none"
+                                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }}
+                              />
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {/* Inspection remarks — show when inspection is FAILED or RETEST */}
+                        {(lineInspection[l.id] === "FAILED" || lineInspection[l.id] === "RETEST") ? (
+                          <div className="mb-1">
+                            <input
+                              type="text"
+                              placeholder="Inspection remarks (defect / retest reason)"
+                              value={lineInspectionRemarks[l.id] ?? ""}
+                              onChange={(e) => setLineInspectionRemarks((s) => ({ ...s, [l.id]: e.target.value }))}
+                              className="w-full h-8 rounded-[0.25rem] border px-1.5 text-m-caption outline-none"
+                              style={{ borderColor: "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-stop) 4%, transparent)", color: "var(--color-ink-950)" }}
+                            />
+                          </div>
+                        ) : null}
 
                         {/* Secondary row: weight calc / WB button / expected weight */}
                         {byWeight && canConvert ? (
@@ -1232,7 +1295,7 @@ export function MobileReceiveDialog({
           <div className="absolute inset-0 z-10 flex flex-col justify-end" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={() => { if (!submitting) setConfirmLines(null); }}>
             <div className="rounded-t-[0.75rem] flex flex-col" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-                <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Confirm Receipt</p>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Confirm Receipt</p>
                 <button onClick={() => { if (!submitting) setConfirmLines(null); }} className="text-m-body press p-1"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
               </div>
               <div className="max-h-[35vh] overflow-y-auto p-3 space-y-2">
@@ -1275,7 +1338,7 @@ export function MobileReceiveDialog({
           <div className="absolute inset-0 z-10 flex flex-col justify-end" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={() => { if (!submitting) setShowRejectConfirm(false); }}>
             <div className="rounded-t-[0.75rem] flex flex-col" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-                <p className="text-m-section font-bold" style={{ color: "var(--color-stop)" }}>Confirm Rejection</p>
+                <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-stop)" }}>Confirm Rejection</p>
                 <button onClick={() => { if (!submitting) setShowRejectConfirm(false); }} className="text-m-body press p-1"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
               </div>
               <div className="p-3 space-y-2">

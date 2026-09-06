@@ -368,7 +368,7 @@ export function MobileTransferReceiveDialog({
           <div className="w-full max-w-md rounded-t-[0.75rem] flex flex-col" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
               <AlertTriangle className="size-4 shrink-0" style={{ color: "var(--color-stop)" }} />
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Return to Source?</p>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Return to Source?</p>
               <button onClick={() => { if (!submitting) setShowReturn(false); }} className="text-m-body press shrink-0 p-1 ml-auto">
                 <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
               </button>
@@ -378,7 +378,7 @@ export function MobileTransferReceiveDialog({
                 Goods are damaged or wrong? Return this transfer to {fromLocationName}. A reason is required.
               </p>
               <TextField label="Reason" value={returnReason} onChange={setReturnReason} placeholder="e.g. Goods damaged in transit" required />
-              <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
                 <button onClick={() => setShowReturn(false)} disabled={submitting} className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press disabled:opacity-50" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>Cancel</button>
                 <button onClick={() => void confirmReturnToSource()} disabled={submitting} className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50" style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}>
                   {submitting ? <Loader2 className="size-4 animate-spin" /> : <><RotateCcw className="size-3.5" /><span>Return to Source</span></>}

@@ -120,7 +120,10 @@ export function useOptimisticAction({
         setError(msg);
         haptic(hapticOnError);
         toast.error(msg);
-        throw err;
+        // Don't re-throw — the error is already surfaced via `error` state +
+        // toast + haptic. Re-throwing causes unhandled promise rejections in
+        // event handlers (onClick={() => execute()}) that callers don't catch.
+        return null;
       }
     },
     [

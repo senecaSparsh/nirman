@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import {Phone, Briefcase, Trash2, X, Eye, Share2, FileText, Percent} from "lucide-react";
+import {Phone, Briefcase, Trash2, Eye, Share2, FileText, Percent} from "lucide-react";
 import { useLongPress } from "@/lib/use-long-press";
 import {
   MobileOverviewSheet,
@@ -19,6 +19,7 @@ import {
 } from "@/components/mobile/v2/scaffold";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileNewBrokerClient } from "./new/MobileNewBrokerClient";
 import { haptic } from "@/lib/haptic";
 import { formatNumber } from "@/lib/utils";
@@ -312,34 +313,12 @@ function BrokerEditSheet({
   const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full rounded-t-[1rem] mx-auto max-w-md max-h-[85vh] overflow-y-auto"
-        style={{ backgroundColor: "var(--color-paper)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Sheet handle */}
-        <div className="flex justify-center pt-2 pb-1">
-          <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
-        </div>
-        {/* Header */}
-        <div className="flex items-center justify-between px-3 pb-2">
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-            Edit Broker
-          </p>
-          <button onClick={onClose} className="text-m-body press p-1">
-            <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-        </div>
+    <MobileDialog open={true} onClose={onClose} title="Edit Broker">
         {/* Form */}
-        <div className="px-3 pb-4 flex flex-col gap-3">
+        <div className="pb-4 flex flex-col gap-3">
           {confirmDelete ? (
-            <div className="rounded-[0.5rem] border p-3 flex flex-col gap-2" style={{ borderColor: "var(--color-danger, #dc2626)" }}>
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-2" style={{ borderColor: "var(--color-danger, #dc2626)" }}>
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                 Delete &quot;{broker.name}&quot;?
               </p>
               <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
@@ -415,7 +394,6 @@ function BrokerEditSheet({
             </>
           )}
         </div>
-      </div>
-    </div>
+    </MobileDialog>
   );
 }

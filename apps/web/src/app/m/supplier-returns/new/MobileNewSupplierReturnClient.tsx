@@ -18,7 +18,7 @@ import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDial
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewStockLocationDialog";
 import { VehicleCapture, type VehicleData } from "@/components/mobile/vehicle-capture";
-import { SelectorModal } from "@/components/mobile/v2/form-primitives";
+import { SelectorModal, EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 interface SupplierItem { id: string; name: string; }
 interface LocationItem { id: string; name: string; type: string; }
@@ -77,7 +77,7 @@ export default function MobileNewSupplierReturnClient({
   const [purchaseOrderId, setPurchaseOrderId] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<ReturnLine[]>(
-    [{ materialId: materials[0]?.id ?? "", qty: "", unitCost: "", reason: "" }],
+    [{ materialId: "", qty: "", unitCost: "", reason: "" }],
   );
   // Vehicle — how returned goods are transported back to supplier
   const [vehicle, setVehicle] = useState<VehicleData>({ vehicleNumber: "", vehicleType: "" });
@@ -87,6 +87,9 @@ export default function MobileNewSupplierReturnClient({
   // ── Draft auto-save (IndexedDB) ──
   useEffect(() => {
     if (success) return;
+    const hasContent = supplierId || locationId || purchaseOrderId || notes ||
+      lines.some((l) => l.materialId || l.qty);
+    if (!hasContent) return;
     saveDraft({ supplierId, locationId, purchaseOrderId, notes, lines });
   }, [supplierId, locationId, purchaseOrderId, notes, lines, success, saveDraft]);
 
@@ -109,7 +112,7 @@ export default function MobileNewSupplierReturnClient({
   }, [purchaseOrders, supplierId]);
 
   const handleAddLine = () => {
-    setLines([...lines, { materialId: materials[0]?.id ?? "", qty: "", unitCost: "", reason: "" }]);
+    setLines([...lines, { materialId: "", qty: "", unitCost: "", reason: "" }]);
   };
 
   const handleRemoveLine = (index: number) => {
@@ -209,7 +212,7 @@ export default function MobileNewSupplierReturnClient({
             <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
           )}
         </div>
-        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
           {isQueued ? "Return Queued" : "Return Created"}
         </p>
         {isQueued ? (
@@ -260,7 +263,7 @@ export default function MobileNewSupplierReturnClient({
           <button
             onClick={() => {
               setSuccess(null);
-              setLines([{ materialId: materials[0]?.id ?? "", qty: "", unitCost: "", reason: "" }]);
+              setLines([{ materialId: "", qty: "", unitCost: "", reason: "" }]);
               setNotes("");
               setPurchaseOrderId("");
               setVehicle({ vehicleNumber: "", vehicleType: "" });
@@ -279,15 +282,15 @@ export default function MobileNewSupplierReturnClient({
   if (suppliers.length === 0 || materials.length === 0 || locations.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-        <p className="text-m-section font-bold mb-1" style={{ color: "var(--color-ink-950)" }}>Missing master data</p>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>Missing master data</p>
         <p className="text-m-body mb-4" style={{ color: "var(--color-ink-700)" }}>
           You need these before creating a supplier return:
         </p>
-        <div className="flex flex-col gap-3 w-full max-w-xs">
+        <div className="flex flex-wrap gap-3 w-full max-w-sm justify-center">
           {suppliers.length === 0 && (
             <button
               onClick={() => setGuardDialog("supplier")}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
+              className="flex-1 min-w-[140px] flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
               style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
             >
               <Plus className="size-3.5" /> Add a Supplier
@@ -296,7 +299,7 @@ export default function MobileNewSupplierReturnClient({
           {materials.length === 0 && (
             <button
               onClick={() => setGuardDialog("material")}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
+              className="flex-1 min-w-[140px] flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
               style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
             >
               <Plus className="size-3.5" /> Add a Material
@@ -305,7 +308,7 @@ export default function MobileNewSupplierReturnClient({
           {locations.length === 0 && (
             <button
               onClick={() => setGuardDialog("location")}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
+              className="flex-1 min-w-[140px] flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-body font-bold text-m-body press"
               style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
             >
               <Plus className="size-3.5" /> Add a Stock Location
@@ -319,6 +322,7 @@ export default function MobileNewSupplierReturnClient({
         {guardDialog === "supplier" ? (
           <MobileNewSupplierDialog
             open
+            nested
             onClose={() => setGuardDialog(null)}
             onCreated={(s) => { setSuppliers((p) => [...p, { id: s.id, name: s.name }]); setGuardDialog(null); }}
           />
@@ -326,6 +330,7 @@ export default function MobileNewSupplierReturnClient({
         {guardDialog === "material" ? (
           <MobileNewMaterialDialog
             open
+            nested
             onClose={() => setGuardDialog(null)}
             categories={categories}
             onCreated={(m) => { setMaterials((p) => [...p, { id: m.id, name: m.name, code: m.code, unit: m.unit }]); setGuardDialog(null); }}
@@ -334,6 +339,7 @@ export default function MobileNewSupplierReturnClient({
         {guardDialog === "location" ? (
           <MobileNewStockLocationDialog
             open
+            nested
             onClose={() => setGuardDialog(null)}
             onCreated={(l) => { setLocations((p) => [...p, { id: l.id, name: l.name, type: l.type }]); setGuardDialog(null); }}
           />
@@ -464,7 +470,7 @@ function ReturnForm({
     closeModal();
   };
 
-  const handleSelect = (id: string) => {
+  const handleSelect = async (id: string) => {
     if (!modal) return;
     if (modal.type === "supplier") {
       setSupplierId(id);
@@ -475,6 +481,26 @@ function ReturnForm({
       setPurchaseOrderId(id);
     } else if (modal.type === "material" && modal.lineIndex !== undefined) {
       onLineChange(modal.lineIndex, "materialId", id);
+      // Auto-fill unitCost from the current Moving Average Cost (MAC) at the
+      // selected location. The user can still override this afterwards. Only
+      // auto-fill when the field is empty so we never clobber a manual entry.
+      const line = lines[modal.lineIndex];
+      if (locationId && line && !line.unitCost) {
+        try {
+          const res = await fetch(
+            `/api/stock?locationId=${encodeURIComponent(locationId)}&materialId=${encodeURIComponent(id)}`,
+          );
+          if (res.ok) {
+            const rows = await res.json();
+            const mac = Array.isArray(rows) && rows.length > 0 ? rows[0].mac : null;
+            if (typeof mac === "number" && mac > 0) {
+              onLineChange(modal.lineIndex, "unitCost", String(mac));
+            }
+          }
+        } catch {
+          // non-fatal — leave unitCost blank for manual entry
+        }
+      }
     }
     closeModal();
   };
@@ -614,20 +640,13 @@ function ReturnForm({
                 {/* Reason + Credit (side by side) */}
                 <div className="grid grid-cols-2 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
-                    <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-                      Reason
-                    </label>
-                    <select
+                    <EnumSelect
+                      label="Reason"
                       value={line.reason}
-                      onChange={(e) => onLineChange(idx, "reason", e.target.value)}
-                      className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                      style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-                    >
-                      <option value="">— Select —</option>
-                      {REASONS.map((r) => (
-                        <option key={r} value={r}>{r}</option>
-                      ))}
-                    </select>
+                      onChange={(v) => onLineChange(idx, "reason", v)}
+                      placeholder="— Select —"
+                      options={REASONS.map((r) => ({ value: r, label: r }))}
+                    />
                   </div>
                   <div className="flex flex-col justify-center">
                     <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-700)" }}>
@@ -757,6 +776,7 @@ function ReturnForm({
       {showCreateDialog === "supplier" ? (
         <MobileNewSupplierDialog
           open
+          nested
           onClose={closeCreateDialog}
           onCreated={(s) => handleCreated("supplier", s.id, s.name)}
         />
@@ -764,6 +784,7 @@ function ReturnForm({
       {showCreateDialog === "material" ? (
         <MobileNewMaterialDialog
           open
+          nested
           onClose={closeCreateDialog}
           categories={categories}
           onCreated={(m) => handleCreated("material", m.id, m.name, { code: m.code, unit: m.unit })}
@@ -772,6 +793,7 @@ function ReturnForm({
       {showCreateDialog === "location" ? (
         <MobileNewStockLocationDialog
           open
+          nested
           onClose={closeCreateDialog}
           projects={[]}
           onCreated={(l) => handleCreated("location", l.id, l.name, { type: l.type })}

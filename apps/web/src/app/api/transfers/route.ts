@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { createTransfer } from "@nirman/services";
+import { createTransfer, ServiceError } from "@nirman/services";
 import { apiHandler, json, transferSchema, toNum, getCompany, getCompanyGroupIds, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -78,6 +78,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
     revalidatePath("/m/stock");
     return json(transfer, { status: 201 });
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to create transfer") }, { status: 400 });
+    if (err instanceof ServiceError) {
+      return json({ error: err.message }, { status: err.status ?? 400 });
+    }
+    return json({ error: "Failed to create transfer" }, { status: 500 });
   }
 });

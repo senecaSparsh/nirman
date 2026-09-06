@@ -5,7 +5,7 @@ import { FolderOpen } from "lucide-react";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 
-export function MobileProjectControlSelector({
+export function MobileMbProjectSelector({
   projects,
   selectedId,
 }: {
@@ -25,7 +25,7 @@ export function MobileProjectControlSelector({
           const params = new URLSearchParams(searchParams.toString());
           if (id) params.set("project", id);
           else params.delete("project");
-          router.push(`/m/project-control?${params.toString()}`);
+          router.push(`/m/measurement-book?${params.toString()}`);
         }}
         placeholder="— Select project —"
         options={projects.map((p) => ({ value: p.id, label: p.name }))}

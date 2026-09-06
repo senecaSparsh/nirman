@@ -12,6 +12,7 @@ import {
   MobileSectionTitle,
 } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import {formatCurrencyCompact, formatDate} from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import type { LegalDocRow, LegalDocType, LegalDocStatus } from "@/components/legal/legal-docs-section";
@@ -680,11 +681,12 @@ function MobileLegalDocForm({
             {/* Type + Status */}
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
               <div>
-                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Type *</label>
-                <select
+                <EnumSelect
+                  label="Type"
+                  required
                   value={form.type}
-                  onChange={(e) => {
-                    const t = e.target.value as LegalDocType;
+                  onChange={(v) => {
+                    const t = v as LegalDocType;
                     const step = LEGAL_DOC_FLOW_MAP[t];
                     if (step && !editing) {
                       setForm((f) => ({ ...f, type: t, title: step.label, authority: step.defaultAuthority }));
@@ -692,26 +694,16 @@ function MobileLegalDocForm({
                       setField("type", t);
                     }
                   }}
-                  className={inputClass}
-                  style={inputStyle}
-                >
-                  {LEGAL_DOC_FLOW.map((s) => (
-                    <option key={s.type} value={s.type}>{s.label}</option>
-                  ))}
-                </select>
+                  options={LEGAL_DOC_FLOW.map((s) => ({ value: s.type, label: s.label }))}
+                />
               </div>
               <div className="pl-2">
-                <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Status</label>
-                <select
+                <EnumSelect
+                  label="Status"
                   value={form.status}
-                  onChange={(e) => setField("status", e.target.value as LegalDocStatus)}
-                  className={inputClass}
-                  style={inputStyle}
-                >
-                  {(Object.keys(STATUS_STYLE) as LegalDocStatus[]).map((s) => (
-                    <option key={s} value={s}>{STATUS_STYLE[s].label}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setField("status", v as LegalDocStatus)}
+                  options={(Object.keys(STATUS_STYLE) as LegalDocStatus[]).map((s) => ({ value: s, label: STATUS_STYLE[s].label }))}
+                />
               </div>
             </div>
 

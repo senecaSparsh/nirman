@@ -19,6 +19,7 @@ import {
   Button,
   SectionHead,
 } from "@/components/mobile/v2/primitives";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 interface PhoneNumber {
   id: string;
@@ -142,7 +143,7 @@ export function MobileTelephonyView({
                 <span
                   className="rounded px-1 text-m-caption"
                   style={active
-                    ? { backgroundColor: "rgba(255,255,255,0.2)" }
+                    ? { backgroundColor: "color-mix(in srgb, var(--color-paper) 20%, transparent)" }
                     : { backgroundColor: "var(--color-concrete)" }}
                 >
                   {t.count}
@@ -166,6 +167,7 @@ export function MobileTelephonyView({
 function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; members: Member[]; canManage: boolean }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [assigningId, setAssigningId] = useState<string | null>(null);
+  const [assignMemberId, setAssignMemberId] = useState("");
   const [loading, setLoading] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
 
@@ -347,17 +349,22 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
                           Assign to:
                         </p>
                         <div className="flex gap-2">
-                          <select
-                            className="flex-1 h-11 rounded-[0.5rem] border-2 px-3 text-m-body"
-                            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                            onChange={(e) => assignNumber(n.id, e.target.value)}
-                            defaultValue=""
-                          >
-                            <option value="" disabled>Select a team member…</option>
-                            {members.map((m) => (
-                              <option key={m.id} value={m.id}>{m.name} ({m.role})</option>
-                            ))}
-                          </select>
+                          <div className="flex-1">
+                            <MobileSelectWithCreate
+                              label="Team member"
+                              value={assignMemberId}
+                              onChange={(v) => {
+                                setAssignMemberId(v);
+                                assignNumber(n.id, v);
+                              }}
+                              placeholder="Select a team member…"
+                              options={members.map((m) => ({
+                                value: m.id,
+                                label: m.name,
+                                sub: m.role,
+                              }))}
+                            />
+                          </div>
                           <Button
                             variant="ghost"
                             size="md"
@@ -783,7 +790,7 @@ function MobileTwilioTab() {
       <Card className="p-4">
         <div className="flex items-center gap-2 mb-2">
           <ShieldCheck className="size-5" style={{ color: "var(--color-signal-dark)" }} />
-          <h3 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <h3 className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
             Owner Access Only
           </h3>
         </div>
@@ -818,7 +825,7 @@ function MobileTwilioTab() {
       <Card className="p-4">
         <div className="flex items-center gap-2 mb-2">
           <Cloud className="size-5" style={{ color: "var(--color-ink-400)" }} />
-          <h3 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <h3 className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
             Twilio Not Configured
           </h3>
         </div>

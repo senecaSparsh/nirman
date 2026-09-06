@@ -668,6 +668,12 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
         userId: input.receivedById,
         lotNumber: line.lotNumber,
         companyId: po.companyId,
+        // Propagate lot metadata so auto-created MaterialLot captures the full
+        // GRN details (batch, expiry, mfg date, supplier) — not just the lot number.
+        lotBatchCode: line.batchCode,
+        lotExpiryDate: line.expiryDate,
+        lotManufacturingDate: line.manufacturingDate,
+        lotSupplierId: po.supplierId,
       });
 
       // 3. Update PO line qtyReceived

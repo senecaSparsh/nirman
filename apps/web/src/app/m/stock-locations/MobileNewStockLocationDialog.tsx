@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 /**
  * Form content for creating a stock location — used inside MobileFabModal
@@ -105,92 +107,71 @@ export function MobileNewStockLocationForm({
               />
             </div>
             <div className="pl-2">
-              <label
-                className="block text-m-caption font-bold mb-0"
-                style={{ color: "var(--color-ink-700)" }}
-              >
-                Type <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <select
+              <EnumSelect
+                label="Type"
+                required
                 value={type}
-                onChange={(e) => {
+                onChange={(v) => {
                   setType(
-                    e.target.value as
+                    v as
                       | "CENTRAL_WAREHOUSE"
                       | "COMPANY_WAREHOUSE"
                       | "PROJECT_SITE",
                   );
                   setProjectId("");
-                  haptic(10);
                 }}
-                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                style={{
-                  borderColor: "var(--color-line)",
-                  backgroundColor: "transparent",
-                  color: "var(--color-ink-950)",
-                }}
-              >
-                <option value="CENTRAL_WAREHOUSE">
-                  Central Warehouse
-                </option>
-                <option value="COMPANY_WAREHOUSE">Company Warehouse</option>
-                <option value="PROJECT_SITE">Project Site</option>
-              </select>
+                options={[
+                  { value: "CENTRAL_WAREHOUSE", label: "Central Warehouse" },
+                  { value: "COMPANY_WAREHOUSE", label: "Company Warehouse" },
+                  { value: "PROJECT_SITE", label: "Project Site" },
+                ]}
+              />
             </div>
           </div>
 
           {/* Project — only when type is PROJECT_SITE */}
           {type === "PROJECT_SITE" && (
-            <div>
-              <label
-                className="block text-m-caption font-bold mb-0"
-                style={{ color: "var(--color-ink-700)" }}
-              >
-                Project <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <select
-                value={projectId}
-                onChange={(e) => {
-                  setProjectId(e.target.value);
-                  haptic(10);
-                }}
-                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                style={{
-                  borderColor: "var(--color-line)",
-                  backgroundColor: "transparent",
-                  color: "var(--color-ink-950)",
-                }}
-              >
-                <option value="">Select a project…</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <MobileSelectWithCreate
+              label="Project"
+              required
+              value={projectId}
+              onChange={(v) => { setProjectId(v); haptic(10); }}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              placeholder="Select a project…"
+              icon={FolderOpen}
+            />
           )}
         </div>
 
-        {/* Submit */}
-        <button
-          type="submit"
-          disabled={saving}
-          className="flex items-center justify-center gap-1 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+        {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+        <div
+          className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
           style={{
-            backgroundColor: "var(--color-ink-950)",
-            color: "var(--color-paper)",
+            backgroundColor: "var(--color-paper)",
+            borderColor: "var(--color-line)",
           }}
         >
-          {saving ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <>
-              <Plus className="size-4" />
-              <span>Create Stock Location</span>
-            </>
-          )}
-        </button>
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 flex items-center justify-center gap-1 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+              style={{
+                backgroundColor: "var(--color-ink-950)",
+                color: "var(--color-paper)",
+              }}
+            >
+              {saving ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <>
+                  <Plus className="size-4" />
+                  <span>Create Stock Location</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </form>
     </>
   );
@@ -206,14 +187,16 @@ export function MobileNewStockLocationDialog({
   onClose,
   onCreated,
   projects = [],
+  nested,
 }: {
   open: boolean;
   onClose: () => void;
   onCreated: (location: { id: string; name: string; type: string }) => void;
   projects?: { id: string; name: string }[];
+  nested?: boolean;
 }) {
   return (
-    <MobileDialog open={open} onClose={onClose} title="New Stock Location">
+    <MobileDialog open={open} onClose={onClose} title="New Stock Location" nested={nested}>
       <MobileNewStockLocationForm
         onClose={onClose}
         onCreated={onCreated}

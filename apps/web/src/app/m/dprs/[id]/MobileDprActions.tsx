@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {CheckCircle2, XCircle, Loader2, RotateCw, AlertTriangle, DollarSign, Trash2, X} from "lucide-react";
+import {CheckCircle2, XCircle, Loader2, RotateCw, AlertTriangle, DollarSign, Trash2} from "lucide-react";
 import { toast } from "sonner";
 import { useOptimisticAction } from "@/lib/use-optimistic-action";
 import { ActionBar } from "@/components/mobile/v2/primitives";
+import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 /**
  * Sticky bottom action bar for DPR approval actions.
@@ -227,13 +228,7 @@ export function MobileDprActions({
       ) : null}
 
       {/* Reject confirmation modal */}
-      {showRejectConfirm ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center " style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={() => setShowRejectConfirm(false)}>
-          <div
-            className="w-full max-w-md mx-4 rounded-[0.75rem] border p-5 shadow-xl"
-            style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+      <MobileDialog open={showRejectConfirm} onClose={() => setShowRejectConfirm(false)} title="Reject this Daily Progress Report?">
             <div className="flex items-start gap-3 mb-4">
               <div
                 className="grid place-items-center size-10 rounded-full shrink-0"
@@ -242,9 +237,6 @@ export function MobileDprActions({
                 <AlertTriangle className="size-5" style={{ color: "var(--color-stop)" }} />
               </div>
               <div>
-                <h3 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-                  Reject this Daily Progress Report?
-                </h3>
                 <p className="text-m-body mt-1" style={{ color: "var(--color-ink-500)" }}>
                   The submitter will need to revise and resubmit.
                 </p>
@@ -279,45 +271,22 @@ export function MobileDprActions({
                 {rejectAction.isPending ? <Loader2 className="size-4 animate-spin mx-auto" /> : "Reject"}
               </button>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileDialog>
 
       {/* Delete confirmation */}
-      {showDelete ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => setShowDelete(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-center pt-2 pb-1">
-              <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
-            </div>
-            <div className="flex items-center justify-between px-3 pb-2">
-              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Delete DPR?</p>
-              <button onClick={() => setShowDelete(false)} className="text-m-body press p-1">
-                <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
-              </button>
-            </div>
-            <div className="px-3 pb-4">
+      <MobileDialog open={showDelete} onClose={() => setShowDelete(false)} title="Delete DPR?">
+            <div className="pb-4">
               <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
                 This will permanently delete this Daily Progress Report and all its line items. This cannot be undone.
               </p>
-              <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
                 <button onClick={() => setShowDelete(false)} disabled={busy} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
                 <button onClick={handleDelete} disabled={busy} className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1" style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}>
                   {busy ? <Loader2 className="size-3.5 animate-spin" /> : "Delete"}
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileDialog>
     </>
   );
 }

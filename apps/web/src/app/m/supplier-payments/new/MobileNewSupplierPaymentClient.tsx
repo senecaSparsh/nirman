@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { toast } from "sonner";
-import { Loader2, Save, IndianRupee } from "lucide-react";
+import { Loader2, Save, IndianRupee, Camera, X } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useTodayDateState } from "@/lib/use-today-date";
+import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type Supplier = { id: string; name: string; balanceOwed: string };
 type PO = { id: string; poNumber: string; supplierId: string; total: string; status: string };
@@ -42,6 +45,9 @@ export function MobileNewSupplierPaymentClient({
   const [paymentMode, setPaymentMode] = useState("BANK_TRANSFER");
   const [referenceNo, setReferenceNo] = useState("");
   const [notes, setNotes] = useState("");
+  const [chequePhotoUrl, setChequePhotoUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const selectedSupplier = suppliers.find((s) => s.id === supplierId);
 
@@ -53,6 +59,26 @@ export function MobileNewSupplierPaymentClient({
     () => (supplierId ? invoices.filter((i) => i.supplierId === supplierId) : []),
     [supplierId, invoices],
   );
+
+  async function handleChequePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/uploads", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      setChequePhotoUrl(data.url);
+      toast.success("Cheque photo uploaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to upload cheque photo");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -79,6 +105,7 @@ export function MobileNewSupplierPaymentClient({
           paymentDate: paymentDate ? new Date(paymentDate).toISOString() : undefined,
           paymentMode,
           referenceNo: referenceNo.trim() || undefined,
+          chequePhotoUrl: chequePhotoUrl || undefined,
           notes: notes.trim() || undefined,
         }),
       });
@@ -122,24 +149,24 @@ export function MobileNewSupplierPaymentClient({
             <label className={labelClass} style={labelStyle}>
               Supplier <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
-            <select
+            <MobileSelectWithCreate
+              label="Supplier"
+              required
               value={supplierId}
-              onChange={(e) => {
-                setSupplierId(e.target.value);
+              onChange={(v) => {
+                setSupplierId(v);
                 setPurchaseOrderId("");
                 setInvoiceId("");
               }}
-              className={inputClass}
-              style={inputStyle}
-            >
-              <option value="">— Select supplier —</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                  {Number(s.balanceOwed) > 0 ? ` (owes ${formatCurrency(Number(s.balanceOwed))})` : ""}
-                </option>
-              ))}
-            </select>
+              placeholder="— Select supplier —"
+              options={suppliers.map((s) => ({
+                value: s.id,
+                label: s.name,
+                sub: Number(s.balanceOwed) > 0 ? `Owes ${formatCurrency(Number(s.balanceOwed))}` : undefined,
+              }))}
+              inputClass={inputClass}
+              inputStyle={inputStyle}
+            />
           </div>
 
           {/* Outstanding balance hint */}
@@ -163,38 +190,38 @@ export function MobileNewSupplierPaymentClient({
             {supplierPos.length > 0 && (
               <div>
                 <label className={labelClass} style={labelStyle}>Purchase Order</label>
-                <select
+                <MobileSelectWithCreate
+                  label="Purchase Order"
                   value={purchaseOrderId}
-                  onChange={(e) => setPurchaseOrderId(e.target.value)}
-                  className={inputClass}
-                  style={inputStyle}
-                >
-                  <option value="">— None —</option>
-                  {supplierPos.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.poNumber} · {formatCurrency(Number(p.total))} · {p.status}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setPurchaseOrderId}
+                  placeholder="— None —"
+                  options={supplierPos.map((p) => ({
+                    value: p.id,
+                    label: p.poNumber,
+                    sub: `${formatCurrency(Number(p.total))} · ${p.status}`,
+                  }))}
+                  inputClass={inputClass}
+                  inputStyle={inputStyle}
+                />
               </div>
             )}
 
             {supplierInvoices.length > 0 && (
               <div>
                 <label className={labelClass} style={labelStyle}>Invoice</label>
-                <select
+                <MobileSelectWithCreate
+                  label="Invoice"
                   value={invoiceId}
-                  onChange={(e) => setInvoiceId(e.target.value)}
-                  className={inputClass}
-                  style={inputStyle}
-                >
-                  <option value="">— None —</option>
-                  {supplierInvoices.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {i.invoiceNumber} · {formatCurrency(Number(i.totalAmount))} · {i.status}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setInvoiceId}
+                  placeholder="— None —"
+                  options={supplierInvoices.map((i) => ({
+                    value: i.id,
+                    label: i.invoiceNumber,
+                    sub: `${formatCurrency(Number(i.totalAmount))} · ${i.status}`,
+                  }))}
+                  inputClass={inputClass}
+                  inputStyle={inputStyle}
+                />
               </div>
             )}
           </div>
@@ -237,17 +264,12 @@ export function MobileNewSupplierPaymentClient({
           </div>
 
           <div>
-            <label className={labelClass} style={labelStyle}>Payment Mode</label>
-            <select
+            <EnumSelect
+              label="Payment Mode"
               value={paymentMode}
-              onChange={(e) => setPaymentMode(e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            >
-              {PAYMENT_MODES.map((m) => (
-                <option key={m.value} value={m.value}>{m.label}</option>
-              ))}
-            </select>
+              onChange={(v) => setPaymentMode(v)}
+              options={PAYMENT_MODES}
+            />
           </div>
 
           <div>
@@ -261,6 +283,50 @@ export function MobileNewSupplierPaymentClient({
               style={inputStyle}
             />
           </div>
+
+          {paymentMode === "CHEQUE" && (
+            <div>
+              <label className={labelClass} style={labelStyle}>Cheque Photo (front)</label>
+              {chequePhotoUrl ? (
+                <div className="relative h-28 rounded-[0.375rem] border overflow-hidden" style={{ borderColor: "var(--color-line)" }}>
+                  <Image src={chequePhotoUrl} alt="Cheque" fill className="object-cover" sizes="(max-width: 768px) 100vw, 400px" />
+                  <button
+                    type="button"
+                    onClick={() => setChequePhotoUrl("")}
+                    className="absolute top-1 right-1 rounded-full p-1 text-m-body press"
+                    style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 70%, transparent)" }}
+                  >
+                    <X className="size-3.5" style={{ color: "var(--color-paper)" }} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                  className="flex items-center justify-center gap-1.5 w-full rounded-[0.375rem] border border-dashed py-3 text-m-body press disabled:opacity-50"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+                >
+                  {uploading ? (
+                    <Loader2 className="size-4 animate-spin" style={{ color: "var(--color-ink-500)" }} />
+                  ) : (
+                    <Camera className="size-4" style={{ color: "var(--color-ink-500)" }} />
+                  )}
+                  <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-500)" }}>
+                    {uploading ? "Uploading…" : "Upload Cheque Photo"}
+                  </span>
+                </button>
+              )}
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*,application/pdf"
+                capture="environment"
+                onChange={handleChequePhoto}
+                className="hidden"
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-2">
             <div>
