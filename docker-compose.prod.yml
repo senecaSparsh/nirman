@@ -58,8 +58,19 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    ports:
-      - "3000:3000"
+    # Traefik routing labels — Coolify's proxy uses these to route public
+    # traffic (port 80/443) to this container's internal port 3000.
+    # COOLIFY_FQDN_WEB is set by Coolify when you add a domain in the UI.
+    # We also add a fallback rule for bare-IP access.
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nirman-web.rule=Host(`${COOLIFY_FQDN_WEB:-82.41.67.34}`)"
+      - "traefik.http.routers.nirman-web.entryPoints=http"
+      - "traefik.http.routers.nirman-web.service=nirman-web"
+      - "traefik.http.services.nirman-web.loadbalancer.server.port=3000"
+    networks:
+      - default
+      - coolify
     environment:
       # ── Database (pointed at the db service above) ──
       # connection_limit=5 keeps us within Postgres's max_connections (default 100).
@@ -105,6 +116,12 @@ services:
       timeout: 10s
       retries: 3
       start_period: 90s
+
+networks:
+  # The `coolify` network is created by Coolify and shared with the Traefik
+  # proxy container. The web service joins it so Traefik can route to it.
+  coolify:
+    external: true
 
 volumes:
   pgdata:
