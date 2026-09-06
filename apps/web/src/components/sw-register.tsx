@@ -91,7 +91,7 @@ export function SwRegister({ isDev }: { isDev: boolean }) {
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
       navigator.serviceWorker.removeEventListener("message", onMessage);
     };
-  }, [router]);
+  }, [router, isDev]);
 
   return null;
 }

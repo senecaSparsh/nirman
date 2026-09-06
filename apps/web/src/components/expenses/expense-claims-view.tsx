@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, RefreshCw, Send, Check, X, Loader2, Trash2, FileText, Receipt } from "lucide-react";
+import { Plus, RefreshCw, Send, Check, X, Loader2, FileText, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input, Label, Select } from "@/components/ui/input";

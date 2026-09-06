@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, json } from "@/lib/server";
 import { withTimeout } from "@/lib/timeout";

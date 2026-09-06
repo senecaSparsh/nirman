@@ -967,7 +967,16 @@ export function LandHub({ data }: { data: LandHubData }) {
 
                   {/* Additional attachments — generic polymorphic document store */}
                   <div className="rounded-lg border p-3">
-                    <AttachmentList entityType="LandPurchase" entityId={purchase.id} maxAttachments={20} />
+                    <AttachmentList
+                      entityType="LandPurchase"
+                      entityId={purchase.id}
+                      maxAttachments={20}
+                      extraDocuments={[
+                        { url: purchase.atsDocumentUrl, label: "ATS Document", category: "ATS" },
+                        { url: purchase.registryDocumentUrl, label: "Registry Document", category: "Registry" },
+                        { url: purchase.documentUrl, label: "Purchase Document", category: "Purchase" },
+                      ]}
+                    />
                   </div>
                 </div>
               </TabsContent>

@@ -9,6 +9,9 @@ import {
   type Role,
 } from "@/lib/roles";
 import { logAction, resolveUserScope, ServiceError } from "@nirman/services";
+import { getBackpressureStats, trackRequest } from "@/lib/backpressure";
+import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { cached as withCache } from "@/lib/server-cache";
 
 /**
  * Server-side helpers shared by API routes and Server Components.
@@ -1618,45 +1621,90 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
   opts: {
     audit?: { action: string; entityType: string; entityIdFrom?: (req: TReq, res: Response) => string | undefined };
     rateLimit?: "read" | "write" | "auth" | "webhook" | "heavy" | false;
+    /** Cache tag for server-side caching (GET only). Set to enable. */
+    cache?: { tag: string; ttlMs?: number };
   } = {},
 ) {
   return async (req: Request, ctx: TCtx): Promise<Response> => {
+    // ── Backpressure protection ────────────────────────────────
+    // If the server is at capacity, reject early with 503 + Retry-After.
+    // This prevents request queueing that wastes DB connections + memory.
+    const bp = getBackpressureStats();
+    if (bp.activeRequests >= bp.maxConcurrency) {
+      return json(
+        { error: "Server is busy — please retry shortly", retryable: true },
+        { status: 503, headers: { "Retry-After": "2" } },
+      );
+    }
+
+    // Track active requests for backpressure
+    const untrack = trackRequest();
     try {
-      const session = await getSession();
-      if (!session) {
-        return json({ error: "Unauthorized" }, { status: 401 });
-      }
-
-      // Auto-apply rate limiting (unless explicitly disabled).
-      const rlPreset = opts.rateLimit === undefined
-        ? (req.method === "GET" ? "read" : "write")
-        : opts.rateLimit;
-      if (rlPreset) {
-        const { rateLimit, RATE_LIMITS } = await import("@/lib/rate-limit");
-        const user = await getCurrentUser();
-        const rl = rateLimit(req, RATE_LIMITS[rlPreset], user?.id);
-        if (rl) return rl;
-      }
-
-      const res = await fn(req as TReq, ctx);
-      // Best-effort audit logging for mutations
-      if (opts.audit && (req.method === "POST" || req.method === "PATCH" || req.method === "PUT" || req.method === "DELETE")) {
-        try {
-          const user = await getCurrentUser();
-          const entityId = opts.audit.entityIdFrom?.(req as TReq, res);
-          if (entityId) {
-            await logAction(prisma, {
-              userId: user?.id,
-              action: opts.audit.action,
-              entityType: opts.audit.entityType,
-              entityId,
-            });
-          }
-        } catch {
-          // audit failure must never break the response
+        const session = await getSession();
+        if (!session) {
+          return json({ error: "Unauthorized" }, { status: 401 });
         }
-      }
-      return res;
+
+        // Auto-apply rate limiting (unless explicitly disabled).
+        const rlPreset = opts.rateLimit === undefined
+          ? (req.method === "GET" ? "read" : "write")
+          : opts.rateLimit;
+        if (rlPreset) {
+          const user = await getCurrentUser();
+          const rl = rateLimit(req, RATE_LIMITS[rlPreset], user?.id);
+          if (rl) return rl;
+        }
+
+        // ── Server-side response cache (GET only) ──────────────
+        // Caches the full response in memory for the TTL duration.
+        // Subsequent requests within the TTL are served from memory
+        // without hitting the DB. Stale-while-revalidate on expiry.
+        if (opts.cache && req.method === "GET") {
+          const cachedFn = withCache(opts.cache.tag, opts.cache.ttlMs ?? 15_000, fn);
+          const res = await cachedFn(req as TReq, ctx);
+          // Auto-add Cache-Control header if not already set
+          if (!res.headers.has("Cache-Control")) {
+            const ttlSec = Math.ceil((opts.cache.ttlMs ?? 15_000) / 1000);
+            res.headers.set(
+              "Cache-Control",
+              `private, max-age=${ttlSec}, stale-while-revalidate=${ttlSec * 4}`,
+            );
+          }
+          return res;
+        }
+
+        const res = await fn(req as TReq, ctx);
+
+        // ── Auto-add Cache-Control to GET responses ────────────
+        // If the handler didn't set a Cache-Control header, add a
+        // conservative default for GET requests (5s client cache +
+        // 20s stale-while-revalidate). This lets the browser serve
+        // repeated navigations from cache without re-fetching.
+        if (req.method === "GET" && !res.headers.has("Cache-Control") && res.status >= 200 && res.status < 300) {
+          res.headers.set(
+            "Cache-Control",
+            "private, max-age=5, stale-while-revalidate=20",
+          );
+        }
+
+        // Best-effort audit logging for mutations
+        if (opts.audit && (req.method === "POST" || req.method === "PATCH" || req.method === "PUT" || req.method === "DELETE")) {
+          try {
+            const user = await getCurrentUser();
+            const entityId = opts.audit.entityIdFrom?.(req as TReq, res);
+            if (entityId) {
+              await logAction(prisma, {
+                userId: user?.id,
+                action: opts.audit.action,
+                entityType: opts.audit.entityType,
+                entityId,
+              });
+            }
+          } catch {
+            // audit failure must never break the response
+          }
+        }
+        return res;
     } catch (err: unknown) {
       if (err instanceof ServiceError) {
         return json({ error: err.message }, { status: err.status ?? 400 });
@@ -1709,6 +1757,8 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
       }
 
       return json({ error: status === 500 ? "Internal server error" : (err instanceof Error ? err.message : "Request failed") }, { status });
+    } finally {
+      untrack();
     }
   };
 }

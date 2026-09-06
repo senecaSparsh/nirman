@@ -27,7 +27,7 @@ import {
   ArrowLeftRight,
   type LucideIcon,
 } from "lucide-react";
-import { useRecentItems, type RecentItem } from "@/lib/use-recent-items";
+import { useRecentItems } from "@/lib/use-recent-items";
 import { formatDate, formatCurrencyCompact } from "@/lib/utils";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -96,7 +96,7 @@ type BriefingData = {
 };
 
 export function HomeTree({ userName }: { userName: string | null }) {
-  const router = useRouter();
+  const _router = useRouter();
   const { items: recentItems } = useRecentItems();
   const [briefing, setBriefing] = React.useState<BriefingData | null>(null);
   const [loading, setLoading] = React.useState(true);

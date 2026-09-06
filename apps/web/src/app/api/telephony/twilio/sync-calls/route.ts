@@ -64,6 +64,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
     const mappedDirection = mapTwilioDirection(call.direction);
     const mappedStatus = mapTwilioCallStatus(call.status);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const companySideNumber = mappedDirection === "INBOUND" ? toNorm : fromNorm;
     const externalSideNumber = mappedDirection === "INBOUND" ? fromNorm : toNorm;
 

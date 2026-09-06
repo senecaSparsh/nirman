@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import {Phone, Briefcase, Trash2, Eye, Share2, FileText, Percent} from "lucide-react";
+import {Phone, Briefcase, Trash2, Share2, FileText, Percent} from "lucide-react";
 import { useLongPress } from "@/lib/use-long-press";
 import {
   MobileOverviewSheet,

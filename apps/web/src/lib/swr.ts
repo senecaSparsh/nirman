@@ -45,9 +45,7 @@ export const swrConfig = {
   shouldRetryOnError,
   isPaused: () => typeof navigator !== "undefined" && !navigator.onLine,
   onError: (err: Error, key: string) => {
-    if (process.env.NODE_ENV === "development") {
-      console.warn(`SWR fetch error for ${key}:`, err.message);
-    }
+    console.warn(`SWR fetch error for ${key}:`, err.message);
   },
 };
 

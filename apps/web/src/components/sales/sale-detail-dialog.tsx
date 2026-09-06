@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import {Banknote, X, Printer, CheckCircle2, XCircle, HandCoins, MessageCircle, FileText, ExternalLink, CalendarClock, AlertCircle, QrCode, Zap} from "lucide-react";
+import {Banknote, X, Printer, CheckCircle2, XCircle, HandCoins, MessageCircle, FileText, ExternalLink, CalendarClock, AlertCircle, Zap} from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
@@ -522,7 +522,18 @@ export function SaleDetailDialog({
 
             {/* Additional attachments — generic polymorphic document store */}
             <div className="rounded-lg border p-3">
-              <AttachmentList entityType="AssetSale" entityId={sale.id} maxAttachments={20} />
+              <AttachmentList
+                entityType="AssetSale"
+                entityId={sale.id}
+                maxAttachments={20}
+                extraDocuments={[
+                  { url: sale.atsDocumentUrl, label: sale.atsDocumentName ?? "ATS Document", category: "ATS" },
+                  { url: sale.bbaDocumentUrl, label: sale.bbaDocumentName ?? "BBA Document", category: "BBA" },
+                  { url: sale.registryDocumentUrl, label: sale.registryDocumentName ?? "Registry Document", category: "Registry" },
+                  { url: sale.allotmentDocumentUrl, label: sale.allotmentDocumentName ?? "Allotment Letter", category: "Allotment" },
+                  { url: sale.draftDocumentUrl, label: sale.draftDocumentName ?? "Draft / LOI", category: "Draft" },
+                ]}
+              />
             </div>
 
             {/* Deal terms */}

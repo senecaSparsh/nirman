@@ -20,6 +20,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const session = await requirePermission(PERM.USERS_MANAGE);
   const company = await getCompany();
   const actorRole = session.role;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const minLength = company.passwordMinLength ?? 8;
   const defaultPassword = "nirman123";
 

@@ -56,9 +56,9 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
 
 export function MobileReceiveDialog({
   poId,
-  poNumber,
+  poNumber: _poNumber,
   supplierId,
-  supplierName,
+  supplierName: _supplierName,
   locationId,
   locationName,
   locationLat,

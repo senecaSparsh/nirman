@@ -15,7 +15,7 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
-import { totalmem, freemem } from "node:os";
+import { totalmem, } from "node:os";
 import { readFileSync } from "node:fs";
 
 export const dynamic = "force-dynamic";

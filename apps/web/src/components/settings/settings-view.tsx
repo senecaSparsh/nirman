@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, UserPlus, X, Plug, Pencil, Layers, Warehouse, Lock, KeyRound, History, Upload, Search } from "lucide-react";
+import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, Plug, Pencil, Layers, Warehouse, Lock, KeyRound, History, Upload, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -798,6 +798,7 @@ function LocationsTab({
 
 // ── Users Manager — role + active status management ──────────
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function UsersManager({ users, actorRole, companyId, projects, departments, managers }: { users: UserRow[]; actorRole: string; companyId: string; projects: { id: string; name: string }[]; departments: DepartmentRow[]; managers: { membershipId: string; userId: string; name: string; role: string }[] }) {
   const router = useRouter();
   const { canManageUsers, userId: currentUserId } = usePermissions();

@@ -9,14 +9,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Label, Select } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, formatDate, } from "@/lib/utils";
 import { ExpenseFormDialog, type ExpenseFormValues } from "./expense-form-dialog";
 import { ExpenseCategoryDialog } from "./expense-category-dialog";
 import type { ExpenseRow, ExpenseCategoryRow, GlAccountOption, ProjectOption } from "@/lib/types";

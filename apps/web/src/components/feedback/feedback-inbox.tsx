@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import useSWR from "swr";
 import {
@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Loader2,
   Inbox,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Filter,
 } from "lucide-react";
 import { Page } from "@/components/page";
@@ -111,6 +112,7 @@ export function FeedbackInbox() {
           "Marked as read",
         );
         mutate();
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
         toast.error("Failed to update feedback status.");
       }
@@ -259,6 +261,7 @@ export function FeedbackInbox() {
               {selected.screenshotUpload && (
                 <div className="mt-4">
                   <h3 className="mb-1.5 text-label text-faint">Screenshot</h3>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded screenshot URL */}
                   <img
                     src={selected.screenshotUpload.url}
                     alt="Feedback screenshot"

@@ -3,15 +3,12 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
-  ChevronRight, MapPin, Building2, ExternalLink,
-  ShieldCheck, AlertTriangle, Clock, CheckCircle2, FileText,
-  XCircle, RefreshCw, ScrollText, Landmark, Flame, Trees, Plane,
+  MapPin, Building2, ExternalLink,
+  ShieldCheck, AlertTriangle, CheckCircle2, FileText,
+  ScrollText, Landmark, Flame, Trees, Plane,
   Zap, Droplets, HardHat, Home, KeyRound, FileCheck2, Gavel,
   Building, FileSignature,
 } from "lucide-react";
-import {
-  MobileStatusBadge,
-} from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileFilterIcon, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import { formatDate } from "@/lib/utils";
 import {
@@ -234,7 +231,7 @@ function PermissionCard({ doc }: { doc: MobilePermissionRow; canManage: boolean 
       : null;
   const entityName = doc.projectName ?? doc.landSellerName ?? null;
   const flowStep = LEGAL_DOC_FLOW_MAP[doc.type];
-  const typeLabel = flowStep?.label ?? doc.type.replace(/_/g, " ");
+  const _typeLabel = flowStep?.label ?? doc.type.replace(/_/g, " ");
   const DocIcon = TYPE_ICON[doc.type] ?? FileText;
 
   return (

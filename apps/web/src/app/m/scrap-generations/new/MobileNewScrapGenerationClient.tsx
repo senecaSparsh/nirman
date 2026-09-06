@@ -40,6 +40,7 @@ interface ScrapLine {
   unitCost: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function MobileNewScrapGenerationClient({ onClose, onCreated }: { onClose?: () => void; onCreated?: (id: string) => void } = {}) {
   const router = useRouter();
   const [locations, setLocations] = useState<LocationItem[]>([]);

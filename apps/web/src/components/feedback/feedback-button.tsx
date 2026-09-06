@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { MessageSquare, Loader2 } from "lucide-react";
+import { MessageSquare, } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FeedbackDialog } from "./feedback-dialog";
 

@@ -21,6 +21,7 @@ export function MobileSignOutButton({
   label?: string;
   className?: string;
 }) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 

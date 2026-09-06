@@ -101,7 +101,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <SWRConfig value={swrConfig}>
             <CurrencyProvider>
               <EmployeeNavListener />
-              <AppShell>{children}</AppShell>
+              <AppShell isDev={process.env.NODE_ENV !== "production"}>{children}</AppShell>
               {/* Surface selection is now one-time only: the middleware
                   redirects "/" → "/m" for mobile UAs (entry landing), and
                   the sign-in page routes to the correct surface after login.

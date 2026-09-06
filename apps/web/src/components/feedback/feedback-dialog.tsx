@@ -342,6 +342,7 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
               </div>
             ) : screenshotDataUrl ? (
               <div className="group relative overflow-hidden rounded-md border border-border">
+                {/* eslint-disable-next-line @next/next/no-img-element -- base64 data URL screenshot, not optimizable */}
                 <img
                   src={screenshotDataUrl}
                   alt="Feedback screenshot"

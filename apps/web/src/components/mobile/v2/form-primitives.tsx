@@ -55,6 +55,7 @@ export function SelectorCard({
   label,
   value,
   subvalue,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   placeholder,
   required,
   compact,

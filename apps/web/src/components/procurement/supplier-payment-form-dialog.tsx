@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { IndianRupee, Loader2, Upload } from "lucide-react";
+import { IndianRupee, Loader2, } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
@@ -54,6 +54,7 @@ export function SupplierPaymentFormDialog({
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [chequePhotoUrl, setChequePhotoUrl] = useState<string | null>(null);
   const [errors, setErrors] = useState<ValidationErrors<PaymentFormValues>>({});
 

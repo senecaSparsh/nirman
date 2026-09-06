@@ -85,6 +85,9 @@ export enum NotificationEventType {
   RENT_DUE_REMINDER = "RENT_DUE_REMINDER",
   RENT_ESCALATION_APPLIED = "RENT_ESCALATION_APPLIED",
   LAND_PAYMENT_DUE = "LAND_PAYMENT_DUE",
+
+  // Legal / Compliance (1)
+  LEGAL_DOC_EXPIRING = "LEGAL_DOC_EXPIRING",
 }
 
 export const ALL_EVENT_TYPES = Object.values(NotificationEventType);
@@ -163,6 +166,9 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.RENT_DUE_REMINDER]: "IMMEDIATE",
   [NotificationEventType.RENT_ESCALATION_APPLIED]: "DAILY",
   [NotificationEventType.LAND_PAYMENT_DUE]: "IMMEDIATE",
+
+  // Legal / Compliance
+  [NotificationEventType.LEGAL_DOC_EXPIRING]: "IMMEDIATE",
 };
 
 export interface NotificationEvent {

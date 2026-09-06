@@ -20,23 +20,49 @@ type Attachment = {
 };
 
 /**
+ * ExtraDocument — a per-entity URL field (ATS, BBA, registry, cheque photo,
+ * rent agreement, etc.) that is stored directly on the entity model rather
+ * than via EntityAttachment. Passed in by the parent so the user sees ALL
+ * documents in one unified view.
+ */
+export interface ExtraDocument {
+  url: string | null | undefined;
+  label: string;
+  category?: string;
+}
+
+/**
  * AttachmentList — reusable component for showing + adding polymorphic
  * document attachments on any entity. Renders a compact list of attached
  * files with an "Attach" button that opens a file picker.
  *
+ * The optional `extraDocuments` prop lets callers pass in per-entity URL
+ * fields (ATS, BBA, registry, cheque photos, etc.) so they appear in the
+ * same unified document view alongside the EntityAttachment records.
+ *
  * Usage:
  *   <AttachmentList entityType="PurchaseOrder" entityId={po.id} />
+ *   <AttachmentList
+ *     entityType="AssetSale"
+ *     entityId={sale.id}
+ *     extraDocuments={[
+ *       { url: sale.atsDocumentUrl, label: "ATS Document", category: "ATS" },
+ *       { url: sale.registryDocumentUrl, label: "Registry Document", category: "Registry" },
+ *     ]}
+ *   />
  */
 export function AttachmentList({
   entityType,
   entityId,
   maxAttachments = 10,
   compact = false,
+  extraDocuments = [],
 }: {
   entityType: string;
   entityId: string;
   maxAttachments?: number;
   compact?: boolean;
+  extraDocuments?: ExtraDocument[];
 }) {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,6 +149,10 @@ export function AttachmentList({
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
+  // Filter out extra documents with null/empty URLs
+  const validExtraDocs = extraDocuments.filter((d) => d.url);
+  const totalCount = attachments.length + validExtraDocs.length;
+
   if (loading) {
     return (
       <div className="flex items-center gap-1.5 text-caption text-muted-foreground">
@@ -137,7 +167,7 @@ export function AttachmentList({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-caption font-semibold text-muted-foreground">
           <Paperclip className="size-3" />
-          Attachments ({attachments.length})
+          Documents ({totalCount})
         </div>
         <label
           className={cn(
@@ -151,12 +181,45 @@ export function AttachmentList({
         </label>
       </div>
 
-      {attachments.length === 0 ? (
+      {totalCount === 0 ? (
         <p className="text-caption text-muted-foreground">
-          No attachments. Click &quot;Attach&quot; to upload a document or photo.
+          No documents. Click &quot;Attach&quot; to upload a document or photo.
         </p>
       ) : (
         <div className={cn("space-y-1", compact && "flex flex-wrap gap-1.5")}>
+          {/* Per-entity URL fields (ATS, BBA, registry, cheque photos, etc.) */}
+          {validExtraDocs.map((doc, i) => {
+            const url = doc.url as string;
+            const isImage = url.match(/\.(jpg|jpeg|png|gif|webp|heic|heif)$/i);
+            return (
+              <div
+                key={`extra-${i}`}
+                className={cn(
+                  "flex items-center gap-2 rounded-md border border-border bg-brand/5 px-2 py-1.5",
+                  compact && "inline-flex",
+                )}
+              >
+                {isImage ? (
+                  <ImageIcon className="size-3.5 shrink-0 text-brand" />
+                ) : (
+                  <FileText className="size-3.5 shrink-0 text-brand" />
+                )}
+                {doc.category && (
+                  <span className="text-micro font-bold uppercase text-brand shrink-0">{doc.category}</span>
+                )}
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-caption font-medium hover:underline truncate max-w-[200px]"
+                >
+                  {doc.label}
+                </a>
+              </div>
+            );
+          })}
+
+          {/* EntityAttachment records (generic attachments) */}
           {attachments.map((a) => {
             const isImage = a.upload.mimeType.startsWith("image/");
             return (

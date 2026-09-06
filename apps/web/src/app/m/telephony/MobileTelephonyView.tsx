@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   Phone, Server, ShieldCheck, Cloud, Plus, Trash2, UserMinus,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   ChevronDown, ChevronUp, Loader2, CheckCircle2, FileText,
   PhoneIncoming, Mic, MicOff,
 } from "lucide-react";
@@ -400,6 +401,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
 }
 
 // ── Providers Tab ──
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ProvidersTab({ providers, canManage }: { providers: Provider[]; canManage: boolean }) {
   if (providers.length === 0) {
     return (
@@ -782,7 +784,6 @@ function MobileTwilioTab() {
   // Fetch on mount — the API enforces owner-only access (returns 403 otherwise)
   useEffect(() => {
     fetchStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (accessDenied) {

@@ -86,6 +86,7 @@ function statusTone(status: CallStatus): "go" | "stop" | "signal" | "neutral" {
 export function MobileCallsView({
   calls,
   phoneNumbers,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   canViewAll,
   canViewFullNumber,
   canListenRecording,

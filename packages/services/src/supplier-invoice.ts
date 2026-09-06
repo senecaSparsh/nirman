@@ -1,4 +1,4 @@
-import { prisma, type Prisma } from "@nirman/db";
+import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
@@ -104,7 +104,7 @@ export function threeWayMatch(
     const lineNo = idx + 1;
     const invQty = new Decimal(inv.quantity);
     const invPrice = new Decimal(inv.unitPrice);
-    const invLineTotal = invQty.mul(invPrice);
+    const _invLineTotal = invQty.mul(invPrice);
 
     const po = poByMaterial.get(inv.materialId);
     const grnQty = grnByMaterial.get(inv.materialId);
@@ -209,6 +209,8 @@ export async function createSupplierInvoice(input: {
   gstAmount?: number | Decimal | string;
   totalAmount: number | Decimal | string;
   hsnCode?: string;
+  invoiceDocumentUrl?: string;
+  invoiceDocumentName?: string;
   lines?: InvoiceLineInput[];
   receivedById?: string;
   userId?: string;
@@ -300,6 +302,8 @@ export async function createSupplierInvoice(input: {
         gstAmount,
         totalAmount,
         hsnCode: input.hsnCode ?? null,
+        invoiceDocumentUrl: input.invoiceDocumentUrl ?? null,
+        invoiceDocumentName: input.invoiceDocumentName ?? null,
         status: matchStatus === "THREE_WAY_MATCH" || matchStatus === "TWO_WAY_MATCH" ? "MATCHED" : "PENDING",
         matchStatus,
         matchNotes,

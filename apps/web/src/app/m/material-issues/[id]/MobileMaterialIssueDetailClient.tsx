@@ -15,6 +15,7 @@ import {
 } from "@/components/mobile/v2/primitives";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 import { toast } from "sonner";
 
 interface IssueLine {
@@ -175,6 +176,8 @@ export function MobileMaterialIssueDetailClient({
           ) : null}
         </div>
       ) : null}
+
+      <AttachmentList entityType="MaterialIssue" entityId={issue.id} />
 
       {/* ── Print + Execute + Cancel actions ── */}
       <div className="flex gap-2">

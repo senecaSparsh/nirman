@@ -12,9 +12,8 @@ import {
 } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
-import { MobileProcurementList, type DirectPurchaseListItem } from "./MobileProcurementList";
+import { type DirectPurchaseListItem } from "./MobileProcurementList";
 import { MobileProcurementHubTabs } from "./MobileProcurementHubTabs";
-import { formatCurrency } from "@/lib/utils";
 
 export default function MobileProcurementPage() {
   return (
@@ -37,7 +36,7 @@ async function MobileProcurementContent() {
 
   // ── Fetch data for all hub tabs + form dropdown data in parallel ──
   const BATCH_SIZE = 60;
-  const [pos, directPurchases, reqs, quotationRequests, quotationProjects, quotationMaterials, formSuppliers, formProjects, formMaterials, formLocations, formCategories, formPurchaseOrders] = await Promise.all([
+  const [pos, directPurchases, reqs, quotationRequests, quotationProjects, quotationMaterials, formSuppliers, _formProjects, _formMaterials, formLocations, formCategories, formPurchaseOrders] = await Promise.all([
     // ── POs tab ──
     prisma.purchaseOrder.findMany({
       where: { companyId: { in: groupCompanyIds } },

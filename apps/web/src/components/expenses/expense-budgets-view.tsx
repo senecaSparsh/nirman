@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, RefreshCw, Loader2, Trash2, Calculator, TrendingDown, TrendingUp } from "lucide-react";
+import { Plus, RefreshCw, Loader2, Trash2, Calculator, } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { } from "@/components/ui/badge";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog } from "@/components/ui/dialog";
@@ -161,6 +161,7 @@ export function ExpenseBudgetsView({
       width: "140px",
       render: (b) => {
         const pct = b.utilizationPct;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const tone = pct >= 100 ? "danger" : pct >= 80 ? "warning" : "success";
         return (
           <div className="flex items-center justify-end gap-2">

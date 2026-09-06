@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Loader2, CheckCircle2, Send, Tag,
-  Package, IndianRupee, FileText,
+  Loader2, CheckCircle2, Send,
+  IndianRupee,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
@@ -359,6 +359,7 @@ export default function MobileNewEquipmentClient({
 }
 
 /* ─── Section header ─── */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function SectionHeader({
   icon: Icon, label,
 }: {

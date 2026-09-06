@@ -461,7 +461,9 @@ function TransitTab({ incoming, outgoing }: { incoming: InTransitTransfer[]; out
 /* ─── Inventory tab — material list with qty + value ─── */
 function InventoryTab({
   items,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   canManage = false,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onAddMaterial,
 }: {
   items: DetailStockItem[];

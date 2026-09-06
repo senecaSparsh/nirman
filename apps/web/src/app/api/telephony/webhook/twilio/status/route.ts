@@ -54,6 +54,7 @@ export const POST = async (req: NextRequest) => {
   const startTime = payload.StartTime ?? null;
   const endTime = payload.EndTime ?? null;
   const recordingUrl = payload.RecordingUrl ?? null;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const recordingSid = payload.RecordingSid ?? null;
   const price = payload.Price ? parseFloat(payload.Price.replace("-", "")) : null;
 

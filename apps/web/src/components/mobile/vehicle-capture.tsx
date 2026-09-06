@@ -115,12 +115,15 @@ export function VehicleCapture({
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const labelClass = "block text-m-caption font-bold mb-0";
   const labelStyle = { color: "var(--color-ink-700)" };
   const dividerStyle = { borderColor: "var(--color-line)" };

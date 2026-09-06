@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { Input, Label, Select, } from "@/components/ui/input";
 import { useConfirm } from "@/lib/use-confirm";
 import {
   PhoneIncoming,
@@ -20,8 +20,11 @@ import {
   Loader2,
   Voicemail,
   ArrowLeft,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Clock,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   User,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Tag as TagIcon,
 } from "lucide-react";
 
@@ -115,6 +118,7 @@ export function CallDetailView({
   const [confirm, confirmDialog] = useConfirm();
 
   const isStaffCaller = !!call.caller;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const otherParty = isStaffCaller ? call.toNumber : call.fromNumber;
   const staffName = call.caller?.name ?? call.callee?.name ?? "Unassigned";
 

@@ -1606,6 +1606,12 @@ model SupplierInvoice {
   receivedById  String?
   approvedById  String?
   approvedAt    DateTime?
+  // ── Original bill document ──
+  // The supplier's original invoice/bill (PDF/image/scanned copy).
+  // Required for GST input credit reconciliation, three-way match verification,
+  // dispute resolution, and statutory audit. Uploaded via /api/uploads.
+  invoiceDocumentUrl  String?  // URL returned by /api/uploads (auth-gated)
+  invoiceDocumentName String?  // original filename for display
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

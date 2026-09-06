@@ -8,6 +8,7 @@ import { NoAccess } from "@/components/no-access";
 import { PageLoading } from "@/components/page-loading";
 import { Page } from "@/components/page";
 import { SupplierCockpit, type SupplierCockpitData } from "@/components/vendors/supplier-cockpit";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 
 export const metadata = { title: "Supplier · Nirman" };
 
@@ -193,5 +194,12 @@ export async function SupplierDetailContent({ params }: { params: Promise<{ id: 
     topMaterials,
   };
 
-  return <SupplierCockpit data={data} />;
+  return (
+    <>
+      <SupplierCockpit data={data} />
+      <div className="mx-auto max-w-7xl px-4 pb-8 pt-4">
+        <AttachmentList entityType="Supplier" entityId={data.supplier.id} />
+      </div>
+    </>
+  );
 }

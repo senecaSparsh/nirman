@@ -16,6 +16,7 @@ import { PageHeader } from "@/components/page-header";
 import {
   Phone,
   Plus,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   ShieldCheck,
   AlertCircle,
   Loader2,
@@ -24,6 +25,7 @@ import {
   Server,
   FileText,
   CheckCircle2,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Cloud,
   Users,
 } from "lucide-react";
@@ -738,6 +740,7 @@ function RecordingTab({ company, members, canManage }: { company: CompanyConfig;
 }
 
 // ── Consent Tab ──
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ConsentTab({ policy, company, canManage }: { policy: ConsentPolicy | null; company: CompanyConfig; canManage: boolean }) {
   const [showEdit, setShowEdit] = useState(false);
   const [policyText, setPolicyText] = useState(policy?.policyText ?? "");

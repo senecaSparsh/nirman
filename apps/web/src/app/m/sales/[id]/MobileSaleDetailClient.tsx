@@ -1548,7 +1548,18 @@ export function MobileSaleDetailClient({
 
             {/* Additional attachments — generic polymorphic document store */}
             <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-              <AttachmentList entityType="AssetSale" entityId={saleId} maxAttachments={20} />
+              <AttachmentList
+                entityType="AssetSale"
+                entityId={saleId}
+                maxAttachments={20}
+                extraDocuments={[
+                  { url: atsDocumentUrl, label: "ATS Document", category: "ATS" },
+                  { url: bbaDocumentUrl, label: "BBA Document", category: "BBA" },
+                  { url: registryDocumentUrl, label: "Registry Document", category: "Registry" },
+                  { url: allotmentDocumentUrl, label: "Allotment Letter", category: "Allotment" },
+                  { url: draftDocumentUrl, label: "Draft / LOI", category: "Draft" },
+                ]}
+              />
             </div>
 
             {/* Compliance documents */}

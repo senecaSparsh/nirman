@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 import type { AssetSaleRow, CustomerRow } from "@/lib/types";
 
 /**
@@ -204,6 +205,8 @@ export function CustomerDetailDialog({
             </div>
           )}
         </div>
+
+        <AttachmentList entityType="Customer" entityId={customer.id} />
       </Dialog>
 
       {editOpen && customer && (

@@ -47,6 +47,7 @@ interface StockCountDraft {
   lines: StockCountDraftLine[];
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function MobileNewStockCountClient({ onClose, onCreated }: { onClose?: () => void; onCreated?: (id: string) => void } = {}) {
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
+import { prisma } from "@nirman/db";
 import { approveSupplierInvoice, getSupplierInvoice } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
@@ -62,6 +63,8 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     status: invoice.status,
     matchStatus: invoice.matchStatus,
     matchNotes: invoice.matchNotes,
+    invoiceDocumentUrl: invoice.invoiceDocumentUrl ?? null,
+    invoiceDocumentName: invoice.invoiceDocumentName ?? null,
     receivedBy: invoice.receivedBy,
     approvedBy: invoice.approvedBy,
     approvedAt: invoice.approvedAt?.toISOString() ?? null,
@@ -86,8 +89,30 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const { id } = await params;
   const body = await req.json();
 
-  if (!body?.action || !["approve", "reject"].includes(body.action)) {
-    return json({ error: "action must be 'approve' or 'reject'" }, { status: 400 });
+  if (!body?.action || !["approve", "reject", "upload-document"].includes(body.action)) {
+    return json({ error: "action must be 'approve', 'reject', or 'upload-document'" }, { status: 400 });
+  }
+
+  // Handle document upload separately (no approval workflow)
+  if (body.action === "upload-document") {
+    if (!body.invoiceDocumentUrl) {
+      return json({ error: "invoiceDocumentUrl is required for upload-document" }, { status: 400 });
+    }
+    const updated = await prisma.supplierInvoice.update({
+      where: { id },
+      data: {
+        invoiceDocumentUrl: body.invoiceDocumentUrl,
+        invoiceDocumentName: body.invoiceDocumentName ?? null,
+      },
+    });
+    revalidatePath("/finance");
+    revalidatePath("/supplier-invoices");
+    return json({
+      ok: true,
+      id: updated.id,
+      invoiceDocumentUrl: updated.invoiceDocumentUrl,
+      invoiceDocumentName: updated.invoiceDocumentName,
+    });
   }
 
   try {

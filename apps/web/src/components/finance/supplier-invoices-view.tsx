@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, FileText, RefreshCw, Check, X, AlertTriangle, SearchX, IndianRupee } from "lucide-react";
+import { Plus, FileText, RefreshCw, Check, X, AlertTriangle, SearchX, IndianRupee, Upload, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
@@ -93,6 +93,8 @@ interface InvoiceDetail {
   status: string;
   matchStatus: string | null;
   matchNotes: string | null;
+  invoiceDocumentUrl: string | null;
+  invoiceDocumentName: string | null;
   receivedBy: { id: string; name: string } | null;
   approvedBy: { id: string; name: string } | null;
   approvedAt: string | null;
@@ -487,6 +489,9 @@ function InvoiceDetailContent({
         </p>
       )}
 
+      {/* Original bill document */}
+      <InvoiceDocumentSection invoiceId={detail.id} docUrl={detail.invoiceDocumentUrl} docName={detail.invoiceDocumentName} />
+
       {/* Actions */}
       <div className="flex justify-end gap-2 border-t border-border pt-3">
         <a href={`/print/supplier-invoice/${detail.id}`} target="_blank" rel="noopener noreferrer">
@@ -523,6 +528,87 @@ function InvoiceDetailContent({
           defaultSupplierId={detail.supplier.id}
           defaultAmount={Number(detail.totalAmount)}
         />
+      )}
+    </div>
+  );
+}
+
+// ── Invoice Document Section — shows the uploaded original bill + allows upload ──
+function InvoiceDocumentSection({
+  invoiceId,
+  docUrl,
+  docName,
+}: {
+  invoiceId: string;
+  docUrl: string | null;
+  docName: string | null;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [currentDoc, setCurrentDoc] = useState<{ url: string; name: string } | null>(
+    docUrl ? { url: docUrl, name: docName ?? "Invoice" } : null,
+  );
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      // Step 1: Upload the file
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploadRes = await fetch("/api/uploads", { method: "POST", body: formData });
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) throw new Error(uploadData.error ?? "Upload failed");
+
+      // Step 2: Link it to the invoice
+      const res = await fetch(`/api/supplier-invoices/${invoiceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "upload-document",
+          invoiceDocumentUrl: uploadData.url,
+          invoiceDocumentName: file.name,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to link document");
+      setCurrentDoc({ url: uploadData.url, name: file.name });
+      toast.success("Original bill uploaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to upload");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  return (
+    <div className="rounded-md border border-border p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-label font-medium text-foreground">Original Bill / Invoice Copy</span>
+      </div>
+      {currentDoc ? (
+        <div className="flex items-center gap-2">
+          <FileText className="size-4 shrink-0 text-muted-foreground" />
+          <a
+            href={currentDoc.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-brand hover:underline truncate flex-1"
+          >
+            {currentDoc.name}
+          </a>
+          <label className="text-micro text-muted-foreground cursor-pointer hover:text-foreground">
+            Replace
+            <input type="file" className="hidden" onChange={handleUpload} accept="image/*,.pdf" disabled={uploading} />
+          </label>
+        </div>
+      ) : (
+        <label className="flex items-center gap-2 rounded-md border border-dashed border-border px-3 py-2.5 text-sm text-muted-foreground cursor-pointer hover:bg-muted/20">
+          {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+          {uploading ? "Uploading…" : "Upload the supplier's original bill (PDF / image)"}
+          <input type="file" className="hidden" onChange={handleUpload} accept="image/*,.pdf" disabled={uploading} />
+        </label>
       )}
     </div>
   );
@@ -568,6 +654,8 @@ function SupplierInvoiceFormDialog({
   type InvLine = { materialId: string; materialName: string; unit: string; quantity: string; unitPrice: string; gstRate: string };
   const [invLines, setInvLines] = useState<InvLine[]>([]);
   const [poLinesLoading, setPoLinesLoading] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [docFile, setDocFile] = useState<{ url: string; name: string } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -582,6 +670,7 @@ function SupplierInvoiceFormDialog({
         totalAmount: "",
       });
       setInvLines([]);
+      setDocFile(null);
     }
   }, [open]);
 
@@ -623,6 +712,26 @@ function SupplierInvoiceFormDialog({
     setForm((f) => ({ ...f, [key]: value }));
   }
 
+  async function handleDocUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingDoc(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/uploads", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      setDocFile({ url: data.url, name: file.name });
+      toast.success("Document uploaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to upload document");
+    } finally {
+      setUploadingDoc(false);
+      e.target.value = "";
+    }
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.invoiceNumber.trim()) {
@@ -654,6 +763,10 @@ function SupplierInvoiceFormDialog({
       if (form.purchaseOrderId) payload.purchaseOrderId = form.purchaseOrderId;
       if (form.dueDate) payload.dueDate = form.dueDate;
       if (form.gstAmount) payload.gstAmount = Number(form.gstAmount);
+      if (docFile) {
+        payload.invoiceDocumentUrl = docFile.url;
+        payload.invoiceDocumentName = docFile.name;
+      }
       // Send invoice lines for three-way matching (only if we have them)
       if (invLines.length > 0) {
         payload.lines = invLines
@@ -868,6 +981,26 @@ function SupplierInvoiceFormDialog({
             value={form.dueDate}
             onChange={(e) => set("dueDate", e.target.value)}
           />
+        </div>
+
+        {/* Original bill document upload */}
+        <div className="space-y-1.5">
+          <Label>Original Bill / Invoice Copy</Label>
+          {docFile ? (
+            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-3 py-2">
+              <FileText className="size-4 shrink-0 text-muted-foreground" />
+              <span className="text-sm truncate flex-1">{docFile.name}</span>
+              <button type="button" onClick={() => setDocFile(null)} className="text-muted-foreground hover:text-danger">
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ) : (
+            <label className="flex items-center gap-2 rounded-md border border-dashed border-border px-3 py-2.5 text-sm text-muted-foreground cursor-pointer hover:bg-muted/20">
+              {uploadingDoc ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+              {uploadingDoc ? "Uploading…" : "Upload PDF / image of the supplier's bill"}
+              <input type="file" className="hidden" onChange={handleDocUpload} accept="image/*,.pdf" />
+            </label>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 pt-2">

@@ -14,6 +14,7 @@ import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { ReceiveGoodsDialog } from "./receive-goods-dialog";
 import { PoAddLineDialog } from "./po-add-line-dialog";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 import type { PurchaseOrderDetail } from "@/lib/types";
 
 /**
@@ -380,6 +381,8 @@ export function PurchaseOrderDetailView({
           <span className="font-medium">Notes: </span>{detail.notes}
         </div>
       )}
+
+      <AttachmentList entityType="PurchaseOrder" entityId={detail.id} />
 
       <ReceiveGoodsDialog open={recvOpen} onOpenChange={setRecvOpen} po={detail} />
       <PoAddLineDialog

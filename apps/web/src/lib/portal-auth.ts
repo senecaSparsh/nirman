@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@nirman/db";
-import { normalizePhone } from "@/lib/phone-otp";
+import { } from "@/lib/phone-otp";
 
 /**
  * Customer Portal Auth — separate from staff auth.

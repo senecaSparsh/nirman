@@ -1343,7 +1343,16 @@ export function MobileLandDetailClient({
 
           {/* Additional attachments — generic polymorphic document store */}
           <div className="rounded-[0.5rem] border p-2.5 mb-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-            <AttachmentList entityType="LandPurchase" entityId={data.id} maxAttachments={20} />
+            <AttachmentList
+              entityType="LandPurchase"
+              entityId={data.id}
+              maxAttachments={20}
+              extraDocuments={[
+                { url: data.atsDocumentUrl, label: "ATS Document", category: "ATS" },
+                { url: data.registryDocumentUrl, label: "Registry Document", category: "Registry" },
+                { url: data.documentUrl, label: "Purchase Document", category: "Purchase" },
+              ]}
+            />
           </div>
 
           {/* Complete + Payment actions */}

@@ -18,6 +18,7 @@ import { MaintenanceDialog } from "./maintenance-dialog";
 import { EquipmentEditDialog } from "./equipment-edit-dialog";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { AuditTrail } from "@/components/audit-trail";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 import type {
   EquipmentDetail, EquipmentRow,
   StockLocationRow, ProjectOption,
@@ -453,6 +454,8 @@ export function EquipmentDetailDialog({
                 <span className="font-medium">Notes: </span>{detail.notes}
               </div>
             )}
+
+            <AttachmentList entityType="Equipment" entityId={detail.id} />
 
             <AuditTrail entityType="Equipment" entityId={detail.id} />
           </div>

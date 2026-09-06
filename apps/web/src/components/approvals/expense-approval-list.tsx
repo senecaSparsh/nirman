@@ -7,7 +7,7 @@ import { Check, X, Loader2, FileText, Receipt as ReceiptIcon } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
-import { Input, Label } from "@/components/ui/input";
+import { Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { ApprovalExpenseRow } from "@/lib/types";

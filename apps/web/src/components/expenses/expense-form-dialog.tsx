@@ -10,7 +10,7 @@ import { Input, Label, Select } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
-import type { ExpenseCategoryRow, GlAccountOption, ProjectOption } from "@/lib/types";
+import type { ExpenseCategoryRow, ProjectOption } from "@/lib/types";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 
 const PAYMENT_MODES = ["CASH", "UPI", "NEFT", "BANK", "CHEQUE", "CREDIT"] as const;

@@ -6,6 +6,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {Label, Textarea} from "@/components/ui/input";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 import { formatNumber } from "@/lib/utils";
 import {
   CheckCircle,
@@ -199,6 +200,8 @@ export function GatePassDetailDialog({
               <span className="font-medium text-foreground">Notes:</span> {gatePass.notes}
             </div>
           )}
+
+          <AttachmentList entityType="GatePass" entityId={gatePass.id} />
 
           {/* Actions */}
           <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-3">

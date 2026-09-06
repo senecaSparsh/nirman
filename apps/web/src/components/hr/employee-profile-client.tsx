@@ -24,6 +24,7 @@ import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { CreateAccountDialog } from "@/components/hr/create-account-dialog";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { useTabParam } from "@/lib/use-tab-param";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 
 // ───────────────────────────────────────────────────────────────
 //  Types — serialized employee profile payload from the server
@@ -1978,6 +1979,8 @@ function DossierTab({ employee, canManage }: { employee: EmployeeProfileData; ca
           </div>
         )}
       </SectionCard>
+
+      <AttachmentList entityType="Employee" entityId={employee.id} />
 
       {/* Benefits */}
       <SectionCard title="Benefits & Allowances" icon={Gift}>

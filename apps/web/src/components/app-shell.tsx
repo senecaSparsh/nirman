@@ -97,7 +97,7 @@ function isPrintRoute(pathname: string): boolean {
   return pathname === "/print" || pathname.startsWith("/print/");
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, isDev = false }: { children: React.ReactNode; isDev?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, isPending: sessionLoading } = useSession();
@@ -267,7 +267,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Print pages render bare — no sidebar, no nav, no shell.
   if (isPrintRoute(pathname)) return <>{children}</>;
 
-  if (process.env.NODE_ENV === "production" && sessionLoading && !session) {
+  if (!isDev && sessionLoading && !session) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />

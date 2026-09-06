@@ -296,6 +296,7 @@ export {
   deleteLegalDoc,
   listLegalDocs,
   listAllLegalDocs,
+  checkExpiringLegalDocs,
 } from "./legal-docs";
 export type { CreateLegalDocInput, UpdateLegalDocInput } from "./legal-docs";
 

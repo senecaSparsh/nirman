@@ -46,6 +46,7 @@ function DprStatsBar({ dprs }: { dprs: DprRow[] }) {
   const pending = dprs.filter((d) => d.approvalStatus === "SUBMITTED").length;
   const subApproved = dprs.filter((d) => d.approvalStatus === "SUB_ADMIN_APPROVED").length;
   const approved = dprs.filter((d) => d.approvalStatus === "APPROVED").length;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const rejected = dprs.filter((d) => d.approvalStatus === "REJECTED").length;
   const avgProgress = total > 0 ? dprs.reduce((sum, d) => sum + d.progressPct, 0) / total : 0;
 

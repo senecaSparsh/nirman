@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Plus, Trash2, Loader2, Check, Search, X, Package, MapPin, Warehouse, Building2, HardHat } from "lucide-react";
+import { Plus, Trash2, Loader2, Check, Search, X, Package, MapPin, Warehouse, Building2, HardHat } from "lucide-react";
 import { toast } from "sonner";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
@@ -36,6 +36,7 @@ type LineItem = {
 
 export function MobileNewQuotationClient({
   data,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onClose,
   onCreated,
 }: {

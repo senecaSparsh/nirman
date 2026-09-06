@@ -309,7 +309,7 @@ export function CreateAccountDialog({
               </div>
               <div className="flex items-start gap-2 text-caption">
                 <span className="text-muted-foreground">2.</span>
-                <span>Print it, get it signed, then click "Confirm Agreement"</span>
+                <span>Print it, get it signed, then click &ldquo;Confirm Agreement&rdquo;</span>
               </div>
               <div className="flex items-start gap-2 text-caption">
                 <span className="text-muted-foreground">3.</span>

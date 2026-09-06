@@ -14,6 +14,7 @@ import { TransferFormDialog } from "@/components/procurement/transfer-form-dialo
 import { LocationFormDialog } from "@/components/materials/location-form-dialog";
 import { VehicleCaptureSection, EMPTY_VEHICLE, type VehicleData } from "@/components/vehicle-capture-section";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 import type { StockLocationRow, TransferRow, ProjectOption } from "@/lib/types";
 
 /**
@@ -404,6 +405,8 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
           <Printer className="h-3.5 w-3.5" /> Print Transfer Note
         </a>
       </div>
+
+      <AttachmentList entityType="StockTransfer" entityId={transfer.id} />
 
       {/* Actions for DRAFT transfers */}
       {transfer.status === "DRAFT" && (

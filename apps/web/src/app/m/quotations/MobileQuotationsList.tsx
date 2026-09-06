@@ -61,6 +61,7 @@ const STATUS_STYLE: Record<string, { color: string; label: string }> = {
 export function MobileQuotationsList({
   items,
   canCreate,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   catalog,
   exportTitle,
   exportRows,

@@ -84,6 +84,7 @@ export default async function DemandNoticePage({
 
   const demandNo = `DMN-${sale.saleNumber}-${String(item.installmentNo).padStart(2, "0")}`;
   const demandDate = new Date();
+  // eslint-disable-next-line react-hooks/purity -- server component, Date.now() is fine
   const dueDate = item.dueDate ?? new Date(Date.now() + 15 * 24 * 60 * 60 * 1000); // 15-day default
 
   return (

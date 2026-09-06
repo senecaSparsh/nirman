@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";

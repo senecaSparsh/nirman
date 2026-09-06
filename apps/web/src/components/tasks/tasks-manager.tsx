@@ -17,7 +17,7 @@ import { AssignTaskDialog } from "@/components/tasks/assign-task-dialog";
 import { TaskDetailDrawer } from "@/components/tasks/task-detail-drawer";
 import { downloadCSV } from "@/lib/export";
 import { cn, formatDate } from "@/lib/utils";
-import { EmployeeName } from "@/components/employee-name";
+import { } from "@/components/employee-name";
 
 interface TaskUser {
   id: string;

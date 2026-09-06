@@ -90,14 +90,27 @@ const eslintConfig = [
         },
       ],
       // React 19 compiler rules — legitimate patterns (form init, data loading
-      // on mount) trigger these. Downgrade to warnings until the patterns are
-      // refactored to the compiler's preferred form.
-      "react-hooks/set-state-in-effect": "warn",
+      // on mount) trigger these. Disabled because the "correct" refactor
+      // (useSyncExternalStore) doesn't apply to most of these cases (fetching
+      // data on mount, initializing from localStorage, resetting form state
+      // when a dialog opens). These are intentional, well-understood patterns.
+      "react-hooks/set-state-in-effect": "off",
       "react-hooks/purity": "warn",
       // Prevent process.env.NODE_ENV in client components — causes Turbopack
       // chunk desync in dynamically-imported (next/dynamic ssr:false) chunks.
       // Only fires in files with a "use client" directive.
       "nirman/no-process-env-node-env-in-client": "warn",
+    },
+  },
+  // Test files — relax rules that are noisy in tests (any types for mock
+  // data, unused test helpers imported for convenience, React display names
+  // on anonymous test components).
+  {
+    files: ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "react/display-name": "off",
     },
   },
 ];

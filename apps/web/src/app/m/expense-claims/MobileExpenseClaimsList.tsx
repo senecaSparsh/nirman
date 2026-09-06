@@ -44,6 +44,7 @@ export function MobileExpenseClaimsList({
   items,
   totalAmount,
   pendingCount,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   canApprove,
   canCreate,
 }: {

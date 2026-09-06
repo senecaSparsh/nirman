@@ -175,6 +175,7 @@ export function CreateUserDialog({
       {/* Step indicator */}
       <div className="flex items-center gap-2 mb-4">
         {steps.map((s, i) => {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const Icon = s.icon;
           const active = step === s.num;
           const done = step > s.num;

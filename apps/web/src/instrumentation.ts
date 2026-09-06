@@ -53,7 +53,7 @@ export async function register() {
     // Node.js logs the error but the process may continue in a bad state.
     // With them, we log a clear structured message and (in production) let
     // the start wrapper's health check detect the degraded state.
-    process.on("unhandledRejection", (reason, promise) => {
+    process.on("unhandledRejection", (reason, _promise) => {
       const msg = reason instanceof Error ? reason.message : String(reason);
       console.error("[unhandledRejection]", msg, reason);
       // Don't exit — the start wrapper's health check will catch a truly

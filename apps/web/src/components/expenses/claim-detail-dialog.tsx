@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, Loader2, FileText, Receipt, Upload, X } from "lucide-react";
+import { Plus, Trash2, Loader2, FileText, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -78,6 +78,7 @@ export function ClaimDetailDialog({
     if (open && claimId) {
       fetchDetail();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchDetail is stable; adding it causes infinite re-runs
   }, [open, claimId]);
 
   async function fetchDetail() {

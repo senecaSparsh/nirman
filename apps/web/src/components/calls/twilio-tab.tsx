@@ -72,7 +72,7 @@ export function TwilioTab() {
     }
   }
 
-  useEffect(() => { fetchStatus(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { fetchStatus(); }, []);
 
   async function syncNumbers() {
     setActionLoading(true);

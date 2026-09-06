@@ -55,6 +55,7 @@ const inputStyle = {
  * Mobile material indent (requisition) creation form.
  * Site users request materials → approver reviews → PO conversion.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data: FormData; onClose?: () => void; onCreated?: (id: string) => void }) {
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();

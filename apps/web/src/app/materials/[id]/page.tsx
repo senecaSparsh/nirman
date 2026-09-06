@@ -8,6 +8,7 @@ import { NoAccess } from "@/components/no-access";
 import { PageLoading } from "@/components/page-loading";
 import { Page } from "@/components/page";
 import { MaterialCockpit, type MaterialCockpitData } from "@/components/materials/material-cockpit";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 
 export const metadata = { title: "Material · Nirman" };
 
@@ -210,5 +211,12 @@ export async function MaterialDetailContent({ params }: { params: Promise<{ id: 
     projectName: l.project?.name ?? null,
   }));
 
-  return <MaterialCockpit data={data} suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))} locations={locations} />;
+  return (
+    <>
+      <MaterialCockpit data={data} suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))} locations={locations} />
+      <div className="mx-auto max-w-7xl px-4 pb-8 pt-4">
+        <AttachmentList entityType="Material" entityId={data.material.id} />
+      </div>
+    </>
+  );
 }

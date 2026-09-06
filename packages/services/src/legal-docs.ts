@@ -411,3 +411,93 @@ async function removeLinkedTransferDutyCost(
   await tx.projectCost.delete({ where: { id: cost.id } });
   await reallocateProjectCosts(tx, cost.projectId);
 }
+
+// ───────────────────────────────────────────────────────────
+//  Legal document expiry checker
+//  Finds APPROVED legal documents with validTill within the
+//  next N days (default 30) and emits LEGAL_DOC_EXPIRING
+//  notifications to the company's OWNER/ADMIN users.
+// ───────────────────────────────────────────────────────────
+
+export async function checkExpiringLegalDocs(daysAhead = 30): Promise<{
+  checked: number;
+  expiring: number;
+  notified: number;
+}> {
+  const { sendNotification } = await import("./notifications");
+  const { NotificationEventType } = await import("./notification-event-bus");
+
+  const now = new Date();
+  const cutoff = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000);
+
+  // Find APPROVED legal docs with validTill between now and the cutoff
+  const docs = await prisma.legalDocument.findMany({
+    where: {
+      deletedAt: null,
+      status: "APPROVED",
+      obtained: true,
+      validTill: { gte: now, lte: cutoff },
+    },
+    include: {
+      company: { select: { id: true, name: true } },
+      landPurchase: { select: { id: true, sellerName: true, location: true } },
+      project: { select: { id: true, name: true } },
+    },
+  });
+
+  let notified = 0;
+  for (const doc of docs) {
+    const daysLeft = Math.ceil(
+      (doc.validTill!.getTime() - now.getTime()) / (24 * 60 * 60 * 1000),
+    );
+    const entityLabel = doc.project?.name
+      ?? (doc.landPurchase ? `${doc.landPurchase.sellerName}${doc.landPurchase.location ? ` — ${doc.landPurchase.location}` : ""}` : null)
+      ?? "entity";
+    const message = `Legal document "${doc.title}" (${doc.type.replace(/_/g, " ")}) for ${entityLabel} expires in ${daysLeft} day(s) on ${doc.validTill!.toLocaleDateString("en-IN")}. Please initiate renewal.`;
+
+    // Notify all OWNER/ADMIN users of the company
+    const recipients = await prisma.user.findMany({
+      where: {
+        companyId: doc.companyId,
+        role: { in: ["OWNER", "ADMIN"] },
+      },
+      select: { id: true, name: true, phone: true, email: true },
+    });
+
+    for (const user of recipients) {
+      try {
+        await sendNotification({
+          companyId: doc.companyId,
+          eventType: NotificationEventType.LEGAL_DOC_EXPIRING,
+          channel: "IN_APP",
+          recipient: user.id,
+          recipientName: user.name,
+          subject: `Legal Document Expiring: ${doc.title}`,
+          message,
+          userId: user.id,
+          metadata: {
+            legalDocId: doc.id,
+            title: doc.title,
+            docType: doc.type,
+            entityLabel,
+            daysLeft,
+            validTill: doc.validTill!.toISOString(),
+            urgency: "IMMEDIATE",
+            channels: ["IN_APP"],
+            link: doc.projectId
+              ? `/projects/${doc.projectId}`
+              : doc.landPurchaseId
+                ? `/land/${doc.landPurchaseId}`
+                : undefined,
+          },
+        });
+        notified++;
+      } catch {
+        // Skip failed notifications
+      }
+    }
+  }
+
+  return { checked: docs.length, expiring: docs.length, notified };
+}
+

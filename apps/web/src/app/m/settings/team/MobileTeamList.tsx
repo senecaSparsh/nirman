@@ -810,6 +810,7 @@ function MemberCard({
 /* ─── Add Member Form (rendered inside MobileFabModal) ─── */
 function AddMemberForm({
   assignableRoles,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onClose,
   onAdded,
 }: {

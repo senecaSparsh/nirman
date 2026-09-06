@@ -145,6 +145,7 @@ export function MobileNewProjectDialog({
         setShowAts(true);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional run-on-open only
   }, [open]);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {

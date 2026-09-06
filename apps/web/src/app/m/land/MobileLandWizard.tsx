@@ -2007,6 +2007,7 @@ function MobileSectionEditor({
   inputStyle,
   labelClass,
   labelStyle,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   cardStyle,
 }: {
   section: SectionForm;

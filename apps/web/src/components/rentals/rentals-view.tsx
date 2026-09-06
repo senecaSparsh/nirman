@@ -17,6 +17,7 @@ import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { CustomerFormDialog } from "@/components/sales/customer-form-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 
 /** Column definitions for the rental payment history DataTable. */
 const paymentColumns: Column<TenancyRow["payments"][number]>[] = [
@@ -1311,6 +1312,8 @@ function TenancyDetailDialog({
             </div>
           )}
         </div>
+
+        <AttachmentList entityType="Tenancy" entityId={tenancy.id} />
 
         {/* Actions */}
         {canManage && (

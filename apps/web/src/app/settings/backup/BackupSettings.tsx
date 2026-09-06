@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Download, Upload, Database, Shield, AlertTriangle, CheckCircle2, HardDrive, Cloud } from "lucide-react";
+import { Download, Upload, Shield, AlertTriangle, CheckCircle2, HardDrive, Cloud } from "lucide-react";
 import { useLocalFirstMode } from "@/lib/local-first";
 
 export function BackupSettings() {

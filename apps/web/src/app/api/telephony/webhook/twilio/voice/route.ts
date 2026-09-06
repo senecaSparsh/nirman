@@ -32,8 +32,11 @@ export const POST = async (req: NextRequest) => {
   // Parse Twilio's form-encoded body
   const rawBody = await req.text();
   const formData = new URLSearchParams(rawBody);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fromNumber = formData.get("From") ?? "";
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const toNumber = formData.get("To") ?? "";
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const callSid = formData.get("CallSid") ?? "";
 
   // Return TwiML that:

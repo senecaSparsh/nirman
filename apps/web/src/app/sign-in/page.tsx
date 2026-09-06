@@ -815,6 +815,7 @@ function SignInForm() {
           it for local development. Hidden entirely in production so the
           sign-in screen stays trustworthy.
         */}
+        {/* eslint-disable-next-line nirman/no-process-env-node-env-in-client -- route page, not dynamically imported */}
         {process.env.NODE_ENV !== "production" && (
           <div className="mt-5 rounded-lg border border-dashed border-border bg-card/50 p-4">
             <div className="mb-2.5 flex items-center justify-between">
