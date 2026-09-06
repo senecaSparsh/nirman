@@ -69,10 +69,23 @@ const heapMB = Math.max(256, Math.min(4096, Math.floor(totalMB * heapFraction)))
 
 const existingNodeOptions = process.env.NODE_OPTIONS || "";
 let nodeOptions;
-if (existingNodeOptions.includes("--max-old-space-size")) {
-  // Respect explicit override
+// Check if NODE_OPTIONS already has --max-old-space-size set.
+const existingHeapMatch = existingNodeOptions.match(/--max-old-space-size=(\d+)/);
+const existingHeapMB = existingHeapMatch ? parseInt(existingHeapMatch[1], 10) : null;
+
+if (existingHeapMB !== null && existingHeapMB >= heapMB) {
+  // Explicit override that's >= our auto-detected value — respect it
+  // (the user intentionally set a higher limit).
   nodeOptions = existingNodeOptions;
   console.log(`[build] using existing NODE_OPTIONS: ${nodeOptions}`);
+} else if (existingHeapMB !== null && existingHeapMB < heapMB) {
+  // Explicit override that's LOWER than what we'd auto-detect — this is
+  // likely a stale value from the Render dashboard (e.g. 440MB from when
+  // the plan was smaller). Replace it with the auto-detected value to
+  // prevent OOM. Preserve any other NODE_OPTIONS flags.
+  const stripped = existingNodeOptions.replace(/--max-old-space-size=\d+/, "").trim();
+  nodeOptions = `${stripped} --max-old-space-size=${heapMB}`.trim();
+  console.log(`[build] ${totalMB}MB RAM detected → heap=${heapMB}MB (overriding stale NODE_OPTIONS heap=${existingHeapMB}MB)`);
 } else {
   nodeOptions = `${existingNodeOptions} --max-old-space-size=${heapMB}`.trim();
   console.log(`[build] ${totalMB}MB RAM detected → heap=${heapMB}MB`);
