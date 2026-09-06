@@ -58,15 +58,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # Traefik routing labels — route public HTTP traffic (port 80) to this
-    # container's internal port 3000. Coolify will add HTTPS routing + SSL
-    # via Let's Encrypt once the domain's DNS check passes.
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.nirman-web.rule=Host(`nirman.life`) || Host(`www.nirman.life`)"
-      - "traefik.http.routers.nirman-web.entryPoints=http"
-      - "traefik.http.routers.nirman-web.service=nirman-web"
-      - "traefik.http.services.nirman-web.loadbalancer.server.port=3000"
+    # Coolify auto-generates Traefik labels from the domain configured in the
+    # UI (Service → Domains). Do NOT add manual Traefik labels here — they
+    # conflict with Coolify's auto-generated ones (different router/service
+    # names for the same host → Traefik 503 "no available server").
+    # The `coolify` network below lets Coolify's Traefik proxy reach this container.
     networks:
       - default
       - coolify
