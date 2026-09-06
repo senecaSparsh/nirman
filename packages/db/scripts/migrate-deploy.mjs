@@ -71,16 +71,26 @@ async function main() {
   console.log("[migrate:deploy] running: prisma migrate deploy");
   let result = await runCommand(["prisma", "migrate", "deploy"], "migrate deploy");
 
-  // Step 2: If it failed with P3018 (a migration failed to apply), try to
+  // Step 2: If it failed with P3018 (a migration failed to apply) or
+  // P3009 (failed migrations found in DB from a previous attempt), try to
   // resolve the failed migration. The most common cause is "already exists"
   // errors (e.g. CREATE TYPE for an enum that db push already created).
   // In that case, the schema is already in the desired state — we mark the
   // migration as applied and retry.
-  if (result.code !== 0 && result.output.includes("P3018")) {
+  const hasP3018 = result.output.includes("P3018");
+  const hasP3009 = result.output.includes("P3009");
+  if (result.code !== 0 && (hasP3018 || hasP3009)) {
     // Extract the failed migration name from the output.
-    // Prisma prints: "Migration name: 0004_schema_sync"
-    const migrationMatch = result.output.match(/Migration name:\s*(\S+)/);
-    const migrationName = migrationMatch?.[1];
+    // P3018 prints: "Migration name: 0004_schema_sync"
+    // P3009 prints: "The `0004_schema_sync` migration started at ... failed"
+    let migrationName = null;
+    const p3018Match = result.output.match(/Migration name:\s*(\S+)/);
+    if (p3018Match) {
+      migrationName = p3018Match[1];
+    } else {
+      const p3009Match = result.output.match(/The `(\S+)` migration started/);
+      if (p3009Match) migrationName = p3009Match[1];
+    }
 
     if (migrationName) {
       const isAlreadyExists = result.output.includes("already exists");
@@ -89,7 +99,7 @@ async function main() {
           `Marking as resolved and retrying.`,
       );
 
-      // Mark the failed migration as resolved (rolled back).
+      // Mark the failed migration as resolved (rolled back) first.
       console.log(`[migrate:deploy] running: prisma migrate resolve --rolled-back ${migrationName}`);
       await runCommand(["prisma", "migrate", "resolve", "--rolled-back", migrationName], "migrate resolve");
 
