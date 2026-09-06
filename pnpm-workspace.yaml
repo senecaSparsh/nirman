@@ -3,14 +3,14 @@ packages:
   - "packages/*"
 
 allowBuilds:
-  '@prisma/client': set this to true or false
-  '@prisma/engines': set this to true or false
-  '@sentry/cli': set this to true or false
-  esbuild: set this to true or false
-  msw: set this to true or false
-  prisma: set this to true or false
-  sharp: set this to true or false
-  unrs-resolver: set this to true or false
+  '@prisma/client': true
+  '@prisma/engines': true
+  '@sentry/cli': true
+  esbuild: true
+  msw: false
+  prisma: true
+  sharp: true
+  unrs-resolver: true
 
 minimumReleaseAgeExclude:
   - '@better-auth/core@1.7.3'
@@ -22,11 +22,3 @@ minimumReleaseAgeExclude:
   - '@better-auth/prisma-adapter@1.7.3'
   - '@better-auth/telemetry@1.7.3'
   - better-auth@1.7.3
-
-onlyBuiltDependencies:
-  - '@prisma/client'
-  - '@prisma/engines'
-  - prisma
-  - esbuild
-  - sharp
-  - unrs-resolver
