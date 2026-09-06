@@ -113,18 +113,21 @@ describe("useApiAction", () => {
     const revert = vi.fn();
     const { result } = renderHook(() => useApiAction());
 
-    await expect(
-      act(async () => {
-        await result.current.mutate({
-          endpoint: "/api/items",
-          method: "POST",
-          revert,
-          errorMessage: "Custom error",
-        });
-      }),
-    ).rejects.toThrow("Custom error");
+    // useApiAction intentionally does NOT re-throw — it returns null and
+    // surfaces the error via `error` state + toast. This prevents unhandled
+    // promise rejections in event handlers (onClick={() => mutate(...)}).
+    let retVal: unknown;
+    await act(async () => {
+      retVal = await result.current.mutate({
+        endpoint: "/api/items",
+        method: "POST",
+        revert,
+        errorMessage: "Custom error",
+      });
+    });
 
-    // setError is called before throw, but state flush may need a tick
+    expect(retVal).toBeNull();
+
     await waitFor(() => {
       expect(result.current.error).toBe("Custom error");
     });
@@ -142,16 +145,11 @@ describe("useApiAction", () => {
     );
     const { result } = renderHook(() => useApiAction());
 
-    let thrown: Error | undefined;
+    // useApiAction returns null on error (doesn't throw) — check error state instead.
     await act(async () => {
-      try {
-        await result.current.mutate({ endpoint: "/api/items", method: "POST" });
-      } catch (e) {
-        thrown = e as Error;
-      }
+      await result.current.mutate({ endpoint: "/api/items", method: "POST" });
     });
 
-    expect(thrown?.message).toBe("Server says no");
     expect(result.current.error).toBe("Server says no");
   });
 
@@ -194,16 +192,15 @@ describe("useApiAction", () => {
     const revert = vi.fn();
     const { result } = renderHook(() => useApiAction());
 
-    await expect(
-      act(async () => {
-        await result.current.mutate({
-          endpoint: "/api/items",
-          method: "POST",
-          optimisticUpdate,
-          revert,
-        });
-      }),
-    ).rejects.toThrow();
+    // useApiAction returns null on error (doesn't throw).
+    await act(async () => {
+      await result.current.mutate({
+        endpoint: "/api/items",
+        method: "POST",
+        optimisticUpdate,
+        revert,
+      });
+    });
 
     expect(optimisticUpdate).toHaveBeenCalled();
     // revert is called via startTransition which is async
@@ -212,24 +209,20 @@ describe("useApiAction", () => {
     });
   });
 
-  it("network error retries up to maxRetries then reverts and throws", async () => {
+  it("network error retries up to maxRetries then reverts and sets error", async () => {
     vi.useFakeTimers();
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new TypeError("Failed to fetch"));
     const revert = vi.fn();
     const { result } = renderHook(() => useApiAction());
 
-    let thrown: Error | undefined;
+    // useApiAction returns null on error (doesn't throw) — check error state instead.
     const p = act(async () => {
-      try {
-        await result.current.mutate({
-          endpoint: "/api/items",
-          method: "POST",
-          revert,
-          maxRetries: 2,
-        });
-      } catch (e) {
-        thrown = e as Error;
-      }
+      await result.current.mutate({
+        endpoint: "/api/items",
+        method: "POST",
+        revert,
+        maxRetries: 2,
+      });
     });
 
     // Advance through retry backoffs: 500ms, 1500ms.
@@ -241,7 +234,6 @@ describe("useApiAction", () => {
     });
     await p;
 
-    expect(thrown?.message).toBe("Failed to fetch");
     expect(revert).toHaveBeenCalled();
     expect(result.current.error).toBe("Failed to fetch");
     expect(globalThis.fetch).toHaveBeenCalledTimes(3); // initial + 2 retries

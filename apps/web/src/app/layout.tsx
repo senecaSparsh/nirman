@@ -13,6 +13,7 @@ import { LazySwRegister } from "@/components/lazy-sw-register";
 import { ChunkErrorRecovery } from "@/components/dev/chunk-error-recovery";
 import { CurrencyProvider } from "@/components/currency-provider";
 import { runWithCurrencyMode, type CurrencyMode } from "@/lib/currency-server";
+import { runWithRequestContext } from "@/lib/server";
 import { swrConfig, SWRConfig } from "@/lib/swr";
 import { Toaster } from "sonner";
 
@@ -91,7 +92,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const cookie = (await cookies()).get("nirman-currency-mode")?.value;
   const currencyMode: CurrencyMode = cookie === "detailed" ? "detailed" : "compact";
 
-  return runWithCurrencyMode(currencyMode, () => (
+  return runWithRequestContext(() =>
+    runWithCurrencyMode(currencyMode, () => (
     <html lang="en" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
@@ -137,5 +139,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ChunkErrorRecovery />
       </body>
     </html>
-  ));
+  ))
+  );
 }

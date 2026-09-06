@@ -25,6 +25,7 @@ import { MobileGlobalSearch } from "@/components/mobile/v2/mobile-global-search"
 import { useCompanySwitch } from "@/lib/use-company-switch";
 import { useRecentPages } from "@/lib/use-nav-preferences";
 import { usePageContext } from "@/components/mobile/v2/page-context";
+import { useDeviceTierWithCaps } from "@/lib/device-tier-client";
 import { upHref as manifestUpHref, activeTabFor as manifestActiveTabFor, badgeEndpointsFor as manifestBadgeEndpointsFor, titleFor as manifestTitleFor, matchRoute as manifestMatchRoute, type NavContext } from "@/lib/route-manifest";
 import {
   tabsForRole,
@@ -73,6 +74,11 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, isPending: sessionLoading } = useSession();
+
+  // ── Device tier detection — runs once on every page, sets cookie for server ──
+  // This ensures the device tier cookie is always set, even on pages that don't
+  // use AdaptiveData. The server reads this cookie to decide SSR vs client-fetch.
+  useDeviceTierWithCaps();
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>({
     name: "Nirman",
     role: "PROJECT_MANAGER",
@@ -792,22 +798,14 @@ function MobileShellInner({
         aria-label="Module navigation"
       >
         <div className="mx-auto w-full max-w-[34rem] flex items-stretch px-2 pb-safe">
-          {personaTabs.map((tab) =>
-            tab.id === "search" ? (
-              <SearchTabButton
-                key={tab.id}
-                tab={tab}
-                onClick={() => onSearchOpenChange(true)}
-              />
-            ) : (
-              <TabButton
-                key={tab.id}
-                tab={tab}
-                active={tab.href.split("?")[0] === activeTabPath}
-                badge={badgeCounts[tab.href]}
-              />
-            ),
-          )}
+          {personaTabs.map((tab) => (
+            <TabButton
+              key={tab.id}
+              tab={tab}
+              active={tab.href.split("?")[0] === activeTabPath}
+              badge={badgeCounts[tab.href]}
+            />
+          ))}
         </div>
       </nav>
 
@@ -876,29 +874,6 @@ function TabButton({ tab, active, badge }: { tab: ModuleTab; active: boolean; ba
         {tab.label}
       </span>
     </Link>
-  );
-}
-
-/** Search tab button — opens the global search overlay instead of navigating. */
-function SearchTabButton({ tab, onClick }: { tab: ModuleTab; onClick: () => void }) {
-  const Icon = tab.icon;
-  return (
-    <button
-      onClick={onClick}
-      className="text-m-body press flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[3rem] relative transition-colors"
-      style={{ color: "var(--color-ink-500)" }}
-      aria-label="Search"
-    >
-      <span className="relative">
-        <Icon className="size-[18px]" style={{ color: "var(--color-ink-500)" }} />
-      </span>
-      <span
-        className="text-m-caption font-semibold tracking-wide"
-        style={{ color: "var(--color-ink-500)" }}
-      >
-        {tab.label}
-      </span>
-    </button>
   );
 }
 

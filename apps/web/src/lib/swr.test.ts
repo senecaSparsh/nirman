@@ -13,7 +13,7 @@ describe("swrFetcher", () => {
       vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
-        json: () => Promise.resolve(data),
+        text: () => Promise.resolve(JSON.stringify(data)),
       }),
     );
     const result = await swrFetcher("/api/items");
@@ -21,9 +21,9 @@ describe("swrFetcher", () => {
     expect(fetch).toHaveBeenCalledWith("/api/items", { credentials: "include" });
   });
 
-  it("throws an error with HTTP status on a non-ok response (catch-all)", async () => {
-    // The .catch() in swrFetcher catches the inner throw, so it always
-    // falls back to `HTTP {status}` regardless of the body content.
+  it("throws an error with the body's error field on a non-ok response", async () => {
+    // swrFetcher extracts body.error (or body.message) for the error message,
+    // falling back to `HTTP {status}` only when neither exists or JSON parsing fails.
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -32,10 +32,10 @@ describe("swrFetcher", () => {
         json: () => Promise.resolve({ error: "Forbidden" }),
       }),
     );
-    await expect(swrFetcher("/api/secure")).rejects.toThrow("HTTP 403");
+    await expect(swrFetcher("/api/secure")).rejects.toThrow("Forbidden");
   });
 
-  it("throws HTTP status when body has a message but not error", async () => {
+  it("throws with body.message when body has a message but not error", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -44,7 +44,7 @@ describe("swrFetcher", () => {
         json: () => Promise.resolve({ message: "Bad request" }),
       }),
     );
-    await expect(swrFetcher("/api/data")).rejects.toThrow("HTTP 400");
+    await expect(swrFetcher("/api/data")).rejects.toThrow("Bad request");
   });
 
   it("falls back to HTTP status code when body has no error/message", async () => {
@@ -77,7 +77,7 @@ describe("swrFetcher", () => {
       vi.fn().mockResolvedValue({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ ok: true }),
+        text: () => Promise.resolve(JSON.stringify({ ok: true })),
       }),
     );
     await swrFetcher("/api/test");

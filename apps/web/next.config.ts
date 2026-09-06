@@ -38,6 +38,13 @@ const nextConfig: NextConfig = {
           source: "/api/:path*",
           headers: [{ key: "Cache-Control", value: "no-store" }],
         },
+        {
+          source: "/(.*)",
+          headers: [
+            { key: "Accept-CH", value: "Sec-CH-Device-Memory, Sec-CH-RTT, Sec-CH-Downlink" },
+            { key: "Vary", value: "Sec-CH-Device-Memory" },
+          ],
+        },
       ];
     }
     return [
@@ -48,6 +55,15 @@ const nextConfig: NextConfig = {
       {
         source: "/api/:path*",
         headers: [{ key: "Cache-Control", value: "no-store" }],
+      },
+      {
+        // Request device hints from Chrome/Android so the server can
+        // estimate device tier before JS loads (first visit, no cookie).
+        source: "/(.*)",
+        headers: [
+          { key: "Accept-CH", value: "Sec-CH-Device-Memory, Sec-CH-RTT, Sec-CH-Downlink" },
+          { key: "Vary", value: "Sec-CH-Device-Memory" },
+        ],
       },
     ];
   },

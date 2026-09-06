@@ -118,21 +118,29 @@ export function invalidateTags(...tags: string[]) {
 }
 
 /**
- * Build a cache key from the request URL + company/user context.
+ * Build a cache key from the request URL + user/company context.
  * This ensures different companies/users don't see each other's data.
+ *
+ * **Security**: the user ID and company ID MUST be part of the key.
+ * Without them, two users in different companies hitting the same URL
+ * (e.g. /api/dashboard-counts) would share a single cache entry —
+ * a cross-company data leak. The previous implementation only used
+ * `${tag}:${path}` which was vulnerable to this.
+ *
+ * `getCurrentUser` and `getCompany` are memoized per-request via
+ * AsyncLocalStorage (see server.ts), so the overhead here is a single
+ * in-memory map lookup, not a DB round-trip. The dynamic import avoids
+ * a circular dependency (server.ts imports `cached` from this module).
  */
 async function buildCacheKey(
   req: Request,
   tag: string,
 ): Promise<string> {
   const url = new URL(req.url);
-  // Include the full path + query string in the key
   const path = url.pathname + url.search;
-  // We rely on the auth context being the same for the same session
-  // cookie. The company scoping is handled by the handler itself
-  // (getCompany() returns the company from the session). We include
-  // the tag in the key so different tags don't collide.
-  return `${tag}:${path}`;
+  const { getCurrentUser, getCompany } = await import("@/lib/server");
+  const [user, company] = await Promise.all([getCurrentUser(), getCompany()]);
+  return `${tag}:u:${user?.id ?? "anon"}:c:${company?.id ?? "none"}:${path}`;
 }
 
 /**

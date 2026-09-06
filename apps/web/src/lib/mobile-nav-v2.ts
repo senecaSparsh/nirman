@@ -36,7 +36,6 @@ import {
   HardHat,
   Sun,
   MapPin,
-  Search,
   Briefcase,
   Workflow,
   Building2 as BuildingIcon,
@@ -112,8 +111,8 @@ const CUSTOMERS_TAB: ModuleTab = { id: "customers", label: "Customers", href: "/
 const REPORTS_TAB: ModuleTab = { id: "reports", label: "Reports", href: "/m/reports", icon: BarChart3 };
 const ATTENDANCE_TAB: ModuleTab = { id: "attendance", label: "Attendance", href: "/m/hr?tab=attendance", icon: Calendar };
 
-// Search tab — opens the global search overlay (special: doesn't navigate, opens overlay)
-const SEARCH_TAB: ModuleTab = { id: "search", label: "Search", href: "#search", icon: Search };
+// Expense tab — opens the expense hub (all expense-related pages in one place)
+const EXPENSE_TAB: ModuleTab = { id: "expenses-hub", label: "Expenses", href: "/m/expenses-hub", icon: Wallet };
 
 // ── Persona → tab mapping ───────────────────────────────────────────
 
@@ -170,22 +169,23 @@ export function roleToPersona(role: string): Persona {
  * Executive and Sales use 4 tabs + More; the rest use 5 tabs.
  */
 const PERSONA_TABS: Record<Persona, ModuleTab[]> = {
-  // Executive — dashboards, inventory, search, HR, More (5 tabs)
-  executive: [HOME_TAB, INVENTORY_TAB, SEARCH_TAB, HR_TAB, SETTINGS_TAB],
-  // Ops — inventory, stock ledger, search, site dashboard, More (5 tabs)
+  // Executive — dashboards, inventory, expenses, HR, More (5 tabs)
+  executive: [HOME_TAB, INVENTORY_TAB, EXPENSE_TAB, HR_TAB, SETTINGS_TAB],
+  // Ops — inventory, stock ledger, expenses, site dashboard, More (5 tabs)
   // PROJECT_MANAGER needs direct stock access at project sites.
   // Home (orbit) is accessible via NavSheet → Dashboards.
-  ops: [INVENTORY_TAB, STOCK_TAB, SEARCH_TAB, SITE_TAB, SETTINGS_TAB],
-  // Procurement — POs, search, stock, transfers, More (5 tabs)
-  procurement: [INVENTORY_TAB, PROCUREMENT_TAB, SEARCH_TAB, STOCK_TAB, SETTINGS_TAB],
-  // Field — site, DPR, search, tasks, More (5 tabs)
-  field: [SITE_TAB, DPR_TAB, SEARCH_TAB, TASKS_TAB, SETTINGS_TAB],
-  // Sales — home, sales, search, customers, More (5 tabs)
-  sales: [HOME_TAB, SALES_TAB, SEARCH_TAB, CUSTOMERS_TAB, SETTINGS_TAB],
-  // Finance — home, accounts, search, reports, More (5 tabs)
-  finance: [HOME_TAB, ACCOUNTS_TAB, SEARCH_TAB, REPORTS_TAB, SETTINGS_TAB],
-  // HR — HR, attendance, search, DPR, More (5 tabs)
-  hr: [HR_TAB, ATTENDANCE_TAB, SEARCH_TAB, DPR_TAB, SETTINGS_TAB],
+  ops: [INVENTORY_TAB, STOCK_TAB, EXPENSE_TAB, SITE_TAB, SETTINGS_TAB],
+  // Procurement — POs, expenses, stock, transfers, More (5 tabs)
+  procurement: [INVENTORY_TAB, PROCUREMENT_TAB, EXPENSE_TAB, STOCK_TAB, SETTINGS_TAB],
+  // Field — site, DPR, expenses, tasks, More (5 tabs)
+  field: [SITE_TAB, DPR_TAB, EXPENSE_TAB, TASKS_TAB, SETTINGS_TAB],
+  // Sales — home, sales, customers, More (4 tabs + More)
+  sales: [HOME_TAB, SALES_TAB, CUSTOMERS_TAB, SETTINGS_TAB],
+  // Finance — home, accounts, reports, More (4 tabs + More)
+  // Finance already has the Accounts tab which covers expenses.
+  finance: [HOME_TAB, ACCOUNTS_TAB, REPORTS_TAB, SETTINGS_TAB],
+  // HR — HR, attendance, DPR, More (4 tabs + More)
+  hr: [HR_TAB, ATTENDANCE_TAB, DPR_TAB, SETTINGS_TAB],
 };
 
 /**

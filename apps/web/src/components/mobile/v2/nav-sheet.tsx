@@ -17,7 +17,7 @@ import {
   ALL_NAV_MODULES,
   type Persona,
 } from "@/lib/mobile-nav-v2";
-import { usePinnedPages, useRecentPages } from "@/lib/use-nav-preferences";
+import { usePinnedPages } from "@/lib/use-nav-preferences";
 import { usePageContext } from "@/components/mobile/v2/page-context";
 import { nextActionFor, FLOWS, type FlowId } from "@/lib/flow-map";
 import {
@@ -93,9 +93,8 @@ export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
   const [exiting, setExiting] = React.useState(false);
   const closeTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Personalization: pinned pages + recent pages ──
+  // ── Personalization: pinned pages ──
   const { pinned, togglePin, isPinned } = usePinnedPages();
-  const { recent, visitCounts } = useRecentPages();
 
   // ── Adaptive: page context from detail pages (must be before early return) ──
   const pageCtx = usePageContext();
@@ -175,11 +174,11 @@ export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
       }
     }
     return hrefs
-      .filter((href) => href !== pathname && !pinned.includes(href) && !recent.includes(href))
+      .filter((href) => href !== pathname && !pinned.includes(href))
       .map((href) => HREF_TO_LINK.get(href))
       .filter((link): link is NavLink => link !== undefined)
       .slice(0, 4);
-  }, [pageCtx.flowId, pathname, pinned, recent]);
+  }, [pageCtx.flowId, pathname, pinned]);
 
   if (!mounted) return null;
 
@@ -195,18 +194,11 @@ export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
     .map((href) => HREF_TO_LINK.get(href))
     .filter((link): link is NavLink => link !== undefined);
 
-  // ── Build Recent list (exclude pinned to avoid duplication) ──
-  const recentLinks = recent
-    .filter((href) => !pinned.includes(href))
-    .map((href) => HREF_TO_LINK.get(href))
-    .filter((link): link is NavLink => link !== undefined)
-    .slice(0, 5);
-
   // ── Build Related list from the route manifest (replaces workflowLinksForPath) ──
   // Uses flow-aware siblings + same-flow nodes from the manifest, which is
   // more accurate than the old URL-prefix matching.
   const relatedLinks = manifestRelatedTo(pathname)
-    .filter((r) => !pinned.includes(r.path) && !recent.includes(r.path))
+    .filter((r) => !pinned.includes(r.path))
     .map((r) => HREF_TO_LINK.get(r.path))
     .filter((link): link is NavLink => link !== undefined)
     .slice(0, 4);
@@ -322,25 +314,6 @@ export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
                     onClick={onClose}
                     pinned={true}
                     onTogglePin={togglePin}
-                  />
-                ))}
-              </div>
-            </NavSection>
-          )}
-
-          {/* ── Recent pages (auto-tracked, excludes pinned) ── */}
-          {recentLinks.length > 0 && (
-            <NavSection title="Recent">
-              <div className="flex flex-col gap-0.5">
-                {recentLinks.map((link) => (
-                  <NavSheetRow
-                    key={link.href}
-                    link={link}
-                    active={isActive(pathname, link.href)}
-                    onClick={onClose}
-                    pinned={isPinned(link.href)}
-                    onTogglePin={togglePin}
-                    visitCount={visitCounts[link.href]}
                   />
                 ))}
               </div>
@@ -587,7 +560,6 @@ function NavSheetRow({
   onClick,
   pinned,
   onTogglePin: _onTogglePin,
-  visitCount: _visitCount,
   depth = 0,
 }: {
   link: NavLink;
@@ -595,7 +567,6 @@ function NavSheetRow({
   onClick: () => void;
   pinned: boolean;
   onTogglePin: (href: string) => void;
-  visitCount?: number;
   depth?: number;
 }) {
   const Icon = link.icon as LucideIcon;

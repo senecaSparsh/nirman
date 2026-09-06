@@ -23,6 +23,7 @@ import {
 import { useSession, signOut as authSignOut, authClient } from "@/lib/auth-client";
 import { useFieldMode } from "@/lib/field-mode";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
+import { useDeviceTierWithCaps } from "@/lib/device-tier-client";
 import {
   Card,
   MobileSectionTitle,
@@ -44,6 +45,7 @@ export default function MePage() {
   useSession();
   const { enabled: fieldMode, toggle: toggleFieldMode } = useFieldMode();
   const { pending: offlineQueueCount, online, syncing, sync: syncOfflineQueue } = useOfflineQueue();
+  const deviceCaps = useDeviceTierWithCaps();
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState("");
   const [userEmail, setUserEmail] = useState("");
@@ -534,6 +536,58 @@ export default function MePage() {
               {offlineQueueCount} action{offlineQueueCount === 1 ? "" : "s"} queued for sync
             </p>
           ) : null}
+        </Card>
+
+        {/* ── Device performance — shows detected tier + capabilities ── */}
+        <Card>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Monitor className="size-4" style={{ color: "var(--color-ink-500)" }} />
+              <span className="text-m-section font-semibold" style={{ color: "var(--color-ink-900)" }}>
+                Device Performance
+              </span>
+            </div>
+            <Badge tone={deviceCaps.tier === "high" ? "go" : deviceCaps.tier === "mid" ? "signal" : "stop"}>
+              {deviceCaps.tier.toUpperCase()}
+            </Badge>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-m-body" style={{ color: "var(--color-ink-500)" }}>
+            <div>
+              <span style={{ color: "var(--color-ink-400)" }}>RAM</span>
+              <br />
+              <span style={{ color: "var(--color-ink-900)" }}>
+                {deviceCaps.memoryGB ? `${deviceCaps.memoryGB} GB` : "Unknown"}
+              </span>
+            </div>
+            <div>
+              <span style={{ color: "var(--color-ink-400)" }}>CPU cores</span>
+              <br />
+              <span style={{ color: "var(--color-ink-900)" }}>
+                {deviceCaps.cpuCores ?? "Unknown"}
+              </span>
+            </div>
+            <div>
+              <span style={{ color: "var(--color-ink-400)" }}>Network</span>
+              <br />
+              <span style={{ color: "var(--color-ink-900)" }}>
+                {deviceCaps.networkType?.toUpperCase() ?? "Unknown"}
+              </span>
+            </div>
+            <div>
+              <span style={{ color: "var(--color-ink-400)" }}>Data saver</span>
+              <br />
+              <span style={{ color: "var(--color-ink-900)" }}>
+                {deviceCaps.saveData ? "On" : "Off"}
+              </span>
+            </div>
+          </div>
+          <p className="text-m-caption mt-2" style={{ color: "var(--color-ink-400)" }}>
+            {deviceCaps.tier === "high"
+              ? "Data loads on-demand for faster server response."
+              : deviceCaps.tier === "mid"
+              ? "Balanced mode — server pre-renders key pages."
+              : "Optimized for your device — full server rendering."}
+          </p>
         </Card>
       </div>
 

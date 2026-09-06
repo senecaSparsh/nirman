@@ -134,11 +134,12 @@ describe("useOptimisticAction", () => {
       }),
     );
 
-    await expect(
-      act(async () => {
-        await result.current.execute();
-      }),
-    ).rejects.toThrow("Failed");
+    // useOptimisticAction intentionally does NOT re-throw — it returns null
+    // and surfaces the error via `error` state + toast + haptic. This prevents
+    // unhandled promise rejections in event handlers (onClick={() => execute()}).
+    await act(async () => {
+      await result.current.execute();
+    });
 
     // revert is called via startTransition which is async — wait for it
     await waitFor(() => {
@@ -156,11 +157,10 @@ describe("useOptimisticAction", () => {
       useOptimisticAction({ endpoint: "/api/x", method: "POST", revert }),
     );
 
-    await expect(
-      act(async () => {
-        await result.current.execute();
-      }),
-    ).rejects.toThrow("Network");
+    // useOptimisticAction returns null on error (doesn't throw).
+    await act(async () => {
+      await result.current.execute();
+    });
 
     await waitFor(() => {
       expect(revert).toHaveBeenCalled();

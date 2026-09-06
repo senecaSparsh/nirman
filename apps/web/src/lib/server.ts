@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { prisma } from "@nirman/db";
 import { z } from "zod";
 import { cookies, headers } from "next/headers";
@@ -13,10 +14,68 @@ import { getBackpressureStats, trackRequest } from "@/lib/backpressure";
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { cached as withCache } from "@/lib/server-cache";
 
+// ───────────────────────────────────────────────────────────
+//  Request-scoped memoization (AsyncLocalStorage)
+// ───────────────────────────────────────────────────────────
+// A single API request calls getCurrentUser() 4-5× (apiHandler rate-limit
+// check, requirePermission/requireUser, getCompany, getUserPermissions,
+// getUserScope…) and getCompany() 2-3× — each doing a DB round-trip.
+// Without memoization that's ~10-15 DB queries just for auth context on
+// every request. This ALS-based cache deduplicates them to 1 query per
+// resource per request. The cache is scoped to a single request via
+// AsyncLocalStorage, so there's no cross-request leakage and no manual
+// cleanup — the store is GC'd when the request completes.
+//
+// Promises are cached (not values) so concurrent callers share the same
+// in-flight DB query (thundering-herd prevention). On rejection the cache
+// entry is cleared so a retry gets a fresh attempt.
+
+interface RequestContext {
+  session?: Promise<unknown>;
+  user?: Promise<CurrentUser | null>;
+  company?: Promise<unknown>;
+  permissions?: Promise<string[]>;
+}
+
+const requestContextALS = new AsyncLocalStorage<RequestContext>();
+
+/**
+ * Memoize an async function's result within the current request context.
+ * If no request context is active (e.g. called outside apiHandler/layout),
+ * falls back to executing the function directly with no caching.
+ */
+function memoizeInRequest<T>(
+  key: keyof RequestContext,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const ctx = requestContextALS.getStore();
+  if (!ctx) return fn();
+  const existing = ctx[key] as Promise<T> | undefined;
+  if (existing) return existing;
+  const promise = fn().catch((err) => {
+    // Clear on rejection so a retry within the same request gets a fresh attempt.
+    if (ctx[key] === promise) (ctx as Record<string, unknown>)[key] = undefined;
+    throw err;
+  });
+  (ctx as Record<string, unknown>)[key] = promise;
+  return promise;
+}
+
+/**
+ * Wrap a function execution in a request-scoped context. All
+ * getCurrentUser/getCompany/getSession/getUserPermissions calls within
+ * the wrapped execution share cached results. Called by apiHandler for
+ * API routes and by the root layout for Server Components.
+ */
+export function runWithRequestContext<T>(fn: () => T): T {
+  return requestContextALS.run({}, fn);
+}
+
 /**
  * Server-side helpers shared by API routes and Server Components.
  */
 export async function getCompany() {
+  return memoizeInRequest("company", async () => {
   const user = await getCurrentUser();
   const selectedId = (await cookies()).get("nirman-company-id")?.value;
   const isDevBypass = process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production";
@@ -71,6 +130,7 @@ export async function getCompany() {
         ? { userMemberships: { create: { userId: user.id, role: user.role } } }
         : {}),
     },
+  });
   });
 }
 
@@ -1316,6 +1376,7 @@ async function getDevBypassUser() {
  * sign-in / sign-out and per-role one-click login work end-to-end.
  */
 export async function getSession() {
+  return memoizeInRequest("session", async () => {
   // Dev bypass: skip auth entirely ONLY when AUTH_BYPASS=true is set
   // explicitly AND we're not in production. By default (no env var), dev uses
   // real Better-Auth sessions so sign-in / sign-out and one-click role login
@@ -1339,6 +1400,7 @@ export async function getSession() {
   } catch {
     return null;
   }
+  });
 }
 
 /** Typed shape of the current user derived from the session. */
@@ -1365,6 +1427,7 @@ export interface CurrentUser {
  * the DB — this is intentional for local development.
  */
 export async function getCurrentUser(): Promise<CurrentUser | null> {
+  return memoizeInRequest("user", async () => {
   const session = await getSession();
   if (!session?.user) return null;
   const u = session.user as {
@@ -1409,6 +1472,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     companyId: exists.companyId ?? null,
     active: exists.active ?? true,
   };
+  });
 }
 
 /**
@@ -1495,10 +1559,12 @@ export async function projectScopeFilter(): Promise<{ id: { in: string[] } } | u
 /**
  * Get the current user's effective permission list (role matrix +
  * any additive RolePermission overrides from the DB + per-user
- * UserPermission overrides). Cached per request via a module-level
- * memo would be nice but is not required for correctness.
+ * UserPermission overrides). Memoized per request via AsyncLocalStorage
+ * so repeated requirePermission() calls within one request share a single
+ * DB round-trip.
  */
 export async function getUserPermissions(): Promise<string[]> {
+  return memoizeInRequest("permissions", async () => {
   const user = await getCurrentUser();
   if (!user) return [];
   const company = await getCompany();
@@ -1517,6 +1583,7 @@ export async function getUserPermissions(): Promise<string[]> {
   ]);
   const userOverrides = userMembership?.userPermissions.map((p) => p.permission) ?? [];
   return effectivePermissions(user.role, [...roleOverrides, ...userOverrides]);
+  });
 }
 
 /** Error thrown when a permission/role check fails — caught by apiHandler. */
@@ -1639,6 +1706,7 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
 
     // Track active requests for backpressure
     const untrack = trackRequest();
+    return runWithRequestContext(async () => {
     try {
         const session = await getSession();
         if (!session) {
@@ -1760,6 +1828,7 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
     } finally {
       untrack();
     }
+    });
   };
 }
 
@@ -1771,16 +1840,16 @@ export function apiHandlerWithPermission<TReq extends Request = Request, TCtx = 
   permission: string,
   fn: (req: TReq, ctx: TCtx) => Promise<Response>,
 ) {
-  return async (req: Request, ctx: TCtx): Promise<Response> => {
-    try {
-      await requirePermission(permission);
-      return await fn(req as TReq, ctx);
-    } catch (err: unknown) {
-      const message = (err instanceof Error ? err.message : "Internal server error");
-      const status = (err as { status?: number })?.status ?? 500;
-      return json({ error: message }, { status });
-    }
-  };
+  // Delegate to apiHandler so this wrapper inherits ALL robustness layers:
+  // backpressure protection, rate limiting, Prisma error mapping (P2024/P1001/
+  // P1002 → 503/504), Sentry capture, Cache-Control headers, and the
+  // request-scoped memoization context. The previous standalone try/catch
+  // bypassed all of these — a 500 from a Prisma pool exhaustion would leak
+  // as a raw 500 instead of a retryable 503, and there was no rate limiting.
+  return apiHandler<TReq, TCtx>(async (req, ctx) => {
+    await requirePermission(permission);
+    return fn(req, ctx);
+  });
 }
 
 /**
@@ -1790,16 +1859,11 @@ export function apiHandlerWithRole<TReq extends Request = Request, TCtx = unknow
   allowed: Role[],
   fn: (req: TReq, ctx: TCtx) => Promise<Response>,
 ) {
-  return async (req: Request, ctx: TCtx): Promise<Response> => {
-    try {
-      await requireRole(...allowed);
-      return await fn(req as TReq, ctx);
-    } catch (err: unknown) {
-      const message = (err instanceof Error ? err.message : "Internal server error");
-      const status = (err as { status?: number })?.status ?? 500;
-      return json({ error: message }, { status });
-    }
-  };
+  // Delegate to apiHandler — see apiHandlerWithPermission for rationale.
+  return apiHandler<TReq, TCtx>(async (req, ctx) => {
+    await requireRole(...allowed);
+    return fn(req, ctx);
+  });
 }
 
 /** Roles allowed to view the procurement approvals queue. */

@@ -1,53 +1,21 @@
-import { Suspense } from "react";
-import { connection } from "next/server";
-import { headers } from "next/headers";
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser } from "@/lib/server";
+import { apiHandler, json, getCurrentUser, getCompany } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { getUserRole } from "@/lib/server";
-import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
-import { type CompanyCardData } from "./home-client";
-import { AdaptiveHomeContent, type HomeData } from "./adaptive-home";
-import { getDeviceTierFromCookies, estimateDeviceTierFromUA } from "@/lib/device-tier";
 
 /**
- * /m/home — Orbit navigation hub.
+ * GET /api/mobile/home — returns everything the mobile home page needs
+ * in a single request. Used by high-tier devices that fetch client-side
+ * instead of relying on SSR (saves server RAM).
  *
- * Adaptive: on high-tier devices (modern phone, fast network), the server
- * skips the heavy Prisma queries and sends a lightweight shell. The client
- * fetches data from /api/mobile/home instead — saving ~30MB of server RAM
- * per concurrent request. On low-tier devices (old phone, 2G), the server
- * fetches data and renders full HTML — saving the user's battery and
- * working on slow networks.
+ * Returns:
+ * - currentCompany: { id, name, businessType, currency }
+ * - companies: CompanyCardData[] (with project/land/employee counts)
+ * - canCreateCompany: boolean
+ * - myEmployee: { id, name } | null
+ * - myAttendance: { checkIn, checkOut, hoursWorked, status } | null
  */
-export default function MobileHomePage() {
-  return (
-    <Suspense fallback={<MobileSkeletonHome />}>
-      <HomeContent />
-    </Suspense>
-  );
-}
-
-async function HomeContent() {
-  await connection();
-
-  // ── Detect device tier from cookie (set by client on first visit) ──
-  const headerList = await headers();
-  const cookieHeader = headerList.get("cookie");
-  const userAgent = headerList.get("user-agent");
-  const tier = getDeviceTierFromCookies(cookieHeader) ?? estimateDeviceTierFromUA(userAgent);
-
-  // High-tier devices: skip SSR data fetching, let the client fetch
-  if (tier === "high") {
-    return (
-      <AdaptiveHomeContent
-        serverData={null}
-        apiUrl="/api/mobile/home"
-      />
-    );
-  }
-
-  // Low/mid-tier devices: full SSR (current behavior)
+export const GET = apiHandler(async () => {
   const [company, user, role] = await Promise.all([
     getCompany(),
     getCurrentUser(),
@@ -57,8 +25,8 @@ async function HomeContent() {
   const canCreateCompany =
     hasPermission(role, PERM.COMPANY_MANAGE) && !company.parentCompanyId;
   const isDevBypass = process.env.AUTH_BYPASS === "true";
-  let memberships;
 
+  let memberships;
   if (user && !isDevBypass) {
     memberships = await prisma.userCompany.findMany({
       where: { userId: user.id },
@@ -125,7 +93,7 @@ async function HomeContent() {
     }
   }
 
-  const companies: CompanyCardData[] = memberships.map((m: { company: { id: string; name: string; businessType: string | null; currency: string; _count: { projects: number; landPurchases: number; employees: number } } }) => ({
+  const companies = memberships.map((m: { company: { id: string; name: string; businessType: string | null; currency: string; _count: { projects: number; landPurchases: number; employees: number } } }) => ({
     id: m.company.id,
     name: m.company.name,
     businessType: m.company.businessType,
@@ -135,7 +103,7 @@ async function HomeContent() {
     employeeCount: m.company._count.employees,
   }));
 
-  // ── Self-check-in widget: fetch the user's employee record + today's attendance ──
+  // Self-check-in data
   const today = new Date();
   const startOfToday = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
   const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
@@ -157,7 +125,7 @@ async function HomeContent() {
       })
     : null;
 
-  const homeData: HomeData = {
+  return json({
     currentCompany: {
       id: company.id,
       name: company.name,
@@ -167,20 +135,16 @@ async function HomeContent() {
     companies,
     canCreateCompany,
     userName: user?.name ?? null,
-    myEmployee: myEmployee ? { id: myEmployee.id, name: myEmployee.name } : null,
+    myEmployee: myEmployee
+      ? { id: myEmployee.id, name: myEmployee.name }
+      : null,
     myAttendance: myAttendance
       ? {
           checkIn: myAttendance.checkIn?.toISOString() ?? null,
           checkOut: myAttendance.checkOut?.toISOString() ?? null,
           hoursWorked: myAttendance.hoursWorked ? Number(myAttendance.hoursWorked) : null,
+          status: myAttendance.status,
         }
       : null,
-  };
-
-  return (
-    <AdaptiveHomeContent
-      serverData={homeData}
-      apiUrl="/api/mobile/home"
-    />
-  );
-}
+  });
+});
