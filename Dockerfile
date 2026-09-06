@@ -39,10 +39,11 @@ COPY packages/db/package.json ./packages/db/
 COPY packages/services/package.json ./packages/services/
 
 # Install ALL deps (including devDeps — needed for build)
-# Use --no-frozen-lockfile in case the lockfile has platform-specific entries
-# that don't match the Docker environment. The lockfile is still used for
-# version resolution — this just allows minor resolution differences.
-RUN pnpm install --no-frozen-lockfile
+# Show verbose output so errors are visible in build logs
+RUN pnpm install --no-frozen-lockfile --reporter=append-output 2>&1 || \
+    (echo "=== PNPM INSTALL FAILED ===" && \
+     pnpm install --no-frozen-lockfile --verbose 2>&1 | tail -100 && \
+     exit 1)
 
 # ── Stage 2: Build ──────────────────────────────────────────────────────────
 FROM deps AS builder
