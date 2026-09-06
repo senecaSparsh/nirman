@@ -10,6 +10,7 @@ import { formatCurrency } from "@/lib/utils";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileProjectSelect } from "@/components/mobile/selectors";
 
 type ChangeOrderType = "ADDITION" | "DELETION" | "MODIFICATION" | "ACCELERATION" | "DECELERATION" | "VARIATION";
 type ChangeOrderReason = "CLIENT_REQUEST" | "SITE_CONDITION" | "DESIGN_CHANGE" | "ERROR_OMISSION" | "REGULATORY" | "VALUE_ENGINEERING" | "OTHER";
@@ -259,8 +260,7 @@ export function MobileNewChangeOrderForm({
           <label className={labelClass} style={labelStyle}>
             Project
           </label>
-          <MobileSelectWithCreate
-            label="Project"
+          <MobileProjectSelect
             value={form.projectId}
             onChange={(v) => set("projectId", v)}
             options={projects.map((p) => ({ value: p.id, label: p.name }))}

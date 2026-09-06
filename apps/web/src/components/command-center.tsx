@@ -221,17 +221,30 @@ export function CommandCenter(props: ProfileTabsProps) {
                       {props.memberships
                         .filter((m) => !m.isCurrent)
                         .map((m) => (
-                          <Link
+                          <button
                             key={m.id}
-                            href={`/api/company/switch?id=${m.company.id}`}
-                            className="flex items-center gap-2.5 px-4 py-2.5 transition-colors hover:bg-subtle"
+                            onClick={async () => {
+                              try {
+                                const res = await fetch("/api/company/switch", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ companyId: m.company.id }),
+                                });
+                                if (res.ok) {
+                                  window.location.href = "/";
+                                }
+                              } catch {
+                                // silent — user can retry
+                              }
+                            }}
+                            className="flex w-full items-center gap-2.5 px-4 py-2.5 transition-colors hover:bg-subtle text-left"
                           >
                             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/30" />
                             <span className="min-w-0 flex-1 truncate text-caption text-foreground">
                               {m.company.name}
                             </span>
                             <span className="shrink-0 text-micro text-muted-foreground">{m.role}</span>
-                          </Link>
+                          </button>
                         ))}
                     </div>
                   </Section>

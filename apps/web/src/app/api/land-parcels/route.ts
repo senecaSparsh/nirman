@@ -106,6 +106,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         revalidatePath("/land");
         revalidatePath(`/land/${parent.landPurchaseId}`);
         revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
         revalidatePath(`/m/land/${parent.landPurchaseId}`);
       }
       return json(
@@ -131,6 +132,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         revalidatePath("/land");
         revalidatePath(`/land/${parent.landPurchaseId}`);
         revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
         revalidatePath(`/m/land/${parent.landPurchaseId}`);
       }
       return json({ ok: true, parentId: result.parent.id, removedChildren: result.removedChildren });
@@ -153,6 +155,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         revalidatePath("/land");
         revalidatePath(`/land/${parcel.landPurchaseId}`);
         revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
         revalidatePath(`/m/land/${parcel.landPurchaseId}`);
       }
       return json({ ok: true });
@@ -184,6 +187,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         revalidatePath("/land");
         revalidatePath(`/land/${parcel.landPurchaseId}`);
         revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
         revalidatePath(`/m/land/${parcel.landPurchaseId}`);
       }
       return json({ ok: true });
@@ -214,6 +218,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         revalidatePath("/land");
         revalidatePath(`/land/${parcel.landPurchaseId}`);
         revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
         revalidatePath(`/m/land/${parcel.landPurchaseId}`);
       }
       return json({ ok: true });

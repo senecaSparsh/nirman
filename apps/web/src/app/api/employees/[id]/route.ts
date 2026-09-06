@@ -81,6 +81,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   revalidatePath("/hr/employees");
   revalidatePath("/m/hr/employees");
+    revalidatePath("/m/hr?tab=employees");
   revalidatePath(`/hr/employees/${id}`);
   revalidatePath(`/m/hr/employees/${id}`);
   return json({ ok: true, id: updated.id });
@@ -93,6 +94,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     await softDelete("Employee", id);
     revalidatePath("/hr/employees");
     revalidatePath("/m/hr/employees");
+    revalidatePath("/m/hr?tab=employees");
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to delete employee") }, { status: 400 });

@@ -6,6 +6,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import { MobileCallDetailClient } from "./MobileCallDetailClient";
 
 export const metadata = { title: "Call Detail · Nirman" };
@@ -122,6 +123,13 @@ async function MobileCallDetailContent({
   };
 
   return (
+    <PageContextProvider value={{
+      entityType: "call",
+      status: call.status,
+      label: `${call.direction === "INBOUND" ? "Incoming" : call.direction === "OUTBOUND" ? "Outgoing" : "Internal"} Call`,
+      subtitle: call.caller?.name ?? call.callee?.name ?? undefined,
+      recordId: call.id,
+    }}>
     <>
       <RecordRecentItem
         type="call"
@@ -139,5 +147,6 @@ async function MobileCallDetailContent({
         canManage={canManage}
       />
     </>
+    </PageContextProvider>
   );
 }

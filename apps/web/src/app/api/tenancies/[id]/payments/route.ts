@@ -30,6 +30,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     });
     revalidatePath("/rentals");
     revalidatePath("/m/rentals");
+    revalidatePath("/m/real-estate?tab=rentals");
     return json({ ok: true, id: payment.id }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to record rent payment") }, { status: 400 });

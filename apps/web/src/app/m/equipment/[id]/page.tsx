@@ -6,6 +6,7 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileEquipmentDetailClient } from "./MobileEquipmentDetailClient";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 /**
  * /m/equipment/[id] — equipment detail. Shows asset info, valuation,
@@ -125,6 +126,13 @@ async function MobileEquipmentDetailContent({
   };
 
   return (
+    <PageContextProvider value={{
+      entityType: "equipment",
+      status: equipment.status,
+      label: equipment.name,
+      subtitle: equipment.serialNumber ?? undefined,
+      recordId: equipment.id,
+    }}>
     <>
       <RecordRecentItem type="equipment" id={serialized.id} label={serialized.name} sublabel={serialized.serialNumber ?? undefined} href={`/m/equipment/${serialized.id}`} />
       <MobileEquipmentDetailClient
@@ -134,5 +142,6 @@ async function MobileEquipmentDetailContent({
         projects={projects.map((p) => ({ id: p.id, name: p.name }))}
       />
     </>
+    </PageContextProvider>
   );
 }

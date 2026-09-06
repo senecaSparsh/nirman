@@ -34,11 +34,13 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     if (action === "hold") {
       const p = await setParcelStatus(id, "HOLD", user.id);
       revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
       return json({ ok: true, status: p.status });
     }
     if (action === "release") {
       const p = await setParcelStatus(id, "AVAILABLE", user.id);
       revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
       return json({ ok: true, status: p.status });
     }
     if (action === "valuate") {
@@ -55,6 +57,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
         user.id,
       );
       revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
       return json({ ok: true });
     }
     return json({ error: "Unknown action" }, { status: 400 });

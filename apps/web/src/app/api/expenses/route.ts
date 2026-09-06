@@ -158,6 +158,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     revalidatePath("/expenses");
     revalidatePath("/m/expenses");
+    revalidatePath("/m/accounts?tab=expenses");
     revalidatePath("/approvals");
     return json({ ok: true, id: expense.id, status: expense.status }, { status: 201 });
   } catch (err) {
@@ -181,6 +182,7 @@ export const DELETE = apiHandler(async (req: NextRequest) => {
   }
   revalidatePath("/expenses");
   revalidatePath("/m/expenses");
+    revalidatePath("/m/accounts?tab=expenses");
   revalidatePath("/approvals");
   return json({ ok: true });
 });

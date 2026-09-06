@@ -455,6 +455,22 @@ export async function checkExpiringLegalDocs(daysAhead = 30): Promise<{
       ?? "entity";
     const message = `Legal document "${doc.title}" (${doc.type.replace(/_/g, " ")}) for ${entityLabel} expires in ${daysLeft} day(s) on ${doc.validTill!.toLocaleDateString("en-IN")}. Please initiate renewal.`;
 
+    // De-duplicate: skip if we already sent a notification for this legal doc
+    // in the last 7 days (avoids spamming on every cron run)
+    const recentNotification = await prisma.notificationLog.findFirst({
+      where: {
+        companyId: doc.companyId,
+        eventType: NotificationEventType.LEGAL_DOC_EXPIRING,
+        createdAt: { gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) },
+        metadata: {
+          path: ["legalDocId"],
+          equals: doc.id,
+        },
+      },
+      select: { id: true },
+    });
+    if (recentNotification) continue;
+
     // Notify all OWNER/ADMIN users of the company
     const recipients = await prisma.user.findMany({
       where: {

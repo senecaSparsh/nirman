@@ -82,6 +82,7 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
     revalidatePath("/land");
     revalidatePath(`/land/${id}`);
     revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
     revalidatePath(`/m/land/${id}`);
     return json({ ok: true, id: component.id }, { status: 201 });
   } catch (err: unknown) {

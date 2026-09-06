@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import { MobileHazardDetailClient } from "./MobileHazardDetailClient";
 
 export default async function MobileHazardDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -48,5 +49,15 @@ async function MobileHazardDetailContent({ id }: { id: string }) {
     resolvedAt: hazard.resolvedAt?.toISOString() ?? null, resolvedByName: hazard.resolvedBy?.name ?? null,
   };
 
-  return <MobileHazardDetailClient hazard={serialized} canManage={canManage} />;
+  return (
+    <PageContextProvider value={{
+      entityType: "hazard",
+      status: hazard.status,
+      label: hazard.hazardNumber,
+      subtitle: hazard.project.name,
+      recordId: hazard.id,
+    }}>
+      <MobileHazardDetailClient hazard={serialized} canManage={canManage} />
+    </PageContextProvider>
+  );
 }

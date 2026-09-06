@@ -116,6 +116,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     revalidatePath("/dprs");
     revalidatePath("/m/dprs");
+    revalidatePath("/m/hr?tab=dprs");
     return json({ ok: true, id: dpr.id }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to submit DPR") }, { status: 400 });

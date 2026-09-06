@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { User, Lock, Building2, Check, Loader2, ShieldAlert, Monitor, Smartphone, Phone } from "lucide-react";
+import { User, Lock, Building2, Check, Loader2, ShieldAlert, Monitor, Smartphone, Phone, Fingerprint, Trash2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { authClient } from "@/lib/auth-client";
+import { getAuthenticatorName } from "@better-auth/passkey";
 import type { MembershipData } from "@/components/profile/profile-tabs";
 
 interface MeSettingsViewProps {
@@ -246,6 +247,11 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
         </section>
       )}
 
+      {/* ── Passkeys / Biometric login ──────────────────────────── */}
+      {!isDevBypass && (
+        <PasskeysSection />
+      )}
+
       {/* ── Security / Sessions ─────────────────────────────────── */}
       {!isDevBypass && (
         <SessionsSection />
@@ -297,6 +303,173 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
         </div>
       </section>
     </div>
+  );
+}
+
+// ── Passkeys / Biometric login management ──────────────────────
+// Lets the user enroll a device biometric (Face ID / Touch ID / Windows
+// Hello / Android fingerprint) for one-tap passwordless login, list
+// enrolled devices, and remove them. Uses the Better-Auth passkey
+// client plugin — the browser handles the actual biometric prompt.
+function PasskeysSection() {
+  const [passkeys, setPasskeys] = useState<Array<{
+    id: string;
+    name?: string | null;
+    aaguid?: string | null;
+    createdAt: Date;
+    deviceType: string;
+    backedUp: boolean;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [enrolling, setEnrolling] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [supported, setSupported] = useState(false);
+
+  // Check WebAuthn support + load existing passkeys on mount
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.PublicKeyCredential) {
+      setSupported(true);
+    }
+    void loadPasskeys();
+  }, []);
+
+  async function loadPasskeys() {
+    setLoading(true);
+    try {
+      const { data, error } = await authClient.passkey.listUserPasskeys();
+      if (error) {
+        // Silent fail — the section just shows "no passkeys"
+        setPasskeys([]);
+      } else {
+        setPasskeys(data ?? []);
+      }
+    } catch {
+      setPasskeys([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleEnroll() {
+    setEnrolling(true);
+    try {
+      const { error } = await authClient.passkey.addPasskey({
+        // Let the plugin auto-name it from the authenticator AAGUID
+        name: undefined,
+      });
+      if (error) {
+        toast.error(error.message ?? "Could not register this device.");
+        setEnrolling(false);
+        return;
+      }
+      toast.success("Device registered — you can now sign in with biometrics.");
+      await loadPasskeys();
+    } catch {
+      toast.error("Biometric enrollment failed.");
+    } finally {
+      setEnrolling(false);
+    }
+  }
+
+  async function handleRemove(id: string) {
+    setRemovingId(id);
+    try {
+      const { error } = await authClient.passkey.deletePasskey({ id });
+      if (error) {
+        toast.error(error.message ?? "Could not remove this device.");
+        setRemovingId(null);
+        return;
+      }
+      toast.success("Device removed.");
+      await loadPasskeys();
+    } catch {
+      toast.error("Network error.");
+    } finally {
+      setRemovingId(null);
+    }
+  }
+
+  // Friendly label: user-assigned name → AAGUID lookup → "Passkey"
+  function labelFor(pk: { name?: string | null; aaguid?: string | null }) {
+    return pk.name || (pk.aaguid ? getAuthenticatorName(pk.aaguid) : null) || "Passkey";
+  }
+
+  if (!supported) {
+    // Don't render the section at all if the browser doesn't support WebAuthn
+    return null;
+  }
+
+  return (
+    <section className="rounded-lg border border-border bg-card p-6">
+      <div className="mb-4 flex items-center gap-2">
+        <Fingerprint className="h-4 w-4 text-muted-foreground" />
+        <h3 className="text-body font-semibold text-foreground">Biometric Login</h3>
+      </div>
+      <p className="mb-4 text-micro leading-relaxed text-muted-foreground">
+        Register this device&apos;s Face ID, Touch ID, Windows Hello, or fingerprint
+        for one-tap sign-in. Your biometric data never leaves the device — only
+        a cryptographic key is shared.
+      </p>
+
+      {/* Enrolled passkeys list */}
+      {loading ? (
+        <div className="flex items-center gap-2 text-micro text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Loading enrolled devices…
+        </div>
+      ) : passkeys.length > 0 ? (
+        <div className="mb-4 divide-y divide-border rounded-md border border-border">
+          {passkeys.map((pk) => (
+            <div key={pk.id} className="flex items-center gap-3 px-3 py-2.5">
+              <Fingerprint className="h-4 w-4 shrink-0 text-brand" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-caption font-medium text-foreground">
+                  {labelFor(pk)}
+                </p>
+                <p className="text-micro text-muted-foreground">
+                  {new Date(pk.createdAt).toLocaleDateString(undefined, {
+                    year: "numeric", month: "short", day: "numeric",
+                  })}
+                  {pk.backedUp && " · Synced"}
+                </p>
+              </div>
+              <button
+                onClick={() => handleRemove(pk.id)}
+                disabled={removingId === pk.id}
+                className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-danger-soft hover:text-danger disabled:opacity-50"
+                title="Remove this device"
+              >
+                {removingId === pk.id ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mb-4 text-micro text-muted-foreground">
+          No devices enrolled yet.
+        </p>
+      )}
+
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleEnroll}
+          disabled={enrolling}
+        >
+          {enrolling ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Plus className="h-3.5 w-3.5" />
+          )}
+          {enrolling ? "Waiting for biometric…" : "Register this device"}
+        </Button>
+      </div>
+    </section>
   );
 }
 

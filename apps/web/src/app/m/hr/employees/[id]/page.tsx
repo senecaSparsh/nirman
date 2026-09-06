@@ -5,6 +5,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileEmployeeDetailClient } from "./MobileEmployeeDetailClient";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export default function MobileEmployeeDetailPage({
   params,
@@ -260,6 +261,13 @@ async function MobileEmployeeDetailContent({
   };
 
   return (
+    <PageContextProvider value={{
+      entityType: "employee",
+      status: employee.contractStatus ?? undefined,
+      label: employee.name,
+      subtitle: employee.trade ?? employee.designation ?? undefined,
+      recordId: employee.id,
+    }}>
     <>
       <MobileEmployeeDetailClient
         employee={data}
@@ -269,5 +277,6 @@ async function MobileEmployeeDetailContent({
         stockLocations={stockLocations}
       />
     </>
+    </PageContextProvider>
   );
 }

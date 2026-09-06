@@ -630,10 +630,6 @@ function PoForm({
           className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Supplier
-          </p>
-
           <SelectorCard
             onClick={() => setModal({ type: "supplier" })}
             label="Supplier"

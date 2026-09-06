@@ -13,6 +13,7 @@ import { PipelineStepper, type PipelineStep } from "@/components/ui/pipeline-ste
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { ConvertToPoDialog } from "./convert-to-po-dialog";
 import { AuditTrail } from "@/components/audit-trail";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
 import type { RequisitionDetail, RequisitionRow } from "@/lib/types";
 
@@ -348,6 +349,8 @@ export function RequisitionDetailDialog({
                 )}
               </div>
             )}
+
+            <AttachmentList entityType="MaterialRequisition" entityId={detail.id} />
 
             <AuditTrail entityType="MaterialRequisition" entityId={detail.id} />
           </div>

@@ -5,6 +5,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileExpenseClaimDetailClient } from "./MobileExpenseClaimDetailClient";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 /**
  * /m/expense-claims/[id] — mobile expense claim detail.
@@ -77,6 +78,13 @@ async function MobileExpenseClaimDetailContent({
   }
 
   return (
+    <PageContextProvider value={{
+      entityType: "expenseClaim",
+      status: claim.status,
+      label: claim.claimant.name,
+      subtitle: claim.project?.name ?? undefined,
+      recordId: claim.id,
+    }}>
     <MobileExpenseClaimDetailClient
       id={claim.id}
       claimantName={claim.claimant.name}
@@ -106,5 +114,6 @@ async function MobileExpenseClaimDetailContent({
       canCreate={canCreate}
       createdAt={claim.createdAt.toISOString()}
     />
+    </PageContextProvider>
   );
 }

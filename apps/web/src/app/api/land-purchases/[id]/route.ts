@@ -306,6 +306,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   revalidatePath("/land");
   revalidatePath(`/land/${id}`);
   revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
   revalidatePath(`/m/land/${id}`);
   return json({ ok: true, id: updated.id });
 });
@@ -318,6 +319,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
     revalidatePath("/land");
     revalidatePath(`/land/${id}`);
     revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
     revalidatePath(`/m/land/${id}`);
     return json({ ok: true });
   } catch (err: unknown) {

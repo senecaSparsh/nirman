@@ -40,6 +40,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   revalidatePath("/hr/daily-reports");
   revalidatePath("/hr/dprs");
   revalidatePath("/m/dprs");
+    revalidatePath("/m/hr?tab=dprs");
   if (result.scrapGenerationId) {
     revalidatePath("/stock");
     revalidatePath("/m/inventory");

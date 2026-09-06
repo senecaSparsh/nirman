@@ -6,7 +6,7 @@ import { Loader2, Plus, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
-import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileProjectSelect } from "@/components/mobile/selectors";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 /**
@@ -131,8 +131,7 @@ export function MobileNewStockLocationForm({
 
           {/* Project — only when type is PROJECT_SITE */}
           {type === "PROJECT_SITE" && (
-            <MobileSelectWithCreate
-              label="Project"
+            <MobileProjectSelect
               required
               value={projectId}
               onChange={(v) => { setProjectId(v); haptic(10); }}

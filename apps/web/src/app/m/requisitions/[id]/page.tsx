@@ -8,11 +8,13 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber, formatDate, formatCurrency } from "@/lib/utils";
 import { Printer, FileText } from "lucide-react";
 import { MobileEmptyState, MobileStatusBadge, MobilePipelineStepper, type MobilePipelineStep, ActionBar } from "@/components/mobile/v2/primitives";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { resolveNextAction } from "@/lib/flow-map";
 import { MobileRequisitionActions } from "@/components/mobile/mobile-requisition-actions";
 import { MobileQuotePanel } from "./MobileQuotePanel";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 /**
  * /m/requisitions/[id] — requisition detail as a workflow document.
@@ -177,7 +179,21 @@ async function MobileRequisitionDetailContent({
 
   const nextAction = resolveNextAction("requisition", req.status, role);
 
+  // Permissions to announce to the NavSheet's Next Step resolver
+  const canActions: string[] = [];
+  if (canApprove) canActions.push(PERM.REQUISITION_APPROVE);
+  if (canManage) canActions.push(PERM.PROCUREMENT_MANAGE);
+
   return (
+    <PageContextProvider value={{
+      entityType: "requisition",
+      flowId: "requisition",
+      status: req.status,
+      label: req.reqNumber,
+      subtitle: req.project?.name,
+      recordId: req.id,
+      canActions,
+    }}>
     <div className="pb-20">
       <RecordRecentItem type="requisition" id={req.id} label={req.reqNumber} sublabel={req.project?.name} href={`/m/requisitions/${req.id}`} />
 
@@ -405,6 +421,8 @@ async function MobileRequisitionDetailContent({
         </div>
       ) : null}
 
+      <AttachmentList entityType="MaterialRequisition" entityId={req.id} />
+
       {/* ── Sticky bottom action bar ── */}
       <ActionBar>
           <MobileRequisitionActions
@@ -421,6 +439,7 @@ async function MobileRequisitionDetailContent({
           />
       </ActionBar>
     </div>
+    </PageContextProvider>
   );
 }
 

@@ -17,7 +17,7 @@ import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileNewStockLocationForm } from "./MobileNewStockLocationDialog";
-import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileProjectSelect } from "@/components/mobile/selectors";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 
 type LocationType = "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT" | "CENTRAL_WAREHOUSE";
@@ -364,8 +364,7 @@ function EditLocationDialog({
           </div>
 
           {isProjectSite && (
-            <MobileSelectWithCreate
-              label="Project"
+            <MobileProjectSelect
               value={projectId}
               onChange={(v) => setProjectId(v)}
               options={projects.map((p) => ({ value: p.id, label: p.name }))}

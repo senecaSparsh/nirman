@@ -17,6 +17,8 @@ import {
   X,
   Loader2,
   Lock,
+  Fingerprint,
+  Trash2,
 } from "lucide-react";
 import { useSession, signOut as authSignOut, authClient } from "@/lib/auth-client";
 import { useFieldMode } from "@/lib/field-mode";
@@ -61,6 +63,16 @@ export default function MePage() {
   });
   const [savingPassword, setSavingPassword] = useState(false);
 
+  // ── Passkey / biometric login ──
+  const [passkeySupported, setPasskeySupported] = useState(false);
+  const [passkeys, setPasskeys] = useState<Array<{
+    id: string; name?: string | null; aaguid?: string | null;
+    createdAt: Date; backedUp: boolean;
+  }>>([]);
+  const [passkeyLoading, setPasskeyLoading] = useState(true);
+  const [enrollingPasskey, setEnrollingPasskey] = useState(false);
+  const [removingPasskeyId, setRemovingPasskeyId] = useState<string | null>(null);
+
   useEffect(() => {
     let meDone = false;
     let companyDone = false;
@@ -84,6 +96,11 @@ export default function MePage() {
       .finally(() => { companyDone = true; checkDone(); });
     const isDarkNow = document.documentElement.classList.contains("dark");
     setIsDark((prev) => (prev !== isDarkNow ? isDarkNow : prev));
+    // Check WebAuthn support + load passkeys
+    if (window.PublicKeyCredential) {
+      setPasskeySupported(true);
+      void loadPasskeys();
+    }
   }, []);
 
   const toggleDark = () => {
@@ -170,6 +187,51 @@ export default function MePage() {
       toast.error("Network error");
     } finally {
       setSavingPassword(false);
+    }
+  }
+
+  // ── Passkey handlers ──
+  async function loadPasskeys() {
+    setPasskeyLoading(true);
+    try {
+      const { data, error } = await authClient.passkey.listUserPasskeys();
+      if (!error) setPasskeys(data ?? []);
+    } catch { /* silent */ } finally {
+      setPasskeyLoading(false);
+    }
+  }
+
+  async function handleEnrollPasskey() {
+    setEnrollingPasskey(true);
+    try {
+      const { error } = await authClient.passkey.addPasskey({ name: undefined });
+      if (error) {
+        toast.error(error.message ?? "Could not register this device.");
+      } else {
+        toast.success("Device registered — use biometrics to sign in next time.");
+        await loadPasskeys();
+      }
+    } catch {
+      toast.error("Biometric enrollment failed.");
+    } finally {
+      setEnrollingPasskey(false);
+    }
+  }
+
+  async function handleRemovePasskey(id: string) {
+    setRemovingPasskeyId(id);
+    try {
+      const { error } = await authClient.passkey.deletePasskey({ id });
+      if (error) {
+        toast.error(error.message ?? "Could not remove device.");
+      } else {
+        toast.success("Device removed.");
+        await loadPasskeys();
+      }
+    } catch {
+      toast.error("Network error.");
+    } finally {
+      setRemovingPasskeyId(null);
     }
   }
 
@@ -371,6 +433,75 @@ export default function MePage() {
           )}
         </Card>
       </div>
+
+      {/* ── Biometric / passkey login ─────────────────────────────── */}
+      {passkeySupported && (
+        <div className="mb-4">
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Fingerprint className="size-4" style={{ color: "var(--color-signal-dark)" }} />
+              <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                Biometric Login
+              </p>
+            </div>
+            <p className="text-m-body mb-3" style={{ color: "var(--color-ink-500)" }}>
+              Register Face ID, Touch ID, or fingerprint for one-tap sign-in.
+            </p>
+
+            {/* Enrolled devices */}
+            {passkeyLoading ? (
+              <div className="flex items-center gap-2 text-m-body" style={{ color: "var(--color-ink-500)" }}>
+                <Loader2 className="size-3.5 animate-spin" />
+                Loading…
+              </div>
+            ) : passkeys.length > 0 ? (
+              <div className="mb-3 rounded-[0.625rem] border divide-y" style={{ borderColor: "var(--color-line)" }}>
+                {passkeys.map((pk) => (
+                  <div key={pk.id} className="flex items-center gap-2 px-3 py-2.5" style={{ backgroundColor: "var(--color-paper)" }}>
+                    <Fingerprint className="size-3.5 shrink-0" style={{ color: "var(--color-signal-dark)" }} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-m-caption font-medium truncate" style={{ color: "var(--color-ink-950)" }}>
+                        {pk.name || "Passkey"}
+                      </p>
+                      <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
+                        {new Date(pk.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+                        {pk.backedUp && " · Synced"}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleRemovePasskey(pk.id)}
+                      disabled={removingPasskeyId === pk.id}
+                      className="shrink-0 p-1.5 rounded press"
+                      style={{ color: "var(--color-ink-500)" }}
+                    >
+                      {removingPasskeyId === pk.id ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="size-3.5" />
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-m-body mb-3" style={{ color: "var(--color-ink-500)" }}>
+                No devices enrolled.
+              </p>
+            )}
+
+            <Button
+              variant="secondary"
+              size="md"
+              fullWidth
+              onClick={handleEnrollPasskey}
+              disabled={enrollingPasskey}
+            >
+              {enrollingPasskey ? <Loader2 className="size-3.5 animate-spin" /> : <Fingerprint className="size-3.5" />}
+              {enrollingPasskey ? "Waiting for biometric…" : "Register this device"}
+            </Button>
+          </Card>
+        </div>
+      )}
 
       {/* ── Sync status ───────────────────────────────────────────── */}
       <div className="mb-4">

@@ -83,6 +83,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     revalidatePath("/change-orders");
     revalidatePath("/m/change-orders");
+    revalidatePath("/m/construction?tab=change-orders");
     return json(co, { status: 201 });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });

@@ -13,6 +13,7 @@ import {
   MobileEmptyState,
   SectionHead,
 } from "@/components/mobile/v2/primitives";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export const metadata = { title: "Project Control — Nirman" };
 
@@ -88,6 +89,11 @@ async function MobileProjectControlDetailContent({
   const svColor = sv >= 0 ? "var(--color-go)" : "var(--color-stop)";
 
   return (
+    <PageContextProvider value={{
+      entityType: "project-control",
+      label: project.name,
+      recordId: project.id,
+    }}>
     <div className="flex flex-col gap-4 pb-6">
       {/* Header card */}
       <div
@@ -184,6 +190,7 @@ async function MobileProjectControlDetailContent({
         </div>
       </Link>
     </div>
+    </PageContextProvider>
   );
 }
 

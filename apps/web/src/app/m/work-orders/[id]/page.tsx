@@ -16,6 +16,7 @@ import {
 } from "@/components/mobile/v2/primitives";
 import { FileText, Wrench, IndianRupee, Calendar, TrendingUp } from "lucide-react";
 import { MobileWorkOrderActions } from "./MobileWorkOrderActions";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export const metadata = { title: "Work Order — Nirman" };
 
@@ -110,6 +111,13 @@ async function MobileWorkOrderDetailContent({
   ];
 
   return (
+    <PageContextProvider value={{
+      entityType: "workOrder",
+      status: wo.status,
+      label: wo.workOrderNumber,
+      subtitle: wo.subcontractor.name,
+      recordId: wo.id,
+    }}>
     <div className="flex flex-col gap-4 pb-20">
       {/* ── Header card ── */}
       <div
@@ -296,6 +304,7 @@ async function MobileWorkOrderDetailContent({
         advanceBalance={advanceAmount}
       />
     </div>
+    </PageContextProvider>
   );
 }
 

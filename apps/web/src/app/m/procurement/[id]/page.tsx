@@ -20,6 +20,7 @@ import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { resolveNextAction } from "@/lib/flow-map";
 import { MobilePoActions } from "@/components/mobile/mobile-po-actions";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import { MobileReceiveDialog } from "./MobileReceiveDialog";
 
 /**
@@ -221,7 +222,23 @@ async function MobilePoDetailContent({
   // Server-side — no permission function crosses the boundary.
   const nextAction = resolveNextAction("procurement", po.status, role);
 
+  // Permissions to announce to the NavSheet's Next Step resolver
+  const canActions: string[] = [];
+  if (canApprove) canActions.push(PERM.PO_APPROVE);
+  if (canManage) canActions.push(PERM.PROCUREMENT_MANAGE);
+  if (canReceive) canActions.push(PERM.PROCUREMENT_VIEW);
+  if (canManagePayments) canActions.push(PERM.FINANCE_MANAGE);
+
   return (
+    <PageContextProvider value={{
+      entityType: "purchaseOrder",
+      flowId: "procurement",
+      status: po.status,
+      label: po.poNumber,
+      subtitle: po.supplier.name,
+      recordId: po.id,
+      canActions,
+    }}>
     <div className="pb-20">
       <RecordRecentItem type="po" id={po.id} label={po.poNumber} sublabel={po.supplier.name} href={`/m/procurement/${po.id}`} />
 
@@ -784,6 +801,7 @@ async function MobilePoDetailContent({
         backHref="/m/procurement"
       />
     </div>
+    </PageContextProvider>
   );
 }
 

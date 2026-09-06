@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Check, ChevronDown, FolderKanban } from "lucide-react";
 
 interface ProjectOption {
@@ -22,6 +22,7 @@ export function MobileWbsProjectSelector({
 }) {
   const router = useRouter();
   const params = useSearchParams();
+  const pathname = usePathname();
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
 
@@ -44,7 +45,7 @@ export function MobileWbsProjectSelector({
     } else {
       next.delete("project");
     }
-    router.push(`/m/wbs?${next.toString()}`);
+    router.push(`${pathname}?${next.toString()}`);
   }
 
   const current = projects.find((p) => p.id === selectedId);

@@ -28,6 +28,7 @@ import {
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { downloadCSV } from "@/lib/export";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileSupplierSelect } from "@/components/mobile/selectors";
 
 // Compact currency for table cells — drops ".00", drops ₹ symbol spacing
 // e.g. ₹5,700.00 → 5,700 · ₹1,234.50 → 1,234.5 · ₹9,356.00 → 9,356
@@ -1949,8 +1950,7 @@ function AddQuoteDialog({
             </div>
           ) : (
             <div className="space-y-2">
-              <MobileSelectWithCreate
-                label="Supplier"
+              <MobileSupplierSelect
                 value={supplierId}
                 onChange={setSupplierId}
                 placeholder="Select supplier…"

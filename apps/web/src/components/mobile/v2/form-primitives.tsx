@@ -55,10 +55,10 @@ export function SelectorCard({
   label,
   value,
   subvalue,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   placeholder,
   required,
   compact,
+  stacked = true,
 }: {
   onClick: () => void;
   icon?: ComponentType<{ className?: string; style?: CSSProperties }>;
@@ -68,8 +68,58 @@ export function SelectorCard({
   placeholder?: string;
   required?: boolean;
   compact?: boolean;
+  /** Stacked mode (default) — renders label above + h-7 tappable value below
+   *  (matches UnderlineInput). Pass `stacked={false}` for the old inline mode
+   *  (label inside the button) — use only when the selector is standalone and
+   *  not side-by-side with inputs. */
+  stacked?: boolean;
 }) {
   const hasValue = !!value;
+
+  // ── Stacked mode (default): label above + h-7 value area with border-b ──
+  // This exactly matches UnderlineInput's layout so selectors and inputs
+  // align perfectly in grid-cols-2 rows. This is the default because most
+  // selectors are placed alongside inputs and need border-b alignment.
+  if (stacked) {
+    return (
+      <div>
+        {label ? (
+          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+            {label}
+            {required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
+          </label>
+        ) : null}
+        <button
+          type="button"
+          onClick={onClick}
+          className="w-full h-7 px-1 flex items-center gap-1 text-m-caption press text-left border-b focus:border-b-2 transition-colors"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
+        >
+          {Icon ? (
+            <Icon className="shrink-0 size-3" style={{ color: "var(--color-ink-500)" }} />
+          ) : null}
+          <span
+            className="min-w-0 flex-1 truncate font-bold"
+            style={{ color: hasValue ? "var(--color-ink-950)" : "var(--color-ink-400)" }}
+          >
+            {hasValue ? (
+              <>
+                {value}
+                {subvalue ? (
+                  <span className="font-normal" style={{ color: "var(--color-ink-500)" }}> {subvalue}</span>
+                ) : null}
+              </>
+            ) : (
+              placeholder ?? "Select…"
+            )}
+          </span>
+          <ChevronRight className="shrink-0 size-3" style={{ color: "var(--color-ink-500)" }} />
+        </button>
+      </div>
+    );
+  }
+
+  // ── Inline mode (opt-in via stacked={false}): single-line button with label inside ──
   return (
     <button
       type="button"
@@ -90,7 +140,7 @@ export function SelectorCard({
           </p>
         ) : (
           <p className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-            {label}
+            {placeholder || label}
             {required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
           </p>
         )}
@@ -109,6 +159,7 @@ export function SelectorRow({
   subvalue,
   required,
   compact,
+  placeholder,
 }: {
   onClick: () => void;
   icon?: ComponentType<{ className?: string; style?: CSSProperties }>;
@@ -117,13 +168,14 @@ export function SelectorRow({
   subvalue?: string;
   required?: boolean;
   compact?: boolean;
+  placeholder?: string;
 }) {
   const hasValue = !!value;
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-1.5 press text-left border-b focus:border-b-2 transition-colors pb-0.5"
+      className="w-full h-7 flex items-center gap-1.5 press text-left border-b focus:border-b-2 transition-colors"
       style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
     >
       {Icon ? (
@@ -139,7 +191,7 @@ export function SelectorRow({
           </p>
         ) : (
           <span className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-            {label}
+            {placeholder || label}
             {required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
           </span>
         )}
@@ -318,9 +370,11 @@ export function EnumSelect({
     <>
       <SelectorCard
         onClick={() => { haptic(10); setOpen(true); }}
-        label={placeholder ?? label}
+        label={label}
+        placeholder={placeholder}
         value={selected?.label}
         required={required}
+        stacked
       />
 
       {open ? (

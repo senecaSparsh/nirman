@@ -201,7 +201,7 @@ async function PulseContent() {
         <div className="flex items-center justify-between">
           <span>Project health</span>
           <Link
-            href="/m/projects"
+            href="/m/real-estate?tab=projects"
             className="text-m-caption font-bold text-m-body press"
             style={{ color: "var(--color-signal-dark)" }}
           >

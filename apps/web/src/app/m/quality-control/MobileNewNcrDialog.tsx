@@ -9,6 +9,7 @@ import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useWbsOptions } from "@/lib/use-wbs-options";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileProjectSelect, MobileSubcontractorSelect } from "@/components/mobile/selectors";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type NcrCategory = "MATERIAL" | "WORKMANSHIP" | "DESIGN" | "DOCUMENT" | "PROCESS" | "SAFETY" | "OTHER";
@@ -154,7 +155,7 @@ export function MobileNewNcrForm({
       {/* Details */}
       <div className={sectionClass} style={sectionStyle}>
         <p className={sectionTitleClass} style={sectionTitleStyle}>Details</p>
-        <MobileSelectWithCreate
+        <MobileProjectSelect
           label="Project"
           value={form.projectId}
           onChange={(v) => set("projectId", v)}
@@ -261,8 +262,7 @@ export function MobileNewNcrForm({
             />
           </div>
           <div className="pl-2">
-            <MobileSelectWithCreate
-              label="Subcontractor"
+            <MobileSubcontractorSelect
               value={form.subcontractorId}
               onChange={(v) => set("subcontractorId", v)}
               placeholder="— None —"

@@ -12,6 +12,7 @@ import {
   SectionHead,
 } from "@/components/mobile/v2/primitives";
 import { Beaker, Package, Ruler } from "lucide-react";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import { MobileStandardConsumptionActions } from "./MobileStandardConsumptionActions";
 
 export const metadata = { title: "Standard Consumption — Nirman" };
@@ -72,6 +73,12 @@ async function MobileStandardConsumptionDetailContent({
   const perUnitQty = baseQty > 0 ? standardQty / baseQty : 0;
 
   return (
+    <PageContextProvider value={{
+      entityType: "standard-consumption",
+      label: sc.material.name,
+      subtitle: sc.workType,
+      recordId: sc.id,
+    }}>
     <div className="flex flex-col gap-4 pb-6">
       {/* Header card */}
       <div
@@ -133,6 +140,7 @@ async function MobileStandardConsumptionDetailContent({
         />
       ) : null}
     </div>
+    </PageContextProvider>
   );
 }
 

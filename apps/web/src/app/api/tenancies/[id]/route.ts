@@ -21,18 +21,21 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       const t = await activateTenancy(id, company.id, user.id);
       revalidatePath("/rentals");
       revalidatePath("/m/rentals");
+    revalidatePath("/m/real-estate?tab=rentals");
       return json({ ok: true, id: t.id, status: t.status });
     }
     if (action === "terminate") {
       const t = await terminateTenancy(id, company.id, user.id);
       revalidatePath("/rentals");
       revalidatePath("/m/rentals");
+    revalidatePath("/m/real-estate?tab=rentals");
       return json({ ok: true, id: t.id, status: t.status });
     }
     if (action === "escalate") {
       const result = await applyRentEscalation({ tenancyId: id, companyId: company.id, userId: user.id });
       revalidatePath("/rentals");
       revalidatePath("/m/rentals");
+    revalidatePath("/m/real-estate?tab=rentals");
       return json({ ok: true, oldRent: result.oldRent.toString(), newRent: result.newRent.toString() });
     }
     if (action === "changeTenant") {
@@ -59,6 +62,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       });
       revalidatePath("/rentals");
       revalidatePath("/m/rentals");
+    revalidatePath("/m/real-estate?tab=rentals");
       return json({ ok: true, oldTenancyId: result.oldTenancyId, newTenancyId: result.newTenancy.id }, { status: 201 });
     }
     if (action === "generateSchedule") {
@@ -74,6 +78,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       });
       revalidatePath("/rentals");
       revalidatePath("/m/rentals");
+    revalidatePath("/m/real-estate?tab=rentals");
       return json({ ok: true, ...result }, { status: 201 });
     }
     if (action === "uploadAgreement") {
@@ -88,6 +93,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       });
       revalidatePath("/rentals");
       revalidatePath("/m/rentals");
+    revalidatePath("/m/real-estate?tab=rentals");
       return json({ ok: true, id: t.id });
     }
     if (action === "uploadDraft") {
@@ -102,6 +108,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       });
       revalidatePath("/rentals");
       revalidatePath("/m/rentals");
+    revalidatePath("/m/real-estate?tab=rentals");
       return json({ ok: true, id: t.id });
     }
     return json({ error: "Unknown action. Use activate, terminate, escalate, changeTenant, generateSchedule, uploadAgreement, or uploadDraft." }, { status: 400 });
@@ -145,6 +152,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     });
     revalidatePath("/rentals");
     revalidatePath("/m/rentals");
+    revalidatePath("/m/real-estate?tab=rentals");
     return json({ ok: true, id: t.id, status: t.status });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to edit tenancy") }, { status: 400 });

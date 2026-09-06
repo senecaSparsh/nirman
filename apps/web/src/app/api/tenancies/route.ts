@@ -119,6 +119,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     revalidatePath("/rentals");
     revalidatePath("/m/rentals");
+    revalidatePath("/m/real-estate?tab=rentals");
     return json({ ok: true, id: tenancy.id }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to create tenancy") }, { status: 400 });

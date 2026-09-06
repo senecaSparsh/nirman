@@ -53,6 +53,10 @@ export function MobileSelectWithCreate({
   subvalue,
   compact,
   disabled,
+  /** Stacked mode — renders label above + h-7 tappable value below (matches
+   *  UnderlineInput). Use when placed side-by-side with plain <input> fields
+   *  in a grid-cols-2 row so baselines and borders align. */
+  stacked,
   // Deprecated styling props — kept for backward compat but ignored.
   inputClass: _inputClass,
   inputStyle: _inputStyle,
@@ -78,6 +82,8 @@ export function MobileSelectWithCreate({
   compact?: boolean;
   /** When true, the trigger is disabled (e.g. while loading options). */
   disabled?: boolean;
+  /** Stacked mode — label above + h-7 value below (matches UnderlineInput). */
+  stacked?: boolean;
   /** @deprecated Use the default SelectorCard styling. */
   inputClass?: string;
   /** @deprecated Use the default SelectorCard styling. */
@@ -119,11 +125,13 @@ export function MobileSelectWithCreate({
       <Trigger
         onClick={() => { if (!disabled) { haptic(10); setShowPicker(true); } }}
         icon={icon}
-        label={placeholder ?? label}
+        label={label}
+        placeholder={placeholder}
         value={selected?.label}
         subvalue={subvalue ?? selected?.sub}
         required={required}
         compact={compact}
+        {...(!compact ? { stacked: stacked !== false } : {})}
       />
 
       {showPicker ? (

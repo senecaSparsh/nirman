@@ -14,6 +14,7 @@ import {
   SectionHead,
 } from "@/components/mobile/v2/primitives";
 import { BookOpen, Calendar, IndianRupee, Package, User, CheckCircle } from "lucide-react";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import { MobileMbActions } from "./MobileMbActions";
 
 export const metadata = { title: "Measurement Book Entry — Nirman" };
@@ -80,6 +81,13 @@ async function MobileMbDetailContent({
   const canApprove = hasPermission(role, PERM.MB_APPROVE);
 
   return (
+    <PageContextProvider value={{
+      entityType: "measurement-book",
+      status: entry.status,
+      label: entry.mbNumber,
+      subtitle: entry.project.name,
+      recordId: entry.id,
+    }}>
     <div className="flex flex-col gap-4 pb-20">
       {/* Header card */}
       <div
@@ -224,6 +232,7 @@ async function MobileMbDetailContent({
         canApprove={canApprove}
       />
     </div>
+    </PageContextProvider>
   );
 }
 

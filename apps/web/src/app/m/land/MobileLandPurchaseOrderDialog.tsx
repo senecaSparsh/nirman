@@ -10,6 +10,7 @@ import { formatCurrency } from "@/lib/utils";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileProjectSelect } from "@/components/mobile/selectors";
 
 const AREA_UNITS = ["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"] as const;
 const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as const;
@@ -216,8 +217,7 @@ export function MobileLandPurchaseOrderDialog({
             </div>
             {projects.length > 0 && (
               <div>
-                <MobileSelectWithCreate
-                  label="Project"
+                <MobileProjectSelect
                   value={projectId}
                   onChange={setProjectId}
                   options={projects.map((p) => ({ value: p.id, label: p.name }))}

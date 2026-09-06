@@ -6,7 +6,7 @@ import { Loader2, Plus, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
-import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileProjectSelect } from "@/components/mobile/selectors";
 
 const inputClass =
   "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
@@ -106,8 +106,7 @@ export function MobileNewInspectionForm({
           Details
         </p>
         <div>
-          <MobileSelectWithCreate
-            label="Project"
+          <MobileProjectSelect
             value={form.projectId}
             onChange={(v) => set("projectId", v)}
             options={projects.map((p) => ({ value: p.id, label: p.name }))}

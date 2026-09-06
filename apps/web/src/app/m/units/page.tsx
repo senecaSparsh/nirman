@@ -199,7 +199,7 @@ async function MobileUnitsContent({
           hint={canManage && projects.length > 0 ? "Tap + to create your first built unit." : "Units show here once a project creates them."}
           action={
             !canManage || projects.length === 0 ? (
-              <MobileCta href="/m/projects" icon={Home} variant="primary">
+              <MobileCta href="/m/real-estate?tab=projects" icon={Home} variant="primary">
                 View Projects
               </MobileCta>
             ) : undefined

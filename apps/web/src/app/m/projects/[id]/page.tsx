@@ -28,6 +28,7 @@ import { MobileEditProjectButton } from "./MobileEditProjectButton";
 import { MobileDeleteProjectButton } from "./MobileDeleteProjectButton";
 import { MobileLegalDocsSection } from "@/components/legal/mobile-legal-docs-section";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 /**
  * /m/projects/[id] — project detail page.
@@ -148,6 +149,13 @@ async function MobileProjectDetailContent({
   const typeLabel = project.type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
+    <PageContextProvider value={{
+      entityType: "project",
+      status: project.status,
+      label: project.name,
+      subtitle: typeLabel,
+      recordId: project.id,
+    }}>
     <div>
       <RecordRecentItem type="project" id={project.id} label={project.name} href={`/m/projects/${project.id}`} />
 
@@ -546,7 +554,7 @@ async function MobileProjectDetailContent({
             {recentCosts.map((c) => (
               <Link
                 key={c.id}
-                href="/m/books/finance"
+                href="/m/accounts?tab=expenses"
                 className="flex flex-col rounded-[0.5rem] border p-1.5 text-m-body press"
                 style={{
                   borderColor: "var(--color-line)",
@@ -646,6 +654,7 @@ async function MobileProjectDetailContent({
         }}
       </MobileProjectTabs>
     </div>
+    </PageContextProvider>
   );
 }
 

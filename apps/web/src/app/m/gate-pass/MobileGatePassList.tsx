@@ -35,6 +35,7 @@ import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileProjectSelect } from "@/components/mobile/selectors";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type GatePassRow = {
@@ -721,7 +722,7 @@ export function MobileGatePassFormDialog({
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Project (optional)
                 </label>
-                <MobileSelectWithCreate
+                <MobileProjectSelect
                 label="Project"
                 value={projectId}
                 onChange={setProjectId}

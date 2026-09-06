@@ -8,7 +8,7 @@ import { MobileFab } from "@/components/mobile/v2/scaffold";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { formatCurrency, formatNumber } from "@/lib/utils";
-import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileStockLocationSelect } from "@/components/mobile/selectors";
 
 type StockItem = {
   locationId: string;
@@ -262,8 +262,7 @@ export function MobileAdjustStockBtn({
               Stock Location
             </p>
             <div>
-              <MobileSelectWithCreate
-                label="Stock Location"
+              <MobileStockLocationSelect
                 value={locationId}
                 onChange={setLocationId}
                 options={locations.map((l) => ({

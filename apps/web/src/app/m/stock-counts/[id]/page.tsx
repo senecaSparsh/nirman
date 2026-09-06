@@ -7,6 +7,7 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
 import { MobileStockCountDetailClient } from "./MobileStockCountDetailClient";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 /**
  * /m/stock-counts/[id] — stock count / physical verification detail.
@@ -101,6 +102,12 @@ async function MobileStockCountDetailContent({
   ];
 
   return (
+    <PageContextProvider value={{
+      entityType: "stockCount",
+      status: count.status,
+      label: count.location.name,
+      recordId: count.id,
+    }}>
     <>
       <div className="mb-3 flex items-center justify-between rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <MobilePipelineStepper steps={scPipelineSteps} />
@@ -120,5 +127,6 @@ async function MobileStockCountDetailContent({
         canManage={canManage}
       />
     </>
+    </PageContextProvider>
   );
 }

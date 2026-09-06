@@ -361,7 +361,7 @@ async function AttentionContent() {
             ))}
             {overBudget.length > 10 ? (
               <Link
-                href="/m/projects"
+                href="/m/real-estate?tab=projects"
                 className="text-m-caption font-semibold text-center py-1.5 text-m-body press"
                 style={{ color: "var(--color-ink-600)" }}
               >
@@ -385,7 +385,7 @@ async function AttentionContent() {
             <TallySyncButton pendingCount={tallyStats.pending} />
           </div>
           <AlertCard
-            href="/m/books/gl"
+            href="/m/accounts?tab=gl"
             title={`${tallyStats.pending} entries not synced`}
             subtitle={`${tallyStats.synced} synced · ${tallyStats.failed} failed`}
             meta="View GL"

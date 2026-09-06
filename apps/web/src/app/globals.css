@@ -53,10 +53,11 @@ input[type="number"] {
      Inter for chrome: it was designed for UI at 11–16px, where
      geometric display faces (the old Plus Jakarta) lose their
      apertures and start to look like a toy. JetBrains Mono for data. */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo,
-    monospace;
+  --font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  --font-mono:
+    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* ── Surfaces ─────────────────────────────────────────────────────
      Near-neutral, very slightly cool. `background` is a step darker
@@ -160,12 +161,15 @@ input[type="number"] {
   /* ── Elevation — a real ramp. Light from above, cool-tinted, and
      each step pairs a tight contact shadow with a soft ambient one so
      edges stay crisp while the object still lifts. ───────────────── */
-  --shadow-raised: 0 1px 2px oklch(0.205 0.02 265 / 0.05),
+  --shadow-raised:
+    0 1px 2px oklch(0.205 0.02 265 / 0.05),
     0 1px 1px -0.5px oklch(0.205 0.02 265 / 0.04);
-  --shadow-floating: 0 1px 2px oklch(0.205 0.02 265 / 0.05),
+  --shadow-floating:
+    0 1px 2px oklch(0.205 0.02 265 / 0.05),
     0 4px 10px -2px oklch(0.205 0.02 265 / 0.08),
     0 12px 24px -8px oklch(0.205 0.02 265 / 0.06);
-  --shadow-overlay: 0 1px 2px oklch(0.205 0.02 265 / 0.06),
+  --shadow-overlay:
+    0 1px 2px oklch(0.205 0.02 265 / 0.06),
     0 8px 20px -6px oklch(0.205 0.02 265 / 0.12),
     0 24px 56px -16px oklch(0.205 0.02 265 / 0.18);
   --shadow-inset: inset 0 1px 0 oklch(1 0 0 / 0.06);
@@ -185,40 +189,40 @@ input[type="number"] {
    ═══════════════════════════════════════════════════════════════════ */
 @theme {
   /* ── Warm neutrals ─────────────────────────────────────────────── */
-  --color-ink-950: #12110d;   /* headings, primary button fill        */
-  --color-ink-900: #1c1a15;   /* body text                             */
-  --color-ink-700: #3d3930;   /* secondary text                        */
-  --color-ink-600: #544f44;   /* secondary text — unselected chips     */
-  --color-ink-500: #6b6558;   /* tertiary / captions                   */
-  --color-ink-400: #898376;   /* subtle text — meta, placeholders      */
-  --color-ink-300: #a8a294;   /* disabled                              */
+  --color-ink-950: #12110d; /* headings, primary button fill        */
+  --color-ink-900: #1c1a15; /* body text                             */
+  --color-ink-700: #3d3930; /* secondary text                        */
+  --color-ink-600: #544f44; /* secondary text — unselected chips     */
+  --color-ink-500: #6b6558; /* tertiary / captions                   */
+  --color-ink-400: #898376; /* subtle text — meta, placeholders      */
+  --color-ink-300: #a8a294; /* disabled                              */
 
   /* ── Surfaces ──────────────────────────────────────────────────── */
-  --color-paper:    #ffffff;  /* cards                                 */
-  --color-paper-2:  #faf8f4;  /* page bg — warm, less glare than #fff  */
-  --color-concrete: #efece5;  /* wells, table stripes                  */
-  --color-line:     #ddd8cd;  /* hairlines                             */
+  --color-paper: #ffffff; /* cards                                 */
+  --color-paper-2: #faf8f4; /* page bg — warm, less glare than #fff  */
+  --color-concrete: #efece5; /* wells, table stripes                  */
+  --color-line: #ddd8cd; /* hairlines                             */
 
   /* ── Signal amber — hi-vis, survives sunlight ──────────────────── */
-  --color-signal:        #ffb020;
-  --color-signal-active: #f0a416;  /* pressed/active state           */
-  --color-signal-dark:   #b87400;  /* amber text on light bg         */
-  --color-signal-wash:   #fff6e3;
+  --color-signal: #ffb020;
+  --color-signal-active: #f0a416; /* pressed/active state           */
+  --color-signal-dark: #b87400; /* amber text on light bg         */
+  --color-signal-wash: #fff6e3;
 
   /* ── Steel — secondary actions, info ───────────────────────────── */
-  --color-steel:      #35505f;
+  --color-steel: #35505f;
   --color-steel-wash: #eaf0f3;
 
   /* ── Go / Stop — state colours ─────────────────────────────────── */
-  --color-go:        #1f7a4c;
-  --color-go-wash:   #e8f4ed;
-  --color-stop:        #c1341a;
-  --color-stop-wash:   #fdecea;
+  --color-go: #1f7a4c;
+  --color-go-wash: #e8f4ed;
+  --color-stop: #c1341a;
+  --color-stop-wash: #fdecea;
   --color-stop-active: #a52b15;
 
   /* ── Touch targets — gloved hands on site ──────────────────────── */
-  --size-touch:    3.5rem;   /* 56px — WCAG floor + glove margin      */
-  --size-touch-lg: 4.5rem;   /* 72px — primary mobile actions         */
+  --size-touch: 3.5rem; /* 56px — WCAG floor + glove margin      */
+  --size-touch-lg: 4.5rem; /* 72px — primary mobile actions         */
 
   /* ── Easing curves — strong, intentional, not the weak CSS defaults.
      From Emil Kowalski's design engineering philosophy: built-in CSS
@@ -228,9 +232,9 @@ input[type="number"] {
      --ease-in-out:  on-screen movement (natural accel/decel)
      --ease-drawer:  iOS-like sheet/drawer curve (Ionic Framework)
      ──────────────────────────────────────────────────────────────── */
-  --ease-out:     cubic-bezier(0.23, 1, 0.32, 1);
-  --ease-in-out:  cubic-bezier(0.77, 0, 0.175, 1);
-  --ease-drawer:  cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -307,10 +311,10 @@ input[type="number"] {
   /* In the dark, shadow alone can't separate surfaces — pair it with a
      1px top highlight so panels still have a visible top edge. */
   --shadow-raised: 0 1px 2px oklch(0 0 0 / 0.3);
-  --shadow-floating: 0 4px 12px -2px oklch(0 0 0 / 0.4),
-    0 12px 28px -8px oklch(0 0 0 / 0.35);
-  --shadow-overlay: 0 8px 24px -6px oklch(0 0 0 / 0.5),
-    0 28px 64px -16px oklch(0 0 0 / 0.55);
+  --shadow-floating:
+    0 4px 12px -2px oklch(0 0 0 / 0.4), 0 12px 28px -8px oklch(0 0 0 / 0.35);
+  --shadow-overlay:
+    0 8px 24px -6px oklch(0 0 0 / 0.5), 0 28px 64px -16px oklch(0 0 0 / 0.55);
 
   /* ── Mobile warm tokens, inverted for dark ───────────────────────
      The /m/* surfaces reference --color-paper / --color-ink-* /
@@ -321,41 +325,58 @@ input[type="number"] {
      reads as lighter-in-the-dark, so paper-2 (page) < paper (card)
      < concrete (well). Text never hits pure white. Semantic hues are
      lifted in lightness so they stay legible on warm-dark fields. */
-  --color-ink-950: #f5f1e8;   /* headings — warm near-white          */
-  --color-ink-900: #e8e3d8;   /* body text                            */
-  --color-ink-700: #b8b0a0;   /* secondary text                       */
-  --color-ink-600: #9a9285;   /* unselected chips                     */
-  --color-ink-500: #807868;   /* captions                             */
-  --color-ink-400: #645e52;   /* meta / placeholders                  */
-  --color-ink-300: #4a443a;   /* disabled                             */
+  --color-ink-950: #f5f1e8; /* headings — warm near-white          */
+  --color-ink-900: #e8e3d8; /* body text                            */
+  --color-ink-700: #b8b0a0; /* secondary text                       */
+  --color-ink-600: #9a9285; /* unselected chips                     */
+  --color-ink-500: #807868; /* captions                             */
+  --color-ink-400: #645e52; /* meta / placeholders                  */
+  --color-ink-300: #4a443a; /* disabled                             */
 
-  --color-paper:    #1f1c16;  /* cards — lighter than page bg         */
-  --color-paper-2:  #16140f;  /* page bg — warm near-black            */
-  --color-concrete: #28241d;  /* wells — lightest surface             */
-  --color-line:     #3a352c;  /* hairlines                            */
+  --color-paper: #1f1c16; /* cards — lighter than page bg         */
+  --color-paper-2: #16140f; /* page bg — warm near-black            */
+  --color-concrete: #28241d; /* wells — lightest surface             */
+  --color-line: #3a352c; /* hairlines                            */
 
-  --color-signal:        #ffb020;  /* hi-vis amber, unchanged          */
+  --color-signal: #ffb020; /* hi-vis amber, unchanged          */
   --color-signal-active: #f0a416;
-  --color-signal-dark:   #ffc14d;  /* amber text lifted for dark bg    */
-  --color-signal-wash:   #2a2110;
+  --color-signal-dark: #ffc14d; /* amber text lifted for dark bg    */
+  --color-signal-wash: #2a2110;
 
-  --color-steel:      #7a9aab;  /* lifted steel for dark              */
+  --color-steel: #7a9aab; /* lifted steel for dark              */
   --color-steel-wash: #1a2530;
 
-  --color-go:        #4cae7a;  /* lifted green                       */
-  --color-go-wash:   #122018;
-  --color-stop:        #e85a3f;  /* lifted red                         */
-  --color-stop-wash:   #2a1410;
+  --color-go: #4cae7a; /* lifted green                       */
+  --color-go-wash: #122018;
+  --color-stop: #e85a3f; /* lifted red                         */
+  --color-stop-wash: #2a1410;
   --color-stop-active: #c1341a;
 
   /* ── Quotation table utility classes ── */
-  .border-line { border-color: var(--color-line); }
-  .hover-bg-signal:active { background-color: color-mix(in srgb, var(--color-signal) 5%, transparent); }
-  .editing-bg { background-color: color-mix(in srgb, var(--color-signal) 10%, transparent); }
-  .best-bg { background-color: color-mix(in srgb, var(--color-go) 10%, transparent); color: var(--color-go); }
-  .stop-bg { background-color: color-mix(in srgb, var(--color-stop) 10%, transparent); color: var(--color-stop); }
-  .signal-bg { background-color: color-mix(in srgb, var(--color-signal) 10%, transparent); color: var(--color-signal-dark); }
-  .paper-2-bg { background-color: color-mix(in srgb, var(--color-paper-2) 50%, transparent); }
+  .border-line {
+    border-color: var(--color-line);
+  }
+  .hover-bg-signal:active {
+    background-color: color-mix(in srgb, var(--color-signal) 5%, transparent);
+  }
+  .editing-bg {
+    background-color: color-mix(in srgb, var(--color-signal) 10%, transparent);
+  }
+  .best-bg {
+    background-color: color-mix(in srgb, var(--color-go) 10%, transparent);
+    color: var(--color-go);
+  }
+  .stop-bg {
+    background-color: color-mix(in srgb, var(--color-stop) 10%, transparent);
+    color: var(--color-stop);
+  }
+  .signal-bg {
+    background-color: color-mix(in srgb, var(--color-signal) 10%, transparent);
+    color: var(--color-signal-dark);
+  }
+  .paper-2-bg {
+    background-color: color-mix(in srgb, var(--color-paper-2) 50%, transparent);
+  }
 }
 
 @layer base {
@@ -370,6 +391,11 @@ input[type="number"] {
     font-family: var(--font-sans);
     font-size: 16px;
     -webkit-text-size-adjust: 100%;
+    /* Zoom the whole platform out one level (90%) at the root. CSS `zoom`
+       reflows layout (unlike transform: scale, which clips + leaves dead
+       space), so every page, panel, and component renders uniformly
+       smaller with correct scrollbars and no broken positioning. */
+    zoom: 0.9;
     /* Apple §15 — let the system font (and Inter) shift optical weight
        with size. Headings get tighter apertures, body stays open. */
     font-optical-sizing: auto;
@@ -393,7 +419,10 @@ input[type="number"] {
     color: var(--color-foreground);
     /* cv11: single-storey 'a'/'l' disambiguation; ss01: alt digits.
        Both make Inter clearer at the sizes this app lives at. */
-    font-feature-settings: "cv11" 1, "ss01" 1, "calt" 1;
+    font-feature-settings:
+      "cv11" 1,
+      "ss01" 1,
+      "calt" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -624,7 +653,9 @@ input[type="number"] {
   overflow-x: hidden;
   /* Allow flex children that are shrink-0 on desktop to shrink on mobile
      so the PageHeader stats don't force horizontal overflow. */
-  & .shrink-0 { flex-shrink: 1; }
+  & .shrink-0 {
+    flex-shrink: 1;
+  }
   /* PageHeader: stack title above stats instead of side-by-side on mobile.
      The header uses flex-wrap justify-between — force it to column so
      the title gets full width, then stats wrap below in their own row. */
@@ -637,88 +668,161 @@ input[type="number"] {
     gap: 0.5rem 0.75rem;
   }
   /* text-micro 10 → 9 */
-  & .text-micro, &.text-micro {
+  & .text-micro,
+  &.text-micro {
     font-size: 9px;
     line-height: 1.3;
   }
   /* text-caption 11 → 9 */
-  & .text-caption, &.text-caption {
+  & .text-caption,
+  &.text-caption {
     font-size: 9px;
     line-height: 1.35;
   }
   /* text-meta 12 → 10 */
-  & .text-meta, &.text-meta {
+  & .text-meta,
+  &.text-meta {
     font-size: 10px;
     line-height: 1.4;
   }
   /* text-body 13 → 11 */
-  & .text-body, &.text-body {
+  & .text-body,
+  &.text-body {
     font-size: 11px;
     line-height: 1.4;
   }
   /* text-label 11 → 9 */
-  & .text-label, &.text-label {
+  & .text-label,
+  &.text-label {
     font-size: 9px;
     line-height: 1.3;
   }
   /* text-section 15 → 11 */
-  & .text-section, &.text-section {
+  & .text-section,
+  &.text-section {
     font-size: 11px;
     line-height: 1.3;
   }
   /* text-title 22 → 13 */
-  & .text-title, &.text-title {
+  & .text-title,
+  &.text-title {
     font-size: 13px;
     line-height: 1.2;
   }
   /* text-display 28 → 15 */
-  & .text-display, &.text-display {
+  & .text-display,
+  &.text-display {
     font-size: 15px;
     line-height: 1.15;
   }
   /* text-figure 20 → 12 */
-  & .text-figure, &.text-figure {
+  & .text-figure,
+  &.text-figure {
     font-size: 12px;
     line-height: 1.15;
   }
   /* text-figure-lg 28 → 14 */
-  & .text-figure-lg, &.text-figure-lg {
+  & .text-figure-lg,
+  &.text-figure-lg {
     font-size: 14px;
     line-height: 1.1;
   }
   /* Arbitrary px sizes used in components → scale down */
-  & [class*="text-[13px]"] { font-size: 10px !important; }
-  & [class*="text-[14px]"] { font-size: 11px !important; }
-  & [class*="text-[15px]"] { font-size: 11px !important; }
-  & [class*="text-[16px]"] { font-size: 11px !important; }
-  & [class*="text-[17px]"] { font-size: 12px !important; }
-  & [class*="text-[18px]"] { font-size: 12px !important; }
-  & [class*="text-[19px]"] { font-size: 12px !important; }
-  & [class*="text-[20px]"] { font-size: 12px !important; }
-  & [class*="text-[22px]"] { font-size: 13px !important; }
+  & [class*="text-[13px]"] {
+    font-size: 10px !important;
+  }
+  & [class*="text-[14px]"] {
+    font-size: 11px !important;
+  }
+  & [class*="text-[15px]"] {
+    font-size: 11px !important;
+  }
+  & [class*="text-[16px]"] {
+    font-size: 11px !important;
+  }
+  & [class*="text-[17px]"] {
+    font-size: 12px !important;
+  }
+  & [class*="text-[18px]"] {
+    font-size: 12px !important;
+  }
+  & [class*="text-[19px]"] {
+    font-size: 12px !important;
+  }
+  & [class*="text-[20px]"] {
+    font-size: 12px !important;
+  }
+  & [class*="text-[22px]"] {
+    font-size: 13px !important;
+  }
   /* Scale down icons slightly */
-  & svg { width: 0.85em; height: 0.85em; }
+  & svg {
+    width: 0.85em;
+    height: 0.85em;
+  }
   /* Tighter padding on cards/borders */
-  & .rounded-lg { border-radius: 0.375rem; }
+  & .rounded-lg {
+    border-radius: 0.375rem;
+  }
   /* Smaller gaps */
-  & .gap-6 { gap: 0.75rem; }
-  & .gap-4 { gap: 0.5rem; }
-  & .gap-x-6 { column-gap: 0.625rem; }
-  & .gap-x-8 { column-gap: 0.75rem; }
-  & .space-y-6 > * + * { margin-top: 0.75rem; }
-  & .space-y-4 > * + * { margin-top: 0.5rem; }
-  & .p-4 { padding: 0.5rem; }
-  & .p-3 { padding: 0.375rem; }
-  & .py-4 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-  & .px-4 { padding-left: 0.5rem; padding-right: 0.5rem; }
-  & .py-3 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+  & .gap-6 {
+    gap: 0.75rem;
+  }
+  & .gap-4 {
+    gap: 0.5rem;
+  }
+  & .gap-x-6 {
+    column-gap: 0.625rem;
+  }
+  & .gap-x-8 {
+    column-gap: 0.75rem;
+  }
+  & .space-y-6 > * + * {
+    margin-top: 0.75rem;
+  }
+  & .space-y-4 > * + * {
+    margin-top: 0.5rem;
+  }
+  & .p-4 {
+    padding: 0.5rem;
+  }
+  & .p-3 {
+    padding: 0.375rem;
+  }
+  & .py-4 {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  & .px-4 {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  & .py-3 {
+    padding-top: 0.375rem;
+    padding-bottom: 0.375rem;
+  }
   /* Tighter DataTable cell padding — px-3 (12px) is too wide at 9-11px text */
-  & table th, & table td { padding-left: 0.375rem; padding-right: 0.375rem; }
-  & table th:first-child, & table td:first-child { padding-left: 0.5rem; }
-  & table th:last-child, & table td:last-child { padding-right: 0.5rem; }
+  & table th,
+  & table td {
+    padding-left: 0.375rem;
+    padding-right: 0.375rem;
+  }
+  & table th:first-child,
+  & table td:first-child {
+    padding-left: 0.5rem;
+  }
+  & table th:last-child,
+  & table td:last-child {
+    padding-right: 0.5rem;
+  }
   /* Tighter row vertical padding */
-  & table td { padding-top: 0.1875rem; padding-bottom: 0.1875rem; }
-  & table th { height: 1.75rem; }
+  & table td {
+    padding-top: 0.1875rem;
+    padding-bottom: 0.1875rem;
+  }
+  & table th {
+    height: 1.75rem;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -731,7 +835,7 @@ input[type="number"] {
 .field-mode {
   /* Increase contrast for sunlight readability */
   --color-muted-foreground: oklch(0.42 0.012 265);
-  --color-faint: oklch(0.50 0.012 265);
+  --color-faint: oklch(0.5 0.012 265);
 }
 
 .field-mode .text-caption,
@@ -765,15 +869,32 @@ input[type="number"] {
   line-height: 1.35;
 }
 /* Override arbitrary px sizes used in mobile components */
-.field-mode [class*="text-[9px]"] { font-size: 13px !important; }
-.field-mode [class*="text-[10px]"] { font-size: 14px !important; }
-.field-mode [class*="text-[11px]"] { font-size: 14px !important; }
-.field-mode [class*="text-[12px]"] { font-size: 16px !important; }
-.field-mode [class*="text-[13px]"] { font-size: 16px !important; }
-.field-mode [class*="text-[14px]"] { font-size: 17px !important; }
-.field-mode [class*="text-[15px]"] { font-size: 18px !important; }
+.field-mode [class*="text-[9px]"] {
+  font-size: 13px !important;
+}
+.field-mode [class*="text-[10px]"] {
+  font-size: 14px !important;
+}
+.field-mode [class*="text-[11px]"] {
+  font-size: 14px !important;
+}
+.field-mode [class*="text-[12px]"] {
+  font-size: 16px !important;
+}
+.field-mode [class*="text-[13px]"] {
+  font-size: 16px !important;
+}
+.field-mode [class*="text-[14px]"] {
+  font-size: 17px !important;
+}
+.field-mode [class*="text-[15px]"] {
+  font-size: 18px !important;
+}
 /* Restore icon sizes (mobile-scale shrinks them) */
-.field-mode svg { width: 1em; height: 1em; }
+.field-mode svg {
+  width: 1em;
+  height: 1em;
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    SURFACE & INTERACTION UTILITIES
@@ -802,8 +923,11 @@ input[type="number"] {
 
 /* ── Interactive card — lifts on hover, never shifts layout ─────── */
 @utility card-interactive {
-  transition: border-color 0.15s ease, box-shadow 0.15s ease,
-    background-color 0.15s ease, transform 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease,
+    transform 0.15s ease;
   &:hover {
     border-color: var(--color-border-strong);
     box-shadow: var(--shadow-floating);
@@ -828,26 +952,62 @@ input[type="number"] {
 }
 
 /* ── World accent rules — 2px inset rule, the wayfinding mark ───── */
-@utility world-today { box-shadow: inset 2px 0 0 var(--color-world-today); }
-@utility world-inventory { box-shadow: inset 2px 0 0 var(--color-world-inventory); }
-@utility world-hr { box-shadow: inset 2px 0 0 var(--color-world-hr); }
-@utility world-finance { box-shadow: inset 2px 0 0 var(--color-world-finance); }
-@utility world-admin { box-shadow: inset 2px 0 0 var(--color-world-admin); }
-@utility world-insights { box-shadow: inset 2px 0 0 var(--color-world-insights); }
-@utility world-materials { box-shadow: inset 2px 0 0 var(--color-world-materials); }
-@utility world-property { box-shadow: inset 2px 0 0 var(--color-world-property); }
-@utility world-people { box-shadow: inset 2px 0 0 var(--color-world-people); }
-@utility world-money { box-shadow: inset 2px 0 0 var(--color-world-money); }
-@utility world-setup { box-shadow: inset 2px 0 0 var(--color-world-setup); }
+@utility world-today {
+  box-shadow: inset 2px 0 0 var(--color-world-today);
+}
+@utility world-inventory {
+  box-shadow: inset 2px 0 0 var(--color-world-inventory);
+}
+@utility world-hr {
+  box-shadow: inset 2px 0 0 var(--color-world-hr);
+}
+@utility world-finance {
+  box-shadow: inset 2px 0 0 var(--color-world-finance);
+}
+@utility world-admin {
+  box-shadow: inset 2px 0 0 var(--color-world-admin);
+}
+@utility world-insights {
+  box-shadow: inset 2px 0 0 var(--color-world-insights);
+}
+@utility world-materials {
+  box-shadow: inset 2px 0 0 var(--color-world-materials);
+}
+@utility world-property {
+  box-shadow: inset 2px 0 0 var(--color-world-property);
+}
+@utility world-people {
+  box-shadow: inset 2px 0 0 var(--color-world-people);
+}
+@utility world-money {
+  box-shadow: inset 2px 0 0 var(--color-world-money);
+}
+@utility world-setup {
+  box-shadow: inset 2px 0 0 var(--color-world-setup);
+}
 
 /* ── Legacy stage accent borders (kept for older components) ───── */
-@utility stage-procure { border-left: 2px solid var(--color-stage-procure); }
-@utility stage-build { border-left: 2px solid var(--color-stage-build); }
-@utility stage-workforce { border-left: 2px solid var(--color-stage-workforce); }
-@utility stage-sell { border-left: 2px solid var(--color-stage-sell); }
-@utility stage-account { border-left: 2px solid var(--color-stage-account); }
-@utility stage-manage { border-left: 2px solid var(--color-stage-manage); }
-@utility stage-system { border-left: 2px solid var(--color-stage-system); }
+@utility stage-procure {
+  border-left: 2px solid var(--color-stage-procure);
+}
+@utility stage-build {
+  border-left: 2px solid var(--color-stage-build);
+}
+@utility stage-workforce {
+  border-left: 2px solid var(--color-stage-workforce);
+}
+@utility stage-sell {
+  border-left: 2px solid var(--color-stage-sell);
+}
+@utility stage-account {
+  border-left: 2px solid var(--color-stage-account);
+}
+@utility stage-manage {
+  border-left: 2px solid var(--color-stage-manage);
+}
+@utility stage-system {
+  border-left: 2px solid var(--color-stage-system);
+}
 
 /* ── Sunken well — inset detail panels + empty states ───────────── */
 @utility well {
@@ -887,10 +1047,11 @@ input[type="number"] {
 /* ── Press feedback — snappy tap animation for mobile touch targets.
    Uses --ease-drawer (iOS-like curve) for that physical, responsive feel. */
 @utility press {
-  transition: transform 140ms var(--ease-drawer),
-              color 140ms var(--ease-drawer),
-              background-color 140ms var(--ease-drawer),
-              border-color 140ms var(--ease-drawer);
+  transition:
+    transform 140ms var(--ease-drawer),
+    color 140ms var(--ease-drawer),
+    background-color 140ms var(--ease-drawer),
+    border-color 140ms var(--ease-drawer);
 }
 .press:active {
   transform: scale(0.97);
@@ -901,8 +1062,12 @@ input[type="number"] {
   animation: fade-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* ── Stagger — list items cascade in on load. Decorative: 40ms delay
@@ -913,27 +1078,57 @@ input[type="number"] {
   animation: stagger-in 280ms var(--ease-out) both;
 }
 @keyframes stagger-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 /* Apply per-child delays inline via style={{ animationDelay: `${i * 40}ms` }}
    or via nth-child utilities below for fixed-length lists. */
-.stagger-in:nth-child(1)  { animation-delay: 0ms; }
-.stagger-in:nth-child(2)  { animation-delay: 40ms; }
-.stagger-in:nth-child(3)  { animation-delay: 80ms; }
-.stagger-in:nth-child(4)  { animation-delay: 120ms; }
-.stagger-in:nth-child(5)  { animation-delay: 160ms; }
-.stagger-in:nth-child(6)  { animation-delay: 200ms; }
-.stagger-in:nth-child(7)  { animation-delay: 240ms; }
-.stagger-in:nth-child(8)  { animation-delay: 280ms; }
+.stagger-in:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stagger-in:nth-child(2) {
+  animation-delay: 40ms;
+}
+.stagger-in:nth-child(3) {
+  animation-delay: 80ms;
+}
+.stagger-in:nth-child(4) {
+  animation-delay: 120ms;
+}
+.stagger-in:nth-child(5) {
+  animation-delay: 160ms;
+}
+.stagger-in:nth-child(6) {
+  animation-delay: 200ms;
+}
+.stagger-in:nth-child(7) {
+  animation-delay: 240ms;
+}
+.stagger-in:nth-child(8) {
+  animation-delay: 280ms;
+}
 
 /* ── Scroll-edge-fade — Apple §12: instead of a hard 1px border under
    a sticky header, fade a gradient mask where content meets floating
    chrome. Only where floating UI actually overlaps content. Apply to
    the bottom edge of a sticky header. ── */
 @utility edge-fade-b {
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 0.5rem), transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 0.5rem), transparent 100%);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 0.5rem),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 0.5rem),
+    transparent 100%
+  );
 }
 
 /* ── Hide scrollbar on horizontal chip rows. ── */
@@ -947,15 +1142,27 @@ input[type="number"] {
 
 /* ── Side panel — slides in from the left edge. ── */
 @keyframes panel-in {
-  from { transform: translateX(-100%); }
-  to   { transform: translateX(0); }
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 @keyframes panel-out {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-100%); }
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
 }
-.panel-in  { animation: panel-in  220ms cubic-bezier(0.16, 1, 0.3, 1); }
-.panel-out { animation: panel-out 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.panel-in {
+  animation: panel-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.panel-out {
+  animation: panel-out 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
 
 /* ── Skeleton — loading is a shape, not a spinner ─────────────────
    Gradient + sweep only. Border-radius is intentionally NOT set here so
@@ -973,8 +1180,12 @@ input[type="number"] {
 }
 
 @keyframes skeleton-sweep {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* ── Keyboard hint — the ⌘K style chip ──────────────────────────── */
@@ -1026,32 +1237,63 @@ input[type="number"] {
 }
 
 /* ── React Flow ── */
-.react-flow__resize-control.handle { pointer-events: all; }
-.react-flow__resize-control.line { pointer-events: all; }
-.react-flow-resize-handle { pointer-events: all !important; }
-.react-flow-resize-line { pointer-events: all !important; }
+.react-flow__resize-control.handle {
+  pointer-events: all;
+}
+.react-flow__resize-control.line {
+  pointer-events: all;
+}
+.react-flow-resize-handle {
+  pointer-events: all !important;
+}
+.react-flow-resize-line {
+  pointer-events: all !important;
+}
 
 /* ── Node pulse animations ── */
 @keyframes node-pulse-active {
-  0%, 100% { box-shadow: 0 0 0 0 oklch(0.55 0.14 150 / 0.4); }
-  50% { box-shadow: 0 0 0 4px oklch(0.55 0.14 150 / 0); }
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 oklch(0.55 0.14 150 / 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px oklch(0.55 0.14 150 / 0);
+  }
 }
 @keyframes node-pulse-assumption {
-  0%, 100% { box-shadow: 0 0 0 0 oklch(0.68 0.15 65 / 0.35); }
-  50% { box-shadow: 0 0 0 4px oklch(0.68 0.15 65 / 0); }
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 oklch(0.68 0.15 65 / 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 4px oklch(0.68 0.15 65 / 0);
+  }
 }
 @keyframes node-pulse-overdue {
-  0%, 100% { box-shadow: 0 0 0 0 oklch(0.55 0.20 25 / 0.4); }
-  50% { box-shadow: 0 0 0 4px oklch(0.55 0.20 25 / 0); }
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 oklch(0.55 0.2 25 / 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px oklch(0.55 0.2 25 / 0);
+  }
 }
 
-.node-kind-active { animation: node-pulse-active 2s ease-in-out infinite; }
-.node-kind-assumption { animation: node-pulse-assumption 2.5s ease-in-out infinite; }
-.node-kind-overdue { animation: node-pulse-overdue 1.5s ease-in-out infinite; }
+.node-kind-active {
+  animation: node-pulse-active 2s ease-in-out infinite;
+}
+.node-kind-assumption {
+  animation: node-pulse-assumption 2.5s ease-in-out infinite;
+}
+.node-kind-overdue {
+  animation: node-pulse-overdue 1.5s ease-in-out infinite;
+}
 
 /* ── Pipeline flow animation ── */
 @keyframes flow-dash {
-  to { stroke-dashoffset: -12; }
+  to {
+    stroke-dashoffset: -12;
+  }
 }
 .flow-line {
   stroke-dasharray: 4 4;
@@ -1063,18 +1305,38 @@ input[type="number"] {
    when both endpoints are selected, showing flow direction. The track
    fills progressively based on selection state. */
 @keyframes route-package-travel {
-  0%   { left: 0%;   opacity: 0; }
-  8%   { opacity: 1; }
-  92%  { opacity: 1; }
-  100% { left: 100%; opacity: 0; }
+  0% {
+    left: 0%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
 }
 @keyframes route-pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-signal) 50%, transparent); }
-  50%      { box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-signal) 0%, transparent); }
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-signal) 50%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px
+      color-mix(in srgb, var(--color-signal) 0%, transparent);
+  }
 }
 @keyframes route-node-fill {
-  from { transform: scale(0.6); }
-  to   { transform: scale(1); }
+  from {
+    transform: scale(0.6);
+  }
+  to {
+    transform: scale(1);
+  }
 }
 .route-package {
   animation: route-package-travel 2.4s var(--ease-out) infinite;
@@ -1091,12 +1353,20 @@ input[type="number"] {
    view, the chip expands from just an "i" icon to "i Hold for list".
    Uses width + opacity transition for smooth horizontal expansion. */
 @keyframes info-chip-expand {
-  from { width: 1.25rem; }
-  to   { width: 5.5rem; }
+  from {
+    width: 1.25rem;
+  }
+  to {
+    width: 5.5rem;
+  }
 }
 @keyframes info-chip-collapse {
-  from { width: 5.5rem; }
-  to   { width: 1.25rem; }
+  from {
+    width: 5.5rem;
+  }
+  to {
+    width: 1.25rem;
+  }
 }
 .info-chip {
   animation: info-chip-expand 0.4s var(--ease-out) 0.6s forwards;
@@ -1110,83 +1380,167 @@ input[type="number"] {
 
 /* ── Slide-over drawer ── */
 @keyframes drawer-slide-in {
-  from { transform: translateX(100%); opacity: 0.6; }
-  to { transform: translateX(0); opacity: 1; }
+  from {
+    transform: translateX(100%);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 @keyframes drawer-backdrop-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
-.drawer-panel { animation: drawer-slide-in 0.28s cubic-bezier(0.32, 0.72, 0, 1); }
-.drawer-backdrop { animation: drawer-backdrop-in 0.2s ease-out; }
+.drawer-panel {
+  animation: drawer-slide-in 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.drawer-backdrop {
+  animation: drawer-backdrop-in 0.2s ease-out;
+}
 
 /* ── Overlay / popover entrances — emil-design-eng: use --ease-out for
    entrances (starts fast = responsive). Origin-aware scale for popovers. ── */
 @keyframes overlay-in {
-  from { opacity: 0; transform: translateY(4px) scale(0.985); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 @keyframes sheet-up {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
 }
-.overlay-in { animation: overlay-in 0.16s var(--ease-out); }
-.sheet-up { animation: sheet-up 0.26s var(--ease-drawer); }
+.overlay-in {
+  animation: overlay-in 0.16s var(--ease-out);
+}
+.sheet-up {
+  animation: sheet-up 0.26s var(--ease-drawer);
+}
 
 /* ── Bottom sheet in/out + overlay out.
    Apple §12 + emil-design-eng: sheets materialize with blur + scale
    together, not just opacity fade. Exit is faster than enter (220ms vs
    260ms) for snappy dismissal. Uses --ease-drawer (iOS-like curve). ── */
 @keyframes overlay-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 @keyframes sheet-in {
-  from { transform: translateY(100%); filter: blur(0); }
-  to   { transform: translateY(0);   filter: blur(0); }
+  from {
+    transform: translateY(100%);
+    filter: blur(0);
+  }
+  to {
+    transform: translateY(0);
+    filter: blur(0);
+  }
 }
 @keyframes sheet-out {
-  from { transform: translateY(0);   filter: blur(0); }
-  to   { transform: translateY(100%); filter: blur(0); }
+  from {
+    transform: translateY(0);
+    filter: blur(0);
+  }
+  to {
+    transform: translateY(100%);
+    filter: blur(0);
+  }
 }
-.overlay-out { animation: overlay-out 0.2s ease-in forwards; }
-.sheet-in { animation: sheet-in 0.26s var(--ease-drawer); }
-.sheet-out { animation: sheet-out 0.22s var(--ease-drawer) forwards; }
+.overlay-out {
+  animation: overlay-out 0.2s ease-in forwards;
+}
+.sheet-in {
+  animation: sheet-in 0.26s var(--ease-drawer);
+}
+.sheet-out {
+  animation: sheet-out 0.22s var(--ease-drawer) forwards;
+}
 
 /* ── Progress ring (conic-gradient) ── */
 @keyframes progress-fill {
-  from { stroke-dashoffset: var(--circ); }
-  to { stroke-dashoffset: var(--offset); }
+  from {
+    stroke-dashoffset: var(--circ);
+  }
+  to {
+    stroke-dashoffset: var(--offset);
+  }
 }
 
 /* ── Badge pulse — draws the eye to counts that need attention. ── */
 @keyframes badge-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.15); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
 }
-.badge-pulse { animation: badge-pulse 1.8s ease-in-out infinite; }
+.badge-pulse {
+  animation: badge-pulse 1.8s ease-in-out infinite;
+}
 
 /* ── Card pulse — gentle border glow for cards that need attention. ── */
 @keyframes card-pulse {
-  0%, 100% { border-color: var(--color-stop); }
-  50% { border-color: color-mix(in srgb, var(--color-stop) 50%, var(--color-line)); }
+  0%,
+  100% {
+    border-color: var(--color-stop);
+  }
+  50% {
+    border-color: color-mix(in srgb, var(--color-stop) 50%, var(--color-line));
+  }
 }
-.card-pulse { animation: card-pulse 2s ease-in-out infinite; }
+.card-pulse {
+  animation: card-pulse 2s ease-in-out infinite;
+}
 
 /* ── Hold hint — gentle breathing that signals "press & hold" affordance
    on mode-toggle buttons without changing their layout. The dot scales
    softly (like a held breath) while the label fades in/out. Vestibular-
    safe: only opacity + a tiny 1px scale on a 4px dot. ── */
 @keyframes hold-breathe {
-  0%, 100% { opacity: 0.35; transform: scale(0.85); }
-  50%      { opacity: 0.9;  transform: scale(1.1); }
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.1);
+  }
 }
 @keyframes hold-label-fade {
-  0%, 100% { opacity: 0.35; }
-  50%      { opacity: 0.75; }
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.75;
+  }
 }
-.hold-dot    { animation: hold-breathe 2.2s ease-in-out infinite; }
-.hold-label  { animation: hold-label-fade 2.2s ease-in-out infinite; }
+.hold-dot {
+  animation: hold-breathe 2.2s ease-in-out infinite;
+}
+.hold-label {
+  animation: hold-label-fade 2.2s ease-in-out infinite;
+}
 
 /* ── Respect the user's motion preference ──
    Apple §14: reduced motion ≠ no feedback. It means a gentler,
@@ -1210,7 +1564,8 @@ input[type="number"] {
   .sheet-in,
   .sheet-out {
     animation-duration: 200ms !important;
-    transition-property: opacity, color, background-color, border-color !important;
+    transition-property:
+      opacity, color, background-color, border-color !important;
     transition-duration: 200ms !important;
     transform: none !important;
   }
@@ -1384,7 +1739,9 @@ input[type="number"] {
     display: block;
   }
 }
-.divide-line > * + * { border-color: var(--color-line); }
+.divide-line > * + * {
+  border-color: var(--color-line);
+}
 
 /* ── Company switch transition ──────────────────────────────────
    When the user switches company, the content area dims + blurs
@@ -1396,7 +1753,9 @@ input[type="number"] {
    The transition is fast (150ms) so it feels snappy, not sluggish.
    ──────────────────────────────────────────────────────────────── */
 .nav-main > main {
-  transition: opacity 150ms ease, filter 150ms ease;
+  transition:
+    opacity 150ms ease,
+    filter 150ms ease;
 }
 [data-switching="true"] .nav-main > main {
   opacity: 0.45;
@@ -1407,7 +1766,9 @@ input[type="number"] {
 
 /* Mobile content dim during switch */
 .m-shell-content {
-  transition: opacity 150ms ease, filter 150ms ease;
+  transition:
+    opacity 150ms ease,
+    filter 150ms ease;
 }
 .m-shell-content[data-switching="true"] {
   opacity: 0.45;

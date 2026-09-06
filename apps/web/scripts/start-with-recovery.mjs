@@ -55,7 +55,7 @@ const SHUTDOWN_GRACE_MS = 30000; // 30s for in-flight requests
 const HEALTH_CHECK_INTERVAL_MS = 30000; // 30s
 const HEALTH_CHECK_MAX_FAILURES = 3; // restart after 3 consecutive failures
 const HEALTH_CHECK_TIMEOUT_MS = 10000; // 10s per check
-const STARTUP_GRACE_PERIOD_MS = 60000; // don't health-check for first 60s
+const STARTUP_GRACE_PERIOD_MS = 90000; // 90s — Render free tier cold starts need longer
 const MEMORY_CHECK_INTERVAL_MS = 15000; // 15s — fast enough to catch OOM
 // Auto-detected from available RAM — see auto-memory.mjs.
 // On 512MB: threshold is 80% of 400MB heap = 320MB.
@@ -224,7 +224,11 @@ async function healthCheck(port) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS);
   try {
-    const res = await fetch(`http://localhost:${port}/api/health`, {
+    // Use deep=1 for the internal health check — this also pings the DB.
+    // Render's external health check (render.yaml healthCheckPath) uses
+    // the default liveness-only endpoint (no DB query) so cold-start DB
+    // delays don't trigger Render restarts.
+    const res = await fetch(`http://localhost:${port}/api/health?deep=1`, {
       signal: controller.signal,
     });
     return res.ok;
@@ -237,7 +241,9 @@ async function healthCheck(port) {
 
 function startHealthChecker(port) {
   if (healthCheckTimer) clearInterval(healthCheckTimer);
-    if (memoryCheckTimer) clearInterval(memoryCheckTimer);
+  // NOTE: do NOT clear memoryCheckTimer here — it's managed by
+  // startMemoryMonitor(). Clearing it here was a bug that caused the
+  // memory monitor to silently stop after the first health-check restart.
 
   // Wait for the startup grace period before beginning checks.
   setTimeout(() => {
@@ -273,8 +279,11 @@ function startServer() {
   consecutiveHealthFailures = 0;
 
   const port = getPort();
-  const cmd = process.platform === "win32" ? "npx.cmd" : "npx";
-  const args = ["next", "start", "-p", port];
+  // Use the direct node path to next's CLI instead of `npx next start`.
+  // npx adds 200-500ms of package resolution overhead on every cold start.
+  const nextBin = join(WEB_DIR, "node_modules/.bin/next");
+  const cmd = process.platform === "win32" ? "npx.cmd" : nextBin;
+  const args = process.platform === "win32" ? ["next", "start", "-p", port] : ["start", "-p", port];
 
   // Auto-set NODE_OPTIONS with the right heap size if not already set.
   // This lets the app adapt when you upgrade your Render plan — the
@@ -367,7 +376,7 @@ function shutdown(signal) {
   log(`received ${signal} — graceful shutdown (max ${SHUTDOWN_GRACE_MS / 1000}s)`);
 
   if (healthCheckTimer) clearInterval(healthCheckTimer);
-    if (memoryCheckTimer) clearInterval(memoryCheckTimer);
+  if (memoryCheckTimer) clearInterval(memoryCheckTimer);
 
   if (childProcess?.pid && childProcess.exitCode === null) {
     // Send SIGTERM to next start — it stops accepting new connections

@@ -20,10 +20,12 @@ export function MobileNewCategoryDialog({
   open,
   onClose,
   onCreated,
+  nested,
 }: {
   open: boolean;
   onClose: () => void;
   onCreated: (cat: { id: string; name: string; unit: string }) => void;
+  nested?: boolean;
 }) {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -84,7 +86,7 @@ export function MobileNewCategoryDialog({
   }
 
   return (
-    <MobileDialog open={open} onClose={onClose} title="New Category">
+    <MobileDialog open={open} onClose={onClose} title="New Category" nested={nested}>
       <p
         className="text-m-caption mb-4"
         style={{ color: "var(--color-ink-500)" }}

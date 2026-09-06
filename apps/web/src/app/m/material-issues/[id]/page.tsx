@@ -8,6 +8,7 @@ import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mob
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { resolveNextAction } from "@/lib/flow-map";
 import { MobileMaterialIssueDetailClient } from "./MobileMaterialIssueDetailClient";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export default function MobileMaterialIssueDetailPage({
   params,
@@ -114,7 +115,19 @@ async function MobileMaterialIssueDetailContent({
 
   const nextAction = resolveNextAction("materialIssue", issue.status, role);
 
+  const canActions: string[] = [];
+  if (canIssue) canActions.push(PERM.STOCK_ISSUE);
+
   return (
+    <PageContextProvider value={{
+      entityType: "materialIssue",
+      flowId: "materialIssue",
+      status: issue.status,
+      label: issue.issueNumber ?? undefined,
+      subtitle: issue.project?.name,
+      recordId: issue.id,
+      canActions,
+    }}>
     <>
       {/* ── Next action — the one thing to do, doable on this page ── */}
       {nextAction ? (
@@ -132,5 +145,6 @@ async function MobileMaterialIssueDetailContent({
       </div>
       <MobileMaterialIssueDetailClient issue={data} canCancel={canIssue && issue.status === "COMPLETED"} canExecute={canIssue && issue.status === "PENDING"} />
     </>
+    </PageContextProvider>
   );
 }

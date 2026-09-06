@@ -95,8 +95,8 @@ async function MobileReportsContent() {
         <MobileStatCard label="Sales Revenue" value={formatCurrencyCompact(salesRevenue)} icon={ShoppingCart} tone="go" href="/m/sales?tab=collections" />
         <MobileStatCard label="Sales Booked" value={formatCurrencyCompact(salesBooked)} icon={ShoppingCart} href="/m/sales?tab=collections" />
         <MobileStatCard label="Purchase Spend" value={formatCurrencyCompact(purchaseSpend)} icon={Truck} href="/m/procurement" />
-        <MobileStatCard label="Project Costs" value={formatCurrencyCompact(totalProjectCosts)} icon={Building2} href="/m/books/finance" />
-        <MobileStatCard label="Expenses" value={formatCurrencyCompact(totalExpenses)} icon={Wallet} href="/m/books/finance" />
+        <MobileStatCard label="Project Costs" value={formatCurrencyCompact(totalProjectCosts)} icon={Building2} href="/m/accounts?tab=expenses" />
+        <MobileStatCard label="Expenses" value={formatCurrencyCompact(totalExpenses)} icon={Wallet} href="/m/accounts?tab=expenses" />
       </div>
 
       <MobileSectionTitle>Revenue</MobileSectionTitle>

@@ -352,7 +352,7 @@ export function MobileWbsDeleteConfirm({
     hapticOnSuccess: 30,
     onSuccess: () => {
       onClose();
-      router.push("/m/wbs");
+      router.push("/m/construction?tab=wbs");
       router.refresh();
     },
   });

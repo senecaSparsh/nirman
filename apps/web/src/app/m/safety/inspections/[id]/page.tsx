@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import { MobileInspectionDetailClient } from "./MobileInspectionDetailClient";
 
 export default async function MobileInspectionDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,5 +42,15 @@ async function MobileInspectionDetailContent({ id }: { id: string }) {
     conductedDate: insp.conductedDate?.toISOString() ?? null, conductedByName: insp.inspector?.name ?? null,
   };
 
-  return <MobileInspectionDetailClient inspection={serialized} canManage={canManage} />;
+  return (
+    <PageContextProvider value={{
+      entityType: "inspection",
+      status: insp.status,
+      label: insp.inspectionNumber,
+      subtitle: insp.project.name,
+      recordId: insp.id,
+    }}>
+      <MobileInspectionDetailClient inspection={serialized} canManage={canManage} />
+    </PageContextProvider>
+  );
 }

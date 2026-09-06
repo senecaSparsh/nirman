@@ -335,35 +335,32 @@ export function MobileNewMaterialForm({
           <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Classification</p>
         {/* Category + Unit (side by side) */}
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <div>
-            <MobileSelectWithCreate
-              label="Category"
-              required
-              value={categoryId}
-              onChange={(v) => {
-                setCategoryId(v);
-                haptic(10);
-              }}
-              options={categories.map((c) => ({ value: c.id, label: c.name }))}
-              placeholder="Select…"
-            />
-          </div>
-          <div className="pl-2">
-            <EnumSelect
-              label="Unit"
-              required
-              value={unit}
-              onChange={(v) => setUnit(v)}
-              placeholder="Select…"
-              options={[
-                ...COMMON_UNITS.map((u) => ({ value: u, label: u })),
-                // Allow custom unit if the category default isn't in the common list
-                ...(unit && !COMMON_UNITS.includes(unit as (typeof COMMON_UNITS)[number])
-                  ? [{ value: unit, label: unit }]
-                  : []),
-              ]}
-            />
-          </div>
+          <MobileSelectWithCreate
+            label="Category"
+            required
+            value={categoryId}
+            onChange={(v) => {
+              setCategoryId(v);
+              haptic(10);
+            }}
+            options={categories.map((c) => ({ value: c.id, label: c.name }))}
+            placeholder="Select…"
+            stacked
+          />
+          <EnumSelect
+            label="Unit"
+            required
+            value={unit}
+            onChange={(v) => setUnit(v)}
+            placeholder="Select…"
+            options={[
+              ...COMMON_UNITS.map((u) => ({ value: u, label: u })),
+              // Allow custom unit if the category default isn't in the common list
+              ...(unit && !COMMON_UNITS.includes(unit as (typeof COMMON_UNITS)[number])
+                ? [{ value: unit, label: unit }]
+                : []),
+            ]}
+          />
         </div>
         </div>
 

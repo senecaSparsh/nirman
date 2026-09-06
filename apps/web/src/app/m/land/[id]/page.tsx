@@ -7,6 +7,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { MobileLandDetailClient } from "./MobileLandDetailClient";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 /**
  * /m/land/[id] — mobile land purchase detail. Shows the purchase record,
@@ -327,6 +328,13 @@ async function MobileLandDetailContent({ params }: { params: Promise<{ id: strin
   };
 
   return (
+    <PageContextProvider value={{
+      entityType: "landPurchase",
+      status: purchase.purchaseStage,
+      label: purchase.sellerName ?? "Land",
+      subtitle: purchase.project?.name ?? undefined,
+      recordId: purchase.id,
+    }}>
     <>
       <RecordRecentItem type="land" id={data.id} label={data.sellerName ?? "Land"} href={`/m/land/${data.id}`} />
       <MobileLandDetailClient
@@ -338,5 +346,6 @@ async function MobileLandDetailContent({ params }: { params: Promise<{ id: strin
         customers={customers.map((c) => ({ id: c.id, name: c.name }))}
       />
     </>
+    </PageContextProvider>
   );
 }

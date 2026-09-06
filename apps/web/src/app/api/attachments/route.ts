@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma, Prisma } from "@nirman/db";
-import { apiHandler, json, getCompany, requireUser } from "@/lib/server";
+import { logAction } from "@nirman/services";
+import { apiHandler, json, getCompany, requireUser, requirePermission, getCurrentUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { requirePermission } from "@/lib/server";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
 /**
@@ -70,6 +70,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // Most users can attach documents — use a broad permission
   await requirePermission(PERM.ATTACHMENT_MANAGE);
   const company = await getCompany();
+  const currentUser = await getCurrentUser();
+  const userId = currentUser?.id;
   const body = await req.json();
 
   const { entityType, entityId, uploadId, category, label } = body;
@@ -112,10 +114,35 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // Revalidate pages that commonly show attachments
   revalidatePath("/land");
   revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
   revalidatePath("/projects");
   revalidatePath("/m/projects");
+    revalidatePath("/m/real-estate?tab=projects");
   revalidatePath("/sales");
   revalidatePath("/m/sales");
+
+  // Audit-log the attachment creation
+  if (userId) {
+    await logAction(
+      prisma,
+      {
+        companyId: company.id,
+        userId,
+        action: "ATTACHMENT_ADDED",
+        entityType,
+        entityId,
+        after: {
+          attachmentId: attachment.id,
+          uploadId,
+          fileName: upload.originalName,
+          category: category ?? "other",
+          label: label ?? null,
+        },
+      },
+    ).catch(() => {
+      // Audit logging is best-effort
+    });
+  }
 
   return json({
     id: attachment.id,

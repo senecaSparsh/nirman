@@ -5,6 +5,7 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { MobileRentalDetailClient } from "./MobileRentalDetailClient";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 /**
  * /m/rentals/[id] — tenancy detail.
@@ -143,10 +144,18 @@ async function MobileRentalDetailContent({
   };
 
   return (
+    <PageContextProvider value={{
+      entityType: "rental",
+      status: tenancy.status,
+      label: tenancy.tenantName,
+      subtitle: tenancy.project?.name ?? undefined,
+      recordId: tenancy.id,
+    }}>
     <MobileRentalDetailClient
       data={data}
       canManage={canManage}
       canSell={canSell}
     />
+    </PageContextProvider>
   );
 }

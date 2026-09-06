@@ -114,7 +114,7 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
         title="No available units"
         description="Units with status &quot;Available&quot; can be listed on portals"
         action={
-          <MobileCta href="/m/units" icon={Plus} variant="primary">
+          <MobileCta href="/m/real-estate?tab=units" icon={Plus} variant="primary">
             Go to Built Units
           </MobileCta>
         }

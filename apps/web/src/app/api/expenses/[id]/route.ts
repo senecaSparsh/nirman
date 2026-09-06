@@ -114,6 +114,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
     revalidatePath("/expenses");
     revalidatePath("/m/expenses");
+    revalidatePath("/m/accounts?tab=expenses");
     revalidatePath("/approvals");
     return json({ ok: true, status: "PENDING" });
   }
@@ -128,6 +129,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
     revalidatePath("/expenses");
     revalidatePath("/m/expenses");
+    revalidatePath("/m/accounts?tab=expenses");
     revalidatePath("/approvals");
     revalidatePath("/finance");
     revalidatePath("/gl");
@@ -147,6 +149,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
     revalidatePath("/expenses");
     revalidatePath("/m/expenses");
+    revalidatePath("/m/accounts?tab=expenses");
     revalidatePath("/approvals");
     return json({ ok: true, status: "REJECTED" });
   }
@@ -205,6 +208,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   }
   revalidatePath("/expenses");
   revalidatePath("/m/expenses");
+    revalidatePath("/m/accounts?tab=expenses");
   return json({ ok: true, id });
 });
 
@@ -220,6 +224,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   }
   revalidatePath("/expenses");
   revalidatePath("/m/expenses");
+    revalidatePath("/m/accounts?tab=expenses");
   revalidatePath("/approvals");
   revalidatePath("/finance");
   return json({ ok: true });

@@ -186,7 +186,7 @@ export function HomeTree({ userName }: { userName: string | null }) {
         iconBg: "#b91c1c",
         name: "Payments overdue",
         sub: formatCurrencyCompact(briefing.paymentsDue[0]?.amount ?? 0),
-        href: "/m/books/finance",
+        href: "/m/accounts?tab=payments",
         count: briefing.paymentsDue.length,
       });
     }

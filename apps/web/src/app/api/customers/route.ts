@@ -52,6 +52,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   revalidatePath("/sales");
   revalidatePath("/m/sales");
   revalidatePath("/m/customers");
+    revalidatePath("/m/real-estate?tab=customers");
   return json(created, { status: 201 });
 });
 
@@ -105,5 +106,6 @@ export const PUT = apiHandler(async (req: NextRequest) => {
   revalidatePath("/sales");
   revalidatePath("/m/sales");
   revalidatePath("/m/customers");
+    revalidatePath("/m/real-estate?tab=customers");
   return json(results);
 });

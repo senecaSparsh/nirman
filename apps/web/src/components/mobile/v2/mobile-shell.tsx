@@ -13,6 +13,7 @@ import {
   WifiOff,
   Wifi,
   MoreVertical,
+  Search,
 } from "lucide-react";
 import { useSession, signOut as authSignOut } from "@/lib/auth-client";
 import { CommandPalette } from "@/components/command-palette";
@@ -22,14 +23,12 @@ import { NavSheet } from "@/components/mobile/v2/nav-sheet";
 import { VoiceAgentButton } from "@/components/mobile/v2/voice-agent-button";
 import { MobileGlobalSearch } from "@/components/mobile/v2/mobile-global-search";
 import { useCompanySwitch } from "@/lib/use-company-switch";
+import { useRecentPages } from "@/lib/use-nav-preferences";
+import { usePageContext } from "@/components/mobile/v2/page-context";
+import { upHref as manifestUpHref, activeTabFor as manifestActiveTabFor, badgeEndpointsFor as manifestBadgeEndpointsFor, titleFor as manifestTitleFor, matchRoute as manifestMatchRoute, type NavContext } from "@/lib/route-manifest";
 import {
-  MOBILE_TABS,
   tabsForRole,
-  isModuleActive,
-  goBackFallback,
-  moduleFromPath,
   roleToPersona,
-  ALL_BADGE_TABS,
   type ModuleTab,
   type Persona,
 } from "@/lib/mobile-nav-v2";
@@ -58,6 +57,7 @@ interface CompanyInfo {
   name: string;
   role: string;
   parentCompanyId: string | null;
+  permissions: string[];
 }
 
 type CompanyOption = {
@@ -77,6 +77,7 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
     name: "Nirman",
     role: "PROJECT_MANAGER",
     parentCompanyId: null,
+    permissions: [],
   });
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [companySwitcherOpen, setCompanySwitcherOpen] = useState(false);
@@ -136,6 +137,7 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
           role: me?.role ?? prev.role,
           name: company?.name ?? prev.name,
           parentCompanyId: company?.parentCompanyId ?? null,
+          permissions: Array.isArray(me?.permissions) ? me.permissions : prev.permissions,
         }));
       }
       if (Array.isArray(company?.companies)) setCompanies(company.companies);
@@ -162,17 +164,25 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
   // "nirman-company-switched" event after a successful switch. We also
   // re-fetch badge counts because pending approvals/requisitions/etc.
   // are scoped to the active company.
+  // ── D9 fix: only fetch badges for the current persona's tabs ──
+  // The old code fetched ALL_BADGE_TABS (every badge for every persona)
+  // on every shell mount. Now we use the manifest's badgeEndpointsFor
+  // which returns only the badges for the current user's tab set.
+  const persona = roleToPersona(companyInfo.role);
   const refreshBadgeCounts = useCallback(() => {
+    const ctx: NavContext = { permissions: companyInfo.permissions, persona };
+    const badgeEndpoints = manifestBadgeEndpointsFor(ctx);
+    if (badgeEndpoints.length === 0) return;
     let cancelled = false;
     Promise.all(
-      ALL_BADGE_TABS.map((tab) =>
-        fetch(tab.badge!.endpoint)
+      badgeEndpoints.map(({ path, endpoint }) =>
+        fetch(endpoint)
           .then((r) => (r.ok ? r.json() : []))
           .then((data) => ({
-            href: tab.href,
+            href: path,
             count: Array.isArray(data) ? data.length : 0,
           }))
-          .catch(() => ({ href: tab.href, count: 0 })),
+          .catch(() => ({ href: path, count: 0 })),
       ),
     ).then((results) => {
       if (cancelled) return;
@@ -183,7 +193,7 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [companyInfo.permissions, persona]);
 
   // ── Company switch via unified hook ───────────────────────
   // Uses useCompanySwitch for optimistic UI + generation-counter race
@@ -285,7 +295,6 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
   const canSwitchCompany = companies.length > 1;
 
   const personaTabs = tabsForRole(companyInfo.role);
-  const persona = roleToPersona(companyInfo.role);
 
   return (
     <MobileShellInner
@@ -350,6 +359,12 @@ function MobileShellInner({
   const [navSheetOpen, setNavSheetOpen] = useState(false);
   const companySwitcherRef = useRef<HTMLDivElement>(null);
   const { pending: offlineQueueCount, syncing: offlineSyncing, sync: _syncOfflineQueue } = useOfflineQueue();
+  const { trackVisit } = useRecentPages();
+
+  // ── Track page visits for NavSheet "Recent" section ──
+  useEffect(() => {
+    trackVisit(pathname);
+  }, [pathname, trackVisit]);
 
   // ── Close company switcher on outside click ──────────────
   useEffect(() => {
@@ -381,29 +396,41 @@ function MobileShellInner({
     () => router.refresh(),
   );
 
-  const activeTab = personaTabs.find((t) => isModuleActive(pathname, t.href));
+  // ── Active tab from the route manifest (fixes D4) ──
+  // The manifest's activeTabFor walks the parent chain to find the nearest
+  // tab root, returning exactly ONE tab. The old isModuleActive compared
+  // query-stripped hrefs and matched several tabs on /m/hr.
+  const navCtx: NavContext = { permissions: companyInfo.permissions, persona };
+  const activeTabPath = manifestActiveTabFor(pathname, navCtx);
+  const activeTab = personaTabs.find((t) => t.href.split("?")[0] === activeTabPath);
 
-  // A "drill-down" is any /m/* page that is NOT one of the persona's tab
-  // homes. This includes pages that don't fall under any tab prefix (e.g.
-  // /m/boq, /m/projects, /m/reports) — those still need a back button.
-  const isDrillDown = !isModuleHome(pathname, personaTabs) && pathname !== "/m";
+  // A "drill-down" is any /m/* page that is NOT a tab root.
+  // Uses the manifest's activeTabFor — if the active tab path equals the
+  // current pathname, we're on a tab root (module home). Otherwise it's
+  // a drill-down page that needs Up navigation.
+  const isDrillDown = !activeTabPath || activeTabPath !== pathname;
 
   // ── Drill-down title ───────────────────────────────────────
-  // Resolved from the active tab label (if the route matches a persona tab)
-  // or derived from the URL path segment via pageTitleFromPath.
+  // Resolved from (in priority order):
+  //   1. Page context label (set by detail pages via PageContextProvider)
+  //   2. Active tab label (if the route matches a persona tab)
+  //   3. URL path segment via pageTitleFromPath
+  //
+  // The page context store is module-level (useSyncExternalStore), so the
+  // shell — which sits ABOVE the page content — can still read the entity
+  // label that detail pages set. This fixes D3 (detail pages show list titles).
   //
   // IMPORTANT: We defer the title to after mount to guarantee server and
-  // client produce identical HTML on first paint. If we computed it
-  // synchronously, any HMR stale-cache mismatch between the server and
-  // client bundles (e.g. pageTitleFromPath's TITLE_MAP being edited) would
-  // cause a hydration error. By starting with an empty string and setting
-  // the real title in useEffect, the first client render always matches
-  // the server's empty placeholder — no comparison can ever mismatch.
-  const computedTitle = activeTab?.label ?? pageTitleFromPath(pathname);
+  // client produce identical HTML on first paint.
+  const pageCtx = usePageContext();
+  const computedTitle = pageCtx.label ?? activeTab?.label ?? manifestTitleFor(pathname);
+  const computedSubtitle = pageCtx.subtitle;
   const [drillDownTitle, setDrillDownTitle] = useState("");
+  const [drillDownSubtitle, setDrillDownSubtitle] = useState("");
   useEffect(() => {
     setDrillDownTitle(computedTitle);
-  }, [computedTitle]);
+    setDrillDownSubtitle(computedSubtitle ?? "");
+  }, [computedTitle, computedSubtitle]);
 
   // ── Edge-swipe to go back (iOS-style) ──
   // Tracks a touch that starts within 28px of the left edge. If the user
@@ -445,23 +472,29 @@ function MobileShellInner({
     }
     const elapsed = Date.now() - touchStart.current.time;
     if (swipeOffset > 80 || (swipeOffset > 40 && elapsed < 300)) {
-      goBack();
+      // Edge-swipe = Back (OS convention), not Up
+      if (typeof window !== "undefined" && window.history.length > 1) {
+        router.back();
+      } else {
+        goUp();
+      }
     }
     touchStart.current = null;
     setSwipeOffset(0);
   };
 
-  // ── Unified back navigation with fallback ──
-  // If there's browser history, go back. If not (deep-link), fall back
-  // to the persona's relevant tab based on the current path's module —
-  // not always /m/home. E.g. back from /m/projects → Inventory tab
-  // (for executive/ops) or Home tab (for sales).
-  function goBack() {
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      router.back();
+  // ── Up navigation (deterministic, deep-link safe) ──
+  // The header chevron is Up (parent from the route manifest), not Back.
+  // Edge-swipe remains Back (router.back) to match OS convention.
+  // Fixes D7: goBack() used to call router.back() which could leave the app
+  // on a WhatsApp deep link. Now the chevron always goes to the parent route.
+  const upTarget = manifestUpHref(pathname);
+  function goUp() {
+    if (upTarget) {
+      router.push(upTarget);
     } else {
-      const fallback = goBackFallback(pathname, personaTabs);
-      router.push(fallback);
+      // No parent — go home
+      router.push("/m/home");
     }
   }
 
@@ -537,34 +570,43 @@ function MobileShellInner({
         }}
       >
         <div className="flex items-center justify-between gap-2">
-          {/* Left: 3-dot menu (home) / back chevron (drill-down) + name */}
-          <div className="flex items-center gap-2 min-w-0">
-            {isDrillDown ? (
+          {/* Left: Up chevron (drill-down) + 3-dot menu (always) + name */}
+          <div className="flex items-center gap-1 min-w-0">
+            {isDrillDown && (
               <button
-                onClick={goBack}
-                aria-label="Back"
+                onClick={goUp}
+                aria-label="Up"
                 className="press grid place-items-center size-9 rounded-[0.375rem] text-m-body"
                 style={{ color: "var(--color-ink-700)" }}
               >
                 <ChevronLeft className="size-5" />
               </button>
-            ) : (
-              <button
-                onClick={() => setNavSheetOpen(true)}
-                aria-label="All pages"
-                className="press grid place-items-center size-9 rounded-[0.375rem]"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                <MoreVertical className="size-5" />
-              </button>
             )}
+            <button
+              onClick={() => setNavSheetOpen(true)}
+              aria-label="All pages"
+              className="press grid place-items-center size-9 rounded-[0.375rem]"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              <MoreVertical className="size-5" />
+            </button>
             {isDrillDown ? (
-              <span
-                className="text-m-body font-bold truncate"
-                style={{ color: "var(--color-ink-950)" }}
-              >
-                {drillDownTitle}
-              </span>
+              <div className="min-w-0 flex flex-col justify-center">
+                <span
+                  className="text-m-body font-bold truncate leading-tight"
+                  style={{ color: "var(--color-ink-950)" }}
+                >
+                  {drillDownTitle}
+                </span>
+                {drillDownSubtitle && (
+                  <span
+                    className="text-m-caption truncate leading-tight"
+                    style={{ color: "var(--color-ink-500)" }}
+                  >
+                    {drillDownSubtitle}
+                  </span>
+                )}
+              </div>
             ) : (
               <div ref={companySwitcherRef} className="relative min-w-0">
                 <button
@@ -637,8 +679,18 @@ function MobileShellInner({
             )}
           </div>
 
-          {/* Right: voice assistant + online status + sync badge */}
+          {/* Right: search + voice assistant + online status + sync badge */}
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* Persistent search — available on every page (fixes D1 reach) */}
+            <button
+              onClick={() => onSearchOpenChange(true)}
+              aria-label="Search"
+              className="press grid place-items-center size-9 rounded-[0.375rem]"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              <Search className="size-4" />
+            </button>
+
             {/* Voice agent — tap to speak, no popup */}
             <VoiceAgentButton />
 
@@ -751,7 +803,7 @@ function MobileShellInner({
               <TabButton
                 key={tab.id}
                 tab={tab}
-                active={isModuleActive(pathname, tab.href)}
+                active={tab.href.split("?")[0] === activeTabPath}
                 badge={badgeCounts[tab.href]}
               />
             ),
@@ -766,9 +818,8 @@ function MobileShellInner({
       <NavSheet
         open={navSheetOpen}
         onClose={() => setNavSheetOpen(false)}
-        moduleId={activeTab?.id ?? moduleFromPath(pathname)}
+        moduleId={activeTab?.id ?? manifestMatchRoute(pathname)?.module ?? "home"}
         persona={persona}
-        personaTabs={personaTabs}
       />
     </div>
   );
@@ -849,93 +900,6 @@ function SearchTabButton({ tab, onClick }: { tab: ModuleTab; onClick: () => void
       </span>
     </button>
   );
-}
-
-/** Check if pathname is exactly a module home (not a drill-down). */
-function isModuleHome(pathname: string, tabs: ModuleTab[] = MOBILE_TABS): boolean {
-  return tabs.some((t) => t.href === pathname);
-}
-
-/**
- * Derive a human-readable page title from a /m/* pathname.
- * Used in the drill-down header when no active tab matches.
- * e.g. /m/boq → "Bill of Quantities", /m/projects/[id] → "Project Detail",
- *      /m/hr/leaves → "Leaves", /m/portal-listings/new → "New Listing"
- */
-function pageTitleFromPath(pathname: string): string {
-  // Strip /m/ prefix and split into segments
-  const segments = pathname.replace(/^\/m\//, "").split("/").filter(Boolean);
-  if (segments.length === 0) return "Home";
-
-  const TITLE_MAP: Record<string, string> = {
-    boq: "Bill of Quantities",
-    wbs: "Work Breakdown Structure",
-    "budget-variance": "Budget Variance",
-    "measurement-book": "Measurement Book",
-    "project-control": "Project Control",
-    "standard-consumptions": "Standard Consumptions",
-    "material-reconciliation": "Material Reconciliation",
-    "work-orders": "Work Orders",
-    "rate-contracts": "Rate Contracts",
-    projects: "Projects",
-    units: "Built Units",
-    land: "Land & Parcels",
-    customers: "Customers",
-    leads: "Leads",
-    sales: "Sales",
-    rentals: "Rentals",
-    "portal-listings": "Portal Listings",
-    reports: "Reports",
-    procurement: "Procurement",
-    requisitions: "Material Indents",
-    suppliers: "Suppliers",
-    subcontractors: "Subcontractors",
-    "supplier-returns": "Supplier Returns",
-    materials: "Materials",
-    stock: "Stock",
-    "stock-counts": "Stock Inventory",
-    transfers: "Transfers",
-    vehicles: "Vehicles",
-    equipment: "Equipment",
-    "material-sales": "Material Sales",
-    "scrap-generations": "Scrap",
-    attendance: "Attendance",
-    dprs: "Daily Progress Reports",
-    employees: "Employees",
-    leaves: "Leaves",
-    tasks: "Tasks",
-    books: "Books",
-    finance: "Finance",
-    expenses: "Expenses",
-    payroll: "Payroll",
-    receipts: "Receipts",
-    gl: "Trial Balance",
-    settings: "Settings",
-    team: "Team",
-    me: "My Profile",
-    home: "Home",
-    inventory: "Inventory",
-    hr: "HR",
-    accounts: "Accounts",
-    queue: "Offline Queue",
-    pulse: "Pulse",
-    approvals: "Approvals",
-    attention: "Attention",
-    new: "New",
-    telephony: "Telephony",
-    calls: "Call Log",
-  };
-
-  // For [id] segments (dynamic routes), use the parent segment's title
-  const lastSegment = segments[segments.length - 1] ?? "";
-  if (lastSegment === "new") return "New";
-  // If the last segment looks like a cuid (starts with a letter, 20+ chars), use parent
-  if (lastSegment.length > 20 && /^[a-z0-9]+$/i.test(lastSegment)) {
-    const parent = segments[segments.length - 2] ?? "";
-    return TITLE_MAP[parent] ?? parent.charAt(0).toUpperCase() + parent.slice(1);
-  }
-
-  return TITLE_MAP[lastSegment] ?? lastSegment.charAt(0).toUpperCase() + lastSegment.slice(1);
 }
 
 /** Minimal cn helper (avoids importing from @/lib/utils which uses cool tokens). */

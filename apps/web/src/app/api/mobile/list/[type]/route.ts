@@ -24,10 +24,10 @@ import { PERM } from "@/lib/roles";
  *
  * Supported types: procurement, dprs, transfers, sales, requisitions
  */
-export const GET = apiHandler(async (req: NextRequest) => {
+export const GET = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ type: string }> }) => {
   await requireUser();
-  const { searchParams, pathname } = new URL(req.url);
-  const type = pathname.split("/").pop() ?? "";
+  const { searchParams } = new URL(req.url);
+  const { type } = await params;
   const cursor = searchParams.get("cursor");
 
   const company = await getCompany();

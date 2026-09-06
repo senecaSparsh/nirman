@@ -1,51 +1,112 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
+import { notFound } from "next/navigation";
 import {
   Wallet,
   AlertCircle,
   RefreshCw,
+  BookOpen,
 } from "lucide-react";
 import { prisma } from "@nirman/db";
 import { getTallySyncStats, getSupplierOutstanding } from "@nirman/services";
-import { getCompany, toNum } from "@/lib/server";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
+import { formatCurrency, formatDate, formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
   MobileEmptyState,
   SectionHead,
   Badge,
+  MobileStatCard,
 } from "@/components/mobile/v2/primitives";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import { TallySyncButton } from "@/components/mobile/tally-sync-button";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
 import { AccountsInteractive } from "./accounts-interactive";
 import { CashFlowSnapshot, type PayableNode } from "./CashFlowSnapshot";
+import { MobileAccountsHubTabs } from "./MobileAccountsHubTabs";
+import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+
+// ── List components (reused from their existing pages, unchanged) ──
+import { MobileExpensesList, type ExpenseListItem } from "../expenses/MobileExpensesList";
+import { MobileExpenseClaimsList, type ExpenseClaimListItem } from "../expense-claims/MobileExpenseClaimsList";
+import { MobilePettyCashList, type PettyCashFloatListItem } from "../petty-cash/MobilePettyCashList";
+import { MobileSupplierPaymentsList, type SupplierPaymentListItem } from "../supplier-payments/MobileSupplierPaymentsList";
+import { MobileReceiptsList, type ReceiptListItem } from "../books/receipts/MobileReceiptsList";
+import { MobileGlList, type GlListItem } from "../books/gl/MobileGlList";
+import { MobileReseedAccountsButton } from "../books/gl/MobileReseedAccountsButton";
 
 /**
- * Accounts / Tally module home — the third tab.
- *
- * Visual architecture (mirrors the inventory and HR homes):
- *   1. Attention banner carousel — Tally failures, pending syncs, overdue payables, draft payroll
- *   2. KPI strip (4-col) — payables / receipts / tally pending / tally failed
- *   3. Cash / Books toggle + quick actions grid
- *   4. Cash flow snapshot — inflow vs outflow bars + top payables
- *   5. Pending queue — Tally failures, overdue payables, draft payroll (sync action inline)
- *   6. Recent receipts — latest payments received
- *
- * Covers: payables, receipts, ledger, Tally sync, GST, TDS, expenses, reports.
- * The Tally integration is the defining feature of this module.
+ * /m/accounts — Accounts/Finance hub. Groups the dashboard, expenses,
+ * expense claims, petty cash, supplier payments, receipts, and GL into
+ * one tabbed page — same pattern as /m/stock.
  */
-export default function AccountsHomePage() {
+export default function AccountsHomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   return (
     <Suspense fallback={<MobileSkeletonHome />}>
-      <AccountsContent />
+      <AccountsHubContent searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function AccountsContent() {
+async function AccountsHubContent({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  await connection();
+  const { tab } = await searchParams;
+  const company = await getCompany();
+
+  // ── Fetch badge counts for the tab bar ──
+  const [pendingClaimsCount] = await Promise.all([
+    prisma.expenseClaim.count({
+      where: { companyId: company.id, status: "SUBMITTED" },
+    }).catch(() => 0),
+  ]);
+
+  const counts = {
+    claims: pendingClaimsCount,
+  };
+
+  // ── Render the active tab's content ──
+  const validTabs = ["overview", "expenses", "claims", "petty-cash", "payments", "receipts", "gl"];
+  const activeTab = validTabs.includes(tab ?? "") ? tab! : "overview";
+
+  let content: React.ReactNode;
+  if (activeTab === "expenses") {
+    content = <AccountsExpensesTab />;
+  } else if (activeTab === "claims") {
+    content = <AccountsClaimsTab />;
+  } else if (activeTab === "petty-cash") {
+    content = <AccountsPettyCashTab />;
+  } else if (activeTab === "payments") {
+    content = <AccountsPaymentsTab />;
+  } else if (activeTab === "receipts") {
+    content = <AccountsReceiptsTab />;
+  } else if (activeTab === "gl") {
+    content = <AccountsGlTab />;
+  } else {
+    content = <AccountsOverviewContent />;
+  }
+
+  return (
+    <MobileAccountsHubTabs activeTab={activeTab} counts={counts}>
+      {content}
+    </MobileAccountsHubTabs>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * OVERVIEW TAB — the existing Accounts dashboard (unchanged content)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+async function AccountsOverviewContent() {
   await connection();
   const company = await getCompany();
 
@@ -149,7 +210,7 @@ async function AccountsContent() {
       id: "tally-failed",
       title: `${tallyStats.failed} Tally sync failure${tallyStats.failed !== 1 ? "s" : ""}`,
       subtitle: `Journal entries failed to sync — review and retry`,
-      href: "/m/books/gl",
+      href: "/m/accounts?tab=gl",
       severity: "out",
       qtyText: String(tallyStats.failed),
       category: "Tally Sync",
@@ -162,7 +223,7 @@ async function AccountsContent() {
       id: "tally-pending",
       title: `${tallyStats.pending} entr${tallyStats.pending !== 1 ? "ies" : "y"} pending Tally sync`,
       subtitle: `Sync now to push to Tally ERP`,
-      href: "/m/books/gl",
+      href: "/m/accounts?tab=gl",
       severity: "low",
       qtyText: String(tallyStats.pending),
       category: "Tally Sync",
@@ -195,7 +256,7 @@ async function AccountsContent() {
       subtitle: draftPayroll.totalNet
         ? `Net payable: ${formatCurrency(toNum(draftPayroll.totalNet))}`
         : `Awaiting approval to process`,
-      href: "/m/books/payroll",
+      href: "/m/accounts?tab=gl",
       severity: "low",
       qtyText: "Draft",
       category: "Payroll",
@@ -244,7 +305,7 @@ async function AccountsContent() {
           <div className="flex flex-col gap-2 mb-3">
             {tallyStats.failed > 0 && (
               <MobileRow
-                href="/m/books/gl"
+                href="/m/accounts?tab=gl"
                 icon={AlertCircle}
                 title="Tally sync failures"
                 subtitle={`${tallyStats.failed} journal entries failed to sync — review and retry`}
@@ -256,7 +317,7 @@ async function AccountsContent() {
             )}
             {tallyStats.pending > 0 && (
               <MobileRow
-                href="/m/books/gl"
+                href="/m/accounts?tab=gl"
                 icon={RefreshCw}
                 title="Entries pending Tally sync"
                 subtitle={`${tallyStats.pending} posted entries not yet pushed to Tally ERP`}
@@ -272,7 +333,7 @@ async function AccountsContent() {
             )}
             {draftPayroll && (
               <MobileRow
-                href="/m/books/payroll"
+                href="/m/accounts?tab=gl"
                 icon={Wallet}
                 title={`Payroll draft — ${new Date(2000, draftPayroll.month - 1, 1).toLocaleString("en-IN", { month: "short" })} ${draftPayroll.year}`}
                 subtitle={
@@ -296,7 +357,7 @@ async function AccountsContent() {
           <MobileSectionTitle
             right={
               <Link
-                href="/m/books/receipts"
+                href="/m/accounts?tab=receipts"
                 className="text-m-label font-semibold text-m-body press"
                 style={{ color: "var(--color-ink-500)" }}
               >
@@ -329,13 +390,341 @@ async function AccountsContent() {
           hint="Payments received from sales will appear here"
           action={
             <Link
-              href="/m/books/receipts"
+              href="/m/accounts?tab=receipts"
               className="text-m-label font-semibold text-m-body press"
               style={{ color: "var(--color-ink-500)" }}
             >
               Go to receipts →
             </Link>
           }
+        />
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TAB CONTENT COMPONENTS — each fetches its own data and renders the
+   existing list component. Server-rendered per tab switch.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Expenses tab — mirrors /m/expenses */
+async function AccountsExpensesTab() {
+  const company = await getCompany();
+  const role = await getUserRole();
+  const canView = hasPermission(role, PERM.FINANCE_VIEW);
+  const canCreate = hasPermission(role, PERM.EXPENSE_CREATE);
+
+  const expenses = await prisma.expense.findMany({
+    where: { companyId: company.id },
+    orderBy: { date: "desc" },
+    take: 80,
+    include: {
+      project: { select: { id: true, name: true } },
+      categoryMaster: { select: { id: true, name: true } },
+      supplier: { select: { id: true, name: true } },
+    },
+  });
+
+  const rows: ExpenseListItem[] = expenses.map((e) => ({
+    id: e.id,
+    category: e.category,
+    amount: toNum(e.amount),
+    date: e.date.toISOString(),
+    projectName: e.project?.name ?? null,
+    notes: e.notes ?? null,
+    status: e.status,
+    paymentMode: e.paymentMode,
+    payeeName: e.payeeName,
+    supplierName: e.supplier?.name ?? null,
+    receiptUrl: e.receiptUrl,
+  }));
+
+  const totalAmount = rows.reduce((s, e) => s + e.amount, 0);
+  const categories = new Set(rows.map((e) => e.category));
+
+  return (
+    <MobileExpensesList
+      items={rows}
+      totalAmount={totalAmount}
+      categoryCount={categories.size}
+      canView={canView}
+      canCreate={canCreate}
+      exportTitle="Expenses"
+      exportRows={rows as unknown as Record<string, unknown>[]}
+      exportColumns={[
+        { key: "category", label: "Category" },
+        { key: "amount", label: "Amount", format: "currency" },
+        { key: "date", label: "Date", format: "date" },
+        { key: "status", label: "Status" },
+        { key: "paymentMode", label: "Payment Mode" },
+        { key: "projectName", label: "Project" },
+        { key: "supplierName", label: "Vendor" },
+        { key: "payeeName", label: "Payee" },
+        { key: "notes", label: "Notes" },
+      ] as MobileColumnSpec[]}
+      exportSummary={`${rows.length} expenses · ${categories.size} categories`}
+    />
+  );
+}
+
+/** Claims tab — mirrors /m/expense-claims */
+async function AccountsClaimsTab() {
+  const company = await getCompany();
+  const role = await getUserRole();
+  const canApprove = hasPermission(role, PERM.EXPENSE_APPROVE);
+  const canCreate = hasPermission(role, PERM.EXPENSE_CREATE);
+
+  const claims = await prisma.expenseClaim.findMany({
+    where: { companyId: company.id },
+    orderBy: { createdAt: "desc" },
+    take: 80,
+    include: {
+      claimant: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true } },
+    },
+  });
+
+  const rows: ExpenseClaimListItem[] = claims.map((c) => ({
+    id: c.id,
+    claimantName: c.claimant?.name ?? "—",
+    projectName: c.project?.name ?? null,
+    status: c.status,
+    totalAmount: toNum(c.totalAmount),
+    submittedAt: c.submittedAt?.toISOString() ?? c.createdAt.toISOString(),
+    description: c.description ?? null,
+  }));
+
+  const totalAmount = rows.reduce((s, c) => s + c.totalAmount, 0);
+  const pendingCount = rows.filter((c) => c.status === "SUBMITTED").length;
+
+  return (
+    <MobileExpenseClaimsList
+      items={rows}
+      totalAmount={totalAmount}
+      pendingCount={pendingCount}
+      canApprove={canApprove}
+      canCreate={canCreate}
+    />
+  );
+}
+
+/** Petty Cash tab — mirrors /m/petty-cash */
+async function AccountsPettyCashTab() {
+  const company = await getCompany();
+  const role = await getUserRole();
+  const canManage = hasPermission(role, PERM.FINANCE_MANAGE);
+
+  const floats = await prisma.pettyCashFloat.findMany({
+    where: { companyId: company.id },
+    orderBy: { name: "asc" },
+    include: {
+      project: { select: { id: true, name: true } },
+      custodian: { select: { id: true, name: true } },
+      topUps: { orderBy: { date: "desc" }, take: 5 },
+    },
+  });
+
+  const rows: PettyCashFloatListItem[] = floats.map((f) => ({
+    id: f.id,
+    name: f.name,
+    projectName: f.project?.name ?? null,
+    custodianName: f.custodian?.name ?? null,
+    floatAmount: toNum(f.floatAmount),
+    topUpTotal: toNum(f.topUpTotal),
+    spentTotal: toNum(f.spentTotal),
+    topUpCount: f.topUps.length,
+    lastTopUpDate: f.topUps[0]?.date.toISOString() ?? null,
+  }));
+
+  const totalBalance = rows.reduce((s, f) => s + f.floatAmount, 0);
+  const totalTopUps = rows.reduce((s, f) => s + f.topUpTotal, 0);
+
+  return (
+    <MobilePettyCashList
+      items={rows}
+      totalBalance={totalBalance}
+      totalTopUps={totalTopUps}
+      canManage={canManage}
+    />
+  );
+}
+
+/** Supplier Payments tab — mirrors /m/supplier-payments */
+async function AccountsPaymentsTab() {
+  const company = await getCompany();
+  const role = await getUserRole();
+  const canManage = hasPermission(role, PERM.FINANCE_MANAGE);
+
+  const payments = await prisma.supplierPayment.findMany({
+    where: { companyId: company.id },
+    orderBy: { paymentDate: "desc" },
+    take: 80,
+    include: {
+      supplier: { select: { id: true, name: true } },
+      purchaseOrder: { select: { poNumber: true } },
+      invoice: { select: { invoiceNumber: true } },
+    },
+  });
+
+  const rows: SupplierPaymentListItem[] = payments.map((p) => ({
+    id: p.id,
+    paymentNumber: p.paymentNumber,
+    supplierName: p.supplier.name,
+    poNumber: p.purchaseOrder?.poNumber ?? null,
+    invoiceNumber: p.invoice?.invoiceNumber ?? null,
+    amount: toNum(p.amount),
+    paymentDate: p.paymentDate.toISOString(),
+    paymentMode: p.paymentMode,
+  }));
+
+  const totalAmount = rows.reduce((s, p) => s + p.amount, 0);
+
+  return (
+    <MobileSupplierPaymentsList
+      items={rows}
+      totalAmount={totalAmount}
+      canManage={canManage}
+    />
+  );
+}
+
+/** Receipts tab — mirrors /m/books/receipts */
+async function AccountsReceiptsTab() {
+  const company = await getCompany();
+  const role = await getUserRole();
+  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
+
+  const [assetPayments, materialPayments] = await Promise.all([
+    prisma.assetSalePayment.findMany({
+      where: { assetSale: { companyId: company.id }, status: "RECEIVED" },
+      orderBy: { paymentDate: "desc" },
+      take: 50,
+      include: { assetSale: { select: { customer: { select: { name: true } }, saleNumber: true } } },
+    }).catch(() => []),
+    prisma.materialSalePayment.findMany({
+      where: { sale: { companyId: company.id } },
+      orderBy: { paymentDate: "desc" },
+      take: 50,
+      include: { sale: { select: { customer: { select: { name: true } }, saleNumber: true, partyName: true } } },
+    }).catch(() => []),
+  ]);
+
+  const items: ReceiptListItem[] = [
+    ...assetPayments.map((r) => ({
+      id: r.id, kind: "ASSET" as const, customerName: r.assetSale.customer.name,
+      saleNumber: r.assetSale.saleNumber, mode: r.mode, amount: toNum(r.amount),
+      paymentDate: r.paymentDate.toISOString(),
+    })),
+    ...materialPayments.map((r) => ({
+      id: r.id, kind: "MATERIAL" as const, customerName: r.sale.partyName ?? r.sale.customer.name,
+      saleNumber: r.sale.saleNumber, mode: r.paymentMode, amount: toNum(r.amount),
+      paymentDate: r.paymentDate.toISOString(),
+    })),
+  ].sort((a, b) => +new Date(b.paymentDate) - +new Date(a.paymentDate));
+
+  const total = items.reduce((s, r) => s + r.amount, 0);
+  const avg = items.length > 0 ? total / items.length : 0;
+
+  return (
+    <div>
+      <div className="grid grid-cols-3 gap-1.5 mb-4">
+        <MobileStatCard label="Total Received" value={formatCurrencyCompact(total)} icon={Wallet} tone="go" />
+        <MobileStatCard label="Count" value={formatNumber(items.length, 0)} icon={Wallet} />
+        <MobileStatCard label="Average" value={formatCurrencyCompact(avg)} icon={Wallet} />
+      </div>
+      {items.length === 0 ? (
+        <MobileEmptyState icon={Wallet} title="No payments received" hint="Record payments from the Sales section" />
+      ) : (
+        <MobileReceiptsList
+          items={items}
+          exportTitle="Receipts"
+          exportRows={items as unknown as Record<string, unknown>[]}
+          exportColumns={[
+            { key: "saleNumber", label: "Receipt Number" },
+            { key: "customerName", label: "Customer" },
+            { key: "kind", label: "Type" },
+            { key: "amount", label: "Amount", format: "currency" },
+            { key: "paymentDate", label: "Date" },
+            { key: "mode", label: "Mode" },
+          ] as MobileColumnSpec[]}
+          exportSummary={`${items.length} receipts · ${formatCurrencyCompact(total)} total`}
+        />
+      )}
+    </div>
+  );
+}
+
+/** GL tab — mirrors /m/books/gl */
+async function AccountsGlTab() {
+  const company = await getCompany();
+  const role = await getUserRole();
+  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
+
+  const accounts = await prisma.glAccount.findMany({
+    orderBy: { code: "asc" },
+    include: {
+      journalLines: {
+        where: { journalEntry: { companyId: company.id } },
+        select: { debit: true, credit: true },
+      },
+    },
+  });
+
+  const rows = accounts
+    .map((a) => {
+      const debit = a.journalLines.reduce((s, l) => s + toNum(l.debit), 0);
+      const credit = a.journalLines.reduce((s, l) => s + toNum(l.credit), 0);
+      const balance = debit - credit;
+      return { code: a.code, name: a.name, type: a.type, debit, credit, balance };
+    })
+    .filter((r) => r.debit !== 0 || r.credit !== 0);
+
+  const totalDebit = rows.reduce((s, r) => s + r.debit, 0);
+  const totalCredit = rows.reduce((s, r) => s + r.credit, 0);
+
+  const serialized: GlListItem[] = rows.map((r) => ({
+    code: r.code, name: r.name, type: r.type,
+    debit: r.debit, credit: r.credit, balance: r.balance,
+  }));
+
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-1.5 mb-4">
+        <MobileStatCard label="Total Debit" value={formatCurrencyCompact(totalDebit)} icon={BookOpen} />
+        <MobileStatCard label="Total Credit" value={formatCurrencyCompact(totalCredit)} icon={BookOpen} tone="go" />
+      </div>
+      <div className="mb-4 flex justify-end">
+        <MobileReseedAccountsButton />
+      </div>
+      {totalDebit !== totalCredit && (
+        <div
+          className="mb-4 rounded-[0.5rem] border-2 px-3 py-2 text-m-caption font-semibold"
+          style={{
+            borderColor: "color-mix(in srgb, var(--color-stop) 30%, transparent)",
+            backgroundColor: "color-mix(in srgb, var(--color-stop) 5%, transparent)",
+            color: "var(--color-stop)",
+          }}
+        >
+          Out of balance by {formatCurrencyCompact(Math.abs(totalDebit - totalCredit))}
+        </div>
+      )}
+      {rows.length === 0 ? (
+        <MobileEmptyState icon={BookOpen} title="No journal entries" hint="Post transactions to see balances" />
+      ) : (
+        <MobileGlList
+          items={serialized}
+          exportTitle="Trial Balance"
+          exportRows={serialized as unknown as Record<string, unknown>[]}
+          exportColumns={[
+            { key: "code", label: "Code" },
+            { key: "name", label: "Account" },
+            { key: "type", label: "Type" },
+            { key: "debit", label: "Debit", format: "currency" },
+            { key: "credit", label: "Credit", format: "currency" },
+            { key: "balance", label: "Balance", format: "currency" },
+          ] as MobileColumnSpec[]}
+          exportSummary={`${serialized.length} accounts`}
         />
       )}
     </div>

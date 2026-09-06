@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { FolderOpen } from "lucide-react";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
@@ -21,6 +21,7 @@ export function MobileBoqProjectSelector({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
 
   const current = selectedId ?? searchParams.get("project") ?? "";
 
@@ -38,7 +39,7 @@ export function MobileBoqProjectSelector({
             params.delete("project");
           }
           const qs = params.toString();
-          router.push(`/m/boq${qs ? `?${qs}` : ""}`);
+          router.push(`${pathname}${qs ? `?${qs}` : ""}`);
         }}
         placeholder="Select a project…"
         options={projects.map((p) => ({

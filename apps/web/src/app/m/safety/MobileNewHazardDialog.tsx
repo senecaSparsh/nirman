@@ -10,6 +10,7 @@ import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useWbsOptions } from "@/lib/use-wbs-options";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileProjectSelect } from "@/components/mobile/selectors";
 
 /**
  * MobileNewHazardForm — form content for reporting a new hazard.
@@ -83,8 +84,7 @@ export function MobileNewHazardForm({
       <div className={sectionClass} style={sectionStyle}>
         <p className={sectionTitleClass} style={sectionTitleStyle}>Details</p>
         <div>
-          <MobileSelectWithCreate
-            label="Project"
+          <MobileProjectSelect
             value={form.projectId}
             onChange={(v) => set("projectId", v)}
             options={projects.map((p) => ({ value: p.id, label: p.name }))}

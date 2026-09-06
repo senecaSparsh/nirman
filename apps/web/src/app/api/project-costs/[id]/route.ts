@@ -107,6 +107,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   });
   revalidatePath("/projects");
   revalidatePath("/m/projects");
+    revalidatePath("/m/real-estate?tab=projects");
   revalidatePath("/gl");
   return json({ ok: true, id: updated.id });
 });
@@ -118,6 +119,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     await deleteProjectCost(id, user.id);
     revalidatePath("/projects");
     revalidatePath("/m/projects");
+    revalidatePath("/m/real-estate?tab=projects");
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to delete cost") }, { status: 400 });

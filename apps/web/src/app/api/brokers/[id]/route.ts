@@ -61,6 +61,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   revalidatePath("/brokers");
   revalidatePath("/m/brokers");
+    revalidatePath("/m/real-estate?tab=brokers");
   return json({ ok: true, id: updated.id, name: updated.name });
 });
 
@@ -91,5 +92,6 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
 
   revalidatePath("/brokers");
   revalidatePath("/m/brokers");
+    revalidatePath("/m/real-estate?tab=brokers");
   return json({ ok: true });
 });

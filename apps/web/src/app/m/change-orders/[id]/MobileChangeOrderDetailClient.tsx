@@ -367,7 +367,7 @@ export function MobileChangeOrderDetailClient({
                 const ok = await confirm({ title: "Delete?", description: "Delete this change order? This cannot be undone.", confirmLabel: "Delete", variant: "destructive" });
                 if (!ok) return;
                 await doAction("delete");
-                router.push("/m/change-orders");
+                router.push("/m/construction?tab=change-orders");
               }}
               loading={acting === "delete"}
               icon={Trash2}

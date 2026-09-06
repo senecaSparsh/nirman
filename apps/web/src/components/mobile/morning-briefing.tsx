@@ -157,10 +157,10 @@ export function MorningBriefing() {
       iconBg: "#b91c1c",
       title: "Payments overdue",
       count: data.paymentsDue.length,
-      href: "/m/books/finance",
+      href: "/m/accounts?tab=payments",
       items: data.paymentsDue.map((p) => ({
         label: `${p.description} — ${formatCurrencyCompact(p.amount)}`,
-        href: "/m/books/finance",
+        href: "/m/accounts?tab=payments",
       })),
     });
   }
@@ -189,7 +189,7 @@ export function MorningBriefing() {
                 <span className="font-semibold">Checked in — {data.myAttendance.status}</span>
               </div>
             ) : (
-              <Link href="/m/attendance" className="flex items-center gap-1.5 text-m-caption font-semibold text-m-body press" style={{ color: "var(--color-signal)" }}>
+              <Link href="/m/hr?tab=attendance" className="flex items-center gap-1.5 text-m-caption font-semibold text-m-body press" style={{ color: "var(--color-signal)" }}>
                 <span>Check in now</span>
                 <ArrowRight className="size-3" />
               </Link>

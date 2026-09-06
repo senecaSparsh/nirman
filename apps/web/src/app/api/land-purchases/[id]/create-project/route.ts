@@ -110,6 +110,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
 
   revalidatePath("/land");
   revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
   revalidatePath("/projects");
   revalidatePath(`/land/${landPurchase.id}`);
   return json({ ok: true, id: project.id, name: project.name }, { status: 201 });

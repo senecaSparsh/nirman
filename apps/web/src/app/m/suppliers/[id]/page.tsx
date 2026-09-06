@@ -8,6 +8,7 @@ import { hasPermission, PERM } from "@/lib/roles";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileSupplierDetailClient } from "./MobileSupplierDetailClient";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export default function MobileSupplierDetailPage({
   params,
@@ -84,6 +85,12 @@ async function MobileSupplierDetailContent({
   }));
 
   return (
+    <PageContextProvider value={{
+      entityType: "supplier",
+      label: supplier.name,
+      subtitle: supplier.phone ?? undefined,
+      recordId: supplier.id,
+    }}>
     <>
       <RecordRecentItem type="supplier" id={supplier.id} label={supplier.name} sublabel={supplier.phone ?? undefined} href={`/m/suppliers/${supplier.id}`} />
       <MobileSupplierDetailClient
@@ -105,5 +112,6 @@ async function MobileSupplierDetailContent({
       canManage={canManage}
     />
     </>
+    </PageContextProvider>
   );
 }

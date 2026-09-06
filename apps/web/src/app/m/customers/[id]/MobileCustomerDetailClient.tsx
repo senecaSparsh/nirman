@@ -105,7 +105,7 @@ export function MobileCustomerDetailClient({
         throw new Error(err.error ?? "Failed to delete");
       }
       toast.success("Customer deleted");
-      router.push("/m/customers");
+      router.push("/m/real-estate?tab=customers");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
       setActing(false);

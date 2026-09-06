@@ -14,6 +14,7 @@ import {
 } from "@/components/mobile/v2/primitives";
 import { ListTree, Package, IndianRupee, BookOpen } from "lucide-react";
 import { MobileBoqActions } from "./MobileBoqActions";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export const metadata = { title: "BOQ Item — Nirman" };
 
@@ -95,6 +96,12 @@ async function MobileBoqDetailContent({
   const canManage = hasPermission(role, PERM.BOQ_MANAGE);
 
   return (
+    <PageContextProvider value={{
+      entityType: "boqItem",
+      label: item.serialNo,
+      subtitle: item.project.name,
+      recordId: item.id,
+    }}>
     <div className="flex flex-col gap-4 pb-20">
       {/* Header card */}
       <div
@@ -286,6 +293,7 @@ async function MobileBoqDetailContent({
         />
       )}
     </div>
+    </PageContextProvider>
   );
 }
 

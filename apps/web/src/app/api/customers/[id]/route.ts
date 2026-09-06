@@ -52,6 +52,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return cust;
     });
     revalidatePath("/m/customers");
+    revalidatePath("/m/real-estate?tab=customers");
     return json(updated);
   } catch (err) {
     if (err instanceof ConcurrentEditError) {
@@ -69,5 +70,6 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   if (!existing) return json({ error: "Customer not found" }, { status: 404 });
   await softDelete("Customer", id);
   revalidatePath("/m/customers");
+    revalidatePath("/m/real-estate?tab=customers");
   return json({ ok: true });
 });

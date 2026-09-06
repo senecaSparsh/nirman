@@ -11,6 +11,8 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import { MobileScrapCancelBtn } from "./MobileScrapCancelBtn";
 import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { AttachmentList } from "@/components/attachments/attachment-list";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export default function MobileScrapDetailPage({
   params,
@@ -65,6 +67,13 @@ async function MobileScrapDetailContent({
   const SourceIcon = isAuto ? Zap : Hand;
 
   return (
+    <PageContextProvider value={{
+      entityType: "scrapGeneration",
+      status: scrap.status,
+      label: scrap.scrapNumber,
+      subtitle: scrap.project?.name ?? undefined,
+      recordId: scrap.id,
+    }}>
     <div className="pb-20">
       {/* ── Header ── */}
       <div className="flex items-center gap-2 mb-2">
@@ -245,6 +254,8 @@ async function MobileScrapDetailContent({
         </div>
       )}
 
+      <AttachmentList entityType="ScrapGeneration" entityId={scrap.id} />
+
       <ActionBar>
         {/* ── Cancel action ── */}
         {canManage && !isCancelled ? (
@@ -270,5 +281,6 @@ async function MobileScrapDetailContent({
       ) : null}
 
     </div>
+    </PageContextProvider>
   );
 }

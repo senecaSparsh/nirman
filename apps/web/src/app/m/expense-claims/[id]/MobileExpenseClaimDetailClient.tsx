@@ -17,6 +17,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 import {
   MobileStatusBadge,
   MobileEmptyState,
@@ -102,7 +103,7 @@ export function MobileExpenseClaimDetailClient({
         description="This expense claim may have been deleted or does not exist."
         action={
           <Link
-            href="/m/expense-claims"
+            href="/m/accounts?tab=claims"
             className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-body font-medium text-brand-foreground"
           >
             <ArrowLeft className="size-4" /> Back to claims
@@ -421,6 +422,8 @@ export function MobileExpenseClaimDetailClient({
           </div>
         </div>
       )}
+
+      <AttachmentList entityType="ExpenseClaim" entityId={id} />
 
       {/* Action bar */}
       {hasAction && (

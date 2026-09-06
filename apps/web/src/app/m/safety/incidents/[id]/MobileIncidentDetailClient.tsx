@@ -182,7 +182,7 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
             <ActionButton onClick={() => doAction("cancel")} loading={acting === "cancel"} icon={Ban} label="Cancel" variant="secondary" />
           )}
           {(incident.status === "REPORTED" || incident.status === "CANCELLED") && (
-            <ActionButton onClick={async () => { const ok = await confirm({ title: "Delete?", description: "Delete this incident?", confirmLabel: "Delete", variant: "destructive" }); if (!ok) return; await doAction("delete"); router.push("/m/safety"); }} loading={acting === "delete"} icon={Trash2} label="Delete" variant="danger" />
+            <ActionButton onClick={async () => { const ok = await confirm({ title: "Delete?", description: "Delete this incident?", confirmLabel: "Delete", variant: "destructive" }); if (!ok) return; await doAction("delete"); router.push("/m/construction?tab=safety"); }} loading={acting === "delete"} icon={Trash2} label="Delete" variant="danger" />
           )}
         </ActionBar>
       )}

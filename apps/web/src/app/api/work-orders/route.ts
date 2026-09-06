@@ -52,10 +52,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     revalidatePath("/work-orders");
     revalidatePath("/m/work-orders");
+    revalidatePath("/m/construction?tab=work-orders");
     return json(wo, { status: 201 });
   } catch (err: unknown) {
     revalidatePath("/work-orders");
     revalidatePath("/m/work-orders");
+    revalidatePath("/m/construction?tab=work-orders");
     return json({ error: err instanceof ServiceError ? err.message : "Failed to create work order" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

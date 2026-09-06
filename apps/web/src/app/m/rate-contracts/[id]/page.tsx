@@ -15,6 +15,7 @@ import {
   type MobilePipelineStep,
 } from "@/components/mobile/v2/primitives";
 import { FileText, IndianRupee, Calendar, Package, TrendingUp } from "lucide-react";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import { MobileRateContractCancelBtn } from "./MobileRateContractCancelBtn";
 
 export const metadata = { title: "Rate Contract — Nirman" };
@@ -88,6 +89,13 @@ async function MobileRateContractDetailContent({
       ];
 
   return (
+    <PageContextProvider value={{
+      entityType: "rate-contract",
+      status: rc.status,
+      label: rc.contractNumber,
+      subtitle: rc.supplier.name,
+      recordId: rc.id,
+    }}>
     <div className="flex flex-col gap-4 pb-6">
       {/* Header card */}
       <div
@@ -173,6 +181,7 @@ async function MobileRateContractDetailContent({
         <MobileRateContractCancelBtn contractId={rc.id} contractNumber={rc.contractNumber} />
       ) : null}
     </div>
+    </PageContextProvider>
   );
 }
 

@@ -40,7 +40,7 @@
   manually too. **The `globalForPrisma` singleton in `packages/db/src/index.ts` caches
   the `PrismaClient` instance in `globalThis`**, which survives Turbopack hot reloads.
   A stale cached client will cause runtime `Cannot read properties of undefined (reading
-  'findMany')` errors for any model added after the client was first loaded. The wrapper
+'findMany')` errors for any model added after the client was first loaded. The wrapper
   detects this error signature and auto-restarts.
 - `pnpm db:push` — push schema to DB (dev). `pnpm db:migrate` for migrations.
 - `pnpm db:studio` — Prisma Studio.
@@ -67,27 +67,27 @@
   chunk-loading errors and auto-reloads the page with a **three-step clean reload**:
   (a) unregister any stale service workers, (b) clear the Cache Storage API (SW caches),
   (c) navigate with a cache-busting `?__dc=timestamp` query param to force fresh HTML
-  + chunk fetch. sessionStorage guard prevents loops (one reload per 30s).
-  **Deterministic-error fallback (round 2):** if the SAME error signature recurs 3+
-  times consecutively after cache clears, the error is deterministic (caused by
-  code/config, not a transient cache desync). Instead of looping until max-restarts
-  and exiting, the wrapper falls back to `next dev --webpack` (stable webpack bundler)
-  which is slower but doesn't have Turbopack's chunk-desync issues. This ensures the
-  developer always has a working dev server. On 2nd+ occurrence of the same error,
-  the wrapper also does a **deep cache clear** (`.next` + `node_modules/.cache` +
-  Turbopack persistent cache) instead of just `.next`.
-  **Prevention guards (round 2):** (a) ESLint custom rule
-  `nirman/no-process-env-node-env-in-client` flags `process.env.NODE_ENV` in `"use client"`
-  files — this is the pattern that triggers the Turbopack `process.js` polyfill chunk
-  desync in dynamically-imported (`next/dynamic` ssr:false) chunks. Server Components
-  can safely read `process.env` — pass the result as a prop (e.g.
-  `isDev={process.env.NODE_ENV !== "production"}`). (b) `next.config.ts` runtime guard
-  warns if someone re-adds `Cache-Control` on `/_next/static/` in dev (this breaks
-  Turbopack's chunk-loading protocol). (c) `next.config.ts` no longer sets any custom
-  headers on `/_next/static/` in dev — Turbopack manages chunk caching natively.
-  Safety rails: max 10 restarts per 5-min window, counter resets after 5 min of
-  stability, clean Ctrl+C handling. The wrapper uses zero external
-  dependencies (Node built-ins only). If you need to bypass it: `pnpm --filter web dev:raw`.
+  - chunk fetch. sessionStorage guard prevents loops (one reload per 30s).
+    **Deterministic-error fallback (round 2):** if the SAME error signature recurs 3+
+    times consecutively after cache clears, the error is deterministic (caused by
+    code/config, not a transient cache desync). Instead of looping until max-restarts
+    and exiting, the wrapper falls back to `next dev --webpack` (stable webpack bundler)
+    which is slower but doesn't have Turbopack's chunk-desync issues. This ensures the
+    developer always has a working dev server. On 2nd+ occurrence of the same error,
+    the wrapper also does a **deep cache clear** (`.next` + `node_modules/.cache` +
+    Turbopack persistent cache) instead of just `.next`.
+    **Prevention guards (round 2):** (a) ESLint custom rule
+    `nirman/no-process-env-node-env-in-client` flags `process.env.NODE_ENV` in `"use client"`
+    files — this is the pattern that triggers the Turbopack `process.js` polyfill chunk
+    desync in dynamically-imported (`next/dynamic` ssr:false) chunks. Server Components
+    can safely read `process.env` — pass the result as a prop (e.g.
+    `isDev={process.env.NODE_ENV !== "production"}`). (b) `next.config.ts` runtime guard
+    warns if someone re-adds `Cache-Control` on `/_next/static/` in dev (this breaks
+    Turbopack's chunk-loading protocol). (c) `next.config.ts` no longer sets any custom
+    headers on `/_next/static/` in dev — Turbopack manages chunk caching natively.
+    Safety rails: max 10 restarts per 5-min window, counter resets after 5 min of
+    stability, clean Ctrl+C handling. The wrapper uses zero external
+    dependencies (Node built-ins only). If you need to bypass it: `pnpm --filter web dev:raw`.
 - **Auto-scaling memory**: the app auto-detects available RAM (via cgroup limits
   on Render/Docker/K8s, or `os.totalmem()` locally) and tunes all memory-dependent
   settings automatically. **Upgrade your Render plan and everything adapts — no
@@ -99,12 +99,12 @@
   - 2GB: heap=1600MB, prisma=16 conns, rate=4x, concur=50, restart@85%
   - 4GB: heap=3200MB, prisma=20 conns, rate=4x, concur=100, restart@88%
   - 8GB+: heap=6400MB, prisma=20 conns, rate=4x, concur=200, restart@90%
-  What auto-scales: `--max-old-space-size` (set by start wrapper if NODE_OPTIONS
-  is empty), Prisma `connection_limit` (appended to DATABASE_URL if not present),
-  rate limiter bucket capacities (read/write only — auth/webhook/heavy are fixed
-  security limits), memory monitor threshold fraction, max concurrency.
-  The `/api/health` endpoint reports the detected memory + current config for
-  debugging. Explicit env vars always take precedence over auto-detection.
+    What auto-scales: `--max-old-space-size` (set by start wrapper if NODE_OPTIONS
+    is empty), Prisma `connection_limit` (appended to DATABASE_URL if not present),
+    rate limiter bucket capacities (read/write only — auth/webhook/heavy are fixed
+    security limits), memory monitor threshold fraction, max concurrency.
+    The `/api/health` endpoint reports the detected memory + current config for
+    debugging. Explicit env vars always take precedence over auto-detection.
 - **Production reliability**: 21 self-healing layers ensure zero-maintenance deploys:
   **Build/Deploy:** (1) **Build** uses `next build --webpack` (not Turbopack) —
   Turbopack production builds have a known "module factory" bug triggered by
@@ -160,7 +160,7 @@
   middleware also rate-limits `/api/auth/*sign-in*` and `*password*` endpoints
   (10 attempts/IP/min) since Better-Auth's built-in rate limiter is disabled. (16)
   **Request timeouts** — `src/lib/timeout.ts` provides `withTimeout(promise, ms,
-  msg)` that returns 504 on timeout. Applied to `/api/cron/backup` (120s) and
+msg)` that returns 504 on timeout. Applied to `/api/cron/backup` (120s) and
   `/api/telephony/twilio/sync-calls` (30s for Twilio API fetch). (17) **Twilio
   webhook error handling** — both `/api/telephony/webhook/twilio/voice` and
   `/status` routes are wrapped in try/catch. Voice returns a fallback TwiML (so
@@ -193,7 +193,7 @@
   On receipt: `newMAC = (oldQty×oldMAC + recvQty×recvCost) / (oldQty+recvQty)`. On issue: MAC is
   unchanged; the issue's `unitCost` = current MAC. Transfers carry the source MAC to the destination.
   The pure MAC function is in `@nirman/services` (`computeMovingAverageCost`) — 8 unit tests.
-- **Cost-per-sqft allocation**: bulk materials are issued to a *project*, not individual units. To
+- **Cost-per-sqft allocation**: bulk materials are issued to a _project_, not individual units. To
   estimate a unit's production cost, call `reallocateProjectCosts()` from `@nirman/services`:
   `costPerSqft = totalProjectCost / totalSellableArea`, then `unit.productionCost = costPerSqft × unit.area`.
   Cached on `Project.costPerSqft` + `BuiltUnit.productionCost`. Re-run after material issues / project
@@ -206,6 +206,16 @@
   delete these — set `deletedAt = now()`. All queries MUST filter `deletedAt: null` unless explicitly
   querying archived records. Transactional records (StockMovement, GoodsReceipt, etc.) are already
   immutable — no soft delete needed.
+- **Mobile navigation / adding a `/m` route**: `apps/web/src/lib/route-manifest.ts` is the SINGLE
+  SOURCE OF TRUTH for mobile navigation. Creating `app/m/<path>/page.tsx` REQUIRES adding a matching
+  `RouteEntry` — `route-manifest.test.ts` (26 guards, runs in CI) fails the build if you do one
+  without the other. It also enforces that `parent` is a real path ancestor or hub, that Home is the
+  only root, that exactly one tab resolves active per route × persona, and that two routes rendering
+  the same list component declare each other in `sharesListWith`. This exists because six
+  hand-maintained nav maps had drifted: 46 of 121 real static routes were missing from them and 17
+  were reachable only by typing the URL. Header title, Up target, breadcrumbs, menu tree, active tab,
+  search index and badge endpoints are all DERIVED from the manifest — never re-declare them.
+  Full rationale + the remaining phases: `docs/NAVIGATION.md`.
 - **Procurement scope**: every `PurchaseOrder` must set `procurementScope` (COMPANY or PROJECT).
   COMPANY → receive into a company warehouse location; PROJECT → receive into a project site.
 - **Land partition**: atomic transaction — validate Σ child area = parent area, create children,
@@ -324,7 +334,7 @@
   `getWinningQuoteLineCosts()` auto-fills the PO line costs from the
   winner. Schema: `VendorQuote` + `VendorQuoteLine` +
   `MaterialRequisition.{minQuotesRequired, quotesWaived, quotesWaivedById,
-  quotesWaivedReason, quotesLockedAt}` + `PurchaseOrder.selectedQuoteId`.
+quotesWaivedReason, quotesLockedAt}` + `PurchaseOrder.selectedQuoteId`.
   Pure helpers (`cheapestQuoteId`, `quoteVariances`,
   `isQuoteGateSatisfied`, `winningLineCosts`) are unit-tested (15 tests).
   API: `POST/GET /api/quotes`, `GET/PATCH/DELETE /api/quotes/[id]`,
@@ -359,7 +369,7 @@
   resubmitted. Service: `subAdminApproveDpr()`, `adminApproveDpr()`,
   `rejectDpr()`, `resubmitDpr()` in `@nirman/services`/`hr.ts`. API:
   `PATCH /api/dprs/[id]` with `action: "subAdminApprove" |
-  "adminApprove" | "reject" | "resubmit"`. UI: approval status badges +
+"adminApprove" | "reject" | "resubmit"`. UI: approval status badges +
   action buttons on the DPR list page.
 - **Standard Consumption Benchmarks**: `@nirman/services`/
   `standard-consumption.ts` — defines how much of a material SHOULD be
@@ -376,7 +386,7 @@
   optionally auto-generate a `ScrapGeneration` (with `SCRAP_GENERATED`
   stock movements at 50% of standard cost). Schema additions:
   `DailyProgressReport.{workType, varianceAnalysis (JSON),
-  autoScrapGenerationId}` + back-relation `ScrapGeneration.dprAutoScrap`.
+autoScrapGenerationId}` + back-relation `ScrapGeneration.dprAutoScrap`.
   API at `POST /api/dprs/[id]/variance` (with `autoGenerateScrap` +
   `scrapToLocationId` options). UI: DPR cards show work type badge; DPR
   detail dialog shows variance analysis table (actual vs standard vs
@@ -414,7 +424,7 @@
   the bulk submission. Service: `recordAttendance()` +
   `bulkRecordAttendance()` accept the GPS fields. API:
   `POST /api/attendance` (bulk records include GPS fields); `GET
-  /api/attendance` returns GPS fields.
+/api/attendance` returns GPS fields.
 - **99acres / Portal Listings Sync**: `@nirman/services`/
   `portal-listing.ts` — syncs available built units to property portals
   (99acres, MagicBricks, Housing.com) via a pluggable `PortalProvider`
@@ -425,7 +435,7 @@
   draft; `syncListingToPortal()` pushes to the portal (create or
   update); `delistPortalListing()` removes from the portal. API at
   `GET/POST /api/portal-listings`, `POST /api/portal-listings/[id]?
-  action=sync|delist`. UI at `/portal-listings` (grouped by portal,
+action=sync|delist`. UI at `/portal-listings` (grouped by portal,
   stats, create listing dialog with auto-fill from built unit, push/
   sync/delist buttons, link to live listing).
 - **Per-Unit Material Issuance**: `MaterialIssue.builtUnitId` (optional) —
@@ -486,36 +496,36 @@
   `assignScopedMembership()` (validates actor is above the target in the
   hierarchy, scope entries match scope type, entries belong to the company,
   reportsTo is same-company + cycle-free; atomically replaces scope entries
-  + logs AuditLog), `getReportingChain()` / `getDirectReports()` (org chart).
-  Pure helpers (`defaultScopeType`, `resolveScopeType`, `validateScopeEntries`,
-  `wouldCreateCycle`, `_svcCanAssignRole`) are unit-tested (24 tests). API:
-  `PATCH /api/companies/[id]/members/[memberId]` accepts `scopeType` +
-  `reportsToUserCompanyId` + `scopeEntries` (routes through
-  `assignScopedMembership`); a simple `{ role }` body still works (backwards
-  compatible). `GET …/[memberId]?reports=1` → direct reports; otherwise →
-  upward reporting chain. The members list GET now returns `scopeType` +
-  `scopes[]` + `reportsToUserCompanyId`. UI: the Settings → Companies members
-  table shows a Scope column (Company-wide / Depts (n) / Sites (n) with the
-  detail list + "reports to X"). **Scope-filtered queries**: list pages call
-  `getUserScope()` from `@/lib/server` and filter — PROJECT scope filters
-  projects/DPRs/attendance/approvals to `projectId IN scope.projectIds`;
-  DEPARTMENT scope filters the cost-centre consumption report to
-  `departmentId IN scope.departmentIds`. `getAssignedProjectIds()` prefers
-  the hierarchical UserScope and falls back to the legacy ProjectAssignment
-  table. OWNER/ADMIN are always COMPANY-scoped (cannot be scoped down).
-  **Account creation hierarchy**: `canAssignRole(actorRole, targetRole)` in
-  `@/lib/roles` enforces that a role can only create/assign roles STRICTLY
-  below its tier, OR at the same tier but a different role (OWNER↔ADMIN
-  cross-assignment). Tier 3 (SUPERVISOR/SALES/ACCOUNTANT) cannot create any
-  accounts. `assignableRoles(actorRole)` returns the filtered list for UI
-  dropdowns. Enforced at: `POST /api/companies/[id]/members` (add member),
-  `PATCH /api/companies/[id]/members/[memberId]` (change role + scope),
-  `PATCH /api/users/[id]` (change role/active), and `assignScopedMembership()`
-  in the service. The UI filters the "Add member" + inline role dropdowns to
-  only show assignable roles, and hides the active-toggle / role-select for
-  members at or above the actor's tier. The settings page gate is now
-  `PERM.COMPANY_MANAGE` (which MANAGER has) instead of OWNER/ADMIN-only, so
-  Sub-Admins can access the members management UI.
+  - logs AuditLog), `getReportingChain()` / `getDirectReports()` (org chart).
+    Pure helpers (`defaultScopeType`, `resolveScopeType`, `validateScopeEntries`,
+    `wouldCreateCycle`, `_svcCanAssignRole`) are unit-tested (24 tests). API:
+    `PATCH /api/companies/[id]/members/[memberId]` accepts `scopeType` +
+    `reportsToUserCompanyId` + `scopeEntries` (routes through
+    `assignScopedMembership`); a simple `{ role }` body still works (backwards
+    compatible). `GET …/[memberId]?reports=1` → direct reports; otherwise →
+    upward reporting chain. The members list GET now returns `scopeType` +
+    `scopes[]` + `reportsToUserCompanyId`. UI: the Settings → Companies members
+    table shows a Scope column (Company-wide / Depts (n) / Sites (n) with the
+    detail list + "reports to X"). **Scope-filtered queries**: list pages call
+    `getUserScope()` from `@/lib/server` and filter — PROJECT scope filters
+    projects/DPRs/attendance/approvals to `projectId IN scope.projectIds`;
+    DEPARTMENT scope filters the cost-centre consumption report to
+    `departmentId IN scope.departmentIds`. `getAssignedProjectIds()` prefers
+    the hierarchical UserScope and falls back to the legacy ProjectAssignment
+    table. OWNER/ADMIN are always COMPANY-scoped (cannot be scoped down).
+    **Account creation hierarchy**: `canAssignRole(actorRole, targetRole)` in
+    `@/lib/roles` enforces that a role can only create/assign roles STRICTLY
+    below its tier, OR at the same tier but a different role (OWNER↔ADMIN
+    cross-assignment). Tier 3 (SUPERVISOR/SALES/ACCOUNTANT) cannot create any
+    accounts. `assignableRoles(actorRole)` returns the filtered list for UI
+    dropdowns. Enforced at: `POST /api/companies/[id]/members` (add member),
+    `PATCH /api/companies/[id]/members/[memberId]` (change role + scope),
+    `PATCH /api/users/[id]` (change role/active), and `assignScopedMembership()`
+    in the service. The UI filters the "Add member" + inline role dropdowns to
+    only show assignable roles, and hides the active-toggle / role-select for
+    members at or above the actor's tier. The settings page gate is now
+    `PERM.COMPANY_MANAGE` (which MANAGER has) instead of OWNER/ADMIN-only, so
+    Sub-Admins can access the members management UI.
 - **PWA / Field receiving**: `/field` page + `FieldReceive` client component
   with BarcodeDetector camera scanning + offline mutation queue
   (`@/lib/offline/queue`). Service worker at `public/sw.js`, registered by
@@ -554,7 +564,7 @@
   Links (dependencies), and Time. Wired into both `/tasks` (TasksManager) and
   `/my-tasks` (MyTasksPanel). The AssignTaskDialog supports initial subtask
   steps + a time estimate. API routes under `api/tasks/[id]/{subtasks,comments,
-  dependencies,time}`.
+dependencies,time}`.
 
 ## Package layout
 
@@ -615,7 +625,7 @@ thing probably belongs here rather than in the page.
    should feel like drafting paper and concrete, not a stainless-steel SaaS dashboard.
    Site staff use this in daylight; cold blue-greys wash out.
 2. **One accent, earned.** Ochre (`--color-brand`) is the only chromatic accent in the
-   chrome. It marks exactly one thing: *"you are here / act here."* If ochre appears
+   chrome. It marks exactly one thing: _"you are here / act here."_ If ochre appears
    twice on a screen competing for attention, the screen is wrong.
 3. **Colour is wayfinding, not decoration.** Each of the six worlds owns a hue, used only
    as a 2px rule, a 6px dot or an icon tint — **never** a filled panel.
@@ -627,15 +637,16 @@ and mirrors the owner's map. The original six worlds (Today, Materials, Property
 Money, Insights) were consolidated into four for clarity — Materials+Property became "Build",
 Money+Insights became "Finance". Settings is a gear at the bottom, not a world.
 
-| World | Owner's term | Route root |
-| --- | --- | --- |
-| **Today** | — (cross-cutting) | `/`, `/my-tasks`, `/approvals`, `/tasks` |
-| **Build** | Raw Material + Real Estate | `/materials`, `/procurement`, `/requisitions`, `/vendors`, `/field`, `/stock-*`, `/equipment`, `/projects`, `/land`, `/units`, `/renovations`, `/sales`, `/rentals`, `/customers` |
-| **HR** | People | `/hr/*` |
-| **Finance** | Accounts (Tally) + Analysis | `/finance`, `/gl`, `/reports/*` |
-| ⚙ Settings | — | `/settings`, `/workflows` |
+| World       | Owner's term                | Route root                                                                                                                                                                        |
+| ----------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Today**   | — (cross-cutting)           | `/`, `/my-tasks`, `/approvals`, `/tasks`                                                                                                                                          |
+| **Build**   | Raw Material + Real Estate  | `/materials`, `/procurement`, `/requisitions`, `/vendors`, `/field`, `/stock-*`, `/equipment`, `/projects`, `/land`, `/units`, `/renovations`, `/sales`, `/rentals`, `/customers` |
+| **HR**      | People                      | `/hr/*`                                                                                                                                                                           |
+| **Finance** | Accounts (Tally) + Analysis | `/finance`, `/gl`, `/reports/*`                                                                                                                                                   |
+| ⚙ Settings  | —                           | `/settings`, `/workflows`                                                                                                                                                         |
 
 Rules:
+
 - **Never add a top-level nav item.** Add a `NavLink` to the right `section` of the right
   `World` in `nav.ts`. The shell, command palette, mobile tabs and `/reports` hub all read
   from it, so they can never disagree.
@@ -726,7 +737,7 @@ that the desktop is crammed onto a phone. So:
 - **What's on the tab bar** → the persona decides (`src/lib/mobile-nav.ts`). Curation by
   role is correct: 4–5 tabs, the things that role does on a phone. Executive and Sales
   personas use 4 tabs + a "More" link; Ops, Field, and Finance use 5 tabs.
-- **What it's called** → the *world* decides. Labels, icons and colours come from `nav.ts`
+- **What it's called** → the _world_ decides. Labels, icons and colours come from `nav.ts`
   via `tabColor()`. A tab and its desktop sidebar entry must be visibly the same thing.
 - A tab may promote one deep action (a supervisor's commonest act is "Receive", not
   "browse Materials"). It keeps its world's colour so it reads as a shortcut, not a new place.
@@ -755,7 +766,7 @@ construction-industry ERP. The expansion is organized into workstreams H1–H8:
   `@nirman/services`/`scheduling.ts` (CPM forward/backward pass, total
   float, critical path, EVM: PV/EV/AC/CPI/SPI/EAC/VAC, cost overrun
   forecast). API: `/api/boq/{items,tree}`, `/api/wbs/{nodes,tree,
-  dependencies}`, `/api/mb-entries`, `/api/material-take-off`,
+dependencies}`, `/api/mb-entries`, `/api/material-take-off`,
   `/api/evm`, `/api/cost-overrun`, `/api/node-evm`, `/api/schedule`. UI:
   `/boq`, `/wbs`, `/measurement-book`, `/project-control`.
 
@@ -840,56 +851,45 @@ construction-industry ERP. The expansion is organized into workstreams H1–H8:
   material lines (snapshots HSN+GST from each material at creation);
   `addQuoteToRequest()` adds a vendor quote with per-line computation of
   `unitLandedCost = unitPrice + (unitPrice × gstRate/100) + freightPerUnit
-  + handlingPerUnit`, `gstAmount`, `lineSubtotal`, `lineTotal`, and
-  header totals (`subtotal`, `gstTotal`, `freightTotal`,
-  `handlingTotal`, `landedTotal`); `approveQuotation()` selects the
-  winning quote — ENFORCEMENT: only the submitter's DIRECT REPORTING
-  MANAGER (one level up via `UserCompany.reportsToUserCompanyId`) can
-  approve, not anyone with a permission flag. If the selected quote is
-  NOT the cheapest, a reason is mandatory. `getComparativeMatrix()`
-  returns the full per-material × per-supplier matrix with cheapest
-  flags and variances. `getPendingApprovalsForManager()` lists requests
-  from direct reports. HSN/GST master: `@nirman/services`/`hsn-gst.ts`
-  — `seedHsnGstRates()` seeds 81 curated construction-industry HSN codes
-  (cement, steel, bricks, sand, paint, electrical, PVC, sanitary ware,
-  hardware, machinery, services/SAC); `lookupGstByHsn()` for exact
-  lookup; `suggestHsnByMaterial()` for fuzzy match by material name;
-  `searchHsnGst()` for the HSN picker UI. Schema: `HsnGstRate` (hsnCode
-  unique, description, gstRate, sacCode, category Goods/Services) +
-  `QuotationRequest` (requestNumber, companyId, projectId, title, notes,
-  minQuotesRequired, submittedById, submittedByUserCompanyId, status
-  OPEN→QUOTES_COLLECTED→APPROVED, approvedById, approvedByUserCompanyId,
-  approvedAt, approvalReason, selectedQuoteId) + `QuotationRequestLine`
-  (materialId, qtyRequired, hsnCode, gstRate — snapshotted from
-  material). `VendorQuote` enhanced with optional `quotationRequestId`
-  (standalone quotes) + `subtotal`, `gstTotal`, `freightTotal`,
-  `handlingTotal` header fields. `VendorQuoteLine` enhanced with
-  `gstAmount`, `freightPerUnit`, `handlingPerUnit`, `unitLandedCost`,
-  `lineSubtotal`. `VendorQuote.requisitionId` made optional (nullable)
-  to support standalone quotes. Permissions: `QUOTATION_VIEW`,
-  `QUOTATION_MANAGE` (MANAGER, SUPERVISOR get manage; SALES, ACCOUNTANT
-  get view). API: `GET/POST /api/quotations` (list/create, `?scope=mine|
-  pending|all`, `?status=` filter), `GET /api/quotations/[id]`
-  (comparative matrix), `POST /api/quotations/[id]/quotes` (add quote
-  with inline supplier creation via `newSupplier` field), `POST
-  /api/quotations/[id]/approve` (hierarchy-enforced approval), `GET/PUT
-  /api/hsn-gst` (search/lookup/suggest + seed). UI: mobile-first at
-  `/m/quotations` (list with All/Mine/Pending tabs), `/m/quotations/new`
-  (material picker with HSN/GST display), `/m/quotations/[id]`
-  (comparative analysis: per-material per-piece landed cost cards,
-  expandable breakdown with GST/freight/handling, quote document list,
-  sticky approve bar with winner selection dialog, reason required if
-  not cheapest). Desktop overview at `/quotations` (table view,
-  redirects to mobile for detail). Inline supplier creation in the
-  quote upload dialog — no separate "add supplier" page needed. Nav:
-  Build → Procure section on desktop; "More" menu on mobile for
-  executive/ops/field personas.
+  - handlingPerUnit`, `gstAmount`, `lineSubtotal`, `lineTotal`, and
+header totals (`subtotal`, `gstTotal`, `freightTotal`,
+`handlingTotal`, `landedTotal`); `approveQuotation()`selects the
+winning quote — ENFORCEMENT: only the submitter's DIRECT REPORTING
+MANAGER (one level up via`UserCompany.reportsToUserCompanyId`) can
+approve, not anyone with a permission flag. If the selected quote is
+NOT the cheapest, a reason is mandatory. `getComparativeMatrix()`returns the full per-material × per-supplier matrix with cheapest
+flags and variances.`getPendingApprovalsForManager()`lists requests
+from direct reports. HSN/GST master:`@nirman/services`/`hsn-gst.ts`—`seedHsnGstRates()`seeds 81 curated construction-industry HSN codes
+(cement, steel, bricks, sand, paint, electrical, PVC, sanitary ware,
+hardware, machinery, services/SAC);`lookupGstByHsn()`for exact
+lookup;`suggestHsnByMaterial()`for fuzzy match by material name;`searchHsnGst()`for the HSN picker UI. Schema:`HsnGstRate`(hsnCode
+unique, description, gstRate, sacCode, category Goods/Services) +`QuotationRequest`(requestNumber, companyId, projectId, title, notes,
+minQuotesRequired, submittedById, submittedByUserCompanyId, status
+OPEN→QUOTES_COLLECTED→APPROVED, approvedById, approvedByUserCompanyId,
+approvedAt, approvalReason, selectedQuoteId) +`QuotationRequestLine`(materialId, qtyRequired, hsnCode, gstRate — snapshotted from
+material).`VendorQuote`enhanced with optional`quotationRequestId`(standalone quotes) +`subtotal`, `gstTotal`, `freightTotal`,
+`handlingTotal`header fields.`VendorQuoteLine`enhanced with`gstAmount`, `freightPerUnit`, `handlingPerUnit`, `unitLandedCost`,
+`lineSubtotal`. `VendorQuote.requisitionId`made optional (nullable)
+to support standalone quotes. Permissions:`QUOTATION_VIEW`,
+`QUOTATION_MANAGE`(MANAGER, SUPERVISOR get manage; SALES, ACCOUNTANT
+get view). API:`GET/POST /api/quotations`(list/create,`?scope=mine|
+    pending|all`, `?status=`filter),`GET /api/quotations/[id]`(comparative matrix),`POST /api/quotations/[id]/quotes`(add quote
+with inline supplier creation via`newSupplier`field),`POST
+    /api/quotations/[id]/approve`(hierarchy-enforced approval),`GET/PUT
+    /api/hsn-gst`(search/lookup/suggest + seed). UI: mobile-first at`/m/quotations`(list with All/Mine/Pending tabs),`/m/quotations/new`(material picker with HSN/GST display),`/m/quotations/[id]`(comparative analysis: per-material per-piece landed cost cards,
+expandable breakdown with GST/freight/handling, quote document list,
+sticky approve bar with winner selection dialog, reason required if
+not cheapest). Desktop overview at`/quotations` (table view,
+    redirects to mobile for detail). Inline supplier creation in the
+    quote upload dialog — no separate "add supplier" page needed. Nav:
+    Build → Procure section on desktop; "More" menu on mobile for
+    executive/ops/field personas.
 - **Guidance layer (orientation + next-action)**: a set of primitives
   that answer "what is this page for / where am I in the flow / what do
   I do next — on this page" without adding chrome or changing the
   existing UI. Built on the existing warm-palette mobile v2 tokens.
-  Single rule (inherited from the `Callout` contract: *"a callout must
-  always carry an action, or it is nagging"*): every guidance element
+  Single rule (inherited from the `Callout` contract: _"a callout must
+  always carry an action, or it is nagging"_): every guidance element
   either (a) explains the screen in one line, (b) shows flow position,
   or (c) offers a single next action doable on the same page — else
   don't render it.
@@ -935,9 +935,9 @@ construction-industry ERP. The expansion is organized into workstreams H1–H8:
   - **Wiring other flows**: (1) add the flow to `FLOWS` in
     `flow-map.ts`; (2) on the list page (server), compute the queue
     count + pass `canApprove`-style booleans; (3) render `<PageLead
-    flow="…" />` + `<NextActionCard flow="…" count={n} can={…} />`; (4)
+flow="…" />` + `<NextActionCard flow="…" count={n} can={…} />`; (4)
     on the detail page, `const next = resolveNextAction("…", status,
-    role)` and render `<NextActionCardView …/>` if non-null.
+role)` and render `<NextActionCardView …/>` if non-null.
   - **InlineWarn (row-level warnings)**: `MobileRow` already has a
     `tone: "warning" | "danger"` prop — wire it on list pages so
     problems sit on the row that has them (3px left border + chip),

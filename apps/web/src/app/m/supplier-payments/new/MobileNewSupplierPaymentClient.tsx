@@ -8,6 +8,7 @@ import { Loader2, Save, IndianRupee, Camera, X } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useTodayDateState } from "@/lib/use-today-date";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileSupplierSelect } from "@/components/mobile/selectors";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type Supplier = { id: string; name: string; balanceOwed: string };
@@ -112,7 +113,7 @@ export function MobileNewSupplierPaymentClient({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Failed to record payment");
       toast.success("Supplier payment recorded");
-      router.push("/m/supplier-payments");
+      router.push("/m/accounts?tab=payments");
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
@@ -149,8 +150,7 @@ export function MobileNewSupplierPaymentClient({
             <label className={labelClass} style={labelStyle}>
               Supplier <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
-            <MobileSelectWithCreate
-              label="Supplier"
+            <MobileSupplierSelect
               required
               value={supplierId}
               onChange={(v) => {

@@ -17,6 +17,7 @@ import {
 } from "@/components/mobile/v2/primitives";
 
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import { MobileMaterialDeleteBtn } from "./MobileMaterialDeleteBtn";
 import { MobileAdjustStockBtn } from "./MobileAdjustStockBtn";
 
@@ -110,6 +111,12 @@ async function MobileMaterialDetailContent({
   const stockTone = isOut ? "var(--color-stop)" : isLow ? "var(--color-signal)" : "var(--color-go)";
 
   return (
+    <PageContextProvider value={{
+      entityType: "material",
+      label: material.name,
+      subtitle: material.code,
+      recordId: material.id,
+    }}>
     <div>
       <RecordRecentItem type="material" id={material.id} label={material.name} sublabel={material.code} href={`/m/materials/${material.id}`} />
 
@@ -319,6 +326,7 @@ async function MobileMaterialDetailContent({
         />
       )}
     </div>
+    </PageContextProvider>
   );
 }
 

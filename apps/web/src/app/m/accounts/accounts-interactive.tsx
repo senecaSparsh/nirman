@@ -39,19 +39,19 @@ interface QuickAction {
 }
 
 const CASH_ACTIONS: QuickAction[] = [
-  { href: "/m/books/receipts", icon: Wallet, label: "Receipts" },
-  { href: "/m/books/finance", icon: IndianRupee, label: "Payments" },
-  { href: "/m/expenses", icon: Receipt, label: "Expenses" },
-  { href: "/m/books/payroll", icon: Wallet, label: "Payroll" },
+  { href: "/m/accounts?tab=receipts", icon: Wallet, label: "Receipts" },
+  { href: "/m/accounts?tab=payments", icon: IndianRupee, label: "Payments" },
+  { href: "/m/accounts?tab=expenses", icon: Receipt, label: "Expenses" },
+  { href: "/m/accounts?tab=gl", icon: Wallet, label: "Payroll" },
   { href: "/m/reports/pending-payments", icon: ClipboardCheck, label: "Dues" },
   { href: "/m/reports/cash-flow", icon: TrendingUp, label: "Cash Flow" },
   { href: "/m/reports/expenses", icon: Receipt, label: "Spend" },
-  { href: "/m/books/finance", icon: Building2, label: "Project Cost" },
+  { href: "/m/accounts?tab=expenses", icon: Building2, label: "Project Cost" },
 ];
 
 const BOOKS_ACTIONS: QuickAction[] = [
-  { href: "/m/books/gl", icon: BookOpen, label: "Ledger" },
-  { href: "/m/books/gl", icon: RefreshCw, label: "Tally Sync" },
+  { href: "/m/accounts?tab=gl", icon: BookOpen, label: "Ledger" },
+  { href: "/m/accounts?tab=gl", icon: RefreshCw, label: "Tally Sync" },
   { href: "/m/reports/gst", icon: FileText, label: "GST" },
   { href: "/m/reports/tds-certificates", icon: Receipt, label: "TDS" },
   { href: "/m/reports/profit", icon: TrendingUp, label: "P&L" },

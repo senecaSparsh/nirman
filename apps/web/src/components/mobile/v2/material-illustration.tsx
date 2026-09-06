@@ -424,8 +424,8 @@ function GenericBoxSVG({ colors, label, W, ...props }: SVGProps) {
       <rect width="100%" height="100%" fill={colors.bg} />
       <ellipse cx="50%" cy="88%" rx="28%" ry="3%" fill="rgba(0,0,0,0.1)" />
       <rect x="25%" y="25%" width="50%" height="50%" rx="4%" fill={colors.primary} />
-      {/* Box flaps */}
-      <path d="M 25% 25% L 50% 35% L 75% 25%" stroke={colors.accent} strokeWidth="1.5" fill="none" opacity="0.5" />
+      {/* Box flaps — use W-based coordinates (viewBox is 0 0 W W) */}
+      <path d={`M ${W * 0.25} ${W * 0.25} L ${W * 0.5} ${W * 0.35} L ${W * 0.75} ${W * 0.25}`} stroke={colors.accent} strokeWidth="1.5" fill="none" opacity="0.5" />
       <text x="50%" y="58%" textAnchor="middle" fontSize={W * 0.06} fill="white" fontWeight="bold" fontFamily="system-ui">
         {label.slice(0, 6)}
       </text>

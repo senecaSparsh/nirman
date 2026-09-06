@@ -6,6 +6,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
 import { MobileLeadDetailClient } from "./MobileLeadDetailClient";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 /**
  * /m/leads/[id] — lead detail.
@@ -115,6 +116,13 @@ async function MobileLeadDetailContent({
   if (isLost) leadPipelineSteps.push({ label: "Lost", state: "current" });
 
   return (
+    <PageContextProvider value={{
+      entityType: "lead",
+      status: lead.stage,
+      label: lead.name,
+      subtitle: lead.project?.name ?? lead.phone ?? undefined,
+      recordId: lead.id,
+    }}>
     <>
       <div className="mb-3 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <MobilePipelineStepper steps={leadPipelineSteps} />
@@ -125,5 +133,6 @@ async function MobileLeadDetailContent({
         canManage={canManage}
       />
     </>
+    </PageContextProvider>
   );
 }

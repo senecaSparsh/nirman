@@ -292,7 +292,7 @@ export function MobileNcrDetailClient({
                 const ok = await confirm({ title: "Delete?", description: "Delete this NCR? This cannot be undone.", confirmLabel: "Delete", variant: "destructive" });
                 if (!ok) return;
                 await ncrAction("delete");
-                router.push("/m/quality-control");
+                router.push("/m/construction?tab=quality");
               }}
               loading={acting === "delete"}
               icon={Trash2}

@@ -23,6 +23,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useRecentItems, recordRecentItem, type RecentItem } from "@/lib/use-recent-items";
+import { ALL_NAV_LINKS } from "@/lib/mobile-nav-v2";
+import { useRecentPages } from "@/lib/use-nav-preferences";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileNoResults } from "@/components/mobile/v2/scaffold";
 
@@ -114,6 +116,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
   const [loading, setLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const { items: recentItems, clear } = useRecentItems();
+  const { visitCounts } = useRecentPages();
 
   // Focus input when opened
   useEffect(() => {
@@ -162,6 +165,28 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
     items: results.filter((r) => r.type === type),
   })).filter((g) => g.items.length > 0), [results]);
 
+  // ── Page results — filter ALL_NAV_LINKS locally (no API call) ──
+  // This is the universal reachability safety net: any page is one
+  // search away, regardless of NavSheet structure.
+  // Results are sorted by frecency: pages you visit often float to the
+  // top, so "stock" surfaces your frequently-visited stock page first.
+  const pageResults = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return ALL_NAV_LINKS.filter((link) => {
+      const label = link.label.toLowerCase();
+      const subtitle = (link.subtitle ?? "").toLowerCase();
+      return label.includes(q) || subtitle.includes(q);
+    })
+      .sort((a, b) => {
+        // Frecency: pages with more visits rank higher
+        const aVisits = visitCounts[a.href] ?? 0;
+        const bVisits = visitCounts[b.href] ?? 0;
+        return bVisits - aVisits;
+      })
+      .slice(0, 8);
+  }, [query, visitCounts]);
+
   // Flat list for keyboard navigation
   const flatResults = useMemo(() => grouped.flatMap((g) => g.items), [grouped]);
 
@@ -204,7 +229,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
 
   if (!open) return null;
 
-  const totalResults = flatResults.length;
+  const totalResults = flatResults.length + pageResults.length;
   const trimmedQuery = query.trim();
 
   return (
@@ -236,7 +261,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search POs, projects, materials, people..."
+            placeholder="Search pages, POs, projects, materials, people..."
             className="w-full h-9 pl-9 pr-9 rounded-[0.625rem] text-m-body outline-none"
             style={{
               backgroundColor: "var(--color-paper)",
@@ -294,6 +319,53 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
         ) : null}
 
         {/* Search results grouped by type */}
+        {!loading && pageResults.length > 0 ? (
+          <div className="py-2">
+            <div
+              className="px-4 py-1.5 text-m-label font-bold uppercase tracking-wide"
+              style={{ color: "var(--color-ink-400)" }}
+            >
+              Pages
+            </div>
+            {pageResults.map((link) => {
+              const Icon = link.icon as LucideIcon;
+              return (
+                <button
+                  key={link.href}
+                  onClick={() => {
+                    onClose();
+                    router.push(link.href);
+                  }}
+                  className="text-m-body press w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+                >
+                  <div
+                    className="shrink-0 flex items-center justify-center size-8 rounded-[0.625rem]"
+                    style={{ backgroundColor: "var(--color-surface)" }}
+                  >
+                    <Icon className="size-4" style={{ color: "var(--color-ink-500)" }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className="text-m-body font-medium truncate"
+                      style={{ color: "var(--color-ink-950)" }}
+                    >
+                      <Highlight text={link.label} query={trimmedQuery} />
+                    </div>
+                    {link.subtitle ? (
+                      <div
+                        className="text-m-caption truncate"
+                        style={{ color: "var(--color-ink-400)" }}
+                      >
+                        <Highlight text={link.subtitle} query={trimmedQuery} />
+                      </div>
+                    ) : null}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
         {!loading && grouped.length > 0 ? (
           <div className="py-2">
             {grouped.map((group) => (

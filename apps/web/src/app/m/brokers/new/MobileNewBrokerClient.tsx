@@ -48,7 +48,7 @@ export function MobileNewBrokerClient({
         onCreated(data.id);
         onClose?.();
       } else {
-        router.push("/m/brokers");
+        router.push("/m/real-estate?tab=brokers");
         router.refresh();
       }
     } catch (err: unknown) {

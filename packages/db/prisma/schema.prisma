@@ -453,6 +453,7 @@ model User {
   memberships       UserCompany[]
   sessions          Session[]
   accounts          Account[]
+  passkeys          Passkey[]
   stockMovements    StockMovement[]
   goodsReceipts     GoodsReceipt[]
   supervisedGoodsReceipts GoodsReceipt[] @relation("GrnSupervisor")
@@ -704,6 +705,32 @@ model Account {
 
   @@index([userId])
   @@index([providerId, accountId])
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  Passkey — WebAuthn credentials for biometric login (Face ID / Touch ID
+//  / Windows Hello / Android fingerprint). Managed by @better-auth/passkey.
+//  Each row is a public key + metadata for one enrolled device. The private
+//  key never leaves the authenticator. `aaguid` identifies the authenticator
+//  model (e.g. "Google Password Manager") for friendly display labels.
+// ───────────────────────────────────────────────────────────────────────
+model Passkey {
+  id           String   @id @default(cuid())
+  name         String?  // user-assigned label, e.g. "MacBook Touch ID"
+  publicKey    String   // base64-encoded public key
+  userId       String
+  credentialID String   // base64url credential ID — unique per credential
+  counter      Int      @default(0) // replay-protection sign count
+  deviceType   String   // CredentialDeviceType: "singleDevice" | "multiDevice"
+  backedUp     Boolean  @default(false) // true if the credential is backed up (synced)
+  transports   String?  // comma-separated list: "internal","hybrid","usb", etc.
+  aaguid       String?  // authenticator model ID for friendly naming
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([credentialID])
+  @@index([userId])
 }
 
 model Verification {

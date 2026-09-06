@@ -49,7 +49,7 @@ export function FeedbackButton() {
 
   return (
     <>
-      <div data-feedback-button className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2 no-print">
+      <div data-feedback-button className="fixed z-40 flex flex-col items-start gap-2 no-print" style={{ left: "1rem", bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)" }}>
         {/* Feedback inbox badge for developer/owner/admin */}
         {unreadCount > 0 && (
           <a
@@ -61,19 +61,20 @@ export function FeedbackButton() {
           </a>
         )}
 
-        {/* The floating feedback button */}
+        {/* The floating feedback button — smaller than the FAB, sits on the left */}
         <button
           onClick={() => setOpen(true)}
           className={cn(
-            "group flex size-12 items-center justify-center rounded-full shadow-floating transition-all",
+            "group flex size-11 items-center justify-center rounded-full shadow-floating transition-all",
             "bg-brand text-brand-foreground hover:bg-brand-strong hover:scale-105",
             "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/30",
             "active:scale-95",
           )}
+          style={{ transition: "transform 160ms ease-out" }}
           aria-label="Send feedback"
           title="Send feedback — take a snapshot, record voice, write what you feel"
         >
-          <MessageSquare className="size-5" />
+          <MessageSquare className="size-4" />
           {unreadCount > 0 && (
             <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-danger text-[9px] font-bold text-white ring-2 ring-background">
               {unreadCount > 9 ? "9+" : unreadCount}

@@ -7,6 +7,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
 import { MobileMaterialSaleDetailClient } from "./MobileMaterialSaleDetailClient";
 import { resolveNextAction } from "@/lib/flow-map";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export default function MobileMaterialSaleDetailPage({
   params,
@@ -110,6 +111,14 @@ async function MobileMaterialSaleDetailContent({
       ];
 
   return (
+    <PageContextProvider value={{
+      entityType: "materialSale",
+      flowId: "materialSale",
+      status: sale.status,
+      label: sale.saleNumber,
+      recordId: sale.id,
+      canActions: canManage ? [PERM.SALES_MANAGE] : [],
+    }}>
     <>
       <div className="mb-3 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <MobilePipelineStepper steps={msPipelineSteps} />
@@ -164,5 +173,6 @@ async function MobileMaterialSaleDetailContent({
       canManage={canManage}
     />
     </>
+    </PageContextProvider>
   );
 }

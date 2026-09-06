@@ -58,6 +58,11 @@ services:
     region: oregon
     branch: main
     healthCheckPath: /api/health
+    # LIVENESS check (no DB query) — returns 200 if the process is alive.
+    # The start wrapper's internal monitor uses /api/health?deep=1 (with
+    # DB ping) to catch zombie states. Splitting liveness vs readiness
+    # prevents Render restart loops when the free-tier Postgres wakes up
+    # from sleep (the first DB query may take 2-5s).
 
     # Node + pnpm setup, generate Prisma client, build, migrate, seed.
     # IMPORTANT: db:generate runs BEFORE build — the app imports types from
@@ -88,7 +93,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: 23.11.0
+        value: 22.18.0
       - key: NEXT_TELEMETRY_DISABLED
         value: "1"
       - key: TURBO_TELEMETRY_DISABLED
@@ -104,9 +109,9 @@ services:
       - key: NEXT_PUBLIC_APP_URL
         value: https://nirman-inventory.onrender.com
       - key: BETTER_AUTH_SECRET
-        value: ec7e54b42ea884521fc293ab5f5a4bc842e2694c0736626262455f9033894347
+        sync: false  # set manually in Render dashboard — never commit secrets
       - key: SEED_PASSWORD
-        value: nirman123
+        sync: false  # set manually in Render dashboard — never commit secrets
       # Sentry error tracking (optional — leave empty to disable).
       # Create a free account at sentry.io, get the DSN from Project Settings.
       - key: SENTRY_DSN

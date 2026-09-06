@@ -6,6 +6,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { MobileCustomerDetailClient } from "./MobileCustomerDetailClient";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 /**
  * /m/customers/[id] — customer detail.
@@ -141,6 +142,12 @@ async function MobileCustomerDetailContent({
   };
 
   return (
+    <PageContextProvider value={{
+      entityType: "customer",
+      label: customer.name,
+      subtitle: customer.phone ?? undefined,
+      recordId: customer.id,
+    }}>
     <>
       <RecordRecentItem type="customer" id={customer.id} label={customer.name} sublabel={customer.phone ?? undefined} href={`/m/customers/${customer.id}`} />
       <MobileCustomerDetailClient
@@ -149,5 +156,6 @@ async function MobileCustomerDetailContent({
         canManage={canManage}
       />
     </>
+    </PageContextProvider>
   );
 }

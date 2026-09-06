@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileChangeOrderDetailClient } from "./MobileChangeOrderDetailClient";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export default async function MobileChangeOrderDetailPage({
   params,
@@ -88,5 +89,15 @@ async function MobileChangeOrderDetailContent({ id }: { id: string }) {
     })),
   };
 
-  return <MobileChangeOrderDetailClient co={serialized} canManage={canManage} />;
+  return (
+    <PageContextProvider value={{
+      entityType: "changeOrder",
+      status: co.status,
+      label: co.changeOrderNo,
+      subtitle: co.project.name,
+      recordId: co.id,
+    }}>
+      <MobileChangeOrderDetailClient co={serialized} canManage={canManage} />
+    </PageContextProvider>
+  );
 }

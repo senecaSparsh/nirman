@@ -32,7 +32,7 @@ export function MobileDeleteProjectButton({ projectId, name }: { projectId: stri
       if (!res.ok) throw new Error(data.error ?? "Failed to delete");
       haptic(10);
       toast.success("Project archived");
-      router.push("/m/projects");
+      router.push("/m/real-estate?tab=projects");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to delete");
     } finally {

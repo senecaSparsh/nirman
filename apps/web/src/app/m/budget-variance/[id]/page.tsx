@@ -13,6 +13,7 @@ import {
   MobileEmptyState,
   SectionHead,
 } from "@/components/mobile/v2/primitives";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export const metadata = { title: "Budget Variance — Nirman" };
 
@@ -96,6 +97,11 @@ async function MobileBudgetVarianceDetailContent({
   }));
 
   return (
+    <PageContextProvider value={{
+      entityType: "budget-variance",
+      label: project.name,
+      recordId: project.id,
+    }}>
     <div className="flex flex-col gap-4 pb-6">
       {/* Header card */}
       <div
@@ -257,6 +263,7 @@ async function MobileBudgetVarianceDetailContent({
         </div>
       </Link>
     </div>
+    </PageContextProvider>
   );
 }
 

@@ -17,13 +17,13 @@ import {
  * request, plus overlay flags (canApprove / canAddQuote) and suppliers
  * so the same-page analysis sheet can render without extra hops.
  */
-export const GET = apiHandler(async (req: NextRequest) => {
+export const GET = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  const { id } = await params;
   const user = await requirePermission(PERM.QUOTATION_VIEW);
   const company = await getCompany();
   const groupCompanyIds = await getCompanyGroupIds(company);
   const role = await getUserRole();
   const membership = await getCurrentUserMembership();
-  const { id } = { id: new URL(req.url).pathname.split("/").pop()! };
 
   const request = await prisma.quotationRequest.findFirst({
     where: { id, companyId: { in: groupCompanyIds } },

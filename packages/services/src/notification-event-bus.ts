@@ -360,6 +360,7 @@ export function shouldRoleReceiveEvent(role: string, eventType: NotificationEven
     NotificationEventType.RENT_DUE_REMINDER,
     NotificationEventType.RENT_ESCALATION_APPLIED,
     NotificationEventType.LAND_PAYMENT_DUE,
+    NotificationEventType.LEGAL_DOC_EXPIRING,
   ]);
   const EQUIPMENT_EVENTS = new Set([
     NotificationEventType.EQUIPMENT_MAINTENANCE_DUE,

@@ -129,7 +129,7 @@ async function MobileQualityControlContent() {
           }
           action={
             canManage && projects.length === 0 ? (
-              <MobileCta href="/m/projects" icon={Plus} variant="primary">Go to Projects</MobileCta>
+              <MobileCta href="/m/real-estate?tab=projects" icon={Plus} variant="primary">Go to Projects</MobileCta>
             ) : undefined
           }
         />

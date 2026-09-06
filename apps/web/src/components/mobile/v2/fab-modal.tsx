@@ -96,7 +96,7 @@ export function MobileFabModal({
   // parent backdrop-filter can affect it.
   const modalContent = prefersReducedMotion ? (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className={`fixed inset-0 flex items-center justify-center p-4 ${nested ? "z-[60]" : "z-50"}`}
       onClick={onClose}
       style={{
         backgroundColor: visible
@@ -127,7 +127,7 @@ export function MobileFabModal({
     </div>
   ) : (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className={`fixed inset-0 flex items-center justify-center p-4 ${nested ? "z-[60]" : "z-50"}`}
       onClick={onClose}
       style={{
         // Backdrop: dim + blur that animates in with the dialog.

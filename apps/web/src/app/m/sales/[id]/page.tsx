@@ -6,6 +6,7 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
 import { MobileSaleDetailClient } from "./MobileSaleDetailClient";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export default function MobileSaleDetailPage({
   params,
@@ -169,6 +170,13 @@ async function MobileSaleDetailContent({
       ];
 
   return (
+    <PageContextProvider value={{
+      entityType: "sale",
+      status: sale.status,
+      label: sale.saleNumber,
+      subtitle: sale.customer?.name,
+      recordId: sale.id,
+    }}>
     <>
       <div className="mb-3 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
         <MobilePipelineStepper steps={salePipelineSteps} />
@@ -276,5 +284,6 @@ async function MobileSaleDetailContent({
       draftDate={sale.draftDate ? sale.draftDate.toISOString() : null}
     />
     </>
+    </PageContextProvider>
   );
 }

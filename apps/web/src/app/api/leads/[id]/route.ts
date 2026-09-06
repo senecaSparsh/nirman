@@ -87,6 +87,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   revalidatePath("/m/sales");
   revalidatePath("/customers");
   revalidatePath("/m/customers");
+    revalidatePath("/m/real-estate?tab=customers");
   return json({ leadId: result.lead.id, customerId: result.customer.id, customerName: result.customer.name });
 });
 

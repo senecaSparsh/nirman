@@ -13,6 +13,7 @@ import {
   MobileStatCard,
 } from "@/components/mobile/v2/primitives";
 import { MobileStockDetailActions } from "./MobileStockDetailActions";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export default function MobileStockDetailPage({
   params,
@@ -69,6 +70,12 @@ async function MobileStockDetailContent({
   const totalValue = material.stockItems.reduce((s, si) => s + toNum(si.qty) * toNum(si.movingAvgCost), 0);
 
   return (
+    <PageContextProvider value={{
+      entityType: "material",
+      label: material.name,
+      subtitle: material.code,
+      recordId: material.id,
+    }}>
     <div>
       <div className="mb-4">
       </div>
@@ -153,5 +160,6 @@ async function MobileStockDetailContent({
         </div>
       )}
     </div>
+    </PageContextProvider>
   );
 }

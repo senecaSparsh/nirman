@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../../sales/MobileChequeFields";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
@@ -144,7 +145,7 @@ export function MobileMaterialSaleDetailClient({
     setSubmitting(true);
     try {
       const res = await fetch(`/api/material-sales/${saleId}`, {
-        method: "POST",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "cancel" }),
       });
@@ -592,6 +593,8 @@ export function MobileMaterialSaleDetailClient({
           </div>
         </>
       ) : null}
+
+      <AttachmentList entityType="MaterialSale" entityId={saleId} />
 
       <ActionBar>
         {/* ── Cancel action ── */}

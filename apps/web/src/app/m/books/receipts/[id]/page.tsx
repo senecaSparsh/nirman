@@ -10,6 +10,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import { ReceiptActions } from "./ReceiptActions";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 type AssetPaymentSummary = { id: string; paymentDate: Date; mode: string; reference: string | null; amount: unknown };
 type MaterialPaymentSummary = { id: string; paymentDate: Date; paymentMode: string; referenceNo: string | null; amount: unknown };
@@ -205,6 +206,12 @@ async function AssetReceiptView({ id, companyId, companyName }: { id: string; co
   }));
 
   return (
+    <PageContextProvider value={{
+      entityType: "assetReceipt",
+      label: receiptNo,
+      subtitle: sale.customer.name,
+      recordId: payment.id,
+    }}>
     <DetailShell
       receiptNo={receiptNo}
       kindLabel="Property Sale"
@@ -247,6 +254,7 @@ async function AssetReceiptView({ id, companyId, companyName }: { id: string; co
         <HistoryTable payments={history} currentId={payment.id} />
       </SectionCard>
     </DetailShell>
+    </PageContextProvider>
   );
 }
 
@@ -299,6 +307,12 @@ async function MaterialReceiptView({ id, companyId, companyName }: { id: string;
   }));
 
   return (
+    <PageContextProvider value={{
+      entityType: "materialReceipt",
+      label: receiptNo,
+      subtitle: partyName,
+      recordId: payment.id,
+    }}>
     <DetailShell
       receiptNo={receiptNo}
       kindLabel="Material Sale"
@@ -363,6 +377,7 @@ async function MaterialReceiptView({ id, companyId, companyName }: { id: string;
         <HistoryTable payments={history} currentId={payment.id} />
       </SectionCard>
     </DetailShell>
+    </PageContextProvider>
   );
 }
 

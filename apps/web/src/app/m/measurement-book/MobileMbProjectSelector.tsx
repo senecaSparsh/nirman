@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 
@@ -13,6 +13,7 @@ export function MobileMbProjectSelector({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
 
   return (
     <div className="mb-4">
@@ -23,7 +24,7 @@ export function MobileMbProjectSelector({
           const params = new URLSearchParams(searchParams.toString());
           if (id) params.set("project", id);
           else params.delete("project");
-          router.push(`/m/measurement-book?${params.toString()}`);
+          router.push(`${pathname}?${params.toString()}`);
         }}
         placeholder="— Select project —"
         options={projects.map((p) => ({ value: p.id, label: p.name }))}

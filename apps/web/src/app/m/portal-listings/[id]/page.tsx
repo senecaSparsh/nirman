@@ -12,6 +12,7 @@ import {
   MobileStatCard,
 } from "@/components/mobile/v2/primitives";
 import { MobilePortalListingActions } from "./MobilePortalListingActions";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export default function MobilePortalListingDetailPage({
   params,
@@ -52,6 +53,13 @@ async function MobilePortalListingDetailContent({
   }
 
   return (
+    <PageContextProvider value={{
+      entityType: "portal-listing",
+      status: listing.status,
+      label: listing.portalName,
+      subtitle: listing.builtUnit?.unitNumber ?? undefined,
+      recordId: listing.id,
+    }}>
     <div className="pb-20">
       <div className="mb-4">
       </div>
@@ -107,5 +115,6 @@ async function MobilePortalListingDetailContent({
         furnishing={listing.furnishing}
       />
     </div>
+    </PageContextProvider>
   );
 }

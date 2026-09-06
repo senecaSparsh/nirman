@@ -19,6 +19,7 @@ import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { resolveNextAction } from "@/lib/flow-map";
 import { ShareButton } from "@/components/share-button";
 import { MobileUnitActions } from "./MobileUnitActions";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 /**
  * /m/units/[id] — built-unit detail page.
@@ -93,6 +94,14 @@ async function MobileUnitDetailContent({
   const nextAction = resolveNextAction("builtUnit", unit.status, role);
 
   return (
+    <PageContextProvider value={{
+      entityType: "builtUnit",
+      flowId: "builtUnit",
+      status: unit.status,
+      label: unit.unitNumber,
+      subtitle: unit.project.name,
+      recordId: unit.id,
+    }}>
     <div>
       {/* ── Next action — the one thing to do, doable on this page ── */}
       {nextAction ? (
@@ -305,6 +314,7 @@ async function MobileUnitDetailContent({
         initialCurrentValuation={String(currentValuation)}
       />
     </div>
+    </PageContextProvider>
   );
 }
 

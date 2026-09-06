@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
-import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileCategorySelect } from "@/components/mobile/selectors";
 
 interface MaterialEditData {
   id: string;
@@ -182,8 +182,7 @@ function EditMaterialModal({
             <input required value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
           </Field>
           <Field label="Category *">
-            <MobileSelectWithCreate
-              label="Category"
+            <MobileCategorySelect
               required
               value={categoryId}
               onChange={setCategoryId}

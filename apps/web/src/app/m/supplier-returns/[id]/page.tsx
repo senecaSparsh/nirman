@@ -16,6 +16,7 @@ import {
   ActionBar,
 } from "@/components/mobile/v2/primitives";
 import { MobileDetailActions } from "@/components/mobile/mobile-detail-actions";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 /**
  * /m/supplier-returns/[id] — supplier return detail. Shows the
@@ -127,6 +128,13 @@ async function MobileSupplierReturnDetailContent({
     : [];
 
   return (
+    <PageContextProvider value={{
+      entityType: "supplierReturn",
+      status: ret.status,
+      label: ret.returnNumber,
+      subtitle: ret.supplier.name,
+      recordId: ret.id,
+    }}>
     <div className="pb-20">
       <div className="flex items-center justify-between gap-2 mb-4">
         <MobileStatusBadge status={ret.status} />
@@ -211,5 +219,6 @@ async function MobileSupplierReturnDetailContent({
         <MobileDetailActions actions={actions} />
       </ActionBar>
     </div>
+    </PageContextProvider>
   );
 }

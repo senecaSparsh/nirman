@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
-import { Loader2, AlertCircle, Building2, Phone, Mail } from "lucide-react";
+import { Loader2, AlertCircle, Building2, Phone, Mail, Fingerprint } from "lucide-react";
 import { homeWorldFor } from "@/lib/nav";
 import { type Role, ROLES } from "@/lib/roles";
 
@@ -68,6 +68,9 @@ function SignInForm() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const [multiUsers, setMultiUsers] = useState<MultiUserEntry[]>([]);
   const [pendingOtpId, setPendingOtpId] = useState("");
+  // Passkey / biometric login state
+  const [passkeySupported, setPasskeySupported] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
 
   // Check if this is a fresh deploy (no users yet) — if so, redirect
   // to /sign-up so the first owner can set up their company.
@@ -317,6 +320,64 @@ function SignInForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otp, phoneStep]);
 
+  // ── Passkey / biometric login ──────────────────────────────────────
+  // Detect WebAuthn support on mount. If the browser supports passkeys,
+  // show the biometric button. If it also supports Conditional UI
+  // (autofill-style passkey prompt), auto-start the passkey flow so
+  // returning users get the Face ID / Touch ID prompt without clicking
+  // anything — they just focus a field and the browser shows the sheet.
+  useEffect(() => {
+    // PublicKeyCredential is undefined on insecure origins (http://localhost
+    // is treated as secure, but other http:// origins are not).
+    if (typeof window === "undefined" || !window.PublicKeyCredential) return;
+    setPasskeySupported(true);
+    // Conditional UI: if available, preload the passkey mediation so the
+    // browser can show the biometric prompt when the user interacts with
+    // an input field. This is the "fast login" experience — no button click.
+    if (PublicKeyCredential.isConditionalMediationAvailable) {
+      PublicKeyCredential.isConditionalMediationAvailable().then((available) => {
+        if (available) {
+          void handlePasskeySignIn(true).catch(() => {});
+        }
+      }).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Passkey sign-in: calls the Better-Auth passkey client, which triggers
+  // the browser's native biometric prompt (Face ID / Touch ID / Windows
+  // Hello / Android fingerprint). On success, routes the same way as
+  // password login. `autoFill=true` enables Conditional UI (non-modal
+  // prompt that appears when the user focuses an input).
+  async function handlePasskeySignIn(autoFill = false) {
+    // Conditional UI (autoFill) is a non-blocking background preload — it
+    // must NOT disable the form. If the user doesn't have a passkey or
+    // dismisses the prompt, the password form stays fully usable. Only
+    // an explicit button click sets passkeyLoading (which blocks the form).
+    if (!autoFill) setPasskeyLoading(true);
+    setError("");
+    try {
+      const { error: pkError } = await authClient.signIn.passkey({
+        autoFill,
+      });
+      if (pkError) {
+        // Don't show an error for conditional-UI cancellations — the user
+        // simply dismissed the prompt or doesn't have a passkey yet.
+        if (!autoFill) {
+          setError(pkError.message ?? "Biometric sign-in was cancelled or failed.");
+          setPasskeyLoading(false);
+        }
+        return;
+      }
+      await routeAfterLogin();
+    } catch {
+      if (!autoFill) {
+        setError("Biometric sign-in failed. Try password instead.");
+        setPasskeyLoading(false);
+      }
+    }
+  }
+
   function resetPhoneFlow() {
     setPhoneStep("password");
     setOtp("");
@@ -423,7 +484,7 @@ function SignInForm() {
     setLoading(false);
   }
 
-  const busy = loading || oneClickRole !== null;
+  const busy = loading || oneClickRole !== null || passkeyLoading;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
@@ -439,6 +500,37 @@ function SignInForm() {
             </p>
           </div>
         </div>
+
+        {/* ── Biometric / passkey sign-in ──────────────────────────────
+            Shown only when the browser supports WebAuthn. This is the
+            fastest path — one tap, Face ID / Touch ID / Windows Hello,
+            done. The button triggers a modal biometric prompt. Returning
+            users on supporting browsers also get a Conditional UI
+            auto-prompt (non-modal sheet) when they focus an input. */}
+        {passkeySupported && (
+          <div className="mb-4 space-y-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="touch"
+              className="w-full gap-2 border-brand/30 bg-brand-soft/40 font-medium text-brand hover:bg-brand-soft"
+              disabled={busy}
+              onClick={() => handlePasskeySignIn(false)}
+            >
+              {passkeyLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Fingerprint className="h-4 w-4" />
+              )}
+              {passkeyLoading ? "Waiting for biometric…" : "Sign in with Face ID / Touch ID"}
+            </Button>
+            <div className="flex items-center gap-2 text-micro text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              <span>or use password</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          </div>
+        )}
 
         {/* Mode toggle — Phone (default) vs Email */}
         <div className="mb-4 flex rounded-lg border border-border bg-card p-1">
@@ -480,7 +572,7 @@ function SignInForm() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="98765 43210"
-                autoComplete="tel"
+                autoComplete="tel webauthn"
                 required
                 autoFocus
                 disabled={busy}
@@ -728,7 +820,7 @@ function SignInForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 onBlur={(e) => fetchCompanies(e.target.value)}
                 placeholder="you@company.com"
-                autoComplete="email"
+                autoComplete="email webauthn"
                 required
                 autoFocus
                 disabled={busy}

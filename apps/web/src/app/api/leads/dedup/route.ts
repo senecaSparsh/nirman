@@ -122,5 +122,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   revalidatePath("/sales");
   revalidatePath("/m/customers");
+    revalidatePath("/m/real-estate?tab=customers");
   return json({ keptId: keepId, deletedCount: deleteIds.length });
 });

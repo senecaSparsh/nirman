@@ -6,6 +6,7 @@ import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { MobileNcrDetailClient } from "./MobileNcrDetailClient";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export default async function MobileNcrDetailPage({
   params,
@@ -96,5 +97,16 @@ async function MobileNcrDetailContent({ id }: { id: string }) {
     } : null,
   };
 
-  return <MobileNcrDetailClient ncr={serialized} canManage={canManage} />;
+  return (
+    <PageContextProvider value={{
+      entityType: "ncr",
+      flowId: "ncr",
+      status: ncr.status,
+      label: ncr.ncrNumber,
+      subtitle: ncr.project.name,
+      recordId: ncr.id,
+    }}>
+      <MobileNcrDetailClient ncr={serialized} canManage={canManage} />
+    </PageContextProvider>
+  );
 }

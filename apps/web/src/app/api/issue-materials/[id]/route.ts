@@ -44,6 +44,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       revalidatePath("/m/stock");
       revalidatePath("/projects");
       revalidatePath("/m/projects");
+    revalidatePath("/m/real-estate?tab=projects");
       revalidatePath("/gate-passes");
       revalidatePath("/gl");
       return json({ id: result.id, status: result.status });

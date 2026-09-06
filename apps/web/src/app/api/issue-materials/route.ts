@@ -48,6 +48,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       revalidatePath("/gate-passes");
       revalidatePath("/projects");
       revalidatePath("/m/projects");
+    revalidatePath("/m/real-estate?tab=projects");
       return json(
         { ok: true, materialIssueId: result.materialIssue.id, issueNumber: result.materialIssue.issueNumber, pending: true, message: "Gate pass created — awaiting approval before items can leave." },
         { status: 201 },
@@ -79,6 +80,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     revalidatePath("/m/materials");
     revalidatePath("/projects");
     revalidatePath("/m/projects");
+    revalidatePath("/m/real-estate?tab=projects");
     revalidatePath("/stock");
     return json(
       { ok: true, materialIssueId: result.materialIssue.id, issueNumber: result.materialIssue.issueNumber, totalCost: toNum(result.totalCost), totalAmount: toNum(result.totalCost) },
@@ -137,6 +139,7 @@ export const PATCH = apiHandler(async (req: NextRequest) => {
       revalidatePath("/gate-passes");
       revalidatePath("/projects");
       revalidatePath("/m/projects");
+    revalidatePath("/m/real-estate?tab=projects");
       revalidatePath("/stock");
       return json({ ok: true, totalCost: toNum(result.totalCost) });
     } catch (err: unknown) {

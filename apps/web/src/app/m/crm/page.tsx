@@ -85,7 +85,7 @@ export default async function MobileCrmPage() {
       {/* ── Quick actions ── */}
       <MobileSectionTitle>Quick Actions</MobileSectionTitle>
       <div className="flex flex-col gap-2">
-        <Link href="/m/customers">
+        <Link href="/m/real-estate?tab=customers">
           <MobileRow
             icon={Users}
             title="Customers & Leads"

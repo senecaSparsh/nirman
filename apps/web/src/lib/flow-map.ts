@@ -327,7 +327,7 @@ const MATERIAL_SALE_FLOW: FlowDef = {
 
 const DPR_FLOW: FlowDef = {
   id: "dpr",
-  listHref: "/m/dprs",
+  listHref: "/m/hr?tab=dprs",
   listLead: "Daily progress reports from site. Sub-admins approve first, admins give final sign-off.",
   nodes: [
     { status: "SUBMITTED", label: "Submitted", detailHref: "/m/dprs/{id}" },
@@ -376,16 +376,16 @@ const DPR_FLOW: FlowDef = {
 
 const NCR_FLOW: FlowDef = {
   id: "ncr",
-  listHref: "/m/quality-control",
+  listHref: "/m/construction?tab=quality",
   listLead: "Non-conformances raised on site. Open NCRs need review and a corrective action plan.",
   nodes: [
-    { status: "OPEN", label: "Open", detailHref: "/m/quality-control" },
-    { status: "UNDER_REVIEW", label: "Under review", detailHref: "/m/quality-control" },
-    { status: "CAPA_REQUIRED", label: "CAPA required", detailHref: "/m/quality-control" },
-    { status: "ACCEPTED", label: "Accepted", detailHref: "/m/quality-control" },
-    { status: "REJECTED", label: "Rejected", detailHref: "/m/quality-control" },
-    { status: "CLOSED", label: "Closed", detailHref: "/m/quality-control" },
-    { status: "CANCELLED", label: "Cancelled", detailHref: "/m/quality-control" },
+    { status: "OPEN", label: "Open", detailHref: "/m/construction?tab=quality" },
+    { status: "UNDER_REVIEW", label: "Under review", detailHref: "/m/construction?tab=quality" },
+    { status: "CAPA_REQUIRED", label: "CAPA required", detailHref: "/m/construction?tab=quality" },
+    { status: "ACCEPTED", label: "Accepted", detailHref: "/m/construction?tab=quality" },
+    { status: "REJECTED", label: "Rejected", detailHref: "/m/construction?tab=quality" },
+    { status: "CLOSED", label: "Closed", detailHref: "/m/construction?tab=quality" },
+    { status: "CANCELLED", label: "Cancelled", detailHref: "/m/construction?tab=quality" },
   ],
   next: [
     {
@@ -495,8 +495,11 @@ const ROUTE_TO_FLOW: Record<string, FlowId> = {
   "/m/site/issue": "materialIssue",
   "/m/material-sales": "materialSale",
   "/m/dprs": "dpr",
+  "/m/hr?tab=dprs": "dpr",
   "/m/quality-control": "ncr",
+  "/m/construction?tab=quality": "ncr",
   "/m/units": "builtUnit",
+  "/m/real-estate?tab=units": "builtUnit",
 };
 
 export function flowForRoute(route: string): FlowDef | undefined {

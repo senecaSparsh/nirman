@@ -1462,7 +1462,7 @@ export function MobileLandDetailClient({
                 .then((r) => {
                   if (r.error) throw new Error(r.error);
                   toast.success("Land purchase archived");
-                  router.push("/m/land");
+                  router.push("/m/real-estate?tab=land");
                 })
                 .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to archive"));
             }}

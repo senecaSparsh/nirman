@@ -957,7 +957,7 @@ async function projectListResponse(companyId: string): Promise<AssistantResponse
     text,
     intent: "PROJECT_LIST",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All projects", href: "/m/projects" }],
+    cards: [{ type: "link", label: "All projects", href: "/m/real-estate?tab=projects" }],
   };
 }
 
@@ -1045,7 +1045,7 @@ async function supplierPayableResponse(companyId: string): Promise<AssistantResp
     confidence: 0.9,
     cards: [
       { type: "link", label: "All suppliers", href: "/m/suppliers" },
-      { type: "link", label: "Make payment", href: "/m/supplier-payments", variant: "primary" },
+      { type: "link", label: "Make payment", href: "/m/accounts?tab=payments", variant: "primary" },
     ],
   };
 }
@@ -1153,7 +1153,7 @@ async function dprListResponse(companyId: string): Promise<AssistantResponse> {
   });
 
   if (dprs.length === 0) {
-    return { text: "Koi DPR nahi mila. Naya DPR banaiye.", intent: "DPR_LIST", confidence: 0.8, cards: [{ type: "link", label: "New DPR", href: "/m/dprs", variant: "primary" }] };
+    return { text: "Koi DPR nahi mila. Naya DPR banaiye.", intent: "DPR_LIST", confidence: 0.8, cards: [{ type: "link", label: "New DPR", href: "/m/hr?tab=dprs", variant: "primary" }] };
   }
 
   const pending = dprs.filter((d) => d.approvalStatus === "SUBMITTED").length;
@@ -1169,7 +1169,7 @@ async function dprListResponse(companyId: string): Promise<AssistantResponse> {
     text,
     intent: "DPR_LIST",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All DPRs", href: "/m/dprs" }],
+    cards: [{ type: "link", label: "All DPRs", href: "/m/hr?tab=dprs" }],
   };
 }
 
@@ -1255,7 +1255,7 @@ async function expenseResponse(companyId: string): Promise<AssistantResponse> {
     text,
     intent: "EXPENSE_LIST",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All expenses", href: "/m/expenses" }],
+    cards: [{ type: "link", label: "All expenses", href: "/m/accounts?tab=expenses" }],
   };
 }
 
@@ -1535,7 +1535,7 @@ async function spendAnalysisResponse(companyId: string, entities: ParsedEntities
     text,
     intent: "SPEND_ANALYSIS",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All expenses", href: "/m/expenses" }],
+    cards: [{ type: "link", label: "All expenses", href: "/m/accounts?tab=expenses" }],
   };
 }
 
@@ -1692,7 +1692,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
     ]);
     if (availableUnits > 0) {
       items.push(`${availableUnits} flats available for sale`);
-      cards.push({ type: "link", label: "Available units", href: "/m/units" });
+      cards.push({ type: "link", label: "Available units", href: "/m/real-estate?tab=units" });
     }
     if (reservedUnits > 0 || depositSales > 0) {
       items.push(`${reservedUnits} reserved | ${depositSales} deposits pending completion`);
@@ -1733,7 +1733,7 @@ async function landQueryResponse(companyId: string): Promise<AssistantResponse> 
   });
 
   if (parcels.length === 0) {
-    return { text: "Koi land parcel registered nahi hai.", intent: "LAND_QUERY", confidence: 0.8, cards: [{ type: "link", label: "Land module", href: "/m/land" }] };
+    return { text: "Koi land parcel registered nahi hai.", intent: "LAND_QUERY", confidence: 0.8, cards: [{ type: "link", label: "Land module", href: "/m/real-estate?tab=land" }] };
   }
 
   const totalArea = parcels.reduce((s, p) => s + toNum(p.area), 0);
@@ -1746,7 +1746,7 @@ async function landQueryResponse(companyId: string): Promise<AssistantResponse> 
   }
   text += `\nTotal area: ${formatNumber(totalArea, 2)} sqft | Total value: ${formatCurrency(totalValue)}`;
 
-  return { text, intent: "LAND_QUERY", confidence: 0.9, cards: [{ type: "link", label: "All land", href: "/m/land" }] };
+  return { text, intent: "LAND_QUERY", confidence: 0.9, cards: [{ type: "link", label: "All land", href: "/m/real-estate?tab=land" }] };
 }
 
 async function customerListResponse(companyId: string): Promise<AssistantResponse> {
@@ -1766,7 +1766,7 @@ async function customerListResponse(companyId: string): Promise<AssistantRespons
     text += `• ${c.name}${c.phone ? ` (${c.phone})` : ""}\n`;
   }
 
-  return { text, intent: "CUSTOMER_LIST", confidence: 0.9, cards: [{ type: "link", label: "All customers", href: "/m/customers" }] };
+  return { text, intent: "CUSTOMER_LIST", confidence: 0.9, cards: [{ type: "link", label: "All customers", href: "/m/real-estate?tab=customers" }] };
 }
 
 async function payrollResponse(companyId: string): Promise<AssistantResponse> {
@@ -1780,7 +1780,7 @@ async function payrollResponse(companyId: string): Promise<AssistantResponse> {
   });
 
   if (payrolls.length === 0) {
-    return { text: "Is mahine ka payroll abhi generate nahi hua.", intent: "PAYROLL_STATUS", confidence: 0.8, cards: [{ type: "link", label: "Payroll module", href: "/m/books/payroll", variant: "primary" }] };
+    return { text: "Is mahine ka payroll abhi generate nahi hua.", intent: "PAYROLL_STATUS", confidence: 0.8, cards: [{ type: "link", label: "Payroll module", href: "/m/hr?tab=payroll", variant: "primary" }] };
   }
 
   let text = `**Payroll Status (${payrolls.length}):**\n\n`;
@@ -1789,7 +1789,7 @@ async function payrollResponse(companyId: string): Promise<AssistantResponse> {
     text += `• ${monthName} ${p.year} — ${p._count.lines} employees | ${formatCurrency(toNum(p.totalGross))} gross | ${p.status}\n`;
   }
 
-  return { text, intent: "PAYROLL_STATUS", confidence: 0.9, cards: [{ type: "link", label: "Payroll detail", href: "/m/books/payroll" }] };
+  return { text, intent: "PAYROLL_STATUS", confidence: 0.9, cards: [{ type: "link", label: "Payroll detail", href: "/m/hr?tab=payroll" }] };
 }
 
 async function workOrderResponse(companyId: string): Promise<AssistantResponse> {
@@ -1809,7 +1809,7 @@ async function workOrderResponse(companyId: string): Promise<AssistantResponse> 
     text += `• ${w.workOrderNumber} — ${w.subcontractor?.name ?? "Unknown"} | ${w.project?.name ?? "No project"} | ${w.status}\n`;
   }
 
-  return { text, intent: "WORK_ORDER_LIST", confidence: 0.9, cards: [{ type: "link", label: "All work orders", href: "/m/work-orders" }] };
+  return { text, intent: "WORK_ORDER_LIST", confidence: 0.9, cards: [{ type: "link", label: "All work orders", href: "/m/construction?tab=work-orders" }] };
 }
 
 async function boqResponse(companyId: string): Promise<AssistantResponse> {
@@ -1821,7 +1821,7 @@ async function boqResponse(companyId: string): Promise<AssistantResponse> {
   });
 
   if (items.length === 0) {
-    return { text: "Koi BOQ item nahi hai.", intent: "BOQ_QUERY", confidence: 0.8, cards: [{ type: "link", label: "BOQ module", href: "/m/boq" }] };
+    return { text: "Koi BOQ item nahi hai.", intent: "BOQ_QUERY", confidence: 0.8, cards: [{ type: "link", label: "BOQ module", href: "/m/construction?tab=boq" }] };
   }
 
   const totalValue = items.reduce((s, i) => s + toNum(i.estimatedAmount), 0);
@@ -1832,7 +1832,7 @@ async function boqResponse(companyId: string): Promise<AssistantResponse> {
   }
   text += `\nTotal BOQ value: ${formatCurrency(totalValue)}`;
 
-  return { text, intent: "BOQ_QUERY", confidence: 0.9, cards: [{ type: "link", label: "All BOQ", href: "/m/boq" }] };
+  return { text, intent: "BOQ_QUERY", confidence: 0.9, cards: [{ type: "link", label: "All BOQ", href: "/m/construction?tab=boq" }] };
 }
 
 async function wbsResponse(companyId: string): Promise<AssistantResponse> {
@@ -1844,7 +1844,7 @@ async function wbsResponse(companyId: string): Promise<AssistantResponse> {
   });
 
   if (nodes.length === 0) {
-    return { text: "Koi WBS node nahi hai.", intent: "WBS_QUERY", confidence: 0.8, cards: [{ type: "link", label: "WBS module", href: "/m/wbs" }] };
+    return { text: "Koi WBS node nahi hai.", intent: "WBS_QUERY", confidence: 0.8, cards: [{ type: "link", label: "WBS module", href: "/m/construction?tab=wbs" }] };
   }
 
   let text = `**WBS Nodes (${nodes.length}):**\n\n`;
@@ -1852,7 +1852,7 @@ async function wbsResponse(companyId: string): Promise<AssistantResponse> {
     text += `• ${n.name} — ${n.project?.name ?? "No project"} | ${n.type}\n`;
   }
 
-  return { text, intent: "WBS_QUERY", confidence: 0.9, cards: [{ type: "link", label: "WBS tree", href: "/m/wbs" }] };
+  return { text, intent: "WBS_QUERY", confidence: 0.9, cards: [{ type: "link", label: "WBS tree", href: "/m/construction?tab=wbs" }] };
 }
 
 async function budgetVarianceResponse(companyId: string): Promise<AssistantResponse> {
@@ -2001,8 +2001,8 @@ Kya detail mein dekhna hai? Project-wise profit ya available units?`;
     intent: "PORTFOLIO_OVERVIEW",
     confidence: 0.9,
     cards: [
-      { type: "link", label: "Available units", href: "/m/units" },
-      { type: "link", label: "Projects", href: "/m/projects" },
+      { type: "link", label: "Available units", href: "/m/real-estate?tab=units" },
+      { type: "link", label: "Projects", href: "/m/real-estate?tab=projects" },
     ],
   };
 }
@@ -2035,7 +2035,7 @@ async function unitStatusResponse(companyId: string, entities: ParsedEntities): 
       text: "Koi unit registered nahi hai. Pehle project aur units banao.",
       intent: "UNIT_STATUS",
       confidence: 0.8,
-      cards: [{ type: "link", label: "Projects", href: "/m/projects" }],
+      cards: [{ type: "link", label: "Projects", href: "/m/real-estate?tab=projects" }],
     };
   }
 
@@ -2076,7 +2076,7 @@ async function unitStatusResponse(companyId: string, entities: ParsedEntities): 
     text,
     intent: "UNIT_STATUS",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All units", href: "/m/units" }],
+    cards: [{ type: "link", label: "All units", href: "/m/real-estate?tab=units" }],
   };
 }
 
@@ -2113,7 +2113,7 @@ async function unitValuationResponse(companyId: string, entities: ParsedEntities
       text: "Koi available/reserved unit nahi hai valuation dikhane ke liye.",
       intent: "UNIT_VALUATION",
       confidence: 0.8,
-      cards: [{ type: "link", label: "All units", href: "/m/units" }],
+      cards: [{ type: "link", label: "All units", href: "/m/real-estate?tab=units" }],
     };
   }
 
@@ -2138,7 +2138,7 @@ async function unitValuationResponse(companyId: string, entities: ParsedEntities
     text,
     intent: "UNIT_VALUATION",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All units", href: "/m/units" }],
+    cards: [{ type: "link", label: "All units", href: "/m/real-estate?tab=units" }],
   };
 }
 
@@ -2159,7 +2159,7 @@ async function costPerSqftResponse(companyId: string): Promise<AssistantResponse
       text: "Koi active project nahi hai cost per sqft dikhane ke liye.",
       intent: "COST_PER_SQFT",
       confidence: 0.8,
-      cards: [{ type: "link", label: "Projects", href: "/m/projects" }],
+      cards: [{ type: "link", label: "Projects", href: "/m/real-estate?tab=projects" }],
     };
   }
 
@@ -2391,8 +2391,8 @@ async function availableInventoryResponse(companyId: string): Promise<AssistantR
     intent: "AVAILABLE_INVENTORY",
     confidence: 0.9,
     cards: [
-      { type: "link", label: "Units", href: "/m/units" },
-      { type: "link", label: "Land", href: "/m/land" },
+      { type: "link", label: "Units", href: "/m/real-estate?tab=units" },
+      { type: "link", label: "Land", href: "/m/real-estate?tab=land" },
     ],
   };
 }
@@ -2456,8 +2456,8 @@ async function constructionProgressResponse(companyId: string): Promise<Assistan
     intent: "CONSTRUCTION_PROGRESS",
     confidence: 0.9,
     cards: [
-      { type: "link", label: "WBS", href: "/m/wbs" },
-      { type: "link", label: "DPR", href: "/m/dprs" },
+      { type: "link", label: "WBS", href: "/m/construction?tab=wbs" },
+      { type: "link", label: "DPR", href: "/m/hr?tab=dprs" },
     ],
   };
 }

@@ -9,6 +9,7 @@ import {
   TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
 import { formatDate, formatNumber } from "@/lib/utils";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 import { toast } from "sonner";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
@@ -203,6 +204,8 @@ export function MobileStockCountDetailClient({
           <InfoRow icon={FileText} label="Notes" value={count.notes} />
         ) : null}
       </div>
+
+      <AttachmentList entityType="StockCount" entityId={count.id} />
 
       {/* ── Line items ── */}
       <div className="flex items-center gap-1.5 mb-2">

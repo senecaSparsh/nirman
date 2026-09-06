@@ -68,6 +68,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     revalidatePath("/projects");
     revalidatePath("/m/projects");
+    revalidatePath("/m/real-estate?tab=projects");
     return json({ ok: true, id: cost.id }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to add cost") }, { status: 400 });
@@ -83,6 +84,7 @@ export const DELETE = apiHandler(async (req: NextRequest) => {
     await deleteProjectCost(id, user.id);
     revalidatePath("/projects");
     revalidatePath("/m/projects");
+    revalidatePath("/m/real-estate?tab=projects");
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to delete cost") }, { status: 400 });

@@ -36,7 +36,7 @@ describe("GET /api/quotations/[id]", () => {
   });
 
   it("returns the comparative matrix with suppliers", async () => {
-    const res = await GET(makeRequest("/api/quotations/qr-1"), {});
+    const res = await GET(makeRequest("/api/quotations/qr-1"), { params: Promise.resolve({ id: "qr-1" }) });
     expect(res.status).toBe(200);
     const body = await getJson<{ request: { id: string }; canApprove: boolean; canAddQuote: boolean; suppliers: unknown[] }>(res);
     expect(body.request.id).toBe("qr-1");
@@ -45,19 +45,19 @@ describe("GET /api/quotations/[id]", () => {
 
   it("returns 404 when quotation request is not found", async () => {
     mockPrisma().quotationRequest!.findFirst.mockResolvedValue(null);
-    const res = await GET(makeRequest("/api/quotations/nope"), {});
+    const res = await GET(makeRequest("/api/quotations/nope"), { params: Promise.resolve({ id: "nope" }) });
     expect(res.status).toBe(404);
   });
 
   it("returns 401 when not authenticated", async () => {
     clearSession();
-    const res = await GET(makeRequest("/api/quotations/qr-1"), {});
+    const res = await GET(makeRequest("/api/quotations/qr-1"), { params: Promise.resolve({ id: "qr-1" }) });
     expect(res.status).toBe(401);
   });
 
   it("returns 403 when the user lacks QUOTATION_VIEW", async () => {
     setSessionUser(HR_MANAGER);
-    const res = await GET(makeRequest("/api/quotations/qr-1"), {});
+    const res = await GET(makeRequest("/api/quotations/qr-1"), { params: Promise.resolve({ id: "qr-1" }) });
     expect(res.status).toBe(403);
   });
 });

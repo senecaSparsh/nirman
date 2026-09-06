@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import { MobileIncidentDetailClient } from "./MobileIncidentDetailClient";
 
 export default async function MobileIncidentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -50,5 +51,15 @@ async function MobileIncidentDetailContent({ id }: { id: string }) {
     closedAt: incident.closedAt?.toISOString() ?? null, closedByName: incident.closedBy?.name ?? null,
   };
 
-  return <MobileIncidentDetailClient incident={serialized} canManage={canManage} />;
+  return (
+    <PageContextProvider value={{
+      entityType: "incident",
+      status: incident.status,
+      label: incident.incidentNumber,
+      subtitle: incident.project.name,
+      recordId: incident.id,
+    }}>
+      <MobileIncidentDetailClient incident={serialized} canManage={canManage} />
+    </PageContextProvider>
+  );
 }

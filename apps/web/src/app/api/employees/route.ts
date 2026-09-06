@@ -141,6 +141,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   });
   revalidatePath("/hr/employees");
   revalidatePath("/m/hr/employees");
+    revalidatePath("/m/hr?tab=employees");
   return json(
     {
       ok: true,

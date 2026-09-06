@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { ArrowLeft, ContactRound, FolderOpen } from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileProjectSelect } from "@/components/mobile/selectors";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 const SOURCES = [
@@ -117,7 +118,7 @@ export function MobileNewLeadClient({
         onCreated?.({ id: data.id });
         onClose();
       } else {
-        router.push("/m/leads");
+        router.push("/m/real-estate?tab=customers");
         router.refresh();
       }
     } catch (err: unknown) {
@@ -232,8 +233,7 @@ export function MobileNewLeadClient({
             Project Interest
           </p>
           <div>
-            <MobileSelectWithCreate
-              label="Project"
+            <MobileProjectSelect
               value={form.projectId}
               onChange={(v) => set("projectId", v)}
               options={projects.map((p) => ({ value: p.id, label: p.name }))}

@@ -113,6 +113,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
         }
       } catch { /* notification failure should not block approval */ }
       revalidatePath("/m/dprs");
+    revalidatePath("/m/hr?tab=dprs");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Failed") }, { status: 400 });
@@ -149,6 +150,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
         const result = await generateMaterialIssueFromDPR(id, user.id);
         if (result && result.materialIssueId) {
           revalidatePath("/m/dprs");
+    revalidatePath("/m/hr?tab=dprs");
           return json({ ok: true, materialIssueGenerated: true, linesCreated: result.linesCreated, skipped: result.skipped });
         }
       } catch (err) {
@@ -156,6 +158,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       }
 
       revalidatePath("/m/dprs");
+    revalidatePath("/m/hr?tab=dprs");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Failed") }, { status: 400 });
@@ -170,6 +173,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     try {
       await rejectDpr(id, user.id, (body.reason ?? body.rejectReason).trim());
       revalidatePath("/m/dprs");
+    revalidatePath("/m/hr?tab=dprs");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Failed") }, { status: 400 });
@@ -180,6 +184,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     try {
       await resubmitDpr(id, user.id);
       revalidatePath("/m/dprs");
+    revalidatePath("/m/hr?tab=dprs");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Failed") }, { status: 400 });
@@ -190,6 +195,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     try {
       await markDprCostPosted(id, user.id);
       revalidatePath("/m/dprs");
+    revalidatePath("/m/hr?tab=dprs");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Failed") }, { status: 400 });
@@ -235,6 +241,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       userId: user.id,
     });
     revalidatePath("/m/dprs");
+    revalidatePath("/m/hr?tab=dprs");
     return json({ ok: true, id: dpr.id });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to update DPR") }, { status: 400 });

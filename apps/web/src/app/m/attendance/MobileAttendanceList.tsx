@@ -15,7 +15,7 @@ import {
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
-import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileProjectSelect } from "@/components/mobile/selectors";
 
 type AttendanceStatusFilter =
   | "ALL"
@@ -163,8 +163,7 @@ export function MobileAttendanceList({
         />
         {projects.length > 0 ? (
           <div className="flex-1">
-            <MobileSelectWithCreate
-              label="Project"
+            <MobileProjectSelect
               value={projectFilter}
               onChange={setProjectFilter}
               placeholder="All projects"

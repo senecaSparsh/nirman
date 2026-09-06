@@ -17,10 +17,12 @@ export function MobileNewSubcontractorDialog({
   open,
   onClose,
   onCreated,
+  nested,
 }: {
   open: boolean;
   onClose: () => void;
   onCreated: (sub: { id: string; name: string; trade: string | null }) => void;
+  nested?: boolean;
 }) {
   const [name, setName] = useState("");
   const [trade, setTrade] = useState("");
@@ -77,7 +79,7 @@ export function MobileNewSubcontractorDialog({
   }
 
   return (
-    <MobileDialog open={open} onClose={onClose} title="New Subcontractor">
+    <MobileDialog open={open} onClose={onClose} title="New Subcontractor" nested={nested}>
       <p
         className="text-m-caption mb-4"
         style={{ color: "var(--color-ink-500)" }}

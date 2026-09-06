@@ -195,7 +195,7 @@ async function SettingsContent() {
               value={`${receivableDues} sales`}
               hint="partial/unpaid"
               tone="signal"
-              href="/m/books/receipts"
+              href="/m/accounts?tab=receipts"
             />
             <DuesRow
               icon={TrendingUp}
@@ -203,7 +203,7 @@ async function SettingsContent() {
               value={formatCurrencyCompact(toNum(portfolio.totalPortfolioValue))}
               hint={`${portfolio.availableUnits} units available`}
               tone="go"
-              href="/m/projects"
+              href="/m/real-estate?tab=projects"
             />
             <DuesRow
               icon={AlertTriangle}
@@ -211,7 +211,7 @@ async function SettingsContent() {
               value={formatNumber(tallyStats.pending, 0)}
               hint={tallyStats.pending > 0 ? "awaiting sync" : "all synced"}
               tone={tallyStats.pending > 0 ? "stop" : "go"}
-              href="/m/books/gl"
+              href="/m/accounts?tab=gl"
             />
           </div>
         </>

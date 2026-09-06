@@ -190,7 +190,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
         description="Create a project first to raise material indents"
         action={
           <Link
-            href="/m/projects"
+            href="/m/real-estate?tab=projects"
             className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed px-6 py-2.5 text-m-body font-bold text-m-body press"
             style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
           >

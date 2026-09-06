@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 import type { ExpenseCategoryRow } from "@/lib/types";
 import { EmptyState } from "@/components/empty-state";
 
@@ -377,6 +378,8 @@ export function ClaimDetailDialog({
               This claim is {detail.status.toLowerCase()} — lines can no longer be modified.
             </p>
           )}
+
+          {claimId && <AttachmentList entityType="ExpenseClaim" entityId={claimId} />}
         </div>
       ) : (
         <EmptyState

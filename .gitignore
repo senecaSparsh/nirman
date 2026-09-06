@@ -37,6 +37,7 @@ apps/web/data/
 test-results/
 playwright-report/
 playwright/.cache/
+onboarding-queue.txt
 
 # Sentry build artifacts
 .sentry/

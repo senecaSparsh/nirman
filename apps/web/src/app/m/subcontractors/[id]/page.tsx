@@ -5,6 +5,7 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { MobileSubcontractorDetailClient } from "./MobileSubcontractorDetailClient";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 /**
  * /m/subcontractors/[id] — subcontractor detail.
@@ -130,9 +131,16 @@ async function MobileSubcontractorDetailContent({
   };
 
   return (
+    <PageContextProvider value={{
+      entityType: "subcontractor",
+      label: subcontractor.name,
+      subtitle: subcontractor.trade ?? undefined,
+      recordId: subcontractor.id,
+    }}>
     <MobileSubcontractorDetailClient
       data={data}
       canManage={canManage}
     />
+    </PageContextProvider>
   );
 }

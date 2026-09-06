@@ -124,6 +124,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       });
       revalidatePath("/land");
       revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
       return json({
         id: result.landPurchase.id,
         mode: result.landPurchase.mode,
@@ -139,6 +140,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       if (err instanceof ServiceError) {
         revalidatePath("/land");
         revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
         return json({ error: err.message }, { status: err.status ?? 400 });
       }
       return json({ error: "Failed to record land purchase" }, { status: 400 });
@@ -180,6 +182,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       });
       revalidatePath("/land");
       revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
       return json({
         id: result.landPurchase.id,
         purchaseStage: result.landPurchase.purchaseStage,
@@ -193,6 +196,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       if (err instanceof ServiceError) {
         revalidatePath("/land");
         revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
         return json({ error: err.message }, { status: err.status ?? 400 });
       }
       return json({ error: "Failed to record land purchase order" }, { status: 400 });
@@ -221,11 +225,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     revalidatePath("/land");
     revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
     return json({ id: result.landPurchase.id, rootParcelId: result.parcel.id, rootParcelNumber: result.parcel.number, rootParcelArea: toNum(result.parcel.area), rootParcelAreaUnit: result.parcel.areaUnit, rootParcelAcquisitionCost: toNum(result.parcel.acquisitionCost) }, { status: 201 });
   } catch (err: unknown) {
     if (err instanceof ServiceError) {
       revalidatePath("/land");
       revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
       return json({ error: err.message }, { status: err.status ?? 400 });
     }
     return json({ error: "Failed to record land purchase" }, { status: 400 });

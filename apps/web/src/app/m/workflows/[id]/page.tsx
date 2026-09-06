@@ -5,6 +5,7 @@ import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { MobileNoAccess, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import { MobileWorkflowDetailClient, type WorkflowDetail, type WorkflowRunRow } from "./MobileWorkflowDetailClient";
 
 export default function MobileWorkflowDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -70,5 +71,15 @@ async function WorkflowDetailLoader({ params }: { params: Promise<{ id: string }
     createdAt: r.createdAt.toISOString(),
   }));
 
-  return <MobileWorkflowDetailClient workflow={detail} runs={runs} canManage={canManage} />;
+  return (
+    <PageContextProvider value={{
+      entityType: "workflow",
+      status: workflow.status,
+      label: workflow.name,
+      subtitle: workflow.description ?? undefined,
+      recordId: workflow.id,
+    }}>
+      <MobileWorkflowDetailClient workflow={detail} runs={runs} canManage={canManage} />
+    </PageContextProvider>
+  );
 }

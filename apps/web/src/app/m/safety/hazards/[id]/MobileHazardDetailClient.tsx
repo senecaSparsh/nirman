@@ -174,7 +174,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
             <ActionButton onClick={() => setShowResolve(true)} loading={false} icon={Check} label="Resolve" variant="go" />
           )}
           {hazard.status !== "RESOLVED" && (
-            <ActionButton onClick={async () => { const ok = await confirm({ title: "Delete?", description: "Delete this hazard?", confirmLabel: "Delete", variant: "destructive" }); if (!ok) return; await doAction("delete"); router.push("/m/safety"); }} loading={acting === "delete"} icon={Trash2} label="Delete" variant="danger" />
+            <ActionButton onClick={async () => { const ok = await confirm({ title: "Delete?", description: "Delete this hazard?", confirmLabel: "Delete", variant: "destructive" }); if (!ok) return; await doAction("delete"); router.push("/m/construction?tab=safety"); }} loading={acting === "delete"} icon={Trash2} label="Delete" variant="danger" />
           )}
         </ActionBar>
       )}

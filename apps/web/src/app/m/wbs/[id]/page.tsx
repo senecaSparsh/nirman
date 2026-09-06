@@ -14,6 +14,7 @@ import {
 } from "@/components/mobile/v2/primitives";
 import { ListTree, Calendar, BookOpen, ChevronRight } from "lucide-react";
 import { MobileWbsActions } from "./MobileWbsActions";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export const metadata = { title: "WBS Node — Nirman" };
 
@@ -98,6 +99,12 @@ async function MobileWbsDetailContent({
   const canManage = hasPermission(role, PERM.WBS_MANAGE);
 
   return (
+    <PageContextProvider value={{
+      entityType: "wbsNode",
+      label: node.code,
+      subtitle: node.project.name,
+      recordId: node.id,
+    }}>
     <div className="flex flex-col gap-4 pb-20">
       {/* Header card */}
       <div
@@ -305,6 +312,7 @@ async function MobileWbsDetailContent({
         />
       )}
     </div>
+    </PageContextProvider>
   );
 }
 

@@ -105,6 +105,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     revalidatePath("/projects");
     revalidatePath("/m/projects");
+    revalidatePath("/m/real-estate?tab=projects");
     return json({ ok: true, count: created.length }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to create units") }, { status: 400 });

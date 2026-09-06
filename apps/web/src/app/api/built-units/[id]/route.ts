@@ -59,8 +59,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       await updateUnitStatus(id, statusParsed.data, user.id);
       revalidatePath("/projects");
       revalidatePath("/m/projects");
+    revalidatePath("/m/real-estate?tab=projects");
       revalidatePath("/land");
       revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Status change failed") }, { status: 400 });
@@ -86,8 +88,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       );
       revalidatePath("/projects");
       revalidatePath("/m/projects");
+    revalidatePath("/m/real-estate?tab=projects");
       revalidatePath("/land");
       revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Valuation update failed") }, { status: 400 });
@@ -131,8 +135,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       });
       revalidatePath("/projects");
       revalidatePath("/m/projects");
+    revalidatePath("/m/real-estate?tab=projects");
       revalidatePath("/land");
       revalidatePath("/m/land");
+    revalidatePath("/m/real-estate?tab=land");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Edit failed") }, { status: 400 });

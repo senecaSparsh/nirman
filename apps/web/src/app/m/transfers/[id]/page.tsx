@@ -10,6 +10,7 @@ import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { resolveNextAction } from "@/lib/flow-map";
 import { MobileTransferDetailClient } from "./MobileTransferDetailClient";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 /**
  * /m/transfers/[id] — stock transfer detail.
@@ -217,6 +218,14 @@ async function MobileTransferDetailContent({
   const nextAction = resolveNextAction("stockTransfer", transfer.status, role);
 
   return (
+    <PageContextProvider value={{
+      entityType: "stockTransfer",
+      flowId: "stockTransfer",
+      status: transfer.status,
+      label: `${serialized.fromLocation.name} → ${serialized.toLocation.name}`,
+      recordId: serialized.id,
+      canActions: canManage ? [PERM.STOCK_TRANSFER] : [],
+    }}>
     <>
       <RecordRecentItem type="transfer" id={serialized.id} label={`${serialized.fromLocation.name} → ${serialized.toLocation.name}`} href={`/m/transfers/${serialized.id}`} />
 
@@ -236,5 +245,6 @@ async function MobileTransferDetailContent({
       </div>
       <MobileTransferDetailClient transfer={serialized} canManage={canManage} />
     </>
+    </PageContextProvider>
   );
 }

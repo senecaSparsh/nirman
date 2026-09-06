@@ -52,5 +52,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
   });
   revalidatePath("/brokers");
   revalidatePath("/m/brokers");
+    revalidatePath("/m/real-estate?tab=brokers");
   return json({ ok: true, id: broker.id, name: broker.name }, { status: 201 });
 });

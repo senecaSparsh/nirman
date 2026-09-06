@@ -8,12 +8,14 @@ import { Cloud, Hammer, Users, AlertTriangle, CheckCircle2, XCircle, Printer } f
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
+import { AttachmentList } from "@/components/attachments/attachment-list";
 import { MobileEmptyState, mobileStatusColor } from "@/components/mobile/v2/primitives";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { resolveNextAction } from "@/lib/flow-map";
 import { MobileDprActions } from "./MobileDprActions";
 import { MobileDprVarianceButton } from "./MobileDprVarianceButton";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export default function MobileDprDetailPage({
   params,
@@ -112,7 +114,23 @@ async function MobileDprDetailContent({
 
   const nextAction = resolveNextAction("dpr", dpr.approvalStatus, role);
 
+  // Permissions to announce to the NavSheet's Next Step resolver
+  const canActions: string[] = [];
+  if (canApproveSubAdmin) canActions.push(PERM.DPR_APPROVE_SUB_ADMIN);
+  if (canApproveAdmin) canActions.push(PERM.DPR_APPROVE_ADMIN);
+  if (canResubmit) canActions.push(PERM.DPR_SUBMIT);
+  if (canManage) canActions.push(PERM.HR_MANAGE);
+
   return (
+    <PageContextProvider value={{
+      entityType: "dpr",
+      flowId: "dpr",
+      status: dpr.approvalStatus,
+      label: `DPR ${dpr.date.toISOString().slice(0, 10)}`,
+      subtitle: dpr.project?.name,
+      recordId: dpr.id,
+      canActions,
+    }}>
     <div className="pb-20">
       <RecordRecentItem type="dpr" id={dpr.id} label={`DPR ${dpr.date.toISOString().slice(0, 10)}`} sublabel={dpr.project?.name} href={`/m/dprs/${dpr.id}`} />
 
@@ -465,6 +483,8 @@ async function MobileDprDetailContent({
         ) : null}
       </div>
 
+      <AttachmentList entityType="DailyProgressReport" entityId={dpr.id} />
+
       {/* ── Sticky bottom action bar ── */}
       <MobileDprActions
         dprId={dpr.id}
@@ -477,6 +497,7 @@ async function MobileDprDetailContent({
         costPosted={!!dpr.costPostedDate}
       />
     </div>
+    </PageContextProvider>
   );
 }
 

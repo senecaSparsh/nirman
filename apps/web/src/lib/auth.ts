@@ -1,6 +1,22 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { passkey } from "@better-auth/passkey";
 import { prisma } from "@nirman/db";
+
+// ── WebAuthn Relying Party config ────────────────────────────────────
+// Derives rpID / rpName / origin from the app URL so passkeys work in
+// dev (localhost) and prod (render.com) without code changes. The rpID
+// must be a registrable domain suffix of the origin — e.g. for
+// https://nirman.onrender.com, rpID can be "nirman.onrender.com".
+// NEXT_PUBLIC_APP_URL is already set in render.yaml + .env.
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+const appOrigin = appUrl.replace(/\/$/, ""); // no trailing slash
+let rpId: string;
+try {
+  rpId = new URL(appOrigin).hostname;
+} catch {
+  rpId = "localhost";
+}
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
@@ -67,6 +83,19 @@ export const auth = betterAuth({
       maxAge: 5 * 60, // 5 minutes
     },
   },
+  // ── Passkey / WebAuthn ─────────────────────────────────────────────
+  // Enables biometric login (Face ID / Touch ID / Windows Hello / Android
+  // fingerprint) via the device's built-in authenticator. The browser
+  // handles the biometric prompt — we never see biometric data. Passkeys
+  // are phishing-resistant public-key credentials; the private key never
+  // leaves the device. Users still keep password login as a fallback.
+  plugins: [
+    passkey({
+      rpID: rpId,
+      rpName: "Nirman Inventory OS",
+      origin: appOrigin,
+    }),
+  ],
 });
 
 export type Session = typeof auth.$Infer.Session;

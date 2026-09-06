@@ -470,15 +470,17 @@ export function MobileNewEmployeeDialog({
   projects,
   stockLocations,
   onCreated,
+  nested,
 }: {
   open: boolean;
   onClose: () => void;
   projects: ProjectOption[];
   stockLocations: StockLocationOption[];
   onCreated?: (employee: { id: string; name: string }) => void;
+  nested?: boolean;
 }) {
   return (
-    <MobileDialog open={open} onClose={onClose} title="New Employee">
+    <MobileDialog open={open} onClose={onClose} title="New Employee" nested={nested}>
       <MobileNewEmployeeForm
         onClose={onClose}
         projects={projects}

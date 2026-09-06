@@ -45,7 +45,7 @@ export function MobileWorkOrdersEmptyState({
         action={
           canManage ? (
             !hasProjects ? (
-              <MobileCta href="/m/projects" icon={Plus} variant="primary">Go to Projects</MobileCta>
+              <MobileCta href="/m/real-estate?tab=projects" icon={Plus} variant="primary">Go to Projects</MobileCta>
             ) : !hasSubcontractors ? (
               <button
                 onClick={() => setShowCreateSub(true)}
