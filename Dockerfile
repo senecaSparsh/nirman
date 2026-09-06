@@ -89,6 +89,12 @@ RUN pnpm build
 # ── Stage 3: Production runner ──────────────────────────────────────────────
 FROM node:22-bookworm-slim AS runner
 
+# Install procps (provides `ps`) — needed by the start-with-recovery wrapper
+# for process-group memory monitoring. Also install openssl for Prisma engine
+# detection (eliminates the "failed to detect libssl/openssl version" warning).
+RUN apt-get update && apt-get install -y --no-install-recommends procps openssl \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN npm install -g pnpm@11.18.0
 
 WORKDIR /app
