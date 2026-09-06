@@ -140,18 +140,17 @@ async function main() {
     process.exit(result.code);
   }
 
-  // Step 2b: If we skipped any migrations (marked as applied without running
-  // their SQL due to "already exists" errors), the DB schema may be missing
-  // columns/tables that the migration was supposed to add. Run `db push` to
-  // sync the schema — this only ADDS missing tables/columns/types and never
-  // drops data (no --accept-data-loss flag).
-  if (resolvedMigrations.size > 0) {
-    console.log(`[migrate:deploy] ${resolvedMigrations.size} migration(s) were marked as applied without running SQL.`);
-    console.log("[migrate:deploy] running: prisma db push (sync missing schema changes)");
-    const pushResult = await runCommand(["prisma", "db", "push", "--skip-generate"], "db push");
-    if (pushResult.code !== 0) {
-      console.log("[migrate:deploy] db push had warnings — continuing anyway");
-    }
+  // Step 2b: Always run `db push` after migrations to ensure the DB schema
+  // is fully synced with schema.prisma. This catches columns/tables that were
+  // skipped by the "already exists" migration resolution (where we marked a
+  // migration as applied without running its SQL). db push only ADDS missing
+  // schema elements — it won't drop data unless columns were removed from the
+  // schema (which we never do for master entities per AGENTS.md soft-delete
+  // convention).
+  console.log("[migrate:deploy] running: prisma db push (ensure schema sync)");
+  const pushResult = await runCommand(["prisma", "db", "push", "--skip-generate"], "db push");
+  if (pushResult.code !== 0) {
+    console.log("[migrate:deploy] db push had warnings — continuing anyway");
   }
 
   // Step 3: Run data-fixes.sql (optional — non-fatal if missing/empty)
