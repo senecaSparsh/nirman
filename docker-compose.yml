@@ -1,21 +1,111 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Nirman Inventory OS — Docker Compose for Coolify / VPS
+#
+# This file is used by Coolify to orchestrate the web app + Postgres.
+# Coolify reads docker-compose.yml from your repo and deploys it as-is.
+#
+# What this creates:
+#   1. PostgreSQL 16 database with a persistent volume
+#   2. Next.js web app with:
+#      - Persistent volume for uploaded files (storage/uploads/)
+#      - Health check via /api/health
+#      - Auto-recovery wrapper (crash restart, graceful shutdown, memory monitor)
+#      - Prisma migrations + seed run automatically on container start
+#
+# Render config (render.yaml) is NOT touched — this is an alternative.
+# ─────────────────────────────────────────────────────────────────────────────
+
 services:
-  postgres:
-    image: postgres:17-alpine
-    container_name: nirman-inventory-db
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  # Coolify can also provision a managed Postgres, but running it in-compose
+  # is cheaper (shares the VPS) and fine for a 50-user ERP. Back up the
+  # volume regularly (Coolify has built-in volume backup, or use pg_dump cron).
+  db:
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: nirman
-      POSTGRES_PASSWORD: nirman
-      POSTGRES_DB: nirman_inventory
-    ports:
-      - "5433:5432"
+      POSTGRES_DB: ${POSTGRES_DB:-nirman_inventory}
+      POSTGRES_USER: ${POSTGRES_USER:-nirman}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_please}
     volumes:
-      - nirman_inventory_pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nirman -d nirman_inventory"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nirman} -d ${POSTGRES_DB:-nirman_inventory}"]
+      interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
+      start_period: 30s
+    # Don't expose the DB port to the public internet unless you need to
+    # connect from outside (e.g., Prisma Studio from your laptop).
+    # To connect locally: Coolify → Service → Ports → expose 5432 temporarily.
+    # expose:
+    #   - "5432"
+
+  # ── Web App (Next.js) ──────────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # NEXT_PUBLIC_* vars are inlined into the client bundle at build time.
+      # Set these in Coolify's "Build Args" section (or .env on the VPS).
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      # ── Database (pointed at the db service above) ──
+      # connection_limit=5 keeps us within Postgres's max_connections (default 100).
+      # pool_timeout=10 fails fast instead of hanging if the pool is exhausted.
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-nirman}:${POSTGRES_PASSWORD:-changeme_please}@db:5432/${POSTGRES_DB:-nirman_inventory}?connection_limit=5&pool_timeout=10"
+      DIRECT_URL: "postgresql://${POSTGRES_USER:-nirman}:${POSTGRES_PASSWORD:-changeme_please}@db:5432/${POSTGRES_DB:-nirman_inventory}?connection_limit=5"
+      NODE_ENV: production
+      # ── Auth ──
+      # BETTER_AUTH_URL must match NEXT_PUBLIC_APP_URL (the public URL).
+      BETTER_AUTH_URL: ${NEXT_PUBLIC_APP_URL}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      # ── App config ──
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      SEED_PASSWORD: ${SEED_PASSWORD:-nirman123}
+      CRON_SECRET: ${CRON_SECRET}
+      # ── Sentry (optional — leave empty to disable) ──
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+      # ── Tuning (leave NODE_OPTIONS empty — the auto-memory wrapper
+      #    detects available RAM from cgroup limits and sets
+      #    --max-old-space-size automatically) ──
+      NODE_OPTIONS: ""
+      NEXT_TELEMETRY_DISABLED: "1"
+      TURBO_TELEMETRY_DISABLED: "1"
+      # ── Upload directory (persistent volume) ──
+      UPLOAD_DIR: /app/storage/uploads
+      # ── Demo seed (FIRST DEPLOY ONLY) ──
+      # Set to "true" on the first deploy to create demo company + users +
+      # sample data. Then set back to "false" (or remove) — the demo seed
+      # WIPES transactional data on every run, so leaving it enabled will
+      # destroy user-entered data on each restart.
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
+    volumes:
+      # Uploaded files (cheque photos, BBA/ATS docs, legal docs, expense
+      # receipts, call recordings) persist across deploys/restarts.
+      - uploads:/app/storage/uploads
+    healthcheck:
+      # Liveness check — no DB query (returns 200 if the process is alive).
+      # The start-with-recovery wrapper does its own deep health check
+      # (with DB ping) internally and auto-restarts on zombie states.
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
 
 volumes:
-  nirman_inventory_pgdata:
+  pgdata:
+    # Postgres data — CRITICAL: back this up. Coolify supports scheduled
+    # volume backups, or run pg_dump via a cron container.
+  uploads:
+    # User-uploaded files — back up alongside pgdata.

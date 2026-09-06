@@ -1,0 +1,81 @@
+# ── Docker build context exclusions ──────────────────────────────────────────
+# Keeps the build context small + avoids copying dev artifacts, secrets,
+# and large files into the Docker builder stage.
+
+# Dependencies (installed fresh inside the container)
+node_modules
+**/node_modules
+
+# Build outputs (rebuilt inside the container)
+.next
+**/.next
+.turbo
+**/.turbo
+dist
+**/dist
+out
+**/out
+
+# Test artifacts
+coverage
+**/coverage
+test-results
+**/test-results
+playwright-report
+**/playwright-report
+apps/web/playwright/.cache
+
+# Env files — NEVER bake secrets into the image
+.env
+.env.local
+.env.*.local
+.env.bak
+.env.*.bak
+
+# Uploaded files — stored on a persistent volume at runtime, not in the image
+storage/
+apps/web/data/
+
+# Source audio + raw transcripts (large, not code)
+*.m4a
+*.m4a.json
+*_raw/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# OS / editor cruft
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Docker (avoid recursive context)
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Render config (not needed in Docker image)
+render.yaml
+
+# Docs (not needed at runtime, but harmless — exclude to shrink context)
+docs/
+
+# Screenshots + onboarding artifacts
+*.png
+Screenshot*.png
+onboarding-queue.txt
+
+# Husky (dev-only git hooks)
+.husky/
+
+# GitHub workflows (not needed in image)
+.github/

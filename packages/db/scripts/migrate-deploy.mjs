@@ -67,19 +67,26 @@ function runCommand(args, label) {
 }
 
 async function main() {
-  // Step 1: Run prisma migrate deploy
-  console.log("[migrate:deploy] running: prisma migrate deploy");
-  let result = await runCommand(["prisma", "migrate", "deploy"], "migrate deploy");
+  // Step 1: Run prisma migrate deploy in a loop, auto-resolving any
+  // failed migrations (P3018 = migration failed to apply, P3009 = failed
+  // migrations found in DB from a previous attempt). The most common cause
+  // is "already exists" errors (e.g. CREATE TYPE for an enum that db push
+  // already created). In that case the schema is already in the desired
+  // state — we mark the migration as applied and retry.
+  let result;
+  const resolvedMigrations = new Set();
+  const MAX_RESOLUTION_ATTEMPTS = 10;
 
-  // Step 2: If it failed with P3018 (a migration failed to apply) or
-  // P3009 (failed migrations found in DB from a previous attempt), try to
-  // resolve the failed migration. The most common cause is "already exists"
-  // errors (e.g. CREATE TYPE for an enum that db push already created).
-  // In that case, the schema is already in the desired state — we mark the
-  // migration as applied and retry.
-  const hasP3018 = result.output.includes("P3018");
-  const hasP3009 = result.output.includes("P3009");
-  if (result.code !== 0 && (hasP3018 || hasP3009)) {
+  for (let attempt = 0; attempt <= MAX_RESOLUTION_ATTEMPTS; attempt++) {
+    console.log(`[migrate:deploy] running: prisma migrate deploy${attempt > 0 ? ` (attempt ${attempt + 1})` : ""}`);
+    result = await runCommand(["prisma", "migrate", "deploy"], "migrate deploy");
+
+    if (result.code === 0) break; // success
+
+    const hasP3018 = result.output.includes("P3018");
+    const hasP3009 = result.output.includes("P3009");
+    if (!hasP3018 && !hasP3009) break; // unknown error — don't loop
+
     // Extract the failed migration name from the output.
     // P3018 prints: "Migration name: 0004_schema_sync"
     // P3009 prints: "The `0004_schema_sync` migration started at ... failed"
@@ -92,29 +99,33 @@ async function main() {
       if (p3009Match) migrationName = p3009Match[1];
     }
 
-    if (migrationName) {
-      const isAlreadyExists = result.output.includes("already exists");
-      console.log(
-        `[migrate:deploy] Migration ${migrationName} failed${isAlreadyExists ? " (already exists — schema is in sync)" : ""}. ` +
-          `Marking as resolved and retrying.`,
-      );
-
-      // Mark the failed migration as resolved (rolled back) first.
-      console.log(`[migrate:deploy] running: prisma migrate resolve --rolled-back ${migrationName}`);
-      await runCommand(["prisma", "migrate", "resolve", "--rolled-back", migrationName], "migrate resolve");
-
-      // If the error was "already exists", the schema is already in the
-      // desired state. Mark the migration as applied so Prisma doesn't
-      // try to re-run it.
-      if (isAlreadyExists) {
-        console.log(`[migrate:deploy] running: prisma migrate resolve --applied ${migrationName}`);
-        await runCommand(["prisma", "migrate", "resolve", "--applied", migrationName], "migrate resolve (applied)");
-      }
-
-      // Retry the full migrate deploy — remaining migrations should apply.
-      console.log("[migrate:deploy] retrying: prisma migrate deploy");
-      result = await runCommand(["prisma", "migrate", "deploy"], "migrate deploy (retry)");
+    if (!migrationName) break; // can't extract name — don't loop
+    if (resolvedMigrations.has(migrationName)) {
+      console.error(`[migrate:deploy] migration ${migrationName} failed again after resolve — giving up`);
+      break;
     }
+
+    const isAlreadyExists = result.output.includes("already exists");
+    console.log(
+      `[migrate:deploy] Migration ${migrationName} failed${isAlreadyExists ? " (already exists — schema is in sync)" : ""}. ` +
+        `Resolving and retrying.`,
+    );
+
+    // Mark the failed migration as rolled back first (clears the failed
+    // state in _prisma_migrations so Prisma doesn't block with P3009).
+    console.log(`[migrate:deploy] running: prisma migrate resolve --rolled-back ${migrationName}`);
+    await runCommand(["prisma", "migrate", "resolve", "--rolled-back", migrationName], "migrate resolve");
+
+    // If the error was "already exists", the schema is already in the
+    // desired state. Mark the migration as applied so Prisma doesn't
+    // try to re-run it on the next attempt.
+    if (isAlreadyExists) {
+      console.log(`[migrate:deploy] running: prisma migrate resolve --applied ${migrationName}`);
+      await runCommand(["prisma", "migrate", "resolve", "--applied", migrationName], "migrate resolve (applied)");
+    }
+
+    resolvedMigrations.add(migrationName);
+    // Loop continues — will retry migrate deploy
   }
 
   if (result.code !== 0) {
