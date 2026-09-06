@@ -148,7 +148,15 @@ async function main() {
   // schema (which we never do for master entities per AGENTS.md soft-delete
   // convention).
   console.log("[migrate:deploy] running: prisma db push (ensure schema sync)");
-  const pushResult = await runCommand(["prisma", "db", "push", "--skip-generate"], "db push");
+  // --accept-data-loss is needed because Prisma warns about adding unique
+  // constraints on existing columns. On a fresh DB (or when there are no
+  // actual duplicate values), there is no data loss — the flag just silences
+  // the warning. Without it, db push exits non-zero and the schema doesn't
+  // get synced, causing "column does not exist" errors at runtime.
+  const pushResult = await runCommand(
+    ["prisma", "db", "push", "--skip-generate", "--accept-data-loss"],
+    "db push",
+  );
   if (pushResult.code !== 0) {
     console.log("[migrate:deploy] db push had warnings — continuing anyway");
   }
