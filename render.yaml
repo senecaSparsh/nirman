@@ -74,7 +74,7 @@ services:
       pnpm --filter @nirman/db generate &&
       pnpm build &&
       pnpm --filter @nirman/db migrate:deploy &&
-      pnpm --filter web seed:prod
+      (pnpm --filter web seed:prod || echo "Seed failed — non-fatal, app will still deploy")
 
     # Start the production Next.js server with auto-recovery wrapper.
     # The wrapper handles graceful shutdown, crash restart, and health checks.
