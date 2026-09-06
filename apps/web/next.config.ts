@@ -19,12 +19,37 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Note: ESLint is not run during `next build` in Next.js 16 — the
+  // `eslint` config key was removed. Linting is handled by `next lint`
+  // and CI/pre-commit hooks separately. This saves ~30-50MB RAM.
+  // Disable browser source maps in production — saves ~20-50MB RAM during
+  // build and reduces deploy artifact size. Server-side stack traces are
+  // still available via Node's native source map support.
+  productionBrowserSourceMaps: false,
   // Limit build workers to 1 to stay within 512MB RAM on Render free tier
   // (default spawns 47 workers which OOMs).
   experimental: {
     workerThreads: false,
     cpus: 1,
     optimizePackageImports: ["lucide-react", "recharts", "@xyflow/react"],
+  },
+  // Webpack build optimizations for memory-constrained environments.
+  // Disables webpack's persistent cache (saves ~50-100MB RAM/disk during
+  // build) and limits parallelism to 1 (prevents multiple compiler
+  // instances from each allocating their own module graph in memory).
+  // On Render's 512MB free tier, this is the difference between OOM
+  // and a successful build.
+  webpack: (config, { isServer }) => {
+    // Disable persistent cache — it writes to .next/cache and holds
+    // serialized module graphs in memory. On constrained builds this
+    // is ~50-100MB of pure overhead with no benefit (CI builds are
+    // fresh each time anyway).
+    config.cache = false;
+    // Limit webpack parallelism — each parallel compiler instance
+    // duplicates the module graph in memory. On a 1-CPU container,
+    // parallelism > 1 is pure memory waste.
+    config.parallelism = 1;
+    return config;
   },
   async headers() {
     // In dev, do NOT set custom Cache-Control on /_next/static/ — Next.js 16
@@ -48,10 +73,9 @@ const nextConfig: NextConfig = {
       ];
     }
     return [
-      {
-        source: "/_next/static/:path*",
-        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
-      },
+      // Note: /_next/static/ Cache-Control is handled natively by Next.js 16
+      // (immutable, 1-year). Setting it manually triggers a build warning and
+      // can interfere with Turbopack's chunk-loading protocol in dev.
       {
         source: "/api/:path*",
         headers: [{ key: "Cache-Control", value: "no-store" }],

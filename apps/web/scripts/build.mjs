@@ -8,9 +8,10 @@
  * still allowing fast builds on larger instances.
  *
  * Memory profile:
- *   512MB → heap=400MB  (Render free tier — aggressive GC, survives)
- *   1GB   → heap=800MB
- *   2GB   → heap=1600MB
+ *   512MB → heap=471MB  (Render free tier — 92% of RAM, tight but works
+ *                         with ESLint skip + webpack cache disabled)
+ *   1GB   → heap=920MB
+ *   2GB   → heap=1600MB (78% — enough headroom, don't over-allocate)
  *   4GB+  → heap=3200MB (local dev — fast builds)
  *
  * If NODE_OPTIONS already has --max-old-space-size, we respect it.
@@ -54,10 +55,17 @@ function detectTotalMemoryMB() {
 }
 
 const totalMB = detectTotalMemoryMB();
-// Heap: ~78% of total RAM (leaves room for OS + non-heap V8 overhead).
-// Cap at 4096 for local dev (32GB+ machines don't need more than 4GB heap
-// for a Next.js build).
-const heapMB = Math.max(256, Math.min(4096, Math.floor(totalMB * 0.78)));
+// Heap allocation strategy:
+//   ≤1GB (constrained containers like Render free tier): use 92% of RAM.
+//     The container has minimal OS overhead (no GUI, no other processes),
+//     so we can safely give most of the memory to V8. This is critical —
+//     a webpack production build of a large Next.js app needs ~450MB+ heap,
+//     and 78% of 512MB (400MB) was not enough (OOM at 435MB).
+//   >1GB: use 78% — enough headroom for the OS + V8 non-heap overhead,
+//     and over-allocating on larger instances wastes money.
+// Cap at 4096 for local dev (32GB+ machines don't need more than 4GB heap).
+const heapFraction = totalMB <= 1024 ? 0.92 : 0.78;
+const heapMB = Math.max(256, Math.min(4096, Math.floor(totalMB * heapFraction)));
 
 const existingNodeOptions = process.env.NODE_OPTIONS || "";
 let nodeOptions;
