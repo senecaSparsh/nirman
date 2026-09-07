@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { MobileDocUploader } from "../../MobileDocUploader";
 import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { DetailAlertBanner } from "@/components/mobile/v2/detail-primitives";
 import { useTodayDateState } from "@/lib/use-today-date";
 
 /* ─── Types ─── */
@@ -1052,19 +1053,12 @@ function ActionSheet({
   return (
     <MobileDialog open={true} onClose={onClose} title={isActivate ? "Activate tenancy?" : "Terminate tenancy?"}>
         <div className="p-3">
-          <div
-            className="rounded-[0.625rem] border p-3 mb-3"
-            style={{
-              borderColor: isActivate ? "var(--color-go)" : "var(--color-stop)",
-              backgroundColor: `color-mix(in srgb, ${isActivate ? "var(--color-go)" : "var(--color-stop)"} 5%, transparent)`,
-            }}
-          >
-            <p className="text-m-label" style={{ color: "var(--color-ink-700)" }}>
-              {isActivate
-                ? `This will mark ${tenantName}'s lease as active and start rent collection.`
-                : `This will terminate ${tenantName}'s active lease. The asset will become available for new rentals.`}
-            </p>
-          </div>
+          <DetailAlertBanner
+            tone={isActivate ? "success" : "danger"}
+            title={isActivate
+              ? `This will mark ${tenantName}'s lease as active and start rent collection.`
+              : `This will terminate ${tenantName}'s active lease. The asset will become available for new rentals.`}
+          />
           <div className="flex flex-col gap-2">
             <button
               onClick={onClose}
@@ -1351,17 +1345,14 @@ function EscalateSheet({
   return (
     <MobileDialog open={true} onClose={onClose} title="Apply rent escalation?">
         <div className="p-3">
-          <div
-            className="rounded-[0.625rem] border p-3 mb-3"
-            style={{ borderColor: "var(--color-signal)", backgroundColor: "color-mix(in srgb, var(--color-signal) 5%, transparent)" }}
+          <DetailAlertBanner
+            tone="warning"
+            title={`${tenantName}'s rent will be escalated by ${escalationPercent ?? 0}% (every ${escalationIntervalMonths} months).`}
           >
-            <p className="text-m-label mb-1" style={{ color: "var(--color-ink-700)" }}>
-              {tenantName}&apos;s rent will be escalated by {escalationPercent ?? 0}% (every {escalationIntervalMonths} months).
-            </p>
-            <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+            <p className="text-m-label font-bold tabular-nums mt-0.5" style={{ color: "var(--color-ink-950)" }}>
               {formatCurrency(currentRent)} → {formatCurrency(projectedRent)}
             </p>
-          </div>
+          </DetailAlertBanner>
           <div className="flex flex-col gap-2">
             <button
               onClick={onClose}
@@ -1527,14 +1518,10 @@ function ChangeTenantSheet({
 
   return (
     <SheetShell title="Change Tenant" onClose={onClose} acting={acting} onSubmit={submit} submitLabel="Change Tenant">
-      <div
-        className="rounded-[0.5rem] border p-2.5 mb-3"
-        style={{ borderColor: "var(--color-signal)", backgroundColor: "color-mix(in srgb, var(--color-signal) 5%, transparent)" }}
-      >
-        <p className="text-m-caption" style={{ color: "var(--color-ink-700)" }}>
-          This will end the current tenancy and create a new one for the new tenant on the same asset.
-        </p>
-      </div>
+      <DetailAlertBanner
+        tone="warning"
+        title="This will end the current tenancy and create a new one for the new tenant on the same asset."
+      />
       <div className="mb-3">
         <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
           New Tenant Name

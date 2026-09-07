@@ -100,7 +100,7 @@ export function MobileFabModal({
       onClick={onClose}
       style={{
         backgroundColor: visible
-          ? "color-mix(in srgb, var(--color-ink-950) 45%, transparent)"
+          ? "rgba(0, 0, 0, 0.45)"
           : "transparent",
         transition: "background-color 0.2s ease",
       }}
@@ -133,8 +133,8 @@ export function MobileFabModal({
         // Backdrop: dim + blur that animates in with the dialog.
         // Nested modals skip blur to avoid double-blur on the page behind.
         backgroundColor: visible
-          ? "color-mix(in srgb, var(--color-ink-950) 45%, transparent)"
-          : "color-mix(in srgb, var(--color-ink-950) 0%, transparent)",
+          ? "rgba(0, 0, 0, 0.45)"
+          : "rgba(0, 0, 0, 0)",
         backdropFilter: nested ? undefined : (visible ? "blur(8px)" : "blur(0px)"),
         WebkitBackdropFilter: nested ? undefined : (visible ? "blur(8px)" : "blur(0px)"),
         transition:

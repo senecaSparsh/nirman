@@ -19,6 +19,48 @@ export function normalizePhone(input: string): string {
   return input.replace(/\D/g, "");
 }
 
+/**
+ * Given a raw phone input, return ALL possible normalized variants so the
+ * caller can do a `phoneNormalized: { in: variants }` lookup. This handles
+ * the case where a user enters "+91 70179 88293" (→ 12 digits) but the
+ * stored `phoneNormalized` is "7017988293" (10 digits), or vice versa.
+ *
+ * Indian mobile numbers can be entered as:
+ *   - 10 digits:     "7017988293"
+ *   - 11 digits:     "07017988293" (leading 0)
+ *   - 12 digits:     "917017988293" (91 prefix)
+ *   - 13 digits:     "9107017988293" (91 + leading 0)
+ *
+ * Returns a de-duplicated array of all plausible digit-only variants.
+ */
+export function normalizePhoneForLookup(input: string): string[] {
+  const digits = input.replace(/\D/g, "");
+  const variants = new Set<string>([digits]);
+
+  // 12 digits starting with 91 → add 10-digit version
+  if (digits.length === 12 && digits.startsWith("91")) {
+    variants.add(digits.slice(2));
+  }
+  // 10 digits → add 12-digit version with 91 prefix
+  if (digits.length === 10) {
+    variants.add("91" + digits);
+  }
+  // 11 digits starting with 0 → add 10-digit and 12-digit versions
+  if (digits.length === 11 && digits.startsWith("0")) {
+    const ten = digits.slice(1);
+    variants.add(ten);
+    variants.add("91" + ten);
+  }
+  // 13 digits starting with 910 → add 10-digit and 12-digit versions
+  if (digits.length === 13 && digits.startsWith("910")) {
+    const ten = digits.slice(3);
+    variants.add(ten);
+    variants.add("91" + ten);
+  }
+
+  return Array.from(variants);
+}
+
 /** Cryptographically-secure 6-digit OTP code. */
 export function generateOtpCode(): string {
   // Use 4 bytes of crypto-random data, mod 1_000_000, zero-padded to 6 digits.

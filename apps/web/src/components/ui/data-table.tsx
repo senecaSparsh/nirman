@@ -237,7 +237,8 @@ function loadViews(storageKey: string): SavedView[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed as SavedView[];
-  } catch {
+  } catch (err) {
+    console.warn("data-table parse failed:", err);
     return [];
   }
 }

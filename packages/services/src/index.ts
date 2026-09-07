@@ -787,9 +787,17 @@ export {
   createEmployeeBenefit,
   updateEmployeeBenefit,
   deleteEmployeeBenefit,
+  createSalaryComponent,
+  updateSalaryComponent,
+  deleteSalaryComponent,
+  setSalaryComponents,
   type EmployeeDossierInput,
   type CreateBenefitInput,
   type UpdateBenefitInput,
+  type CreateSalaryComponentInput,
+  type UpdateSalaryComponentInput,
+  type SalaryComponentTypeInput,
+  type ComponentFrequencyInput,
 } from "./employee-dossier";
 
 // Employee Account Linking — connects Employee (HR) ↔ User (auth) ↔ CompanyPhone (call tracking)
@@ -805,6 +813,8 @@ export {
   getEmployeeTelephonyCost,
   generateEmploymentAgreement,
   confirmEmploymentAgreement,
+  generateOfferLetter,
+  generateEmployeeIdCard,
   setupAutoDeposit,
   disableAutoDeposit,
   type CreateEmployeeAccountInput,

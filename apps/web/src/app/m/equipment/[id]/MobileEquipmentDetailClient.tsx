@@ -14,6 +14,7 @@ import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { DetailStatGrid, DetailKeyValueCard } from "@/components/mobile/v2/detail-primitives";
 
 type EquipmentStatus = "AVAILABLE" | "ASSIGNED" | "IN_MAINTENANCE" | "RETIRED" | "SOLD";
 
@@ -235,63 +236,36 @@ export function MobileEquipmentDetailClient({
       </div>
 
       {/* ── Valuation banner ── */}
-      <div
-        className="rounded-[0.625rem] border p-3 mb-3"
-        style={{
-          borderColor: "var(--color-line)",
-          backgroundColor: "var(--color-paper)",
-        }}
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-              Current Value
-            </p>
-            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-              {formatCurrencyCompact(equipment.currentValue)}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-              Acquired
-            </p>
-            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-              {formatCurrencyCompact(equipment.acquisitionCost)}
-            </p>
-          </div>
+      <DetailStatGrid
+        cols={2}
+        stats={[
+          { label: "Current Value", value: formatCurrencyCompact(equipment.currentValue) },
+          { label: "Acquired", value: formatCurrencyCompact(equipment.acquisitionCost) },
+        ]}
+      />
+      {depreciation > 0 ? (
+        <div className="flex items-center gap-1 -mt-1 mb-3 px-1">
+          <TrendingDown className="size-3" style={{ color: "var(--color-signal)" }} />
+          <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal)" }}>
+            {depreciationPct}% depreciated
+          </span>
+          <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+            · −{formatCurrencyCompact(depreciation)}
+          </span>
         </div>
-        {depreciation > 0 ? (
-          <div className="flex items-center gap-1 mt-1.5 pt-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
-            <TrendingDown className="size-3" style={{ color: "var(--color-signal)" }} />
-            <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal)" }}>
-              {depreciationPct}% depreciated
-            </span>
-            <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-              · −{formatCurrencyCompact(depreciation)}
-            </span>
-          </div>
-        ) : null}
-      </div>
+      ) : null}
 
       {/* ── Info row ── */}
-      <div className="flex flex-col gap-1.5 mb-3">
-        <InfoRow icon={Wrench} label="Asset Tag" value={equipment.assetTag} mono />
-        {equipment.category ? (
-          <InfoRow icon={Package} label="Category" value={equipment.category} />
-        ) : null}
-        {equipment.model ? (
-          <InfoRow icon={Settings} label="Model" value={equipment.model} />
-        ) : null}
-        {equipment.serialNumber ? (
-          <InfoRow icon={FileText} label="Serial No" value={equipment.serialNumber} />
-        ) : null}
-        {equipment.purchaseDate ? (
-          <InfoRow icon={Calendar} label="Purchase Date" value={formatDate(equipment.purchaseDate)} />
-        ) : null}
-        {equipment.notes ? (
-          <InfoRow icon={FileText} label="Notes" value={equipment.notes} />
-        ) : null}
-      </div>
+      <DetailKeyValueCard
+        entries={[
+          { label: "Asset Tag", value: equipment.assetTag, mono: true },
+          ...(equipment.category ? [{ label: "Category", value: equipment.category }] : []),
+          ...(equipment.model ? [{ label: "Model", value: equipment.model }] : []),
+          ...(equipment.serialNumber ? [{ label: "Serial No", value: equipment.serialNumber }] : []),
+          ...(equipment.purchaseDate ? [{ label: "Purchase Date", value: formatDate(equipment.purchaseDate) }] : []),
+          ...(equipment.notes ? [{ label: "Notes", value: equipment.notes }] : []),
+        ]}
+      />
 
       {/* ── Active assignment ── */}
       {equipment.activeAssignment ? (
@@ -682,36 +656,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   );
 }
-/* ─── InfoRow ─── */
-function InfoRow({
-  icon: Icon, label, value, mono,
-}: {
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div
-      className="flex items-center gap-2 rounded-[0.5rem] border px-2.5 py-1.5"
-      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-    >
-      <Icon className="size-3 shrink-0" style={{ color: "var(--color-steel)" }} />
-      <div className="min-w-0 flex-1">
-        <span className="text-m-caption font-semibold uppercase block" style={{ color: "var(--color-ink-500)" }}>
-          {label}
-        </span>
-        <span
-          className={`text-m-body font-bold truncate block ${mono ? "font-mono" : ""}`}
-          style={{ color: "var(--color-ink-950)" }}
-        >
-          {value}
-        </span>
-      </div>
-    </div>
-  );
-}
-
 /* ═══════════════════════════════════════════════════════════
  * Assign modal — bottom-sheet with location + project selectors
  * ═══════════════════════════════════════════════════════════ */

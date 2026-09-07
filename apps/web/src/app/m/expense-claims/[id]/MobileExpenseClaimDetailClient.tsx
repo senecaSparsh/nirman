@@ -18,12 +18,13 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { AttachmentList } from "@/components/attachments/attachment-list";
-import {
-  MobileStatusBadge,
-  MobileEmptyState,
-  ActionBar,
-} from "@/components/mobile/v2/primitives";
+import { MobileEmptyState, ActionBar } from "@/components/mobile/v2/primitives";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import {
+  DetailHeroCard,
+  DetailTimeline,
+  type TimelineStepData,
+} from "@/components/mobile/v2/detail-primitives";
 
 export type ClaimLine = {
   id: string;
@@ -154,25 +155,40 @@ export function MobileExpenseClaimDetailClient({
   const canPayAction = status === "APPROVED" && canManage;
   const hasAction = canSubmit || canApproveAction || canRejectAction || canPayAction;
 
+  const timelineSteps: TimelineStepData[] = [
+    { label: "Created", date: formatDate(createdAt), state: "done", color: "var(--color-go)" },
+  ];
+  if (submittedAt) {
+    timelineSteps.push({ label: "Submitted", date: formatDate(submittedAt), state: "done", color: "var(--color-go)" });
+  } else {
+    timelineSteps.push({ label: "Draft — not submitted", detail: canSubmit ? "Your action needed" : "Awaiting submission", state: "current" });
+  }
+  if (status === "SUBMITTED") {
+    timelineSteps.push({ label: "Awaiting approval", detail: canApprove ? "Your action needed" : "Pending approver review", state: "current" });
+  } else if (status === "APPROVED" || status === "PAID") {
+    timelineSteps.push({ label: "Approved", date: approvedAt ? formatDate(approvedAt) : "—", detail: approvedByName ?? "—", state: "done", color: "var(--color-go)" });
+  } else if (status === "REJECTED") {
+    timelineSteps.push({ label: "Rejected", detail: rejectedReason ?? "—", state: "done", color: "var(--color-stop)" });
+  }
+  if (status === "PAID") {
+    timelineSteps.push({ label: "Paid", date: paidAt ? formatDate(paidAt) : "—", detail: `${paymentMode ?? "—"}${referenceNo ? ` · ${referenceNo}` : ""}`, state: "done", color: "var(--color-go)" });
+  } else if (status === "APPROVED") {
+    timelineSteps.push({ label: "Awaiting payment", detail: canManage ? "Your action needed" : "Pending finance payout", state: "current" });
+  }
+
   return (
     <div className="pb-24">
       {/* Header */}
-      <div className="mb-4">
-        <div className="flex items-center gap-2 mb-1">
-          <h1 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-            {claimantName}
-          </h1>
-          <MobileStatusBadge status={status} />
-        </div>
-        {projectName && (
-          <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
-            {projectName}
-          </p>
-        )}
-        <p className="mt-1 text-m-caption tnum" style={{ color: "var(--color-ink-500)" }}>
+      <DetailHeroCard
+        icon={Receipt}
+        title={claimantName}
+        subtitle={projectName ?? undefined}
+        status={status}
+      >
+        <p className="mt-2 text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
           Created {formatDate(createdAt)}
         </p>
-      </div>
+      </DetailHeroCard>
 
       {/* Amount card */}
       <div
@@ -220,74 +236,7 @@ export function MobileExpenseClaimDetailClient({
       )}
 
       {/* Workflow timeline */}
-      <div className="mb-5">
-        <p className="text-m-caption font-bold uppercase tracking-wider mb-3" style={{ color: "var(--color-steel)" }}>
-          Workflow
-        </p>
-        <div className="relative pl-6">
-          <div
-            className="absolute left-[7px] top-1 bottom-1 w-px"
-            style={{ backgroundColor: "var(--color-line)" }}
-          />
-          <TimelineStep
-            done
-            color="var(--color-go)"
-            label="Created"
-            date={formatDate(createdAt)}
-          />
-          {submittedAt ? (
-            <TimelineStep
-              done
-              color="var(--color-go)"
-              label="Submitted"
-              date={formatDate(submittedAt)}
-            />
-          ) : (
-            <TimelineStep
-              color="var(--color-signal)"
-              label="Draft — not submitted"
-              detail={canSubmit ? "Your action needed" : "Awaiting submission"}
-            />
-          )}
-          {status === "SUBMITTED" ? (
-            <TimelineStep
-              color="var(--color-signal)"
-              label="Awaiting approval"
-              detail={canApprove ? "Your action needed" : "Pending approver review"}
-            />
-          ) : status === "APPROVED" || status === "PAID" ? (
-            <TimelineStep
-              done
-              color="var(--color-go)"
-              label="Approved"
-              date={approvedAt ? formatDate(approvedAt) : "—"}
-              detail={approvedByName ?? "—"}
-            />
-          ) : status === "REJECTED" ? (
-            <TimelineStep
-              done
-              color="var(--color-stop)"
-              label="Rejected"
-              detail={rejectedReason ?? "—"}
-            />
-          ) : null}
-          {status === "PAID" ? (
-            <TimelineStep
-              done
-              color="var(--color-go)"
-              label="Paid"
-              date={paidAt ? formatDate(paidAt) : "—"}
-              detail={`${paymentMode ?? "—"}${referenceNo ? ` · ${referenceNo}` : ""}`}
-            />
-          ) : status === "APPROVED" ? (
-            <TimelineStep
-              color="var(--color-signal)"
-              label="Awaiting payment"
-              detail={canManage ? "Your action needed" : "Pending finance payout"}
-            />
-          ) : null}
-        </div>
-      </div>
+      <DetailTimeline steps={timelineSteps} title="Workflow" />
 
       {/* Line items */}
       {lines.length > 0 && (
@@ -472,53 +421,6 @@ export function MobileExpenseClaimDetailClient({
           </div>
         </ActionBar>
       )}
-    </div>
-  );
-}
-
-function TimelineStep({
-  done,
-  color,
-  label,
-  date,
-  detail,
-}: {
-  done?: boolean;
-  color: string;
-  label: string;
-  date?: string;
-  detail?: React.ReactNode;
-}) {
-  return (
-    <div className="relative pb-4 last:pb-0">
-      <div
-        className="absolute -left-6 top-0.5 w-3.5 h-3.5 rounded-full border-2"
-        style={{
-          backgroundColor: done ? color : "var(--color-paper)",
-          borderColor: color,
-        }}
-      >
-        {done ? (
-          <div className="absolute inset-0 grid place-items-center">
-            <div className="w-1 h-1 rounded-full" style={{ backgroundColor: "var(--color-paper)" }} />
-          </div>
-        ) : null}
-      </div>
-      <div>
-        <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-          {label}
-        </p>
-        {date ? (
-          <p className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-            {date}
-          </p>
-        ) : null}
-        {detail ? (
-          <p className="text-m-label mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-            {detail}
-          </p>
-        ) : null}
-      </div>
     </div>
   );
 }

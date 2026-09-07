@@ -1,16 +1,14 @@
-import { Suspense, type ComponentType, type CSSProperties } from "react";
+import { type ComponentType, type CSSProperties } from "react";
 import Link from "next/link";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getEvmMetrics } from "@nirman/services";
 import { Gauge, TrendingUp, TrendingDown, AlertTriangle, Target, DollarSign } from "lucide-react";
-import { getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
   MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
+import { MobileProjectScopedPage } from "@/components/mobile/v2/project-scoped-page";
 import { MobileProjectControlSelector } from "./MobileProjectControlSelector";
 
 /**
@@ -24,165 +22,156 @@ export default function MobileProjectControlPage({
   searchParams: Promise<{ project?: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonList rows={6} />}>
-      <MobileProjectControlContent searchParams={searchParams} />
-    </Suspense>
-  );
-}
+    <MobileProjectScopedPage searchParams={searchParams} skeletonRows={6}>
+      {async ({ company, role, projectId }) => {
+        hasPermission(role, PERM.FINANCE_VIEW);
+        const canCreateProject = hasPermission(role, PERM.PROJECTS_MANAGE);
 
-async function MobileProjectControlContent({
-  searchParams,
-}: {
-  searchParams: Promise<{ project?: string }>;
-}) {
-  await connection();
-  const company = await getCompany();
-  const role = await getUserRole();
-  hasPermission(role, PERM.FINANCE_VIEW);
-  const { project: projectId } = await searchParams;
+        const projects = await prisma.project.findMany({
+          where: { companyId: company.id, deletedAt: null },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true },
+        });
 
-  const projects = await prisma.project.findMany({
-    where: { companyId: company.id, deletedAt: null },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
+        if (!projectId) {
+          return (
+            <div>
+              <MobileProjectControlSelector projects={projects} selectedId={null} canCreate={canCreateProject} />
+              <MobileEmptyState
+                icon={Gauge}
+                title="Select a project"
+                hint="Choose a project to view Earned Value Management metrics"
+              />
+            </div>
+          );
+        }
 
-  if (!projectId) {
-    return (
-      <div>
-        <MobileProjectControlSelector projects={projects} selectedId={null} />
-        <MobileEmptyState
-          icon={Gauge}
-          title="Select a project"
-          hint="Choose a project to view Earned Value Management metrics"
-        />
-      </div>
-    );
-  }
+        const project = await prisma.project.findFirst({
+          where: { id: projectId, companyId: company.id, deletedAt: null },
+          select: { id: true, name: true, totalBudget: true },
+        });
 
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, companyId: company.id, deletedAt: null },
-    select: { id: true, name: true, totalBudget: true },
-  });
+        if (!project) {
+          return (
+            <div>
+              <MobileProjectControlSelector projects={projects} selectedId={projectId} canCreate={canCreateProject} />
+              <MobileEmptyState icon={Gauge} title="Project not found" hint="" />
+            </div>
+          );
+        }
 
-  if (!project) {
-    return (
-      <div>
-        <MobileProjectControlSelector projects={projects} selectedId={projectId} />
-        <MobileEmptyState icon={Gauge} title="Project not found" hint="" />
-      </div>
-    );
-  }
+        let evm;
+        try {
+          evm = await getEvmMetrics(projectId);
+        } catch {
+          return (
+            <div>
+              <MobileProjectControlSelector projects={projects} selectedId={projectId} canCreate={canCreateProject} />
+              <MobileEmptyState icon={Gauge} title="Unable to compute metrics" hint="Make sure BOQ and measurement data exist" />
+            </div>
+          );
+        }
 
-  let evm;
-  try {
-    evm = await getEvmMetrics(projectId);
-  } catch {
-    return (
-      <div>
-        <MobileProjectControlSelector projects={projects} selectedId={projectId} />
-        <MobileEmptyState icon={Gauge} title="Unable to compute metrics" hint="Make sure BOQ and measurement data exist" />
-      </div>
-    );
-  }
+        const pv = evm.pv.toNumber();
+        const ev = evm.ev.toNumber();
+        const ac = evm.ac.toNumber();
+        const cv = evm.cv.toNumber();
+        const sv = evm.sv.toNumber();
+        const cpi = evm.cpi.toNumber();
+        const spi = evm.spi.toNumber();
+        const eac = evm.eac.toNumber();
+        const vac = evm.vac.toNumber();
+        const pctComplete = evm.pctComplete.toNumber();
 
-  const pv = evm.pv.toNumber();
-  const ev = evm.ev.toNumber();
-  const ac = evm.ac.toNumber();
-  const cv = evm.cv.toNumber();
-  const sv = evm.sv.toNumber();
-  const cpi = evm.cpi.toNumber();
-  const spi = evm.spi.toNumber();
-  const eac = evm.eac.toNumber();
-  const vac = evm.vac.toNumber();
-  const pctComplete = evm.pctComplete.toNumber();
+        const cpiColor = cpi >= 1 ? "var(--color-go)" : cpi >= 0.9 ? "var(--color-signal)" : "var(--color-stop)";
+        const spiColor = spi >= 1 ? "var(--color-go)" : spi >= 0.9 ? "var(--color-signal)" : "var(--color-stop)";
+        const cvColor = cv >= 0 ? "var(--color-go)" : "var(--color-stop)";
+        const svColor = sv >= 0 ? "var(--color-go)" : "var(--color-stop)";
 
-  const cpiColor = cpi >= 1 ? "var(--color-go)" : cpi >= 0.9 ? "var(--color-signal)" : "var(--color-stop)";
-  const spiColor = spi >= 1 ? "var(--color-go)" : spi >= 0.9 ? "var(--color-signal)" : "var(--color-stop)";
-  const cvColor = cv >= 0 ? "var(--color-go)" : "var(--color-stop)";
-  const svColor = sv >= 0 ? "var(--color-go)" : "var(--color-stop)";
+        return (
+          <div>
+            <MobileProjectControlSelector projects={projects} selectedId={projectId} canCreate={canCreateProject} />
 
-  return (
-    <div>
-      <MobileProjectControlSelector projects={projects} selectedId={projectId} />
+            {/* Link to detail page */}
+            <Link
+              href={`/m/project-control/${projectId}`}
+              className="rounded-[0.5rem] border p-2.5 text-m-body press flex items-center justify-between mb-3"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+            >
+              <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-700)" }}>Open detail page</p>
+              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>→</p>
+            </Link>
 
-      {/* Link to detail page */}
-      <Link
-        href={`/m/project-control/${projectId}`}
-        className="rounded-[0.5rem] border p-2.5 text-m-body press flex items-center justify-between mb-3"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-700)" }}>Open detail page</p>
-        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>→</p>
-      </Link>
+            {/* % Complete Hero */}
+            <div
+              className="rounded-[0.875rem] border p-4 mb-3 text-center"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+            >
+              <p className="text-m-caption font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--color-ink-500)" }}>
+                Project Completion
+              </p>
+              <p className="text-m-section font-bold tabular-nums leading-none" style={{ color: "var(--color-ink-950)" }}>
+                {formatNumber(pctComplete, 1)}%
+              </p>
+              <div className="h-2 rounded-full overflow-hidden mt-2" style={{ backgroundColor: "var(--color-concrete)" }}>
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${Math.min(100, pctComplete)}%`, backgroundColor: "var(--color-go)" }}
+                />
+              </div>
+            </div>
 
-      {/* % Complete Hero */}
-      <div
-        className="rounded-[0.875rem] border p-4 mb-3 text-center"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <p className="text-m-caption font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--color-ink-500)" }}>
-          Project Completion
-        </p>
-        <p className="text-m-section font-bold tabular-nums leading-none" style={{ color: "var(--color-ink-950)" }}>
-          {formatNumber(pctComplete, 1)}%
-        </p>
-        <div className="h-2 rounded-full overflow-hidden mt-2" style={{ backgroundColor: "var(--color-concrete)" }}>
-          <div
-            className="h-full rounded-full transition-all"
-            style={{ width: `${Math.min(100, pctComplete)}%`, backgroundColor: "var(--color-go)" }}
-          />
-        </div>
-      </div>
+            {/* EVM Triple Constraint */}
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              <EvmCard label="PV" sublabel="Planned" value={formatCurrencyCompact(pv)} icon={Target} />
+              <EvmCard label="EV" sublabel="Earned" value={formatCurrencyCompact(ev)} icon={TrendingUp} tone="go" />
+              <EvmCard label="AC" sublabel="Actual" value={formatCurrencyCompact(ac)} icon={DollarSign} tone="signal" />
+            </div>
 
-      {/* EVM Triple Constraint */}
-      <div className="grid grid-cols-3 gap-2 mb-3">
-        <EvmCard label="PV" sublabel="Planned" value={formatCurrencyCompact(pv)} icon={Target} />
-        <EvmCard label="EV" sublabel="Earned" value={formatCurrencyCompact(ev)} icon={TrendingUp} tone="go" />
-        <EvmCard label="AC" sublabel="Actual" value={formatCurrencyCompact(ac)} icon={DollarSign} tone="signal" />
-      </div>
+            {/* Variances */}
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <VarianceCard
+                label="Cost Variance (CV)"
+                value={formatCurrencyCompact(cv)}
+                sublabel={cv >= 0 ? "Under budget" : "Over budget"}
+                color={cvColor}
+                icon={cv >= 0 ? TrendingDown : AlertTriangle}
+              />
+              <VarianceCard
+                label="Schedule Variance (SV)"
+                value={formatCurrencyCompact(sv)}
+                sublabel={sv >= 0 ? "Ahead of schedule" : "Behind schedule"}
+                color={svColor}
+                icon={sv >= 0 ? TrendingUp : AlertTriangle}
+              />
+            </div>
 
-      {/* Variances */}
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        <VarianceCard
-          label="Cost Variance (CV)"
-          value={formatCurrencyCompact(cv)}
-          sublabel={cv >= 0 ? "Under budget" : "Over budget"}
-          color={cvColor}
-          icon={cv >= 0 ? TrendingDown : AlertTriangle}
-        />
-        <VarianceCard
-          label="Schedule Variance (SV)"
-          value={formatCurrencyCompact(sv)}
-          sublabel={sv >= 0 ? "Ahead of schedule" : "Behind schedule"}
-          color={svColor}
-          icon={sv >= 0 ? TrendingUp : AlertTriangle}
-        />
-      </div>
+            {/* Performance Indices */}
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <IndexCard label="CPI" sublabel="Cost Performance" value={formatNumber(cpi, 2)} color={cpiColor} hint={cpi >= 1 ? "Efficient" : "Over budget"} />
+              <IndexCard label="SPI" sublabel="Schedule Performance" value={formatNumber(spi, 2)} color={spiColor} hint={spi >= 1 ? "On time" : "Behind"} />
+            </div>
 
-      {/* Performance Indices */}
-      <div className="grid grid-cols-2 gap-2 mb-3">
-        <IndexCard label="CPI" sublabel="Cost Performance" value={formatNumber(cpi, 2)} color={cpiColor} hint={cpi >= 1 ? "Efficient" : "Over budget"} />
-        <IndexCard label="SPI" sublabel="Schedule Performance" value={formatNumber(spi, 2)} color={spiColor} hint={spi >= 1 ? "On time" : "Behind"} />
-      </div>
-
-      {/* Forecast */}
-      <div
-        className="rounded-[0.625rem] border p-3 mb-3"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <p className="text-m-body font-bold mb-2" style={{ color: "var(--color-ink-950)" }}>
-          Forecast
-        </p>
-        <div className="space-y-1.5">
-          <ForecastRow label="EAC (Estimate at Completion)" value={formatCurrencyCompact(eac)} />
-          <ForecastRow label="VAC (Variance at Completion)" value={formatCurrencyCompact(vac)} color={vac >= 0 ? "var(--color-go)" : "var(--color-stop)"} />
-          {project.totalBudget && (
-            <ForecastRow label="Original Budget" value={formatCurrencyCompact(project.totalBudget.toNumber())} />
-          )}
-        </div>
-      </div>
-    </div>
+            {/* Forecast */}
+            <div
+              className="rounded-[0.625rem] border p-3 mb-3"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+            >
+              <p className="text-m-body font-bold mb-2" style={{ color: "var(--color-ink-950)" }}>
+                Forecast
+              </p>
+              <div className="space-y-1.5">
+                <ForecastRow label="EAC (Estimate at Completion)" value={formatCurrencyCompact(eac)} />
+                <ForecastRow label="VAC (Variance at Completion)" value={formatCurrencyCompact(vac)} color={vac >= 0 ? "var(--color-go)" : "var(--color-stop)"} />
+                {project.totalBudget && (
+                  <ForecastRow label="Original Budget" value={formatCurrencyCompact(project.totalBudget.toNumber())} />
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }}
+    </MobileProjectScopedPage>
   );
 }
 

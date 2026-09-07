@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import { MessageSquare, } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { swrFetcher } from "@/lib/swr";
 import { FeedbackDialog } from "./feedback-dialog";
 
 /**
@@ -19,33 +21,28 @@ import { FeedbackDialog } from "./feedback-dialog";
  * For DEVELOPER/OWNER/ADMIN roles, a small badge shows the count of
  * unread (NEW) feedback entries — clicking the badge navigates to the
  * feedback inbox at /feedback.
+ *
+ * Reads `/api/me` via SWR so the role is available instantly from the
+ * root layout's SWR fallback (no client fetch, no badge pop-in).
  * ═══════════════════════════════════════════════════════════════════
  */
 export function FeedbackButton() {
   const [open, setOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [role, setRole] = useState<string | null>(null);
 
-  // Fetch the user's role + unread feedback count (for the badge)
-  useEffect(() => {
-    fetch("/api/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data?.role) setRole(data.role);
-      })
-      .catch(() => {});
-  }, []);
+  // Read the user's role from SWR — pre-seeded by the root layout's
+  // fallback so the role (and thus the badge visibility) is correct on
+  // first paint instead of popping in after a client fetch.
+  const { data: meData } = useSWR<{ role?: string | null } | null>("/api/me", swrFetcher);
+  const role = meData?.role ?? null;
+  const canSeeInbox = role === "OWNER" || role === "ADMIN" || role === "DEVELOPER";
 
-  // For DEVELOPER/OWNER/ADMIN, fetch unread feedback count
-  useEffect(() => {
-    if (role !== "OWNER" && role !== "ADMIN" && role !== "DEVELOPER") return;
-    fetch("/api/feedback/stats")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data?.byStatus?.NEW) setUnreadCount(data.byStatus.NEW);
-      })
-      .catch(() => {});
-  }, [role]);
+  // Fetch unread feedback count only for developer/owner/admin.
+  // Conditional key (null when not eligible) → SWR skips the fetch.
+  const { data: statsData } = useSWR(
+    canSeeInbox ? "/api/feedback/stats" : null,
+    swrFetcher,
+  );
+  const unreadCount = (statsData as { byStatus?: { NEW?: number } } | null)?.byStatus?.NEW ?? 0;
 
   return (
     <>

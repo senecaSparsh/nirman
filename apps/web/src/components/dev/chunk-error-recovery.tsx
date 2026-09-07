@@ -103,7 +103,9 @@ export function ChunkErrorRecovery() {
         try {
           sessionStorage.removeItem(RELOAD_FLAG);
           sessionStorage.removeItem(RELOAD_FLAG_TS);
-        } catch {}
+        } catch (err) {
+          console.warn("Failed to clear chunk-recovery sessionStorage flags:", err);
+        }
       }, FLAG_TTL_MS);
       return () => clearTimeout(timer);
     }

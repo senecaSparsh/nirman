@@ -2,14 +2,17 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 
 export function MobileMbProjectSelector({
   projects,
   selectedId,
+  canCreate = false,
 }: {
   projects: { id: string; name: string }[];
   selectedId: string | null;
+  canCreate?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -34,13 +37,15 @@ export function MobileMbProjectSelector({
           backgroundColor: "transparent",
           color: "var(--color-ink-950)",
         }}
-        renderDialog={({ open, onClose, onCreated }) => (
-          <MobileNewProjectDialog
-            open={open}
-            onClose={onClose}
-            onCreated={(p) => onCreated(p.id, p.name)}
-          />
-        )}
+        renderDialog={canCreate ? ({ open, onClose, onCreated, originRect }) => (
+          <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project" nested>
+            <MobileNewProjectDialog
+              open={open}
+              onClose={onClose}
+              onCreated={(p) => onCreated(p.id, p.name)}
+            />
+          </MobileFabModal>
+        ) : undefined}
       />
     </div>
   );

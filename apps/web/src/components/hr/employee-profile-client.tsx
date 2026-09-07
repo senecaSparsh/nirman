@@ -277,7 +277,7 @@ export function EmployeeProfileClient({
                   const data = await res.json();
                   setAvailableNumbers(data);
                 }
-              } catch { /* ignore — dialog handles empty list */ }
+              } catch (err) { console.warn("Failed to load available numbers:", err); }
               setShowCreateAccount(true);
             }}
             onTerminate={() => setShowTerminate(true)}

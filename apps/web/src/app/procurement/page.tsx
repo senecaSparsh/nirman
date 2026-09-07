@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getCompanyGroupIds, toNum, getUserRole } from "@/lib/server";
+import { getCompany, getCompanyGroupIds, getCurrentUserMembership, toNum, getUserRole } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
@@ -10,6 +10,7 @@ import { PageLoading } from "@/components/page-loading";
 import type {
   SupplierRow, PurchaseOrderRow, MaterialRow, StockLocationRow,
   ProjectOption, DirectPurchaseRow, MaterialCategory,
+  RequisitionRow, SupplierReturnRow, QuotationRequestRow,
 } from "@/lib/types";
 
 import { NoAccess } from "@/components/no-access";
@@ -38,14 +39,16 @@ async function ProcurementContent() {
     canCreate: hasPermission(role, PERM.PROCUREMENT_MANAGE),
     canApprove: hasPermission(role, PERM.PO_APPROVE),
     canManagePayments: hasPermission(role, PERM.FINANCE_MANAGE),
+    canApproveRequisitions: hasPermission(role, PERM.REQUISITION_APPROVE),
   };
 
   // Company group: current company + siblings/parent/children. PO destination
   // locations (a project site in a sibling/child SPV) are selectable across
   // the group, matching the parent/child company hierarchy.
   const groupCompanyIds = await getCompanyGroupIds(company);
+  const membership = await getCurrentUserMembership();
 
-  const [pos, suppliers, materials, locations, projects, directPurchases, categories] = await Promise.all([
+  const [pos, suppliers, materials, locations, projects, directPurchases, categories, requisitions, phases, supplierReturns, quotationRequests, directReports] = await Promise.all([
     prisma.purchaseOrder.findMany({
       take: 500,
       where: { companyId: company.id },
@@ -123,6 +126,66 @@ async function ProcurementContent() {
       orderBy: { name: "asc" },
       select: { id: true, name: true, unit: true },
     }),
+    // ── Requisitions (indents) — for the Indents tab ──
+    prisma.materialRequisition.findMany({
+      take: 500,
+      where: { project: { companyId: company.id } },
+      orderBy: { createdAt: "desc" },
+      include: {
+        project: { select: { name: true } },
+        phase: { select: { name: true } },
+        lines: {
+          include: { material: { select: { code: true, name: true, unit: true } } },
+        },
+        vendorQuotes: {
+          where: { status: { not: "REJECTED" } },
+          select: { id: true, landedTotal: true, isCheapest: true, status: true },
+        },
+      },
+    }),
+    // Project phases — needed by the requisitions view's phase selector
+    prisma.projectPhase.findMany({
+      take: 200,
+      where: { project: { companyId: company.id, deletedAt: null } },
+      select: { id: true, name: true, projectId: true },
+    }),
+    // ── Supplier returns — for the Returns tab ──
+    prisma.supplierReturn.findMany({
+      take: 500,
+      where: { companyId: company.id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        supplier: { select: { name: true } },
+        location: { select: { name: true } },
+        lines: {
+          include: { material: { select: { code: true, name: true, unit: true } } },
+        },
+      },
+    }),
+    // ── Quotation requests — for the Quotations tab ──
+    prisma.quotationRequest.findMany({
+      where: { companyId: company.id },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      include: {
+        project: { select: { id: true, name: true } },
+        submittedBy: { select: { id: true, name: true } },
+        lines: { select: { id: true } },
+        quotes: {
+          where: { status: { not: "REJECTED" } },
+          select: { id: true, landedTotal: true, status: true, isCheapest: true },
+        },
+        convertedPo: { select: { id: true, poNumber: true, status: true } },
+      },
+    }),
+    // Direct reports — for the "Your approval" badge on quotation requests
+    membership
+      ? prisma.userCompany.findMany({
+          take: 200,
+          where: { reportsToUserCompanyId: membership.id },
+          select: { id: true },
+        })
+      : [],
   ]);
 
   const poRows: PurchaseOrderRow[] = pos.map((po) => {
@@ -245,19 +308,95 @@ async function ProcurementContent() {
     })),
   }));
 
+  // ── Requisition rows (for Indents tab) ──
+  const requisitionRows: RequisitionRow[] = requisitions.map((r) => ({
+    id: r.id,
+    reqNumber: r.reqNumber,
+    projectId: r.projectId,
+    projectName: r.project?.name ?? null,
+    phaseId: r.phaseId,
+    phaseName: r.phase?.name ?? null,
+    status: r.status,
+    requestDate: r.requestDate.toISOString(),
+    neededByDate: r.neededByDate?.toISOString() ?? null,
+    notes: r.notes,
+    convertedPoId: r.convertedPoId,
+    lineCount: r.lines.length,
+    totalQty: r.lines.reduce((s, l) => s + toNum(l.qtyRequested), 0),
+    quoteCount: r.vendorQuotes.length,
+    minQuotesRequired: r.minQuotesRequired,
+    quotesWaived: r.quotesWaived,
+    lciDecision: r.lciDecision as { recommendedScope: "COMPANY" | "PROJECT"; threshold: number } | null,
+  }));
+
+  // ── Supplier return rows (for Returns tab) ──
+  const supplierReturnRows: SupplierReturnRow[] = supplierReturns.map((r) => ({
+    id: r.id,
+    returnNumber: r.returnNumber,
+    supplierId: r.supplierId,
+    supplierName: r.supplier.name,
+    purchaseOrderId: r.purchaseOrderId,
+    locationId: r.locationId,
+    locationName: r.location.name,
+    status: r.status,
+    returnDate: r.returnDate.toISOString(),
+    creditNoteNo: r.creditNoteNo,
+    notes: r.notes,
+    vehicleNumber: r.vehicleNumber,
+    vehicleType: r.vehicleType,
+    vehiclePhotoUrl: r.vehiclePhotoUrl,
+    driverName: r.driverName,
+    driverPhone: r.driverPhone,
+    lines: r.lines.map((l) => ({
+      id: l.id,
+      materialId: l.materialId,
+      materialCode: l.material.code,
+      materialName: l.material.name,
+      materialUnit: l.material.unit,
+      qty: toNum(l.qty),
+      reason: l.reason,
+    })),
+  }));
+
+  // ── Quotation request rows (for Quotations tab) ──
+  const reportIds = new Set(directReports.map((r) => r.id));
+  const quotationRequestRows: QuotationRequestRow[] = quotationRequests.map((r) => {
+    const cheapest = r.quotes.find((q) => q.isCheapest);
+    return {
+      id: r.id,
+      requestNumber: r.requestNumber,
+      title: r.title,
+      projectId: r.projectId,
+      projectName: r.project?.name ?? null,
+      workActivity: r.workActivity ?? null,
+      requiredByDate: r.requiredByDate?.toISOString() ?? null,
+      submittedByUserCompanyId: r.submittedByUserCompanyId,
+      submittedByName: r.submittedBy?.name ?? null,
+      status: r.status,
+      minQuotesRequired: r.minQuotesRequired,
+      quoteCount: r.quotes.length,
+      cheapestLandedTotal: cheapest ? toNum(cheapest.landedTotal) : null,
+      convertedPoId: r.convertedPo?.id ?? null,
+      convertedPoNumber: r.convertedPo?.poNumber ?? null,
+      createdAt: r.createdAt.toISOString(),
+    };
+  });
+
   const openPoValue = poRows
     .filter((p) => ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"].includes(p.status))
     .reduce((s, p) => s + p.total, 0);
+
+  const pendingRequisitions = requisitionRows.filter((r) => r.status === "SUBMITTED").length;
 
   return (
     <>
       <PageHeader
         title="Procurement"
-        description="Buy materials — purchase orders, cash purchases, and your supplier directory. Stock movements (transfers, issues, scrap) live in Stock."
+        description="Buy materials — indents, quotations, purchase orders, cash purchases, returns, and your supplier directory."
         stats={[
           { label: "POs", value: poRows.length, hint: "Total purchase orders across all statuses — draft, approved, ordered, received." },
           { label: "Open value", value: formatCurrency(openPoValue), hint: "Value of POs not yet fully received or paid. This is committed spend." },
-          { label: "Suppliers", value: supplierRows.length, hint: "Vendors in the supplier directory." },
+          { label: "Indents", value: pendingRequisitions, tone: pendingRequisitions > 0 ? "warning" : "muted", hint: "Material indents submitted and awaiting approval." },
         ]}
       />
       <ProcurementView
@@ -268,6 +407,11 @@ async function ProcurementContent() {
         projects={projectRows}
         directPurchases={directPurchaseRows}
         categories={categoryRows}
+        requisitions={requisitionRows}
+        phases={phases.map((p) => ({ id: p.id, name: p.name, projectId: p.projectId }))}
+        supplierReturns={supplierReturnRows}
+        quotationRequests={quotationRequestRows}
+        reportIds={reportIds}
         permissions={perms}
       />
     </>

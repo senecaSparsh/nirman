@@ -1120,6 +1120,226 @@ export async function confirmEmploymentAgreement(
   });
 }
 
+// ───────────────────────────────────────────────────────────────
+//  Offer Letter — auto-generation
+//
+//  A shorter, pre-joining document that formalises the job offer:
+//  position, compensation, employment type, start date, and key terms.
+//  Generated automatically on employee creation (when prerequisites are
+//  met) and can be regenerated manually.
+//
+//  The print page is at /print/offer-letter/[id].
+// ───────────────────────────────────────────────────────────────
+
+/**
+ * Generate (or regenerate) the offer letter for an employee.
+ * Sets offerLetterStatus = ISSUED, offerLetterIssuedAt = now, and creates
+ * an EntityAttachment linking the offer letter to the employee profile.
+ */
+export async function generateOfferLetter(
+  employeeId: string,
+  companyId: string,
+  actorUserId: string,
+): Promise<{
+  employeeId: string;
+  offerLetterUrl: string;
+  offerLetterStatus: string;
+  issuedAt: string;
+}> {
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, companyId, deletedAt: null },
+    select: {
+      id: true,
+      offerLetterStatus: true,
+      offerLetterAttachmentId: true,
+      employmentType: true,
+      wageType: true,
+      dailyRate: true,
+      monthlySalary: true,
+      designation: true,
+      joinDate: true,
+    },
+  });
+  if (!employee) throw new HrError("Employee not found", 404);
+
+  // ── Validate minimum prerequisites ──
+  if (!employee.employmentType) {
+    throw new HrError(
+      "Employment type is not set. Fill the employment terms before generating the offer letter.",
+      400,
+    );
+  }
+  if (employee.wageType === "DAILY" && (!employee.dailyRate || Number(employee.dailyRate) === 0)) {
+    throw new HrError("Daily rate is not set. Fill the wage details first.", 400);
+  }
+  if ((employee.wageType === "MONTHLY" || employee.wageType === "FIXED") && (!employee.monthlySalary || Number(employee.monthlySalary) === 0)) {
+    throw new HrError("Monthly salary is not set. Fill the wage details first.", 400);
+  }
+
+  const offerLetterUrl = `/print/offer-letter/${employeeId}`;
+
+  return prisma.$transaction(async (tx) => {
+    let attachmentId = employee.offerLetterAttachmentId;
+
+    if (attachmentId) {
+      await tx.entityAttachment.update({
+        where: { id: attachmentId },
+        data: { label: `Offer Letter — ${new Date().toLocaleDateString()}` },
+      });
+    } else {
+      const upload = await tx.upload.create({
+        data: {
+          storedName: `offer-letter-${employeeId}.pdf`,
+          originalName: `Offer-Letter-${employeeId.slice(-8)}.pdf`,
+          mimeType: "application/pdf",
+          size: 0,
+          url: offerLetterUrl,
+          companyId,
+          uploadedById: actorUserId,
+        },
+      });
+      const attachment = await tx.entityAttachment.create({
+        data: {
+          companyId,
+          uploadId: upload.id,
+          entityType: "Employee",
+          entityId: employeeId,
+          category: "offer-letter",
+          label: `Offer Letter — ${new Date().toLocaleDateString()}`,
+          createdById: actorUserId,
+        },
+      });
+      attachmentId = attachment.id;
+    }
+
+    const updated = await tx.employee.update({
+      where: { id: employeeId },
+      data: {
+        offerLetterStatus: "ISSUED",
+        offerLetterIssuedAt: new Date(),
+        offerLetterAttachmentId: attachmentId,
+      },
+      select: { offerLetterStatus: true, offerLetterIssuedAt: true },
+    });
+
+    await logAction(tx, {
+      userId: actorUserId,
+      companyId,
+      action: "EMPLOYEE_OFFER_LETTER_GENERATED",
+      entityType: "Employee",
+      entityId: employeeId,
+      after: { offerLetterStatus: updated.offerLetterStatus, offerLetterUrl },
+    });
+
+    return {
+      employeeId,
+      offerLetterUrl,
+      offerLetterStatus: updated.offerLetterStatus ?? "ISSUED",
+      issuedAt: updated.offerLetterIssuedAt?.toISOString() ?? new Date().toISOString(),
+    };
+  });
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Employee ID Card — auto-generation
+//
+//  A printable ID card with employee name, photo placeholder, designation,
+//  employee code, company name, and emergency contact. Generated
+//  automatically on employee creation and can be regenerated manually.
+//
+//  The print page is at /print/employee-id-card/[id].
+// ───────────────────────────────────────────────────────────────
+
+/**
+ * Generate (or regenerate) the employee ID card.
+ * Sets idCardStatus = ISSUED, idCardIssuedAt = now, and creates an
+ * EntityAttachment linking the ID card to the employee profile.
+ */
+export async function generateEmployeeIdCard(
+  employeeId: string,
+  companyId: string,
+  actorUserId: string,
+): Promise<{
+  employeeId: string;
+  idCardUrl: string;
+  idCardStatus: string;
+  issuedAt: string;
+}> {
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, companyId, deletedAt: null },
+    select: {
+      id: true,
+      idCardStatus: true,
+      idCardAttachmentId: true,
+      name: true,
+    },
+  });
+  if (!employee) throw new HrError("Employee not found", 404);
+
+  const idCardUrl = `/print/employee-id-card/${employeeId}`;
+
+  return prisma.$transaction(async (tx) => {
+    let attachmentId = employee.idCardAttachmentId;
+
+    if (attachmentId) {
+      await tx.entityAttachment.update({
+        where: { id: attachmentId },
+        data: { label: `Employee ID Card — ${new Date().toLocaleDateString()}` },
+      });
+    } else {
+      const upload = await tx.upload.create({
+        data: {
+          storedName: `id-card-${employeeId}.pdf`,
+          originalName: `ID-Card-${employeeId.slice(-8)}.pdf`,
+          mimeType: "application/pdf",
+          size: 0,
+          url: idCardUrl,
+          companyId,
+          uploadedById: actorUserId,
+        },
+      });
+      const attachment = await tx.entityAttachment.create({
+        data: {
+          companyId,
+          uploadId: upload.id,
+          entityType: "Employee",
+          entityId: employeeId,
+          category: "id-card",
+          label: `Employee ID Card — ${new Date().toLocaleDateString()}`,
+          createdById: actorUserId,
+        },
+      });
+      attachmentId = attachment.id;
+    }
+
+    const updated = await tx.employee.update({
+      where: { id: employeeId },
+      data: {
+        idCardStatus: "ISSUED",
+        idCardIssuedAt: new Date(),
+        idCardAttachmentId: attachmentId,
+      },
+      select: { idCardStatus: true, idCardIssuedAt: true },
+    });
+
+    await logAction(tx, {
+      userId: actorUserId,
+      companyId,
+      action: "EMPLOYEE_ID_CARD_GENERATED",
+      entityType: "Employee",
+      entityId: employeeId,
+      after: { idCardStatus: updated.idCardStatus, idCardUrl },
+    });
+
+    return {
+      employeeId,
+      idCardUrl,
+      idCardStatus: updated.idCardStatus ?? "ISSUED",
+      issuedAt: updated.idCardIssuedAt?.toISOString() ?? new Date().toISOString(),
+    };
+  });
+}
+
 /**
  * Set up auto-deposit — configures the employee's bank account details
  * and enables automatic salary credit on payday. Requires the agreement

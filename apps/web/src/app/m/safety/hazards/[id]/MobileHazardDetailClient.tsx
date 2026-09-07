@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {Loader2, Play, Check, Trash2, X, Pencil} from "lucide-react";
+import {Loader2, Play, Check, Trash2, X, Pencil, AlertTriangle} from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
-import { ActionBar, MobileStatusBadge } from "@/components/mobile/v2/primitives";
+import { ActionBar } from "@/components/mobile/v2/primitives";
+import { DetailHeroCard, DetailStatGrid, DetailTimeline, type TimelineStepData } from "@/components/mobile/v2/detail-primitives";
 
 interface HazardDetail {
   id: string; hazardNumber: string; title: string; description: string;
@@ -88,17 +89,34 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
   const riskColor = RISK_COLORS[hazard.riskLevel] ?? "var(--color-ink-500)";
   const riskBg = RISK_BG[hazard.riskLevel] ?? "var(--color-concrete)";
 
+  const detailStats: { label: string; value: string }[] = [];
+  if (hazard.location) detailStats.push({ label: "Location", value: hazard.location });
+  if (hazard.wbsNodeName) detailStats.push({ label: "WBS Node", value: hazard.wbsNodeName });
+  if (hazard.targetResolutionDate) detailStats.push({ label: "Target Date", value: formatDate(hazard.targetResolutionDate) });
+
+  const timelineSteps: TimelineStepData[] = [
+    { label: "Identified", date: formatDate(hazard.identifiedAt), detail: hazard.identifiedByName ? `by ${hazard.identifiedByName}` : undefined, state: "done" },
+  ];
+  if (hazard.mitigatedAt) {
+    timelineSteps.push({ label: "Mitigation Started", date: formatDate(hazard.mitigatedAt), detail: hazard.mitigatedByName ? `by ${hazard.mitigatedByName}` : undefined, state: "done" });
+  }
+  if (hazard.resolvedAt) {
+    timelineSteps.push({ label: "Resolved", date: formatDate(hazard.resolvedAt), detail: hazard.resolvedByName ? `by ${hazard.resolvedByName}` : undefined, state: "done" });
+  }
+
   return (
     <div className="space-y-4 pb-20">
       {/* Header */}
-      <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{hazard.hazardNumber}</p>
-          <MobileStatusBadge status={hazard.status} />
-        </div>
-        <h1 className="text-m-section font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>{hazard.title}</h1>
-        <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>{hazard.projectName}</p>
-      </div>
+      <DetailHeroCard
+        icon={AlertTriangle}
+        title={hazard.title}
+        subtitle={hazard.projectName}
+        status={hazard.status}
+      >
+        <p className="text-m-label font-bold tabular-nums mt-2" style={{ color: "var(--color-ink-500)" }}>
+          {hazard.hazardNumber}
+        </p>
+      </DetailHeroCard>
 
       {/* Risk assessment */}
       <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: riskBg }}>
@@ -131,11 +149,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
       </div>
 
       {/* Details */}
-      <div className="grid grid-cols-2 gap-2">
-        {hazard.location && <DetailCard label="Location" value={hazard.location} />}
-        {hazard.wbsNodeName && <DetailCard label="WBS Node" value={hazard.wbsNodeName} />}
-        {hazard.targetResolutionDate && <DetailCard label="Target Date" value={formatDate(hazard.targetResolutionDate)} />}
-      </div>
+      {detailStats.length > 0 && <DetailStatGrid stats={detailStats} cols={2} />}
 
       {/* Mitigation plan */}
       {hazard.mitigationPlan && (
@@ -154,14 +168,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
       )}
 
       {/* Timeline */}
-      <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <p className="text-m-label font-semibold uppercase mb-2" style={{ color: "var(--color-ink-500)" }}>Timeline</p>
-        <div className="space-y-1.5">
-          <TimelineRow label="Identified" date={hazard.identifiedAt} name={hazard.identifiedByName} />
-          {hazard.mitigatedAt && <TimelineRow label="Mitigation Started" date={hazard.mitigatedAt} name={hazard.mitigatedByName} />}
-          {hazard.resolvedAt && <TimelineRow label="Resolved" date={hazard.resolvedAt} name={hazard.resolvedByName} />}
-        </div>
-      </div>
+      <DetailTimeline steps={timelineSteps} title="Timeline" />
 
       {/* Actions */}
       {canManage && (
@@ -269,24 +276,6 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
         </BottomSheet>
       )}
       {confirmDialog}
-    </div>
-  );
-}
-
-function DetailCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-      <p className="text-m-caption font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>{label}</p>
-      <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>{value}</p>
-    </div>
-  );
-}
-
-function TimelineRow({ label, date, name }: { label: string; date: string; name?: string | null }) {
-  return (
-    <div className="flex items-center justify-between">
-      <div><p className="text-m-label font-semibold" style={{ color: "var(--color-ink-950)" }}>{label}</p>{name && <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>by {name}</p>}</div>
-      <p className="text-m-label tabular-nums" style={{ color: "var(--color-ink-500)" }}>{formatDate(date)}</p>
     </div>
   );
 }

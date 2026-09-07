@@ -1,7 +1,6 @@
-import { Suspense } from "react";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getCompanyGroupIds, toNum } from "@/lib/server";
+import { getCompanyGroupIds, toNum } from "@/lib/server";
+import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -9,7 +8,7 @@ import {
 } from "@/components/mobile/v2/primitives";
 import Link from "next/link";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
-import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
+import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { InventoryInteractive } from "./inventory-interactive";
 import {
   InventoryHierarchy,
@@ -30,17 +29,9 @@ import {
  */
 export default function InventoryHomePage() {
   return (
-    <Suspense fallback={<MobileSkeletonHome />}>
-      <InventoryContent />
-    </Suspense>
-  );
-}
-
-async function InventoryContent() {
-  await connection();
-  const company = await getCompany();
-
-  const [draftPOs, pendingReqs, recentRequisitions, materials, inventoryTree] =
+    <MobileHubPage>
+      {async ({ company }) => {
+        const [draftPOs, pendingReqs, recentRequisitions, materials, inventoryTree, qaCtx] =
     await Promise.all([
       prisma.purchaseOrder.count({
         where: { companyId: company.id, status: "DRAFT" },
@@ -82,6 +73,7 @@ async function InventoryContent() {
         parentCompanyId: company.parentCompanyId,
         name: company.name,
       }),
+      loadQuickActionContext("inventory"),
     ]);
 
   const approvalCount = draftPOs + pendingReqs;
@@ -175,7 +167,7 @@ async function InventoryContent() {
       />
 
       {/* ── Category tabs + quick actions (Raw Material / Real Estate) ── */}
-      <InventoryInteractive />
+      <InventoryInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} />
 
       {/* ── Group inventory tree — parent → children → projects ── */}
       <InventoryHierarchy tree={inventoryTree} />
@@ -227,7 +219,10 @@ async function InventoryContent() {
           </div>
         </>
       ) : null}
-    </div>
+        </div>
+      );
+      }}
+    </MobileHubPage>
   );
 }
 

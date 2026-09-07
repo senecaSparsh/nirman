@@ -13,7 +13,7 @@ import { LazySwRegister } from "@/components/lazy-sw-register";
 import { ChunkErrorRecovery } from "@/components/dev/chunk-error-recovery";
 import { CurrencyProvider } from "@/components/currency-provider";
 import { runWithCurrencyMode, type CurrencyMode } from "@/lib/currency-server";
-import { runWithRequestContext } from "@/lib/server";
+import { runWithRequestContext, getNavBootstrap } from "@/lib/server";
 import { swrConfig, SWRConfig } from "@/lib/swr";
 import { Toaster } from "sonner";
 
@@ -92,18 +92,30 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const cookie = (await cookies()).get("nirman-currency-mode")?.value;
   const currencyMode: CurrencyMode = cookie === "detailed" ? "detailed" : "compact";
 
-  return runWithRequestContext(() =>
-    runWithCurrencyMode(currencyMode, () => (
+  return runWithRequestContext(async () => {
+    // Resolve identity once on the server so both nav shells (desktop
+    // AppShell, mobile MobileShellV2 via the /m layout) render with the
+    // real role/company on first paint. The payload doubles as SWR
+    // `fallback` for "/api/me" + "/api/company" — every client consumer
+    // (AppShell, usePermissions, page hooks) starts with real data instead
+    // of a least-privileged placeholder, and SWR revalidates in the
+    // background. null when unauthenticated or the lookup fails — the
+    // client-side guards fall back to their previous behavior.
+    const nav = await getNavBootstrap().catch(() => null);
+    const swrValue = nav
+      ? { ...swrConfig, fallback: { "/api/me": nav.me, "/api/company": nav.company } }
+      : swrConfig;
+    return runWithCurrencyMode(currencyMode, () => (
     <html lang="en" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
       </head>
       <body className="antialiased">
         <Suspense fallback={<div className="min-h-screen bg-background" />}>
-          <SWRConfig value={swrConfig}>
+          <SWRConfig value={swrValue}>
             <CurrencyProvider>
               <EmployeeNavListener />
-              <AppShell isDev={process.env.NODE_ENV !== "production"}>{children}</AppShell>
+              <AppShell isDev={process.env.NODE_ENV !== "production"} hasSession={!!nav}>{children}</AppShell>
               {/* Surface selection is now one-time only: the middleware
                   redirects "/" → "/m" for mobile UAs (entry landing), and
                   the sign-in page routes to the correct surface after login.
@@ -139,6 +151,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ChunkErrorRecovery />
       </body>
     </html>
-  ))
-  );
+  ));
+  });
 }

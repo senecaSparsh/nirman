@@ -17,16 +17,18 @@ import {
   ALL_NAV_MODULES,
   type Persona,
 } from "@/lib/mobile-nav-v2";
-import { usePinnedPages } from "@/lib/use-nav-preferences";
+import { usePinnedPages, useRecentPages } from "@/lib/use-nav-preferences";
 import { usePageContext } from "@/components/mobile/v2/page-context";
 import { nextActionFor, FLOWS, type FlowId } from "@/lib/flow-map";
 import {
-  menuGroupsForPersona,
+  menuGroupsFor,
   relatedTo as manifestRelatedTo,
   ROUTES,
   type RouteEntry,
   type MenuGroup,
+  type NavContext,
 } from "@/lib/route-manifest";
+import { GlassSurface } from "@/components/ui/glass-surface";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    NAV PANEL — 3-dot overflow side panel (compact, accordion + pinning)
@@ -83,18 +85,38 @@ interface NavSheetProps {
   open: boolean;
   onClose: () => void;
   moduleId: string;
-  /** Current persona — used to filter NavGroups (hide irrelevant sections). */
+  /** Current persona — used for ranking/ordering of sections. */
   persona: Persona;
+  /** Effective permissions from /api/me — used to gate which routes appear. */
+  permissions: string[];
 }
 
-export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
+export function NavSheet({ open, onClose, moduleId, persona, permissions }: NavSheetProps) {
   const pathname = usePathname();
   const [mounted, setMounted] = React.useState(open);
   const [exiting, setExiting] = React.useState(false);
   const closeTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Personalization: pinned pages ──
+  // ── App-theme-aware dark mode detection ──
+  // The app toggles dark mode via a `.dark` class on <html> (not
+  // prefers-color-scheme), so GlassSurface's built-in media-query
+  // detection doesn't match. We observe the class attribute so the
+  // glass frost tint + edge highlights stay correct if the user
+  // toggles theme while the sheet is open.
+  const [isDarkMode, setIsDarkMode] = React.useState(false);
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const el = document.documentElement;
+    const update = () => setIsDarkMode(el.classList.contains("dark"));
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(el, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  // ── Personalization: pinned pages + recent pages ──
   const { pinned, togglePin, isPinned } = usePinnedPages();
+  const { recent } = useRecentPages();
 
   // ── Adaptive: page context from detail pages (must be before early return) ──
   const pageCtx = usePageContext();
@@ -182,17 +204,27 @@ export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
 
   if (!mounted) return null;
 
-  // ── Menu from the route manifest (replaces MODULE_GROUP_MAP + allNavGroupsForPersona) ──
-  // Uses persona-only filtering (no permission gating) — the NavSheet is a sitemap,
-  // and permission checks happen at the page level. This matches the old behavior
-  // and includes the 46 routes that were orphaned under NAV_GROUPS (fixes D5).
-  const allModules = menuGroupsForPersona(persona);
+  // ── Menu from the route manifest — permission-gated ──
+  // Uses both persona (for ranking/ordering) AND permissions (for access gating).
+  // Only routes the user can actually open appear in the nav sheet. This prevents
+  // users from seeing pages they'd just get a 403 on when tapping.
+  const navCtx: NavContext = { permissions, persona };
+  const allModules = menuGroupsFor(navCtx);
   const currentExpanded = allModules[expandedModule] ? expandedModule : moduleId;
 
   // ── Build Quick Access list from pinned hrefs ──
   const pinnedLinks = pinned
     .map((href) => HREF_TO_LINK.get(href))
     .filter((link): link is NavLink => link !== undefined);
+
+  // ── Build Recent list from frecency-sorted recent pages ──
+  // Shows up to 4 recent pages as horizontal chips — replaces the
+  // TabSwitcher's recent-tabs function (Phase 4 consolidation).
+  const recentLinks = recent
+    .filter((href) => href !== pathname && !pinned.includes(href))
+    .map((href) => HREF_TO_LINK.get(href))
+    .filter((link): link is NavLink => link !== undefined)
+    .slice(0, 4);
 
   // ── Build Related list from the route manifest (replaces workflowLinksForPath) ──
   // Uses flow-aware siblings + same-flow nodes from the manifest, which is
@@ -213,13 +245,17 @@ export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
         style={{
           position: "absolute",
           inset: 0,
-          backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)",
+          backgroundColor: "rgba(0, 0, 0, 0.45)",
         }}
         onClick={onClose}
       />
 
-      <div
-        className={exiting ? "panel-out" : "panel-in"}
+      <GlassSurface
+        dark={isDarkMode}
+        backgroundOpacity={0.08}
+        blur={20}
+        saturation={1.6}
+        className={`relative ${exiting ? "panel-out" : "panel-in"}`}
         style={{
           position: "relative",
           width: "65%",
@@ -246,7 +282,7 @@ export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
             onClick={onClose}
             className="press grid place-items-center size-6 rounded-[0.5rem]"
             style={{
-              color: "var(--color-ink-500)",
+              color: "var(--color-ink-950)",
               backgroundColor: "var(--color-concrete)",
             }}
             aria-label="Close menu"
@@ -257,12 +293,55 @@ export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
 
         {/* Scrollable link list — tight spacing */}
         <div className="overflow-y-auto flex-1 px-1.5 py-2 pb-safe">
+          {/* ── Recent pages (frecency-sorted horizontal chips) ── */}
+          {/* Replaces the TabSwitcher's recent-tabs function. Up to 4
+              chips, stable left-edge location (spatial memory supportive). */}
+          {recentLinks.length > 0 && (
+            <div className="mb-2.5">
+              <h3
+                className="text-m-caption uppercase tracking-wide font-semibold mb-1.5"
+                style={{ color: "var(--color-ink-700)" }}
+              >
+                Recent
+              </h3>
+              <div className="flex flex-wrap gap-1">
+                {recentLinks.map((link) => {
+                  const Icon = link.icon as LucideIcon;
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      prefetch
+                      onClick={onClose}
+                      className="flex items-center gap-1 rounded-full px-2 py-1 text-m-label font-medium press"
+                      style={{
+                        backgroundColor: "var(--color-concrete)",
+                        border: "1px solid var(--color-line)",
+                      }}
+                    >
+                      <Icon
+                        className="size-3 shrink-0"
+                        style={{ color: "var(--color-ink-700)" }}
+                      />
+                      <span
+                        className="truncate max-w-[5rem]"
+                        style={{ color: "var(--color-ink-900)" }}
+                      >
+                        {link.label}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* ── Next Step (adaptive, from flow-map) ── */}
           {/* Shows the ONE action the user should take next on the current
               page, based on entity type + status + permissions. This is
               the genuinely adaptive part of the NavSheet. */}
           {nextStep && nextStep.href && (
-            <NavSection title="Next Step" tone="signal">
+            <NavSection title="Next Step" tone="signal" isDarkMode={isDarkMode}>
               <Link
                 href={nextStep.href}
                 onClick={onClose}
@@ -289,7 +368,7 @@ export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
                   </div>
                   <div
                     className="text-m-caption leading-tight mt-0.5"
-                    style={{ color: "var(--color-ink-500)" }}
+                    style={{ color: "var(--color-ink-700)" }}
                   >
                     {nextStep.reason}
                   </div>
@@ -304,7 +383,7 @@ export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
 
           {/* ── Quick Access (pinned pages) ── */}
           {pinnedLinks.length > 0 && (
-            <NavSection title="Quick Access">
+            <NavSection title="Quick Access" isDarkMode={isDarkMode}>
               <div className="flex flex-col gap-0.5">
                 {pinnedLinks.map((link) => (
                   <NavSheetRow
@@ -322,7 +401,7 @@ export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
 
           {/* ── Related pages (workflow cross-links, flow-aware when available) ── */}
           {finalRelatedLinks.length > 0 && (
-            <NavSection title="Related" collapsible>
+            <NavSection title="Related" collapsible isDarkMode={isDarkMode}>
               <div className="flex flex-col gap-0.5">
                 {finalRelatedLinks.map((link) => (
                   <NavSheetRow
@@ -339,7 +418,7 @@ export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
           )}
 
           {/* ── Accordion: all modules as collapsible sections ── */}
-          <NavSection title="All Pages" collapsible>
+          <NavSection title="All Pages" collapsible isDarkMode={isDarkMode}>
             {ALL_NAV_MODULES.filter((mod) => allModules[mod.id]).map((mod) => {
               const groups = allModules[mod.id] ?? [];
               const isExpanded = currentExpanded === mod.id;
@@ -358,7 +437,7 @@ export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
                     <ModIcon
                       className="size-4 shrink-0"
                       style={{
-                        color: isExpanded ? "var(--color-ink-950)" : "var(--color-ink-500)",
+                        color: "var(--color-ink-950)",
                       }}
                     />
                     <span
@@ -372,12 +451,12 @@ export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
                     {isExpanded ? (
                       <ChevronDown
                         className="size-3 shrink-0"
-                        style={{ color: "var(--color-ink-500)" }}
+                        style={{ color: "var(--color-ink-950)" }}
                       />
                     ) : (
                       <ChevronRight
                         className="size-3 shrink-0"
-                        style={{ color: "var(--color-ink-500)" }}
+                        style={{ color: "var(--color-ink-950)" }}
                       />
                     )}
                   </button>
@@ -403,13 +482,13 @@ export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
           </NavSection>
 
           {/* Settings & Help */}
-          <NavSection title="Settings">
+          <NavSection title="Settings" isDarkMode={isDarkMode}>
             <Link
               href="/m/me"
               onClick={onClose}
               className="flex items-center gap-2 rounded-[0.375rem] px-2 py-1.5 text-m-label press"
             >
-              <Settings className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+              <Settings className="size-3 shrink-0" style={{ color: "var(--color-ink-950)" }} />
               <span
                 className="text-m-label font-medium leading-tight"
                 style={{ color: "var(--color-ink-900)" }}
@@ -419,12 +498,18 @@ export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
             </Link>
           </NavSection>
         </div>
-      </div>
+      </GlassSurface>
     </div>
   );
 }
 
-/* ─── Nav group section — a titled group of routes within a module ─── */
+/* ─── Nav group section — a titled group of routes within a module ───
+   Progressive disclosure: shows the first MAX_INITIAL routes (sorted by
+   persona prominence in menuGroupsFor). If the group has more, a "Show
+   more" button reveals the rest. If the active route is in the overflow
+   portion, the group auto-expands to show it. */
+const MAX_INITIAL_ROUTES = 7;
+
 function NavGroupSection({
   group,
   pathname,
@@ -449,9 +534,23 @@ function NavGroupSection({
   const hasActiveLink = links.some((link) => isActive(pathname, link.href));
   const [expanded, setExpanded] = React.useState(hasActiveLink);
 
+  // ── Progressive disclosure: if the active route is beyond the initial
+  //    7, auto-expand so the user sees their current location. ──
+  const activeIndex = links.findIndex((link) => isActive(pathname, link.href));
+  const needsOverflow = links.length > MAX_INITIAL_ROUTES;
+  const [showAll, setShowAll] = React.useState(
+    activeIndex >= MAX_INITIAL_ROUTES,
+  );
+
   React.useEffect(() => {
     if (hasActiveLink) setExpanded(true);
-  }, [hasActiveLink]);
+    if (activeIndex >= MAX_INITIAL_ROUTES) setShowAll(true);
+  }, [hasActiveLink, activeIndex]);
+
+  const visibleLinks = needsOverflow && !showAll
+    ? links.slice(0, MAX_INITIAL_ROUTES)
+    : links;
+  const hiddenCount = links.length - MAX_INITIAL_ROUTES;
 
   return (
     <div className="mb-1">
@@ -463,19 +562,19 @@ function NavGroupSection({
       >
         <span
           className="text-m-label font-semibold flex-1 text-left truncate"
-          style={{ color: "var(--color-ink-500)" }}
+          style={{ color: "var(--color-ink-700)" }}
         >
           {group.title}
         </span>
         {expanded ? (
           <ChevronDown
             className="size-2.5 shrink-0"
-            style={{ color: "var(--color-ink-400)" }}
+            style={{ color: "var(--color-ink-950)" }}
           />
         ) : (
           <ChevronRight
             className="size-2.5 shrink-0"
-            style={{ color: "var(--color-ink-400)" }}
+            style={{ color: "var(--color-ink-950)" }}
           />
         )}
       </button>
@@ -490,9 +589,9 @@ function NavGroupSection({
               so active row backgrounds (yellow) don't cover it */}
           <div
             className="absolute top-0 bottom-0"
-            style={{ left: 0, width: 1, backgroundColor: "var(--color-ink-300)", zIndex: 10 }}
+            style={{ left: 0, width: 1, backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)", zIndex: 10 }}
           />
-          {links.map((link) => (
+          {visibleLinks.map((link) => (
             <div key={link.href} className="relative">
               {/* Horizontal elbow connector — also on top */}
               <div
@@ -501,7 +600,7 @@ function NavGroupSection({
                   left: 0,
                   width: 10,
                   height: 1,
-                  backgroundColor: "var(--color-ink-300)",
+                  backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)",
                   zIndex: 10,
                 }}
               />
@@ -515,6 +614,17 @@ function NavGroupSection({
               />
             </div>
           ))}
+          {/* Progressive disclosure: "Show more" button for overflow routes */}
+          {needsOverflow && !showAll && (
+            <button
+              onClick={() => setShowAll(true)}
+              className="flex items-center gap-1 rounded-[0.375rem] py-1.5 press text-m-label font-medium"
+              style={{ paddingLeft: "0.75rem", color: "var(--color-ink-700)" }}
+            >
+              <ChevronRight className="size-2.5 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+              <span>Show {hiddenCount} more</span>
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -530,18 +640,24 @@ function NavSection({
   tone = "default",
   collapsible = false,
   defaultExpanded = true,
+  isDarkMode = false,
   children,
 }: {
   title: string;
   tone?: "default" | "signal";
   collapsible?: boolean;
   defaultExpanded?: boolean;
+  isDarkMode?: boolean;
   children: React.ReactNode;
 }) {
   const [expanded, setExpanded] = React.useState(defaultExpanded);
-  const titleColor = tone === "signal" ? "var(--color-signal-dark)" : "var(--color-ink-500)";
+  const titleColor = tone === "signal" ? "var(--color-signal-dark)" : "var(--color-ink-700)";
   return (
-    <div
+    <GlassSurface
+      dark={isDarkMode}
+      backgroundOpacity={0.05}
+      blur={8}
+      saturation={1.4}
       className="mb-2.5 rounded-[0.5rem] p-2"
       style={{
         backgroundColor: "var(--color-paper)",
@@ -574,7 +690,7 @@ function NavSection({
         </h3>
       )}
       {expanded && children}
-    </div>
+    </GlassSurface>
   );
 }
 
@@ -618,7 +734,7 @@ function NavSheetRow({
       >
         <Icon
           className="size-3 shrink-0"
-          style={{ color: active ? "var(--color-signal-dark)" : "var(--color-ink-500)" }}
+          style={{ color: active ? "var(--color-signal-dark)" : "var(--color-ink-950)" }}
         />
         <span
           className="truncate text-m-label font-medium leading-tight"
@@ -629,7 +745,7 @@ function NavSheetRow({
         {visitCount != null && visitCount > 1 && (
           <span
             className="text-m-micro font-bold tabular-nums shrink-0"
-            style={{ color: "var(--color-ink-400)" }}
+            style={{ color: "var(--color-ink-700)" }}
           >
             {visitCount}×
           </span>
@@ -645,7 +761,7 @@ function NavSheetRow({
         <Pin
           className="size-2.5"
           style={{
-            color: pinned ? "var(--color-signal-dark)" : "var(--color-ink-300)",
+            color: pinned ? "var(--color-signal-dark)" : "var(--color-ink-950)",
             fill: pinned ? "currentColor" : "none",
           }}
         />
@@ -656,7 +772,7 @@ function NavSheetRow({
 
 function isActive(pathname: string, href: string): boolean {
   if (pathname === href) return true;
-  if (href === "/m/inventory" || href === "/m/hr" || href === "/m/accounts")
+  if (href === "/m/inventory" || href === "/m/hr" || href === "/m/accounts" || href === "/m/expenses-hub")
     return false;
   return pathname.startsWith(href + "/") || pathname === href;
 }

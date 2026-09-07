@@ -12,7 +12,7 @@
 -- where providerCallId IS NOT NULL.
 -- Step 2: create the unique index.
 
--- Dedupe: delete older duplicates, keeping the latest createdAt per
+-- Dedupe: delete older duplicates, keeping the latest startedAt per
 -- (companyId, providerCallId). Uses ctid for a stable row identifier
 -- (cuid IDs are not guaranteed sortable by creation time).
 DELETE FROM "CallLog"
@@ -21,7 +21,7 @@ WHERE "providerCallId" IS NOT NULL
     SELECT DISTINCT ON ("companyId", "providerCallId") ctid
     FROM "CallLog"
     WHERE "providerCallId" IS NOT NULL
-    ORDER BY "companyId", "providerCallId", "createdAt" DESC
+    ORDER BY "companyId", "providerCallId", "startedAt" DESC
   );
 
 -- Create the unique index. CONCURRENTLY would be ideal but Prisma's

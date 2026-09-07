@@ -3,13 +3,19 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Loader2, CheckCircle2, Plus,
+  Loader2, CheckCircle2, MapPin, Crosshair,
 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
+import {
+  SectionCard,
+  UnderlineInput,
+  TypeCard,
+  StickyActionBar,
+} from "@/components/mobile/v2/form-primitives";
 
 interface ProjectItem { id: string; name: string; }
 
@@ -31,6 +37,67 @@ export default function MobileNewStockLocationClient({
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
   const [geoRadius, setGeoRadius] = useState("");
+  const [detecting, setDetecting] = useState(false);
+  const [geoAccuracy, setGeoAccuracy] = useState<number | null>(null);
+
+  async function handleDetectLocation() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      toast.error("Geolocation is not supported on this device");
+      return;
+    }
+    setDetecting(true);
+    haptic(10);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
+        });
+      });
+      const { latitude, longitude, accuracy } = position.coords;
+      setLat(latitude.toFixed(6));
+      setLng(longitude.toFixed(6));
+      setGeoAccuracy(Math.round(accuracy));
+      // Default radius to 500m if not already set — covers most construction sites
+      if (!geoRadius) setGeoRadius("500");
+
+      // Reverse-geocode to auto-fill the address (Nominatim / OpenStreetMap — free, no API key)
+      // Runs in the background; if it fails, the user still has the coordinates.
+      if (!address.trim()) {
+        fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+          { headers: { "Accept-Language": "en" } },
+        )
+          .then((r) => r.ok ? r.json() : null)
+          .then((data: { display_name?: string } | null) => {
+            if (data?.display_name) {
+              setAddress(data.display_name);
+              toast.success("Address auto-filled from location");
+            }
+          })
+          .catch(() => { /* non-fatal — coordinates are enough */ });
+      }
+
+      haptic([10, 40, 80]);
+      toast.success("Location captured", {
+        description: `±${Math.round(accuracy)}m accuracy${!geoRadius ? " · radius set to 500m" : ""}`,
+      });
+    } catch (err) {
+      haptic([50, 20, 50]);
+      if (err instanceof GeolocationPositionError) {
+        toast.error(
+          err.code === 1
+            ? "Location permission denied. Enable GPS in browser settings."
+            : "Could not get your location. Make sure GPS is on.",
+        );
+      } else {
+        toast.error("Could not get your location");
+      }
+    } finally {
+      setDetecting(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -107,101 +174,57 @@ export default function MobileNewStockLocationClient({
   }
 
   return (
-    <div className="pb-32">
+    <div>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {/* Type */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Type
-          </p>
-          <div className="flex flex-col gap-2">
-            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-              Location Type <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => { setType("COMPANY_WAREHOUSE"); haptic(10); }}
-                className="flex flex-col items-center gap-1.5 rounded-[0.5rem] border p-3 text-m-body press"
-                style={{
-                  borderColor: type === "COMPANY_WAREHOUSE" ? "var(--color-ink-950)" : "var(--color-line)",
-                  backgroundColor: type === "COMPANY_WAREHOUSE" ? "var(--color-concrete)" : "var(--color-paper)",
-                }}
-              >
-                <span
-                  className="text-m-caption font-bold"
-                  style={{ color: type === "COMPANY_WAREHOUSE" ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
-                >
-                  Warehouse
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { setType("PROJECT_SITE"); haptic(10); }}
-                className="flex flex-col items-center gap-1.5 rounded-[0.5rem] border p-3 text-m-body press"
-                style={{
-                  borderColor: type === "PROJECT_SITE" ? "var(--color-ink-950)" : "var(--color-line)",
-                  backgroundColor: type === "PROJECT_SITE" ? "var(--color-concrete)" : "var(--color-paper)",
-                }}
-              >
-                <span
-                  className="text-m-caption font-bold"
-                  style={{ color: type === "PROJECT_SITE" ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
-                >
-                  Project Site
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Details */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Details
-          </p>
-          <div className="flex flex-col gap-2">
-            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-              Location Name <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={type === "COMPANY_WAREHOUSE" ? "e.g. Central Warehouse Pune" : "e.g. Site B - Kharadi"}
-              enterKeyHint="next"
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+        <SectionCard title="Type">
+          <div className="grid grid-cols-2 gap-2">
+            <TypeCard
+              active={type === "COMPANY_WAREHOUSE"}
+              onClick={() => { setType("COMPANY_WAREHOUSE"); haptic(10); }}
+              label="Warehouse"
+            />
+            <TypeCard
+              active={type === "PROJECT_SITE"}
+              onClick={() => { setType("PROJECT_SITE"); haptic(10); }}
+              label="Project Site"
             />
           </div>
+        </SectionCard>
+
+        {/* Details */}
+        <SectionCard title="Details">
+          <UnderlineInput
+            label="Location Name"
+            required
+            value={name}
+            onChange={setName}
+            placeholder={type === "COMPANY_WAREHOUSE" ? "e.g. Central Warehouse Pune" : "e.g. Site B - Kharadi"}
+            enterKeyHint="next"
+          />
 
           {/* Project (only for PROJECT_SITE) */}
           {type === "PROJECT_SITE" && (
-            <div className="flex flex-col gap-2">
-              <MobileSelectWithCreate
-                label="Project"
-                required
-                value={projectId}
-                onChange={setProjectId}
-                placeholder="Select project…"
-                options={projects.map((p) => ({ value: p.id, label: p.name }))}
-                inputClass="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-                renderDialog={({ open, onClose, onCreated, originRect }) => (
-                  <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
-                    <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
-                  </MobileFabModal>
-                )}
-              />
-            </div>
+            <MobileSelectWithCreate
+              label="Project"
+              required
+              value={projectId}
+              onChange={setProjectId}
+              placeholder="Select project…"
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              inputClass="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+              inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+              renderDialog={({ open, onClose, onCreated, originRect }) => (
+                <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project">
+                  <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+                </MobileFabModal>
+              )}
+            />
           )}
-        </div>
+        </SectionCard>
 
         {/* Address */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Address
-          </p>
+        <SectionCard title="Address">
           <div className="flex flex-col gap-2">
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Address (optional)
@@ -216,83 +239,100 @@ export default function MobileNewStockLocationClient({
               style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
             />
           </div>
-        </div>
+        </SectionCard>
 
-        {/* Geo-fence (GPS receipt validation) */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Geo-fence
+        {/* Geo-fence (GPS receipt validation + attendance clock-in) */}
+        <SectionCard title="Geo-fence">
+          <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
+            Set coordinates and radius to validate GPS-tagged receipts and attendance clock-in. Employees within the radius are marked on-site.
           </p>
-          <div className="flex flex-col gap-2">
-            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-              Geo-fence (optional)
-            </label>
-            <p className="text-m-caption mb-2" style={{ color: "var(--color-ink-400)" }}>
-              Set coordinates and radius to validate GPS-tagged receipts. Receipts outside the radius are flagged as off-site.
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="number"
-                step="any"
-                value={lat}
-                onChange={(e) => setLat(e.target.value)}
-                placeholder="Latitude"
-                enterKeyHint="next"
-                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-              />
-              <input
-                type="number"
-                step="any"
-                value={lng}
-                onChange={(e) => setLng(e.target.value)}
-                placeholder="Longitude"
-                enterKeyHint="next"
-                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-              />
-            </div>
-            <input
-              type="number"
-              value={geoRadius}
-              onChange={(e) => setGeoRadius(e.target.value)}
-              placeholder="Radius (metres, default 500)"
-              enterKeyHint="done"
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors mt-2"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-            />
-          </div>
-        </div>
-      </form>
 
-      {/* Sticky bottom bar */}
-      <div
-        className="fixed left-0 right-0 z-30 border-t backdrop-blur-sm"
-        style={{
-          bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px))",
-          backgroundColor: "color-mix(in srgb, var(--color-paper) 97%, transparent)",
-          borderColor: "var(--color-line)",
-        }}
-      >
-        <div className="max-w-md mx-auto px-3.5 py-2">
+          {/* Auto-detect button */}
           <button
             type="button"
-            onClick={(e) => handleSubmit(e as unknown as React.FormEvent)}
-            disabled={saving}
-            className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            onClick={handleDetectLocation}
+            disabled={detecting}
+            className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border-2 border-dashed py-2.5 text-m-caption font-bold press disabled:opacity-50"
+            style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
           >
-            {saving ? (
-              <Loader2 className="size-4 animate-spin" />
+            {detecting ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" />
+                Detecting…
+              </>
             ) : (
               <>
-                <Plus className="size-3.5" />
-                Create Location
+                <Crosshair className="size-3.5" />
+                Use my current location
               </>
             )}
           </button>
-        </div>
-      </div>
+
+          {/* Captured location summary */}
+          {lat && lng ? (
+            <div
+              className="flex items-start gap-2 rounded-[0.375rem] px-2.5 py-1.5 text-m-caption"
+              style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 8%, transparent)" }}
+            >
+              <MapPin className="size-3.5 shrink-0 mt-0.5" style={{ color: "var(--color-go)" }} />
+              <div className="flex-1">
+                <p className="font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                  {lat}, {lng}
+                </p>
+                {geoAccuracy != null && (
+                  <p style={{ color: "var(--color-ink-500)" }}>±{geoAccuracy}m accuracy</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => { setLat(""); setLng(""); setGeoAccuracy(null); }}
+                className="text-m-caption font-bold press shrink-0"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                Clear
+              </button>
+            </div>
+          ) : null}
+
+          <div className="grid grid-cols-2 gap-2">
+            <UnderlineInput
+              label="Latitude"
+              value={lat}
+              onChange={setLat}
+              type="number"
+              step="any"
+              placeholder="Latitude"
+              enterKeyHint="next"
+            />
+            <UnderlineInput
+              label="Longitude"
+              value={lng}
+              onChange={setLng}
+              type="number"
+              step="any"
+              placeholder="Longitude"
+              enterKeyHint="next"
+            />
+          </div>
+          <UnderlineInput
+            label="Radius"
+            value={geoRadius}
+            onChange={setGeoRadius}
+            type="number"
+            placeholder="metres (default 500)"
+            enterKeyHint="done"
+          />
+        </SectionCard>
+      </form>
+
+      {/* Sticky bottom bar */}
+      <StickyActionBar
+        summaryLabel="Type"
+        summaryValue={type === "COMPANY_WAREHOUSE" ? "Warehouse" : "Project Site"}
+        submitLabel="Create Location"
+        onSubmit={() => handleSubmit({ preventDefault: () => {} } as unknown as React.FormEvent)}
+        submitting={saving}
+      />
     </div>
   );
 }

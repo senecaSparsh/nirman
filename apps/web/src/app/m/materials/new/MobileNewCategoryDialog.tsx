@@ -6,6 +6,7 @@ import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 
 /**
  * Mobile dialog for creating a material category.
@@ -96,36 +97,18 @@ export function MobileNewCategoryDialog({
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {/* Category Details */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Category Details
-          </p>
+        <SectionCard title="Category Details">
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            {/* Name */}
-            <div>
-              <label
-                className="block text-m-caption font-bold mb-0"
-                style={{ color: "var(--color-ink-700)" }}
-              >
-                Category name{" "}
-                <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Cement & Binding"
-                autoFocus
-                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                style={{
-                  borderColor: "var(--color-line)",
-                  backgroundColor: "transparent",
-                  color: "var(--color-ink-950)",
-                }}
-              />
-            </div>
+            <UnderlineInput
+              label="Category name"
+              value={name}
+              onChange={setName}
+              placeholder="e.g. Cement & Binding"
+              required
+              autoFocus
+            />
 
-            {/* Unit */}
+            {/* Unit — custom button group, stays inline */}
             <div className="pl-2">
               <label
                 className="block text-m-caption font-semibold mb-1.5"
@@ -157,7 +140,7 @@ export function MobileNewCategoryDialog({
               </div>
             </div>
           </div>
-        </div>
+        </SectionCard>
 
         {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
         <div

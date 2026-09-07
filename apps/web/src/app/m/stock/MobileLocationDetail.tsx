@@ -12,6 +12,7 @@ import {
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
 import { MobileFab } from "@/components/mobile/v2/scaffold";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { DetailStatGrid } from "@/components/mobile/v2/detail-primitives";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileNewMaterialDialog } from "../materials/MobileNewMaterialDialog";
 
@@ -182,35 +183,14 @@ export function MobileLocationDetail({
       </div>
 
       {/* ── Summary strip ── */}
-      <div
-        className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2 mb-2"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <div>
-          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Items
-          </p>
-          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {formatNumber(items.length, 0)}
-          </p>
-        </div>
-        <div className="text-center">
-          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Total Qty
-          </p>
-          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {formatNumber(totalQty, 0)}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Value
-          </p>
-          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {formatCurrency(totalValue)}
-          </p>
-        </div>
-      </div>
+      <DetailStatGrid
+        cols={3}
+        stats={[
+          { label: "Items", value: formatNumber(items.length, 0) },
+          { label: "Total Qty", value: formatNumber(totalQty, 0) },
+          { label: "Value", value: formatCurrency(totalValue) },
+        ]}
+      />
 
       {/* ── Quick actions ── */}
       <div className="grid grid-cols-3 gap-1.5 mb-3">

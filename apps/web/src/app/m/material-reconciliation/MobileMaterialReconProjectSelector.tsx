@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { FolderOpen } from "lucide-react";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 
 export type MaterialReconProjectOption = { id: string; name: string };
@@ -14,9 +15,11 @@ export type MaterialReconProjectOption = { id: string; name: string };
 export function MobileMaterialReconProjectSelector({
   projects,
   selectedId,
+  canCreate = false,
 }: {
   projects: MaterialReconProjectOption[];
   selectedId: string | null;
+  canCreate?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -41,13 +44,15 @@ export function MobileMaterialReconProjectSelector({
         }}
         placeholder="Select a project…"
         options={projects.map((p) => ({ value: p.id, label: p.name }))}
-        renderDialog={({ open, onClose, onCreated }) => (
-          <MobileNewProjectDialog
-            open={open}
-            onClose={onClose}
-            onCreated={(p) => onCreated(p.id, p.name)}
-          />
-        )}
+        renderDialog={canCreate ? ({ open, onClose, onCreated, originRect }) => (
+          <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project" nested>
+            <MobileNewProjectDialog
+              open={open}
+              onClose={onClose}
+              onCreated={(p) => onCreated(p.id, p.name)}
+            />
+          </MobileFabModal>
+        ) : undefined}
       />
     </div>
   );

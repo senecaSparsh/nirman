@@ -97,7 +97,17 @@ function isPrintRoute(pathname: string): boolean {
   return pathname === "/print" || pathname.startsWith("/print/");
 }
 
-export function AppShell({ children, isDev = false }: { children: React.ReactNode; isDev?: boolean }) {
+export function AppShell({
+  children,
+  isDev = false,
+  hasSession = false,
+}: {
+  children: React.ReactNode;
+  isDev?: boolean;
+  /** True when the root layout resolved a session server-side — lets the
+   * shell skip the useSession spinner so the nav paints immediately. */
+  hasSession?: boolean;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, isPending: sessionLoading } = useSession();
@@ -242,7 +252,11 @@ export function AppShell({ children, isDev = false }: { children: React.ReactNod
         setTimeout(() => { document.title = newTitle; }, 300);
       }
 
-      // Revalidate SWR caches in the background.
+      // Revalidate SWR caches in the background. /api/me must be
+      // re-fetched too — permissions are company-scoped (RolePermission
+      // + UserPermission are per-company), so the old cache would show
+      // stale capabilities after a switch.
+      mutate("/api/me");
       mutate("/api/company");
       if (userRole) mutate(["badges", userRole]);
 
@@ -267,7 +281,10 @@ export function AppShell({ children, isDev = false }: { children: React.ReactNod
   // Print pages render bare — no sidebar, no nav, no shell.
   if (isPrintRoute(pathname)) return <>{children}</>;
 
-  if (!isDev && sessionLoading && !session) {
+  // Skip the spinner when the server already proved a session exists —
+  // useSession will resolve to the same session; gating would just delay
+  // the nav's first paint by a client round-trip.
+  if (!isDev && !hasSession && sessionLoading && !session) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { json } from "@/lib/server";
-import { normalizePhone, createPhoneSession, OTP_CONFIG } from "@/lib/phone-otp";
+import { normalizePhone, normalizePhoneForLookup, createPhoneSession, OTP_CONFIG } from "@/lib/phone-otp";
 import { timingSafeEqual } from "node:crypto";
 
 /**
@@ -88,8 +88,11 @@ export const POST = async (req: NextRequest) => {
   // multiple companies). In that case, return a user list so the client
   // can pick which account to log into — same UX as the email flow's
   // company picker.
+  // Use variant lookup so the user is found regardless of whether they
+  // entered "+91 70179 88293" or "7017988293" in the sign-in form.
+  const phoneVariants = normalizePhoneForLookup(rawPhone);
   const matchedUsers = await prisma.user.findMany({
-    where: { phoneNormalized: phone, active: true },
+    where: { phoneNormalized: { in: phoneVariants }, active: true },
     select: {
       id: true,
       email: true,

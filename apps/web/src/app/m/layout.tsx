@@ -1,6 +1,7 @@
 import { MobileShellV2 } from "@/components/mobile/v2/mobile-shell";
 import { NavigationTracker } from "@/components/mobile/v2/navigation-tracker";
 import { ChunkErrorRecovery } from "@/components/dev/chunk-error-recovery";
+import { getNavBootstrap } from "@/lib/server";
 
 /**
  * Mobile route group layout.
@@ -11,13 +12,17 @@ import { ChunkErrorRecovery } from "@/components/dev/chunk-error-recovery";
  * short-circuits for /m paths, so the desktop sidebar never wraps
  * these routes.
  *
- * No DB access here — keeps the segment PPR-friendly. Module home
- * pages do their own `await connection()` + Prisma fetches inside
- * <Suspense>.
+ * The nav identity (role, permissions, active company, company list) is
+ * resolved here on the server and passed to the shell as `initial`, so
+ * the tab bar + header render correctly on first paint instead of
+ * popping in after a client-side /api/me + /api/company waterfall.
+ * getNavBootstrap is request-memoized — when the root layout's call
+ * propagates its ALS context this costs zero extra queries.
  */
-export default function MobileLayout({ children }: { children: React.ReactNode }) {
+export default async function MobileLayout({ children }: { children: React.ReactNode }) {
+  const nav = await getNavBootstrap().catch(() => null);
   return (
-    <MobileShellV2>
+    <MobileShellV2 initial={nav}>
       <NavigationTracker />
       {children}
       <ChunkErrorRecovery />

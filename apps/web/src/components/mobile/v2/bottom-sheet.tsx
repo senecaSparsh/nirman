@@ -35,7 +35,7 @@ export function BottomSheet({
       {/* Backdrop */}
       <div
         className="absolute inset-0"
-        style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+        style={{ backgroundColor: "rgba(0, 0, 0, 0.4)" }}
         onClick={onClose}
       />
       {/* Sheet */}

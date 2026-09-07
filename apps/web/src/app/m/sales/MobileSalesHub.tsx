@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {CalendarClock, ContactRound, Flame, Phone, UserRoundCheck} from "lucide-react";
 import {type MobileColumnSpec} from "@/components/mobile/v2/export-share-bar";
 import { formatCurrencyCompact, formatDate } from "@/lib/utils";
-import { LeadForm } from "@/components/sales/lead-form-dialog";
 import { LeadDetailDialog } from "@/components/sales/lead-detail-dialog";
+import { MobileNewLeadClient } from "@/app/m/leads/new/MobileNewLeadClient";
 import type { LeadRow, LeadStage } from "@/lib/types";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
@@ -107,6 +107,7 @@ function MobileLeadPipeline({
   assignees: { id: string; name: string }[];
   canManage: boolean;
 }) {
+  const router = useRouter();
   const [stage, setStage] = useState<"OPEN" | LeadStage>("OPEN");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<LeadRow | null>(null);
@@ -241,8 +242,14 @@ function MobileLeadPipeline({
       )}
 
       {canManage && (
-        <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="New lead">
-          <LeadForm projects={projects} units={units} assignees={assignees} onDone={fab.close} />
+        <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="New Lead">
+          <MobileNewLeadClient
+            projects={projects}
+            units={units}
+            assignees={assignees}
+            onClose={fab.close}
+            onCreated={() => router.refresh()}
+          />
         </MobileFabModal>
       )}
       <LeadDetailDialog lead={selected} open={selected != null} onOpenChange={(value) => !value && setSelected(null)} canManage={canManage} bookingHref="/m/sales/new" />

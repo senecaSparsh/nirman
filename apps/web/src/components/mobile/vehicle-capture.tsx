@@ -5,7 +5,7 @@ import Image from "next/image";
 import {Camera, X, Loader2, Plus} from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
-import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { EnumSelect, SelectorModal } from "@/components/mobile/v2/form-primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 export const VEHICLE_TYPE_OPTIONS = [
@@ -32,14 +32,24 @@ export interface VehicleData {
   transporterName?: string;
 }
 
+type VehicleListItem = {
+  id: string;
+  vehicleNumber: string;
+  vehicleType: string;
+  driverName?: string | null;
+  driverPhone?: string | null;
+  transporterName?: string | null;
+};
+
 /**
  * Reusable vehicle capture component — used on every goods movement form
  * (receive, issue, sell, transfer, return, direct purchase).
  *
  * Features:
- * - Autocomplete from existing vehicle master (by number)
+ * - Selector with create: tap to open a searchable bottom-sheet of existing
+ *   vehicles; "+ Create new" lets the user type a new number inline
  * - Photo upload (even for cycle/bike/porter)
- * - Auto-fills driver info from last trip
+ * - Auto-fills driver info from last trip when an existing vehicle is selected
  * - Compact for mobile
  */
 export function VehicleCapture({
@@ -51,51 +61,65 @@ export function VehicleCapture({
   onChange: (v: VehicleData) => void;
   compact?: boolean;
 }) {
-  const [suggestions, setSuggestions] = useState<Array<{
-    vehicleNumber: string;
-    vehicleType: string;
-    driverName?: string;
-    driverPhone?: string;
-    transporterName?: string;
-  }>>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [vehicles, setVehicles] = useState<VehicleListItem[]>([]);
+  const [loadingVehicles, setLoadingVehicles] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [showCreateVehicle, setShowCreateVehicle] = useState(false);
+  const [newVehicleNumber, setNewVehicleNumber] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [blurTimeout, setBlurTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [showCreateType, setShowCreateType] = useState(false);
   const [customType, setCustomType] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Debounced search for vehicle autocomplete
+  // Fetch all vehicles for the company (for the selector modal)
   useEffect(() => {
-    if (value.vehicleNumber.length < 2) {
-      setSuggestions([]);
-      return;
-    }
-    const t = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/vehicles?q=${encodeURIComponent(value.vehicleNumber)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setSuggestions(data);
-          setShowSuggestions(data.length > 0);
-        }
-      } catch { /* best-effort */ }
-    }, 200);
-    return () => clearTimeout(t);
-  }, [value.vehicleNumber]);
+    let cancelled = false;
+    setLoadingVehicles(true);
+    fetch("/api/vehicles")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: VehicleListItem[]) => {
+        if (!cancelled) setVehicles(data);
+      })
+      .catch(() => { /* non-fatal */ })
+      .finally(() => { if (!cancelled) setLoadingVehicles(false); });
+    return () => { cancelled = true; };
+  }, []);
 
-  function selectVehicle(v: typeof suggestions[0]) {
+  function selectVehicle(v: VehicleListItem) {
     haptic(5);
     onChange({
       ...value,
       vehicleNumber: v.vehicleNumber,
       vehicleType: v.vehicleType,
-      driverName: v.driverName,
-      driverPhone: v.driverPhone,
-      transporterName: v.transporterName,
+      driverName: v.driverName ?? value.driverName,
+      driverPhone: v.driverPhone ?? value.driverPhone,
+      transporterName: v.transporterName ?? value.transporterName,
     });
-    setShowSuggestions(false);
-    setSuggestions([]);
+    setShowPicker(false);
+  }
+
+  function handleCreateNew() {
+    const trimmed = newVehicleNumber.trim().toUpperCase();
+    if (!trimmed) {
+      toast.error("Enter a vehicle number");
+      return;
+    }
+    haptic([10, 40, 80]);
+    onChange({ ...value, vehicleNumber: trimmed });
+    // Add to local list so it appears in future searches
+    setVehicles((prev) => {
+      if (prev.some((v) => v.vehicleNumber.toUpperCase() === trimmed)) return prev;
+      return [...prev, {
+        id: `local-${trimmed}`,
+        vehicleNumber: trimmed,
+        vehicleType: value.vehicleType || "OTHER",
+        driverName: value.driverName ?? null,
+        driverPhone: value.driverPhone ?? null,
+        transporterName: value.transporterName ?? null,
+      }];
+    });
+    setShowCreateVehicle(false);
+    setNewVehicleNumber("");
+    toast.success(`Vehicle ${trimmed} added`);
   }
 
   async function handlePhotoUpload(file: File) {
@@ -115,18 +139,15 @@ export function VehicleCapture({
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const inputStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "transparent",
-    color: "var(--color-ink-950)",
-  };
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const labelClass = "block text-m-caption font-bold mb-0";
   const labelStyle = { color: "var(--color-ink-700)" };
   const dividerStyle = { borderColor: "var(--color-line)" };
+
+  // Build items for the SelectorModal
+  const vehicleItems = vehicles.map((v) => ({
+    id: v.vehicleNumber,
+    label: v.vehicleNumber,
+    sub: `${v.vehicleType.replace(/_/g, " ").toLowerCase()}${v.driverName ? ` · ${v.driverName}` : ""}`,
+  }));
 
   return (
     <div className="flex flex-col gap-3">
@@ -135,46 +156,35 @@ export function VehicleCapture({
         <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
           Vehicle Details
         </p>
-        {/* Vehicle number + type — inline label + input, full-width underline */}
+        {/* Vehicle number (selector) + type — side by side */}
         <div className="grid grid-cols-2 gap-2 divide-x" style={dividerStyle}>
-        <div className="relative pr-2">
-          <div
-            className="flex items-center justify-between gap-1 pb-0.5 border-b focus-within:border-b-2 transition-colors"
-            style={{ borderColor: "var(--color-line)" }}
+        <div className="pr-2">
+          <label className="block text-m-caption font-bold mb-0" style={labelStyle}>
+            Vehicle No.
+          </label>
+          <button
+            type="button"
+            onClick={() => { haptic(10); setShowPicker(true); }}
+            className="w-full h-7 px-1 text-m-caption font-mono text-left outline-none border-b focus:border-b-2 transition-colors press truncate"
+            style={{
+              borderColor: "var(--color-line)",
+              backgroundColor: "transparent",
+              color: value.vehicleNumber ? "var(--color-ink-950)" : "var(--color-ink-500)",
+            }}
           >
-            <span className="text-m-caption font-bold shrink-0" style={labelStyle}>
-              Vehicle No.:
-            </span>
-            <input
-              ref={inputRef}
-              type="text"
-              value={value.vehicleNumber}
-              onChange={(e) => onChange({ ...value, vehicleNumber: e.target.value })}
-              onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); if (blurTimeout) clearTimeout(blurTimeout); }}
-              onBlur={() => { setBlurTimeout(setTimeout(() => setShowSuggestions(false), 200)); }}
-              placeholder="MH-12-AB-1234"
-              className="flex-1 min-w-0 h-7 px-1 text-m-caption font-mono text-right outline-none"
-              style={{ backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-            />
-          </div>
-          {/* Autocomplete suggestions */}
-          {showSuggestions && suggestions.length > 0 ? (
-            <div className="absolute z-20 left-0 right-0 mt-0.5 rounded-[0.375rem] border shadow-lg overflow-hidden" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-              {suggestions.map((s) => (
-                <button
-                  key={s.vehicleNumber}
-                  type="button"
-                  onMouseDown={(e) => { e.preventDefault(); selectVehicle(s); }}
-                  className="w-full text-left px-2 py-1.5 hover:bg-[color-mix(in_srgb,var(--color-signal)_8%,transparent)]"
-                >
-                  <div className="text-m-caption font-mono font-bold" style={{ color: "var(--color-ink-950)" }}>{s.vehicleNumber}</div>
-                  <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                    {s.vehicleType}{s.driverName ? ` · ${s.driverName}` : ""}
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : null}
+            {value.vehicleNumber || "— Select —"}
+          </button>
+          {/* Quick clear button when a vehicle is selected */}
+          {value.vehicleNumber && (
+            <button
+              type="button"
+              onClick={() => { haptic(5); onChange({ ...value, vehicleNumber: "", driverName: "", driverPhone: "" }); }}
+              className="text-m-caption font-bold press mt-0.5"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              Clear
+            </button>
+          )}
         </div>
         <div className="pl-2">
           <EnumSelect
@@ -263,6 +273,64 @@ export function VehicleCapture({
         )}
       </div>
       </div>
+
+      {/* ══ Vehicle selector modal (searchable list + create new) ══ */}
+      {showPicker ? (
+        <SelectorModal
+          title="Select Vehicle"
+          items={loadingVehicles ? [{ id: "", label: "Loading…", sub: undefined }] : vehicleItems}
+          selectedId={value.vehicleNumber}
+          onSelect={(id) => {
+            const v = vehicles.find((v) => v.vehicleNumber === id);
+            if (v) selectVehicle(v);
+            else setShowPicker(false);
+          }}
+          onClose={() => setShowPicker(false)}
+          onCreate={() => { setShowPicker(false); setShowCreateVehicle(true); setNewVehicleNumber(""); }}
+          createLabel="Create new vehicle"
+        />
+      ) : null}
+
+      {/* ══ Create new vehicle dialog (type a new number) ══ */}
+      <MobileDialog
+        open={showCreateVehicle}
+        onClose={() => setShowCreateVehicle(false)}
+        title="New Vehicle"
+        nested
+      >
+        <form
+          onSubmit={(e) => { e.preventDefault(); handleCreateNew(); }}
+          className="flex flex-col gap-3"
+        >
+          <div>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Vehicle Number <span style={{ color: "var(--color-stop)" }}>*</span>
+            </label>
+            <input
+              type="text"
+              value={newVehicleNumber}
+              onChange={(e) => setNewVehicleNumber(e.target.value.toUpperCase())}
+              placeholder="MH-12-AB-1234"
+              autoFocus
+              className="w-full h-7 px-1 text-m-caption font-mono outline-none border-b focus:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+            />
+            <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-400)" }}>
+              Or use a descriptive name for non-registered vehicles (e.g. CYCLE-01, PORTER-RAMU)
+            </p>
+          </div>
+          <div className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2" style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}>
+            <button
+              type="submit"
+              className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            >
+              <Plus className="size-4" />
+              Add Vehicle
+            </button>
+          </div>
+        </form>
+      </MobileDialog>
 
       {/* Create new vehicle type dialog */}
       <MobileDialog

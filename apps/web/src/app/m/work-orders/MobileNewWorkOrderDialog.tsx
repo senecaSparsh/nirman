@@ -10,7 +10,7 @@ import { formatCurrency } from "@/lib/utils";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
-import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { SectionCard, UnderlineInput, EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type TdsCategory = "INDIVIDUAL" | "COMPANY" | "OTHER";
 
@@ -228,10 +228,6 @@ export function MobileNewWorkOrderForm({
   const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" };
   const labelClass = "block text-m-caption font-bold mb-0";
   const labelStyle = { color: "var(--color-ink-700)" };
-  const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
-  const sectionStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" };
-  const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
-  const sectionTitleStyle = { color: "var(--color-ink-950)" };
 
   return (
     <div className="flex flex-col gap-3">
@@ -247,8 +243,7 @@ export function MobileNewWorkOrderForm({
           className="flex flex-col gap-3"
         >
           {/* Details */}
-          <div className={sectionClass} style={sectionStyle}>
-            <p className={sectionTitleClass} style={sectionTitleStyle}>Details</p>
+          <SectionCard title="Details">
             <MobileSelectWithCreate
               label="Project"
               required
@@ -280,39 +275,54 @@ export function MobileNewWorkOrderForm({
                 inputStyle={inputStyle}
               />
             </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>Work Title <span style={{ color: "var(--color-stop)" }}>*</span></label>
-              <input type="text" value={form.workTitle} onChange={(e) => set("workTitle", e.target.value)} placeholder="e.g. Plumbing for Tower A" autoFocus enterKeyHint="next" className={inputClass} style={inputStyle} />
-            </div>
+            <UnderlineInput
+              label="Work Title"
+              value={form.workTitle}
+              onChange={(v) => set("workTitle", v)}
+              placeholder="e.g. Plumbing for Tower A"
+              required
+              autoFocus
+              enterKeyHint="next"
+            />
             <div>
               <label className={labelClass} style={labelStyle}>Description</label>
               <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="Scope details…" className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors" style={inputStyle} />
             </div>
-          </div>
+          </SectionCard>
 
           {/* Schedule */}
-          <div className={sectionClass} style={sectionStyle}>
-            <p className={sectionTitleClass} style={sectionTitleStyle}>Schedule</p>
+          <SectionCard title="Schedule">
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-              <div>
-                <label className={labelClass} style={labelStyle}>Start Date</label>
-                <input type="date" value={form.startDate} onChange={(e) => set("startDate", e.target.value)} className={inputClass} style={inputStyle} />
-              </div>
+              <UnderlineInput
+                label="Start Date"
+                value={form.startDate}
+                onChange={(v) => set("startDate", v)}
+                type="date"
+              />
               <div className="pl-2">
-                <label className={labelClass} style={labelStyle}>End Date</label>
-                <input type="date" value={form.endDate} onChange={(e) => set("endDate", e.target.value)} className={inputClass} style={inputStyle} />
+                <UnderlineInput
+                  label="End Date"
+                  value={form.endDate}
+                  onChange={(v) => set("endDate", v)}
+                  type="date"
+                />
               </div>
             </div>
-          </div>
+          </SectionCard>
 
           {/* Terms */}
-          <div className={sectionClass} style={sectionStyle}>
-            <p className={sectionTitleClass} style={sectionTitleStyle}>Terms</p>
+          <SectionCard title="Terms">
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-              <div>
-                <label className={labelClass} style={labelStyle}>Retention %</label>
-                <input type="number" min={0} max={100} step="any" value={form.retentionPct} onChange={(e) => set("retentionPct", e.target.value)} inputMode="decimal" className={inputClass} style={inputStyle} />
-              </div>
+              <UnderlineInput
+                label="Retention %"
+                value={form.retentionPct}
+                onChange={(v) => set("retentionPct", v)}
+                type="number"
+                min="0"
+                max="100"
+                step="any"
+                inputMode="decimal"
+              />
               <div className="pl-2">
                 <EnumSelect
                   label="TDS Category"
@@ -327,20 +337,40 @@ export function MobileNewWorkOrderForm({
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-              <div>
-                <label className={labelClass} style={labelStyle}>Advance (₹)</label>
-                <input type="number" min={0} step="any" value={form.advanceAmount} onChange={(e) => set("advanceAmount", e.target.value)} placeholder="0" inputMode="decimal" className={inputClass} style={inputStyle} />
-              </div>
+              <UnderlineInput
+                label="Advance (₹)"
+                value={form.advanceAmount}
+                onChange={(v) => set("advanceAmount", v)}
+                placeholder="0"
+                type="number"
+                min="0"
+                step="any"
+                inputMode="decimal"
+              />
               <div className="pl-2">
-                <label className={labelClass} style={labelStyle}>Advance Recovery %</label>
-                <input type="number" min={0} max={100} step="any" value={form.advanceRecoveryPct} onChange={(e) => set("advanceRecoveryPct", e.target.value)} placeholder="0" inputMode="decimal" className={inputClass} style={inputStyle} />
+                <UnderlineInput
+                  label="Advance Recovery %"
+                  value={form.advanceRecoveryPct}
+                  onChange={(v) => set("advanceRecoveryPct", v)}
+                  placeholder="0"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="any"
+                  inputMode="decimal"
+                />
               </div>
             </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>Defect Liability (months)</label>
-              <input type="number" min={0} value={form.defectLiabilityMonths} onChange={(e) => set("defectLiabilityMonths", e.target.value)} placeholder="e.g. 12" inputMode="numeric" className={inputClass} style={inputStyle} />
-            </div>
-          </div>
+            <UnderlineInput
+              label="Defect Liability (months)"
+              value={form.defectLiabilityMonths}
+              onChange={(v) => set("defectLiabilityMonths", v)}
+              placeholder="e.g. 12"
+              type="number"
+              min="0"
+              inputMode="numeric"
+            />
+          </SectionCard>
 
           {/* Next button */}
           <button type="submit" className="w-full h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press flex items-center justify-center gap-1.5" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
@@ -351,8 +381,7 @@ export function MobileNewWorkOrderForm({
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Scope */}
-          <div className={sectionClass} style={sectionStyle}>
-            <p className={sectionTitleClass} style={sectionTitleStyle}>Scope</p>
+          <SectionCard title="Scope">
             <div>
               <label className={labelClass} style={labelStyle}>
                 Bill of Quantities Line Items ({selectedLines.length}) <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -410,7 +439,7 @@ export function MobileNewWorkOrderForm({
               <Plus className="size-3.5" />
               {boqItems.length === 0 && !loadingBoq ? "No BOQ items for this project" : "Add Bill of Quantities Item"}
             </button>
-          </div>
+          </SectionCard>
 
           {/* Impact preview — commitment summary before issuing */}
           {selectedLines.length > 0 && (() => {

@@ -1,13 +1,11 @@
-import { Suspense } from "react";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { scheduledTotal, refreshLandTotalCost } from "@nirman/services";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { PageLoading } from "@/components/page-loading";
 import { MobileLandDetailClient } from "./MobileLandDetailClient";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
+import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 
 /**
  * /m/land/[id] — mobile land purchase detail. Shows the purchase record,
@@ -17,335 +15,327 @@ import { PageContextProvider } from "@/components/mobile/v2/page-context";
  */
 export default function MobileLandDetailPage({ params }: { params: Promise<{ id: string }> }) {
   return (
-    <Suspense fallback={<PageLoading label="Loading land purchase…" />}>
-      <MobileLandDetailContent params={params} />
-    </Suspense>
-  );
-}
+    <MobileDetailPage params={params} managePerm={PERM.ASSETS_MANAGE}>
+      {async ({ id, company, role, canManage }) => {
+        const canPartition = hasPermission(role, PERM.LAND_PARTITION);
+        const canSell = hasPermission(role, PERM.SALE_CREATE);
+        const canManageLegal = hasPermission(role, PERM.LEGAL_MANAGE);
 
-async function MobileLandDetailContent({ params }: { params: Promise<{ id: string }> }) {
-  await connection();
-  const { id } = await params;
-  const role = await getUserRole();
-  const company = await getCompany();
+        // Lazy recompute — advance recurring cost accruals as time passes.
+        try { await refreshLandTotalCost(id); } catch (err) { console.warn("Land total cost refresh failed:", err); }
 
-  const canManage = hasPermission(role, PERM.ASSETS_MANAGE);
-  const canPartition = hasPermission(role, PERM.LAND_PARTITION);
-  const canSell = hasPermission(role, PERM.SALE_CREATE);
-  const canManageLegal = hasPermission(role, PERM.LEGAL_MANAGE);
+        const purchase = await prisma.landPurchase.findFirst({
+          where: { id, companyId: company.id, deletedAt: null },
+          include: {
+            project: { select: { id: true, name: true } },
+            parcels: {
+              where: { deletedAt: null },
+              orderBy: [{ number: "asc" }],
+              include: {
+                parentParcel: { select: { number: true } },
+                _count: { select: { children: true } },
+              },
+            },
+            payments: { orderBy: { paymentDate: "desc" } },
+            paymentSchedule: { include: { items: { orderBy: { installmentNo: "asc" } } } },
+            costComponents: { orderBy: { createdAt: "asc" } },
+          },
+        });
 
-  // Lazy recompute — advance recurring cost accruals as time passes.
-  try { await refreshLandTotalCost(id); } catch { /* non-fatal */ }
-
-  const purchase = await prisma.landPurchase.findFirst({
-    where: { id, companyId: company.id, deletedAt: null },
-    include: {
-      project: { select: { id: true, name: true } },
-      parcels: {
-        where: { deletedAt: null },
-        orderBy: [{ number: "asc" }],
-        include: {
-          parentParcel: { select: { number: true } },
-          _count: { select: { children: true } },
-        },
-      },
-      payments: { orderBy: { paymentDate: "desc" } },
-      paymentSchedule: { include: { items: { orderBy: { installmentNo: "asc" } } } },
-      costComponents: { orderBy: { createdAt: "asc" } },
-    },
-  });
-
-  if (!purchase) {
-    return (
-      <MobileLandDetailClient
-        notFound
-        canManage={canManage}
-        canPartition={canPartition}
-        canSell={canSell}
-        canManageLegal={canManageLegal}
-        customers={[]}
-      />
-    );
-  }
-
-  const parcelIds = purchase.parcels.map((p) => p.id);
-  const [landSales, customers, parcelBuiltUnits, legalDocs] = await Promise.all([
-    prisma.assetSale.findMany({
-      where: { landParcelId: { in: parcelIds }, assetType: "LAND", status: "ACTIVE" },
-      select: {
-        id: true, saleNumber: true, salePrice: true, profit: true, saleDate: true,
-        landParcelId: true, paymentStatus: true, saleStage: true,
-        customer: { select: { id: true, name: true } },
-      },
-    }),
-    prisma.customer.findMany({
-      where: { deletedAt: null },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    // Built units linked to parcels (subdivided inventory — flats/shops built on the land)
-    prisma.builtUnit.findMany({
-      where: { landParcelId: { in: parcelIds }, deletedAt: null },
-      select: {
-        id: true, unitNumber: true, unitType: true, status: true,
-        area: true, areaUnit: true, floor: true, wing: true,
-        originType: true, acquisitionCost: true, productionCost: true,
-        askingPrice: true, currentValuation: true,
-        landParcelId: true, projectId: true,
-        project: { select: { id: true, name: true } },
-      },
-      orderBy: [{ unitNumber: "asc" }],
-    }),
-    // Legal documents for this land purchase
-    prisma.legalDocument.findMany({
-      where: { landPurchaseId: purchase.id, companyId: company.id, deletedAt: null },
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-    }),
-  ]);
-
-  const saleByParcel = new Map(
-    landSales.map((s) => [s.landParcelId!, {
-      salePrice: toNum(s.salePrice),
-      saleProfit: toNum(s.profit),
-      saleNumber: s.saleNumber,
-      saleDate: s.saleDate.toISOString(),
-      paymentStatus: s.paymentStatus,
-      saleStage: s.saleStage,
-      customerName: s.customer.name,
-    }]),
-  );
-
-  const parcels = purchase.parcels.map((p) => {
-    const sale = saleByParcel.get(p.id);
-    return {
-      id: p.id,
-      number: p.number,
-      status: p.status,
-      purpose: p.purpose,
-      area: toNum(p.area),
-      areaUnit: p.areaUnit,
-      acquisitionCost: toNum(p.acquisitionCost),
-      askingPrice: p.askingPrice ? toNum(p.askingPrice) : null,
-      currentValuation: toNum(p.currentValuation),
-      parentParcelId: p.parentParcelId,
-      parentParcelNumber: p.parentParcel?.number ?? null,
-      isInfrastructure: p.isInfrastructure,
-      childCount: p._count.children,
-      projectId: p.projectId,
-      salePrice: sale?.salePrice ?? null,
-      saleProfit: sale?.saleProfit ?? null,
-      saleNumber: sale?.saleNumber ?? null,
-      saleDate: sale?.saleDate ?? null,
-      saleStage: sale?.saleStage ?? null,
-      customerName: sale?.customerName ?? null,
-    };
-  });
-
-  const sellable = parcels.filter((p) => p.status !== "PARTITIONED");
-  const sold = sellable.filter((p) => p.salePrice != null);
-  const unsold = sellable.filter((p) => p.salePrice == null);
-  const unsoldValue = unsold.reduce((s, p) => s + p.currentValuation, 0);
-  const costBasis = unsold.reduce((s, p) => s + p.acquisitionCost, 0);
-  const soldRevenue = sold.reduce((s, p) => s + (p.salePrice ?? p.currentValuation), 0);
-  const soldProfit = sold.reduce((s, p) => s + (p.saleProfit ?? 0), 0);
-  const availableArea = unsold.filter((p) => p.status === "AVAILABLE").reduce((s, p) => s + p.area, 0);
-  const totalAreaNum = toNum(purchase.totalArea);
-  const costPerUnit = totalAreaNum > 0 ? toNum(purchase.totalCost) / totalAreaNum : 0;
-
-  const data = {
-    id: purchase.id,
-    sellerName: purchase.sellerName,
-    sellerContact: purchase.sellerContact,
-    purchaseDate: purchase.purchaseDate.toISOString(),
-    totalArea: toNum(purchase.totalArea),
-    areaUnit: purchase.areaUnit,
-    totalCost: toNum(purchase.totalCost),
-    registryNo: purchase.registryNo,
-    location: purchase.location,
-    documentUrl: purchase.documentUrl,
-    projectId: purchase.projectId,
-    projectName: purchase.project?.name ?? null,
-    mode: purchase.mode,
-    // Land type & lease
-    landType: purchase.landType,
-    leaseType: purchase.leaseType,
-    leasePeriodYears: purchase.leasePeriodYears,
-    leaseStartDate: purchase.leaseStartDate?.toISOString() ?? null,
-    leaseEndDate: purchase.leaseEndDate?.toISOString() ?? null,
-    // Cost breakup
-    baseCost: toNum(purchase.baseCost),
-    leaseRentPercent: purchase.leaseRentPercent ? toNum(purchase.leaseRentPercent) : null,
-    leaseRentAmount: purchase.leaseRentAmount ? toNum(purchase.leaseRentAmount) : null,
-    gstPercent: purchase.gstPercent ? toNum(purchase.gstPercent) : null,
-    gstAmount: purchase.gstAmount ? toNum(purchase.gstAmount) : null,
-    registrationPercent: purchase.registrationPercent ? toNum(purchase.registrationPercent) : null,
-    registrationAmount: purchase.registrationAmount ? toNum(purchase.registrationAmount) : null,
-    stampDutyPercent: purchase.stampDutyPercent ? toNum(purchase.stampDutyPercent) : null,
-    stampDutyAmount: purchase.stampDutyAmount ? toNum(purchase.stampDutyAmount) : null,
-    brokerageAmount: purchase.brokerageAmount ? toNum(purchase.brokerageAmount) : null,
-    legalFees: purchase.legalFees ? toNum(purchase.legalFees) : null,
-    otherCharges: purchase.otherCharges ? toNum(purchase.otherCharges) : null,
-    // Cost components (arbitrary / recurring / future costs)
-    costComponents: purchase.costComponents.map((c) => ({
-      id: c.id,
-      landPurchaseId: c.landPurchaseId,
-      label: c.label,
-      amount: toNum(c.amount),
-      frequency: c.frequency,
-      interval: c.interval,
-      startDate: c.startDate.toISOString(),
-      endDate: c.endDate ? c.endDate.toISOString() : null,
-      occurrences: c.occurrences,
-      postedAmount: toNum(c.postedAmount),
-      scheduledTotal: toNum(scheduledTotal(c)),
-      notes: c.notes,
-    })),
-    costPerUnit,
-    parcels,
-    // Staged purchase
-    purchaseStage: purchase.purchaseStage,
-    tokenAmount: purchase.tokenAmount ? toNum(purchase.tokenAmount) : null,
-    tokenPaymentDate: purchase.tokenPaymentDate ? purchase.tokenPaymentDate.toISOString() : null,
-    tokenPaymentMode: purchase.tokenPaymentMode,
-    // Documents
-    atsDocumentUrl: purchase.atsDocumentUrl,
-    atsDocumentName: purchase.atsDocumentName,
-    bbaDocumentUrl: purchase.bbaDocumentUrl,
-    bbaDocumentName: purchase.bbaDocumentName,
-    bbaDate: purchase.bbaDate ? purchase.bbaDate.toISOString() : null,
-    registryDocumentUrl: purchase.registryDocumentUrl,
-    registryDocumentName: purchase.registryDocumentName,
-    // Possession
-    isPossessed: purchase.isPossessed,
-    possessionDate: purchase.possessionDate ? purchase.possessionDate.toISOString() : null,
-    possessionNotes: purchase.possessionNotes,
-    // Partial registry
-    partialRegistryAllowed: purchase.partialRegistryAllowed,
-    // Payments
-    totalPaid: purchase.payments.reduce((s, p) => s + toNum(p.amount), 0),
-    // Payment schedule (if any)
-    paymentSchedule: purchase.paymentSchedule
-      ? {
-          id: purchase.paymentSchedule.id,
-          totalAmount: toNum(purchase.paymentSchedule.totalAmount),
-          items: purchase.paymentSchedule.items.map((item) => ({
-            id: item.id,
-            installmentNo: item.installmentNo,
-            description: item.description,
-            percentage: toNum(item.percentage),
-            amount: toNum(item.amount),
-            dueDate: item.dueDate ? item.dueDate.toISOString() : null,
-            status: item.status,
-            paidAmount: toNum(item.paidAmount),
-            paidAt: item.paidAt ? item.paidAt.toISOString() : null,
-          })),
+        if (!purchase) {
+          return (
+            <MobileLandDetailClient
+              notFound
+              canManage={canManage}
+              canPartition={canPartition}
+              canSell={canSell}
+              canManageLegal={canManageLegal}
+              customers={[]}
+            />
+          );
         }
-      : null,
-    payments: purchase.payments.map((p) => ({
-      id: p.id,
-      amount: toNum(p.amount),
-      paymentDate: p.paymentDate.toISOString(),
-      paymentMode: p.paymentMode,
-      referenceNo: p.referenceNo,
-      notes: p.notes,
-      chequeNo: p.chequeNo,
-      chequeDate: p.chequeDate ? p.chequeDate.toISOString() : null,
-      chequeBank: p.chequeBank,
-      chequePhotoUrl: p.chequePhotoUrl,
-      chequeStatus: p.chequeStatus,
-      chequeClearDate: p.chequeClearDate ? p.chequeClearDate.toISOString() : null,
-      chequeBounceReason: p.chequeBounceReason,
-    })),
-    sales: landSales.map((s) => ({
-      id: s.id,
-      saleNumber: s.saleNumber,
-      salePrice: toNum(s.salePrice),
-      profit: toNum(s.profit),
-      saleDate: s.saleDate.toISOString(),
-      paymentStatus: s.paymentStatus,
-      saleStage: s.saleStage,
-      parcelNumber: purchase.parcels.find((p) => p.id === s.landParcelId)?.number ?? "—",
-      customerName: s.customer.name,
-    })),
-    builtUnits: parcelBuiltUnits.map((u) => {
-      const parcel = purchase.parcels.find((p) => p.id === u.landParcelId);
-      return {
-        id: u.id,
-        unitNumber: u.unitNumber,
-        unitType: u.unitType,
-        status: u.status,
-        area: toNum(u.area),
-        areaUnit: u.areaUnit,
-        floor: u.floor,
-        wing: u.wing,
-        originType: u.originType,
-        acquisitionCost: toNum(u.acquisitionCost),
-        productionCost: toNum(u.productionCost),
-        askingPrice: u.askingPrice ? toNum(u.askingPrice) : null,
-        currentValuation: toNum(u.currentValuation),
-        landParcelId: u.landParcelId!,
-        landParcelNumber: parcel?.number ?? null,
-        projectName: u.project.name,
-      };
-    }),
-    legalDocs: legalDocs.map((d) => ({
-      id: d.id,
-      landPurchaseId: d.landPurchaseId,
-      projectId: d.projectId,
-      type: d.type,
-      title: d.title,
-      authority: d.authority,
-      status: d.status,
-      appliesTo: d.appliesTo,
-      docNumber: d.docNumber,
-      sortOrder: d.sortOrder,
-      prerequisiteType: d.prerequisiteType,
-      obtained: d.obtained,
-      applicationDate: d.applicationDate?.toISOString() ?? null,
-      issueDate: d.issueDate?.toISOString() ?? null,
-      validFrom: d.validFrom?.toISOString() ?? null,
-      validTill: d.validTill?.toISOString() ?? null,
-      amount: d.amount ? toNum(d.amount) : null,
-      expectedRegistryDate: d.expectedRegistryDate?.toISOString() ?? null,
-      documentUrl: d.documentUrl,
-      documentName: d.documentName,
-      notes: d.notes,
-      createdAt: d.createdAt.toISOString(),
-    })),
-    stats: {
-      parcelCount: sellable.length,
-      availableCount: unsold.filter((p) => p.status === "AVAILABLE").length,
-      holdCount: unsold.filter((p) => p.status === "HOLD").length,
-      soldCount: sold.length,
-      partitionedCount: parcels.filter((p) => p.status === "PARTITIONED").length,
-      availableArea,
-      unsoldValue,
-      costBasis,
-      valuationGain: unsoldValue - costBasis,
-      soldRevenue,
-      soldProfit,
-    },
-  };
 
-  return (
-    <PageContextProvider value={{
-      entityType: "landPurchase",
-      status: purchase.purchaseStage,
-      label: purchase.sellerName ?? "Land",
-      subtitle: purchase.project?.name ?? undefined,
-      recordId: purchase.id,
-    }}>
-    <>
-      <RecordRecentItem type="land" id={data.id} label={data.sellerName ?? "Land"} href={`/m/land/${data.id}`} />
-      <MobileLandDetailClient
-        data={data}
-        canManage={canManage}
-        canPartition={canPartition}
-        canSell={canSell}
-        canManageLegal={canManageLegal}
-        customers={customers.map((c) => ({ id: c.id, name: c.name }))}
-      />
-    </>
-    </PageContextProvider>
+        const parcelIds = purchase.parcels.map((p) => p.id);
+        const [landSales, customers, parcelBuiltUnits, legalDocs] = await Promise.all([
+          prisma.assetSale.findMany({
+            where: { landParcelId: { in: parcelIds }, assetType: "LAND", status: "ACTIVE" },
+            select: {
+              id: true, saleNumber: true, salePrice: true, profit: true, saleDate: true,
+              landParcelId: true, paymentStatus: true, saleStage: true,
+              customer: { select: { id: true, name: true } },
+            },
+          }),
+          prisma.customer.findMany({
+            where: { deletedAt: null },
+            orderBy: { name: "asc" },
+            select: { id: true, name: true },
+          }),
+          // Built units linked to parcels (subdivided inventory — flats/shops built on the land)
+          prisma.builtUnit.findMany({
+            where: { landParcelId: { in: parcelIds }, deletedAt: null },
+            select: {
+              id: true, unitNumber: true, unitType: true, status: true,
+              area: true, areaUnit: true, floor: true, wing: true,
+              originType: true, acquisitionCost: true, productionCost: true,
+              askingPrice: true, currentValuation: true,
+              landParcelId: true, projectId: true,
+              project: { select: { id: true, name: true } },
+            },
+            orderBy: [{ unitNumber: "asc" }],
+          }),
+          // Legal documents for this land purchase
+          prisma.legalDocument.findMany({
+            where: { landPurchaseId: purchase.id, companyId: company.id, deletedAt: null },
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+          }),
+        ]);
+
+        const saleByParcel = new Map(
+          landSales.map((s) => [s.landParcelId!, {
+            salePrice: toNum(s.salePrice),
+            saleProfit: toNum(s.profit),
+            saleNumber: s.saleNumber,
+            saleDate: s.saleDate.toISOString(),
+            paymentStatus: s.paymentStatus,
+            saleStage: s.saleStage,
+            customerName: s.customer.name,
+          }]),
+        );
+
+        const parcels = purchase.parcels.map((p) => {
+          const sale = saleByParcel.get(p.id);
+          return {
+            id: p.id,
+            number: p.number,
+            status: p.status,
+            purpose: p.purpose,
+            area: toNum(p.area),
+            areaUnit: p.areaUnit,
+            acquisitionCost: toNum(p.acquisitionCost),
+            askingPrice: p.askingPrice ? toNum(p.askingPrice) : null,
+            currentValuation: toNum(p.currentValuation),
+            parentParcelId: p.parentParcelId,
+            parentParcelNumber: p.parentParcel?.number ?? null,
+            isInfrastructure: p.isInfrastructure,
+            childCount: p._count.children,
+            projectId: p.projectId,
+            salePrice: sale?.salePrice ?? null,
+            saleProfit: sale?.saleProfit ?? null,
+            saleNumber: sale?.saleNumber ?? null,
+            saleDate: sale?.saleDate ?? null,
+            saleStage: sale?.saleStage ?? null,
+            customerName: sale?.customerName ?? null,
+          };
+        });
+
+        const sellable = parcels.filter((p) => p.status !== "PARTITIONED");
+        const sold = sellable.filter((p) => p.salePrice != null);
+        const unsold = sellable.filter((p) => p.salePrice == null);
+        const unsoldValue = unsold.reduce((s, p) => s + p.currentValuation, 0);
+        const costBasis = unsold.reduce((s, p) => s + p.acquisitionCost, 0);
+        const soldRevenue = sold.reduce((s, p) => s + (p.salePrice ?? p.currentValuation), 0);
+        const soldProfit = sold.reduce((s, p) => s + (p.saleProfit ?? 0), 0);
+        const availableArea = unsold.filter((p) => p.status === "AVAILABLE").reduce((s, p) => s + p.area, 0);
+        const totalAreaNum = toNum(purchase.totalArea);
+        const costPerUnit = totalAreaNum > 0 ? toNum(purchase.totalCost) / totalAreaNum : 0;
+
+        const data = {
+          id: purchase.id,
+          sellerName: purchase.sellerName,
+          sellerContact: purchase.sellerContact,
+          purchaseDate: purchase.purchaseDate.toISOString(),
+          totalArea: toNum(purchase.totalArea),
+          areaUnit: purchase.areaUnit,
+          totalCost: toNum(purchase.totalCost),
+          registryNo: purchase.registryNo,
+          location: purchase.location,
+          documentUrl: purchase.documentUrl,
+          projectId: purchase.projectId,
+          projectName: purchase.project?.name ?? null,
+          mode: purchase.mode,
+          // Land type & lease
+          landType: purchase.landType,
+          leaseType: purchase.leaseType,
+          leasePeriodYears: purchase.leasePeriodYears,
+          leaseStartDate: purchase.leaseStartDate?.toISOString() ?? null,
+          leaseEndDate: purchase.leaseEndDate?.toISOString() ?? null,
+          // Cost breakup
+          baseCost: toNum(purchase.baseCost),
+          leaseRentPercent: purchase.leaseRentPercent ? toNum(purchase.leaseRentPercent) : null,
+          leaseRentAmount: purchase.leaseRentAmount ? toNum(purchase.leaseRentAmount) : null,
+          gstPercent: purchase.gstPercent ? toNum(purchase.gstPercent) : null,
+          gstAmount: purchase.gstAmount ? toNum(purchase.gstAmount) : null,
+          registrationPercent: purchase.registrationPercent ? toNum(purchase.registrationPercent) : null,
+          registrationAmount: purchase.registrationAmount ? toNum(purchase.registrationAmount) : null,
+          stampDutyPercent: purchase.stampDutyPercent ? toNum(purchase.stampDutyPercent) : null,
+          stampDutyAmount: purchase.stampDutyAmount ? toNum(purchase.stampDutyAmount) : null,
+          brokerageAmount: purchase.brokerageAmount ? toNum(purchase.brokerageAmount) : null,
+          legalFees: purchase.legalFees ? toNum(purchase.legalFees) : null,
+          otherCharges: purchase.otherCharges ? toNum(purchase.otherCharges) : null,
+          // Cost components (arbitrary / recurring / future costs)
+          costComponents: purchase.costComponents.map((c) => ({
+            id: c.id,
+            landPurchaseId: c.landPurchaseId,
+            label: c.label,
+            amount: toNum(c.amount),
+            frequency: c.frequency,
+            interval: c.interval,
+            startDate: c.startDate.toISOString(),
+            endDate: c.endDate ? c.endDate.toISOString() : null,
+            occurrences: c.occurrences,
+            postedAmount: toNum(c.postedAmount),
+            scheduledTotal: toNum(scheduledTotal(c)),
+            notes: c.notes,
+          })),
+          costPerUnit,
+          parcels,
+          // Staged purchase
+          purchaseStage: purchase.purchaseStage,
+          tokenAmount: purchase.tokenAmount ? toNum(purchase.tokenAmount) : null,
+          tokenPaymentDate: purchase.tokenPaymentDate ? purchase.tokenPaymentDate.toISOString() : null,
+          tokenPaymentMode: purchase.tokenPaymentMode,
+          // Documents
+          atsDocumentUrl: purchase.atsDocumentUrl,
+          atsDocumentName: purchase.atsDocumentName,
+          bbaDocumentUrl: purchase.bbaDocumentUrl,
+          bbaDocumentName: purchase.bbaDocumentName,
+          bbaDate: purchase.bbaDate ? purchase.bbaDate.toISOString() : null,
+          registryDocumentUrl: purchase.registryDocumentUrl,
+          registryDocumentName: purchase.registryDocumentName,
+          // Possession
+          isPossessed: purchase.isPossessed,
+          possessionDate: purchase.possessionDate ? purchase.possessionDate.toISOString() : null,
+          possessionNotes: purchase.possessionNotes,
+          // Partial registry
+          partialRegistryAllowed: purchase.partialRegistryAllowed,
+          // Payments
+          totalPaid: purchase.payments.reduce((s, p) => s + toNum(p.amount), 0),
+          // Payment schedule (if any)
+          paymentSchedule: purchase.paymentSchedule
+            ? {
+                id: purchase.paymentSchedule.id,
+                totalAmount: toNum(purchase.paymentSchedule.totalAmount),
+                items: purchase.paymentSchedule.items.map((item) => ({
+                  id: item.id,
+                  installmentNo: item.installmentNo,
+                  description: item.description,
+                  percentage: toNum(item.percentage),
+                  amount: toNum(item.amount),
+                  dueDate: item.dueDate ? item.dueDate.toISOString() : null,
+                  status: item.status,
+                  paidAmount: toNum(item.paidAmount),
+                  paidAt: item.paidAt ? item.paidAt.toISOString() : null,
+                })),
+              }
+            : null,
+          payments: purchase.payments.map((p) => ({
+            id: p.id,
+            amount: toNum(p.amount),
+            paymentDate: p.paymentDate.toISOString(),
+            paymentMode: p.paymentMode,
+            referenceNo: p.referenceNo,
+            notes: p.notes,
+            chequeNo: p.chequeNo,
+            chequeDate: p.chequeDate ? p.chequeDate.toISOString() : null,
+            chequeBank: p.chequeBank,
+            chequePhotoUrl: p.chequePhotoUrl,
+            chequeStatus: p.chequeStatus,
+            chequeClearDate: p.chequeClearDate ? p.chequeClearDate.toISOString() : null,
+            chequeBounceReason: p.chequeBounceReason,
+          })),
+          sales: landSales.map((s) => ({
+            id: s.id,
+            saleNumber: s.saleNumber,
+            salePrice: toNum(s.salePrice),
+            profit: toNum(s.profit),
+            saleDate: s.saleDate.toISOString(),
+            paymentStatus: s.paymentStatus,
+            saleStage: s.saleStage,
+            parcelNumber: purchase.parcels.find((p) => p.id === s.landParcelId)?.number ?? "—",
+            customerName: s.customer.name,
+          })),
+          builtUnits: parcelBuiltUnits.map((u) => {
+            const parcel = purchase.parcels.find((p) => p.id === u.landParcelId);
+            return {
+              id: u.id,
+              unitNumber: u.unitNumber,
+              unitType: u.unitType,
+              status: u.status,
+              area: toNum(u.area),
+              areaUnit: u.areaUnit,
+              floor: u.floor,
+              wing: u.wing,
+              originType: u.originType,
+              acquisitionCost: toNum(u.acquisitionCost),
+              productionCost: toNum(u.productionCost),
+              askingPrice: u.askingPrice ? toNum(u.askingPrice) : null,
+              currentValuation: toNum(u.currentValuation),
+              landParcelId: u.landParcelId!,
+              landParcelNumber: parcel?.number ?? null,
+              projectName: u.project.name,
+            };
+          }),
+          legalDocs: legalDocs.map((d) => ({
+            id: d.id,
+            landPurchaseId: d.landPurchaseId,
+            projectId: d.projectId,
+            type: d.type,
+            title: d.title,
+            authority: d.authority,
+            status: d.status,
+            appliesTo: d.appliesTo,
+            docNumber: d.docNumber,
+            sortOrder: d.sortOrder,
+            prerequisiteType: d.prerequisiteType,
+            obtained: d.obtained,
+            applicationDate: d.applicationDate?.toISOString() ?? null,
+            issueDate: d.issueDate?.toISOString() ?? null,
+            validFrom: d.validFrom?.toISOString() ?? null,
+            validTill: d.validTill?.toISOString() ?? null,
+            amount: d.amount ? toNum(d.amount) : null,
+            expectedRegistryDate: d.expectedRegistryDate?.toISOString() ?? null,
+            documentUrl: d.documentUrl,
+            documentName: d.documentName,
+            notes: d.notes,
+            createdAt: d.createdAt.toISOString(),
+          })),
+          stats: {
+            parcelCount: sellable.length,
+            availableCount: unsold.filter((p) => p.status === "AVAILABLE").length,
+            holdCount: unsold.filter((p) => p.status === "HOLD").length,
+            soldCount: sold.length,
+            partitionedCount: parcels.filter((p) => p.status === "PARTITIONED").length,
+            availableArea,
+            unsoldValue,
+            costBasis,
+            valuationGain: unsoldValue - costBasis,
+            soldRevenue,
+            soldProfit,
+          },
+        };
+
+        return (
+          <PageContextProvider value={{
+            entityType: "landPurchase",
+            status: purchase.purchaseStage,
+            label: purchase.sellerName ?? "Land",
+            subtitle: purchase.project?.name ?? undefined,
+            recordId: purchase.id,
+          }}>
+          <>
+            <RecordRecentItem type="land" id={data.id} label={data.sellerName ?? "Land"} href={`/m/land/${data.id}`} />
+            <MobileLandDetailClient
+              data={data}
+              canManage={canManage}
+              canPartition={canPartition}
+              canSell={canSell}
+              canManageLegal={canManageLegal}
+              customers={customers.map((c) => ({ id: c.id, name: c.name }))}
+            />
+          </>
+          </PageContextProvider>
+        );
+      }}
+    </MobileDetailPage>
   );
 }

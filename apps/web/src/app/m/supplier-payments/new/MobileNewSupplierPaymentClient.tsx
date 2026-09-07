@@ -4,12 +4,13 @@ import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Loader2, Save, IndianRupee, Camera, X } from "lucide-react";
+import { Loader2, Camera, X, Send } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useTodayDateState } from "@/lib/use-today-date";
-import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
-import { MobileSupplierSelect } from "@/components/mobile/selectors";
-import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { useLongPressNav } from "@/lib/use-long-press-nav";
+import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
+import { SelectorModal, EnumSelect, UnderlineInput } from "@/components/mobile/v2/form-primitives";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 
 type Supplier = { id: string; name: string; balanceOwed: string };
 type PO = { id: string; poNumber: string; supplierId: string; total: string; status: string };
@@ -26,7 +27,7 @@ const PAYMENT_MODES = [
 ];
 
 export function MobileNewSupplierPaymentClient({
-  suppliers,
+  suppliers: initialSuppliers,
   purchaseOrders,
   invoices,
 }: {
@@ -36,6 +37,7 @@ export function MobileNewSupplierPaymentClient({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
   const [supplierId, setSupplierId] = useState("");
   const [purchaseOrderId, setPurchaseOrderId] = useState("");
   const [invoiceId, setInvoiceId] = useState("");
@@ -49,6 +51,9 @@ export function MobileNewSupplierPaymentClient({
   const [chequePhotoUrl, setChequePhotoUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [modal, setModal] = useState<"supplier" | "po" | "invoice" | null>(null);
+  const [showCreateSupplier, setShowCreateSupplier] = useState(false);
+  const submitLongPress = useLongPressNav("/m/accounts?tab=payments", "Payments list");
 
   const selectedSupplier = suppliers.find((s) => s.id === supplierId);
 
@@ -122,49 +127,46 @@ export function MobileNewSupplierPaymentClient({
     }
   }
 
-  const inputClass =
-    "w-full h-9 px-2 text-m-body outline-none border rounded-[0.375rem] focus:border-b-2 transition-colors";
-  const inputStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
-    color: "var(--color-ink-950)",
+  const handleSelect = (id: string) => {
+    if (modal === "supplier") {
+      setSupplierId(id);
+      setPurchaseOrderId("");
+      setInvoiceId("");
+    } else if (modal === "po") {
+      setPurchaseOrderId(id);
+    } else if (modal === "invoice") {
+      setInvoiceId(id);
+    }
+    setModal(null);
   };
-  const labelClass = "block text-m-caption font-bold mb-1";
-  const labelStyle = { color: "var(--color-ink-700)" };
+
+  const handleSupplierCreated = (s: { id: string; name: string }) => {
+    setSuppliers((prev) => [...prev, { id: s.id, name: s.name, balanceOwed: "0" }]);
+    setSupplierId(s.id);
+    setShowCreateSupplier(false);
+    setModal(null);
+  };
+
+  const netAmount = (Number(amount) || 0) - (Number(tdsAmount) || 0);
 
   return (
-    <div className="pb-24">
-      <div className="mb-4">
-        <h1 className="text-m-section font-bold flex items-center gap-2" style={{ color: "var(--color-ink-950)" }}>
-          <IndianRupee className="size-5" /> Record Supplier Payment
-        </h1>
-        <p className="mt-1 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-          Pay a supplier against an open PO or invoice.
-        </p>
-      </div>
-
+    <div className="pb-32">
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        {/* Supplier */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <div>
-            <MobileSupplierSelect
-              required
-              value={supplierId}
-              onChange={(v) => {
-                setSupplierId(v);
-                setPurchaseOrderId("");
-                setInvoiceId("");
-              }}
-              placeholder="— Select supplier —"
-              options={suppliers.map((s) => ({
-                value: s.id,
-                label: s.name,
-                sub: Number(s.balanceOwed) > 0 ? `Owes ${formatCurrency(Number(s.balanceOwed))}` : undefined,
-              }))}
-              inputClass={inputClass}
-              inputStyle={inputStyle}
-            />
-          </div>
+        {/* ══════ SECTION: SUPPLIER ══════ */}
+        <div
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Supplier
+          </p>
+
+          <SelectorCardInline
+            label="Supplier"
+            value={selectedSupplier?.name}
+            required
+            onClick={() => setModal("supplier")}
+          />
 
           {/* Outstanding balance hint */}
           {selectedSupplier && Number(selectedSupplier.balanceOwed) > 0 && (
@@ -177,113 +179,97 @@ export function MobileNewSupplierPaymentClient({
           )}
         </div>
 
-        {/* Linked PO / Invoice (optional) */}
+        {/* ══════ SECTION: LINK TO (optional) ══════ */}
         {supplierId && (supplierPos.length > 0 || supplierInvoices.length > 0) && (
-          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-            <p className="text-m-section font-extrabold" style={{ color: "var(--color-ink-950)" }}>
+          <div
+            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
+            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Link to (optional)
             </p>
 
             {supplierPos.length > 0 && (
-              <div>
-                <MobileSelectWithCreate
-                  label="Purchase Order"
-                  value={purchaseOrderId}
-                  onChange={setPurchaseOrderId}
-                  placeholder="— None —"
-                  options={supplierPos.map((p) => ({
-                    value: p.id,
-                    label: p.poNumber,
-                    sub: `${formatCurrency(Number(p.total))} · ${p.status}`,
-                  }))}
-                  inputClass={inputClass}
-                  inputStyle={inputStyle}
-                />
-              </div>
+              <SelectorCardInline
+                label="Purchase Order"
+                value={purchaseOrderId ? supplierPos.find((p) => p.id === purchaseOrderId)?.poNumber : undefined}
+                subvalue={purchaseOrderId ? `${formatCurrency(Number(supplierPos.find((p) => p.id === purchaseOrderId)?.total ?? 0))}` : undefined}
+                onClick={() => setModal("po")}
+              />
             )}
 
             {supplierInvoices.length > 0 && (
-              <div>
-                <MobileSelectWithCreate
-                  label="Invoice"
-                  value={invoiceId}
-                  onChange={setInvoiceId}
-                  placeholder="— None —"
-                  options={supplierInvoices.map((i) => ({
-                    value: i.id,
-                    label: i.invoiceNumber,
-                    sub: `${formatCurrency(Number(i.totalAmount))} · ${i.status}`,
-                  }))}
-                  inputClass={inputClass}
-                  inputStyle={inputStyle}
-                />
-              </div>
+              <SelectorCardInline
+                label="Invoice"
+                value={invoiceId ? supplierInvoices.find((i) => i.id === invoiceId)?.invoiceNumber : undefined}
+                subvalue={invoiceId ? `${formatCurrency(Number(supplierInvoices.find((i) => i.id === invoiceId)?.totalAmount ?? 0))}` : undefined}
+                onClick={() => setModal("invoice")}
+              />
             )}
           </div>
         )}
 
-        {/* Payment details */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold" style={{ color: "var(--color-ink-950)" }}>
+        {/* ══════ SECTION: PAYMENT DETAILS ══════ */}
+        <div
+          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
             Payment Details
           </p>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Amount (₹) <span style={{ color: "var(--color-stop)" }}>*</span>
+          {/* Amount + Date (side by side) */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <UnderlineInput
+              label="Amount (₹)"
+              required
+              type="number"
+              inputMode="decimal"
+              value={amount}
+              onChange={setAmount}
+              placeholder="0"
+              autoFocus
+              mono
+            />
+            <div className="pl-2">
+              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                Date
               </label>
-              <input
-                type="number"
-                min={0.01}
-                step="any"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0"
-                inputMode="decimal"
-                autoFocus
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>Date</label>
               <input
                 type="date"
                 value={paymentDate}
                 onChange={(e) => setPaymentDate(e.target.value)}
-                className={inputClass}
-                style={inputStyle}
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
               />
             </div>
           </div>
 
-          <div>
-            <EnumSelect
-              label="Payment Mode"
-              value={paymentMode}
-              onChange={(v) => setPaymentMode(v)}
-              options={PAYMENT_MODES}
-            />
-          </div>
+          {/* Payment Mode */}
+          <EnumSelect
+            label="Payment Mode"
+            value={paymentMode}
+            onChange={setPaymentMode}
+            options={PAYMENT_MODES}
+          />
 
-          <div>
-            <label className={labelClass} style={labelStyle}>Reference No. (optional)</label>
-            <input
-              type="text"
-              value={referenceNo}
-              onChange={(e) => setReferenceNo(e.target.value)}
-              placeholder="UTR / cheque no."
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
+          {/* Reference No. */}
+          <UnderlineInput
+            label="Reference No."
+            value={referenceNo}
+            onChange={setReferenceNo}
+            placeholder="UTR / cheque no."
+            mono
+          />
 
+          {/* Cheque photo (only for CHEQUE mode) */}
           {paymentMode === "CHEQUE" && (
             <div>
-              <label className={labelClass} style={labelStyle}>Cheque Photo (front)</label>
+              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                Cheque Photo (front)
+              </label>
               {chequePhotoUrl ? (
-                <div className="relative h-28 rounded-[0.375rem] border overflow-hidden" style={{ borderColor: "var(--color-line)" }}>
+                <div className="relative h-28 rounded-[0.375rem] border overflow-hidden mt-1" style={{ borderColor: "var(--color-line)" }}>
                   <Image src={chequePhotoUrl} alt="Cheque" fill className="object-cover" sizes="(max-width: 768px) 100vw, 400px" />
                   <button
                     type="button"
@@ -300,7 +286,7 @@ export function MobileNewSupplierPaymentClient({
                   type="button"
                   onClick={() => fileRef.current?.click()}
                   disabled={uploading}
-                  className="flex items-center justify-center gap-1.5 w-full rounded-[0.375rem] border border-dashed py-3 text-m-body press disabled:opacity-50"
+                  className="flex items-center justify-center gap-1.5 w-full rounded-[0.375rem] border border-dashed py-3 text-m-body press disabled:opacity-50 mt-1"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
                 >
                   {uploading ? (
@@ -324,58 +310,200 @@ export function MobileNewSupplierPaymentClient({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className={labelClass} style={labelStyle}>TDS Amount (optional)</label>
-              <input
-                type="number"
-                min={0}
-                step="any"
-                value={tdsAmount}
-                onChange={(e) => setTdsAmount(e.target.value)}
-                placeholder="0"
-                inputMode="decimal"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>TDS Section</label>
-              <input
-                type="text"
-                value={tdsSection}
-                onChange={(e) => setTdsSection(e.target.value)}
-                placeholder="e.g. 194C"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
+          {/* TDS Amount + Section (side by side) */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <UnderlineInput
+              label="TDS Amount"
+              type="number"
+              inputMode="decimal"
+              value={tdsAmount}
+              onChange={setTdsAmount}
+              placeholder="0"
+              mono
+            />
+            <UnderlineInput
+              label="TDS Section"
+              value={tdsSection}
+              onChange={setTdsSection}
+              placeholder="e.g. 194C"
+              mono
+            />
           </div>
 
+          {/* Notes */}
           <div>
-            <label className={labelClass} style={labelStyle}>Notes (optional)</label>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Notes
+            </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               placeholder="Additional context…"
-              className="w-full px-2 py-1.5 text-m-body outline-none border rounded-[0.375rem] resize-none"
-              style={inputStyle}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
             />
           </div>
         </div>
-
-        {/* Submit */}
-        <button
-          type="submit"
-          disabled={saving}
-          className="fixed bottom-20 left-4 right-4 z-30 flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-m-body font-bold shadow-lg press"
-          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-        >
-          {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-          Record Payment
-        </button>
       </form>
+
+      {/* ══════ STICKY BOTTOM BAR ══════ */}
+      <div
+        className="sticky bottom-0 left-0 right-0 z-30 border-t"
+        style={{
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
+        }}
+      >
+        <div className="px-3 py-2 flex items-center justify-between gap-2">
+          <div className="shrink-0 flex flex-col gap-0.5">
+            {netAmount > 0 ? (
+              <>
+                <span className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                  {formatCurrency(netAmount)}
+                </span>
+                <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                  Net payment
+                </span>
+              </>
+            ) : (
+              <span className="text-m-caption" style={{ color: "var(--color-ink-300)" }}>
+                Enter amount
+              </span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={(e) => { if (submitLongPress.wasLongPress()) return; handleSubmit(e as unknown as React.FormEvent); }}
+            disabled={saving}
+            {...submitLongPress.longPressProps}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-body font-bold text-m-body press disabled:opacity-50 select-none"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", touchAction: "none" }}
+          >
+            {saving ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <>
+                <Send className="size-3.5" />
+                <span>Record Payment</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* ══════ SELECTOR MODALS ══════ */}
+      {modal === "supplier" ? (
+        <SelectorModal
+          title="Select Supplier"
+          items={suppliers.map((s) => ({
+            id: s.id,
+            label: s.name,
+            sub: Number(s.balanceOwed) > 0 ? `Owes ${formatCurrency(Number(s.balanceOwed))}` : undefined,
+          }))}
+          selectedId={supplierId}
+          onSelect={handleSelect}
+          onClose={() => setModal(null)}
+          onCreate={() => setShowCreateSupplier(true)}
+        />
+      ) : null}
+
+      {modal === "po" ? (
+        <SelectorModal
+          title="Select Purchase Order"
+          items={[
+            { id: "", label: "No PO linkage", sub: undefined as string | undefined },
+            ...supplierPos.map((p) => ({
+              id: p.id,
+              label: p.poNumber,
+              sub: `${formatCurrency(Number(p.total))} · ${p.status}`,
+            })),
+          ]}
+          selectedId={purchaseOrderId}
+          onSelect={handleSelect}
+          onClose={() => setModal(null)}
+        />
+      ) : null}
+
+      {modal === "invoice" ? (
+        <SelectorModal
+          title="Select Invoice"
+          items={[
+            { id: "", label: "No invoice linkage", sub: undefined as string | undefined },
+            ...supplierInvoices.map((i) => ({
+              id: i.id,
+              label: i.invoiceNumber,
+              sub: `${formatCurrency(Number(i.totalAmount))} · ${i.status}`,
+            })),
+          ]}
+          selectedId={invoiceId}
+          onSelect={handleSelect}
+          onClose={() => setModal(null)}
+        />
+      ) : null}
+
+      {/* ══════ INLINE CREATE SUPPLIER DIALOG ══════ */}
+      {showCreateSupplier ? (
+        <MobileFabModal
+          open
+          onClose={() => setShowCreateSupplier(false)}
+          title="New Supplier"
+          nested
+        >
+          <MobileNewSupplierDialog
+            open
+            nested
+            onClose={() => setShowCreateSupplier(false)}
+            onCreated={handleSupplierCreated}
+          />
+        </MobileFabModal>
+      ) : null}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * Inline selector card — tappable underline-style selector
+ * matching the new form style (like supplier-returns)
+ * ═══════════════════════════════════════════════════════════ */
+function SelectorCardInline({
+  onClick,
+  label,
+  value,
+  subvalue,
+  required,
+}: {
+  onClick: () => void;
+  label: string;
+  value?: string;
+  subvalue?: string;
+  required?: boolean;
+}) {
+  const hasValue = !!value;
+  return (
+    <div>
+      <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+        {label}{required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
+      </label>
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors text-left press"
+        style={{
+          borderColor: "var(--color-line)",
+          backgroundColor: "transparent",
+          color: hasValue ? "var(--color-ink-950)" : "var(--color-ink-500)",
+        }}
+      >
+        {hasValue ? (
+          <span className="truncate block">
+            {value}{subvalue ? <span className="font-normal" style={{ color: "var(--color-ink-700)" }}> · {subvalue}</span> : null}
+          </span>
+        ) : (
+          <span>— Select —</span>
+        )}
+      </button>
     </div>
   );
 }

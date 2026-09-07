@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ScanLine, MapPin, Calendar, FileText,
+  ScanLine,
   CheckCircle2, AlertTriangle, Clock, Scale, Loader2, Trash2,
   TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
@@ -13,6 +13,7 @@ import { AttachmentList } from "@/components/attachments/attachment-list";
 import { toast } from "sonner";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { DetailStatGrid, DetailKeyValueCard, DetailAlertBanner } from "@/components/mobile/v2/detail-primitives";
 
 type CountStatus = "DRAFT" | "COUNTED" | "RECONCILED";
 
@@ -133,77 +134,29 @@ export function MobileStockCountDetailClient({
         </span>
       </div>
 
-      {/* ── Variance banner ── */}
-      <div
-        className="rounded-[0.625rem] border p-3 mb-3"
-        style={{
-          borderColor: count.itemsWithVariance > 0
-            ? `color-mix(in srgb, ${count.totalVariance < 0 ? "var(--color-stop)" : "var(--color-signal)"} 30%, var(--color-line))`
-            : "color-mix(in srgb, var(--color-go) 30%, var(--color-line))",
-          backgroundColor: count.itemsWithVariance > 0
-            ? `color-mix(in srgb, ${count.totalVariance < 0 ? "var(--color-stop)" : "var(--color-signal)"} 6%, var(--color-paper))`
-            : "color-mix(in srgb, var(--color-go) 6%, var(--color-paper))",
-        }}
-      >
-        <div className="flex items-center justify-between">
-          {/* Items counted */}
-          <div>
-            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-              Items Counted
-            </p>
-            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-              {count.lineCount}
-            </p>
-          </div>
+      {/* ── Variance summary ── */}
+      <DetailStatGrid
+        cols={4}
+        stats={[
+          { label: "Counted", value: String(count.lineCount) },
+          { label: "Matched", value: String(count.itemsMatched), tone: "go" },
+          { label: "Mismatch", value: String(count.itemsWithVariance), tone: count.itemsWithVariance > 0 ? "signal" : "go" },
+          {
+            label: "Net Δ",
+            value: `${count.totalVariance > 0 ? "+" : ""}${formatNumber(count.totalVariance, 0)}`,
+            tone: count.totalVariance < 0 ? "stop" : count.totalVariance > 0 ? "signal" : "go",
+          },
+        ]}
+      />
 
-          {/* Matched */}
-          <div className="text-center">
-            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-              Matched
-            </p>
-            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
-              {count.itemsMatched}
-            </p>
-          </div>
-
-          {/* Mismatches */}
-          <div className="text-center">
-            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-              Mismatch
-            </p>
-            <p
-              className="text-m-section font-bold tabular-nums"
-              style={{ color: count.itemsWithVariance > 0 ? "var(--color-signal)" : "var(--color-go)" }}
-            >
-              {count.itemsWithVariance}
-            </p>
-          </div>
-
-          {/* Net variance */}
-          <div className="text-right">
-            <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-              Net Δ
-            </p>
-            <p
-              className="text-m-section font-bold tabular-nums"
-              style={{
-                color: count.totalVariance < 0 ? "var(--color-stop)" : count.totalVariance > 0 ? "var(--color-signal)" : "var(--color-go)",
-              }}
-            >
-              {count.totalVariance > 0 ? "+" : ""}{formatNumber(count.totalVariance, 0)}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Info row ── */}
-      <div className="flex flex-col gap-1.5 mb-3">
-        <InfoRow icon={MapPin} label="Location" value={count.location.name} href={`/m/stock?locationId=${count.location.id}`} />
-        <InfoRow icon={Calendar} label="Date" value={formatDate(count.countDate)} />
-        {count.notes ? (
-          <InfoRow icon={FileText} label="Notes" value={count.notes} />
-        ) : null}
-      </div>
+      {/* ── Details ── */}
+      <DetailKeyValueCard
+        entries={[
+          { label: "Location", value: <Link href={`/m/stock?locationId=${count.location.id}`} className="underline underline-offset-2">{count.location.name}</Link> },
+          { label: "Date", value: formatDate(count.countDate) },
+          ...(count.notes ? [{ label: "Notes", value: count.notes }] : []),
+        ]}
+      />
 
       <AttachmentList entityType="StockCount" entityId={count.id} />
 
@@ -335,17 +288,12 @@ export function MobileStockCountDetailClient({
 
       {/* ── Reconciled info ── */}
       {isReconciled ? (
-        <div
-          className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2 mt-4"
-          style={{
-            borderColor: "color-mix(in srgb, var(--color-go) 30%, var(--color-line))",
-            backgroundColor: "color-mix(in srgb, var(--color-go) 6%, var(--color-paper))",
-          }}
-        >
-          <CheckCircle2 className="size-4 shrink-0" style={{ color: "var(--color-go)" }} />
-          <span className="text-m-caption" style={{ color: "var(--color-ink-700)" }}>
-            Stock levels have been adjusted to match counted quantities. GL entries posted for variances.
-          </span>
+        <div className="mt-4">
+          <DetailAlertBanner
+            tone="success"
+            title="Reconciled"
+            description="Stock levels have been adjusted to match counted quantities. GL entries posted for variances."
+          />
         </div>
       ) : null}
 
@@ -385,36 +333,4 @@ export function MobileStockCountDetailClient({
       ) : null}
     </div>
   );
-}
-
-/* ─── Info row ─── */
-function InfoRow({
-  icon: Icon, label, value, href,
-}: {
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-  label: string;
-  value: string;
-  href?: string;
-}) {
-  const content = (
-    <div
-      className="flex items-center gap-2 rounded-[0.5rem] border px-2.5 py-1.5"
-      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-    >
-      <Icon className="size-3 shrink-0" style={{ color: "var(--color-steel)" }} />
-      <div className="min-w-0 flex-1">
-        <span className="text-m-caption font-semibold uppercase block" style={{ color: "var(--color-ink-500)" }}>
-          {label}
-        </span>
-        <span className="text-m-body font-bold truncate block" style={{ color: "var(--color-ink-950)" }}>
-          {value}
-        </span>
-      </div>
-    </div>
-  );
-
-  if (href) {
-    return <Link href={href}>{content}</Link>;
-  }
-  return content;
 }

@@ -340,6 +340,7 @@ function ConvertForm({
     ),
   );
   const [submitting, setSubmitting] = useState(false);
+  const [convertResult, setConvertResult] = useState<{ poId: string; poNumber: string } | null>(null);
 
   const gateSatisfied = quoteCount >= minQuotesRequired || quotesWaived;
 
@@ -369,8 +370,10 @@ function ConvertForm({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to convert");
       toast.success(`PO ${data.poNumber} created`);
+      haptic(10);
       onDone();
-      router.push(`/m/procurement/${data.poId}`);
+      // Stay on the page — show inline success sheet instead of navigating away.
+      setConvertResult({ poId: data.poId, poNumber: data.poNumber });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -383,6 +386,45 @@ function ConvertForm({
       className="flex flex-col gap-3 rounded-[0.625rem] border p-3"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
+      {/* ── Convert success sheet (inline, replaces router.push) ── */}
+      {convertResult ? (
+        <div
+          className="flex flex-col gap-3 rounded-[0.5rem] border p-3"
+          style={{ borderColor: "var(--color-go)", backgroundColor: "var(--color-go-wash)" }}
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="size-5 shrink-0" style={{ color: "var(--color-go-dark)" }} />
+            <div className="flex-1">
+              <p className="text-m-section font-bold" style={{ color: "var(--color-go-dark)" }}>
+                PO {convertResult.poNumber} created
+              </p>
+              <p className="text-m-caption" style={{ color: "var(--color-ink-600)" }}>
+                The purchase order has been generated from this indent.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => router.push(`/m/procurement/${convertResult.poId}`)}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-label font-bold press"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            >
+              <Truck className="size-3.5" />
+              View PO
+            </button>
+            <button
+              type="button"
+              onClick={() => { setConvertResult(null); onDone(); router.refresh(); }}
+              className="flex-1 rounded-[0.5rem] border py-2 text-m-label font-bold press"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            >
+              Stay here
+            </button>
+          </div>
+        </div>
+      ) : (
+      <>
       {/* ── Quote gate status ── */}
       <div
         className="flex items-center gap-2 rounded-[0.5rem] px-2.5 py-2 text-m-label font-semibold"
@@ -588,6 +630,8 @@ function ConvertForm({
         {submitting ? <Loader2 className="size-4 animate-spin" /> : <Truck className="size-3.5" />}
         Create Purchase Order
       </button>
+      </>
+      )}
     </div>
   );
 }

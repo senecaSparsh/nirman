@@ -51,6 +51,14 @@ async function MobileEmployeeDetailContent({
             joiningDate: true, employmentEndDate: true, active: true, lastLoginAt: true,
           },
         },
+        salaryComponents: {
+          where: { active: true },
+          orderBy: [{ isDeduction: "asc" }, { type: "asc" }],
+        },
+        benefits: {
+          where: { active: true },
+          orderBy: { type: "asc" },
+        },
         supervisedCrews: {
           select: {
             id: true, name: true, active: true,
@@ -212,6 +220,10 @@ async function MobileEmployeeDetailContent({
     reportingLocationId: employee.reportingLocationId,
     userId: employee.userId,
     contractStatus: employee.contractStatus,
+    offerLetterStatus: employee.offerLetterStatus,
+    offerLetterIssuedAt: employee.offerLetterIssuedAt ? employee.offerLetterIssuedAt.toISOString() : null,
+    idCardStatus: employee.idCardStatus,
+    idCardIssuedAt: employee.idCardIssuedAt ? employee.idCardIssuedAt.toISOString() : null,
     autoDepositEnabled: employee.autoDepositEnabled,
     payDay: employee.payDay,
     bankName: employee.bankName,
@@ -220,6 +232,27 @@ async function MobileEmployeeDetailContent({
     noticePeriodDays: employee.noticePeriodDays,
     contractStartDate: employee.contractStartDate ? employee.contractStartDate.toISOString() : null,
     contractEndDate: employee.contractEndDate ? employee.contractEndDate.toISOString() : null,
+    salaryComponents: employee.salaryComponents.map((c) => ({
+      id: c.id,
+      type: c.type,
+      amount: toNum(c.amount),
+      frequency: c.frequency,
+      isDeduction: c.isDeduction,
+      isPercentage: c.isPercentage,
+      percentageOfBasic: c.percentageOfBasic ? toNum(c.percentageOfBasic) : null,
+      notes: c.notes,
+      active: c.active,
+    })),
+    benefits: employee.benefits.map((b) => ({
+      id: b.id,
+      type: b.type,
+      amount: b.amount ? toNum(b.amount) : null,
+      frequency: b.frequency,
+      startDate: b.startDate ? b.startDate.toISOString() : null,
+      endDate: b.endDate ? b.endDate.toISOString() : null,
+      notes: b.notes,
+      active: b.active,
+    })),
     user: employee.user
       ? {
           email: employee.user.email,

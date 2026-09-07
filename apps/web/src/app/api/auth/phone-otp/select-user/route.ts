@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { json } from "@/lib/server";
-import { createPhoneSession } from "@/lib/phone-otp";
+import { createPhoneSession, normalizePhoneForLookup } from "@/lib/phone-otp";
 
 /**
  * POST /api/auth/phone-otp/select-user
@@ -39,8 +39,11 @@ export const POST = async (req: NextRequest) => {
   }
 
   // 2. Validate the selected user matches the OTP's phone + is active.
+  // Use variant lookup because otp.phone may be 12-digit ("917017988293")
+  // while the user's phoneNormalized is 10-digit ("7017988293").
+  const phoneVariants = normalizePhoneForLookup(otp.phone);
   const user = await prisma.user.findFirst({
-    where: { id: userId, phoneNormalized: otp.phone, active: true },
+    where: { id: userId, phoneNormalized: { in: phoneVariants }, active: true },
     select: { id: true, email: true, name: true, role: true },
   });
 

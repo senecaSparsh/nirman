@@ -6,6 +6,7 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 type Priority = "low" | "medium" | "high" | "urgent";
@@ -146,36 +147,19 @@ export function MobileNewTaskForm({
   const labelClass = "block text-m-caption font-bold mb-0";
   const labelStyle = { color: "var(--color-ink-700)" };
 
-  const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
-  const sectionStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
-  };
-  const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
-  const sectionTitleStyle = { color: "var(--color-ink-950)" };
-
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       {/* Details */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Details
-        </p>
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Task Title <span style={{ color: "var(--color-stop)" }}>*</span>
-          </label>
-          <input
-            type="text"
-            value={form.title}
-            onChange={(e) => set("title", e.target.value)}
-            placeholder="e.g. Check concrete pour at Tower A"
-            autoFocus
-            enterKeyHint="next"
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
+      <SectionCard title="Details">
+        <UnderlineInput
+          label="Task Title"
+          value={form.title}
+          onChange={(v) => set("title", v)}
+          placeholder="e.g. Check concrete pour at Tower A"
+          required
+          autoFocus
+          enterKeyHint="next"
+        />
         <div>
           <label className={labelClass} style={labelStyle}>
             Description
@@ -213,6 +197,7 @@ export function MobileNewTaskForm({
               placeholder="— Select team member —"
             />
           </div>
+          {/* Priority — custom colored button group, stays inline */}
           <div className="pl-2">
             <label className={labelClass} style={labelStyle}>
               Priority
@@ -241,52 +226,37 @@ export function MobileNewTaskForm({
             </div>
           </div>
         </div>
-      </div>
+      </SectionCard>
 
       {/* Schedule */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Schedule
-        </p>
+      <SectionCard title="Schedule">
         <div
           className="grid grid-cols-2 gap-2 divide-x"
           style={{ borderColor: "var(--color-line)" }}
         >
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Due Date
-            </label>
-            <input
-              type="date"
-              value={form.dueDate}
-              onChange={(e) => set("dueDate", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
+          <UnderlineInput
+            label="Due Date"
+            value={form.dueDate}
+            onChange={(v) => set("dueDate", v)}
+            type="date"
+          />
           <div className="pl-2">
-            <label className={labelClass} style={labelStyle}>
-              Estimate (mins)
-            </label>
-            <input
-              type="number"
-              min={1}
+            <UnderlineInput
+              label="Estimate (mins)"
               value={form.estimateMins}
-              onChange={(e) => set("estimateMins", e.target.value)}
+              onChange={(v) => set("estimateMins", v)}
               placeholder="e.g. 30"
+              type="number"
+              min="1"
               inputMode="numeric"
-              className={inputClass}
-              style={inputStyle}
             />
           </div>
         </div>
-      </div>
+      </SectionCard>
 
       {/* Checklist */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Checklist
-        </p>
+      <SectionCard title="Checklist">
+        {/* Subtask input has onKeyDown Enter — stays inline */}
         <div className="flex gap-1.5">
           <input
             type="text"
@@ -347,7 +317,7 @@ export function MobileNewTaskForm({
             ))}
           </div>
         )}
-      </div>
+      </SectionCard>
 
       {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
       <div

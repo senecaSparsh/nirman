@@ -1,9 +1,7 @@
-import { Suspense } from "react";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
+import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { MobileRealEstateHubTabs } from "../MobileRealEstateHubTabs";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
@@ -31,19 +29,9 @@ export default function MobileRealEstateHubPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonHome />}>
-      <RealEstateHubContent searchParams={searchParams} />
-    </Suspense>
-  );
-}
-
-async function RealEstateHubContent({
-  searchParams,
-}: {
-  searchParams: Promise<{ tab?: string }>;
-}) {
-  await connection();
-  const { tab } = await searchParams;
+    <MobileHubPage>
+      {async () => {
+        const { tab } = await searchParams;
 
   const validTabs = ["projects", "units", "land", "customers", "brokers", "rentals"];
   const activeTab = validTabs.includes(tab ?? "") ? tab! : "projects";
@@ -67,6 +55,9 @@ async function RealEstateHubContent({
     <MobileRealEstateHubTabs activeTab={activeTab}>
       {content}
     </MobileRealEstateHubTabs>
+  );
+      }}
+    </MobileHubPage>
   );
 }
 

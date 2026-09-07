@@ -6,7 +6,9 @@ import { toast } from "sonner";
 import {
   Plus, Pencil, Trash2, ShoppingCart, Tags, Download,
   Printer, FileSpreadsheet, ChevronDown, Ban,
+  ClipboardList, FileText, Undo2, Trophy, AlertCircle, Check,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useTabParam } from "@/lib/use-tab-param";
@@ -20,16 +22,19 @@ import { PurchaseOrderFormDialog } from "./purchase-order-form-dialog";
 import { PurchaseOrderDetailPanel } from "./purchase-order-detail-panel";
 import { SupplierPaymentFormDialog } from "./supplier-payment-form-dialog";
 import { DirectPurchaseFormDialog } from "./direct-purchase-form-dialog";
+import { RequisitionsView } from "@/components/requisitions/requisitions-view";
+import { SupplierReturnsView } from "@/components/supplier-returns/supplier-returns-view";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { downloadCSV, downloadExcel } from "@/lib/export";
 import type {
   SupplierRow, PurchaseOrderRow, MaterialRow, StockLocationRow,
   ProjectOption, MaterialOption, StockLocationOption, DirectPurchaseRow,
-  MaterialCategory,
+  MaterialCategory, RequisitionRow, SupplierReturnRow, QuotationRequestRow,
 } from "@/lib/types";
 
 export function ProcurementView({
-  suppliers, purchaseOrders, materials, locations, projects, directPurchases, categories, permissions,
+  suppliers, purchaseOrders, materials, locations, projects, directPurchases, categories,
+  requisitions, phases, supplierReturns, quotationRequests, reportIds, permissions,
 }: {
   suppliers: SupplierRow[];
   purchaseOrders: PurchaseOrderRow[];
@@ -38,15 +43,22 @@ export function ProcurementView({
   projects: ProjectOption[];
   directPurchases: DirectPurchaseRow[];
   categories: MaterialCategory[];
-  permissions?: { canCreate?: boolean; canApprove?: boolean; canManagePayments?: boolean };
+  requisitions?: RequisitionRow[];
+  phases?: { id: string; name: string; projectId: string }[];
+  supplierReturns?: SupplierReturnRow[];
+  quotationRequests?: QuotationRequestRow[];
+  reportIds?: Set<string>;
+  permissions?: { canCreate?: boolean; canApprove?: boolean; canManagePayments?: boolean; canApproveRequisitions?: boolean };
 }) {
   const [tab, setTab] = useTabParam(
-    ["purchase-orders", "suppliers", "direct-purchases"] as const,
+    ["purchase-orders", "indents", "quotations", "suppliers", "direct-purchases", "returns"] as const,
     "purchase-orders",
   );
   const canCreate = permissions?.canCreate ?? false;
   const canApprove = permissions?.canApprove ?? false;
   const canManagePayments = permissions?.canManagePayments ?? false;
+  const canApproveRequisitions = permissions?.canApproveRequisitions ?? false;
+  const canManage = canCreate;
 
   // Derive simplified option types for the cash-purchase dialog
   const materialOptions: MaterialOption[] = materials.map((m) => ({
@@ -65,22 +77,61 @@ export function ProcurementView({
           <TabsTrigger value="purchase-orders">
             <span className="flex items-center gap-1.5"><ShoppingCart className="h-3.5 w-3.5" /> Purchase Orders</span>
           </TabsTrigger>
+          <TabsTrigger value="indents">
+            <span className="flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5" /> Indents</span>
+          </TabsTrigger>
+          <TabsTrigger value="quotations">
+            <span className="flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" /> Quotations</span>
+          </TabsTrigger>
           <TabsTrigger value="suppliers">
             <span className="flex items-center gap-1.5"><Tags className="h-3.5 w-3.5" /> Suppliers</span>
           </TabsTrigger>
           <TabsTrigger value="direct-purchases">
             <span className="flex items-center gap-1.5"><ShoppingCart className="h-3.5 w-3.5" /> Cash Purchases</span>
           </TabsTrigger>
+          <TabsTrigger value="returns">
+            <span className="flex items-center gap-1.5"><Undo2 className="h-3.5 w-3.5" /> Returns</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="purchase-orders">
           <PurchaseOrdersTab purchaseOrders={purchaseOrders} suppliers={suppliers} materials={materials} locations={locations} projects={projects} categories={categories} canCreate={canCreate} canApprove={canApprove} canManagePayments={canManagePayments} />
+        </TabsContent>
+        <TabsContent value="indents">
+          {requisitions && phases ? (
+            <RequisitionsView
+              requisitions={requisitions}
+              projects={projects}
+              phases={phases}
+              materials={materialOptions}
+              suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
+              locations={locationOptions.map((l) => ({ id: l.id, name: l.name, type: l.type }))}
+              categories={categories.map((c) => ({ id: c.id, name: c.name, unit: c.unit }))}
+              permissions={{ canCreate, canApprove: canApproveRequisitions }}
+            />
+          ) : null}
+        </TabsContent>
+        <TabsContent value="quotations">
+          {quotationRequests ? (
+            <QuotationsTab requests={quotationRequests} reportIds={reportIds} />
+          ) : null}
         </TabsContent>
         <TabsContent value="suppliers">
           <SuppliersTab suppliers={suppliers} canManagePayments={canManagePayments} />
         </TabsContent>
         <TabsContent value="direct-purchases">
           <DirectPurchasesTab directPurchases={directPurchases} suppliers={suppliers} locations={locationOptions} materials={materialOptions} canCreate={canCreate} />
+        </TabsContent>
+        <TabsContent value="returns">
+          {supplierReturns ? (
+            <SupplierReturnsView
+              returns={supplierReturns}
+              suppliers={suppliers}
+              locations={locations}
+              materials={materials}
+              permissions={{ canCreate, canManage }}
+            />
+          ) : null}
         </TabsContent>
       </Tabs>
     </div>
@@ -915,5 +966,101 @@ function DirectPurchasesTab({
         </Dialog>
       )}
     </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────
+//  Quotations tab — read-only overview (management is mobile-first)
+// ───────────────────────────────────────────────────────────
+
+function QuotationsTab({
+  requests,
+  reportIds,
+}: {
+  requests: QuotationRequestRow[];
+  reportIds?: Set<string>;
+}) {
+  if (requests.length === 0) {
+    return (
+      <EmptyState
+        icon={<FileText className="h-5 w-5" />}
+        title="No quotation requests yet"
+        description="Quotation requests are created from the mobile app by the site team. They'll appear here once created."
+      />
+    );
+  }
+
+  const columns: Column<QuotationRequestRow>[] = [
+    { key: "requestNumber", label: "Request", render: (r) => (
+      <Link href={`/m/quotations?open=${r.id}`} className="block">
+        <p className="font-mono text-xs font-bold">{r.requestNumber}</p>
+        <p className="font-medium truncate max-w-[20rem]">{r.title}</p>
+      </Link>
+    ), sortValue: (r) => r.requestNumber },
+    { key: "projectName", label: "Project", render: (r) => <span className="text-muted-foreground">{r.projectName ?? "—"}</span>, sortValue: (r) => r.projectName ?? "" },
+    { key: "workActivity", label: "Work Activity", render: (r) => <span className="text-muted-foreground text-xs">{r.workActivity ?? "—"}</span>, sortValue: (r) => r.workActivity ?? "" },
+    { key: "requiredByDate", label: "Required By", render: (r) => r.requiredByDate ? (
+      <span className={new Date(r.requiredByDate) < new Date() ? "text-danger font-medium" : ""}>{formatDate(r.requiredByDate)}</span>
+    ) : <span className="text-muted-foreground">—</span>, sortValue: (r) => r.requiredByDate ?? "" },
+    { key: "submittedByName", label: "Submitted by", render: (r) => <span className="text-muted-foreground">{r.submittedByName ?? "—"}</span>, sortValue: (r) => r.submittedByName ?? "" },
+    { key: "quoteCount", label: "Quotes", render: (r) => {
+      const quotesMet = r.quoteCount >= r.minQuotesRequired;
+      return (
+        <span className={`inline-flex items-center gap-1 text-xs font-semibold ${quotesMet ? "text-green-600" : "text-amber-600"}`}>
+          {quotesMet ? <Check className="size-3" /> : <AlertCircle className="size-3" />}
+          {r.quoteCount}/{r.minQuotesRequired}
+        </span>
+      );
+    }, sortValue: (r) => r.quoteCount },
+    { key: "cheapestLandedTotal", label: "Cheapest", render: (r) => r.cheapestLandedTotal != null ? (
+      <span className="flex items-center justify-end gap-1 font-semibold text-green-600">
+        <Trophy className="size-3" />
+        {formatCurrency(r.cheapestLandedTotal)}
+      </span>
+    ) : <span className="text-muted-foreground">—</span>, sortValue: (r) => r.cheapestLandedTotal ?? 0 },
+    { key: "status", label: "Status", render: (r) => (
+      <div className="flex items-center gap-1.5">
+        <QuotationStatusBadge status={r.status} />
+        {reportIds?.has(r.submittedByUserCompanyId ?? "") ? (
+          <span className="text-xs font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">Your approval</span>
+        ) : null}
+        {r.convertedPoNumber ? (
+          <Link href={`/m/procurement/${r.convertedPoId}`} className="text-xs font-bold text-green-700">{r.convertedPoNumber}</Link>
+        ) : null}
+      </div>
+    ), sortValue: (r) => r.status },
+    { key: "createdAt", label: "Date", render: (r) => <span className="text-muted-foreground text-xs">{formatDate(r.createdAt)}</span>, sortValue: (r) => r.createdAt },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+        Quotation requests are created and managed on mobile (the site team collects quotes from suppliers).
+        This tab gives you an overview. Approval is done by the submitter&apos;s direct reporting manager.
+      </div>
+      <DataTable data={requests} columns={columns} />
+    </div>
+  );
+}
+
+function QuotationStatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    OPEN: "bg-gray-100 text-gray-700",
+    QUOTES_COLLECTED: "bg-blue-100 text-blue-700",
+    APPROVED: "bg-green-100 text-green-700",
+    CLOSED: "bg-gray-100 text-gray-500",
+    CANCELLED: "bg-red-100 text-red-700",
+  };
+  const labels: Record<string, string> = {
+    OPEN: "Open",
+    QUOTES_COLLECTED: "Quotes In",
+    APPROVED: "Approved",
+    CLOSED: "Closed",
+    CANCELLED: "Cancelled",
+  };
+  return (
+    <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded ${styles[status] ?? styles.OPEN}`}>
+      {labels[status] ?? status}
+    </span>
   );
 }

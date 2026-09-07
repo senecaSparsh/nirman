@@ -1,8 +1,7 @@
-import { Suspense } from "react";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
-import { getUserRole } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
+import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { MobileStockOutClient } from "./MobileStockOutClient";
 
 /**
@@ -29,43 +28,36 @@ export default function StockOutPage({
   searchParams: Promise<{ mode?: string; project?: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonDetail sections={4} />}>
-      <StockOutContent searchParams={searchParams} />
-    </Suspense>
-  );
-}
+    <MobileHubPage skeleton={<MobileSkeletonDetail sections={4} />}>
+      {async ({ role }) => {
+        const canTransfer = hasPermission(role, PERM.STOCK_TRANSFER);
+        const canIssue = hasPermission(role, PERM.STOCK_ISSUE);
 
-async function StockOutContent({
-  searchParams,
-}: {
-  searchParams: Promise<{ mode?: string; project?: string }>;
-}) {
-  const role = await getUserRole();
-  const canTransfer = hasPermission(role, PERM.STOCK_TRANSFER);
-  const canIssue = hasPermission(role, PERM.STOCK_ISSUE);
+        if (!canTransfer && !canIssue) {
+          return (
+            <MobileNoAccess what="move stock out" permission="stock.transfer or stock.issue" />
+          );
+        }
 
-  if (!canTransfer && !canIssue) {
-    return (
-      <MobileNoAccess what="move stock out" permission="stock.transfer or stock.issue" />
-    );
-  }
+        const params = await searchParams;
+        const initialMode: "transfer" | "issue" =
+          params.mode === "issue" && canIssue
+            ? "issue"
+            : params.mode === "transfer" && canTransfer
+              ? "transfer"
+              : canTransfer
+                ? "transfer"
+                : "issue";
 
-  const params = await searchParams;
-  const initialMode: "transfer" | "issue" =
-    params.mode === "issue" && canIssue
-      ? "issue"
-      : params.mode === "transfer" && canTransfer
-        ? "transfer"
-        : canTransfer
-          ? "transfer"
-          : "issue";
-
-  return (
-    <MobileStockOutClient
-      canTransfer={canTransfer}
-      canIssue={canIssue}
-      initialMode={initialMode}
-      initialProjectId={params.project ?? ""}
-    />
+        return (
+          <MobileStockOutClient
+            canTransfer={canTransfer}
+            canIssue={canIssue}
+            initialMode={initialMode}
+            initialProjectId={params.project ?? ""}
+          />
+        );
+      }}
+    </MobileHubPage>
   );
 }

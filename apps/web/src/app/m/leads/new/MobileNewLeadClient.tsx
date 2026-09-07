@@ -7,7 +7,8 @@ import { ArrowLeft, ContactRound, FolderOpen } from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileProjectSelect } from "@/components/mobile/selectors";
-import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { SectionCard, UnderlineInput, EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { useMobileBack } from "@/components/mobile/v2/mobile-back-button";
 
 const SOURCES = [
   ["PORTAL", "Property portal"],
@@ -59,6 +60,7 @@ export function MobileNewLeadClient({
   onCreated?: (lead: { id: string }) => void;
 }) {
   const router = useRouter();
+  const goBack = useMobileBack("/m/leads");
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -128,21 +130,18 @@ export function MobileNewLeadClient({
     }
   }
 
-  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "block text-m-caption font-bold mb-0";
-  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
     <div className="pb-32">
       {/* Header */}
       <div className="flex items-center gap-1 mb-3">
         <button
-          onClick={() => (onClose ? onClose() : router.back())}
+          onClick={() => (onClose ? onClose() : goBack())}
           className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
           style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
         >
@@ -164,58 +163,43 @@ export function MobileNewLeadClient({
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {/* Contact */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Contact
-          </p>
-          <div>
-            <label className={labelClass} style={labelStyle}>Name *</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
-              placeholder="Lead name"
-              className={inputClass}
-              style={inputStyle}
+        <SectionCard title="Contact">
+          <UnderlineInput
+            label="Name"
+            value={form.name}
+            onChange={(v) => set("name", v)}
+            placeholder="Lead name"
+            required
+            autoFocus
+          />
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <UnderlineInput
+              label="Phone"
+              value={form.phone}
+              onChange={(v) => set("phone", v)}
+              placeholder="9876543210"
+              type="tel"
+              inputMode="tel"
               required
             />
-          </div>
-          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <label className={labelClass} style={labelStyle}>Phone *</label>
-              <input
-                type="tel"
-                value={form.phone}
-                onChange={(e) => set("phone", e.target.value)}
-                placeholder="9876543210"
-                inputMode="tel"
-                className={inputClass}
-                style={inputStyle}
-                required
-              />
-            </div>
             <div className="pl-2">
-              <label className={labelClass} style={labelStyle}>Email</label>
-              <input
-                type="email"
+              <UnderlineInput
+                label="Email"
                 value={form.email}
-                onChange={(e) => set("email", e.target.value)}
+                onChange={(v) => set("email", v)}
                 placeholder="lead@email.com"
-                className={inputClass}
-                style={inputStyle}
+                type="email"
               />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <EnumSelect
-                label="Source"
-                value={form.source}
-                onChange={(v) => set("source", v)}
-                required
-                options={SOURCES.map(([v, l]) => ({ value: v, label: l }))}
-              />
-            </div>
+            <EnumSelect
+              label="Source"
+              value={form.source}
+              onChange={(v) => set("source", v)}
+              required
+              options={SOURCES.map(([v, l]) => ({ value: v, label: l }))}
+            />
             <div className="pl-2">
               <EnumSelect
                 label="Priority"
@@ -225,32 +209,25 @@ export function MobileNewLeadClient({
               />
             </div>
           </div>
-        </div>
+        </SectionCard>
 
         {/* Project Interest */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Project Interest
-          </p>
-          <div>
-            <MobileProjectSelect
-              value={form.projectId}
-              onChange={(v) => set("projectId", v)}
-              options={projects.map((p) => ({ value: p.id, label: p.name }))}
-              placeholder="Any project"
-              icon={FolderOpen}
-            />
-          </div>
+        <SectionCard title="Project Interest">
+          <MobileProjectSelect
+            value={form.projectId}
+            onChange={(v) => set("projectId", v)}
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            placeholder="Any project"
+            icon={FolderOpen}
+          />
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <MobileSelectWithCreate
-                label="Interested unit"
-                value={form.interestedUnitId}
-                onChange={(v) => set("interestedUnitId", v)}
-                options={filteredUnits.map((u) => ({ value: u.id, label: `${u.projectName} · ${u.label}` }))}
-                placeholder="Not decided"
-              />
-            </div>
+            <MobileSelectWithCreate
+              label="Interested unit"
+              value={form.interestedUnitId}
+              onChange={(v) => set("interestedUnitId", v)}
+              options={filteredUnits.map((u) => ({ value: u.id, label: `${u.projectName} · ${u.label}` }))}
+              placeholder="Not decided"
+            />
             <div className="pl-2">
               <EnumSelect
                 label="Unit type"
@@ -260,71 +237,55 @@ export function MobileNewLeadClient({
               />
             </div>
           </div>
-        </div>
+        </SectionCard>
 
         {/* Budget & Assignment */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Budget & Assignment
-          </p>
+        <SectionCard title="Budget & Assignment">
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <label className={labelClass} style={labelStyle}>Budget from (₹)</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                inputMode="decimal"
-                value={form.budgetMin}
-                onChange={(e) => set("budgetMin", e.target.value)}
-                placeholder="0"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-            <div className="pl-2">
-              <label className={labelClass} style={labelStyle}>Budget to (₹)</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                inputMode="decimal"
-                value={form.budgetMax}
-                onChange={(e) => set("budgetMax", e.target.value)}
-                placeholder="0"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-          <div>
-            <MobileSelectWithCreate
-              label="Owner (assigned to)"
-              value={form.assignedToId}
-              onChange={(v) => set("assignedToId", v)}
-              options={assignees.map((a) => ({ value: a.id, label: a.name }))}
-              placeholder="Unassigned"
+            <UnderlineInput
+              label="Budget from (₹)"
+              value={form.budgetMin}
+              onChange={(v) => set("budgetMin", v)}
+              placeholder="0"
+              type="number"
+              min="0"
+              step="0.01"
+              inputMode="decimal"
             />
+            <div className="pl-2">
+              <UnderlineInput
+                label="Budget to (₹)"
+                value={form.budgetMax}
+                onChange={(v) => set("budgetMax", v)}
+                placeholder="0"
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+              />
+            </div>
           </div>
-        </div>
+          <MobileSelectWithCreate
+            label="Owner (assigned to)"
+            value={form.assignedToId}
+            onChange={(v) => set("assignedToId", v)}
+            options={assignees.map((a) => ({ value: a.id, label: a.name }))}
+            placeholder="Unassigned"
+          />
+        </SectionCard>
 
         {/* Follow-up & Notes */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Follow-up & Notes
-          </p>
+        <SectionCard title="Follow-up & Notes">
+          <UnderlineInput
+            label="Next follow-up"
+            value={form.nextFollowUpAt}
+            onChange={(v) => set("nextFollowUpAt", v)}
+            type="datetime-local"
+          />
           <div>
-            <label className={labelClass} style={labelStyle}>Next follow-up</label>
-            <input
-              type="datetime-local"
-              value={form.nextFollowUpAt}
-              onChange={(e) => set("nextFollowUpAt", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <label className={labelClass} style={labelStyle}>Notes</label>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Notes
+            </label>
             <textarea
               rows={3}
               value={form.notes}
@@ -334,7 +295,7 @@ export function MobileNewLeadClient({
               style={inputStyle}
             />
           </div>
-        </div>
+        </SectionCard>
 
         {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
         <div
@@ -347,7 +308,7 @@ export function MobileNewLeadClient({
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => (onClose ? onClose() : router.back())}
+              onClick={() => (onClose ? onClose() : goBack())}
               disabled={saving}
               className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
               style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}

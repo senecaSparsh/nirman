@@ -201,7 +201,7 @@ export function MaterialCockpit({ data, suppliers, locations }: { data: Material
               <p className="text-body font-medium text-danger">Below reorder point</p>
               <p className="text-caption text-muted-foreground">
                 Total stock ({formatNumber(totalQty, 3)} {material.unit}) is at or below the reorder level ({formatNumber(material.reorderPoint, 3)} {material.unit}).
-                <Link href="/requisitions" className="ml-1 font-medium text-brand hover:underline">Create an indent →</Link>
+                <Link href="/procurement?tab=indents" className="ml-1 font-medium text-brand hover:underline">Create an indent →</Link>
               </p>
             </div>
           </div>
@@ -330,7 +330,7 @@ function OverviewTab({ data }: { data: MaterialCockpitData; totalQty: number; to
         <div>
           <h2 className="mb-3 text-label text-muted-foreground">Quick Actions</h2>
           <div className="space-y-1">
-            <ActionLink href="/requisitions" label="Create Indent" icon={<ClipboardList className="h-3.5 w-3.5" />} />
+            <ActionLink href="/procurement?tab=indents" label="Create Indent" icon={<ClipboardList className="h-3.5 w-3.5" />} />
             <ActionLink href="/procurement" label="Create Purchase Order" icon={<ShoppingCart className="h-3.5 w-3.5" />} />
             <ActionLink href="/stock?tab=issues" label="Issue to Project" icon={<Package className="h-3.5 w-3.5" />} />
             <ActionLink href="/stock?tab=transfers" label="Transfer Stock" icon={<ArrowRight className="h-3.5 w-3.5" />} />
@@ -466,14 +466,14 @@ function ProcurementTab({ data }: { data: MaterialCockpitData }) {
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-label text-muted-foreground">Open Indents</h2>
-          <Link href="/requisitions"><Button size="sm" variant="outline"><Plus className="h-4 w-4" /> New Indent</Button></Link>
+          <Link href="/procurement?tab=indents"><Button size="sm" variant="outline"><Plus className="h-4 w-4" /> New Indent</Button></Link>
         </div>
         {data.openRequisitions.length === 0 ? (
           <EmptyState icon={<ClipboardList className="h-5 w-5" />} title="No open indents" description="Material indents requesting this item will appear here." />
         ) : (
           <div className="divide-y divide-border rounded-lg border border-border">
             {data.openRequisitions.map((r) => (
-              <Link key={r.reqId} href="/requisitions" className="flex items-center gap-4 px-4 py-3 text-body transition-colors hover:bg-muted/30">
+              <Link key={r.reqId} href="/procurement?tab=indents" className="flex items-center gap-4 px-4 py-3 text-body transition-colors hover:bg-muted/30">
                 <span className="w-28 shrink-0 font-mono text-caption font-medium text-foreground">{r.reqNumber}</span>
                 <span className="min-w-0 flex-1 truncate font-medium text-foreground">{r.projectName ?? "Company"}</span>
                 <StatusPill status={r.status} />

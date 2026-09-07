@@ -19,6 +19,7 @@ import { MobileDocUploader } from "../../MobileDocUploader";
 import { AttachmentList } from "@/components/attachments/attachment-list";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import { mobileStatusColor, ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { DetailKeyValue, DetailAlertBanner } from "@/components/mobile/v2/detail-primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { useConfirm } from "@/lib/use-confirm";
@@ -885,51 +886,27 @@ export function MobileLandDetailClient({
             <div className="rounded-[0.375rem] border p-2 space-y-0.5"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}>
               <p className="text-m-caption font-bold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>Cost Breakup</p>
-              <div className="flex justify-between text-m-caption">
-                <span style={{ color: "var(--color-ink-500)" }}>Base</span>
-                <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.baseCost)}</strong>
-              </div>
+              <DetailKeyValue label="Base" value={formatCurrency(data.baseCost)} />
               {data.leaseRentAmount != null && data.leaseRentAmount > 0 && (
-                <div className="flex justify-between text-m-caption">
-                  <span style={{ color: "var(--color-ink-500)" }}>Rent ({data.leaseRentPercent}%)</span>
-                  <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.leaseRentAmount)}</strong>
-                </div>
+                <DetailKeyValue label={`Rent (${data.leaseRentPercent}%)`} value={formatCurrency(data.leaseRentAmount)} />
               )}
               {data.gstAmount != null && data.gstAmount > 0 && (
-                <div className="flex justify-between text-m-caption">
-                  <span style={{ color: "var(--color-ink-500)" }}>GST ({data.gstPercent}%)</span>
-                  <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.gstAmount)}</strong>
-                </div>
+                <DetailKeyValue label={`GST (${data.gstPercent}%)`} value={formatCurrency(data.gstAmount)} />
               )}
               {data.registrationAmount != null && data.registrationAmount > 0 && (
-                <div className="flex justify-between text-m-caption">
-                  <span style={{ color: "var(--color-ink-500)" }}>Registration ({data.registrationPercent}%)</span>
-                  <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.registrationAmount)}</strong>
-                </div>
+                <DetailKeyValue label={`Registration (${data.registrationPercent}%)`} value={formatCurrency(data.registrationAmount)} />
               )}
               {data.stampDutyAmount != null && data.stampDutyAmount > 0 && (
-                <div className="flex justify-between text-m-caption">
-                  <span style={{ color: "var(--color-ink-500)" }}>Stamp Duty ({data.stampDutyPercent}%)</span>
-                  <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.stampDutyAmount)}</strong>
-                </div>
+                <DetailKeyValue label={`Stamp Duty (${data.stampDutyPercent}%)`} value={formatCurrency(data.stampDutyAmount)} />
               )}
               {data.brokerageAmount != null && data.brokerageAmount > 0 && (
-                <div className="flex justify-between text-m-caption">
-                  <span style={{ color: "var(--color-ink-500)" }}>Brokerage</span>
-                  <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.brokerageAmount)}</strong>
-                </div>
+                <DetailKeyValue label="Brokerage" value={formatCurrency(data.brokerageAmount)} />
               )}
               {data.legalFees != null && data.legalFees > 0 && (
-                <div className="flex justify-between text-m-caption">
-                  <span style={{ color: "var(--color-ink-500)" }}>Legal Fees</span>
-                  <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.legalFees)}</strong>
-                </div>
+                <DetailKeyValue label="Legal Fees" value={formatCurrency(data.legalFees)} />
               )}
               {data.otherCharges != null && data.otherCharges > 0 && (
-                <div className="flex justify-between text-m-caption">
-                  <span style={{ color: "var(--color-ink-500)" }}>Other Charges</span>
-                  <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums text-right">{formatCurrency(data.otherCharges)}</strong>
-                </div>
+                <DetailKeyValue label="Other Charges" value={formatCurrency(data.otherCharges)} />
               )}
               {/* Cost components — arbitrary / recurring / future costs */}
               {data.costComponents?.map((c) => (
@@ -2723,14 +2700,11 @@ function DeleteSheet({
 }) {
   return (
     <BottomSheet title={`Delete ${parcel.number}?`} onClose={onClose}>
-      <div className="rounded-[0.625rem] border p-3 mb-3" style={{ borderColor: "var(--color-stop)", backgroundColor: `color-mix(in srgb, var(--color-stop) 5%, transparent)` }}>
-        <p className="text-m-label" style={{ color: "var(--color-ink-700)" }}>
-          Parcel <span className="font-bold font-mono">{parcel.number}</span> will be permanently deleted.
-        </p>
-        <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
-          Only available for AVAILABLE or HOLD parcels with no sales.
-        </p>
-      </div>
+      <DetailAlertBanner
+        tone="danger"
+        title={`Parcel ${parcel.number} will be permanently deleted.`}
+        description="Only available for AVAILABLE or HOLD parcels with no sales."
+      />
       <div className="flex flex-col gap-2">
         <button
           onClick={onClose}

@@ -8,6 +8,7 @@ import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 
 interface FormState {
   workType: string;
@@ -111,36 +112,20 @@ export function MobileNewStandardConsumptionForm({
   };
   const labelClass = "block text-m-caption font-bold mb-0";
   const labelStyle = { color: "var(--color-ink-700)" };
-  const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
-  const sectionStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
-  };
-  const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
-  const sectionTitleStyle = { color: "var(--color-ink-950)" };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       {/* Details */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Details
-        </p>
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Work Type <span style={{ color: "var(--color-stop)" }}>*</span>
-          </label>
-          <input
-            type="text"
-            value={form.workType}
-            onChange={(e) => set("workType", e.target.value)}
-            placeholder="e.g. Foundation, Plastering"
-            autoFocus
-            enterKeyHint="next"
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
+      <SectionCard title="Details">
+        <UnderlineInput
+          label="Work Type"
+          value={form.workType}
+          onChange={(v) => set("workType", v)}
+          placeholder="e.g. Foundation, Plastering"
+          required
+          autoFocus
+          enterKeyHint="next"
+        />
         <MobileSelectWithCreate
           label="Material"
           required
@@ -164,71 +149,52 @@ export function MobileNewStandardConsumptionForm({
             />
           )}
         />
-      </div>
+      </SectionCard>
 
       {/* Consumption */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Consumption
-        </p>
+      <SectionCard title="Consumption">
         <div
           className="grid grid-cols-3 gap-2 divide-x"
           style={{ borderColor: "var(--color-line)" }}
         >
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Std Qty <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="number"
-              min={0.001}
-              step="any"
-              value={form.standardQty}
-              onChange={(e) => set("standardQty", e.target.value)}
-              placeholder="e.g. 1.5"
-              inputMode="decimal"
-              className={`${inputClass} tabular-nums`}
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Base Qty
-            </label>
-            <input
-              type="number"
-              min={0.001}
-              step="any"
+          <UnderlineInput
+            label="Std Qty"
+            value={form.standardQty}
+            onChange={(v) => set("standardQty", v)}
+            placeholder="e.g. 1.5"
+            type="number"
+            min="0.001"
+            step="any"
+            inputMode="decimal"
+            required
+          />
+          <div className="pl-2">
+            <UnderlineInput
+              label="Base Qty"
               value={form.baseQty}
-              onChange={(e) => set("baseQty", e.target.value)}
+              onChange={(v) => set("baseQty", v)}
               placeholder="1"
+              type="number"
+              min="0.001"
+              step="any"
               inputMode="decimal"
-              className={`${inputClass} tabular-nums`}
-              style={inputStyle}
             />
           </div>
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Unit <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="text"
+          <div className="pl-2">
+            <UnderlineInput
+              label="Unit"
               value={form.unitOfMeasure}
-              onChange={(e) => set("unitOfMeasure", e.target.value)}
+              onChange={(v) => set("unitOfMeasure", v)}
               placeholder="SQM"
+              required
               enterKeyHint="next"
-              className={inputClass}
-              style={inputStyle}
             />
           </div>
         </div>
-      </div>
+      </SectionCard>
 
       {/* Notes */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Notes
-        </p>
+      <SectionCard title="Notes">
         <div>
           <label className={labelClass} style={labelStyle}>
             Notes (optional)
@@ -242,7 +208,7 @@ export function MobileNewStandardConsumptionForm({
             style={inputStyle}
           />
         </div>
-      </div>
+      </SectionCard>
 
       {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
       <div

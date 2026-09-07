@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { SectionCard, UnderlineInput, StickyActionBar } from "@/components/mobile/v2/form-primitives";
 
 interface BoqItemOption {
   id: string;
@@ -116,24 +117,11 @@ export function MobileNewMbEntryDialog({
     }
   }
 
-  const inputClass =
-    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
-  const inputStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "transparent",
-    color: "var(--color-ink-950)",
-  };
-  const labelClass = "block text-m-caption font-bold mb-0";
-  const labelStyle = { color: "var(--color-ink-700)" };
-
   return (
     <MobileDialog open={open} onClose={onClose} title="New MB Entry">
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Entry Details */}
-          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              Entry Details
-            </p>
+          <SectionCard title="Entry Details">
             {/* BOQ Item */}
             <MobileSelectWithCreate
               label="BOQ Line Item"
@@ -176,36 +164,27 @@ export function MobileNewMbEntryDialog({
                 </p>
               )}
             </div>
-          </div>
+          </SectionCard>
 
           {/* Measurement */}
-          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              Measurement
-            </p>
+          <SectionCard title="Measurement">
             {/* Measured Qty + Unit display */}
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Measured Qty{" "}
-                  <span style={{ color: "var(--color-stop)" }}>*</span>
-                </label>
-                <input
-                  type="number"
-                  min={0.001}
-                  step="any"
-                  value={form.measuredQty}
-                  onChange={(e) => set("measuredQty", e.target.value)}
-                  placeholder="0"
-                  inputMode="decimal"
-                  autoFocus={!!form.boqItemId}
-                  enterKeyHint="next"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
+              <UnderlineInput
+                label="Measured Qty"
+                required
+                type="number"
+                min={0.001}
+                step="any"
+                value={form.measuredQty}
+                onChange={(v) => set("measuredQty", v)}
+                placeholder="0"
+                inputMode="decimal"
+                autoFocus={!!form.boqItemId}
+                enterKeyHint="next"
+              />
               <div className="pl-2">
-                <label className={labelClass} style={labelStyle}>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Unit
                 </label>
                 <div
@@ -224,61 +203,33 @@ export function MobileNewMbEntryDialog({
             </div>
 
             {/* Description */}
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Description <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={form.description}
-                onChange={(e) => set("description", e.target.value)}
-                placeholder="e.g. PCC for foundation, 1st floor slab casting"
-                enterKeyHint="next"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
+            <UnderlineInput
+              label="Description"
+              required
+              value={form.description}
+              onChange={(v) => set("description", v)}
+              placeholder="e.g. PCC for foundation, 1st floor slab casting"
+              enterKeyHint="next"
+            />
 
             {/* Location Ref */}
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Location Reference (optional)
-              </label>
-              <input
-                type="text"
-                value={form.locationRef}
-                onChange={(e) => set("locationRef", e.target.value)}
-                placeholder="e.g. Grid A-3, Wing B, Plot 7"
-                enterKeyHint="done"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-          </div>
+            <UnderlineInput
+              label="Location Reference (optional)"
+              value={form.locationRef}
+              onChange={(v) => set("locationRef", v)}
+              placeholder="e.g. Grid A-3, Wing B, Plot 7"
+              enterKeyHint="done"
+            />
+          </SectionCard>
 
           {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
-          <div
-            className="sticky bottom-0 left-0 right-0 z-20 border-t"
-            style={{
-              backgroundColor: "var(--color-paper)",
-              borderColor: "var(--color-line)",
-            }}
-          >
-            <div className="px-3.5 py-2 flex items-center justify-end gap-3">
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
-                style={{
-                  backgroundColor: "var(--color-ink-950)",
-                  color: "var(--color-paper)",
-                }}
-              >
-                {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-                {saving ? "Adding…" : "Add Entry"}
-              </button>
-            </div>
-          </div>
+          <StickyActionBar
+            summaryLabel=""
+            summaryValue=""
+            submitLabel="Add Entry"
+            onSubmit={() => handleSubmit({ preventDefault: () => {} } as React.FormEvent)}
+            submitting={saving}
+          />
         </form>
     </MobileDialog>
   );

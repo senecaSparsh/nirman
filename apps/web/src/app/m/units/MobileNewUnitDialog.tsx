@@ -9,7 +9,7 @@ import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCrea
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
-import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { SectionCard, UnderlineInput, EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type UnitType =
   | "BHK_1"
@@ -237,13 +237,6 @@ export function MobileNewUnitForm({
   };
   const labelClass = "block text-m-caption font-bold mb-0";
   const labelStyle = { color: "var(--color-ink-700)" };
-  const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
-  const sectionStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
-  };
-  const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
-  const sectionTitleStyle = { color: "var(--color-ink-950)" };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -277,11 +270,7 @@ export function MobileNewUnitForm({
       </div>
 
       {/* Details */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Details
-        </p>
-
+      <SectionCard title="Details">
         {/* Project */}
         <MobileSelectWithCreate
           label="Project"
@@ -321,37 +310,27 @@ export function MobileNewUnitForm({
 
             {/* Prefix + Start No */}
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Number Prefix
-                </label>
-                <input
-                  type="text"
-                  value={genPrefix}
-                  onChange={(e) => setGenPrefix(e.target.value)}
-                  placeholder="SHOP-"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Start No.
-                </label>
-                <input
-                  type="number"
+              <UnderlineInput
+                label="Number Prefix"
+                value={genPrefix}
+                onChange={setGenPrefix}
+                placeholder="SHOP-"
+              />
+              <div className="pl-2">
+                <UnderlineInput
+                  label="Start No."
                   value={genStart}
-                  onChange={(e) => setGenStart(e.target.value)}
+                  onChange={setGenStart}
                   placeholder="1"
+                  type="number"
                   inputMode="numeric"
-                  className={inputClass}
-                  style={inputStyle}
                 />
               </div>
             </div>
 
             {/* Count + Units per floor */}
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              {/* Count has required indicator — stays inline */}
               <div>
                 <label className={labelClass} style={labelStyle}>
                   Count <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -366,18 +345,14 @@ export function MobileNewUnitForm({
                   style={inputStyle}
                 />
               </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Units / Floor
-                </label>
-                <input
-                  type="number"
+              <div className="pl-2">
+                <UnderlineInput
+                  label="Units / Floor"
                   value={genUnitsPerFloor}
-                  onChange={(e) => setGenUnitsPerFloor(e.target.value)}
+                  onChange={setGenUnitsPerFloor}
                   placeholder="0 = no auto-floor"
+                  type="number"
                   inputMode="numeric"
-                  className={inputClass}
-                  style={inputStyle}
                 />
               </div>
             </div>
@@ -404,6 +379,7 @@ export function MobileNewUnitForm({
           <>
             {/* Unit Number + Type */}
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              {/* Unit Number has required indicator — stays inline */}
               <div>
                 <label className={labelClass} style={labelStyle}>
                   Unit Number{" "}
@@ -433,38 +409,28 @@ export function MobileNewUnitForm({
 
             {/* Floor + Wing */}
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Floor
-                </label>
-                <input
-                  type="number"
-                  value={form.floor}
-                  onChange={(e) => set("floor", e.target.value)}
-                  placeholder="e.g. 1"
-                  inputMode="numeric"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Wing / Section
-                </label>
-                <input
-                  type="text"
+              <UnderlineInput
+                label="Floor"
+                value={form.floor}
+                onChange={(v) => set("floor", v)}
+                placeholder="e.g. 1"
+                type="number"
+                inputMode="numeric"
+              />
+              <div className="pl-2">
+                <UnderlineInput
+                  label="Wing / Section"
                   value={form.wing}
-                  onChange={(e) => set("wing", e.target.value)}
+                  onChange={(v) => set("wing", v)}
                   placeholder="e.g. A"
                   enterKeyHint="next"
-                  className={inputClass}
-                  style={inputStyle}
                 />
               </div>
             </div>
 
             {/* Area + Unit */}
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              {/* Area has required indicator — stays inline */}
               <div>
                 <label className={labelClass} style={labelStyle}>
                   Area <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -493,102 +459,70 @@ export function MobileNewUnitForm({
             </div>
           </>
         )}
-      </div>
+      </SectionCard>
 
       {/* Pricing */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Pricing
-        </p>
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Asking Price (₹)
-          </label>
-          <input
-            type="number"
-            min={0}
-            step="any"
-            value={form.askingPrice}
-            onChange={(e) => set("askingPrice", e.target.value)}
-            placeholder="0"
-            inputMode="numeric"
-            enterKeyHint="done"
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
-      </div>
+      <SectionCard title="Pricing">
+        <UnderlineInput
+          label="Asking Price (₹)"
+          value={form.askingPrice}
+          onChange={(v) => set("askingPrice", v)}
+          placeholder="0"
+          type="number"
+          min="0"
+          step="any"
+          inputMode="numeric"
+          enterKeyHint="done"
+        />
+      </SectionCard>
 
       {/* RERA Areas (optional) */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          RERA Areas (optional)
-        </p>
+      <SectionCard title="RERA Areas (optional)">
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Carpet Area
-            </label>
-            <input
-              type="number"
-              min={0}
-              step="any"
-              value={form.carpetArea}
-              onChange={(e) => set("carpetArea", e.target.value)}
-              placeholder="0"
-              inputMode="decimal"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Super Built-Up
-            </label>
-            <input
-              type="number"
-              min={0}
-              step="any"
+          <UnderlineInput
+            label="Carpet Area"
+            value={form.carpetArea}
+            onChange={(v) => set("carpetArea", v)}
+            placeholder="0"
+            type="number"
+            min="0"
+            step="any"
+            inputMode="decimal"
+          />
+          <div className="pl-2">
+            <UnderlineInput
+              label="Super Built-Up"
               value={form.superBuiltUpArea}
-              onChange={(e) => set("superBuiltUpArea", e.target.value)}
+              onChange={(v) => set("superBuiltUpArea", v)}
               placeholder="0"
+              type="number"
+              min="0"
+              step="any"
               inputMode="decimal"
-              className={inputClass}
-              style={inputStyle}
             />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Balcony Area
-            </label>
-            <input
-              type="number"
-              min={0}
-              step="any"
-              value={form.balconyArea}
-              onChange={(e) => set("balconyArea", e.target.value)}
-              placeholder="0"
-              inputMode="decimal"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Clear Height
-            </label>
-            <input
-              type="number"
-              min={0}
-              step="any"
+          <UnderlineInput
+            label="Balcony Area"
+            value={form.balconyArea}
+            onChange={(v) => set("balconyArea", v)}
+            placeholder="0"
+            type="number"
+            min="0"
+            step="any"
+            inputMode="decimal"
+          />
+          <div className="pl-2">
+            <UnderlineInput
+              label="Clear Height"
               value={form.clearHeight}
-              onChange={(e) => set("clearHeight", e.target.value)}
+              onChange={(v) => set("clearHeight", v)}
               placeholder="0"
+              type="number"
+              min="0"
+              step="any"
               inputMode="decimal"
-              className={inputClass}
-              style={inputStyle}
             />
           </div>
         </div>
@@ -604,7 +538,7 @@ export function MobileNewUnitForm({
           />
           Has Loading Dock
         </label>
-      </div>
+      </SectionCard>
 
       {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
       <div

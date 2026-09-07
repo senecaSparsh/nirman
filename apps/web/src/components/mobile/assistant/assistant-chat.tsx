@@ -90,7 +90,9 @@ export function AssistantChat({
       try {
         const saved = sessionStorage.getItem("sahayak-messages");
         if (saved) return JSON.parse(saved);
-      } catch {}
+      } catch (err) {
+        console.warn("Failed to read sahayak messages from sessionStorage:", err);
+      }
     }
     return [
       {
@@ -117,7 +119,9 @@ export function AssistantChat({
   useEffect(() => {
     try {
       sessionStorage.setItem("sahayak-messages", JSON.stringify(messages.slice(-20)));
-    } catch {}
+    } catch (err) {
+      console.warn("Failed to save sahayak messages to sessionStorage:", err);
+    }
   }, [messages]);
 
   // ── Auto-scroll to bottom on new message ──

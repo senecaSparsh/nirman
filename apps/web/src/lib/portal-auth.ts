@@ -45,7 +45,8 @@ export function verifyPortalCookie(value: string): string | null {
   if (signature.length !== expected.length) return null;
   try {
     if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
-  } catch {
+  } catch (err) {
+    console.error("Portal signature verification failed:", err);
     return null;
   }
   return customerId;

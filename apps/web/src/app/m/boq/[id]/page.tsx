@@ -1,20 +1,18 @@
-import { Suspense } from "react";
 import Link from "next/link";
-import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { hasPermission, PERM } from "@/lib/roles";
+import { toNum } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import {
-  MobileNoAccess,
   MobileEmptyState,
   MobileStatusBadge,
   SectionHead,
 } from "@/components/mobile/v2/primitives";
-import { ListTree, Package, IndianRupee, BookOpen } from "lucide-react";
+import { DetailHeroCard, DetailStatGrid, DetailKeyValueCard } from "@/components/mobile/v2/detail-primitives";
+import { ListTree, Package, IndianRupee, BookOpen, type LucideIcon } from "lucide-react";
 import { MobileBoqActions } from "./MobileBoqActions";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
+import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 
 export const metadata = { title: "BOQ Item — Nirman" };
 
@@ -24,28 +22,16 @@ export default function MobileBoqDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonDetail sections={5} />}>
-      <MobileBoqDetailContent params={params} />
-    </Suspense>
-  );
-}
-
-async function MobileBoqDetailContent({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  await connection();
-  const role = await getUserRole();
-  const company = await getCompany();
-
-  if (!hasPermission(role, PERM.BOQ_VIEW)) {
-    return <MobileNoAccess what="BOQ item details" permission={PERM.BOQ_VIEW} />;
-  }
-
-  const { id } = await params;
-
-  const item = await prisma.boqItem.findFirst({
+    <MobileDetailPage
+      params={params}
+      perm={PERM.BOQ_VIEW}
+      what="BOQ item details"
+      permission={PERM.BOQ_VIEW}
+      managePerm={PERM.BOQ_MANAGE}
+      skeletonSections={5}
+    >
+      {async ({ id, company, canManage }) => {
+        const item = await prisma.boqItem.findFirst({
     where: { id, project: { companyId: company.id } },
     include: {
       project: { select: { id: true, name: true } },
@@ -93,7 +79,31 @@ async function MobileBoqDetailContent({
   const variance = estimatedQty != null ? actualQty - estimatedQty : null;
   const variancePct = estimatedQty != null && estimatedQty > 0 ? (variance! / estimatedQty) * 100 : null;
 
-  const canManage = hasPermission(role, PERM.BOQ_MANAGE);
+  // Build stat grid entries (conditional on non-null values)
+  const estStats: { label: string; value: string; tone?: "default" | "go" | "stop" | "signal"; icon?: LucideIcon }[] = [];
+  if (estimatedQty != null) {
+    estStats.push({ label: "Est. Qty", value: `${formatNumber(estimatedQty, 3)} ${item.unit ?? ""}`, tone: "go", icon: Package });
+  }
+  if (rate != null) {
+    estStats.push({ label: "Rate", value: formatCurrencyCompact(rate), icon: IndianRupee });
+  }
+  if (estimatedAmount != null) {
+    estStats.push({ label: "Est. Amount", value: formatCurrencyCompact(estimatedAmount), tone: "signal", icon: IndianRupee });
+  }
+
+  // Build variance entries (conditional on non-null values)
+  const varianceEntries: { label: string; value: string }[] = [
+    { label: "Actual Qty (approved)", value: `${formatNumber(actualQty, 3)} ${item.unit ?? ""}` },
+  ];
+  if (estimatedQty != null) {
+    varianceEntries.push({ label: "Estimated Qty", value: `${formatNumber(estimatedQty, 3)} ${item.unit ?? ""}` });
+  }
+  if (variance != null) {
+    varianceEntries.push({ label: "Variance", value: `${variance >= 0 ? "+" : ""}${formatNumber(variance, 3)} ${item.unit ?? ""}` });
+  }
+  if (variancePct != null) {
+    varianceEntries.push({ label: "Variance %", value: `${variancePct >= 0 ? "+" : ""}${formatNumber(variancePct, 1)}%` });
+  }
 
   return (
     <PageContextProvider value={{
@@ -104,45 +114,24 @@ async function MobileBoqDetailContent({
     }}>
     <div className="flex flex-col gap-4 pb-20">
       {/* Header card */}
-      <div
-        className="rounded-[0.625rem] border p-3"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      <DetailHeroCard
+        icon={ListTree}
+        title={item.description}
+        subtitle={`${item.serialNo} · ${item.project.name}${item.phase ? ` · ${item.phase.name}` : ""}`}
+        status={item.type.replace(/_/g, " ")}
       >
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-            {item.serialNo}
-          </p>
-          <MobileStatusBadge status={item.type.replace(/_/g, " ")} />
-        </div>
-        <p className="text-m-section font-bold leading-tight mb-1.5" style={{ color: "var(--color-ink-950)" }}>
-          {item.description}
-        </p>
-        <p className="text-m-label mb-2" style={{ color: "var(--color-ink-500)" }}>
-          {item.project.name}
-          {item.phase ? ` · ${item.phase.name}` : ""}
-        </p>
         {item.notes && (
-          <p className="text-m-label leading-relaxed mt-1.5" style={{ color: "var(--color-ink-700)" }}>
+          <p className="text-m-label leading-relaxed mt-2" style={{ color: "var(--color-ink-700)" }}>
             {item.notes}
           </p>
         )}
-      </div>
+      </DetailHeroCard>
 
       {/* Financial summary (only for line items) */}
       {isLineItem && (
         <div>
           <SectionHead title="Estimated Values" />
-          <div className="grid grid-cols-3 gap-2">
-            {estimatedQty != null && (
-              <StatCard label="Est. Qty" value={`${formatNumber(estimatedQty, 3)} ${item.unit ?? ""}`} icon={Package} tone="go" />
-            )}
-            {rate != null && (
-              <StatCard label="Rate" value={formatCurrencyCompact(rate)} icon={IndianRupee} />
-            )}
-            {estimatedAmount != null && (
-              <StatCard label="Est. Amount" value={formatCurrencyCompact(estimatedAmount)} icon={IndianRupee} tone="signal" />
-            )}
-          </div>
+          <DetailStatGrid cols={3} stats={estStats} />
         </div>
       )}
 
@@ -150,27 +139,7 @@ async function MobileBoqDetailContent({
       {isLineItem && (
         <div>
           <SectionHead title="Actual vs Estimated" />
-          <div
-            className="rounded-[0.5rem] border divide-y"
-            style={{ borderColor: "var(--color-line)" }}
-          >
-            <DetailRow label="Actual Qty (approved)" value={`${formatNumber(actualQty, 3)} ${item.unit ?? ""}`} />
-            {estimatedQty != null && (
-              <DetailRow label="Estimated Qty" value={`${formatNumber(estimatedQty, 3)} ${item.unit ?? ""}`} />
-            )}
-            {variance != null && (
-              <DetailRow
-                label="Variance"
-                value={`${variance >= 0 ? "+" : ""}${formatNumber(variance, 3)} ${item.unit ?? ""}`}
-              />
-            )}
-            {variancePct != null && (
-              <DetailRow
-                label="Variance %"
-                value={`${variancePct >= 0 ? "+" : ""}${formatNumber(variancePct, 1)}%`}
-              />
-            )}
-          </div>
+          <DetailKeyValueCard entries={varianceEntries} />
         </div>
       )}
 
@@ -295,56 +264,7 @@ async function MobileBoqDetailContent({
     </div>
     </PageContextProvider>
   );
-}
-
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-  tone = "default",
-}: {
-  label: string;
-  value: string;
-  icon?: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-  tone?: "default" | "go" | "signal" | "stop";
-}) {
-  const toneColor = {
-    default: "var(--color-ink-950)",
-    go: "var(--color-go)",
-    signal: "var(--color-signal-dark)",
-    stop: "var(--color-stop)",
-  }[tone];
-
-  return (
-    <div
-      className="rounded-[0.5rem] border p-2 overflow-hidden min-w-0"
-      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-    >
-      <div className="flex items-center gap-1 mb-1">
-        {Icon && <Icon className="size-3" style={{ color: "var(--color-ink-400)" }} />}
-        <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>{label}</p>
-      </div>
-      <p className="text-m-section font-bold tabular-nums truncate" style={{ color: toneColor }}>{value}</p>
-    </div>
-  );
-}
-
-function DetailRow({
-  label,
-  value,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  icon?: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-}) {
-  return (
-    <div className="flex items-center justify-between px-2.5 py-2" style={{ backgroundColor: "var(--color-paper)" }}>
-      <div className="flex items-center gap-1.5">
-        {Icon && <Icon className="size-3" style={{ color: "var(--color-ink-400)" }} />}
-        <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>{label}</p>
-      </div>
-      <p className="text-m-label font-semibold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{value}</p>
-    </div>
+      }}
+    </MobileDetailPage>
   );
 }

@@ -18,6 +18,7 @@ import { AttachmentList } from "@/components/attachments/attachment-list";
 import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { DetailKeyValueCard, DetailAlertBanner } from "@/components/mobile/v2/detail-primitives";
 
 type AssetType = "LAND" | "BUILT_UNIT" | "PROJECT";
 type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
@@ -202,6 +203,7 @@ export function MobileSaleDetailClient({
   const [showComplete, setShowComplete] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
   const [showCommission, setShowCommission] = useState(false);
   const [payingCommission, setPayingCommission] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -865,37 +867,14 @@ export function MobileSaleDetailClient({
         {/* Deal Details column */}
         <div className="flex flex-col gap-2">
           {/* Financial summary */}
-          <div
-            className="rounded-[0.5rem] border px-2 py-1.5"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          >
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Sale Price</span>
-                <span className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatCurrencyCompact(salePrice)}</span>
-              </div>
-              {gstRate > 0 ? (
-                <div className="flex items-center justify-between">
-                  <span className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>GST ({gstRate}%)</span>
-                  <span className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatCurrencyCompact(gstAmount)}</span>
-                </div>
-              ) : null}
-              <div className="flex items-center justify-between">
-                <span className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Cost</span>
-                <span className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-700)" }}>{formatCurrencyCompact(costBasis)}</span>
-              </div>
-              <div className="flex items-center justify-between" style={{ borderTop: "1px solid var(--color-line)", paddingTop: "0.25rem" }}>
-                <span className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Profit</span>
-                <span
-                  className="text-m-body font-bold tabular-nums flex items-center gap-0.5"
-                  style={{ color: profit >= 0 ? "var(--color-go)" : "var(--color-stop)" }}
-                >
-                  <TrendingUp className="size-2.5" />
-                  {formatCurrencyCompact(profit)}
-                </span>
-              </div>
-            </div>
-          </div>
+          <DetailKeyValueCard
+            entries={[
+              { label: "Sale Price", value: formatCurrencyCompact(salePrice) },
+              ...(gstRate > 0 ? [{ label: `GST (${gstRate}%)`, value: formatCurrencyCompact(gstAmount) }] : []),
+              { label: "Cost", value: formatCurrencyCompact(costBasis) },
+              { label: "Profit", value: `${profit >= 0 ? "+" : ""}${formatCurrencyCompact(profit)}`, tone: profit >= 0 ? "go" : "stop" },
+            ]}
+          />
 
           {/* Deal source + broker + terms */}
           {(dealSource || brokerName || dealMaturityMonths || paymentCycle) && (
@@ -1002,7 +981,7 @@ export function MobileSaleDetailClient({
             {canManage && !isCancelled ? (
               <button
                 type="button"
-                onClick={() => setShowEdit(true)}
+                onClick={() => setShowSchedule(true)}
                 className="flex items-center gap-1 text-m-caption font-bold press"
                 style={{ color: "var(--color-brand)" }}
               >
@@ -1353,6 +1332,23 @@ export function MobileSaleDetailClient({
           onClose={() => setShowEdit(false)}
           onSuccess={() => {
             setShowEdit(false);
+            router.refresh();
+          }}
+        />
+      ) : null}
+
+      {/* ── Schedule editor modal ── */}
+      {showSchedule ? (
+        <ScheduleEditorModal
+          saleId={saleId}
+          salePrice={salePrice}
+          gstAmount={gstAmount}
+          dealMaturityMonths={dealMaturityMonths}
+          paymentCycle={paymentCycle}
+          existingSchedule={paymentSchedule}
+          onClose={() => setShowSchedule(false)}
+          onSuccess={() => {
+            setShowSchedule(false);
             router.refresh();
           }}
         />
@@ -2098,5 +2094,214 @@ function EditSaleModal({
         </div>
       </form>
     </Modal>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ScheduleEditorModal — auto-generate or manually edit the payment schedule.
+   Calls POST /api/sales/{id}/schedule with either autoGenerate or manual items.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function ScheduleEditorModal({
+  saleId,
+  salePrice,
+  gstAmount,
+  dealMaturityMonths,
+  paymentCycle,
+  existingSchedule,
+  onClose,
+  onSuccess,
+}: {
+  saleId: string;
+  salePrice: number;
+  gstAmount: number;
+  dealMaturityMonths: number | null;
+  paymentCycle: string | null;
+  existingSchedule: {
+    type: string;
+    items: { id: string; installmentNo: number; description: string; percentage: number; amount: number; dueDate: string | null; paidAmount: number; status: string }[];
+  } | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [autoMode, setAutoMode] = useState(true);
+  const [maturityMonths, setMaturityMonths] = useState(String(dealMaturityMonths ?? 12));
+  const [advancePct, setAdvancePct] = useState("10");
+  const [scheduleType, setScheduleType] = useState(paymentCycle ?? "TLP");
+
+  const hasPaidItems = existingSchedule?.items.some((it) => it.paidAmount > 0) ?? false;
+
+  async function handleAutoGenerate(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const advanceAmount = (salePrice * Number(advancePct)) / 100;
+      const res = await fetch(`/api/sales/${saleId}/schedule`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          autoGenerate: true,
+          salePrice,
+          gstAmount,
+          advanceAmount,
+          dealMaturityMonths: Number(maturityMonths),
+          scheduleType,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to generate schedule");
+      toast.success("Payment schedule generated");
+      haptic(10);
+      onSuccess();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <MobileDialog open={true} onClose={onClose} title="Edit Payment Schedule">
+      {hasPaidItems && (
+        <div
+          className="rounded-[0.5rem] border px-3 py-2 mb-3 text-m-caption"
+          style={{ borderColor: "var(--color-amber)", backgroundColor: "color-mix(in srgb, var(--color-amber) 10%, transparent)", color: "var(--color-ink-700)" }}
+        >
+          Some installments already have payments. Regenerating will replace the entire schedule — paid items will be preserved by the service.
+        </div>
+      )}
+
+      {/* ── Mode toggle ── */}
+      <div className="flex gap-1 mb-3 rounded-[0.5rem] p-0.5" style={{ backgroundColor: "var(--color-concrete)" }}>
+        <button
+          type="button"
+          onClick={() => setAutoMode(true)}
+          className="flex-1 rounded-[0.375rem] py-1.5 text-m-label font-bold press"
+          style={{
+            backgroundColor: autoMode ? "var(--color-paper)" : "transparent",
+            color: autoMode ? "var(--color-ink-950)" : "var(--color-ink-500)",
+          }}
+        >
+          Auto-generate
+        </button>
+        <button
+          type="button"
+          onClick={() => setAutoMode(false)}
+          className="flex-1 rounded-[0.375rem] py-1.5 text-m-label font-bold press"
+          style={{
+            backgroundColor: !autoMode ? "var(--color-paper)" : "transparent",
+            color: !autoMode ? "var(--color-ink-950)" : "var(--color-ink-500)",
+          }}
+        >
+          Current items
+        </button>
+      </div>
+
+      {autoMode ? (
+        <form onSubmit={handleAutoGenerate} className="flex flex-col gap-3">
+          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+            <div>
+              <label className="text-m-caption font-bold uppercase tracking-wide block mb-1" style={{ color: "var(--color-steel)" }}>
+                Schedule type
+              </label>
+              <EnumSelect
+                label="Schedule type"
+                value={scheduleType}
+                onChange={setScheduleType}
+                options={[
+                  { value: "TLP", label: "Time-linked (TLP)" },
+                  { value: "CLP", label: "Construction-linked (CLP)" },
+                  { value: "DPP", label: "Demand-based (DPP)" },
+                ]}
+              />
+            </div>
+            <div>
+              <label className="text-m-caption font-bold uppercase tracking-wide block mb-1" style={{ color: "var(--color-steel)" }}>
+                Advance %
+              </label>
+              <input
+                type="number"
+                value={advancePct}
+                onChange={(e) => setAdvancePct(e.target.value)}
+                min={0}
+                max={100}
+                className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+              />
+            </div>
+            <div>
+              <label className="text-m-caption font-bold uppercase tracking-wide block mb-1" style={{ color: "var(--color-steel)" }}>
+                Deal maturity (months)
+              </label>
+              <input
+                type="number"
+                value={maturityMonths}
+                onChange={(e) => setMaturityMonths(e.target.value)}
+                min={1}
+                className="w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+              />
+            </div>
+            <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+              Total: {formatCurrency(salePrice + gstAmount)} · Advance: {formatCurrency((salePrice * Number(advancePct)) / 100)}
+            </div>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold press"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold press disabled:opacity-50"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            >
+              {saving ? <Loader2 className="size-4 animate-spin" /> : <><Check className="size-3.5" /><span>Generate</span></>}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {existingSchedule?.items.map((it) => (
+            <div
+              key={it.id}
+              className="rounded-[0.5rem] border px-3 py-2"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
+                  #{it.installmentNo} · {it.description}
+                </span>
+                <span className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                  {formatCurrency(it.amount)}
+                </span>
+              </div>
+              <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                {it.percentage > 0 ? `${it.percentage}% · ` : ""}
+                {it.dueDate ? `Due ${new Date(it.dueDate).toLocaleDateString("en-IN")}` : "No due date"}
+                {it.paidAmount > 0 && ` · Paid ${formatCurrency(it.paidAmount)}`}
+              </div>
+            </div>
+          )) ?? (
+            <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
+              No schedule items yet. Use auto-generate to create one.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-[0.5rem] border py-2 text-m-body font-bold press mt-2"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          >
+            Close
+          </button>
+        </div>
+      )}
+    </MobileDialog>
   );
 }

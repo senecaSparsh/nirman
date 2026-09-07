@@ -428,7 +428,7 @@ function PersonNodeD({
         callHref={person.phone ? `tel:${person.phone}` : undefined}
       />
 
-      {open && expandable ? <PersonDetailD person={person} depth={depth + 1} /> : null}
+      {open && expandable ? <PersonDetailD person={person} depth={depth + 1} ancestorLast={[...ancestorLast, isLast]} /> : null}
 
       {open && hasTeams ? (
         <div>
@@ -554,7 +554,7 @@ function MemberNodeD({
 /* ═══════════════════════════════════════════════════════════════════════════
    PERSON DETAIL (desktop) — mirrors the mobile PersonDetail structure
    ═══════════════════════════════════════════════════════════════════════════ */
-function PersonDetailD({ person, depth }: { person: OrgPersonNode; depth: number }) {
+function PersonDetailD({ person, depth, ancestorLast }: { person: OrgPersonNode; depth: number; ancestorLast: boolean[] }) {
   const ts = person.taskSummary;
   const hasTaskSummary = ts && (ts.pending + ts.inProgress + ts.completed + ts.overdue + ts.dueToday > 0);
   const att = person.attendance;
@@ -563,10 +563,27 @@ function PersonDetailD({ person, depth }: { person: OrgPersonNode; depth: number
   const totalTeamMembers = person.teams?.reduce((sum, t) => sum + (t.members?.length ?? 0), 0) ?? 0;
 
   return (
-    <div
-      className="mb-1 ml-1 rounded-md border border-border bg-subtle p-3 space-y-2.5"
-      style={{ marginLeft: depth * INDENT_PX + 32 }}
-    >
+    <div className="flex">
+      {/* ── Connector columns — continue vertical lines through the detail card ── */}
+      {Array.from({ length: depth }, (_, i) => {
+        const isElbowLevel = i === depth - 1;
+        const ancestorWasLast = ancestorLast[i] ?? false;
+        if (!isElbowLevel && ancestorWasLast) {
+          return <div key={i} className="shrink-0" style={{ width: INDENT_PX }} />;
+        }
+        return (
+          <div key={i} className="relative shrink-0" style={{ width: INDENT_PX }}>
+            <div
+              className="absolute left-1/2 -translate-x-1/2"
+              style={{ top: 0, bottom: 0, width: 1, backgroundColor: "var(--color-border, hsl(var(--border)))" }}
+            />
+          </div>
+        );
+      })}
+      <div className="shrink-0" style={{ width: 32 }} />
+      <div
+        className="flex-1 mb-1 rounded-md border border-border bg-subtle p-3 space-y-2.5"
+      >
       {/* ── Inactive badge (role badge is in the TreeRow) ── */}
       {!person.active ? (
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -752,6 +769,7 @@ function PersonDetailD({ person, depth }: { person: OrgPersonNode; depth: number
           ) : null}
         </div>
       )}
+      </div>
     </div>
   );
 }

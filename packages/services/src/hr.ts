@@ -598,6 +598,23 @@ export interface CreateEmployeeInput {
   noticePeriodDays?: number;
   contractStartDate?: Date;
   contractEndDate?: Date;
+  // Dossier fields — collected during hiring for complete onboarding
+  payDay?: number;
+  bankAccountHolder?: string;
+  bankAccountNumber?: string;
+  bankIfsc?: string;
+  bankName?: string;
+  bankBranch?: string;
+  panNumber?: string;
+  aadhaarNumber?: string;
+  pfNumber?: string;
+  esiNumber?: string;
+  uan?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelation?: string;
+  permanentAddress?: string;
+  currentAddress?: string;
 }
 
 export async function createEmployee(input: CreateEmployeeInput) {
@@ -636,6 +653,23 @@ export async function createEmployee(input: CreateEmployeeInput) {
         noticePeriodDays: input.noticePeriodDays ?? null,
         contractStartDate: input.contractStartDate ?? null,
         contractEndDate: input.contractEndDate ?? null,
+        // Dossier fields — collected during hiring
+        payDay: input.payDay ?? null,
+        bankAccountHolder: input.bankAccountHolder ?? null,
+        bankAccountNumber: input.bankAccountNumber ?? null,
+        bankIfsc: input.bankIfsc ?? null,
+        bankName: input.bankName ?? null,
+        bankBranch: input.bankBranch ?? null,
+        panNumber: input.panNumber ?? null,
+        aadhaarNumber: input.aadhaarNumber ?? null,
+        pfNumber: input.pfNumber ?? null,
+        esiNumber: input.esiNumber ?? null,
+        uan: input.uan ?? null,
+        emergencyContactName: input.emergencyContactName ?? null,
+        emergencyContactPhone: input.emergencyContactPhone ?? null,
+        emergencyContactRelation: input.emergencyContactRelation ?? null,
+        permanentAddress: input.permanentAddress ?? null,
+        currentAddress: input.currentAddress ?? null,
       },
     });
     await logAction(tx, {

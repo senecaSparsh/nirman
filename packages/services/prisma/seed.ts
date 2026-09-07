@@ -30,7 +30,16 @@
  *
  * Run with: pnpm --filter @nirman/db seed
  */
-import { PrismaClient } from "@nirman/db";
+import {
+  PrismaClient,
+  type BuiltUnitCreateManyInput,
+  type WorkerAttendanceCreateManyInput,
+  type PayrollLineCreateManyInput,
+  type ProjectCostCreateManyInput,
+  type ExpenseCreateManyInput,
+  type AuditLogCreateManyInput,
+  type EquipmentMaintenanceCreateManyInput,
+} from "@nirman/db";
 import {
   recordMovement,
   recordTransfer,
@@ -101,6 +110,14 @@ async function wipeTransactional() {
   await wipe("vendorQuoteLine");
   await wipe("vendorQuote");
   await wipe("materialRequisition");
+  // Material sales + returns + scrap (create stock movements, so wipe before stockMovement)
+  await wipe("materialSaleReturnLine");
+  await wipe("materialSaleReturn");
+  await wipe("materialSalePayment");
+  await wipe("materialSaleLine");
+  await wipe("materialSale");
+  await wipe("scrapGenerationLine");
+  await wipe("scrapGeneration");
   // Stock count
   await wipe("stockCount");
   // Transfers
@@ -3394,6 +3411,604 @@ async function main() {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // MEGA BULK — 10x volume for stress-testing lists, pagination, filters
+  // Procedurally generates large volumes of realistic data using a
+  // seeded PRNG (deterministic — same output every run).
+  // ═══════════════════════════════════════════════════════════════
+  console.log("Seeding mega bulk data (10x volume)…");
+
+  // Seeded PRNG (mulberry32) — deterministic so re-runs produce the same data
+  function mulberry32(seed: number) {
+    return function () {
+      seed |= 0; seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(42);
+  const pick = <T>(arr: T[]): T => arr[Math.floor(rng() * arr.length)];
+  const randInt = (min: number, max: number) => Math.floor(rng() * (max - min + 1)) + min;
+  const randDate = (start: Date, end: Date) => new Date(start.getTime() + rng() * (end.getTime() - start.getTime()));
+
+  // Helper: bulk ensure via createMany (fetch existing, create missing, return all)
+  async function bulkEnsure(model: string, whereField: string, items: Record<string, unknown>[]) {
+    const keys = items.map((i) => i[whereField]);
+    const existing = await (prisma as any)[model].findMany({ where: { [whereField]: { in: keys } } });
+    const existingKeys = new Set(existing.map((e: any) => e[whereField]));
+    const toCreate = items.filter((i) => !existingKeys.has(i[whereField]));
+    if (toCreate.length > 0) await (prisma as any)[model].createMany({ data: toCreate });
+    return await (prisma as any)[model].findMany({ where: { [whereField]: { in: keys } } });
+  }
+
+  // Collect existing IDs for procedural data references
+  const allCompanies = await prisma.company.findMany({ where: { deletedAt: null } });
+  const allCompanyIds = allCompanies.map((c) => c.id);
+  const allWarehouses = await prisma.stockLocation.findMany({ where: { type: "COMPANY_WAREHOUSE", deletedAt: null } });
+  const allWarehouseIds = allWarehouses.map((w) => w.id);
+  const allCategoryIds = Object.values(catMap);
+  const allMaterialCodes = Object.keys(matMap);
+  const allSupplierNames = Object.keys(supplierMap);
+  const allCustomerNames = Object.keys(customerMap);
+
+  // Data pools for procedural generation
+  const firstNames = ["Amit", "Suresh", "Rajesh", "Vijay", "Prakash", "Deepak", "Ramesh", "Sanjay", "Ajay", "Vinod", "Nilesh", "Sachin", "Rohit", "Karan", "Akash", "Manoj", "Pravin", "Tushar", "Imran", "Fahim", "Arjun", "Aditya", "Sandeep", "Ganesh", "Umesh", "Rakesh", "Dinesh", "Mahesh", "Kamlesh", "Naresh"];
+  const lastNames = ["Patil", "Sharma", "Deshmukh", "Kulkarni", "Jadhav", "Shinde", "More", "Gaikwad", "Pawar", "Kale", "Verma", "Nair", "Mehta", "Reddy", "Bose", "Kapoor", "Singh", "Agarwal", "Shah", "Joshi", "Deshpande", "Naidu", "Rao", "Iyer", "Menon", "Pillai", "Gupta", "Malhotra", "Chopra", "Banerjee"];
+  const companySuffixes = ["Enterprises", "Traders", "Constructions", "Infra Projects", "Builders", "Suppliers", "Distributors", "Wholesale", "Agency", "Mart", "Depot", "Works", "Industries", "Corp", "Solutions"];
+  const projectPrefixes = ["Greenfield", "Hillview", "Skyline", "Riverside", "Lakeview", "Sunrise", "Pinnacle", "Prestige", "Royal", "Imperial", "Brigade", "Sobha", "Lodha", "DLF", "Embassy", "Puravankara", "Oberoi", "Kalpataru", "Runwal", "Hiranandani", "Mahindra", "Shapoorji", "Godrej", "Adani", "Tata"];
+  const projectSuffixes = ["Residency", "Heights", "Towers", "Park", "Villas", "Apartments", "Corporate Park", "Greens", "Gardens", "Plaza", "Square", "City", "Township", "Enclave", "Ridge", "Valley", "Meadows", "Springs"];
+  const trades = ["Masonry", "Electrical", "Plumbing", "Welding", "Carpentry", "Painting", "Bar Bending", "Supervisor", "Heavy Equipment", "Surveying", "Tile Laying", "Waterproofing", "HVAC", "Glass Fitting", "Demolition"];
+  const projectTypes = ["RESIDENTIAL", "COMMERCIAL", "RESIDENTIAL", "RESIDENTIAL", "COMMERCIAL"];
+  const projectStatuses = ["ACTIVE", "ACTIVE", "ACTIVE", "PLANNED", "COMPLETED"];
+  const unitTypes = ["BHK_2", "BHK_3", "BHK_3", "BHK_4", "SHOP"];
+  const unitStatuses = ["AVAILABLE", "UNDER_CONSTRUCTION", "PLANNED", "SOLD", "RENTED"];
+  const costTypes = ["LABOUR", "OVERHEAD", "PERMIT", "CONTRACTOR", "EQUIPMENT", "MATERIAL"];
+  const expenseCats = ["Office Rent", "Utilities", "Travel", "Consultancy", "Office Supplies", "Marketing", "Insurance", "Fuel", "Maintenance", "Miscellaneous"];
+  const poStatuses = ["DRAFT", "ORDERED", "PARTIAL", "RECEIVED"];
+  const dprWorkTypes = ["Foundation", "RCC", "Masonry", "Finishing", "Plumbing", "Electrical", "Painting", "Flooring", "Waterproofing"];
+  const dprApprovalStatuses = ["SUBMITTED", "SUB_ADMIN_APPROVED", "APPROVED"];
+  const attendanceStatuses = ["PRESENT", "PRESENT", "PRESENT", "PRESENT", "LATE", "ABSENT", "PAID_LEAVE", "HALF_DAY", "OVERTIME"];
+  const equipCats = ["Heavy Machinery", "Vehicle", "Power Tool", "Scaffolding", "Equipment"];
+  const equipNames = ["Excavator", "Backhoe Loader", "Concrete Mixer", "Tower Crane", "Batching Plant", "Road Roller", "Asphalt Paver", "Soil Compactor", "Generator", "Welding Machine", "Bar Bending Machine", "Bar Cutting Machine", "Plate Compactor", "Tipper Truck", "Water Tanker", "Pickup Truck", "Vibrator", "Scaffolding Set", "CNC Router", "Laser Cutter"];
+
+  // ── MB1. Procedural materials (~576 more for ~640 total) ─────
+  console.log("  MB1: Materials (576)…");
+  const matCatEntries = Object.entries(catMap);
+  const newMats: Record<string, unknown>[] = [];
+  for (let i = 1; i <= 576; i++) {
+    const [catName, catId] = matCatEntries[randInt(0, matCatEntries.length - 1)];
+    newMats.push({
+      code: `GEN-${String(i).padStart(4, "0")}`,
+      name: `${catName} Item ${i}`,
+      categoryId: catId,
+      unit: pick(["KG", "NOS", "MTR", "BAG", "CFT", "SQM", "LTR", "SET"]),
+      standardCost: randInt(20, 5000),
+      gstRate: pick([5, 12, 18, 28]),
+      minStock: randInt(10, 5000),
+      reorderPoint: randInt(50, 10000),
+      economicOrderQty: randInt(100, 20000),
+      hsnCode: String(randInt(10000000, 99999999)),
+    });
+  }
+  const newMatRows = await bulkEnsure("material", "code", newMats);
+  for (const r of newMatRows) matMap[r.code] = r.id;
+  const allMatCodesNow = Object.keys(matMap);
+
+  // ── MB2. Procedural suppliers (~423 more for ~470 total) ─────
+  console.log("  MB2: Suppliers (423)…");
+  const newSupps: Record<string, unknown>[] = [];
+  const usedSuppNames = new Set(allSupplierNames);
+  let sIdx = 0;
+  while (newSupps.length < 423) {
+    const name = `${firstNames[sIdx % firstNames.length]} ${lastNames[(sIdx * 7) % lastNames.length]} ${pick(companySuffixes)}`;
+    sIdx++;
+    if (usedSuppNames.has(name)) continue;
+    usedSuppNames.add(name);
+    newSupps.push({
+      name, companyId: company.id,
+      gstin: `27${String.fromCharCode(65 + randInt(0, 25))}${String.fromCharCode(65 + randInt(0, 25))}${randInt(1000, 9999)}${String.fromCharCode(65 + randInt(0, 25))}1Z${randInt(1, 9)}`,
+      phone: `+91 9822${randInt(100000, 999999)}`,
+      address: `${pick(["Bhosari", "Chakan", "Wagholi", "Baner", "Pimpri", "Talegaan", "Hadapsar", "Kharadi", "Nigdi", "Market Yard"])}, Pune`,
+      leadTimeDays: randInt(1, 14),
+    });
+  }
+  const newSuppRows = await bulkEnsure("supplier", "name", newSupps);
+  for (const r of newSuppRows) supplierMap[r.name] = r.id;
+  const allSuppNamesNow = Object.keys(supplierMap);
+
+  // ── MB3. Procedural customers (~315 more for ~350 total) ─────
+  console.log("  MB3: Customers (315)…");
+  const newCusts: Record<string, unknown>[] = [];
+  const usedCustNames = new Set(allCustomerNames);
+  let cIdx = 0;
+  while (newCusts.length < 315) {
+    const isBiz = rng() < 0.3;
+    const name = isBiz
+      ? `${firstNames[cIdx % firstNames.length]} ${pick(companySuffixes)}`
+      : `${firstNames[cIdx % firstNames.length]} ${lastNames[(cIdx * 11) % lastNames.length]}`;
+    cIdx++;
+    if (usedCustNames.has(name)) continue;
+    usedCustNames.add(name);
+    newCusts.push({
+      name, companyId: company.id,
+      phone: `+91 98${randInt(10000000, 99999999)}`,
+      email: `${name.toLowerCase().replace(/[^a-z]/g, ".")}@gmail.com`,
+      address: `${pick(["Kothrud", "Baner", "Aundh", "Viman Nagar", "Kharadi", "Hadapsar", "Wagholi", "Shivajinagar", "Camp", "Model Colony"])}, Pune`,
+      ...(isBiz ? { gstin: `27${String.fromCharCode(65 + randInt(0, 25))}${String.fromCharCode(65 + randInt(0, 25))}${randInt(1000, 9999)}${String.fromCharCode(65 + randInt(0, 25))}1Z${randInt(1, 9)}` } : {}),
+    });
+  }
+  const newCustRows = await bulkEnsure("customer", "name", newCusts);
+  for (const r of newCustRows) customerMap[r.name] = r.id;
+  const allCustNamesNow = Object.keys(customerMap);
+
+  // ── MB4. Procedural employees (~270 more for ~300 total) ─────
+  console.log("  MB4: Employees (270)…");
+  const newEmps: Record<string, unknown>[] = [];
+  const usedEmpNames = new Set(Object.keys(empMap));
+  let eIdx = 0;
+  const compIdsForEmp = [company.id, ...Object.values(childCompanyMap)];
+  while (newEmps.length < 270) {
+    const name = `${firstNames[eIdx % firstNames.length]} ${lastNames[(eIdx * 13) % lastNames.length]}`;
+    eIdx++;
+    if (usedEmpNames.has(name)) continue;
+    usedEmpNames.add(name);
+    newEmps.push({
+      name, companyId: pick(compIdsForEmp),
+      trade: pick(trades), phone: `+91 9822${randInt(100000, 999999)}`, dailyRate: randInt(600, 1800),
+    });
+  }
+  const newEmpRows = await bulkEnsure("employee", "name", newEmps);
+  for (const r of newEmpRows) empMap[r.name] = r.id;
+  const allEmpIds = Object.values(empMap);
+  const companyEmpIds = (await prisma.employee.findMany({ where: { companyId: company.id }, select: { id: true } })).map((e) => e.id);
+
+  // ── MB5. Projects + phases + locations (~72 more for ~80 total)
+  console.log("  MB5: Projects + phases + locations (72)…");
+  const newProjDefs: { name: string; companyId: string; type: string; status: string; budget: number; address: string; startDate: Date }[] = [];
+  const usedProjNames = new Set<string>();
+  while (newProjDefs.length < 72) {
+    const name = `${pick(projectPrefixes)} ${pick(projectSuffixes)}`;
+    if (usedProjNames.has(name)) continue;
+    usedProjNames.add(name);
+    const compId = pick(allCompanyIds);
+    newProjDefs.push({
+      name, companyId: compId,
+      type: pick(projectTypes), status: pick(projectStatuses),
+      budget: randInt(20000000, 500000000),
+      address: `${pick(["Wagholi", "Baner", "Hinjewadi", "Kharadi", "Wakad", "Hadapsar", "Talegaon", "Chakan", "Ravet", "Pimpri"])}, Pune`,
+      startDate: randDate(new Date("2023-01-01"), new Date("2024-12-01")),
+    });
+  }
+  const newProjMap: Record<string, string> = {};
+  for (const p of newProjDefs) {
+    const row = await ensure("project", { companyId: p.companyId, name: p.name }, p);
+    newProjMap[p.name] = row.id;
+  }
+  const allProjectIds = [project1.id, project2.id, realtyProj1.id, realtyProj2.id, infraProj1.id, infraProj2.id, interiorsProj1.id, interiorsProj2.id, ...Object.values(newProjMap)];
+
+  // Phases (1-2 per new project)
+  const newPhaseMap: Record<string, string> = {};
+  for (const [projName, projId] of Object.entries(newProjMap)) {
+    const phaseCount = randInt(1, 2);
+    for (let pi = 1; pi <= phaseCount; pi++) {
+      const row = await ensure("projectPhase", { projectId: projId, name: `Phase ${pi}` }, {
+        projectId: projId, name: `Phase ${pi}`, status: pick(["ACTIVE", "PLANNED", "COMPLETED"]) as any,
+        budget: randInt(5000000, 100000000), sortOrder: pi,
+      });
+      newPhaseMap[`${projName}:Phase ${pi}`] = row.id;
+    }
+  }
+
+  // Project site locations (1 per new project)
+  const newLocMap: Record<string, string> = {};
+  for (const [projName, projId] of Object.entries(newProjMap)) {
+    const compId = newProjDefs.find((p) => p.name === projName)!.companyId;
+    const row = await ensure("stockLocation", { companyId: compId, projectId: projId, name: `${projName} Site` }, {
+      companyId: compId, type: "PROJECT_SITE", projectId: projId, name: `${projName} Site`,
+    });
+    newLocMap[projName] = row.id;
+  }
+  const allSiteLocIds = Object.values(newLocMap);
+
+  // ── MB6. Built units (~540 more for ~600 total) ──────────────
+  console.log("  MB6: Built units (540+)…");
+  const newUnits: BuiltUnitCreateManyInput[] = [];
+  for (const [projName, projId] of Object.entries(newProjMap)) {
+    const phaseId = newPhaseMap[`${projName}:Phase 1`];
+    const unitCount = randInt(4, 12);
+    for (let ui = 1; ui <= unitCount; ui++) {
+      const type = pick(unitTypes) as string;
+      const floor = type === "SHOP" ? 0 : randInt(1, 12);
+      const area = type === "SHOP" ? randInt(300, 800) : type === "BHK_4" ? randInt(1800, 2500) : type === "BHK_3" ? randInt(1200, 1600) : randInt(800, 1100);
+      const status = pick(unitStatuses) as string;
+      const valuation = area * randInt(8000, 20000);
+      newUnits.push({
+        projectId: projId, phaseId, unitType: type,
+        unitNumber: `U-${String(ui).padStart(3, "0")}`, floor, area, areaUnit: "SQFT",
+        status, productionCost: 0,
+        askingPrice: status === "SOLD" ? null : Math.round(valuation / 100000) * 100000,
+        currentValuation: valuation,
+      });
+    }
+  }
+  if (newUnits.length > 0) await prisma.builtUnit.createMany({ data: newUnits });
+
+  // ── MB7. Opening stock for ~30% of new materials ─────────────
+  console.log("  MB7: Opening stock…");
+  const genMatCodes = Object.keys(matMap).filter((k) => k.startsWith("GEN-"));
+  for (const code of genMatCodes) {
+    if (rng() > 0.3) continue;
+    const mid = matMap[code];
+    const mat = newMats.find((m) => m.code === code)!;
+    try {
+      await withStockTransaction(async (tx) => {
+        await recordMovement(tx, {
+          materialId: mid, movementType: "PURCHASE_RECEIPT",
+          toLocationId: pick(allWarehouseIds),
+          qty: new Decimal(randInt(50, 5000)),
+          unitCost: new Decimal(mat.standardCost as number),
+          reason: "Mega bulk opening stock", refType: "SEED",
+        });
+      });
+    } catch (e) { /* skip — not fatal */ }
+  }
+
+  // ── MB8. Procedural POs + goods receipts (~234 more) ─────────
+  console.log("  MB8: Purchase orders (234)…");
+  for (let poi = 0; poi < 234; poi++) {
+    const suppName = pick(allSuppNamesNow);
+    const scope = rng() < 0.5 ? "COMPANY" : "PROJECT";
+    const destLoc = scope === "COMPANY" || allSiteLocIds.length === 0 ? pick(allWarehouseIds) : pick(allSiteLocIds);
+    const projectId = scope === "PROJECT" ? pick(allProjectIds) : undefined;
+    const lines: { materialId: string; qtyOrdered: number; unitCost: number; gstRate: number }[] = [];
+    for (let li = 0; li < randInt(1, 4); li++) {
+      lines.push({ materialId: matMap[pick(allMatCodesNow)], qtyOrdered: randInt(10, 5000), unitCost: randInt(20, 5000), gstRate: pick([5, 12, 18, 28]) });
+    }
+    try {
+      const po = await createPurchaseOrder({
+        supplierId: supplierMap[suppName], procurementScope: scope as any,
+        companyId: company.id, projectId, destinationLocationId: destLoc,
+        expectedDate: randDate(new Date("2024-01-01"), new Date("2024-12-01")),
+        notes: `Mega bulk PO ${poi + 1}`, lines,
+      });
+      const status = pick(poStatuses);
+      if (status !== "DRAFT") {
+        await approvePurchaseOrder(po.id, "OWNER");
+        await orderPurchaseOrder(po.id);
+        if (status === "RECEIVED" || status === "PARTIAL") {
+          const poLines = await prisma.purchaseOrderLine.findMany({ where: { purchaseOrderId: po.id } });
+          const frac = status === "RECEIVED" ? 1 : randInt(3, 8) / 10;
+          await receiveGoods({
+            purchaseOrderId: po.id, locationId: destLoc, receivedById: U.supervisor,
+            notes: status === "RECEIVED" ? "Full delivery" : "Partial delivery",
+            lines: poLines.map((l) => ({ purchaseOrderLineId: l.id, materialId: l.materialId, qtyReceived: new Decimal(l.qtyOrdered).times(frac), unitCost: l.unitCost })),
+          });
+        }
+      }
+    } catch (e) { /* skip — not fatal */ }
+  }
+
+  // ── MB9. Procedural material issues (~117 more) ──────────────
+  console.log("  MB9: Material issues (117)…");
+  for (let ii = 0; ii < 117; ii++) {
+    const lines: { materialId: string; qty: number }[] = [];
+    for (let li = 0; li < randInt(1, 3); li++) lines.push({ materialId: matMap[pick(allMatCodesNow)], qty: randInt(5, 500) });
+    try {
+      await issueMaterialsToProject({
+        projectId: pick([project1.id, project2.id, ...allProjectIds.filter((id) => id !== project1.id && id !== project2.id)]),
+        fromLocationId: pick(allWarehouseIds), issuedById: U.supervisor,
+        notes: `Mega bulk issue ${ii + 1}`, lines,
+      });
+    } catch (e) { /* skip if insufficient stock — not fatal */ }
+  }
+
+  // ── MB10. Procedural stock transfers (~63 more) ──────────────
+  console.log("  MB10: Stock transfers (63)…");
+  for (let ti = 0; ti < 63; ti++) {
+    const fromLoc = pick(allWarehouseIds);
+    const toLoc = allSiteLocIds.length > 0 ? pick(allSiteLocIds) : pick([site1.id, site2.id]);
+    if (fromLoc === toLoc) continue;
+    const matCode = pick(allMatCodesNow);
+    const qty = randInt(10, 500);
+    try {
+      const transfer = await prisma.stockTransfer.create({
+        data: {
+          fromLocationId: fromLoc, toLocationId: toLoc,
+          transferDate: randDate(new Date("2024-01-01"), new Date("2024-12-01")),
+          status: "COMPLETED", notes: `Mega bulk transfer ${ti + 1}`,
+          lines: { create: [{ materialId: matMap[matCode], qty }] },
+        },
+      });
+      await withStockTransaction(async (tx) => {
+        await recordTransfer(tx, {
+          materialId: matMap[matCode], fromLocationId: fromLoc, toLocationId: toLoc,
+          qty: new Decimal(qty), reason: `Mega bulk transfer ${ti + 1}`,
+          refType: "STOCK_TRANSFER", refId: transfer.id, userId: U.supervisor,
+        });
+      });
+    } catch (e) { /* skip — not fatal */ }
+  }
+
+  // ── MB11. Procedural stock counts (~36 more) ─────────────────
+  console.log("  MB11: Stock counts (36)…");
+  for (let sci = 0; sci < 36; sci++) {
+    const locId = pick([...allWarehouseIds, site1.id, site2.id]);
+    const lines: { materialId: string; countedQty: number; systemQty: number; variance: number }[] = [];
+    for (let li = 0; li < randInt(2, 5); li++) {
+      const system = randInt(50, 5000);
+      const counted = system + randInt(-50, 50);
+      lines.push({ materialId: matMap[pick(allMatCodesNow)], countedQty: counted, systemQty: system, variance: counted - system });
+    }
+    await prisma.stockCount.create({
+      data: {
+        locationId: locId, countDate: randDate(new Date("2024-01-01"), new Date("2024-12-01")),
+        status: pick(["COUNTED", "RECONCILED"]) as any, notes: `Mega bulk count ${sci + 1}`,
+        lines: { create: lines },
+      },
+    });
+  }
+
+  // ── MB12. Procedural DPRs (~117 more for ~130 total) ─────────
+  console.log("  MB12: DPRs (117)…");
+  for (let di = 0; di < 117; di++) {
+    const date = randDate(new Date("2024-01-01"), new Date("2024-12-01"));
+    const status = pick(dprApprovalStatuses) as any;
+    const dpr = await prisma.dailyProgressReport.create({
+      data: {
+        companyId: company.id, projectId: pick(allProjectIds), date,
+        submittedById: U.supervisor,
+        weather: `${pick(["Sunny", "Cloudy", "Rainy", "Overcast"])}, ${randInt(20, 38)}°C`,
+        workSummary: `Mega bulk DPR ${di + 1} — ${pick(dprWorkTypes)} work in progress`,
+        progressPct: new Decimal(randInt(5, 95)),
+        blockers: rng() < 0.3 ? pick(["Material delay", "Weather interruption", "Equipment breakdown", "Labour shortage"]) : null,
+        tomorrowPlan: `Continue ${pick(dprWorkTypes).toLowerCase()} work`,
+        approvalStatus: status,
+        subAdminApprovedById: status !== "SUBMITTED" ? U.manager : null,
+        subAdminApprovedAt: status !== "SUBMITTED" ? date : null,
+        adminApprovedById: status === "APPROVED" ? U.admin : null,
+        adminApprovedAt: status === "APPROVED" ? date : null,
+        workType: pick(dprWorkTypes),
+      },
+    });
+    for (let li = 0; li < randInt(1, 3); li++) {
+      await prisma.dPRMaterialLine.create({ data: { dprId: dpr.id, materialId: matMap[pick(allMatCodesNow)], qty: new Decimal(randInt(5, 200)), unitCost: new Decimal(0) } });
+    }
+    for (let li = 0; li < randInt(1, 2); li++) {
+      await prisma.dPRLaborLine.create({ data: { dprId: dpr.id, employeeId: pick(allEmpIds), hoursWorked: new Decimal(randInt(4, 10)), taskDescription: pick(dprWorkTypes) } });
+    }
+  }
+
+  // ── MB13. Procedural attendance (~3500+ more rows) ───────────
+  console.log("  MB13: Attendance (3500+)…");
+  const attBatch: WorkerAttendanceCreateManyInput[] = [];
+  const attStart = new Date("2024-06-01");
+  const attEnd = new Date("2024-11-30");
+  const totalAttDays = Math.floor((attEnd.getTime() - attStart.getTime()) / 86400000);
+  // Use a subset of employees to keep volume reasonable (~30 emps × ~120 days ≈ 3600)
+  const attEmpIds = allEmpIds.slice(0, 30);
+  for (let di = 0; di < totalAttDays; di++) {
+    const date = new Date(attStart.getTime() + di * 86400000);
+    if (date.getDay() === 0) continue; // skip Sundays
+    for (const empId of attEmpIds) {
+      const status = pick(attendanceStatuses);
+      const dateStr = date.toISOString().split("T")[0];
+      const checkIn = status === "ABSENT" || status === "PAID_LEAVE" ? null : new Date(`${dateStr}T09:${status === "LATE" ? "30" : "00"}:00`);
+      const checkOut = status === "ABSENT" || status === "PAID_LEAVE" ? null : new Date(`${dateStr}T${status === "OVERTIME" ? "19" : "18"}:00:00`);
+      const hours = status === "ABSENT" || status === "PAID_LEAVE" ? null : status === "OVERTIME" ? 10 : status === "HALF_DAY" ? 4 : status === "LATE" ? 7.5 : 9;
+      attBatch.push({
+        companyId: company.id, employeeId: empId, date, projectId: pick(allProjectIds),
+        checkIn, checkOut, hoursWorked: hours ? new Decimal(hours) : null,
+        status, recordedById: U.supervisor,
+      });
+    }
+  }
+  for (let i = 0; i < attBatch.length; i += 1000) {
+    await prisma.workerAttendance.createMany({ data: attBatch.slice(i, i + 1000) });
+  }
+
+  // ── MB14. Procedural payroll periods (~18 more for ~20 total) ─
+  console.log("  MB14: Payroll periods (18)…");
+  for (let py = 0; py < 18; py++) {
+    const month = (py % 12) + 1;
+    const year = 2024 + Math.floor(py / 12);
+    if ((month === 8 || month === 9) && year === 2024) continue; // already seeded
+    const startDate = new Date(`${year}-${String(month).padStart(2, "0")}-01`);
+    const endDate = new Date(year, month, 0);
+    const isProcessed = rng() < 0.5;
+    const period = await prisma.payrollPeriod.create({
+      data: {
+        companyId: company.id, month, year, startDate, endDate,
+        status: isProcessed ? "PROCESSED" : "DRAFT",
+        processedById: U.accountant,
+        ...(isProcessed ? { processedAt: randDate(startDate, endDate) } : {}),
+      },
+    });
+    if (isProcessed) {
+      const payLines: PayrollLineCreateManyInput[] = [];
+      let tG = new Decimal(0), tN = new Decimal(0), tD = new Decimal(0);
+      for (const empId of companyEmpIds) {
+        const emp = await prisma.employee.findUnique({ where: { id: empId } });
+        if (!emp) continue;
+        const days = randInt(20, 26);
+        const basic = new Decimal(emp.dailyRate || 800).mul(days);
+        const allowance = new Decimal(randInt(200, 1000));
+        const gross = basic.add(allowance);
+        const pf = gross.mul(0.12), esi = gross.mul(0.01), pt = new Decimal(200);
+        const ded = pf.add(esi).add(pt);
+        const net = gross.sub(ded);
+        tG = tG.add(gross); tD = tD.add(ded); tN = tN.add(net);
+        payLines.push({
+          payrollPeriodId: period.id, employeeId: empId, daysWorked: new Decimal(days),
+          basicAmount: basic, overtimeAmount: new Decimal(0), allowance, bonus: new Decimal(0),
+          pf, employerPf: pf, esi, professionTax: pt, tax: new Decimal(0), deductions: new Decimal(0),
+          grossPay: gross, totalDeductions: ded, netPay: net,
+        });
+      }
+      for (let i = 0; i < payLines.length; i += 500) {
+        await prisma.payrollLine.createMany({ data: payLines.slice(i, i + 500) });
+      }
+      await prisma.payrollPeriod.update({ where: { id: period.id }, data: { totalGross: tG, totalOvertime: new Decimal(0), totalDeductions: tD, totalNet: tN } });
+    }
+  }
+
+  // ── MB15. Procedural asset sales (~108 more for ~120 total) ──
+  console.log("  MB15: Asset sales (108)…");
+  const availableUnits = await prisma.builtUnit.findMany({ where: { status: "AVAILABLE" }, take: 200 });
+  let saleCnt = 0;
+  for (const unit of availableUnits) {
+    if (saleCnt >= 108) break;
+    const price = unit.askingPrice ? Number(unit.askingPrice) : unit.currentValuation ? Number(unit.currentValuation) : randInt(5000000, 50000000);
+    try {
+      const sale = await sellAsset({
+        assetType: "BUILT_UNIT", builtUnitId: unit.id,
+        customerId: customerMap[pick(allCustNamesNow)], companyId: company.id,
+        salePrice: price, paymentMode: pick(["Home Loan (SBI)", "Home Loan (HDFC)", "Bank Transfer", "Cash"]),
+        notes: `Mega bulk sale ${saleCnt + 1}`,
+      });
+      const payCount = randInt(1, 3);
+      const payAmt = Math.floor(price / payCount);
+      for (let pi = 0; pi < payCount; pi++) {
+        await recordPayment({ assetSaleId: sale.id, amount: pi === payCount - 1 ? price - payAmt * (payCount - 1) : payAmt, mode: pick(["RTGS", "NEFT", "Cheque", "Cash"]), reference: `UTR-MB-${saleCnt}-${pi}` });
+      }
+      saleCnt++;
+    } catch (e) { /* skip — not fatal */ }
+  }
+
+  // ── MB16. Procedural material sales (~81 more for ~90 total) ─
+  console.log("  MB16: Material sales (81)…");
+  let matSaleCnt = 0;
+  for (let msi = 0; msi < 200 && matSaleCnt < 81; msi++) {
+    try {
+      const sale = await createMaterialSale({
+        companyId: company.id, customerId: customerMap[pick(allCustNamesNow)],
+        lines: [{ materialId: matMap[pick(allMatCodesNow)], locationId: pick(allWarehouseIds), qty: randInt(5, 200), unitPrice: randInt(30, 5000), gstRate: pick([5, 12, 18, 28]) }],
+        paymentMode: pick(["Cash", "Bank Transfer", "UPI"]),
+        vehicleNumber: `MH${randInt(12, 14)} ${String.fromCharCode(65 + randInt(0, 25))}${String.fromCharCode(65 + randInt(0, 25))} ${randInt(1000, 9999)}`,
+        notes: `Mega bulk material sale ${matSaleCnt + 1}`, userId: U.sales,
+      });
+      await createMaterialSalePayment({ saleId: sale.id, companyId: company.id, amount: sale.totalAmount, paymentMode: "Cash", userId: U.sales });
+      matSaleCnt++;
+    } catch (e) { /* skip if insufficient stock — not fatal */ }
+  }
+
+  // ── MB17. Project costs + expenses (~279 + ~135 more) ────────
+  console.log("  MB17: Project costs (279) + expenses (135)…");
+  const bulkPC: ProjectCostCreateManyInput[] = [];
+  for (let i = 0; i < 279; i++) {
+    bulkPC.push({
+      projectId: pick(allProjectIds), costType: pick(costTypes),
+      amount: randInt(50000, 5000000), date: randDate(new Date("2024-01-01"), new Date("2024-12-01")),
+      vendor: `${pick(firstNames)} ${pick(lastNames)}`, notes: `Mega bulk cost ${i + 1}`,
+    });
+  }
+  await prisma.projectCost.createMany({ data: bulkPC });
+
+  const bulkExp: ExpenseCreateManyInput[] = [];
+  for (let i = 0; i < 135; i++) {
+    bulkExp.push({
+      companyId: company.id, category: pick(expenseCats),
+      amount: randInt(5000, 200000), date: randDate(new Date("2024-01-01"), new Date("2024-12-01")),
+      notes: `Mega bulk expense ${i + 1}`,
+      ...(rng() < 0.5 ? { projectId: pick(allProjectIds) } : {}),
+    });
+  }
+  await prisma.expense.createMany({ data: bulkExp });
+
+  // ── MB18. Audit logs (~1746 more for ~1940 total) ────────────
+  console.log("  MB18: Audit logs (1746)…");
+  const auditActions = ["CREATE", "APPROVE", "RECEIVE", "ISSUE", "UPDATE", "DELETE", "COUNT", "TRANSFER"];
+  const auditEntities = ["PurchaseOrder", "GoodsReceipt", "MaterialIssue", "StockTransfer", "StockCount", "DailyProgressReport", "AssetSale", "ProjectCost", "Expense", "MaterialSale"];
+  const bulkAudit: AuditLogCreateManyInput[] = [];
+  for (let i = 0; i < 1746; i++) {
+    bulkAudit.push({
+      userId: pick([U.owner, U.admin, U.manager, U.supervisor, U.accountant, U.sales]),
+      action: pick(auditActions), entityType: pick(auditEntities),
+      entityId: `mega-bulk-${i}`, after: { note: `Mega bulk audit ${i + 1}` } as any,
+      timestamp: randDate(new Date("2024-01-01"), new Date("2024-12-01")),
+    });
+  }
+  await prisma.auditLog.createMany({ data: bulkAudit });
+
+  // ── MB19. Supplier returns (~54 more for ~60 total) ───────────
+  console.log("  MB19: Supplier returns (54)…");
+  for (let ri = 0; ri < 54; ri++) {
+    await prisma.supplierReturn.create({
+      data: {
+        returnNumber: `RET-MB-${String(ri + 1).padStart(4, "0")}`,
+        supplierId: supplierMap[pick(allSuppNamesNow)], companyId: company.id,
+        locationId: pick(allWarehouseIds), status: pick(["COMPLETED", "SUBMITTED"]) as any,
+        returnDate: randDate(new Date("2024-01-01"), new Date("2024-12-01")),
+        ...(rng() < 0.5 ? { creditNoteNo: `CN-MB-${ri + 1}` } : {}),
+        notes: `Mega bulk return ${ri + 1}`,
+        lines: { create: [{ materialId: matMap[pick(allMatCodesNow)], qty: randInt(1, 50), unitCost: randInt(20, 5000), reason: pick(["Damaged in transit", "Manufacturing defect", "Wrong size", "Quality issue", "Excess supply"]) }] },
+      },
+    });
+  }
+
+  // ── MB20. Equipment + maintenance (~234 more for ~260 total) ─
+  console.log("  MB20: Equipment (234)…");
+  const newEquip: Record<string, unknown>[] = [];
+  for (let i = 1; i <= 234; i++) {
+    newEquip.push({
+      assetTag: `MB-EQ-${String(i).padStart(4, "0")}`,
+      name: pick(equipNames), model: pick(["Model A", "Model B", "Model X", "Pro Series", "Heavy Duty", "Compact"]),
+      serialNumber: `SN${randInt(100000, 999999)}`, category: pick(equipCats),
+      acquisitionCost: randInt(50000, 10000000), currentValue: randInt(30000, 8000000),
+      purchaseDate: randDate(new Date("2022-01-01"), new Date("2024-12-01")),
+      companyId: pick(allCompanyIds), status: pick(["AVAILABLE", "ASSIGNED", "IN_MAINTENANCE", "RETIRED"]),
+    });
+  }
+  const newEquipRows = await bulkEnsure("equipment", "assetTag", newEquip);
+  const maintBatch: EquipmentMaintenanceCreateManyInput[] = [];
+  for (const eq of newEquipRows) {
+    if (rng() < 0.2) {
+      maintBatch.push({
+        equipmentId: eq.id, type: pick(["REPAIR", "SCHEDULED"]) as any,
+        startDate: randDate(new Date("2024-01-01"), new Date("2024-12-01")),
+        ...(rng() < 0.7 ? { endDate: randDate(new Date("2024-01-01"), new Date("2024-12-01")) } : {}),
+        cost: randInt(1000, 50000), vendor: `${pick(firstNames)} Motors`, notes: "Mega bulk maintenance",
+      });
+    }
+  }
+  if (maintBatch.length > 0) await prisma.equipmentMaintenance.createMany({ data: maintBatch });
+
+  // ── MB21. Brokers + tenancies ────────────────────────────────
+  console.log("  MB21: Brokers (20) + tenancies…");
+  const mbBrokers: Record<string, unknown>[] = [];
+  for (let i = 1; i <= 20; i++) {
+    mbBrokers.push({
+      companyId: company.id, name: `${firstNames[i % firstNames.length]} ${pick(["Properties", "Realty", "Estate", "Advisors", "Consultants"])}`,
+      phone: `+91 9822${randInt(100000, 999999)}`, agency: `${pick(["Premier", "City", "Metro", "Global", "Trust", "Elite"])} Real Estate`,
+      defaultCommissionPercent: new Decimal(pick([1, 1.5, 2, 2.5, 3])), createdById: U.sales,
+    });
+  }
+  await bulkEnsure("broker", "name", mbBrokers);
+
+  // Tenancies — rent some available shops
+  const rentable = await prisma.builtUnit.findMany({ where: { status: "AVAILABLE", unitType: "SHOP" }, take: 30 });
+  for (const unit of rentable) {
+    if (rng() < 0.5) {
+      try {
+        await prisma.tenancy.create({
+          data: {
+            companyId: company.id, assetType: "BUILT_UNIT", builtUnitId: unit.id, projectId: unit.projectId,
+            tenantName: `${pick(firstNames)} ${pick(lastNames)}`, tenantPhone: `+91 98${randInt(10000000, 99999999)}`,
+            startDate: randDate(new Date("2024-01-01"), new Date("2024-12-01")),
+            endDate: randDate(new Date("2025-01-01"), new Date("2027-12-01")),
+            monthlyRent: new Decimal(randInt(15000, 80000)), baseRent: new Decimal(randInt(15000, 80000)),
+            securityDeposit: new Decimal(randInt(50000, 500000)), rentAgreementNo: `RA-MB-${unit.unitNumber}`,
+            sacCode: "997212", escalationPercent: new Decimal(5), escalationIntervalMonths: 12,
+            status: "ACTIVE", createdById: U.sales,
+          },
+        });
+        await prisma.builtUnit.update({ where: { id: unit.id }, data: { status: "RENTED" } });
+      } catch (e) { /* skip — not fatal */ }
+    }
+  }
+
+  console.log("  Mega bulk complete.");
+
   // ── Summary ─────────────────────────────────────────────────
   const totalUnits = await prisma.builtUnit.count();
   const totalProjects = await prisma.project.count({ where: { deletedAt: null } });
@@ -3426,12 +4041,16 @@ async function main() {
   const auditCount = await prisma.auditLog.count();
   const materialSaleCount = await prisma.materialSale.count();
   const scrapCount = await prisma.scrapGeneration.count();
+  const phaseCount = await prisma.projectPhase.count();
+  const locCount = await prisma.stockLocation.count({ where: { deletedAt: null } });
+  const subCount = await prisma.subcontractor.count({ where: { deletedAt: null } });
+  const payrollLineCount = await prisma.payrollLine.count();
   console.log("Seed complete.");
   console.log(`  Companies: ${totalCompanies} (1 parent group + 3 children + 1 standalone)`);
   console.log(`  Users: ${Object.keys(userMap).length} · Employees: ${employeeCount}`);
-  console.log(`  Projects: ${totalProjects} · Phases: 9 · Locations: 11`);
+  console.log(`  Projects: ${totalProjects} · Phases: ${phaseCount} · Locations: ${locCount}`);
   console.log(`  Categories: ${categoryCount} · Materials: ${materialCount}`);
-  console.log(`  Suppliers: ${supplierCount} · Subcontractors: ${subcontractors.length}`);
+  console.log(`  Suppliers: ${supplierCount} · Subcontractors: ${subCount}`);
   console.log(`  Requisitions: ${reqCount} · Purchase Orders: ${poCount} · Goods Receipts: ${grCount}`);
   console.log(`  Vendor Quotes: ${quoteCount} · Supplier Returns: ${returnCount}`);
   console.log(`  Material Issues: ${issueCount} · Stock Movements: ${movementCount}`);
@@ -3443,7 +4062,7 @@ async function main() {
   console.log(`  Scrap Generations: ${scrapCount}`);
   console.log(`  Consumption Benchmarks: ${benchmarks.length}`);
   console.log(`  BOQ Items: ${boqSections.length + boqLines.length} · MB Entries: ${mbEntries.length}`);
-  console.log(`  DPRs: ${dprCount} · Attendance: ${attendanceCount} · Payroll Periods: ${payrollCount}`);
+  console.log(`  DPRs: ${dprCount} · Attendance: ${attendanceCount} · Payroll Periods: ${payrollCount} · Payroll Lines: ${payrollLineCount}`);
   console.log(`  Brokers: ${brokerCount} · Tenancies: ${tenancyCount} · Payment Schedules: ${scheduleCount}`);
 }
 

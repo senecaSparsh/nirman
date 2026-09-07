@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 
 export function MobileSellerDialog({
   open,
@@ -74,96 +75,56 @@ export function MobileSellerDialog({
     }
   }
 
-  const inputClass =
-    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
-  const inputStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "transparent",
-    color: "var(--color-ink-950)",
-  };
-  const labelClass = "block text-m-caption font-bold mb-0";
-  const labelStyle = { color: "var(--color-ink-700)" };
-
   return (
     <MobileDialog open={open} onClose={onClose} title="Seller Details">
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Seller Details */}
-          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              Seller Details
-            </p>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Name <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => set("name", e.target.value)}
-                placeholder="e.g. Suresh Patel"
-                autoFocus
-                className={inputClass}
-                style={inputStyle}
+          <SectionCard title="Seller Details">
+            <UnderlineInput
+              label="Name"
+              value={form.name}
+              onChange={(v) => set("name", v)}
+              placeholder="e.g. Suresh Patel"
+              required
+              autoFocus
+            />
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <UnderlineInput
+                label="Phone"
+                value={form.phone}
+                onChange={(v) => set("phone", v)}
+                placeholder="98765 43210"
+                type="tel"
               />
-            </div>
-            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Phone
-                </label>
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => set("phone", e.target.value)}
-                  placeholder="98765 43210"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
               <div className="pl-2">
-                <label className={labelClass} style={labelStyle}>
-                  Email
-                </label>
-                <input
-                  type="email"
+                <UnderlineInput
+                  label="Email"
                   value={form.email}
-                  onChange={(e) => set("email", e.target.value)}
+                  onChange={(v) => set("email", v)}
                   placeholder="seller@email.com"
-                  className={inputClass}
-                  style={inputStyle}
+                  type="email"
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  GSTIN
-                </label>
-                <input
-                  type="text"
-                  value={form.gstin}
-                  onChange={(e) => set("gstin", e.target.value)}
-                  placeholder="22AAAAA0000A1Z5"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
+              <UnderlineInput
+                label="GSTIN"
+                value={form.gstin}
+                onChange={(v) => set("gstin", v)}
+                placeholder="22AAAAA0000A1Z5"
+              />
               <div className="pl-2">
-                <label className={labelClass} style={labelStyle}>
-                  Address
-                </label>
-                <input
-                  type="text"
+                <UnderlineInput
+                  label="Address"
                   value={form.address}
-                  onChange={(e) => set("address", e.target.value)}
+                  onChange={(v) => set("address", v)}
                   placeholder="Village, district"
-                  className={inputClass}
-                  style={inputStyle}
                 />
               </div>
             </div>
+            {/* Notes — textarea, kept hand-rolled (UnderlineInput only supports <input>) */}
             <div>
-              <label className={labelClass} style={labelStyle}>
+              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                 Notes
               </label>
               <textarea
@@ -172,10 +133,10 @@ export function MobileSellerDialog({
                 rows={1}
                 placeholder="Optional notes"
                 className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
-                style={inputStyle}
+                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
               />
             </div>
-          </div>
+          </SectionCard>
           {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
           <div
             className="sticky bottom-0 left-0 right-0 z-20 border-t"

@@ -340,7 +340,7 @@ export function MobileReceiveDialog({
         const data = await res.json();
         setCategories(data.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })));
       }
-    } catch { /* best-effort */ }
+    } catch (err) { console.warn("Failed to load categories:", err); }
   }
 
   async function handleQuickAdd() {
@@ -742,7 +742,7 @@ export function MobileReceiveDialog({
                     });
                     setLastGrnId(null);
                     setOpen(false);
-                    router.push("/finance?tab=invoices");
+                    router.push("/m/books/finance?tab=invoices");
                   })
                   .catch((e) => {
                     toast.error(e instanceof Error ? e.message : "Failed to create invoice");

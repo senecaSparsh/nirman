@@ -19,9 +19,7 @@ import {
   Truck,
   User,
   RotateCcw,
-  Printer,
   LogIn,
-  Info,
   Phone,
   Hash,
   Boxes,
@@ -32,6 +30,7 @@ import {
   Check,
 } from "lucide-react";
 import { MobileStatusBadge, ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { DetailHeroCard, DetailAlertBanner, DetailPrintButton } from "@/components/mobile/v2/detail-primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
@@ -196,20 +195,6 @@ export function MobileTransferDetailClient({
     }
   }
 
-  const StatusIcon = isDraft
-    ? Clock
-    : isInTransit
-      ? Truck
-      : isCompleted
-        ? CheckCircle2
-        : AlertTriangle;
-  const accentColor = isDraft
-    ? "var(--color-signal)"
-    : isInTransit
-      ? "var(--color-signal-dark)"
-      : isCompleted
-        ? "var(--color-go)"
-        : "var(--color-stop)";
   const statusLabel = isDraft
     ? "Draft"
     : isInTransit
@@ -305,39 +290,12 @@ export function MobileTransferDetailClient({
   return (
     <div className="pb-20">
       {/* ── Header ── */}
-      <div className="flex items-center gap-2 mb-3">
-        <div className="flex-1 min-w-0">
-          <p
-            className="text-m-section font-bold"
-            style={{ color: "var(--color-ink-950)" }}
-          >
-            Stock Transfer
-          </p>
-        </div>
-        <span
-          className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
-          style={{
-            color: accentColor,
-            backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)`,
-          }}
-        >
-          <StatusIcon className="size-2.5" />
-          {statusLabel}
-        </span>
-        <a
-          href={`/print/stock-transfer/${transfer.id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center size-7 rounded-full shrink-0 press"
-          style={{
-            backgroundColor: "var(--color-paper-2)",
-            color: "var(--color-ink-700)",
-          }}
-          onClick={() => haptic(5)}
-        >
-          <Printer className="size-3.5" />
-        </a>
-      </div>
+      <DetailHeroCard
+        icon={ArrowLeftRight}
+        title="Stock Transfer"
+        status={transfer.status}
+        action={<DetailPrintButton href={`/print/stock-transfer/${transfer.id}`} />}
+      />
 
       {/* ── From → To banner ── */}
       <div
@@ -1215,73 +1173,30 @@ export function MobileTransferDetailClient({
 
       {/* ── Completed info ── */}
       {isCompleted ? (
-        <div
-          className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2 mt-4"
-          style={{
-            borderColor:
-              "color-mix(in srgb, var(--color-go) 30%, var(--color-line))",
-            backgroundColor:
-              "color-mix(in srgb, var(--color-go) 6%, var(--color-paper))",
-          }}
-        >
-          <CheckCircle2
-            className="size-4 shrink-0"
-            style={{ color: "var(--color-go)" }}
+        <div className="mt-4">
+          <DetailAlertBanner
+            tone="success"
+            title="Stock has been moved from source to destination. Stock ledger and MAC updated."
           />
-          <span
-            className="text-m-caption"
-            style={{ color: "var(--color-ink-700)" }}
-          >
-            Stock has been moved from source to destination. Stock ledger and
-            MAC updated.
-          </span>
         </div>
       ) : null}
 
       {/* ── Cancelled info ── */}
       {isCancelled ? (
-        <div
-          className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2 mt-4"
-          style={{
-            borderColor:
-              "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))",
-            backgroundColor:
-              "color-mix(in srgb, var(--color-stop) 6%, var(--color-paper))",
-          }}
-        >
-          <XCircle
-            className="size-4 shrink-0"
-            style={{ color: "var(--color-stop)" }}
+        <div className="mt-4">
+          <DetailAlertBanner
+            tone="danger"
+            title="This transfer was cancelled. No stock was moved."
           />
-          <span
-            className="text-m-caption"
-            style={{ color: "var(--color-ink-700)" }}
-          >
-            This transfer was cancelled. No stock was moved.
-          </span>
         </div>
       ) : null}
 
       {/* ── Sender/receiver context banner ── */}
       {canManage && (isDraft || isInTransit) && isInterCompany ? (
-        <div
-          className="rounded-[0.5rem] border px-3 py-2 mb-3 flex items-center gap-2"
-          style={{
-            borderColor:
-              "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
-            backgroundColor:
-              "color-mix(in srgb, var(--color-signal) 6%, var(--color-paper))",
-          }}
-        >
-          <Info
-            className="size-3.5 shrink-0"
-            style={{ color: "var(--color-signal-dark)" }}
-          />
-          <span
-            className="text-m-caption"
-            style={{ color: "var(--color-ink-700)" }}
-          >
-            {isSourceCompany && isDraft
+        <DetailAlertBanner
+          tone="warning"
+          title={
+            isSourceCompany && isDraft
               ? "You are the sender. Dispatch this transfer when ready."
               : isDestCompany && isInTransit
                 ? "You are the receiver. Confirm receipt when goods arrive."
@@ -1289,9 +1204,9 @@ export function MobileTransferDetailClient({
                   ? "Waiting for receiver to confirm receipt."
                   : isDestCompany && isDraft
                     ? "Waiting for sender to dispatch."
-                    : "Viewing transfer from another company."}
-          </span>
-        </div>
+                    : "Viewing transfer from another company."
+          }
+        />
       ) : null}
 
       {/* ── Inter-company switch prompt ── */}

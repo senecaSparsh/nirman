@@ -1,18 +1,15 @@
-import { getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
-import { MobileNoAccess } from "@/components/mobile/v2/primitives";
+import { PERM } from "@/lib/roles";
+import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import { MobileNewSubcontractorClient } from "./MobileNewSubcontractorClient";
 
 /**
  * /m/subcontractors/new — mobile subcontractor creation.
  * Server wrapper that gates on PROCUREMENT_MANAGE permission.
  */
-export default async function MobileNewSubcontractorPage() {
-  const role = await getUserRole();
-
-  if (!hasPermission(role, PERM.PROCUREMENT_MANAGE)) {
-    return <MobileNoAccess what="create subcontractors" permission="procurement.manage" />;
-  }
-
-  return <MobileNewSubcontractorClient />;
+export default function MobileNewSubcontractorPage() {
+  return (
+    <MobileNewEntityPage perm={PERM.PROCUREMENT_MANAGE} what="create subcontractors" permission="procurement.manage">
+      {() => <MobileNewSubcontractorClient />}
+    </MobileNewEntityPage>
+  );
 }

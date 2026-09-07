@@ -11,6 +11,7 @@ import { useConfirm } from "@/lib/use-confirm";
 import { ActionBar, MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { DetailHeroCard, DetailStatGrid, DetailKeyValueCard, DetailAlertBanner } from "@/components/mobile/v2/detail-primitives";
 
 interface NcrDetail {
   id: string;
@@ -179,32 +180,33 @@ export function MobileNcrDetailClient({
   return (
     <div className="space-y-4 pb-20">
       {/* Header */}
-      <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{ncr.ncrNumber}</p>
-          <MobileStatusBadge status={ncr.status} />
-        </div>
-        <h1 className="text-m-section font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>{ncr.title}</h1>
-        <p className="text-m-label" style={{ color: sevColor, fontWeight: 600 }}>
+      <DetailHeroCard
+        icon={ShieldCheck}
+        title={ncr.title}
+        subtitle={ncr.projectName}
+        status={ncr.status}
+      >
+        <p className="text-m-label font-bold tabular-nums mt-2" style={{ color: "var(--color-ink-500)" }}>{ncr.ncrNumber}</p>
+        <p className="text-m-label mt-1" style={{ color: sevColor, fontWeight: 600 }}>
           {ncr.severity} · {CATEGORY_LABELS[ncr.category] ?? ncr.category}
         </p>
-        <p className="text-m-label mt-1" style={{ color: "var(--color-ink-500)" }}>{ncr.projectName}</p>
-      </div>
-
-      {/* Description */}
-      <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <p className="text-m-label font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Description</p>
-        <p className="text-m-section leading-relaxed" style={{ color: "var(--color-ink-950)" }}>{ncr.description}</p>
-      </div>
+        <div className="mt-2">
+          <p className="text-m-label font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Description</p>
+          <p className="text-m-section leading-relaxed" style={{ color: "var(--color-ink-950)" }}>{ncr.description}</p>
+        </div>
+      </DetailHeroCard>
 
       {/* Details grid */}
-      <div className="grid grid-cols-2 gap-2">
-        {ncr.location && <DetailCard label="Location" value={ncr.location} />}
-        {ncr.responsibleParty && <DetailCard label="Responsible" value={ncr.responsibleParty} />}
-        {ncr.subcontractorName && <DetailCard label="Subcontractor" value={ncr.subcontractorName} />}
-        {ncr.wbsNodeName && <DetailCard label="WBS Node" value={ncr.wbsNodeName} />}
-        {ncr.boqItemSerial && <DetailCard label="BOQ Item" value={`${ncr.boqItemSerial} — ${ncr.boqItemDescription}`} />}
-      </div>
+      <DetailStatGrid
+        cols={2}
+        stats={[
+          ...(ncr.location ? [{ label: "Location", value: ncr.location }] : []),
+          ...(ncr.responsibleParty ? [{ label: "Responsible", value: ncr.responsibleParty }] : []),
+          ...(ncr.subcontractorName ? [{ label: "Subcontractor", value: ncr.subcontractorName }] : []),
+          ...(ncr.wbsNodeName ? [{ label: "WBS Node", value: ncr.wbsNodeName }] : []),
+          ...(ncr.boqItemSerial ? [{ label: "BOQ Item", value: `${ncr.boqItemSerial} — ${ncr.boqItemDescription}` }] : []),
+        ]}
+      />
 
       {/* Photo evidence */}
       {ncr.attachments.length > 0 && (
@@ -230,47 +232,40 @@ export function MobileNcrDetailClient({
       )}
 
       {/* Timeline */}
-      <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <p className="text-m-label font-semibold uppercase mb-2" style={{ color: "var(--color-ink-500)" }}>Timeline</p>
-        <div className="space-y-1.5">
-          <TimelineRow label="Raised" date={ncr.raisedAt} name={ncr.raisedByName} />
-          {ncr.reviewedAt && <TimelineRow label="Reviewed" date={ncr.reviewedAt} name={ncr.reviewedByName} />}
-          {ncr.closedAt && <TimelineRow label="Closed" date={ncr.closedAt} name={ncr.closedByName} />}
+      <DetailKeyValueCard
+        title="Timeline"
+        entries={[
+          { label: "Raised", value: `${formatDate(ncr.raisedAt)}${ncr.raisedByName ? ` · by ${ncr.raisedByName}` : ""}` },
+          ...(ncr.reviewedAt ? [{ label: "Reviewed", value: `${formatDate(ncr.reviewedAt)}${ncr.reviewedByName ? ` · by ${ncr.reviewedByName}` : ""}` }] : []),
+          ...(ncr.closedAt ? [{ label: "Closed", value: `${formatDate(ncr.closedAt)}${ncr.closedByName ? ` · by ${ncr.closedByName}` : ""}` }] : []),
+        ]}
+      />
+      {ncr.reviewNotes && (
+        <div className="rounded-[0.375rem] p-2 mb-3" style={{ backgroundColor: "var(--color-concrete)" }}>
+          <p className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>Review Notes</p>
+          <p className="text-m-label" style={{ color: "var(--color-ink-950)" }}>{ncr.reviewNotes}</p>
         </div>
-        {ncr.reviewNotes && (
-          <div className="mt-2 rounded-[0.375rem] p-2" style={{ backgroundColor: "var(--color-concrete)" }}>
-            <p className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>Review Notes</p>
-            <p className="text-m-label" style={{ color: "var(--color-ink-950)" }}>{ncr.reviewNotes}</p>
-          </div>
-        )}
-        {ncr.closureNotes && (
-          <div className="mt-2 rounded-[0.375rem] p-2" style={{ backgroundColor: "var(--color-concrete)" }}>
-            <p className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>Closure Notes</p>
-            <p className="text-m-label" style={{ color: "var(--color-ink-950)" }}>{ncr.closureNotes}</p>
-          </div>
-        )}
-      </div>
+      )}
+      {ncr.closureNotes && (
+        <div className="rounded-[0.375rem] p-2 mb-3" style={{ backgroundColor: "var(--color-concrete)" }}>
+          <p className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>Closure Notes</p>
+          <p className="text-m-label" style={{ color: "var(--color-ink-950)" }}>{ncr.closureNotes}</p>
+        </div>
+      )}
 
       {/* CAPA section */}
       {ncr.capa ? (
         <CapaSection capa={ncr.capa} />
       ) : ncr.status === "CAPA_REQUIRED" && canManage ? (
-        <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <div className="flex items-center gap-2 mb-2">
-            <ShieldCheck className="size-4" style={{ color: "var(--color-signal)" }} />
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>CAPA Required</p>
-          </div>
-          <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
-            Create a Corrective And Preventive Action plan for this NCR.
-          </p>
+        <DetailAlertBanner tone="warning" title="CAPA Required" description="Create a Corrective And Preventive Action plan for this NCR.">
           <button
             onClick={() => setShowCapa(true)}
-            className="w-full h-10 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press"
+            className="w-full h-10 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press mt-2"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             <ShieldCheck className="size-4" /> Create CAPA
           </button>
-        </div>
+        </DetailAlertBanner>
       ) : null}
 
       {/* Workflow actions */}
@@ -542,27 +537,6 @@ function CapaField({ label, value, done, doneByName, doneAt, dueDate }: { label:
           {doneAt ? `Done ${formatDate(doneAt)}${doneByName ? ` by ${doneByName}` : ""}` : dueDate ? `Due ${formatDate(dueDate)}` : ""}
         </p>
       )}
-    </div>
-  );
-}
-
-function DetailCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-      <p className="text-m-caption font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>{label}</p>
-      <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>{value}</p>
-    </div>
-  );
-}
-
-function TimelineRow({ label, date, name }: { label: string; date: string; name?: string | null }) {
-  return (
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-950)" }}>{label}</p>
-        {name && <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>by {name}</p>}
-      </div>
-      <p className="text-m-label tabular-nums" style={{ color: "var(--color-ink-500)" }}>{formatDate(date)}</p>
     </div>
   );
 }

@@ -6,5 +6,5 @@ export default async function QuotationDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  redirect(`/m/quotations?open=${id}`);
+  redirect(`/procurement?tab=quotations&open=${id}`);
 }

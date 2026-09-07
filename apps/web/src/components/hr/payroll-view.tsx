@@ -684,7 +684,7 @@ function PayrollDetailDialog({
           const data = await refreshRes.json();
           setLines(data.lines ?? []);
         }
-      } catch { /* refresh is best-effort */ }
+      } catch (err) { console.warn("Payroll refresh failed:", err); }
       onUpdated();
     } else {
       const data = await res.json().catch(() => ({}));

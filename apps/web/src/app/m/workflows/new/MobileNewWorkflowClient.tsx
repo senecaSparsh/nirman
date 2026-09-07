@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMobileBack } from "@/components/mobile/v2/mobile-back-button";
 import {
   Workflow as WorkflowIcon,
   ChevronLeft,
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { WORKFLOW_TEMPLATES, type WorkflowTemplate } from "@/lib/workflow-templates";
+import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 
 const TEMPLATE_ICONS: Record<string, LucideIcon> = {
   ClipboardList,
@@ -48,6 +50,7 @@ type Step = "template" | "details" | "schedule";
 
 export function MobileNewWorkflowClient() {
   const router = useRouter();
+  const goBack = useMobileBack("/m/workflows");
   const [step, setStep] = useState<Step>("template");
   const [selectedTemplate, setSelectedTemplate] = useState<WorkflowTemplate | null>(null);
   const [name, setName] = useState("");
@@ -126,7 +129,7 @@ export function MobileNewWorkflowClient() {
             onClick={() => {
               if (step === "details") setStep("template");
               else if (step === "schedule") setStep("details");
-              else router.push("/m/workflows");
+              else goBack();
             }}
             className="text-m-body press p-1 -ml-1"
           >
@@ -165,13 +168,7 @@ export function MobileNewWorkflowClient() {
       {/* ── Step 1: Template selection ── */}
       {step === "template" && (
         <div className="p-3 space-y-3">
-          <div
-            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          >
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              Choose a Template
-            </p>
+          <SectionCard title="Choose a Template">
             <div className="flex flex-col gap-2">
               {WORKFLOW_TEMPLATES.map((t) => {
                 const Icon = TEMPLATE_ICONS[t.icon] ?? WorkflowIcon;
@@ -214,7 +211,7 @@ export function MobileNewWorkflowClient() {
                 );
               })}
             </div>
-          </div>
+          </SectionCard>
         </div>
       )}
 
@@ -222,13 +219,7 @@ export function MobileNewWorkflowClient() {
       {step === "details" && selectedTemplate && (
         <div className="p-3 space-y-3">
           {/* Selected template summary */}
-          <div
-            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          >
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              Selected Template
-            </p>
+          <SectionCard title="Selected Template">
             <div className="flex flex-col gap-1">
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                 {selectedTemplate.label}
@@ -237,28 +228,17 @@ export function MobileNewWorkflowClient() {
                 {selectedTemplate.description}
               </p>
             </div>
-          </div>
+          </SectionCard>
 
           {/* Details: name & description */}
-          <div
-            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          >
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              Details
-            </p>
-            <div>
-              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-                Workflow Name *
-              </label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Weekly Site Inspection"
-                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-              />
-            </div>
+          <SectionCard title="Details">
+            <UnderlineInput
+              label="Workflow Name"
+              value={name}
+              onChange={setName}
+              placeholder="e.g. Weekly Site Inspection"
+              required
+            />
             <div>
               <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                 Description
@@ -272,16 +252,10 @@ export function MobileNewWorkflowClient() {
                 style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
               />
             </div>
-          </div>
+          </SectionCard>
 
           {/* Steps preview */}
-          <div
-            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          >
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              Steps ({selectedTemplate.graph.steps.length})
-            </p>
+          <SectionCard title={`Steps (${selectedTemplate.graph.steps.length})`}>
             <div className="flex flex-col gap-1.5">
               {selectedTemplate.graph.steps.map((s, i) => {
                 const StepIcon = getStepIcon(s.type);
@@ -310,7 +284,7 @@ export function MobileNewWorkflowClient() {
                 );
               })}
             </div>
-          </div>
+          </SectionCard>
 
           <button
             onClick={() => setStep("schedule")}
@@ -326,13 +300,7 @@ export function MobileNewWorkflowClient() {
       {/* ── Step 3: Schedule ── */}
       {step === "schedule" && (
         <div className="p-3 space-y-3">
-          <div
-            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          >
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              Schedule
-            </p>
+          <SectionCard title="Schedule">
             <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
               How often should this workflow run automatically? You can always run it manually too.
             </p>
@@ -364,7 +332,7 @@ export function MobileNewWorkflowClient() {
                 );
               })}
             </div>
-          </div>
+          </SectionCard>
 
           <button
             onClick={handleCreate}

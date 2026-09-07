@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, ShoppingCart, Users, Download, FileSpreadsheet, ChevronDown, ContactRound, FileText, Bell, LayoutGrid, Rows3 } from "lucide-react";
+import { Plus, ShoppingCart, Users, Download, FileSpreadsheet, ChevronDown, ContactRound, FileText, Bell, LayoutGrid, Rows3, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useTabParam } from "@/lib/use-tab-param";
@@ -16,6 +16,7 @@ import { SellAssetDialog } from "./sell-asset-dialog";
 import { SaleDetailDialog } from "./sale-detail-dialog";
 import { BbaPipelineBoard } from "./bba-pipeline-board";
 import { CustomerFormDialog } from "./customer-form-dialog";
+import { SmsView, type SmsRow } from "@/components/sms/sms-view";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { downloadCSV, downloadExcel } from "@/lib/export";
 import type { AssetSaleRow, CustomerRow, LeadRow } from "@/lib/types";
@@ -28,6 +29,8 @@ export function SalesView({
   units,
   assignees,
   defaultTab = "pipeline",
+  smsItems,
+  smsPermissions,
   permissions,
 }: {
   leads: LeadRow[];
@@ -37,11 +40,13 @@ export function SalesView({
   units: { id: string; projectId: string; projectName: string; label: string }[];
   assignees: { id: string; name: string }[];
   defaultTab?: string;
+  smsItems?: SmsRow[];
+  smsPermissions?: { canCreate: boolean };
   permissions?: { canCreateSale?: boolean; canManage?: boolean };
 }) {
-  const initialTab = defaultTab === "customers" ? "customers" : defaultTab === "sales" ? "sales" : "pipeline";
+  const initialTab = defaultTab === "customers" ? "customers" : defaultTab === "sales" ? "sales" : defaultTab === "bank-sms" ? "bank-sms" : "pipeline";
   const [tab, setTab] = useTabParam(
-    ["pipeline", "sales", "customers"] as const,
+    ["pipeline", "sales", "customers", "bank-sms"] as const,
     initialTab,
   );
   const searchParams = useSearchParams();
@@ -73,6 +78,11 @@ export function SalesView({
           <TabsTrigger value="customers">
             <span className="flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> Customers</span>
           </TabsTrigger>
+          {smsItems ? (
+            <TabsTrigger value="bank-sms">
+              <span className="flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> Bank SMS</span>
+            </TabsTrigger>
+          ) : null}
         </TabsList>
 
         <TabsContent value="pipeline">
@@ -105,6 +115,11 @@ export function SalesView({
             onSelectSale={(s) => setGlobalSelectedSale(s)}
           />
         </TabsContent>
+        {smsItems ? (
+          <TabsContent value="bank-sms">
+            <SmsView items={smsItems} canCreate={smsPermissions?.canCreate ?? false} />
+          </TabsContent>
+        ) : null}
       </Tabs>
 
       {/* Shared sale detail dialog — opened from either Sales or Customers tab */}

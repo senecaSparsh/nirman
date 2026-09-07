@@ -13,9 +13,12 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
-  MobileStatCard,
   MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
+import {
+  DetailHeroCard,
+  DetailStatGrid,
+} from "@/components/mobile/v2/detail-primitives";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 
@@ -182,39 +185,10 @@ export function MobileLeadDetailClient({
   return (
     <div className="flex flex-col gap-4 pb-8">
       {/* ── Header ── */}
-      <div
-        className="rounded-[0.625rem] border p-3"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="min-w-0">
-            <h1 className="text-m-section font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
-              {lead.name}
-            </h1>
-            <div className="flex items-center gap-1.5 mt-1">
-              <span
-                className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem]"
-                style={{ backgroundColor: stageMeta.color, color: "var(--color-paper)" }}
-              >
-                {stageMeta.label}
-              </span>
-              <span
-                className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem]"
-                style={{ backgroundColor: priorityMeta.color, color: "var(--color-paper)" }}
-              >
-                {priorityMeta.label}
-              </span>
-              {isConverted ? (
-                <span
-                  className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem]"
-                  style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
-                >
-                  Converted
-                </span>
-              ) : null}
-            </div>
-          </div>
-          <div className="text-right shrink-0">
+      <DetailHeroCard
+        title={lead.name}
+        action={
+          <div className="text-right">
             <p className="text-m-caption uppercase font-semibold" style={{ color: "var(--color-ink-500)" }}>
               Score
             </p>
@@ -222,6 +196,29 @@ export function MobileLeadDetailClient({
               {lead.score}
             </p>
           </div>
+        }
+      >
+        <div className="flex items-center gap-1.5 mt-2">
+          <span
+            className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem]"
+            style={{ backgroundColor: stageMeta.color, color: "var(--color-paper)" }}
+          >
+            {stageMeta.label}
+          </span>
+          <span
+            className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem]"
+            style={{ backgroundColor: priorityMeta.color, color: "var(--color-paper)" }}
+          >
+            {priorityMeta.label}
+          </span>
+          {isConverted ? (
+            <span
+              className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem]"
+              style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
+            >
+              Converted
+            </span>
+          ) : null}
         </div>
 
         {/* Quick actions — call + log */}
@@ -247,7 +244,7 @@ export function MobileLeadDetailClient({
             </a>
           ) : null}
         </div>
-      </div>
+      </DetailHeroCard>
 
       {/* ── Log Activity (call tracking) ── */}
       {canLogActivity ? (
@@ -287,24 +284,17 @@ export function MobileLeadDetailClient({
       ) : null}
 
       {/* ── Stats ── */}
-      <div className="grid grid-cols-4 gap-1.5">
-        <MobileStatCard
-          label="Activities"
-          value={String(lead.stats.activityCount)}
-          icon={MessageSquare}
-        />
-        <MobileStatCard
-          label="Last Contact"
-          value={lead.stats.daysSinceContact != null ? `${lead.stats.daysSinceContact}d ago` : "—"}
-          icon={Clock}
-        />
-        <MobileStatCard
-          label="Source"
-          value={lead.source.replace(/_/g, " ")}
-          icon={Target}
-          tone="signal"
-        />
-      </div>
+      <DetailStatGrid
+        cols={4}
+        stats={[
+          { label: "Activities", value: String(lead.stats.activityCount) },
+          {
+            label: "Last Contact",
+            value: lead.stats.daysSinceContact != null ? `${lead.stats.daysSinceContact}d ago` : "—",
+          },
+          { label: "Source", value: lead.source.replace(/_/g, " "), tone: "signal" },
+        ]}
+      />
 
       {/* ── Details ── */}
       <div>

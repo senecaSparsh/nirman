@@ -22,6 +22,16 @@ import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 
    • <MobileNewEntitySuspense>       — just the Suspense + skeleton
      wrapper, for pages that need more control over the gate logic.
+
+   Permission modes:
+   • Hard gate (default): If the user lacks the permission, they see
+     <MobileNoAccess> and the children function is never called.
+   • Soft gate (soft={true}): The children function is always called,
+     but receives { canManage: false } so the form can render in a
+     read-only / disabled state. Use this when the form should still
+     be visible but with limited functionality.
+   • No gate (perm omitted): No permission check at all. Children
+     receives { canManage: true }. Use for pages that don't need a gate.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /**
@@ -39,9 +49,19 @@ export function MobileNewEntitySuspense({
 }
 
 /**
+ * Context passed to the children render function.
+ * `canManage` is true when the user has the required permission (or
+ * when no permission was requested). In soft mode it may be false —
+ * the form should use it to show/hide create buttons.
+ */
+export interface MobileNewEntityCtx {
+  canManage: boolean;
+}
+
+/**
  * Full "new entity" page scaffolding: Suspense + connection + permission gate.
  *
- * Usage:
+ * Usage (hard gate — default):
  *   export default function Page() {
  *     return (
  *       <MobileNewEntityPage perm={PERM.SALES_MANAGE} what="create customers">
@@ -54,7 +74,20 @@ export function MobileNewEntitySuspense({
  *     );
  *   }
  *
- * The children render function is only called if the user has permission.
+ * Usage (soft gate — form renders but with canManage=false):
+ *   export default function Page() {
+ *     return (
+ *       <MobileNewEntityPage perm={PERM.PROCUREMENT_MANAGE} what="add suppliers" soft>
+ *         {async ({ canManage }) => {
+ *           const company = await getCompany();
+ *           return <MyForm canCreate={canManage} />;
+ *         }}
+ *       </MobileNewEntityPage>
+ *     );
+ *   }
+ *
+ * The children render function is only called if the user has permission
+ * (hard gate) or always called with canManage (soft gate).
  */
 export async function MobileNewEntityPage({
   perm,
@@ -62,25 +95,31 @@ export async function MobileNewEntityPage({
   permission,
   fields = 5,
   suspense = true,
+  soft = false,
   children,
 }: {
-  perm: Permission;
+  /** Permission to gate on. Omit for no gate. */
+  perm?: Permission;
   what?: string;
   /** The permission key to display in the NoAccess message. */
   permission?: string;
   fields?: number;
   /** Wrap in Suspense with a form skeleton. Set false if the page is fully static. */
   suspense?: boolean;
-  children: () => Promise<ReactNode> | ReactNode;
+  /** If true, don't block — pass canManage to children instead. */
+  soft?: boolean;
+  children: (ctx: MobileNewEntityCtx) => Promise<ReactNode> | ReactNode;
 }) {
   const content = async () => {
     await connection();
     const role = await getUserRole();
     const overrides = await getUserPermissions();
-    if (!hasPermission(role, perm, overrides)) {
+    const canManage = perm ? hasPermission(role, perm, overrides) : true;
+
+    if (!soft && perm && !canManage) {
       return <MobileNoAccess what={what ?? "this page"} permission={permission} />;
     }
-    return children();
+    return children({ canManage });
   };
 
   if (suspense) {

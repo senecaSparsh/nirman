@@ -1,10 +1,8 @@
-import { Suspense } from "react";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
+import { toNum } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { Globe, Plus } from "lucide-react";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {
   MobileEmptyState,
   MobileStatCard,
@@ -20,104 +18,97 @@ import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
  */
 export default function MobilePortalListingsPage() {
   return (
-    <Suspense fallback={<MobileSkeletonList rows={6} />}>
-      <MobilePortalListingsContent />
-    </Suspense>
-  );
-}
+    <MobileListPage managePerm={PERM.SALES_MANAGE}>
+      {async ({ company, canManage }) => {
+        const listings = await prisma.portalListing.findMany({
+          where: { companyId: company.id },
+          orderBy: { createdAt: "desc" },
+          take: 60,
+          select: {
+            id: true,
+            portalName: true,
+            title: true,
+            askingPrice: true,
+            status: true,
+            listingUrl: true,
+            lastSyncedAt: true,
+            syncError: true,
+            builtUnit: { select: { unitNumber: true, project: { select: { name: true } } } },
+          },
+        });
 
-async function MobilePortalListingsContent() {
-  await connection();
-  const company = await getCompany();
-  const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.SALES_MANAGE);
+        const rows: PortalListingItem[] = listings.map((l) => ({
+          id: l.id,
+          portalName: l.portalName,
+          title: l.title,
+          status: l.status,
+          askingPrice: toNum(l.askingPrice),
+          listingUrl: l.listingUrl,
+          lastSyncedAt: l.lastSyncedAt?.toISOString() ?? null,
+          syncError: l.syncError,
+          unitNumber: l.builtUnit?.unitNumber ?? null,
+          projectName: l.builtUnit?.project.name ?? null,
+        }));
 
-  const listings = await prisma.portalListing.findMany({
-    where: { companyId: company.id },
-    orderBy: { createdAt: "desc" },
-    take: 60,
-    select: {
-      id: true,
-      portalName: true,
-      title: true,
-      askingPrice: true,
-      status: true,
-      listingUrl: true,
-      lastSyncedAt: true,
-      syncError: true,
-      builtUnit: { select: { unitNumber: true, project: { select: { name: true } } } },
-    },
-  });
+        const listed = rows.filter((l) => l.status === "LISTED");
+        const draft = rows.filter((l) => l.status === "DRAFT");
+        const failed = rows.filter((l) => l.status === "SYNC_FAILED");
+        const delisted = rows.filter((l) => l.status === "DELISTED");
 
-  const rows: PortalListingItem[] = listings.map((l) => ({
-    id: l.id,
-    portalName: l.portalName,
-    title: l.title,
-    status: l.status,
-    askingPrice: toNum(l.askingPrice),
-    listingUrl: l.listingUrl,
-    lastSyncedAt: l.lastSyncedAt?.toISOString() ?? null,
-    syncError: l.syncError,
-    unitNumber: l.builtUnit?.unitNumber ?? null,
-    projectName: l.builtUnit?.project.name ?? null,
-  }));
+        const csvColumns: MobileColumnSpec[] = [
+          { key: "title", label: "Title" },
+          { key: "portalName", label: "Portal" },
+          { key: "projectName", label: "Project" },
+          { key: "unitNumber", label: "Unit" },
+          { key: "status", label: "Status" },
+          { key: "askingPrice", label: "Asking Price", format: "currency" },
+        ];
 
-  const listed = rows.filter((l) => l.status === "LISTED");
-  const draft = rows.filter((l) => l.status === "DRAFT");
-  const failed = rows.filter((l) => l.status === "SYNC_FAILED");
-  const delisted = rows.filter((l) => l.status === "DELISTED");
-
-  const csvColumns: MobileColumnSpec[] = [
-    { key: "title", label: "Title" },
-    { key: "portalName", label: "Portal" },
-    { key: "projectName", label: "Project" },
-    { key: "unitNumber", label: "Unit" },
-    { key: "status", label: "Status" },
-    { key: "askingPrice", label: "Asking Price", format: "currency" },
-  ];
-
-  return (
-    <div>
-      <div className="grid grid-cols-4 gap-1.5 mb-4">
-        <MobileStatCard label="Listed" value={String(listed.length)} icon={Globe} tone="go" />
-        <MobileStatCard label="Draft" value={String(draft.length)} icon={Globe} />
-        {failed.length > 0 && (
-          <MobileStatCard label="Failed" value={String(failed.length)} icon={Globe} tone="stop" />
-        )}
-        <MobileStatCard label="Delisted" value={String(delisted.length)} icon={Globe} />
-      </div>
-
-      {rows.length === 0 ? (
-        <MobileEmptyState
-          icon={Globe}
-          title="No portal listings"
-          hint={canManage ? "Tap 'New Listing' to list a unit on 99acres, MagicBricks, etc." : "Portal listings will appear here once created"}
-          action={
-            canManage ? (
-              <MobileCta href="/m/portal-listings/new" icon={Plus} variant="primary">
-                New Listing
-              </MobileCta>
-            ) : undefined
-          }
-        />
-      ) : (
-        <>
-          <MobilePortalListingsList
-            items={rows}
-            exportTitle="Portal Listings"
-            exportRows={rows as unknown as Record<string, unknown>[]}
-            exportColumns={csvColumns}
-            exportSummary={`${rows.length} listings · ${listed.length} listed`}
-          />
-          {canManage && (
-            <div className="mt-4">
-              <MobileCta href="/m/portal-listings/new" icon={Plus} variant="primary">
-                New Listing
-              </MobileCta>
+        return (
+          <div>
+            <div className="grid grid-cols-4 gap-1.5 mb-4">
+              <MobileStatCard label="Listed" value={String(listed.length)} icon={Globe} tone="go" />
+              <MobileStatCard label="Draft" value={String(draft.length)} icon={Globe} />
+              {failed.length > 0 && (
+                <MobileStatCard label="Failed" value={String(failed.length)} icon={Globe} tone="stop" />
+              )}
+              <MobileStatCard label="Delisted" value={String(delisted.length)} icon={Globe} />
             </div>
-          )}
-        </>
-      )}
-    </div>
+
+            {rows.length === 0 ? (
+              <MobileEmptyState
+                icon={Globe}
+                title="No portal listings"
+                hint={canManage ? "Tap 'New Listing' to list a unit on 99acres, MagicBricks, etc." : "Portal listings will appear here once created"}
+                action={
+                  canManage ? (
+                    <MobileCta href="/m/portal-listings/new" icon={Plus} variant="primary">
+                      New Listing
+                    </MobileCta>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <>
+                <MobilePortalListingsList
+                  items={rows}
+                  exportTitle="Portal Listings"
+                  exportRows={rows as unknown as Record<string, unknown>[]}
+                  exportColumns={csvColumns}
+                  exportSummary={`${rows.length} listings · ${listed.length} listed`}
+                />
+                {canManage && (
+                  <div className="mt-4">
+                    <MobileCta href="/m/portal-listings/new" icon={Plus} variant="primary">
+                      New Listing
+                    </MobileCta>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        );
+      }}
+    </MobileListPage>
   );
 }

@@ -250,6 +250,12 @@ export function UnderlineInput({
   inputMode,
   mono,
   autoFocus,
+  min,
+  max,
+  step,
+  pattern,
+  maxLength,
+  enterKeyHint,
 }: {
   label: string;
   value: string;
@@ -260,6 +266,12 @@ export function UnderlineInput({
   inputMode?: "text" | "decimal" | "numeric" | "tel" | "email";
   mono?: boolean;
   autoFocus?: boolean;
+  min?: string | number;
+  max?: string | number;
+  step?: string | number;
+  pattern?: string;
+  maxLength?: number;
+  enterKeyHint?: "enter" | "done" | "go" | "next" | "previous" | "search" | "send";
 }) {
   return (
     <div>
@@ -273,6 +285,12 @@ export function UnderlineInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         autoFocus={autoFocus}
+        min={min}
+        max={max}
+        step={step}
+        pattern={pattern}
+        maxLength={maxLength}
+        enterKeyHint={enterKeyHint}
         className={`w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors ${mono ? "font-mono" : ""}`}
         style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
       />
@@ -482,7 +500,7 @@ export function SelectorModal({
   const sheet = (
     <div
       className="fixed inset-0 z-[60] flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
+      style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
       onClick={onClose}
     >
       <div

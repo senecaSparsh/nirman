@@ -391,11 +391,10 @@ input[type="number"] {
     font-family: var(--font-sans);
     font-size: 16px;
     -webkit-text-size-adjust: 100%;
-    /* Zoom the whole platform out one level (90%) at the root. CSS `zoom`
-       reflows layout (unlike transform: scale, which clips + leaves dead
-       space), so every page, panel, and component renders uniformly
-       smaller with correct scrollbars and no broken positioning. */
-    zoom: 0.9;
+    /* The root renders at the authored scale. `zoom:` is intentionally not
+       used — it scales the document but leaves fixed-position chrome
+       (mobile bottom nav, side rail, etc.) anchored to the unscaled
+       viewport, producing empty bands above/below the shell. */
     /* Apple §15 — let the system font (and Inter) shift optical weight
        with size. Headings get tighter apertures, body stays open. */
     font-optical-sizing: auto;

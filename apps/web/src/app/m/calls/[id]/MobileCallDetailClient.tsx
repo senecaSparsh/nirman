@@ -12,23 +12,24 @@ import {
   Plus,
   Trash2,
   ShieldAlert,
-  AlertCircle,
   Loader2,
   Voicemail,
+  Tag as TagIcon,
   Clock,
   User,
-  Tag as TagIcon,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { formatCurrency } from "@/lib/utils";
 import {
   MobileSectionTitle,
-  MobileStatCard,
   Badge,
   ActionBar,
   MobileEmptyState,
+  MobileStatCard,
 } from "@/components/mobile/v2/primitives";
+import { DetailStatGrid, DetailAlertBanner } from "@/components/mobile/v2/detail-primitives";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 

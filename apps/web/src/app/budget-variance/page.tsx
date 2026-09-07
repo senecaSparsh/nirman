@@ -1,53 +1,7 @@
-import { Suspense } from "react";
-import { connection } from "next/server";
-import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, getUserScope } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
-import { PageLoading } from "@/components/page-loading";
-import { NoAccess } from "@/components/no-access";
-import { PageHeader } from "@/components/page-header";
-import { BudgetVarianceView } from "@/components/budget-variance/budget-variance-view";
+import { redirect } from "next/navigation";
+
+export const metadata = { title: "Budget Variance · Nirman" };
 
 export default function BudgetVariancePage() {
-  return (
-    <div className="space-y-6">
-      <Suspense fallback={<PageLoading label="Loading budget variance…" variant="default" />}>
-        <BvContent />
-      </Suspense>
-    </div>
-  );
-}
-
-export async function BvContent() {
-  await connection();
-  const role = await getUserRole();
-  const company = await getCompany();
-  const scope = await getUserScope();
-
-  if (!hasPermission(role, PERM.FINANCE_VIEW)) {
-    return <NoAccess what="budget variance" />;
-  }
-
-  const projectScopeFilter =
-    scope.scopeType === "PROJECT" && scope.projectIds.length > 0
-      ? { id: { in: scope.projectIds } }
-      : {};
-
-  const projects = await prisma.project.findMany({
-    take: 200,
-    where: { companyId: company.id, deletedAt: null, ...projectScopeFilter },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
-
-  return (
-    <>
-      <PageHeader
-        title="Budget Variance"
-        description="Compare planned budget against actual spend per project. Track cost overruns and variance percentages in real time."
-        stats={[{ label: "Projects", value: projects.length }]}
-      />
-      <BudgetVarianceView projects={projects} />
-    </>
-  );
+  redirect("/cost-control?tab=budget-variance");
 }

@@ -1,11 +1,9 @@
-import { Suspense } from "react";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
+import { toNum } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { Building2, Home } from "lucide-react";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { hasPermission, PERM } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
+import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {
   MobileStatCard,
 } from "@/components/mobile/v2/primitives";
@@ -21,137 +19,130 @@ import { MobileProjectsList } from "./MobileProjectsList";
  */
 export default function MobileProjectsPage() {
   return (
-    <Suspense fallback={<MobileSkeletonList rows={8} />}>
-      <MobileProjectsContent />
-    </Suspense>
-  );
-}
+    <MobileListPage managePerm={PERM.PROJECTS_MANAGE} skeletonRows={8}>
+      {async ({ company, canManage }) => {
+        const projects = await prisma.project.findMany({
+          where: { companyId: company.id, deletedAt: null },
+          orderBy: { name: "asc" },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            type: true,
+            totalBudget: true,
+            totalProjectCost: true,
+            costPerSqft: true,
+            reraNumber: true,
+            _count: { select: { builtUnits: { where: { deletedAt: null } } } },
+          },
+        });
 
-async function MobileProjectsContent() {
-  await connection();
-  const company = await getCompany();
-  const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.PROJECTS_MANAGE);
+        const active = projects.filter(
+          (p) => p.status === "PLANNED" || p.status === "ACTIVE",
+        );
+        const done = projects.filter((p) => p.status === "COMPLETED");
+        const hold = projects.filter((p) => p.status === "ON_HOLD");
 
-  const projects = await prisma.project.findMany({
-    where: { companyId: company.id, deletedAt: null },
-    orderBy: { name: "asc" },
-    select: {
-      id: true,
-      name: true,
-      status: true,
-      type: true,
-      totalBudget: true,
-      totalProjectCost: true,
-      costPerSqft: true,
-      reraNumber: true,
-      _count: { select: { builtUnits: { where: { deletedAt: null } } } },
-    },
-  });
+        // ── Build attention banners ──
+        const attentionBanners: AttentionBanner[] = [];
 
-  const active = projects.filter(
-    (p) => p.status === "PLANNED" || p.status === "ACTIVE",
-  );
-  const done = projects.filter((p) => p.status === "COMPLETED");
-  const hold = projects.filter((p) => p.status === "ON_HOLD");
+        // Projects on hold
+        for (const p of hold) {
+          attentionBanners.push({
+            id: p.id,
+            title: p.name,
+            subtitle: `On hold · ${p._count.builtUnits} unit${p._count.builtUnits !== 1 ? "s" : ""} affected`,
+            href: `/m/projects/${p.id}`,
+            severity: "out",
+            qtyText: "Hold",
+            category: "Project",
+          });
+        }
 
-  // ── Build attention banners ──
-  const attentionBanners: AttentionBanner[] = [];
+        // Active projects over budget
+        for (const p of active) {
+          const budget = p.totalBudget ? toNum(p.totalBudget) : 0;
+          const cost = p.totalProjectCost ? toNum(p.totalProjectCost) : 0;
+          if (budget > 0 && cost > budget) {
+            const overBy = cost - budget;
+            attentionBanners.push({
+              id: `budget-${p.id}`,
+              title: p.name,
+              subtitle: `Over budget by ${formatCurrencyCompact(overBy)} · budget ${formatCurrencyCompact(budget)}`,
+              href: `/m/projects/${p.id}`,
+              severity: "low",
+              qtyText: formatCurrencyCompact(overBy),
+              category: "Over Budget",
+            });
+          }
+        }
 
-  // Projects on hold
-  for (const p of hold) {
-    attentionBanners.push({
-      id: p.id,
-      title: p.name,
-      subtitle: `On hold · ${p._count.builtUnits} unit${p._count.builtUnits !== 1 ? "s" : ""} affected`,
-      href: `/m/projects/${p.id}`,
-      severity: "out",
-      qtyText: "Hold",
-      category: "Project",
-    });
-  }
+        // Active projects with zero units
+        for (const p of active.filter((p) => p._count.builtUnits === 0)) {
+          attentionBanners.push({
+            id: `no-units-${p.id}`,
+            title: p.name,
+            subtitle: `Active project with no built units yet`,
+            href: `/m/projects/${p.id}`,
+            severity: "low",
+            qtyText: "0",
+            category: "No Units",
+          });
+        }
 
-  // Active projects over budget
-  for (const p of active) {
-    const budget = p.totalBudget ? toNum(p.totalBudget) : 0;
-    const cost = p.totalProjectCost ? toNum(p.totalProjectCost) : 0;
-    if (budget > 0 && cost > budget) {
-      const overBy = cost - budget;
-      attentionBanners.push({
-        id: `budget-${p.id}`,
-        title: p.name,
-        subtitle: `Over budget by ${formatCurrencyCompact(overBy)} · budget ${formatCurrencyCompact(budget)}`,
-        href: `/m/projects/${p.id}`,
-        severity: "low",
-        qtyText: formatCurrencyCompact(overBy),
-        category: "Over Budget",
-      });
-    }
-  }
+        if (attentionBanners.length === 0) {
+          attentionBanners.push({
+            id: "clear",
+            title: "All caught up!",
+            subtitle: `${active.length} active project${active.length !== 1 ? "s" : ""} · ${done.length} completed · all on budget`,
+            href: "/m/projects",
+            severity: "clear",
+            qtyText: "✓",
+            category: "Everything looks good",
+          });
+        }
 
-  // Active projects with zero units
-  for (const p of active.filter((p) => p._count.builtUnits === 0)) {
-    attentionBanners.push({
-      id: `no-units-${p.id}`,
-      title: p.name,
-      subtitle: `Active project with no built units yet`,
-      href: `/m/projects/${p.id}`,
-      severity: "low",
-      qtyText: "0",
-      category: "No Units",
-    });
-  }
+        // Serialize for the client component (search + filter chips + badges)
+        const serialized = projects.map((p) => ({
+          id: p.id,
+          name: p.name,
+          status: p.status,
+          type: p.type,
+          totalBudget: p.totalBudget ? toNum(p.totalBudget) : null,
+          reraNumber: p.reraNumber,
+          unitCount: p._count.builtUnits,
+        }));
 
-  if (attentionBanners.length === 0) {
-    attentionBanners.push({
-      id: "clear",
-      title: "All caught up!",
-      subtitle: `${active.length} active project${active.length !== 1 ? "s" : ""} · ${done.length} completed · all on budget`,
-      href: "/m/projects",
-      severity: "clear",
-      qtyText: "✓",
-      category: "Everything looks good",
-    });
-  }
+        return (
+          <div>
+            {/* ── Attention banner carousel ── */}
+            <AttentionBannerCarousel banners={attentionBanners} />
 
-  // Serialize for the client component (search + filter chips + badges)
-  const serialized = projects.map((p) => ({
-    id: p.id,
-    name: p.name,
-    status: p.status,
-    type: p.type,
-    totalBudget: p.totalBudget ? toNum(p.totalBudget) : null,
-    reraNumber: p.reraNumber,
-    unitCount: p._count.builtUnits,
-  }));
+            {/* ── KPI strip ─────────────────────────────────────────────── */}
+            <div className="grid grid-cols-4 gap-1.5 mb-4">
+              <MobileStatCard label="Active" value={formatNumber(active.length, 0)} icon={Building2} tone="go" />
+              <MobileStatCard label="Units" value={formatNumber(projects.reduce((s, p) => s + p._count.builtUnits, 0), 0)} icon={Home} />
+              <MobileStatCard label="Completed" value={formatNumber(done.length, 0)} icon={Building2} tone="signal" />
+              <MobileStatCard label="On Hold" value={formatNumber(hold.length, 0)} icon={Building2} tone="stop" />
+            </div>
 
-  return (
-    <div>
-      {/* ── Attention banner carousel ── */}
-      <AttentionBannerCarousel banners={attentionBanners} />
-
-      {/* ── KPI strip ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-4 gap-1.5 mb-4">
-        <MobileStatCard label="Active" value={formatNumber(active.length, 0)} icon={Building2} tone="go" />
-        <MobileStatCard label="Units" value={formatNumber(projects.reduce((s, p) => s + p._count.builtUnits, 0), 0)} icon={Home} />
-        <MobileStatCard label="Completed" value={formatNumber(done.length, 0)} icon={Building2} tone="signal" />
-        <MobileStatCard label="On Hold" value={formatNumber(hold.length, 0)} icon={Building2} tone="stop" />
-      </div>
-
-      <MobileProjectsList
-        items={serialized}
-        canManage={canManage}
-        exportTitle="Projects"
-        exportRows={serialized as unknown as Record<string, unknown>[]}
-        exportColumns={[
-          { key: "name", label: "Name" },
-          { key: "type", label: "Type" },
-          { key: "status", label: "Status" },
-          { key: "totalBudget", label: "Budget", format: "currency" },
-          { key: "unitCount", label: "Units" },
-        ] as MobileColumnSpec[]}
-        exportSummary={`${projects.length} projects · ${active.length} active`}
-      />
-    </div>
+            <MobileProjectsList
+              items={serialized}
+              canManage={canManage}
+              exportTitle="Projects"
+              exportRows={serialized as unknown as Record<string, unknown>[]}
+              exportColumns={[
+                { key: "name", label: "Name" },
+                { key: "type", label: "Type" },
+                { key: "status", label: "Status" },
+                { key: "totalBudget", label: "Budget", format: "currency" },
+                { key: "unitCount", label: "Units" },
+              ] as MobileColumnSpec[]}
+              exportSummary={`${projects.length} projects · ${active.length} active`}
+            />
+          </div>
+        );
+      }}
+    </MobileListPage>
   );
 }

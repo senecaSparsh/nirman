@@ -1,18 +1,15 @@
-import { getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
+import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import MobileNewMaterialSaleClient from "./MobileNewMaterialSaleClient";
-import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
 /**
  * /m/material-sales/new — mobile material sale creation.
  * Server wrapper that gates on SALE_CREATE permission.
  */
-export default async function MobileNewMaterialSalePage() {
-  const role = await getUserRole();
-
-  if (!hasPermission(role, PERM.SALE_CREATE)) {
-    return <MobileNoAccess what="create sales" permission="sale.create" />;
-  }
-
-  return <MobileNewMaterialSaleClient />;
+export default function MobileNewMaterialSalePage() {
+  return (
+    <MobileNewEntityPage perm={PERM.SALE_CREATE} what="create sales" permission="sale.create">
+      {() => <MobileNewMaterialSaleClient />}
+    </MobileNewEntityPage>
+  );
 }

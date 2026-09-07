@@ -6,7 +6,7 @@ import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
-import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { SectionCard, UnderlineInput, EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 const VEHICLE_TYPE_OPTIONS = [
   { value: "TRUCK", label: "Truck (16-wheeler)" },
@@ -92,112 +92,59 @@ export function MobileNewVehicleForm({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const inputClass =
-    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
-  const inputStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "transparent",
-    color: "var(--color-ink-950)",
-  };
-  const labelClass = "block text-m-caption font-bold mb-0";
-  const labelStyle = { color: "var(--color-ink-700)" };
-  const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
-  const sectionStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
-  };
-  const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
-  const sectionTitleStyle = { color: "var(--color-ink-950)" };
-
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       {/* Details */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Vehicle Details
-        </p>
-
+      <SectionCard title="Vehicle Details">
         {/* Vehicle Number + Type */}
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Vehicle Number <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={form.vehicleNumber}
-              onChange={(e) => set("vehicleNumber", e.target.value)}
-              placeholder="e.g. MH-12-AB-1234"
-              autoFocus
-              enterKeyHint="next"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <EnumSelect
-              label="Type"
-              value={form.vehicleType}
-              onChange={(v) => set("vehicleType", v)}
-              options={VEHICLE_TYPE_OPTIONS.map((t) => ({ value: t.value, label: t.label }))}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Driver / Carrier */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Driver / Carrier (optional)
-        </p>
-
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Driver Name
-          </label>
-          <input
-            type="text"
-            value={form.driverName}
-            onChange={(e) => set("driverName", e.target.value)}
-            placeholder="e.g. Ramesh"
+          <UnderlineInput
+            label="Vehicle Number"
+            value={form.vehicleNumber}
+            onChange={(v) => set("vehicleNumber", v)}
+            placeholder="e.g. MH-12-AB-1234"
+            required
+            autoFocus
             enterKeyHint="next"
-            className={inputClass}
-            style={inputStyle}
+          />
+          <EnumSelect
+            label="Type"
+            value={form.vehicleType}
+            onChange={(v) => set("vehicleType", v)}
+            options={VEHICLE_TYPE_OPTIONS.map((t) => ({ value: t.value, label: t.label }))}
           />
         </div>
+      </SectionCard>
+
+      {/* Driver / Carrier */}
+      <SectionCard title="Driver / Carrier (optional)">
+        <UnderlineInput
+          label="Driver Name"
+          value={form.driverName}
+          onChange={(v) => set("driverName", v)}
+          placeholder="e.g. Ramesh"
+          enterKeyHint="next"
+        />
 
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Driver Phone
-            </label>
-            <input
-              type="tel"
-              value={form.driverPhone}
-              onChange={(e) => set("driverPhone", e.target.value)}
-              placeholder="e.g. 9876543210"
-              inputMode="tel"
-              enterKeyHint="next"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Transporter
-            </label>
-            <input
-              type="text"
-              value={form.transporterName}
-              onChange={(e) => set("transporterName", e.target.value)}
-              placeholder="e.g. ABC Transport"
-              enterKeyHint="done"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
+          <UnderlineInput
+            label="Driver Phone"
+            value={form.driverPhone}
+            onChange={(v) => set("driverPhone", v)}
+            placeholder="e.g. 9876543210"
+            type="tel"
+            inputMode="tel"
+            enterKeyHint="next"
+          />
+          <UnderlineInput
+            label="Transporter"
+            value={form.transporterName}
+            onChange={(v) => set("transporterName", v)}
+            placeholder="e.g. ABC Transport"
+            enterKeyHint="done"
+          />
         </div>
-      </div>
+      </SectionCard>
 
       {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
       <div

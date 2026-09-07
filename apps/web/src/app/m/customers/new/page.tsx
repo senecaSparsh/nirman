@@ -1,11 +1,8 @@
-import { Suspense } from "react";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
-import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
+import { getCompany } from "@/lib/server";
+import { PERM } from "@/lib/roles";
+import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import { MobileCustomerForm } from "@/components/mobile/mobile-customer-form";
-import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
 /**
  * /m/customers/new — mobile customer creation. Minimal fields for
@@ -18,40 +15,27 @@ export default function MobileNewCustomerPage({
   searchParams: Promise<{ redirect?: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonForm fields={3} />}>
-      <MobileNewCustomerContent searchParams={searchParams} />
-    </Suspense>
-  );
-}
+    <MobileNewEntityPage perm={PERM.SALES_MANAGE} what="create customers" permission="sales.manage" fields={3}>
+      {async () => {
+        const { redirect } = await searchParams;
+        const company = await getCompany();
 
-async function MobileNewCustomerContent({
-  searchParams,
-}: {
-  searchParams: Promise<{ redirect?: string }>;
-}) {
-  await connection();
-  const role = await getUserRole();
-  const { redirect } = await searchParams;
+        // Fetch existing phone numbers for duplicate-check
+        const customers = await prisma.customer.findMany({
+          where: { companyId: company.id, deletedAt: null, phone: { not: null } },
+          select: { phone: true },
+        });
+        const existingPhones = customers
+          .map((c) => c.phone)
+          .filter((p): p is string => p !== null);
 
-  if (!hasPermission(role, PERM.SALES_MANAGE)) {
-    return <MobileNoAccess what="create customers" permission="sales.manage" />;
-  }
-
-  const company = await getCompany();
-
-  // Fetch existing phone numbers for duplicate-check
-  const customers = await prisma.customer.findMany({
-    where: { companyId: company.id, deletedAt: null, phone: { not: null } },
-    select: { phone: true },
-  });
-  const existingPhones = customers
-    .map((c) => c.phone)
-    .filter((p): p is string => p !== null);
-
-  return (
-    <MobileCustomerForm
-      redirectTo={redirect}
-      existingPhones={existingPhones}
-    />
+        return (
+          <MobileCustomerForm
+            redirectTo={redirect}
+            existingPhones={existingPhones}
+          />
+        );
+      }}
+    </MobileNewEntityPage>
   );
 }

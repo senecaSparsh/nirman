@@ -6,6 +6,7 @@ import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 type WbsNodeType = "PROJECT_NODE" | "PHASE_NODE" | "ACTIVITY" | "SUB_ACTIVITY" | "MILESTONE";
@@ -169,10 +170,7 @@ export function MobileNewWbsNodeDialog({
     <MobileDialog open={open} onClose={onClose} title="New WBS Node">
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Hierarchy */}
-          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              Hierarchy
-            </p>
+          <SectionCard title="Hierarchy">
             {/* Parent (optional) */}
             {parentNodes.length > 0 && (
               <div>
@@ -192,7 +190,7 @@ export function MobileNewWbsNodeDialog({
               </div>
             )}
 
-            {/* Type selector */}
+            {/* Type selector — custom button group, stays inline */}
             <div>
               <label className={labelClass} style={labelStyle}>
                 Node Type
@@ -227,47 +225,34 @@ export function MobileNewWbsNodeDialog({
                 ))}
               </div>
             </div>
-          </div>
+          </SectionCard>
 
           {/* Node Details */}
-          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              Node Details
-            </p>
+          <SectionCard title="Node Details">
             {/* Code + Name */}
             <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Code <span style={{ color: "var(--color-stop)" }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.code}
-                  onChange={(e) => set("code", e.target.value)}
-                  placeholder="1.1"
-                  autoFocus
-                  enterKeyHint="next"
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
+              <UnderlineInput
+                label="Code"
+                value={form.code}
+                onChange={(v) => set("code", v)}
+                placeholder="1.1"
+                required
+                autoFocus
+                enterKeyHint="next"
+              />
               <div className="col-span-2 pl-2">
-                <label className={labelClass} style={labelStyle}>
-                  Name <span style={{ color: "var(--color-stop)" }}>*</span>
-                </label>
-                <input
-                  type="text"
+                <UnderlineInput
+                  label="Name"
                   value={form.name}
-                  onChange={(e) => set("name", e.target.value)}
+                  onChange={(v) => set("name", v)}
                   placeholder="e.g. Foundation Works"
+                  required
                   enterKeyHint="next"
-                  className={inputClass}
-                  style={inputStyle}
                 />
               </div>
             </div>
 
-            {/* Description */}
+            {/* Description — custom textarea with h-7, stays inline */}
             <div>
               <label className={labelClass} style={labelStyle}>
                 Description (optional)
@@ -281,27 +266,18 @@ export function MobileNewWbsNodeDialog({
                 style={inputStyle}
               />
             </div>
-          </div>
+          </SectionCard>
 
           {/* Schedule & Links */}
-          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              Schedule &amp; Links
-            </p>
-            {/* Dates */}
+          <SectionCard title="Schedule &amp; Links">
+            {/* Dates — planned end has dynamic label + disabled state, stays inline */}
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Planned Start
-                </label>
-                <input
-                  type="date"
-                  value={form.plannedStart}
-                  onChange={(e) => set("plannedStart", e.target.value)}
-                  className={inputClass}
-                  style={inputStyle}
-                />
-              </div>
+              <UnderlineInput
+                label="Planned Start"
+                value={form.plannedStart}
+                onChange={(v) => set("plannedStart", v)}
+                type="date"
+              />
               <div className="pl-2">
                 <label className={labelClass} style={labelStyle}>
                   Planned End{isMilestone ? " (= start)" : ""}
@@ -337,7 +313,7 @@ export function MobileNewWbsNodeDialog({
                 </div>
               )}
 
-            {/* Critical path toggle */}
+            {/* Critical path toggle — custom checkbox, stays inline */}
             <label
               className="flex items-center gap-2 cursor-pointer touch"
               onClick={() => {
@@ -375,7 +351,7 @@ export function MobileNewWbsNodeDialog({
                 Critical path node
               </span>
             </label>
-          </div>
+          </SectionCard>
 
           {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
           <div

@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
-import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { SectionCard, UnderlineInput, EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 interface FormState {
   name: string;
@@ -125,8 +125,6 @@ export function MobileNewCompanyForm({
     }
   }
 
-  const inputClass =
-    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "transparent",
@@ -135,38 +133,19 @@ export function MobileNewCompanyForm({
   const labelClass = "block text-m-caption font-bold mb-0";
   const labelStyle = { color: "var(--color-ink-700)" };
 
-  const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
-  const sectionStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
-  };
-  const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
-  const sectionTitleStyle = { color: "var(--color-ink-950)" };
-
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       {/* Details */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Details
-        </p>
-
-        {/* Name */}
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Company Name <span style={{ color: "var(--color-stop)" }}>*</span>
-          </label>
-          <input
-            type="text"
-            value={form.name}
-            onChange={(e) => set("name", e.target.value)}
-            placeholder="e.g. Nirman Realty Pvt Ltd"
-            autoFocus
-            enterKeyHint="next"
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
+      <SectionCard title="Details">
+        <UnderlineInput
+          label="Company Name"
+          value={form.name}
+          onChange={(v) => set("name", v)}
+          placeholder="e.g. Nirman Realty Pvt Ltd"
+          required
+          autoFocus
+          enterKeyHint="next"
+        />
 
         {/* Parent company (optional — for creating a child/subsidiary) */}
         {parentOptions.length > 0 ? (
@@ -189,33 +168,25 @@ export function MobileNewCompanyForm({
 
         {/* Business type + Currency */}
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <EnumSelect
-              label="Business Type"
-              value={form.businessType}
-              onChange={(v) => set("businessType", v)}
-              placeholder="Select…"
-              options={BUSINESS_TYPES.map((t) => ({ value: t, label: t }))}
-            />
-          </div>
-          <div>
-            <EnumSelect
-              label="Currency"
-              value={form.currency}
-              onChange={(v) => set("currency", v)}
-              options={CURRENCIES.map((c) => ({ value: c, label: c }))}
-            />
-          </div>
+          <EnumSelect
+            label="Business Type"
+            value={form.businessType}
+            onChange={(v) => set("businessType", v)}
+            placeholder="Select…"
+            options={BUSINESS_TYPES.map((t) => ({ value: t, label: t }))}
+          />
+          <EnumSelect
+            label="Currency"
+            value={form.currency}
+            onChange={(v) => set("currency", v)}
+            options={CURRENCIES.map((c) => ({ value: c, label: c }))}
+          />
         </div>
-      </div>
+      </SectionCard>
 
       {/* Tax & Address */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Tax & Address
-        </p>
-
-        {/* GSTIN + PAN */}
+      <SectionCard title="Tax & Address">
+        {/* GSTIN + PAN — toUpperCase, stay inline */}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass} style={labelStyle}>
@@ -227,7 +198,7 @@ export function MobileNewCompanyForm({
               onChange={(e) => set("gstin", e.target.value.toUpperCase())}
               placeholder="22AAAAA0000A1Z5"
               enterKeyHint="next"
-              className={inputClass}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
               style={inputStyle}
             />
           </div>
@@ -241,7 +212,7 @@ export function MobileNewCompanyForm({
               onChange={(e) => set("pan", e.target.value.toUpperCase())}
               placeholder="AAAAA0000A"
               enterKeyHint="next"
-              className={inputClass}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
               style={inputStyle}
             />
           </div>
@@ -261,7 +232,7 @@ export function MobileNewCompanyForm({
             style={inputStyle}
           />
         </div>
-      </div>
+      </SectionCard>
 
       <button
         type="submit"

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
-import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { SectionCard, UnderlineInput, EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type ProjectType =
   | "RESIDENTIAL"
@@ -220,8 +220,6 @@ export function MobileNewProjectDialog({
     }
   }
 
-  const inputClass =
-    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "transparent",
@@ -233,17 +231,11 @@ export function MobileNewProjectDialog({
   return (
     <div className="space-y-3">
       {/* ── Main fields — one big border box ── */}
-      <div
-        className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Project Details
-          </p>
-
+      <SectionCard title="Project Details">
           {/* Name + Type (Name takes 2/3, Type 1/3) */}
           <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div className="col-span-2">
+              {/* Name has onKeyDown Enter handler — stays inline */}
               <label className={labelClass} style={labelStyle}>
                 Project Name <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
@@ -260,7 +252,7 @@ export function MobileNewProjectDialog({
                 placeholder="e.g. Apex Center — Tower One"
                 autoFocus
                 enterKeyHint="next"
-                className={inputClass}
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
                 style={inputStyle}
               />
             </div>
@@ -279,18 +271,17 @@ export function MobileNewProjectDialog({
 
           {/* Status + LCI Threshold (side by side) */}
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <EnumSelect
+              label="Status"
+              value={form.status}
+              onChange={(v) => set("status", v as ProjectStatus)}
+              options={(Object.keys(STATUS_LABELS) as ProjectStatus[]).map((s) => ({
+                value: s,
+                label: STATUS_LABELS[s],
+              }))}
+            />
             <div>
-              <EnumSelect
-                label="Status"
-                value={form.status}
-                onChange={(v) => set("status", v as ProjectStatus)}
-                options={(Object.keys(STATUS_LABELS) as ProjectStatus[]).map((s) => ({
-                  value: s,
-                  label: STATUS_LABELS[s],
-                }))}
-              />
-            </div>
-            <div>
+              {/* LCI has custom label with opt. suffix — stays inline */}
               <label className={labelClass} style={labelStyle}>
                 LCI % <span className="font-normal" style={{ color: "var(--color-ink-400)" }}>opt.</span>
               </label>
@@ -303,87 +294,60 @@ export function MobileNewProjectDialog({
                 onChange={(e) => set("lciThreshold", e.target.value)}
                 placeholder="Default"
                 inputMode="decimal"
-                className={inputClass}
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
                 style={inputStyle}
               />
             </div>
           </div>
 
           {/* Address */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Address
-            </label>
-            <input
-              type="text"
-              value={form.address}
-              onChange={(e) => set("address", e.target.value)}
-              placeholder="Plot no, area, city, PIN"
-              enterKeyHint="next"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
+          <UnderlineInput
+            label="Address"
+            value={form.address}
+            onChange={(v) => set("address", v)}
+            placeholder="Plot no, area, city, PIN"
+            enterKeyHint="next"
+          />
 
           {/* Start + End Date (side by side) */}
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Start Date
-              </label>
-              <input
-                type="date"
-                value={form.startDate}
-                onChange={(e) => set("startDate", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                End Date
-              </label>
-              <input
-                type="date"
+            <UnderlineInput
+              label="Start Date"
+              value={form.startDate}
+              onChange={(v) => set("startDate", v)}
+              type="date"
+            />
+            <div className="pl-2">
+              <UnderlineInput
+                label="End Date"
                 value={form.endDate}
-                onChange={(e) => set("endDate", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
+                onChange={(v) => set("endDate", v)}
+                type="date"
               />
             </div>
           </div>
 
           {/* Budget + Sellable Area (side by side) */}
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Budget (₹)
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={form.totalBudget}
-                onChange={(e) => set("totalBudget", e.target.value)}
-                placeholder="0"
-                inputMode="numeric"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Sellable Area (sq.ft)
-              </label>
-              <input
-                type="number"
-                min={0}
-                step="any"
+            <UnderlineInput
+              label="Budget (₹)"
+              value={form.totalBudget}
+              onChange={(v) => set("totalBudget", v)}
+              placeholder="0"
+              type="number"
+              min="0"
+              inputMode="numeric"
+            />
+            <div className="pl-2">
+              <UnderlineInput
+                label="Sellable Area (sq.ft)"
                 value={form.totalSellableArea}
-                onChange={(e) => set("totalSellableArea", e.target.value)}
+                onChange={(v) => set("totalSellableArea", v)}
                 placeholder="0"
+                type="number"
+                min="0"
+                step="any"
                 inputMode="decimal"
-                className={inputClass}
-                style={inputStyle}
               />
             </div>
           </div>
@@ -398,11 +362,11 @@ export function MobileNewProjectDialog({
               onChange={(e) => set("description", e.target.value)}
               rows={2}
               placeholder="Optional notes"
-              className={`w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors`}
+              className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
               style={inputStyle}
             />
           </div>
-      </div>
+      </SectionCard>
 
       {/* ── RERA Registration — collapsible ── */}
       <div
@@ -430,56 +394,34 @@ export function MobileNewProjectDialog({
           {showRera && (
             <div className="space-y-3 ">
               <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-                <div>
-                  <label className={labelClass} style={labelStyle}>
-                    RERA Number
-                  </label>
-                  <input
-                    type="text"
-                    value={form.reraNumber}
-                    onChange={(e) => set("reraNumber", e.target.value)}
-                    placeholder="e.g. P1234567890"
-                    className={inputClass}
-                    style={inputStyle}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass} style={labelStyle}>
-                    Reg. Date
-                  </label>
-                  <input
-                    type="date"
+                <UnderlineInput
+                  label="RERA Number"
+                  value={form.reraNumber}
+                  onChange={(v) => set("reraNumber", v)}
+                  placeholder="e.g. P1234567890"
+                />
+                <div className="pl-2">
+                  <UnderlineInput
+                    label="Reg. Date"
                     value={form.reraRegistrationDate}
-                    onChange={(e) => set("reraRegistrationDate", e.target.value)}
-                    className={inputClass}
-                    style={inputStyle}
+                    onChange={(v) => set("reraRegistrationDate", v)}
+                    type="date"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-                <div>
-                  <label className={labelClass} style={labelStyle}>
-                    Validity Date
-                  </label>
-                  <input
-                    type="date"
-                    value={form.reraValidityDate}
-                    onChange={(e) => set("reraValidityDate", e.target.value)}
-                    className={inputClass}
-                    style={inputStyle}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass} style={labelStyle}>
-                    RERA URL
-                  </label>
-                  <input
-                    type="text"
+                <UnderlineInput
+                  label="Validity Date"
+                  value={form.reraValidityDate}
+                  onChange={(v) => set("reraValidityDate", v)}
+                  type="date"
+                />
+                <div className="pl-2">
+                  <UnderlineInput
+                    label="RERA URL"
                     value={form.reraWebsiteUrl}
-                    onChange={(e) => set("reraWebsiteUrl", e.target.value)}
+                    onChange={(v) => set("reraWebsiteUrl", v)}
                     placeholder="https://..."
-                    className={inputClass}
-                    style={inputStyle}
                   />
                 </div>
               </div>
@@ -558,51 +500,32 @@ export function MobileNewProjectDialog({
               </div>
               {form.isATS && (
                 <div className="grid grid-cols-2 gap-1 pt-0.5">
-                  <div>
-                    <label className={labelClass} style={labelStyle}>
-                      Reg. Amount (₹)
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={form.atsRegistrationAmount}
-                      onChange={(e) =>
-                        set("atsRegistrationAmount", e.target.value)
-                      }
-                      placeholder="e.g. 500000"
-                      inputMode="numeric"
-                      className={inputClass}
-                      style={inputStyle}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass} style={labelStyle}>
-                      Expected Registry
-                    </label>
-                    <input
-                      type="date"
+                  <UnderlineInput
+                    label="Reg. Amount (₹)"
+                    value={form.atsRegistrationAmount}
+                    onChange={(v) => set("atsRegistrationAmount", v)}
+                    placeholder="e.g. 500000"
+                    type="number"
+                    min="0"
+                    inputMode="numeric"
+                  />
+                  <div className="pl-2">
+                    <UnderlineInput
+                      label="Expected Registry"
                       value={form.atsExpectedRegistryDate}
-                      onChange={(e) =>
-                        set("atsExpectedRegistryDate", e.target.value)
-                      }
-                      className={inputClass}
-                      style={inputStyle}
+                      onChange={(v) => set("atsExpectedRegistryDate", v)}
+                      type="date"
                     />
                   </div>
                 </div>
               )}
               {!form.isATS && (
                 <div className="pt-0.5">
-                  <label className={labelClass} style={labelStyle}>
-                    Registry / Sale Deed No.
-                  </label>
-                  <input
-                    type="text"
+                  <UnderlineInput
+                    label="Registry / Sale Deed No."
                     value={form.registryNo}
-                    onChange={(e) => set("registryNo", e.target.value)}
+                    onChange={(v) => set("registryNo", v)}
                     placeholder="e.g. SR-1234/2025"
-                    className={inputClass}
-                    style={inputStyle}
                   />
                 </div>
               )}

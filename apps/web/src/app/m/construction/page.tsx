@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getBoqTree, getWbsTree } from "@nirman/services";
 import {
@@ -14,7 +12,6 @@ import {
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
-import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import {
   MobileSectionTitle,
   MobileEmptyState,
@@ -23,6 +20,7 @@ import {
 } from "@/components/mobile/v2/primitives";
 import { PageLead, NextActionCardView } from "@/components/mobile/v2/guidance";
 import { FLOWS } from "@/lib/flow-map";
+import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { MobileConstructionHubTabs } from "../MobileConstructionHubTabs";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
@@ -61,44 +59,37 @@ export default function MobileConstructionHubPage({
   searchParams: Promise<{ tab?: string; project?: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonHome />}>
-      <ConstructionHubContent searchParams={searchParams} />
-    </Suspense>
-  );
-}
+    <MobileHubPage>
+      {async () => {
+        const { tab, project: projectId } = await searchParams;
 
-async function ConstructionHubContent({
-  searchParams,
-}: {
-  searchParams: Promise<{ tab?: string; project?: string }>;
-}) {
-  await connection();
-  const { tab, project: projectId } = await searchParams;
+        const validTabs = ["work-orders", "change-orders", "quality", "safety", "boq", "wbs", "mb"];
+        const activeTab = validTabs.includes(tab ?? "") ? tab! : "work-orders";
 
-  const validTabs = ["work-orders", "change-orders", "quality", "safety", "boq", "wbs", "mb"];
-  const activeTab = validTabs.includes(tab ?? "") ? tab! : "work-orders";
+        let content: React.ReactNode;
+        if (activeTab === "change-orders") {
+          content = <ConstructionChangeOrdersTab />;
+        } else if (activeTab === "quality") {
+          content = <ConstructionQualityTab />;
+        } else if (activeTab === "safety") {
+          content = <ConstructionSafetyTab />;
+        } else if (activeTab === "boq") {
+          content = <ConstructionBoqTab projectId={projectId} />;
+        } else if (activeTab === "wbs") {
+          content = <ConstructionWbsTab projectId={projectId} />;
+        } else if (activeTab === "mb") {
+          content = <ConstructionMbTab projectId={projectId} />;
+        } else {
+          content = <ConstructionWorkOrdersTab />;
+        }
 
-  let content: React.ReactNode;
-  if (activeTab === "change-orders") {
-    content = <ConstructionChangeOrdersTab />;
-  } else if (activeTab === "quality") {
-    content = <ConstructionQualityTab />;
-  } else if (activeTab === "safety") {
-    content = <ConstructionSafetyTab />;
-  } else if (activeTab === "boq") {
-    content = <ConstructionBoqTab projectId={projectId} />;
-  } else if (activeTab === "wbs") {
-    content = <ConstructionWbsTab projectId={projectId} />;
-  } else if (activeTab === "mb") {
-    content = <ConstructionMbTab projectId={projectId} />;
-  } else {
-    content = <ConstructionWorkOrdersTab />;
-  }
-
-  return (
-    <MobileConstructionHubTabs activeTab={activeTab}>
-      {content}
-    </MobileConstructionHubTabs>
+        return (
+          <MobileConstructionHubTabs activeTab={activeTab}>
+            {content}
+          </MobileConstructionHubTabs>
+        );
+      }}
+    </MobileHubPage>
   );
 }
 
@@ -554,6 +545,7 @@ async function ConstructionBoqTab({ projectId }: { projectId?: string }) {
   if (!hasPermission(role, PERM.BOQ_VIEW)) {
     return <MobileEmptyState icon={ListTree} title="No access" hint="You don't have permission to view BOQ" />;
   }
+  const canCreateProject = hasPermission(role, PERM.PROJECTS_MANAGE);
 
   const projects: BoqProjectOption[] = await prisma.project.findMany({
     where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
@@ -566,7 +558,7 @@ async function ConstructionBoqTab({ projectId }: { projectId?: string }) {
   if (!projectId || !selectedProject) {
     return (
       <div>
-        <MobileBoqProjectSelector projects={projects} selectedId={projectId} />
+        <MobileBoqProjectSelector projects={projects} selectedId={projectId} canCreate={canCreateProject} />
         <MobileEmptyState icon={ListTree} title="Select a project" hint="Choose a project above to view its Bill of Quantities" />
       </div>
     );
@@ -596,7 +588,7 @@ async function ConstructionBoqTab({ projectId }: { projectId?: string }) {
 
   return (
     <div>
-      <MobileBoqProjectSelector projects={projects} selectedId={projectId} />
+      <MobileBoqProjectSelector projects={projects} selectedId={projectId} canCreate={canCreateProject} />
       <div className="grid grid-cols-2 gap-1.5 mb-4">
         <MobileStatCard label="Line Items" value={formatNumber(lineItemCount, 0)} hint="billable lines" icon={Package} />
         <MobileStatCard label="Est. Amount" value={formatCurrencyCompact(totalAmount)} hint="total budget" icon={FileText} tone="signal" />
@@ -721,6 +713,7 @@ async function ConstructionMbTab({ projectId }: { projectId?: string }) {
   const company = await getCompany();
   const role = await getUserRole();
   const canCreate = hasPermission(role, PERM.MB_VERIFY);
+  const canCreateProject = hasPermission(role, PERM.PROJECTS_MANAGE);
 
   const projects = await prisma.project.findMany({
     where: { companyId: company.id, deletedAt: null },
@@ -731,7 +724,7 @@ async function ConstructionMbTab({ projectId }: { projectId?: string }) {
   if (!projectId) {
     return (
       <div>
-        <MobileMbProjectSelector projects={projects} selectedId={null} />
+        <MobileMbProjectSelector projects={projects} selectedId={null} canCreate={canCreateProject} />
         <MobileEmptyState icon={BookOpen} title="Select a project" hint="Choose a project to view measurement book entries" />
       </div>
     );
@@ -782,7 +775,7 @@ async function ConstructionMbTab({ projectId }: { projectId?: string }) {
 
   return (
     <div>
-      <MobileMbProjectSelector projects={projects} selectedId={projectId} />
+      <MobileMbProjectSelector projects={projects} selectedId={projectId} canCreate={canCreateProject} />
       <div className="grid grid-cols-4 gap-1.5 mb-4">
         <MobileStatCard label="Entries" value={String(entries.length)} icon={BookOpen} />
         <MobileStatCard label="Total Measured" value={formatNumber(totalMeasured, 2)} icon={BookOpen} tone="neutral" />

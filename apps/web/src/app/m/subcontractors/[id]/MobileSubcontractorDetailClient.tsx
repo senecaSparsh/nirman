@@ -15,6 +15,7 @@ import {
   MobileEmptyState,
   MobileStatusBadge,
 } from "@/components/mobile/v2/primitives";
+import { DetailHeroCard } from "@/components/mobile/v2/detail-primitives";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { toast } from "sonner";
@@ -96,16 +97,10 @@ export function MobileSubcontractorDetailClient({
   return (
     <div className="pb-6">
       {/* ── Header ── */}
-      <div className="flex items-center gap-2 mb-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
-            {data.name}
-          </p>
-          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-            {data.trade ? `${data.trade} · ` : ""}Added {formatDate(data.createdAt)}
-          </p>
-        </div>
-        {canManage ? (
+      <DetailHeroCard
+        title={data.name}
+        subtitle={`${data.trade ? `${data.trade} · ` : ""}Added ${formatDate(data.createdAt)}`}
+        action={canManage ? (
           <button
             onClick={() => setShowEdit(true)}
             aria-label="Edit"
@@ -114,8 +109,8 @@ export function MobileSubcontractorDetailClient({
           >
             <Pencil className="size-3.5" />
           </button>
-        ) : null}
-      </div>
+        ) : undefined}
+      />
 
       {/* ── Contact card — clickable actions ── */}
       <div

@@ -44,8 +44,8 @@ export function arrivedInternally(): boolean {
     const flag = sessionStorage.getItem(INTERNAL_ARRIVAL_FLAG);
     if (!flag) return false;
     return normalizePath(flag) === normalizePath(window.location.pathname);
-  } catch {
-    // sessionStorage may be unavailable (private mode, sandboxed iframe)
+  } catch (err) {
+    console.warn("mobile-nav sessionStorage read failed:", err);
     return false;
   }
 }

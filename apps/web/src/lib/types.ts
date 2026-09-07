@@ -1135,6 +1135,25 @@ export type EquipmentMaintenanceRow = {
 
 export type RequisitionStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "CONVERTED" | "REJECTED";
 
+export type QuotationRequestRow = {
+  id: string;
+  requestNumber: string;
+  title: string;
+  projectId: string | null;
+  projectName: string | null;
+  workActivity: string | null;
+  requiredByDate: string | null;
+  submittedByUserCompanyId: string | null;
+  submittedByName: string | null;
+  status: string;
+  minQuotesRequired: number;
+  quoteCount: number;
+  cheapestLandedTotal: number | null;
+  convertedPoId: string | null;
+  convertedPoNumber: string | null;
+  createdAt: string;
+};
+
 export type RequisitionRow = {
   id: string;
   reqNumber: string;

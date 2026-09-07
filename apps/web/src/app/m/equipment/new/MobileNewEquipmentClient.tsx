@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useLongPressNav } from "@/lib/use-long-press-nav";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { DraftBanner } from "@/components/mobile/draft-banner";
+import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 
 /**
  * /m/equipment/new — mobile form to register new equipment.
@@ -179,139 +180,112 @@ export default function MobileNewEquipmentClient({
       ) : null}
 
       {/* ── Section: Identity ── */}
-      <div
-        className="rounded-[0.625rem] border p-3 flex flex-col gap-3 mb-3"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-          Identity
-        </p>
-        <div className="flex flex-col gap-3">
+      <div className="mb-3">
+        <SectionCard title="Identity">
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <Field label="Asset Tag" required>
-              <input
-                type="text"
-                value={assetTag}
-                onChange={(e) => setAssetTag(e.target.value)}
-                placeholder="e.g. EQ-001"
-                className="w-full px-1 py-1 text-m-caption font-mono font-bold outline-none border-b focus:border-b-2 transition-colors"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-              />
-            </Field>
-            <Field label="Equipment Name" required className="pl-2">
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Concrete Mixer 1"
-                className="w-full px-1 py-1 text-m-caption font-bold outline-none border-b focus:border-b-2 transition-colors"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-              />
-            </Field>
-          </div>
-
-          <Field label="Category">
-            <input
-              type="text"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              placeholder="e.g. Mixer, Vehicle, Tool"
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+            <UnderlineInput
+              label="Asset Tag"
+              value={assetTag}
+              onChange={setAssetTag}
+              placeholder="e.g. EQ-001"
+              required
+              mono
+              autoFocus
             />
-          </Field>
-        </div>
+            <div className="pl-2">
+              <UnderlineInput
+                label="Equipment Name"
+                value={name}
+                onChange={setName}
+                placeholder="e.g. Concrete Mixer 1"
+                required
+              />
+            </div>
+          </div>
+          <UnderlineInput
+            label="Category"
+            value={category}
+            onChange={setCategory}
+            placeholder="e.g. Mixer, Vehicle, Tool"
+          />
+        </SectionCard>
       </div>
 
       {/* ── Section: Specs ── */}
-      <div
-        className="rounded-[0.625rem] border p-3 flex flex-col gap-3 mb-3"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-          Specifications
-        </p>
-        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <Field label="Model">
-            <input
-              type="text"
+      <div className="mb-3">
+        <SectionCard title="Specifications">
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <UnderlineInput
+              label="Model"
               value={model}
-              onChange={(e) => setModel(e.target.value)}
+              onChange={setModel}
               placeholder="e.g. BMX-500"
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
             />
-          </Field>
-          <Field label="Serial Number" className="pl-2">
-            <input
-              type="text"
-              value={serialNumber}
-              onChange={(e) => setSerialNumber(e.target.value)}
-              placeholder="e.g. SN-12345-ABC"
-              className="w-full px-1 py-1 text-m-caption font-mono font-medium outline-none border-b focus:border-b-2 transition-colors"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-            />
-          </Field>
-        </div>
+            <div className="pl-2">
+              <UnderlineInput
+                label="Serial Number"
+                value={serialNumber}
+                onChange={setSerialNumber}
+                placeholder="e.g. SN-12345-ABC"
+                mono
+              />
+            </div>
+          </div>
+        </SectionCard>
       </div>
 
       {/* ── Section: Valuation ── */}
-      <div
-        className="rounded-[0.625rem] border p-3 flex flex-col gap-3 mb-3"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-          Valuation
-        </p>
-        <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <Field label="Acquisition Cost">
-            <div className="relative">
-              <IndianRupee
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
-                style={{ color: "var(--color-ink-700)" }}
-              />
-              <input
-                type="text" inputMode="decimal"
-                step="any"
-                min="0"
-                value={acquisitionCost}
-                onChange={(e) => setAcquisitionCost(e.target.value)}
-                placeholder="0"
-                className="w-full pl-7 pr-1 py-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+      <div className="mb-3">
+        <SectionCard title="Valuation">
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            {/* Cost field has icon prefix — stays inline */}
+            <div>
+              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                Acquisition Cost
+              </label>
+              <div className="relative">
+                <IndianRupee
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
+                  style={{ color: "var(--color-ink-700)" }}
+                />
+                <input
+                  type="text" inputMode="decimal"
+                  step="any"
+                  min="0"
+                  value={acquisitionCost}
+                  onChange={(e) => setAcquisitionCost(e.target.value)}
+                  placeholder="0"
+                  className="w-full pl-7 pr-1 py-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                />
+              </div>
+            </div>
+            <div className="pl-2">
+              <UnderlineInput
+                label="Purchase Date"
+                value={purchaseDate}
+                onChange={setPurchaseDate}
+                type="date"
               />
             </div>
-          </Field>
-          <Field label="Purchase Date" className="pl-2">
-            <input
-              type="date"
-              value={purchaseDate}
-              onChange={(e) => setPurchaseDate(e.target.value)}
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-            />
-          </Field>
-        </div>
+          </div>
+        </SectionCard>
       </div>
 
       {/* ── Section: Notes ── */}
-      <div
-        className="rounded-[0.625rem] border p-3 flex flex-col gap-3 mb-3"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-          Notes
-        </p>
-        <div>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="e.g. Purchased from ABC Suppliers, warranty 2 years"
-            rows={3}
-            className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-          />
-        </div>
+      <div className="mb-3">
+        <SectionCard title="Notes">
+          <div>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. Purchased from ABC Suppliers, warranty 2 years"
+              rows={3}
+              className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+            />
+          </div>
+        </SectionCard>
       </div>
 
       {/* ── STICKY BOTTOM BAR ── */}
@@ -354,44 +328,6 @@ export default function MobileNewEquipmentClient({
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-/* ─── Section header ─── */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function SectionHeader({
-  icon: Icon, label,
-}: {
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-  label: string;
-}) {
-  return (
-    <div className="flex items-center gap-1.5 mb-2">
-      <Icon className="size-3" style={{ color: "var(--color-ink-500)" }} />
-      <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-        {label}
-      </span>
-      <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-line)" }} />
-    </div>
-  );
-}
-
-/* ─── Field wrapper ─── */
-function Field({
-  label, required, className, children,
-}: {
-  label: string;
-  required?: boolean;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={className}>
-      <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-        {label}{required ? " *" : ""}
-      </label>
-      {children}
     </div>
   );
 }

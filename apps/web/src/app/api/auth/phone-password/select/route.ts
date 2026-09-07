@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { json, ForbiddenError, UnauthorizedError } from "@/lib/server";
-import { normalizePhone, createPhoneSession } from "@/lib/phone-otp";
+import { normalizePhone, normalizePhoneForLookup, createPhoneSession } from "@/lib/phone-otp";
 import { ServiceError } from "@nirman/services";
 
 /**
@@ -38,9 +38,13 @@ export const POST = async (req: NextRequest) => {
       return json({ error: "Invalid phone number." }, { status: 400 });
     }
 
+    // Build all format variants so the lookup matches regardless of how the
+    // phone was entered or stored (10-digit vs 12-digit with 91 prefix).
+    const phoneVariants = normalizePhoneForLookup(rawPhone);
+
     // Verify the user exists, is active, and has this phone number
     const user = await prisma.user.findFirst({
-      where: { id: userId, phoneNormalized: phone, active: true },
+      where: { id: userId, phoneNormalized: { in: phoneVariants }, active: true },
       select: {
         id: true,
         email: true,

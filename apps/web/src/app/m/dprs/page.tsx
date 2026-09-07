@@ -1,100 +1,93 @@
-import { Suspense } from "react";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
-import { hasPermission, PERM } from "@/lib/roles";
+import { toNum } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
+import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileDprsList } from "./MobileDprsList";
 import { MobileDprsFab } from "./MobileDprsFab";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export default function MobileDprsPage() {
   return (
-    <Suspense fallback={<MobileSkeletonList rows={6} />}>
-      <MobileDprsContent />
-    </Suspense>
-  );
-}
+    <MobileListPage>
+      {async ({ company, role }) => {
+        const canSubmit = hasPermission(role, PERM.DPR_SUBMIT);
+        const canApproveSubAdmin = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN);
 
-async function MobileDprsContent() {
-  await connection();
-  const company = await getCompany();
-  const role = await getUserRole();
-  const canSubmit = hasPermission(role, PERM.DPR_SUBMIT);
-  const canApproveSubAdmin = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN);
+        const BATCH_SIZE = 40;
+        const dprs = await prisma.dailyProgressReport.findMany({
+          where: { project: { companyId: company.id } },
+          orderBy: [{ date: "desc" }, { id: "desc" }],
+          take: BATCH_SIZE + 1,
+          include: {
+            project: { select: { id: true, name: true } },
+            submittedBy: { select: { name: true } },
+          },
+        });
 
-  const BATCH_SIZE = 40;
-  const dprs = await prisma.dailyProgressReport.findMany({
-    where: { project: { companyId: company.id } },
-    orderBy: [{ date: "desc" }, { id: "desc" }],
-    take: BATCH_SIZE + 1,
-    include: {
-      project: { select: { id: true, name: true } },
-      submittedBy: { select: { name: true } },
-    },
-  });
+        const hasMore = dprs.length > BATCH_SIZE;
+        const batch = hasMore ? dprs.slice(0, BATCH_SIZE) : dprs;
+        const submittedCount = batch.filter((d) => d.approvalStatus === "SUBMITTED").length;
+        const lastItem = batch[batch.length - 1];
+        const nextCursor = hasMore && lastItem
+          ? `${lastItem.date.toISOString()}|${lastItem.id}`
+          : null;
 
-  const hasMore = dprs.length > BATCH_SIZE;
-  const batch = hasMore ? dprs.slice(0, BATCH_SIZE) : dprs;
-  const submittedCount = batch.filter((d) => d.approvalStatus === "SUBMITTED").length;
-  const lastItem = batch[batch.length - 1];
-  const nextCursor = hasMore && lastItem
-    ? `${lastItem.date.toISOString()}|${lastItem.id}`
-    : null;
+        const serialized = batch.map((d) => ({
+          id: d.id,
+          date: d.date.toISOString(),
+          projectName: d.project.name,
+          projectId: d.project.id,
+          submittedByName: d.submittedBy?.name ?? null,
+          approvalStatus: d.approvalStatus,
+          progressPct: toNum(d.progressPct),
+          workType: d.workType ?? null,
+        }));
 
-  const serialized = batch.map((d) => ({
-    id: d.id,
-    date: d.date.toISOString(),
-    projectName: d.project.name,
-    projectId: d.project.id,
-    submittedByName: d.submittedBy?.name ?? null,
-    approvalStatus: d.approvalStatus,
-    progressPct: toNum(d.progressPct),
-    workType: d.workType ?? null,
-  }));
+        const csvColumns: MobileColumnSpec[] = [
+          { key: "date", label: "Date", format: "date" },
+          { key: "projectName", label: "Project" },
+          { key: "submittedByName", label: "Supervisor" },
+          { key: "approvalStatus", label: "Status" },
+          { key: "progressPct", label: "Progress %" },
+          { key: "workType", label: "Work Type" },
+        ];
 
-  const csvColumns: MobileColumnSpec[] = [
-    { key: "date", label: "Date", format: "date" },
-    { key: "projectName", label: "Project" },
-    { key: "submittedByName", label: "Supervisor" },
-    { key: "approvalStatus", label: "Status" },
-    { key: "progressPct", label: "Progress %" },
-    { key: "workType", label: "Work Type" },
-  ];
+        // ── Fetch DPR form reference data (only when the user can submit) ──
+        // This mirrors the queries in /m/site/dpr/page.tsx so the FAB modal
+        // can present the full MobileDprForm inline.
+        let dprFormData: Awaited<ReturnType<typeof fetchDprFormData>> | null = null;
+        if (canSubmit) {
+          dprFormData = await fetchDprFormData(company.id);
+        }
 
-  // ── Fetch DPR form reference data (only when the user can submit) ──
-  // This mirrors the queries in /m/site/dpr/page.tsx so the FAB modal
-  // can present the full MobileDprForm inline.
-  let dprFormData: Awaited<ReturnType<typeof fetchDprFormData>> | null = null;
-  if (canSubmit) {
-    dprFormData = await fetchDprFormData(company.id);
-  }
-
-  return (
-    <div>
-      <MobileDprsList
-        items={serialized}
-        canSubmit={canSubmit}
-        canApproveSubAdmin={canApproveSubAdmin}
-        submittedCount={submittedCount}
-        loadMoreUrl="/api/dprs"
-        nextCursor={nextCursor}
-        exportTitle="Daily Progress Reports"
-        exportRows={serialized as unknown as Record<string, unknown>[]}
-        exportColumns={csvColumns}
-        exportSummary={`${serialized.length} DPRs`}
-      />
-      {canSubmit && dprFormData && (
-        <MobileDprsFab
-          projects={dprFormData.projects}
-          employees={dprFormData.employees}
-          crews={dprFormData.crews}
-          materials={dprFormData.materials}
-          existingDprsByProject={dprFormData.existingDprsByProject}
-          yesterdayDprsByProject={dprFormData.yesterdayDprsByProject}
-        />
-      )}
-    </div>
+        return (
+          <div>
+            <MobileDprsList
+              items={serialized}
+              canSubmit={canSubmit}
+              canApproveSubAdmin={canApproveSubAdmin}
+              submittedCount={submittedCount}
+              loadMoreUrl="/api/dprs"
+              nextCursor={nextCursor}
+              exportTitle="Daily Progress Reports"
+              exportRows={serialized as unknown as Record<string, unknown>[]}
+              exportColumns={csvColumns}
+              exportSummary={`${serialized.length} DPRs`}
+            />
+            {canSubmit && dprFormData && (
+              <MobileDprsFab
+                projects={dprFormData.projects}
+                employees={dprFormData.employees}
+                crews={dprFormData.crews}
+                materials={dprFormData.materials}
+                existingDprsByProject={dprFormData.existingDprsByProject}
+                yesterdayDprsByProject={dprFormData.yesterdayDprsByProject}
+              />
+            )}
+          </div>
+        );
+      }}
+    </MobileListPage>
   );
 }
 

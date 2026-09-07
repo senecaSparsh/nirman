@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Check, AlertCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
+import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { DraftBanner } from "@/components/mobile/draft-banner";
 
@@ -147,8 +148,6 @@ export function MobileNewSupplierClient({
     return <MobileNoAccess what="create suppliers" />;
   }
 
-  const inputClass =
-    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "transparent",
@@ -158,7 +157,7 @@ export function MobileNewSupplierClient({
   const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 pb-32">
       {hasDraft && !draftRestored && !success ? (
         <DraftBanner
           formName="supplier-new"
@@ -168,15 +167,8 @@ export function MobileNewSupplierClient({
         />
       ) : null}
       <form onSubmit={onSubmit} className="space-y-3">
-        <div
-          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-        >
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Supplier Details
-          </p>
-
-          {/* Name */}
+        <SectionCard title="Supplier Details">
+          {/* Name — full width (has duplicate detection, stays inline) */}
           <div>
             <label className={labelClass} style={labelStyle}>
               Name <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -188,7 +180,7 @@ export function MobileNewSupplierClient({
               placeholder="e.g. UltraTech Cement Ltd"
               required
               autoFocus
-              className={inputClass}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
               style={inputStyle}
             />
             {duplicateName && (
@@ -199,7 +191,7 @@ export function MobileNewSupplierClient({
             )}
           </div>
 
-          {/* GSTIN */}
+          {/* GSTIN — full width (mono, has pattern/maxLength/toUpperCase, stays inline) */}
           <div>
             <label className={labelClass} style={labelStyle}>
               GSTIN
@@ -211,48 +203,46 @@ export function MobileNewSupplierClient({
               placeholder="27ABCDE1234F1Z5"
               pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[0-9A-Z]{3}"
               maxLength={15}
-              className={`${inputClass} font-mono`}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors font-mono uppercase"
               style={inputStyle}
             />
           </div>
 
-          {/* Phone */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Phone
-            </label>
-            <input
-              type="tel"
-              value={form.phone}
-              onChange={(e) => set("phone", e.target.value)}
-              placeholder="98765 43210"
-              className={`${inputClass} font-mono`}
-              style={inputStyle}
-            />
-            {duplicatePhone && (
-              <p className="flex items-center gap-1 text-m-caption mt-1" style={{ color: "var(--color-signal-dark)" }}>
-                <AlertCircle className="size-3" />
-                A supplier with this phone already exists
-              </p>
-            )}
+          {/* Phone + Email — side by side */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                Phone
+              </label>
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={(e) => set("phone", e.target.value)}
+                placeholder="98765 43210"
+                enterKeyHint="next"
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors tabular-nums"
+                style={inputStyle}
+              />
+              {duplicatePhone && (
+                <p className="flex items-center gap-1 text-m-caption mt-1" style={{ color: "var(--color-signal-dark)" }}>
+                  <AlertCircle className="size-3" />
+                  Already exists
+                </p>
+              )}
+            </div>
+            <div className="pl-2">
+              <UnderlineInput
+                label="Email"
+                value={form.email}
+                onChange={(v) => set("email", v)}
+                placeholder="sales@supplier.com"
+                type="email"
+                enterKeyHint="next"
+              />
+            </div>
           </div>
 
-          {/* Email */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Email
-            </label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => set("email", e.target.value)}
-              placeholder="sales@supplier.com"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Address */}
+          {/* Address — full width textarea */}
           <div>
             <label className={labelClass} style={labelStyle}>
               Address
@@ -262,45 +252,53 @@ export function MobileNewSupplierClient({
               onChange={(e) => set("address", e.target.value)}
               rows={2}
               placeholder="Warehouse / office address"
-              className={`${inputClass} resize-none`}
+              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
               style={inputStyle}
             />
           </div>
 
-          {/* Lead time */}
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Lead time (days)
-            </label>
-            <input
+          {/* Lead time — narrow */}
+          <div className="w-28">
+            <UnderlineInput
+              label="Lead time (days)"
+              value={form.leadTimeDays}
+              onChange={(v) => set("leadTimeDays", v)}
+              placeholder="e.g. 7"
               type="number"
               inputMode="numeric"
               min="0"
-              value={form.leadTimeDays}
-              onChange={(e) => set("leadTimeDays", e.target.value)}
-              placeholder="e.g. 7"
-              className={`${inputClass} font-mono w-24`}
-              style={inputStyle}
             />
           </div>
-        </div>
+        </SectionCard>
 
-        {/* Submit */}
-        <button
-          type="submit"
-          disabled={saving || !form.name.trim()}
-          className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3.5 text-m-section font-bold text-m-body press transition-transform active:scale-95 disabled:opacity-50"
-          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+        {/* Sticky bottom bar */}
+        <div
+          className="fixed left-0 right-0 z-30 border-t backdrop-blur-sm"
+          style={{
+            bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px))",
+            backgroundColor: "color-mix(in srgb, var(--color-paper) 97%, transparent)",
+            borderColor: "var(--color-line)",
+          }}
         >
-          {saving ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <>
-              <Check className="size-4" />
-              <span>Create Supplier</span>
-            </>
-          )}
-        </button>
+          <div className="max-w-md mx-auto px-3.5 py-2">
+            <button
+              type="button"
+              onClick={(e) => onSubmit(e as unknown as React.FormEvent)}
+              disabled={saving || !form.name.trim()}
+              className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            >
+              {saving ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <>
+                  <Check className="size-3.5" />
+                  Create Supplier
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </form>
     </div>
   );

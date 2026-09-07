@@ -1,10 +1,7 @@
-import { Suspense } from "react";
 import Link from "next/link";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { BookOpen, Plus } from "lucide-react";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import {
@@ -12,6 +9,7 @@ import {
   MobileStatCard,
   MobileCta,
 } from "@/components/mobile/v2/primitives";
+import { MobileProjectScopedPage } from "@/components/mobile/v2/project-scoped-page";
 import { MobileMbProjectSelector } from "./MobileMbProjectSelector";
 import { MobileMbFab } from "./MobileNewMbEntryDialog";
 
@@ -25,140 +23,130 @@ export default function MobileMeasurementBookPage({
   searchParams: Promise<{ project?: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonList rows={6} />}>
-      <MobileMbContent searchParams={searchParams} />
-    </Suspense>
-  );
-}
+    <MobileProjectScopedPage searchParams={searchParams} skeletonRows={6}>
+      {async ({ company, role, projectId }) => {
+        const canCreateProject = hasPermission(role, PERM.PROJECTS_MANAGE);
 
-async function MobileMbContent({
-  searchParams,
-}: {
-  searchParams: Promise<{ project?: string }>;
-}) {
-  await connection();
-  const company = await getCompany();
-  const role = await getUserRole();
-  const _canView = hasPermission(role, PERM.MB_VIEW);
-  const { project: projectId } = await searchParams;
+        const projects = await prisma.project.findMany({
+          where: { companyId: company.id, deletedAt: null },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true },
+        });
 
-  const projects = await prisma.project.findMany({
-    where: { companyId: company.id, deletedAt: null },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
+        if (!projectId) {
+          return (
+            <div>
+              <MobileMbProjectSelector projects={projects} selectedId={null} canCreate={canCreateProject} />
+              <MobileEmptyState
+                icon={BookOpen}
+                title="Select a project"
+                hint="Choose a project to view measurement book entries"
+              />
+            </div>
+          );
+        }
 
-  if (!projectId) {
-    return (
-      <div>
-        <MobileMbProjectSelector projects={projects} selectedId={null} />
-        <MobileEmptyState
-          icon={BookOpen}
-          title="Select a project"
-          hint="Choose a project to view measurement book entries"
-        />
-      </div>
-    );
-  }
+        const [entries, boqItems, wbsNodes, canCreate] = await Promise.all([
+          prisma.measurementBookEntry.findMany({
+            where: { projectId },
+            orderBy: { measureDate: "desc" },
+            take: 50,
+            include: {
+              boqItem: { select: { id: true, serialNo: true, description: true, unit: true, rate: true } },
+              measuredBy: { select: { id: true, name: true } },
+            },
+          }),
+          prisma.boqItem.findMany({
+            where: { projectId, type: "LINE_ITEM" },
+            orderBy: { serialNo: "asc" },
+            select: { id: true, serialNo: true, description: true, unit: true, rate: true },
+          }),
+          prisma.wbsNode.findMany({
+            where: { projectId },
+            orderBy: { code: "asc" },
+            select: { id: true, code: true, name: true, boqItemId: true },
+          }),
+          Promise.resolve(hasPermission(role, PERM.MB_VERIFY)),
+        ]);
 
-  const [entries, boqItems, wbsNodes, canCreate] = await Promise.all([
-    prisma.measurementBookEntry.findMany({
-      where: { projectId },
-      orderBy: { measureDate: "desc" },
-      take: 50,
-      include: {
-        boqItem: { select: { id: true, serialNo: true, description: true, unit: true, rate: true } },
-        measuredBy: { select: { id: true, name: true } },
-      },
-    }),
-    prisma.boqItem.findMany({
-      where: { projectId, type: "LINE_ITEM" },
-      orderBy: { serialNo: "asc" },
-      select: { id: true, serialNo: true, description: true, unit: true, rate: true },
-    }),
-    prisma.wbsNode.findMany({
-      where: { projectId },
-      orderBy: { code: "asc" },
-      select: { id: true, code: true, name: true, boqItemId: true },
-    }),
-    Promise.resolve(hasPermission(role, PERM.MB_VERIFY)),
-  ]);
+        const totalMeasured = entries.reduce((s, e) => s + toNum(e.measuredQty), 0);
+        const totalValue = entries.reduce((s, e) => {
+          const rate = e.boqItem.rate ? toNum(e.boqItem.rate) : 0;
+          return s + toNum(e.measuredQty) * rate;
+        }, 0);
 
-  const totalMeasured = entries.reduce((s, e) => s + toNum(e.measuredQty), 0);
-  const totalValue = entries.reduce((s, e) => {
-    const rate = e.boqItem.rate ? toNum(e.boqItem.rate) : 0;
-    return s + toNum(e.measuredQty) * rate;
-  }, 0);
+        const serialized = entries.map((e) => ({
+          id: e.id,
+          mbNumber: e.mbNumber,
+          boqSerialNo: e.boqItem.serialNo,
+          boqDescription: e.boqItem.description,
+          unit: e.boqItem.unit ?? "",
+          measuredQty: toNum(e.measuredQty),
+          rate: e.boqItem.rate ? toNum(e.boqItem.rate) : 0,
+          amount: toNum(e.measuredQty) * (e.boqItem.rate ? toNum(e.boqItem.rate) : 0),
+          measureDate: e.measureDate.toISOString(),
+          description: e.description,
+          measuredByName: e.measuredBy?.name ?? "—",
+          status: e.status,
+        }));
 
-  const serialized = entries.map((e) => ({
-    id: e.id,
-    mbNumber: e.mbNumber,
-    boqSerialNo: e.boqItem.serialNo,
-    boqDescription: e.boqItem.description,
-    unit: e.boqItem.unit ?? "",
-    measuredQty: toNum(e.measuredQty),
-    rate: e.boqItem.rate ? toNum(e.boqItem.rate) : 0,
-    amount: toNum(e.measuredQty) * (e.boqItem.rate ? toNum(e.boqItem.rate) : 0),
-    measureDate: e.measureDate.toISOString(),
-    description: e.description,
-    measuredByName: e.measuredBy?.name ?? "—",
-    status: e.status,
-  }));
+        return (
+          <div>
+            <MobileMbProjectSelector projects={projects} selectedId={projectId} canCreate={canCreateProject} />
 
-  return (
-    <div>
-      <MobileMbProjectSelector projects={projects} selectedId={projectId} />
+            <div className="grid grid-cols-4 gap-1.5 mb-4">
+              <MobileStatCard label="Entries" value={String(entries.length)} icon={BookOpen} />
+              <MobileStatCard label="Total Measured" value={formatNumber(totalMeasured, 2)} icon={BookOpen} tone="neutral" />
+              <MobileStatCard label="Earned Value" value={formatCurrencyCompact(totalValue)} icon={BookOpen} tone="go" />
+              <MobileStatCard label="Bill of Quantities Items" value={String(boqItems.length)} icon={BookOpen} />
+            </div>
 
-      <div className="grid grid-cols-4 gap-1.5 mb-4">
-        <MobileStatCard label="Entries" value={String(entries.length)} icon={BookOpen} />
-        <MobileStatCard label="Total Measured" value={formatNumber(totalMeasured, 2)} icon={BookOpen} tone="neutral" />
-        <MobileStatCard label="Earned Value" value={formatCurrencyCompact(totalValue)} icon={BookOpen} tone="go" />
-        <MobileStatCard label="Bill of Quantities Items" value={String(boqItems.length)} icon={BookOpen} />
-      </div>
+            {serialized.length === 0 ? (
+              <MobileEmptyState
+                icon={BookOpen}
+                title="No measurement entries"
+                hint={boqItems.length === 0
+                  ? "Add Bill of Quantities line items first, then measure work against them"
+                  : canCreate
+                    ? "Tap + to record the first measurement entry"
+                    : "Measurement book entries will appear here as work is measured"}
+                action={boqItems.length === 0 ? (
+                  <MobileCta href={`/m/boq${projectId ? `?project=${projectId}` : ""}`} icon={Plus} variant="primary">
+                    Go to Bill of Quantities
+                  </MobileCta>
+                ) : undefined}
+              />
+            ) : (
+              <div className="flex flex-col gap-2">
+                {serialized.map((e) => (
+                  <MbEntryCard key={e.id} entry={e} />
+                ))}
+              </div>
+            )}
 
-      {serialized.length === 0 ? (
-        <MobileEmptyState
-          icon={BookOpen}
-          title="No measurement entries"
-          hint={boqItems.length === 0
-            ? "Add Bill of Quantities line items first, then measure work against them"
-            : canCreate
-              ? "Tap + to record the first measurement entry"
-              : "Measurement book entries will appear here as work is measured"}
-          action={boqItems.length === 0 ? (
-            <MobileCta href={`/m/boq${projectId ? `?project=${projectId}` : ""}`} icon={Plus} variant="primary">
-              Go to Bill of Quantities
-            </MobileCta>
-          ) : undefined}
-        />
-      ) : (
-        <div className="flex flex-col gap-2">
-          {serialized.map((e) => (
-            <MbEntryCard key={e.id} entry={e} />
-          ))}
-        </div>
-      )}
-
-      {/* FAB for adding MB entries */}
-      {canCreate && boqItems.length > 0 && (
-        <MobileMbFab
-          projectId={projectId}
-          boqItems={boqItems.map((b) => ({
-            id: b.id,
-            serialNo: b.serialNo,
-            description: b.description,
-            unit: b.unit,
-            rate: b.rate ? toNum(b.rate) : null,
-          }))}
-          wbsNodes={wbsNodes.map((w) => ({
-            id: w.id,
-            code: w.code,
-            name: w.name,
-            boqItemId: w.boqItemId,
-          }))}
-        />
-      )}
-    </div>
+            {/* FAB for adding MB entries */}
+            {canCreate && boqItems.length > 0 && (
+              <MobileMbFab
+                projectId={projectId}
+                boqItems={boqItems.map((b) => ({
+                  id: b.id,
+                  serialNo: b.serialNo,
+                  description: b.description,
+                  unit: b.unit,
+                  rate: b.rate ? toNum(b.rate) : null,
+                }))}
+                wbsNodes={wbsNodes.map((w) => ({
+                  id: w.id,
+                  code: w.code,
+                  name: w.name,
+                  boqItemId: w.boqItemId,
+                }))}
+              />
+            )}
+          </div>
+        );
+      }}
+    </MobileProjectScopedPage>
   );
 }
 

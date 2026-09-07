@@ -111,7 +111,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
             message: `✅ DPR for ${dpr.project.name} (${dpr.date.toISOString().slice(0, 10)}) was approved by Sub-Admin. Pending final Admin approval.`,
           });
         }
-      } catch { /* notification failure should not block approval */ }
+      } catch (err) { console.warn("DPR approval notification failed:", err); }
       revalidatePath("/m/dprs");
     revalidatePath("/m/hr?tab=dprs");
       return json({ ok: true });
@@ -142,7 +142,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
             message: `✅ DPR for ${dpr.project.name} (${dpr.date.toISOString().slice(0, 10)}) was fully approved by Admin.`,
           });
         }
-      } catch { /* notification failure should not block approval */ }
+      } catch (err) { console.warn("DPR approval notification failed:", err); }
 
       // DPR-Finance Bridge: auto-generate MaterialIssue from approved DPR
       // (best-effort — failures don't block the approval)

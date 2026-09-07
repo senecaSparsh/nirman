@@ -56,14 +56,11 @@ export function MobileSearchHeader({
 
   return (
     <div
-      className="sticky top-0 z-20 -mx-3.5 px-3.5 pt-2 pb-2 mb-1"
+      className="sticky top-0 z-20 px-2.5 py-2.5 mb-3 rounded-[0.625rem] border"
       style={{
-        /* Apple §12 — translucent material so content scrolls underneath.
-           Blur + saturate conveys hierarchy without a hard divider. */
-        backgroundColor: "color-mix(in srgb, var(--color-paper) 92%, transparent)",
-        backdropFilter: "blur(20px) saturate(180%)",
-        WebkitBackdropFilter: "blur(20px) saturate(180%)",
-        boxShadow: "0 4px 8px -6px color-mix(in srgb, var(--color-ink-950) 18%, transparent)",
+        /* Solid paper card — symmetric with the stat strip above it. */
+        backgroundColor: "var(--color-paper)",
+        borderColor: "var(--color-line)",
       }}
     >
       {/* Search + action row — search expands to full width on focus */}

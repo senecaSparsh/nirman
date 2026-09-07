@@ -1,10 +1,6 @@
-import { Suspense } from "react";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
-import { MobileNoAccess } from "@/components/mobile/v2/primitives";
+import { PERM } from "@/lib/roles";
+import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {type MobileColumnSpec} from "@/components/mobile/v2/export-share-bar";
 import { MobileDepartmentsList, type DepartmentListItem } from "./MobileDepartmentsList";
 
@@ -15,64 +11,52 @@ import { MobileDepartmentsList, type DepartmentListItem } from "./MobileDepartme
  */
 export default function MobileDepartmentsPage() {
   return (
-    <Suspense fallback={<MobileSkeletonList rows={6} />}>
-      <MobileDepartmentsContent />
-    </Suspense>
-  );
-}
+    <MobileListPage perm={PERM.INVENTORY_VIEW} managePerm={PERM.INVENTORY_MANAGE} what="departments" permission="inventory.view">
+      {async ({ company, canManage }) => {
+        const departments = await prisma.department.findMany({
+          where: { companyId: company.id, deletedAt: null },
+          orderBy: { code: "asc" },
+          include: {
+            stockLocation: { select: { id: true, name: true } },
+            _count: { select: { materialIssues: { where: { department: { deletedAt: null } } } } },
+          },
+        });
 
-async function MobileDepartmentsContent() {
-  await connection();
-  const company = await getCompany();
-  const role = await getUserRole();
+        const rows: DepartmentListItem[] = departments.map((d) => ({
+          id: d.id,
+          code: d.code,
+          name: d.name,
+          description: d.description,
+          active: d.active,
+          stockLocationName: d.stockLocation?.name ?? null,
+          issueCount: d._count.materialIssues,
+        }));
 
-  if (!hasPermission(role, PERM.INVENTORY_VIEW)) {
-    return <MobileNoAccess what="departments" />;
-  }
+        const activeCount = rows.filter((d) => d.active).length;
+        const withStockRoom = rows.filter((d) => d.stockLocationName).length;
 
-  const canManage = hasPermission(role, PERM.INVENTORY_MANAGE);
+        const exportColumns: MobileColumnSpec[] = [
+          { key: "code", label: "Code" },
+          { key: "name", label: "Department" },
+          { key: "description", label: "Description" },
+          { key: "stockLocationName", label: "Stock Room" },
+          { key: "issueCount", label: "Issues" },
+          { key: "active", label: "Status" },
+        ];
 
-  const departments = await prisma.department.findMany({
-    where: { companyId: company.id, deletedAt: null },
-    orderBy: { code: "asc" },
-    include: {
-      stockLocation: { select: { id: true, name: true } },
-      _count: { select: { materialIssues: { where: { department: { deletedAt: null } } } } },
-    },
-  });
-
-  const rows: DepartmentListItem[] = departments.map((d) => ({
-    id: d.id,
-    code: d.code,
-    name: d.name,
-    description: d.description,
-    active: d.active,
-    stockLocationName: d.stockLocation?.name ?? null,
-    issueCount: d._count.materialIssues,
-  }));
-
-  const activeCount = rows.filter((d) => d.active).length;
-  const withStockRoom = rows.filter((d) => d.stockLocationName).length;
-
-  const exportColumns: MobileColumnSpec[] = [
-    { key: "code", label: "Code" },
-    { key: "name", label: "Department" },
-    { key: "description", label: "Description" },
-    { key: "stockLocationName", label: "Stock Room" },
-    { key: "issueCount", label: "Issues" },
-    { key: "active", label: "Status" },
-  ];
-
-  return (
-    <MobileDepartmentsList
-      items={rows}
-      activeCount={activeCount}
-      withStockRoom={withStockRoom}
-      canManage={canManage}
-      exportTitle="Departments"
-      exportRows={rows as unknown as Record<string, unknown>[]}
-      exportColumns={exportColumns}
-      exportSummary={`${rows.length} departments · ${activeCount} active · ${withStockRoom} with stock room`}
-    />
+        return (
+          <MobileDepartmentsList
+            items={rows}
+            activeCount={activeCount}
+            withStockRoom={withStockRoom}
+            canManage={canManage}
+            exportTitle="Departments"
+            exportRows={rows as unknown as Record<string, unknown>[]}
+            exportColumns={exportColumns}
+            exportSummary={`${rows.length} departments · ${activeCount} active · ${withStockRoom} with stock room`}
+          />
+        );
+      }}
+    </MobileListPage>
   );
 }

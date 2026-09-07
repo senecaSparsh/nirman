@@ -19,9 +19,14 @@ const TAB_META: { value: TabValue; label: string; count?: number }[] = [
 /**
  * MobileAccountsHubTabs — the tab bar wrapper for the Accounts/Finance hub.
  *
- * Groups Overview (dashboard), Expenses, Expense Claims, Petty Cash,
- * Supplier Payments, Receipts, and GL into one tabbed page at /m/accounts
- * — same pattern as /m/stock.
+ * Groups Overview (dashboard), Expenses, Claims, Petty Cash, Supplier
+ * Payments, Receipts, and GL into one tabbed page at /m/accounts — same
+ * pattern as /m/stock and /m/hr.
+ *
+ * The tab lives in `?tab=` so it's shareable and back-button friendly.
+ * The content below the tab bar is server-rendered children — the page.tsx
+ * conditionally fetches data and renders the appropriate component based
+ * on the active tab.
  */
 export function MobileAccountsHubTabs({
   counts = {},

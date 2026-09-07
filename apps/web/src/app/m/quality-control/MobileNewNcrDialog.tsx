@@ -8,9 +8,9 @@ import { haptic } from "@/lib/haptic";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useWbsOptions } from "@/lib/use-wbs-options";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { SectionCard, UnderlineInput, EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileProjectSelect, MobileSubcontractorSelect } from "@/components/mobile/selectors";
-import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type NcrCategory = "MATERIAL" | "WORKMANSHIP" | "DESIGN" | "DOCUMENT" | "PROCESS" | "SAFETY" | "OTHER";
 type NcrSeverity = "CRITICAL" | "MAJOR" | "MINOR" | "OBSERVATION";
@@ -141,20 +141,14 @@ export function MobileNewNcrForm({
     }
   }
 
-  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" };
   const labelClass = "block text-m-caption font-bold mb-0";
   const labelStyle = { color: "var(--color-ink-700)" };
-  const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
-  const sectionStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" };
-  const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
-  const sectionTitleStyle = { color: "var(--color-ink-950)" };
 
   return (
     <div className="flex flex-col gap-3">
       {/* Details */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>Details</p>
+      <SectionCard title="Details">
         <MobileProjectSelect
           label="Project"
           value={form.projectId}
@@ -163,25 +157,19 @@ export function MobileNewNcrForm({
           icon={FolderOpen}
           options={projects.map((p) => ({ value: p.id, label: p.name }))}
         />
-        <div>
-          <label className={labelClass} style={labelStyle}>Title</label>
-          <input
-            value={form.title}
-            onChange={(e) => set("title", e.target.value)}
-            placeholder="e.g. Uneven plaster in flat 302"
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
+        <UnderlineInput
+          label="Title"
+          value={form.title}
+          onChange={(v) => set("title", v)}
+          placeholder="e.g. Uneven plaster in flat 302"
+        />
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <div>
-            <EnumSelect
-              label="Category"
-              value={form.category}
-              onChange={(v) => set("category", v as NcrCategory)}
-              options={CATEGORIES}
-            />
-          </div>
+          <EnumSelect
+            label="Category"
+            value={form.category}
+            onChange={(v) => set("category", v as NcrCategory)}
+            options={CATEGORIES}
+          />
           <div className="pl-2">
             <EnumSelect
               label="Severity"
@@ -194,11 +182,10 @@ export function MobileNewNcrForm({
         <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
           {SEVERITIES.find((s) => s.value === form.severity)?.desc}
         </p>
-      </div>
+      </SectionCard>
 
       {/* Description */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>Description</p>
+      <SectionCard title="Description">
         <div>
           <label className={labelClass} style={labelStyle}>Description</label>
           <textarea
@@ -210,21 +197,16 @@ export function MobileNewNcrForm({
             style={inputStyle}
           />
         </div>
-      </div>
+      </SectionCard>
 
       {/* Location & Linkage */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>Location & Linkage</p>
-        <div>
-          <label className={labelClass} style={labelStyle}>Location (optional)</label>
-          <input
-            value={form.location}
-            onChange={(e) => set("location", e.target.value)}
-            placeholder="e.g. Tower A, 3rd floor, flat 302"
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
+      <SectionCard title="Location & Linkage">
+        <UnderlineInput
+          label="Location (optional)"
+          value={form.location}
+          onChange={(v) => set("location", v)}
+          placeholder="e.g. Tower A, 3rd floor, flat 302"
+        />
         <div>
           <MobileSelectWithCreate
             label="WBS Activity"
@@ -245,22 +227,17 @@ export function MobileNewNcrForm({
             options={boqOptions.map((b) => ({ value: b.id, label: b.label }))}
           />
         </div>
-      </div>
+      </SectionCard>
 
       {/* Responsibility */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>Responsibility</p>
+      <SectionCard title="Responsibility">
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <div>
-            <label className={labelClass} style={labelStyle}>Responsible Party</label>
-            <input
-              value={form.responsibleParty}
-              onChange={(e) => set("responsibleParty", e.target.value)}
-              placeholder="e.g. In-house team"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
+          <UnderlineInput
+            label="Responsible Party"
+            value={form.responsibleParty}
+            onChange={(v) => set("responsibleParty", v)}
+            placeholder="e.g. In-house team"
+          />
           <div className="pl-2">
             <MobileSubcontractorSelect
               value={form.subcontractorId}
@@ -274,13 +251,12 @@ export function MobileNewNcrForm({
             />
           </div>
         </div>
-      </div>
+      </SectionCard>
 
       {/* Evidence */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>Evidence</p>
+      <SectionCard title="Evidence">
         <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
-      </div>
+      </SectionCard>
 
       <button
         onClick={onSave}

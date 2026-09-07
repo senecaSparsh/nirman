@@ -1,10 +1,8 @@
-import { Suspense } from "react";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
+import { toNum } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { Beaker } from "lucide-react";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {
   MobileStatCard,
 } from "@/components/mobile/v2/primitives";
@@ -19,88 +17,81 @@ import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
  */
 export default function MobileStandardConsumptionsPage() {
   return (
-    <Suspense fallback={<MobileSkeletonList rows={6} />}>
-      <MobileStandardConsumptionsContent />
-    </Suspense>
-  );
-}
+    <MobileListPage managePerm={PERM.INVENTORY_MANAGE}>
+      {async ({ company, canManage }) => {
+        const [benchmarks, materials, categories] = await Promise.all([
+          prisma.standardConsumption.findMany({
+            where: { companyId: company.id },
+            orderBy: [{ workType: "asc" }, { material: { name: "asc" } }],
+            include: {
+              material: { select: { id: true, name: true, unit: true } },
+            },
+          }),
+          canManage
+            ? prisma.material.findMany({
+                where: { deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
+                orderBy: { name: "asc" },
+                select: { id: true, name: true, unit: true },
+              })
+            : [],
+          canManage
+            ? prisma.materialCategory.findMany({
+                orderBy: { name: "asc" },
+                select: { id: true, name: true, unit: true },
+              })
+            : [],
+        ]);
 
-async function MobileStandardConsumptionsContent() {
-  await connection();
-  const company = await getCompany();
-  const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.INVENTORY_MANAGE);
+        const workTypes = [...new Set(benchmarks.map((b) => b.workType))];
 
-  const [benchmarks, materials, categories] = await Promise.all([
-    prisma.standardConsumption.findMany({
-      where: { companyId: company.id },
-      orderBy: [{ workType: "asc" }, { material: { name: "asc" } }],
-      include: {
-        material: { select: { id: true, name: true, unit: true } },
-      },
-    }),
-    canManage
-      ? prisma.material.findMany({
-          where: { deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
-          orderBy: { name: "asc" },
-          select: { id: true, name: true, unit: true },
-        })
-      : [],
-    canManage
-      ? prisma.materialCategory.findMany({
-          orderBy: { name: "asc" },
-          select: { id: true, name: true, unit: true },
-        })
-      : [],
-  ]);
+        const serialized = benchmarks.map((b) => ({
+          id: b.id,
+          workType: b.workType,
+          materialName: b.material.name,
+          materialUnit: b.material.unit,
+          standardQty: toNum(b.standardQty),
+          baseQty: toNum(b.baseQty),
+          unitOfMeasure: b.unitOfMeasure,
+          notes: b.notes,
+        }));
 
-  const workTypes = [...new Set(benchmarks.map((b) => b.workType))];
+        const materialOptions = materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit }));
 
-  const serialized = benchmarks.map((b) => ({
-    id: b.id,
-    workType: b.workType,
-    materialName: b.material.name,
-    materialUnit: b.material.unit,
-    standardQty: toNum(b.standardQty),
-    baseQty: toNum(b.baseQty),
-    unitOfMeasure: b.unitOfMeasure,
-    notes: b.notes,
-  }));
+        return (
+          <div>
+            <div className="grid grid-cols-2 gap-1.5 mb-4">
+              <MobileStatCard label="Benchmarks" value={String(benchmarks.length)} icon={Beaker} />
+              <MobileStatCard label="Work Types" value={String(workTypes.length)} icon={Beaker} tone="neutral" />
+            </div>
 
-  const materialOptions = materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit }));
+            <MobileStandardConsumptionsList
+              items={serialized}
+              exportTitle="Standard Consumptions"
+              exportRows={serialized as unknown as Record<string, unknown>[]}
+              exportColumns={[
+                { key: "workType", label: "Work Type" },
+                { key: "materialName", label: "Material" },
+                { key: "standardQty", label: "Standard Qty" },
+                { key: "baseQty", label: "Base Qty" },
+                { key: "unitOfMeasure", label: "UOM" },
+              ] as MobileColumnSpec[]}
+              exportSummary={`${serialized.length} benchmarks · ${workTypes.length} work types`}
+            />
 
-  return (
-    <div>
-      <div className="grid grid-cols-2 gap-1.5 mb-4">
-        <MobileStatCard label="Benchmarks" value={String(benchmarks.length)} icon={Beaker} />
-        <MobileStatCard label="Work Types" value={String(workTypes.length)} icon={Beaker} tone="neutral" />
-      </div>
+            {benchmarks.length === 0 && (
+              <MobileStandardConsumptionsEmptyState
+                hasMaterials={materialOptions.length > 0}
+                canManage={canManage}
+                categories={categories}
+              />
+            )}
 
-      <MobileStandardConsumptionsList
-        items={serialized}
-        exportTitle="Standard Consumptions"
-        exportRows={serialized as unknown as Record<string, unknown>[]}
-        exportColumns={[
-          { key: "workType", label: "Work Type" },
-          { key: "materialName", label: "Material" },
-          { key: "standardQty", label: "Standard Qty" },
-          { key: "baseQty", label: "Base Qty" },
-          { key: "unitOfMeasure", label: "UOM" },
-        ] as MobileColumnSpec[]}
-        exportSummary={`${serialized.length} benchmarks · ${workTypes.length} work types`}
-      />
-
-      {benchmarks.length === 0 && (
-        <MobileStandardConsumptionsEmptyState
-          hasMaterials={materialOptions.length > 0}
-          canManage={canManage}
-          categories={categories}
-        />
-      )}
-
-      {canManage && materialOptions.length > 0 && (
-        <MobileStandardConsumptionsFab materials={materialOptions} />
-      )}
-    </div>
+            {canManage && materialOptions.length > 0 && (
+              <MobileStandardConsumptionsFab materials={materialOptions} />
+            )}
+          </div>
+        );
+      }}
+    </MobileListPage>
   );
 }

@@ -52,7 +52,7 @@ export default function MobileVehiclesPage() {
     try {
       const res = await fetch("/api/vehicles");
       if (res.ok) setVehicles(await res.json());
-    } catch { /* best-effort */ }
+    } catch (err) { console.warn("Failed to load vehicles:", err); }
     setLoading(false);
   }
 
@@ -62,7 +62,7 @@ export default function MobileVehiclesPage() {
     try {
       const res = await fetch(`/api/vehicles/${vehicleId}/trips`);
       if (res.ok) setTrips(await res.json());
-    } catch { /* best-effort */ }
+    } catch (err) { console.warn("Failed to load vehicle trips:", err); }
     setTripsLoading(false);
   }
 

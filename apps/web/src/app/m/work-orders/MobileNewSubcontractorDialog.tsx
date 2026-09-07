@@ -5,6 +5,7 @@ import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 
 /**
  * Mobile bottom-sheet dialog for creating a subcontractor inline.
@@ -90,128 +91,54 @@ export function MobileNewSubcontractorDialog({
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Subcontractor Details */}
-          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              Subcontractor Details
-            </p>
-            {/* Name */}
-            <div>
-              <label
-                className="block text-m-caption font-bold mb-0"
-                style={{ color: "var(--color-ink-700)" }}
-              >
-                Name <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. ABC Plumbing Works"
-                autoFocus
-                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                style={{
-                  borderColor: "var(--color-line)",
-                  backgroundColor: "transparent",
-                  color: "var(--color-ink-950)",
-                }}
-              />
-            </div>
-
-            {/* Trade */}
-            <div>
-              <label
-                className="block text-m-caption font-bold mb-0"
-                style={{ color: "var(--color-ink-700)" }}
-              >
-                Trade
-              </label>
-              <input
-                type="text"
-                value={trade}
-                onChange={(e) => setTrade(e.target.value)}
-                placeholder="e.g. Plumbing, Electrical, Masonry"
-                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                style={{
-                  borderColor: "var(--color-line)",
-                  backgroundColor: "transparent",
-                  color: "var(--color-ink-950)",
-                }}
-              />
-            </div>
-
-            {/* GSTIN */}
-            <div>
-              <label
-                className="block text-m-caption font-bold mb-0"
-                style={{ color: "var(--color-ink-700)" }}
-              >
-                GSTIN
-              </label>
-              <input
-                type="text"
-                value={gstin}
-                onChange={(e) => setGstin(e.target.value.toUpperCase())}
-                placeholder="22AAAAA0000A1Z5"
-                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                style={{
-                  borderColor: "var(--color-line)",
-                  backgroundColor: "transparent",
-                  color: "var(--color-ink-950)",
-                }}
-              />
-            </div>
-          </div>
+          <SectionCard title="Subcontractor Details">
+            <UnderlineInput
+              label="Name"
+              value={name}
+              onChange={setName}
+              placeholder="e.g. ABC Plumbing Works"
+              required
+              autoFocus
+            />
+            <UnderlineInput
+              label="Trade"
+              value={trade}
+              onChange={setTrade}
+              placeholder="e.g. Plumbing, Electrical, Masonry"
+            />
+            <UnderlineInput
+              label="GSTIN"
+              value={gstin}
+              onChange={(v) => setGstin(v.toUpperCase())}
+              placeholder="22AAAAA0000A1Z5"
+            />
+          </SectionCard>
 
           {/* Contact & Address */}
-          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              Contact &amp; Address
-            </p>
+          <SectionCard title="Contact & Address">
             {/* Phone + Email */}
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-              <div>
-                <label
-                  className="block text-m-caption font-bold mb-0"
-                  style={{ color: "var(--color-ink-700)" }}
-                >
-                  Phone
-                </label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="9876543210"
-                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                  style={{
-                    borderColor: "var(--color-line)",
-                    backgroundColor: "transparent",
-                    color: "var(--color-ink-950)",
-                  }}
-                />
-              </div>
+              <UnderlineInput
+                label="Phone"
+                value={phone}
+                onChange={setPhone}
+                placeholder="9876543210"
+                type="tel"
+                inputMode="tel"
+              />
               <div className="pl-2">
-                <label
-                  className="block text-m-caption font-bold mb-0"
-                  style={{ color: "var(--color-ink-700)" }}
-                >
-                  Email
-                </label>
-                <input
-                  type="email"
+                <UnderlineInput
+                  label="Email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={setEmail}
                   placeholder="contact@abcworks.com"
-                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                  style={{
-                    borderColor: "var(--color-line)",
-                    backgroundColor: "transparent",
-                    color: "var(--color-ink-950)",
-                  }}
+                  type="email"
+                  inputMode="email"
                 />
               </div>
             </div>
 
-            {/* Address */}
+            {/* Address — textarea (UnderlineInput only supports <input>) */}
             <div>
               <label
                 className="block text-m-caption font-bold mb-0"
@@ -232,7 +159,7 @@ export function MobileNewSubcontractorDialog({
                 }}
               />
             </div>
-          </div>
+          </SectionCard>
 
           {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
           <div

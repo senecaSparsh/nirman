@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { Wallet, Printer, Building2, User, FileText, IndianRupee, CalendarDays, Hash } from "lucide-react";
+import { Wallet, Printer } from "lucide-react";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { prisma } from "@nirman/db";
@@ -11,6 +11,12 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import { ReceiptActions } from "./ReceiptActions";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
+import {
+  DetailHeroCard,
+  DetailProgress,
+  DetailKeyValue,
+  DetailKeyValueCard,
+} from "@/components/mobile/v2/detail-primitives";
 
 type AssetPaymentSummary = { id: string; paymentDate: Date; mode: string; reference: string | null; amount: unknown };
 type MaterialPaymentSummary = { id: string; paymentDate: Date; paymentMode: string; referenceNo: string | null; amount: unknown };
@@ -58,54 +64,6 @@ async function MobileReceiptDetailContent({
 }
 
 // ── Shared UI helpers ───────────────────────────────────────────────────────
-
-function FieldRow({
-  icon: Icon,
-  label,
-  value,
-  mono,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div className="flex items-start gap-2.5 py-1.5">
-      <Icon className="mt-0.5 size-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />
-      <div className="min-w-0 flex-1">
-        <div className="text-m-label font-semibold uppercase" style={{ color: "var(--color-ink-300)" }}>{label}</div>
-        <div className={`text-m-section font-medium ${mono ? "font-mono" : ""}`} style={{ color: "var(--color-ink-950)" }}>{value}</div>
-      </div>
-    </div>
-  );
-}
-
-function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-[0.75rem] border p-3 mb-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-      <div className="mb-1.5 text-m-label font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-300)" }}>{title}</div>
-      {children}
-    </div>
-  );
-}
-
-function SummaryRow({ label, value, bold, danger }: { label: string; value: string; bold?: boolean; danger?: boolean }) {
-  return (
-    <div className="flex items-center justify-between py-1">
-      <span className="text-m-section" style={{ color: bold ? "var(--color-ink-950)" : "var(--color-ink-500)", fontWeight: bold ? 600 : 400 }}>{label}</span>
-      <span className="text-m-section tabular-nums font-semibold" style={{ color: danger ? "var(--color-stop)" : "var(--color-ink-950)" }}>{value}</span>
-    </div>
-  );
-}
-
-function ProgressBar({ pct }: { pct: number }) {
-  return (
-    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full" style={{ backgroundColor: "var(--color-concrete)" }}>
-      <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: "var(--color-go)" }} />
-    </div>
-  );
-}
 
 function HistoryTable({
   payments,
@@ -205,6 +163,27 @@ async function AssetReceiptView({ id, companyId, companyName }: { id: string; co
     amount: toNum(p.amount),
   }));
 
+  // ── Build detail card entries (conditional on customer fields) ──
+  const receivedFromEntries: { label: string; value: string; mono?: boolean }[] = [
+    { label: "Customer", value: sale.customer.name },
+    ...(sale.customer.address ? [{ label: "Address", value: sale.customer.address }] : []),
+    ...(sale.customer.phone ? [{ label: "Phone", value: sale.customer.phone }] : []),
+    ...(sale.customer.gstin ? [{ label: "GSTIN", value: sale.customer.gstin, mono: true }] : []),
+  ];
+
+  const againstSaleEntries: { label: string; value: string; mono?: boolean }[] = [
+    { label: "Sale No.", value: sale.saleNumber, mono: true },
+    { label: "Project", value: sale.project?.name ?? "Standalone" },
+    { label: "Property", value: propertyDesc },
+    { label: "Sale Date", value: formatDate(sale.saleDate) },
+  ];
+
+  const paymentEntries: { label: string; value: string; mono?: boolean }[] = [
+    { label: "Date / Time", value: `${formatDate(payment.paymentDate)} · ${timeStr}` },
+    { label: "Mode", value: payment.mode.replace(/_/g, " ") },
+    ...(payment.reference ? [{ label: "Reference", value: payment.reference, mono: true }] : []),
+  ];
+
   return (
     <PageContextProvider value={{
       entityType: "assetReceipt",
@@ -220,39 +199,45 @@ async function AssetReceiptView({ id, companyId, companyName }: { id: string; co
       shareTitle={`Receipt ${receiptNo} — ${companyName}`}
       shareText={`Payment receipt ${receiptNo} for ${formatCurrency(amount)} from ${sale.customer.name}`}
     >
-      <SectionCard title="Received From">
-        <FieldRow icon={User} label="Customer" value={sale.customer.name} />
-        {sale.customer.address && <FieldRow icon={Building2} label="Address" value={sale.customer.address} />}
-        {sale.customer.phone && <FieldRow icon={FileText} label="Phone" value={sale.customer.phone} />}
-        {sale.customer.gstin && <FieldRow icon={Hash} label="GSTIN" value={sale.customer.gstin} mono />}
-      </SectionCard>
+      <DetailKeyValueCard title="Received From" entries={receivedFromEntries} />
 
-      <SectionCard title="Against Sale">
-        <FieldRow icon={FileText} label="Sale No." value={sale.saleNumber} mono />
-        <FieldRow icon={Building2} label="Project" value={sale.project?.name ?? "Standalone"} />
-        <FieldRow icon={Building2} label="Property" value={propertyDesc} />
-        <FieldRow icon={CalendarDays} label="Sale Date" value={formatDate(sale.saleDate)} />
-      </SectionCard>
+      <DetailKeyValueCard title="Against Sale" entries={againstSaleEntries} />
 
-      <SectionCard title="Payment">
-        <FieldRow icon={CalendarDays} label="Date / Time" value={`${formatDate(payment.paymentDate)} · ${timeStr}`} />
-        <FieldRow icon={IndianRupee} label="Mode" value={payment.mode.replace(/_/g, " ")} />
-        {payment.reference && <FieldRow icon={Hash} label="Reference" value={payment.reference} mono />}
-      </SectionCard>
+      <DetailKeyValueCard title="Payment" entries={paymentEntries} />
 
-      <SectionCard title="Account Summary">
-        <SummaryRow label="Sale Value" value={formatCurrency(salePrice)} />
-        {gstAmount > 0 && <SummaryRow label={`GST @ ${gstRate}%`} value={formatCurrency(gstAmount)} />}
-        <SummaryRow label="Total Payable (incl. GST)" value={formatCurrency(total)} bold />
-        <SummaryRow label="Total Received Till Date" value={formatCurrency(totalPaid)} />
-        <SummaryRow label="Balance Due" value={formatCurrency(balanceDue)} bold danger />
-        <SummaryRow label="Payment Progress" value={`${pctPaid.toFixed(1)}%`} />
-        <ProgressBar pct={pctPaid} />
-      </SectionCard>
+      {/* Account Summary — key/value rows + progress bar in one card */}
+      <div
+        className="rounded-[0.625rem] border p-3 mb-3"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      >
+        <p className="text-m-caption font-bold uppercase tracking-wider mb-1" style={{ color: "var(--color-steel)" }}>
+          Account Summary
+        </p>
+        <dl className="divide-y" style={{ borderColor: "var(--color-line)" }}>
+          <DetailKeyValue label="Sale Value" value={formatCurrency(salePrice)} />
+          {gstAmount > 0 && <DetailKeyValue label={`GST @ ${gstRate}%`} value={formatCurrency(gstAmount)} />}
+          <DetailKeyValue label="Total Payable (incl. GST)" value={formatCurrency(total)} />
+          <DetailKeyValue label="Total Received Till Date" value={formatCurrency(totalPaid)} />
+          <DetailKeyValue label="Balance Due" value={formatCurrency(balanceDue)} tone="stop" />
+        </dl>
+        <DetailProgress
+          label="Payment Progress"
+          value={`${pctPaid.toFixed(1)}%`}
+          pct={pctPaid}
+          tone="go"
+        />
+      </div>
 
-      <SectionCard title={`Payment History (${sale.payments.length})`}>
+      {/* Payment History */}
+      <div
+        className="rounded-[0.625rem] border p-3 mb-3"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      >
+        <p className="text-m-caption font-bold uppercase tracking-wider mb-2" style={{ color: "var(--color-steel)" }}>
+          {`Payment History (${sale.payments.length})`}
+        </p>
         <HistoryTable payments={history} currentId={payment.id} />
-      </SectionCard>
+      </div>
     </DetailShell>
     </PageContextProvider>
   );
@@ -306,6 +291,26 @@ async function MaterialReceiptView({ id, companyId, companyName }: { id: string;
     amount: toNum(p.amount),
   }));
 
+  // ── Build detail card entries (conditional on party/customer fields) ──
+  const receivedFromEntries: { label: string; value: string; mono?: boolean }[] = [
+    { label: "Party", value: partyName },
+    ...(!sale.partyName && sale.customer.address ? [{ label: "Address", value: sale.customer.address }] : []),
+    ...(!sale.partyName && sale.customer.phone ? [{ label: "Phone", value: sale.customer.phone }] : []),
+    ...(!sale.partyName && sale.customer.gstin ? [{ label: "GSTIN", value: sale.customer.gstin, mono: true }] : []),
+  ];
+
+  const againstSaleEntries: { label: string; value: string; mono?: boolean }[] = [
+    { label: "Sale No.", value: sale.saleNumber, mono: true },
+    { label: "Sale Date", value: formatDate(sale.saleDate) },
+    ...(sale.project ? [{ label: "Project", value: sale.project.name }] : []),
+  ];
+
+  const paymentEntries: { label: string; value: string; mono?: boolean }[] = [
+    { label: "Date / Time", value: `${formatDate(payment.paymentDate)} · ${timeStr}` },
+    { label: "Mode", value: payment.paymentMode.replace(/_/g, " ") },
+    ...(payment.referenceNo ? [{ label: "Reference", value: payment.referenceNo, mono: true }] : []),
+  ];
+
   return (
     <PageContextProvider value={{
       entityType: "materialReceipt",
@@ -321,20 +326,18 @@ async function MaterialReceiptView({ id, companyId, companyName }: { id: string;
       shareTitle={`Receipt ${receiptNo} — ${companyName}`}
       shareText={`Payment receipt ${receiptNo} for ${formatCurrency(amount)} from ${partyName}`}
     >
-      <SectionCard title="Received From">
-        <FieldRow icon={User} label="Party" value={partyName} />
-        {!sale.partyName && sale.customer.address && <FieldRow icon={Building2} label="Address" value={sale.customer.address} />}
-        {!sale.partyName && sale.customer.phone && <FieldRow icon={FileText} label="Phone" value={sale.customer.phone} />}
-        {!sale.partyName && sale.customer.gstin && <FieldRow icon={Hash} label="GSTIN" value={sale.customer.gstin} mono />}
-      </SectionCard>
+      <DetailKeyValueCard title="Received From" entries={receivedFromEntries} />
 
-      <SectionCard title="Against Sale">
-        <FieldRow icon={FileText} label="Sale No." value={sale.saleNumber} mono />
-        <FieldRow icon={CalendarDays} label="Sale Date" value={formatDate(sale.saleDate)} />
-        {sale.project && <FieldRow icon={Building2} label="Project" value={sale.project.name} />}
-      </SectionCard>
+      <DetailKeyValueCard title="Against Sale" entries={againstSaleEntries} />
 
-      <SectionCard title="Line Items">
+      {/* Line Items */}
+      <div
+        className="rounded-[0.625rem] border p-3 mb-3"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      >
+        <p className="text-m-caption font-bold uppercase tracking-wider mb-2" style={{ color: "var(--color-steel)" }}>
+          Line Items
+        </p>
         <div className="overflow-hidden rounded-[0.5rem] border" style={{ borderColor: "var(--color-line)" }}>
           <table className="w-full text-m-body">
             <thead>
@@ -355,27 +358,43 @@ async function MaterialReceiptView({ id, companyId, companyName }: { id: string;
             </tbody>
           </table>
         </div>
-      </SectionCard>
+      </div>
 
-      <SectionCard title="Payment">
-        <FieldRow icon={CalendarDays} label="Date / Time" value={`${formatDate(payment.paymentDate)} · ${timeStr}`} />
-        <FieldRow icon={IndianRupee} label="Mode" value={payment.paymentMode.replace(/_/g, " ")} />
-        {payment.referenceNo && <FieldRow icon={Hash} label="Reference" value={payment.referenceNo} mono />}
-      </SectionCard>
+      <DetailKeyValueCard title="Payment" entries={paymentEntries} />
 
-      <SectionCard title="Account Summary">
-        <SummaryRow label="Subtotal" value={formatCurrency(subtotal)} />
-        {gstTotal > 0 && <SummaryRow label="GST" value={formatCurrency(gstTotal)} />}
-        <SummaryRow label="Total Sale Value (incl. GST)" value={formatCurrency(total)} bold />
-        <SummaryRow label="Total Received Till Date" value={formatCurrency(totalPaid)} />
-        <SummaryRow label="Balance Due" value={formatCurrency(balanceDue)} bold danger />
-        <SummaryRow label="Payment Progress" value={`${pctPaid.toFixed(1)}%`} />
-        <ProgressBar pct={pctPaid} />
-      </SectionCard>
+      {/* Account Summary — key/value rows + progress bar in one card */}
+      <div
+        className="rounded-[0.625rem] border p-3 mb-3"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      >
+        <p className="text-m-caption font-bold uppercase tracking-wider mb-1" style={{ color: "var(--color-steel)" }}>
+          Account Summary
+        </p>
+        <dl className="divide-y" style={{ borderColor: "var(--color-line)" }}>
+          <DetailKeyValue label="Subtotal" value={formatCurrency(subtotal)} />
+          {gstTotal > 0 && <DetailKeyValue label="GST" value={formatCurrency(gstTotal)} />}
+          <DetailKeyValue label="Total Sale Value (incl. GST)" value={formatCurrency(total)} />
+          <DetailKeyValue label="Total Received Till Date" value={formatCurrency(totalPaid)} />
+          <DetailKeyValue label="Balance Due" value={formatCurrency(balanceDue)} tone="stop" />
+        </dl>
+        <DetailProgress
+          label="Payment Progress"
+          value={`${pctPaid.toFixed(1)}%`}
+          pct={pctPaid}
+          tone="go"
+        />
+      </div>
 
-      <SectionCard title={`Payment History (${sale.payments.length})`}>
+      {/* Payment History */}
+      <div
+        className="rounded-[0.625rem] border p-3 mb-3"
+        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      >
+        <p className="text-m-caption font-bold uppercase tracking-wider mb-2" style={{ color: "var(--color-steel)" }}>
+          {`Payment History (${sale.payments.length})`}
+        </p>
         <HistoryTable payments={history} currentId={payment.id} />
-      </SectionCard>
+      </div>
     </DetailShell>
     </PageContextProvider>
   );
@@ -407,20 +426,18 @@ function DetailShell({
       </div>
 
       {/* Hero — receipt no + amount */}
-      <div className="rounded-[0.875rem] border p-3.5 mb-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="text-m-label font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-300)" }}>Receipt No.</div>
-            <div className="font-mono text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{receiptNo}</div>
-          </div>
-          <span className="rounded-full px-2 py-0.5 text-m-caption font-semibold uppercase" style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}>{kindLabel}</span>
-        </div>
+      <DetailHeroCard
+        icon={Wallet}
+        title={receiptNo}
+        titleMono
+        status={kindLabel}
+      >
         <div className="mt-3 flex items-baseline justify-between">
           <span className="text-m-label font-semibold uppercase" style={{ color: "var(--color-ink-300)" }}>Amount Received</span>
           <span className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-go)" }}>{formatCurrency(amount)}</span>
         </div>
         <div className="mt-1 text-m-body italic" style={{ color: "var(--color-ink-500)" }}>In words: {words} only</div>
-      </div>
+      </DetailHeroCard>
 
       {children}
 

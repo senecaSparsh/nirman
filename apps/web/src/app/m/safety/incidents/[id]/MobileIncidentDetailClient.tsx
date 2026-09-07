@@ -8,9 +8,10 @@ import {Loader2, Send, Check, Ban, Trash2, Pencil} from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
-import { ActionBar, MobileStatusBadge } from "@/components/mobile/v2/primitives";
+import { ActionBar } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { DetailHeroCard, DetailStatGrid, DetailTimeline, type TimelineStepData } from "@/components/mobile/v2/detail-primitives";
 
 interface IncidentDetail {
   id: string; incidentNumber: string; title: string; description: string;
@@ -95,20 +96,32 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
 
   const sevColor = SEVERITY_COLORS[incident.severity] ?? "var(--color-ink-500)";
 
+  const detailStats: { label: string; value: string }[] = [
+    { label: "Date", value: formatDate(incident.incidentDate) },
+    ...(incident.incidentTime ? [{ label: "Time", value: incident.incidentTime }] : []),
+    ...(incident.location ? [{ label: "Location", value: incident.location }] : []),
+    ...(incident.peopleInvolved ? [{ label: "People", value: incident.peopleInvolved }] : []),
+    ...(incident.injuredCount > 0 ? [{ label: "Injured", value: String(incident.injuredCount) }] : []),
+    ...(incident.fatalities > 0 ? [{ label: "Fatalities", value: String(incident.fatalities) }] : []),
+    ...(incident.propertyDamageEstimate > 0 ? [{ label: "Damage Est.", value: formatCurrency(incident.propertyDamageEstimate) }] : []),
+    ...(incident.wbsNodeName ? [{ label: "WBS Node", value: incident.wbsNodeName }] : []),
+  ];
+
+  const timelineSteps: TimelineStepData[] = [
+    { label: "Reported", date: formatDate(incident.reportedAt), detail: incident.reportedByName ? `by ${incident.reportedByName}` : undefined, state: "done" },
+    ...(incident.investigatedAt ? [{ label: "Investigated", date: formatDate(incident.investigatedAt), detail: incident.investigatedByName ? `by ${incident.investigatedByName}` : undefined, state: "done" as const }] : []),
+    ...(incident.closedAt ? [{ label: "Closed", date: formatDate(incident.closedAt), detail: incident.closedByName ? `by ${incident.closedByName}` : undefined, state: "done" as const }] : []),
+  ];
+
   return (
     <div className="space-y-4 pb-20">
       {/* Header */}
-      <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{incident.incidentNumber}</p>
-          <MobileStatusBadge status={incident.status} />
-        </div>
-        <h1 className="text-m-section font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>{incident.title}</h1>
-        <p className="text-m-label" style={{ color: sevColor, fontWeight: 600 }}>
+      <DetailHeroCard title={incident.title} subtitle={incident.incidentNumber} status={incident.status}>
+        <p className="text-m-label mt-1" style={{ color: sevColor, fontWeight: 600 }}>
           {incident.severity.replace("_", " ")} · {TYPE_LABELS[incident.type] ?? incident.type}
         </p>
-        <p className="text-m-label mt-1" style={{ color: "var(--color-ink-500)" }}>{incident.projectName}</p>
-      </div>
+        <p className="text-m-label mt-0.5" style={{ color: "var(--color-ink-500)" }}>{incident.projectName}</p>
+      </DetailHeroCard>
 
       {/* Description */}
       <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
@@ -131,16 +144,7 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
       </div>
 
       {/* Details grid */}
-      <div className="grid grid-cols-2 gap-2">
-        <DetailCard label="Date" value={formatDate(incident.incidentDate)} />
-        {incident.incidentTime && <DetailCard label="Time" value={incident.incidentTime} />}
-        {incident.location && <DetailCard label="Location" value={incident.location} />}
-        {incident.peopleInvolved && <DetailCard label="People" value={incident.peopleInvolved} />}
-        {incident.injuredCount > 0 && <DetailCard label="Injured" value={String(incident.injuredCount)} />}
-        {incident.fatalities > 0 && <DetailCard label="Fatalities" value={String(incident.fatalities)} />}
-        {incident.propertyDamageEstimate > 0 && <DetailCard label="Damage Est." value={formatCurrency(incident.propertyDamageEstimate)} />}
-        {incident.wbsNodeName && <DetailCard label="WBS Node" value={incident.wbsNodeName} />}
-      </div>
+      <DetailStatGrid stats={detailStats} cols={2} />
 
       {/* Investigation */}
       {incident.rootCause && (
@@ -153,20 +157,13 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
       )}
 
       {/* Timeline */}
-      <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <p className="text-m-label font-semibold uppercase mb-2" style={{ color: "var(--color-ink-500)" }}>Timeline</p>
-        <div className="space-y-1.5">
-          <TimelineRow label="Reported" date={incident.reportedAt} name={incident.reportedByName} />
-          {incident.investigatedAt && <TimelineRow label="Investigated" date={incident.investigatedAt} name={incident.investigatedByName} />}
-          {incident.closedAt && <TimelineRow label="Closed" date={incident.closedAt} name={incident.closedByName} />}
+      <DetailTimeline steps={timelineSteps} title="Timeline" />
+      {incident.closureNotes && (
+        <div className="rounded-[0.625rem] border p-3 mb-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-caption font-bold uppercase mb-1" style={{ color: "var(--color-steel)" }}>Closure Notes</p>
+          <p className="text-m-label" style={{ color: "var(--color-ink-950)" }}>{incident.closureNotes}</p>
         </div>
-        {incident.closureNotes && (
-          <div className="mt-2 rounded-[0.375rem] p-2" style={{ backgroundColor: "var(--color-concrete)" }}>
-            <p className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>Closure Notes</p>
-            <p className="text-m-label" style={{ color: "var(--color-ink-950)" }}>{incident.closureNotes}</p>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Actions */}
       {canManage && (
@@ -309,24 +306,6 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
         </MobileDialog>
       )}
       {confirmDialog}
-    </div>
-  );
-}
-
-function DetailCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-      <p className="text-m-caption font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>{label}</p>
-      <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>{value}</p>
-    </div>
-  );
-}
-
-function TimelineRow({ label, date, name }: { label: string; date: string; name?: string | null }) {
-  return (
-    <div className="flex items-center justify-between">
-      <div><p className="text-m-label font-semibold" style={{ color: "var(--color-ink-950)" }}>{label}</p>{name && <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>by {name}</p>}</div>
-      <p className="text-m-label tabular-nums" style={{ color: "var(--color-ink-500)" }}>{formatDate(date)}</p>
     </div>
   );
 }

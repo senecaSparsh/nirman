@@ -8,6 +8,7 @@ import { haptic } from "@/lib/haptic";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useWbsOptions } from "@/lib/use-wbs-options";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileProjectSelect } from "@/components/mobile/selectors";
 import { useTodayDate } from "@/lib/use-today-date";
@@ -27,14 +28,9 @@ const SEVERITIES: { value: IncidentSeverity; label: string }[] = [
   { value: "FATAL", label: "Fatal" }, { value: "PROPERTY_ONLY", label: "Property Only" },
 ];
 
-const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
 const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" };
 const labelClass = "block text-m-caption font-bold mb-0";
 const labelStyle = { color: "var(--color-ink-700)" };
-const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
-const sectionStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" };
-const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
-const sectionTitleStyle = { color: "var(--color-ink-950)" };
 
 /**
  * MobileNewIncidentForm — form content for reporting an incident.
@@ -89,8 +85,7 @@ export function MobileNewIncidentForm({ onClose, projects }: { onClose: () => vo
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       {/* Details */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>Details</p>
+      <SectionCard title="Details">
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <div>
             <MobileProjectSelect
@@ -101,19 +96,21 @@ export function MobileNewIncidentForm({ onClose, projects }: { onClose: () => vo
             />
           </div>
           <div className="pl-2">
-            <label className={labelClass} style={labelStyle}>Title</label>
-            <input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Worker fell from scaffolding" className={inputClass} style={inputStyle} />
+            <UnderlineInput
+              label="Title"
+              value={form.title}
+              onChange={(v) => set("title", v)}
+              placeholder="e.g. Worker fell from scaffolding"
+            />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <div>
-            <EnumSelect
-              label="Type"
-              value={form.type}
-              onChange={(v) => set("type", v as IncidentType)}
-              options={TYPES}
-            />
-          </div>
+          <EnumSelect
+            label="Type"
+            value={form.type}
+            onChange={(v) => set("type", v as IncidentType)}
+            options={TYPES}
+          />
           <div className="pl-2">
             <EnumSelect
               label="Severity"
@@ -123,34 +120,40 @@ export function MobileNewIncidentForm({ onClose, projects }: { onClose: () => vo
             />
           </div>
         </div>
-      </div>
+      </SectionCard>
 
       {/* Description */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>Description</p>
+      <SectionCard title="Description">
         <div>
           <label className={labelClass} style={labelStyle}>What happened?</label>
           <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={3} placeholder="Be specific…" className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors" style={inputStyle} />
         </div>
-      </div>
+      </SectionCard>
 
       {/* When & Where */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>When &amp; Where</p>
+      <SectionCard title="When &amp; Where">
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <div>
-            <label className={labelClass} style={labelStyle}>Date</label>
-            <input type="date" value={form.incidentDate} onChange={(e) => set("incidentDate", e.target.value)} className={inputClass} style={inputStyle} />
-          </div>
+          <UnderlineInput
+            label="Date"
+            value={form.incidentDate}
+            onChange={(v) => set("incidentDate", v)}
+            type="date"
+          />
           <div className="pl-2">
-            <label className={labelClass} style={labelStyle}>Time</label>
-            <input type="time" value={form.incidentTime} onChange={(e) => set("incidentTime", e.target.value)} className={inputClass} style={inputStyle} />
+            <UnderlineInput
+              label="Time"
+              value={form.incidentTime}
+              onChange={(v) => set("incidentTime", v)}
+              type="time"
+            />
           </div>
         </div>
-        <div>
-          <label className={labelClass} style={labelStyle}>Location</label>
-          <input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower B, 5th floor" className={inputClass} style={inputStyle} />
-        </div>
+        <UnderlineInput
+          label="Location"
+          value={form.location}
+          onChange={(v) => set("location", v)}
+          placeholder="e.g. Tower B, 5th floor"
+        />
         <div>
           <MobileSelectWithCreate
             label="WBS Activity (optional)"
@@ -161,36 +164,47 @@ export function MobileNewIncidentForm({ onClose, projects }: { onClose: () => vo
             disabled={wbsOptions.length === 0}
           />
         </div>
-      </div>
+      </SectionCard>
 
       {/* People & Damage */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>People &amp; Damage</p>
-        <div>
-          <label className={labelClass} style={labelStyle}>People Involved</label>
-          <input value={form.peopleInvolved} onChange={(e) => set("peopleInvolved", e.target.value)} placeholder="Names or description" className={inputClass} style={inputStyle} />
-        </div>
+      <SectionCard title="People &amp; Damage">
+        <UnderlineInput
+          label="People Involved"
+          value={form.peopleInvolved}
+          onChange={(v) => set("peopleInvolved", v)}
+          placeholder="Names or description"
+        />
         <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <div>
-            <label className={labelClass} style={labelStyle}>Injured</label>
-            <input type="number" value={form.injuredCount} onChange={(e) => set("injuredCount", e.target.value)} className={`${inputClass} tabular-nums`} style={inputStyle} />
+          <UnderlineInput
+            label="Injured"
+            value={form.injuredCount}
+            onChange={(v) => set("injuredCount", v)}
+            type="number"
+          />
+          <div className="pl-2">
+            <UnderlineInput
+              label="Fatal"
+              value={form.fatalities}
+              onChange={(v) => set("fatalities", v)}
+              type="number"
+            />
           </div>
           <div className="pl-2">
-            <label className={labelClass} style={labelStyle}>Fatal</label>
-            <input type="number" value={form.fatalities} onChange={(e) => set("fatalities", e.target.value)} className={`${inputClass} tabular-nums`} style={inputStyle} />
-          </div>
-          <div className="pl-2">
-            <label className={labelClass} style={labelStyle}>Damage ₹</label>
-            <input type="number" value={form.propertyDamageEstimate} onChange={(e) => set("propertyDamageEstimate", e.target.value)} placeholder="0" className={`${inputClass} tabular-nums`} style={inputStyle} />
+            <UnderlineInput
+              label="Damage ₹"
+              value={form.propertyDamageEstimate}
+              onChange={(v) => set("propertyDamageEstimate", v)}
+              placeholder="0"
+              type="number"
+            />
           </div>
         </div>
-      </div>
+      </SectionCard>
 
       {/* Evidence */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>Photo Evidence</p>
+      <SectionCard title="Photo Evidence">
         <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
-      </div>
+      </SectionCard>
 
       {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
       <div

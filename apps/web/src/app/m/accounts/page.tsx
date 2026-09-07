@@ -1,31 +1,30 @@
-import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import {
   Wallet,
-  AlertCircle,
   RefreshCw,
   BookOpen,
+  ArrowRight,
+  Circle,
+  ArrowDownLeft,
+  Users,
 } from "lucide-react";
 import { prisma } from "@nirman/db";
 import { getTallySyncStats, getSupplierOutstanding } from "@nirman/services";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatDate, formatCurrencyCompact, formatNumber } from "@/lib/utils";
+import { loadQuickActionContext } from "@/lib/quick-action-server";
+import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
-  MobileSectionTitle,
-  MobileRow,
   MobileEmptyState,
   SectionHead,
-  Badge,
   MobileStatCard,
 } from "@/components/mobile/v2/primitives";
-import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
+import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { TallySyncButton } from "@/components/mobile/tally-sync-button";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
 import { AccountsInteractive } from "./accounts-interactive";
-import { CashFlowSnapshot, type PayableNode } from "./CashFlowSnapshot";
 import { MobileAccountsHubTabs } from "./MobileAccountsHubTabs";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
@@ -49,57 +48,49 @@ export default function AccountsHomePage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonHome />}>
-      <AccountsHubContent searchParams={searchParams} />
-    </Suspense>
-  );
-}
+    <MobileHubPage>
+      {async ({ company }) => {
+        const { tab } = await searchParams;
 
-async function AccountsHubContent({
-  searchParams,
-}: {
-  searchParams: Promise<{ tab?: string }>;
-}) {
-  await connection();
-  const { tab } = await searchParams;
-  const company = await getCompany();
+        // ── Fetch badge counts for the tab bar ──
+        const [pendingClaimsCount] = await Promise.all([
+          prisma.expenseClaim.count({
+            where: { companyId: company.id, status: "SUBMITTED" },
+          }).catch(() => 0),
+        ]);
 
-  // ── Fetch badge counts for the tab bar ──
-  const [pendingClaimsCount] = await Promise.all([
-    prisma.expenseClaim.count({
-      where: { companyId: company.id, status: "SUBMITTED" },
-    }).catch(() => 0),
-  ]);
+        const counts = {
+          claims: pendingClaimsCount,
+        };
 
-  const counts = {
-    claims: pendingClaimsCount,
-  };
+        // ── Render the active tab's content ──
+        const validTabs = ["overview", "expenses", "claims", "petty-cash", "payments", "receipts", "gl"];
+        const activeTab = validTabs.includes(tab ?? "") ? tab! : "overview";
 
-  // ── Render the active tab's content ──
-  const validTabs = ["overview", "expenses", "claims", "petty-cash", "payments", "receipts", "gl"];
-  const activeTab = validTabs.includes(tab ?? "") ? tab! : "overview";
+        let content: React.ReactNode;
+        if (activeTab === "expenses") {
+          content = <AccountsExpensesTab />;
+        } else if (activeTab === "claims") {
+          content = <AccountsClaimsTab />;
+        } else if (activeTab === "petty-cash") {
+          content = <AccountsPettyCashTab />;
+        } else if (activeTab === "payments") {
+          content = <AccountsPaymentsTab />;
+        } else if (activeTab === "receipts") {
+          content = <AccountsReceiptsTab />;
+        } else if (activeTab === "gl") {
+          content = <AccountsGlTab />;
+        } else {
+          content = <AccountsOverviewContent />;
+        }
 
-  let content: React.ReactNode;
-  if (activeTab === "expenses") {
-    content = <AccountsExpensesTab />;
-  } else if (activeTab === "claims") {
-    content = <AccountsClaimsTab />;
-  } else if (activeTab === "petty-cash") {
-    content = <AccountsPettyCashTab />;
-  } else if (activeTab === "payments") {
-    content = <AccountsPaymentsTab />;
-  } else if (activeTab === "receipts") {
-    content = <AccountsReceiptsTab />;
-  } else if (activeTab === "gl") {
-    content = <AccountsGlTab />;
-  } else {
-    content = <AccountsOverviewContent />;
-  }
-
-  return (
-    <MobileAccountsHubTabs activeTab={activeTab} counts={counts}>
-      {content}
-    </MobileAccountsHubTabs>
+        return (
+          <MobileAccountsHubTabs activeTab={activeTab} counts={counts}>
+            {content}
+          </MobileAccountsHubTabs>
+        );
+      }}
+    </MobileHubPage>
   );
 }
 
@@ -117,6 +108,7 @@ async function AccountsOverviewContent() {
     draftPayroll,
     recentExpenses,
     recentProjectCosts,
+    qaCtx,
   ] = await Promise.all([
     getTallySyncStats(company.id).catch(() => ({
       total: 0, synced: 0, failed: 0, pending: 0, imported: 0, variance: 0,
@@ -168,17 +160,18 @@ async function AccountsOverviewContent() {
         },
       })
       .catch(() => []),
+    loadQuickActionContext("accounts"),
   ]);
 
   // Only suppliers with outstanding balance > 0 are "payable"
   const payableSuppliers = allSupplierOutstanding
     .filter((s) => toNum(s.balanceOwed) > 0)
     .sort((a, b) => toNum(b.balanceOwed) - toNum(a.balanceOwed));
-  const _totalPayables = payableSuppliers.reduce(
+  const totalPayables = payableSuppliers.reduce(
     (s, x) => s + toNum(x.balanceOwed),
     0,
   );
-  const _payableVendorCount = payableSuppliers.length;
+  const topPayable = payableSuppliers[0];
   const totalReceipts = recentReceipts.reduce(
     (s, r) => s + toNum(r.amount),
     0,
@@ -191,15 +184,7 @@ async function AccountsOverviewContent() {
     0,
   );
   const totalOutflow = totalExpenses + totalProjectCosts;
-
-  // Serialize payables for the snapshot component
-  const payableNodes: PayableNode[] = payableSuppliers
-    .slice(0, 6)
-    .map((s) => ({
-      supplierId: s.supplierId,
-      name: s.name,
-      balanceOwed: toNum(s.balanceOwed),
-    }));
+  const netFlow = totalReceipts - totalOutflow;
 
   // ── Build attention banners ──
   const attentionBanners: AttentionBanner[] = [];
@@ -288,117 +273,117 @@ async function AccountsOverviewContent() {
       />
 
       {/* ── 2. Cash / Books toggle + quick actions ── */}
-      <AccountsInteractive />
+      <AccountsInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} />
 
-      {/* ── 4. Cash flow snapshot ── */}
-      <SectionHead title="Cash Flow" />
-      <CashFlowSnapshot
-        inflow={totalReceipts}
-        outflow={totalOutflow}
-        payables={payableNodes}
-      />
+      {/* ── 3. Today — compact 3-line summary with status flags ──
+          Replaces the old CashFlowSnapshot bars, pending queue, and
+          recent receipts list. One scannable block with colored dot
+          flags: green=healthy, amber=attention, red=urgent, grey=no data. */}
+      <SectionHead title="Today" />
+      <div
+        className="rounded-[0.625rem] border overflow-hidden mb-4"
+        style={{
+          borderColor: "var(--color-line)",
+          backgroundColor: "var(--color-paper)",
+        }}
+      >
+        {/* Cash position line — flag: green if net positive, red if negative */}
+        <Link
+          href="/m/reports/cash-flow"
+          className="flex items-center gap-2.5 px-3 py-3 text-m-body press"
+          style={{ borderBottom: "1px solid var(--color-line)" }}
+        >
+          <Circle
+            className="size-2 shrink-0 fill-current"
+            style={{
+              color: netFlow >= 0 ? "var(--color-go)" : "var(--color-stop)",
+            }}
+          />
+          <ArrowDownLeft className="size-4 shrink-0" style={{ color: "var(--color-go)" }} />
+          <span className="flex-1 text-m-body" style={{ color: "var(--color-ink-950)" }}>
+            <span className="font-bold tabular-nums">{formatCurrencyCompact(totalReceipts)}</span> in
+            <span style={{ color: "var(--color-ink-500)" }}> · </span>
+            <span className="font-bold tabular-nums">{formatCurrencyCompact(totalOutflow)}</span> out
+            <span style={{ color: "var(--color-ink-500)" }}> · </span>
+            <span className="font-bold tabular-nums" style={{ color: netFlow >= 0 ? "var(--color-go)" : "var(--color-stop)" }}>
+              {netFlow >= 0 ? "+" : ""}{formatCurrencyCompact(netFlow)}
+            </span>
+            <span style={{ color: "var(--color-ink-500)" }}> net</span>
+          </span>
+          <ArrowRight className="size-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />
+        </Link>
 
-      {/* ── 5. Pending queue ── */}
-      {totalPending > 0 ? (
-        <>
-          <MobileSectionTitle>Pending actions</MobileSectionTitle>
-          <div className="flex flex-col gap-2 mb-3">
-            {tallyStats.failed > 0 && (
-              <MobileRow
-                href="/m/accounts?tab=gl"
-                icon={AlertCircle}
-                title="Tally sync failures"
-                subtitle={`${tallyStats.failed} journal entries failed to sync — review and retry`}
-                meta={String(tallyStats.failed)}
-                metaSub="failed"
-                tone="danger"
-                badge={<Badge tone="stop">failed</Badge>}
-              />
+        {/* Top payable line — flag: amber if outstanding, green if none */}
+        <Link
+          href={topPayable ? "/m/suppliers" : "/m/accounts?tab=payments"}
+          className="flex items-center gap-2.5 px-3 py-3 text-m-body press"
+          style={{ borderBottom: "1px solid var(--color-line)" }}
+        >
+          <Circle
+            className="size-2 shrink-0 fill-current"
+            style={{
+              color: topPayable ? "var(--color-signal)" : "var(--color-go)",
+            }}
+          />
+          <Users className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+          <span className="flex-1 text-m-body truncate" style={{ color: "var(--color-ink-950)" }}>
+            {topPayable ? (
+              <>
+                <span className="font-bold">{topPayable.name}</span>
+                <span style={{ color: "var(--color-ink-500)" }}> owes </span>
+                <span className="font-bold tabular-nums">{formatCurrency(toNum(topPayable.balanceOwed))}</span>
+                {payableSuppliers.length > 1 && (
+                  <span style={{ color: "var(--color-ink-500)" }}> · {payableSuppliers.length - 1} more · {formatCurrencyCompact(totalPayables)} total</span>
+                )}
+              </>
+            ) : (
+              <span style={{ color: "var(--color-go)" }}>No outstanding payables</span>
             )}
-            {tallyStats.pending > 0 && (
-              <MobileRow
-                href="/m/accounts?tab=gl"
-                icon={RefreshCw}
-                title="Entries pending Tally sync"
-                subtitle={`${tallyStats.pending} posted entries not yet pushed to Tally ERP`}
-                meta={String(tallyStats.pending)}
-                metaSub="pending"
-                tone="warning"
-                badge={<Badge tone="signal">pending</Badge>}
-              />
-            )}
-            {/* Tally sync action — lives here next to the rows it resolves */}
-            {(tallyStats.pending > 0 || tallyStats.failed > 0) && (
-              <TallySyncButton pendingCount={tallyStats.pending} />
-            )}
-            {draftPayroll && (
-              <MobileRow
-                href="/m/accounts?tab=gl"
-                icon={Wallet}
-                title={`Payroll draft — ${new Date(2000, draftPayroll.month - 1, 1).toLocaleString("en-IN", { month: "short" })} ${draftPayroll.year}`}
-                subtitle={
-                  draftPayroll.totalNet
-                    ? `Net: ${formatCurrency(toNum(draftPayroll.totalNet))}`
-                    : "Awaiting processing"
-                }
-                meta="Draft"
-                metaSub="payroll"
-                tone="warning"
-                badge={<Badge tone="signal">draft</Badge>}
-              />
-            )}
-          </div>
-        </>
-      ) : null}
+          </span>
+          <ArrowRight className="size-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />
+        </Link>
 
-      {/* ── 7. Recent receipts ── */}
-      {recentReceipts.length > 0 ? (
-        <>
-          <MobileSectionTitle
-            right={
-              <Link
-                href="/m/accounts?tab=receipts"
-                className="text-m-label font-semibold text-m-body press"
-                style={{ color: "var(--color-ink-500)" }}
-              >
-                View all
-              </Link>
-            }
-          >
-            Recent receipts
-          </MobileSectionTitle>
-          <div className="flex flex-col gap-2">
-            {recentReceipts.map((r) => (
-              <MobileRow
-                key={r.id}
-                href={`/m/books/receipts/${r.id}?kind=ASSET`}
-                icon={Wallet}
-                title={r.assetSale?.customer?.name ?? "—"}
-                subtitle={`${formatDate(r.paymentDate)} · ${r.mode}`}
-                meta={formatCurrency(toNum(r.amount))}
-                metaSub="Property Sale"
-                tone="success"
-                badge={<Badge tone="go">received</Badge>}
-              />
-            ))}
-          </div>
-        </>
-      ) : (
-        <MobileEmptyState
-          icon={Wallet}
-          title="No receipts yet"
-          hint="Payments received from sales will appear here"
-          action={
-            <Link
-              href="/m/accounts?tab=receipts"
-              className="text-m-label font-semibold text-m-body press"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Go to receipts →
-            </Link>
-          }
-        />
-      )}
+        {/* Pending line — flag: red if failures, amber if pending, green if clear */}
+        <Link
+          href={tallyStats.failed > 0 ? "/m/accounts?tab=gl" : tallyStats.pending > 0 ? "/m/accounts?tab=gl" : draftPayroll ? "/m/accounts?tab=gl" : "/m/accounts"}
+          className="flex items-center gap-2.5 px-3 py-3 text-m-body press"
+        >
+          <Circle
+            className="size-2 shrink-0 fill-current"
+            style={{
+              color: tallyStats.failed > 0 ? "var(--color-stop)"
+                : totalPending > 0 ? "var(--color-signal)"
+                : "var(--color-go)",
+            }}
+          />
+          <RefreshCw className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+          <span className="flex-1 text-m-body" style={{ color: "var(--color-ink-950)" }}>
+            {totalPending > 0 ? (
+              <>
+                {tallyStats.failed > 0 && (
+                  <><span className="font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>{tallyStats.failed}</span> sync failure{tallyStats.failed !== 1 ? "s" : ""} </>
+                )}
+                {tallyStats.pending > 0 && (
+                  <>{tallyStats.failed > 0 && " · "}<span className="font-bold tabular-nums">{tallyStats.pending}</span> pending sync </>
+                )}
+                {draftPayroll && (
+                  <>{(tallyStats.failed > 0 || tallyStats.pending > 0) && " · "}Payroll draft</>
+                )}
+                <span style={{ color: "var(--color-ink-500)" }}> needs action</span>
+              </>
+            ) : (
+              <span style={{ color: "var(--color-go)" }}>All caught up — books in sync</span>
+            )}
+          </span>
+          {/* Tally sync button — inline when there's something to sync */}
+          {(tallyStats.pending > 0 || tallyStats.failed > 0) && (
+            <TallySyncButton pendingCount={tallyStats.pending} />
+          )}
+          {totalPending === 0 && (
+            <ArrowRight className="size-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />
+          )}
+        </Link>
+      </div>
     </div>
   );
 }

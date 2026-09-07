@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
-import { Loader2, AlertCircle, Building2, Phone, Mail, Fingerprint } from "lucide-react";
+import { Loader2, AlertCircle, Building2, Phone, Mail, Fingerprint, Eye, EyeOff, ArrowUp } from "lucide-react";
 import { homeWorldFor } from "@/lib/nav";
 import { type Role, ROLES } from "@/lib/roles";
 
@@ -71,6 +71,11 @@ function SignInForm() {
   // Passkey / biometric login state
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
+  // Password visibility + caps lock + remember me
+  const [showPhonePassword, setShowPhonePassword] = useState(false);
+  const [showEmailPassword, setShowEmailPassword] = useState(false);
+  const [capsLockOn, setCapsLockOn] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   // Check if this is a fresh deploy (no users yet) — if so, redirect
   // to /sign-up so the first owner can set up their company.
@@ -84,6 +89,41 @@ function SignInForm() {
       })
       .catch(() => {});
   }, [router]);
+
+  // ── Restore saved credentials if "Remember me" was checked previously ──
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("nirman.remember");
+      if (!saved) return;
+      const data = JSON.parse(saved);
+      if (data.mode === "phone") {
+        setMode("phone");
+        setPhone(data.phone ?? "");
+        setPhonePassword(data.password ?? "");
+      } else if (data.mode === "email") {
+        setMode("email");
+        setEmail(data.email ?? "");
+        setPassword(data.password ?? "");
+      }
+      setRememberMe(true);
+    } catch { /* ignore corrupt storage */ }
+  }, []);
+
+  // ── Caps Lock detection — track on keydown/keyup at window level ──
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // getModifierState is the reliable cross-browser way to detect Caps Lock
+      if (typeof e.getModifierState === "function") {
+        setCapsLockOn(e.getModifierState("CapsLock"));
+      }
+    };
+    window.addEventListener("keydown", handler);
+    window.addEventListener("keyup", handler);
+    return () => {
+      window.removeEventListener("keydown", handler);
+      window.removeEventListener("keyup", handler);
+    };
+  }, []);
 
   // Resend cooldown timer — counts down from 30s after a code is sent.
   useEffect(() => {
@@ -170,6 +210,7 @@ function SignInForm() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    persistCredentials("email", email, password);
 
     const { error: signInError } = await authClient.signIn.email({ email, password });
     if (signInError) {
@@ -398,11 +439,23 @@ function SignInForm() {
     setResendCooldown(0);
   }
 
+  // Save or clear remembered credentials based on the checkbox state.
+  function persistCredentials(mode: LoginMode, id: string, pw: string) {
+    try {
+      if (rememberMe) {
+        localStorage.setItem("nirman.remember", JSON.stringify({ mode, [mode === "phone" ? "phone" : "email"]: id, password: pw }));
+      } else {
+        localStorage.removeItem("nirman.remember");
+      }
+    } catch { /* storage may be blocked — silent fail */ }
+  }
+
   // Phone + password login
   async function handlePhonePasswordLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
+    persistCredentials("phone", phone, phonePassword);
     try {
       const res = await fetch("/api/auth/phone-password", {
         method: "POST",
@@ -593,17 +646,47 @@ function SignInForm() {
               <Label htmlFor="phonePassword" className="mb-1.5 block">
                 Password
               </Label>
-              <Input
-                id="phonePassword"
-                type="password"
-                value={phonePassword}
-                onChange={(e) => setPhonePassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="current-password"
-                required
-                disabled={busy}
-              />
+              <div className="relative">
+                <Input
+                  id="phonePassword"
+                  type={showPhonePassword ? "text" : "password"}
+                  value={phonePassword}
+                  onChange={(e) => setPhonePassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  required
+                  disabled={busy}
+                  className="pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPhonePassword((s) => !s)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-faint hover:text-foreground"
+                  tabIndex={-1}
+                  aria-label={showPhonePassword ? "Hide password" : "Show password"}
+                >
+                  {showPhonePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {capsLockOn && (
+                <p className="mt-1 flex items-center gap-1 text-micro text-warning">
+                  <ArrowUp className="h-3 w-3" />
+                  Caps Lock is on
+                </p>
+              )}
             </div>
+
+            {/* Remember me */}
+            <label className="flex items-center gap-2 text-caption text-muted-foreground select-none">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                disabled={busy}
+                className="h-4 w-4 rounded border-input accent-brand"
+              />
+              Remember my phone &amp; password on this device
+            </label>
 
             {error && (
               <p
@@ -873,17 +956,47 @@ function SignInForm() {
               <Label htmlFor="password" className="mb-1.5 block">
                 Password
               </Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="current-password"
-                required
-                disabled={busy}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showEmailPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  required
+                  disabled={busy}
+                  className="pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEmailPassword((s) => !s)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-faint hover:text-foreground"
+                  tabIndex={-1}
+                  aria-label={showEmailPassword ? "Hide password" : "Show password"}
+                >
+                  {showEmailPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {capsLockOn && (
+                <p className="mt-1 flex items-center gap-1 text-micro text-warning">
+                  <ArrowUp className="h-3 w-3" />
+                  Caps Lock is on
+                </p>
+              )}
             </div>
+
+            {/* Remember me */}
+            <label className="flex items-center gap-2 text-caption text-muted-foreground select-none">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                disabled={busy}
+                className="h-4 w-4 rounded border-input accent-brand"
+              />
+              Remember my email &amp; password on this device
+            </label>
 
             {error && (
               <p

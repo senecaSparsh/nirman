@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, FolderOpen } from "lucide-react";
+import { Loader2, FolderOpen, ChevronRight, ChevronLeft, Check, FileText, IdCard, Building2, Shield, Home, Heart, Plus, Trash2, IndianRupee } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
-import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { SectionCard, UnderlineInput, EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 
 type WageType = "DAILY" | "MONTHLY" | "FIXED";
@@ -29,36 +29,232 @@ interface StockLocationOption {
 }
 
 interface FormState {
+  // Step 1: Details
   name: string;
   trade: string;
   designation: string;
   phone: string;
   email: string;
+  hierarchyLevel: string;
+  // Step 2: Compensation & Employment
   wageType: WageType;
   dailyRate: string;
   monthlySalary: string;
-  joinDate: string;
-  activeProjectId: string;
-  hierarchyLevel: string;
-  reportingLocationId: string;
   employmentType: string;
   noticePeriodDays: string;
   contractStartDate: string;
   contractEndDate: string;
+  joinDate: string;
+  // Step 3: Assignment
+  activeProjectId: string;
+  reportingLocationId: string;
+  // Step 4: Bank & Statutory
+  payDay: string;
+  bankAccountHolder: string;
+  bankAccountNumber: string;
+  bankIfsc: string;
+  bankName: string;
+  bankBranch: string;
+  panNumber: string;
+  aadhaarNumber: string;
+  pfNumber: string;
+  esiNumber: string;
+  uan: string;
+  // Step 5: Emergency & Address
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  emergencyContactRelation: string;
+  permanentAddress: string;
+  currentAddress: string;
+  // Salary components (CTC breakdown)
+  salaryComponents: SalaryComponentEntry[];
+}
+
+interface SalaryComponentEntry {
+  type: string;
+  amount: string;
+  frequency: string;
+  isDeduction: boolean;
+  isPercentage: boolean;
+  percentageOfBasic: string;
+}
+
+const SALARY_COMPONENT_OPTIONS = [
+  { value: "BASIC", label: "Basic Salary", isDeduction: false },
+  { value: "HRA", label: "HRA (House Rent)", isDeduction: false },
+  { value: "DA", label: "DA (Dearness Allowance)", isDeduction: false },
+  { value: "TA", label: "TA (Travelling Allowance)", isDeduction: false },
+  { value: "SPECIAL_ALLOWANCE", label: "Special Allowance", isDeduction: false },
+  { value: "FOOD_ALLOWANCE", label: "Food Allowance", isDeduction: false },
+  { value: "MEDICAL_ALLOWANCE", label: "Medical Allowance", isDeduction: false },
+  { value: "UNIFORM_ALLOWANCE", label: "Uniform Allowance", isDeduction: false },
+  { value: "WASHING_ALLOWANCE", label: "Washing Allowance", isDeduction: false },
+  { value: "LTA", label: "LTA (Leave Travel)", isDeduction: false },
+  { value: "PERFORMANCE_BONUS", label: "Performance Bonus", isDeduction: false },
+  { value: "JOINING_BONUS", label: "Joining Bonus", isDeduction: false },
+  { value: "EMPLOYER_PF", label: "Employer PF (12% of basic)", isDeduction: false },
+  { value: "EMPLOYEE_PF", label: "Employee PF (deducted)", isDeduction: true },
+  { value: "EMPLOYER_ESI", label: "Employer ESI (3.25%)", isDeduction: false },
+  { value: "EMPLOYEE_ESI", label: "Employee ESI (0.75%, deducted)", isDeduction: true },
+  { value: "GRATUITY", label: "Gratuity (4.81% of basic)", isDeduction: false },
+  { value: "PROFESSION_TAX", label: "Profession Tax (deducted)", isDeduction: true },
+  { value: "TDS", label: "TDS / Income Tax (deducted)", isDeduction: true },
+  { value: "OTHER", label: "Other", isDeduction: false },
+];
+
+const STEPS = [
+  { id: 0, label: "Details", icon: Building2 },
+  { id: 1, label: "Salary", icon: IndianRupee },
+  { id: 2, label: "Assignment", icon: FolderOpen },
+  { id: 3, label: "Bank & IDs", icon: Shield },
+  { id: 4, label: "Contact", icon: Heart },
+] as const;
+
+const EMPTY_FORM: FormState = {
+  name: "", trade: "", designation: "", phone: "", email: "", hierarchyLevel: "",
+  wageType: "DAILY", dailyRate: "", monthlySalary: "", employmentType: "", noticePeriodDays: "",
+  contractStartDate: "", contractEndDate: "", joinDate: "",
+  activeProjectId: "", reportingLocationId: "",
+  payDay: "", bankAccountHolder: "", bankAccountNumber: "", bankIfsc: "", bankName: "", bankBranch: "",
+  panNumber: "", aadhaarNumber: "", pfNumber: "", esiNumber: "", uan: "",
+  emergencyContactName: "", emergencyContactPhone: "", emergencyContactRelation: "",
+  permanentAddress: "", currentAddress: "",
+  salaryComponents: [],
+};
+
+/**
+ * SalaryComponentAdder — inline form to add a salary component.
+ * Shows a type selector, amount input, frequency selector, and Add button.
+ */
+function SalaryComponentAdder({ onAdd }: { onAdd: (comp: SalaryComponentEntry) => void }) {
+  const [type, setType] = useState("");
+  const [amount, setAmount] = useState("");
+  const [frequency, setFrequency] = useState("MONTHLY");
+  const [isPercentage, setIsPercentage] = useState(false);
+  const [percentageOfBasic, setPercentageOfBasic] = useState("");
+
+  function handleAdd() {
+    if (!type) {
+      toast.error("Select a component type");
+      return;
+    }
+    if (!isPercentage && (!amount || Number(amount) <= 0)) {
+      toast.error("Enter a valid amount");
+      return;
+    }
+    if (isPercentage && (!percentageOfBasic || Number(percentageOfBasic) <= 0)) {
+      toast.error("Enter a valid percentage");
+      return;
+    }
+    const option = SALARY_COMPONENT_OPTIONS.find((o) => o.value === type);
+    onAdd({
+      type,
+      amount: isPercentage ? "0" : amount,
+      frequency,
+      isDeduction: option?.isDeduction ?? false,
+      isPercentage,
+      percentageOfBasic: isPercentage ? percentageOfBasic : "",
+    });
+    setType("");
+    setAmount("");
+    setFrequency("MONTHLY");
+    setIsPercentage(false);
+    setPercentageOfBasic("");
+  }
+
+  const inputStyle = {
+    borderColor: "var(--color-line)",
+    backgroundColor: "transparent",
+    color: "var(--color-ink-950)",
+  };
+
+  return (
+    <div className="mt-2 pt-2 border-t" style={{ borderColor: "var(--color-line)" }}>
+      <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+        <EnumSelect
+          label="Component"
+          value={type}
+          onChange={setType}
+          placeholder="— Select —"
+          options={SALARY_COMPONENT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+        />
+        <div className="pl-2">
+          <EnumSelect
+            label="Frequency"
+            value={frequency}
+            onChange={setFrequency}
+            options={[
+              { value: "MONTHLY", label: "Monthly" },
+              { value: "QUARTERLY", label: "Quarterly" },
+              { value: "HALF_YEARLY", label: "Half-Yearly" },
+              { value: "YEARLY", label: "Yearly" },
+              { value: "ONE_TIME", label: "One-time" },
+            ]}
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 divide-x mt-1" style={{ borderColor: "var(--color-line)" }}>
+        {isPercentage ? (
+          <UnderlineInput
+            label="% of Basic"
+            value={percentageOfBasic}
+            onChange={setPercentageOfBasic}
+            placeholder="e.g. 40"
+            type="number"
+            min="0"
+            max="100"
+          />
+        ) : (
+          <UnderlineInput
+            label="Amount (₹)"
+            value={amount}
+            onChange={setAmount}
+            placeholder="0"
+            type="number"
+            min="0"
+          />
+        )}
+        <div className="pl-2 flex items-end pb-1">
+          <label className="flex items-center gap-1.5 text-m-caption" style={{ color: "var(--color-ink-700)" }}>
+            <input
+              type="checkbox"
+              checked={isPercentage}
+              onChange={(e) => setIsPercentage(e.target.checked)}
+              className="size-4"
+            />
+            % of Basic
+          </label>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={handleAdd}
+        className="mt-1.5 w-full h-9 rounded-[0.5rem] text-m-section font-semibold press flex items-center justify-center gap-1.5"
+        style={{
+          backgroundColor: "var(--color-ink-100)",
+          color: "var(--color-ink-700)",
+        }}
+      >
+        <Plus className="size-4" />
+        Add Component
+      </button>
+    </div>
+  );
 }
 
 /**
- * MobileNewEmployeeForm — form content for adding an employee.
+ * MobileNewEmployeeForm — multi-step form for adding an employee with
+ * complete hiring information.
  *
- * Used inside <MobileFabModal> (spring-from-FAB animation) on the
- * employees page, or wrapped by <MobileNewEmployeeDialog> (legacy
- * bottom-sheet backdrop) for inline creation from other pages
- * (e.g. the leaves dialog). Mirrors the desktop employees-view's
- * API contract (POST /api/employees).
+ * Steps:
+ *   0. Details (name, trade, designation, phone, email, hierarchy)
+ *   1. Compensation & Employment (wage, type, notice, contract dates, join date)
+ *   2. Assignment (project, reporting location)
+ *   3. Bank & Statutory IDs (bank a/c, PAN, Aadhaar, PF, ESI, UAN)
+ *   4. Emergency Contact & Address
  *
- * No header or Cancel button here — the wrapper supplies the title
- * and the close affordance (FAB morphs +→× in MobileFabModal, X
- * button in the legacy bottom-sheet).
+ * On submit, posts to /api/employees with all fields. The API auto-generates
+ * offer letter, employment agreement, and ID card when prerequisites are met.
  */
 export function MobileNewEmployeeForm({
   onClose,
@@ -73,33 +269,32 @@ export function MobileNewEmployeeForm({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<FormState>({
-    name: "",
-    trade: "",
-    designation: "",
-    phone: "",
-    email: "",
-    wageType: "DAILY",
-    dailyRate: "",
-    monthlySalary: "",
-    joinDate: "",
-    activeProjectId: "",
-    hierarchyLevel: "",
-    reportingLocationId: "",
-    employmentType: "",
-    noticePeriodDays: "",
-    contractStartDate: "",
-    contractEndDate: "",
-  });
+  const [step, setStep] = useState(0);
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  function nextStep() {
+    if (step === 0 && !form.name.trim()) {
+      toast.error("Employee name is required");
+      return;
+    }
+    haptic(10);
+    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  }
+
+  function prevStep() {
+    haptic(10);
+    setStep((s) => Math.max(s - 1, 0));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) {
       toast.error("Employee name is required");
+      setStep(0);
       return;
     }
     const dailyRate = form.dailyRate === "" ? 0 : Number(form.dailyRate);
@@ -131,13 +326,51 @@ export function MobileNewEmployeeForm({
           noticePeriodDays: form.noticePeriodDays ? Number(form.noticePeriodDays) : null,
           contractStartDate: form.contractStartDate || null,
           contractEndDate: form.contractEndDate || null,
+          // Dossier fields
+          payDay: form.payDay ? Number(form.payDay) : null,
+          bankAccountHolder: form.bankAccountHolder.trim() || null,
+          bankAccountNumber: form.bankAccountNumber.trim() || null,
+          bankIfsc: form.bankIfsc.trim() || null,
+          bankName: form.bankName.trim() || null,
+          bankBranch: form.bankBranch.trim() || null,
+          panNumber: form.panNumber.trim() || null,
+          aadhaarNumber: form.aadhaarNumber.trim() || null,
+          pfNumber: form.pfNumber.trim() || null,
+          esiNumber: form.esiNumber.trim() || null,
+          uan: form.uan.trim() || null,
+          emergencyContactName: form.emergencyContactName.trim() || null,
+          emergencyContactPhone: form.emergencyContactPhone.trim() || null,
+          emergencyContactRelation: form.emergencyContactRelation.trim() || null,
+          permanentAddress: form.permanentAddress.trim() || null,
+          currentAddress: form.currentAddress.trim() || null,
+          // Salary components — sent in the same POST so they're saved
+          // BEFORE the offer letter/agreement are auto-generated
+          salaryComponents: form.salaryComponents.map((c) => ({
+            type: c.type,
+            amount: Number(c.amount) || 0,
+            frequency: c.frequency,
+            isDeduction: c.isDeduction,
+            isPercentage: c.isPercentage,
+            percentageOfBasic: c.isPercentage ? Number(c.percentageOfBasic) || null : null,
+          })),
           active: true,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to add employee");
+
       haptic([10, 40, 80]);
-      toast.success("Employee added");
+      const docs = data.autoGenerated ?? {};
+      const docList = [
+        docs.offerLetter && "offer letter",
+        docs.agreement && "agreement",
+        docs.idCard && "ID card",
+      ].filter(Boolean);
+      toast.success(
+        docList.length > 0
+          ? `Employee added. Auto-generated: ${docList.join(", ")}`
+          : "Employee added",
+      );
       if (onCreated) {
         onCreated({ id: data.id, name: data.name });
       }
@@ -151,8 +384,6 @@ export function MobileNewEmployeeForm({
     }
   }
 
-  const inputClass =
-    "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "transparent",
@@ -161,131 +392,116 @@ export function MobileNewEmployeeForm({
   const labelClass = "block text-m-caption font-bold mb-0";
   const labelStyle = { color: "var(--color-ink-700)" };
 
-  const sectionClass =
-    "rounded-[0.625rem] border p-3 flex flex-col gap-3";
-  const sectionStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
-  };
-  const sectionTitleClass =
-    "text-m-section font-extrabold tracking-tight";
-  const sectionTitleStyle = { color: "var(--color-ink-950)" };
-
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        {/* Details */}
-        <div className={sectionClass} style={sectionStyle}>
-          <p className={sectionTitleClass} style={sectionTitleStyle}>Details</p>
-          {/* Name + Hierarchy Level — side by side */}
-          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Name <span style={{ color: "var(--color-stop)" }}>*</span>
-              </label>
-              <input
-                type="text"
+      {/* ══════ STEP INDICATOR ══════ */}
+      <div className="flex items-center justify-between px-1 pb-1">
+        {STEPS.map((s, i) => {
+          const Icon = s.icon;
+          const isActive = i === step;
+          const isDone = i < step;
+          return (
+            <div key={s.id} className="flex flex-1 flex-col items-center gap-0.5">
+              <div
+                className="flex items-center justify-center rounded-full transition-all"
+                style={{
+                  width: 28, height: 28,
+                  backgroundColor: isActive || isDone ? "var(--color-ink-950)" : "var(--color-ink-100)",
+                  color: isActive || isDone ? "var(--color-paper)" : "var(--color-ink-400)",
+                }}
+              >
+                {isDone ? <Check className="size-3.5" /> : <Icon className="size-3.5" />}
+              </div>
+              <span
+                className="text-[10px] font-semibold"
+                style={{ color: isActive ? "var(--color-ink-950)" : "var(--color-ink-400)" }}
+              >
+                {s.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ══════ STEP CONTENT ══════ */}
+      {step === 0 && (
+        <>
+          <SectionCard title="Personal Details">
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <UnderlineInput
+                label="Name"
                 value={form.name}
-                onChange={(e) => set("name", e.target.value)}
+                onChange={(v) => set("name", v)}
                 placeholder="e.g. Rajesh Kumar"
+                required
                 autoFocus
                 enterKeyHint="next"
-                className={inputClass}
-                style={inputStyle}
               />
+              <div>
+                <EnumSelect
+                  label="Hierarchy"
+                  value={form.hierarchyLevel}
+                  onChange={(v) => set("hierarchyLevel", v)}
+                  options={[
+                    { value: "1", label: "H1 — Management" },
+                    { value: "2", label: "H2 — Manager" },
+                    { value: "3", label: "H3 — Engineer" },
+                    { value: "4", label: "H4 — Supervisor" },
+                    { value: "5", label: "H5 — Skilled" },
+                    { value: "6", label: "H6 — Labor" },
+                  ]}
+                  placeholder="Unassigned"
+                />
+              </div>
             </div>
-            <div>
-              <EnumSelect
-                label="Hierarchy"
-                value={form.hierarchyLevel}
-                onChange={(v) => set("hierarchyLevel", v)}
-                options={[
-                  { value: "1", label: "H1 — Management" },
-                  { value: "2", label: "H2 — Manager" },
-                  { value: "3", label: "H3 — Engineer" },
-                  { value: "4", label: "H4 — Supervisor" },
-                  { value: "5", label: "H5 — Skilled" },
-                  { value: "6", label: "H6 — Labor" },
-                ]}
-                placeholder="Unassigned"
-              />
-            </div>
-          </div>
-
-          {/* Trade + Designation */}
-          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Trade / Skill
-              </label>
-              <input
-                type="text"
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <UnderlineInput
+                label="Trade / Skill"
                 value={form.trade}
-                onChange={(e) => set("trade", e.target.value)}
+                onChange={(v) => set("trade", v)}
                 placeholder="e.g. Mason"
                 enterKeyHint="next"
-                className={inputClass}
-                style={inputStyle}
               />
+              <div className="pl-2">
+                <UnderlineInput
+                  label="Designation"
+                  value={form.designation}
+                  onChange={(v) => set("designation", v)}
+                  placeholder="e.g. Site Supervisor"
+                  enterKeyHint="next"
+                />
+              </div>
             </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Designation
-              </label>
-              <input
-                type="text"
-                value={form.designation}
-                onChange={(e) => set("designation", e.target.value)}
-                placeholder="e.g. Site Supervisor"
-                enterKeyHint="next"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Contact */}
-        <div className={sectionClass} style={sectionStyle}>
-          <p className={sectionTitleClass} style={sectionTitleStyle}>Contact</p>
-          {/* Phone + Email */}
-          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Phone
-              </label>
-              <input
-                type="tel"
+          </SectionCard>
+          <SectionCard title="Contact">
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <UnderlineInput
+                label="Phone"
                 value={form.phone}
-                onChange={(e) => set("phone", e.target.value)}
+                onChange={(v) => set("phone", v)}
                 placeholder="98765 43210"
+                type="tel"
                 enterKeyHint="next"
-                className={`${inputClass} tabular-nums`}
-                style={inputStyle}
               />
+              <div className="pl-2">
+                <UnderlineInput
+                  label="Email"
+                  value={form.email}
+                  onChange={(v) => set("email", v)}
+                  placeholder="employee@email.com"
+                  type="email"
+                  enterKeyHint="next"
+                />
+              </div>
             </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Email
-              </label>
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => set("email", e.target.value)}
-                placeholder="employee@email.com"
-                enterKeyHint="next"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-        </div>
+          </SectionCard>
+        </>
+      )}
 
-        {/* Compensation */}
-        <div className={sectionClass} style={sectionStyle}>
-          <p className={sectionTitleClass} style={sectionTitleStyle}>Compensation</p>
-          {/* Wage Type (selector) + Rate/Salary — side by side */}
-          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
+      {step === 1 && (
+        <>
+          <SectionCard title="Wage & Employment">
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
               <EnumSelect
                 label="Wage Type"
                 value={form.wageType}
@@ -295,31 +511,24 @@ export function MobileNewEmployeeForm({
                   label: WAGE_TYPE_LABELS[w],
                 }))}
               />
+              <div className="pl-2">
+                <label className={labelClass} style={labelStyle}>
+                  {form.wageType === "DAILY" ? "Daily Rate (₹)" : form.wageType === "FIXED" ? "Fixed Amount (₹)" : "Monthly Salary (₹)"}
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={form.wageType === "DAILY" ? form.dailyRate : form.monthlySalary}
+                  onChange={(e) => form.wageType === "DAILY" ? set("dailyRate", e.target.value) : set("monthlySalary", e.target.value)}
+                  placeholder="0"
+                  inputMode="numeric"
+                  className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                  style={inputStyle}
+                />
+              </div>
             </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                {form.wageType === "DAILY" ? "Daily Rate (₹)" : form.wageType === "FIXED" ? "Fixed Amount (₹)" : "Monthly Salary (₹)"}
-              </label>
-              <input
-                type="number"
-                min={0}
-                step="any"
-                value={form.wageType === "DAILY" ? form.dailyRate : form.monthlySalary}
-                onChange={(e) => form.wageType === "DAILY" ? set("dailyRate", e.target.value) : set("monthlySalary", e.target.value)}
-                placeholder="0"
-                inputMode="numeric"
-                className={`${inputClass} tabular-nums`}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Employment Terms */}
-        <div className={sectionClass} style={sectionStyle}>
-          <p className={sectionTitleClass} style={sectionTitleStyle}>Employment Terms</p>
-          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
+            <div className="grid grid-cols-2 gap-2 divide-x mt-2" style={{ borderColor: "var(--color-line)" }}>
               <EnumSelect
                 label="Employment Type"
                 value={form.employmentType}
@@ -333,69 +542,160 @@ export function MobileNewEmployeeForm({
                   { value: "INTERN", label: "Intern" },
                 ]}
               />
+              <div className="pl-2">
+                <UnderlineInput
+                  label="Notice (days)"
+                  value={form.noticePeriodDays}
+                  onChange={(v) => set("noticePeriodDays", v)}
+                  placeholder="30"
+                  type="number"
+                  min="0"
+                />
+              </div>
             </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Notice (days)
-              </label>
-              <input
-                className={inputClass}
-                style={inputStyle}
-                type="number"
-                min="0"
-                value={form.noticePeriodDays}
-                onChange={(e) => set("noticePeriodDays", e.target.value)}
-                placeholder="30"
-              />
-            </div>
-          </div>
-          {(form.employmentType === "CONTRACT" || form.employmentType === "PROBATION") && (
-            <div className="grid grid-cols-2 gap-2 divide-x mt-2" style={{ borderColor: "var(--color-line)" }}>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Contract Start
-                </label>
-                <input
-                  className={inputClass}
-                  style={inputStyle}
-                  type="date"
+            {(form.employmentType === "CONTRACT" || form.employmentType === "PROBATION") && (
+              <div className="grid grid-cols-2 gap-2 divide-x mt-2" style={{ borderColor: "var(--color-line)" }}>
+                <UnderlineInput
+                  label="Contract Start"
                   value={form.contractStartDate}
-                  onChange={(e) => set("contractStartDate", e.target.value)}
-                />
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Contract End
-                </label>
-                <input
-                  className={inputClass}
-                  style={inputStyle}
+                  onChange={(v) => set("contractStartDate", v)}
                   type="date"
-                  value={form.contractEndDate}
-                  onChange={(e) => set("contractEndDate", e.target.value)}
                 />
+                <div className="pl-2">
+                  <UnderlineInput
+                    label="Contract End"
+                    value={form.contractEndDate}
+                    onChange={(v) => set("contractEndDate", v)}
+                    type="date"
+                  />
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Assignment */}
-        <div className={sectionClass} style={sectionStyle}>
-          <p className={sectionTitleClass} style={sectionTitleStyle}>Assignment</p>
-          {/* Join Date + Project */}
-          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <label className={labelClass} style={labelStyle}>
-                Join Date
-              </label>
-              <input
-                type="date"
+            )}
+            <div className="mt-2">
+              <UnderlineInput
+                label="Join Date"
                 value={form.joinDate}
-                onChange={(e) => set("joinDate", e.target.value)}
-                className={inputClass}
-                style={inputStyle}
+                onChange={(v) => set("joinDate", v)}
+                type="date"
               />
             </div>
+          </SectionCard>
+
+          {/* ── Salary Structure (CTC Breakdown) ── */}
+          <SectionCard title="Salary Structure (CTC Breakdown)">
+            <p className="text-m-caption mb-2" style={{ color: "var(--color-ink-700)" }}>
+              Add salary components like Basic, HRA, DA, TA, etc. These appear in the offer letter and employment agreement.
+            </p>
+
+            {form.salaryComponents.length === 0 && (
+              <div className="text-center py-3 rounded-lg" style={{ backgroundColor: "var(--color-ink-100)" }}>
+                <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                  No components added yet. Tap below to add.
+                </p>
+              </div>
+            )}
+
+            {form.salaryComponents.map((comp, idx) => {
+              const option = SALARY_COMPONENT_OPTIONS.find((o) => o.value === comp.type);
+              return (
+                <div
+                  key={idx}
+                  className="flex items-center gap-2 py-1.5 border-b last:border-b-0"
+                  style={{ borderColor: "var(--color-line)" }}
+                >
+                  <div className="flex-1">
+                    <span className="text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                      {option?.label ?? comp.type}
+                    </span>
+                    {comp.isPercentage && comp.percentageOfBasic && (
+                      <span className="text-m-caption ml-1" style={{ color: "var(--color-ink-500)" }}>
+                        ({comp.percentageOfBasic}% of basic)
+                      </span>
+                    )}
+                    <span className="text-m-caption ml-1" style={{ color: "var(--color-ink-500)" }}>
+                      ₹{comp.amount || "0"} / {comp.frequency.toLowerCase()}
+                    </span>
+                    {comp.isDeduction && (
+                      <span className="text-m-caption ml-1" style={{ color: "var(--color-red-500, #dc2626)" }}>
+                        (deduction)
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptic(10);
+                      setForm((f) => ({
+                        ...f,
+                        salaryComponents: f.salaryComponents.filter((_, i) => i !== idx),
+                      }));
+                    }}
+                    className="p-1"
+                    style={{ color: "var(--color-red-500, #dc2626)" }}
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+              );
+            })}
+
+            {/* Add component row */}
+            <SalaryComponentAdder
+              onAdd={(comp) => {
+                haptic(10);
+                setForm((f) => ({
+                  ...f,
+                  salaryComponents: [...f.salaryComponents, comp],
+                }));
+              }}
+            />
+
+            {/* CTC summary */}
+            {form.salaryComponents.length > 0 && (
+              <div className="mt-2 pt-2 border-t" style={{ borderColor: "var(--color-line)" }}>
+                {(() => {
+                  const earnings = form.salaryComponents
+                    .filter((c) => !c.isDeduction && c.frequency === "MONTHLY")
+                    .reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+                  const deductions = form.salaryComponents
+                    .filter((c) => c.isDeduction && c.frequency === "MONTHLY")
+                    .reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+                  return (
+                    <div className="space-y-0.5 text-m-caption">
+                      <div className="flex justify-between">
+                        <span style={{ color: "var(--color-ink-700)" }}>Monthly Gross:</span>
+                        <span className="font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>₹{earnings.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span style={{ color: "var(--color-ink-700)" }}>Monthly Deductions:</span>
+                        <span className="font-bold tabular-nums" style={{ color: "var(--color-red-500, #dc2626)" }}>₹{deductions.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span style={{ color: "var(--color-ink-700)" }}>Monthly Net:</span>
+                        <span className="font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>₹{(earnings - deductions).toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="flex justify-between pt-0.5 border-t" style={{ borderColor: "var(--color-line)" }}>
+                        <span className="font-bold" style={{ color: "var(--color-ink-950)" }}>Annual CTC:</span>
+                        <span className="font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>₹{(earnings * 12).toLocaleString("en-IN")}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </SectionCard>
+        </>
+      )}
+
+      {step === 2 && (
+        <SectionCard title="Assignment">
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <UnderlineInput
+              label="Join Date"
+              value={form.joinDate}
+              onChange={(v) => set("joinDate", v)}
+              type="date"
+            />
             <div>
               <MobileSelectWithCreate
                 label="Active Project"
@@ -407,8 +707,6 @@ export function MobileNewEmployeeForm({
               />
             </div>
           </div>
-
-          {/* Reporting Location (geo-fence attendance) */}
           <div>
             <MobileSelectWithCreate
               label="Reporting Location"
@@ -421,32 +719,226 @@ export function MobileNewEmployeeForm({
               Auto-marks PRESENT when employee enters this location&apos;s geo-fence.
             </p>
           </div>
-        </div>
+        </SectionCard>
+      )}
 
-          {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
-          <div
-            className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
-            style={{
-              backgroundColor: "var(--color-paper)",
-              borderColor: "var(--color-line)",
-            }}
-          >
-            <div className="flex items-center justify-end gap-3">
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex-1 h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
-                style={{
-                  backgroundColor: "var(--color-ink-950)",
-                  color: "var(--color-paper)",
-                }}
-              >
-                {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-                {saving ? "Adding…" : "Add Employee"}
-              </button>
+      {step === 3 && (
+        <>
+          <SectionCard title="Bank Details">
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <UnderlineInput
+                label="Account Holder"
+                value={form.bankAccountHolder}
+                onChange={(v) => set("bankAccountHolder", v)}
+                placeholder="Name as per bank"
+                enterKeyHint="next"
+              />
+              <div className="pl-2">
+                <UnderlineInput
+                  label="Pay Day"
+                  value={form.payDay}
+                  onChange={(v) => set("payDay", v)}
+                  placeholder="7"
+                  type="number"
+                  min="1"
+                  max="31"
+                />
+              </div>
             </div>
-          </div>
-        </form>
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <UnderlineInput
+                label="Account Number"
+                value={form.bankAccountNumber}
+                onChange={(v) => set("bankAccountNumber", v)}
+                placeholder="Bank a/c no."
+                enterKeyHint="next"
+              />
+              <div className="pl-2">
+                <UnderlineInput
+                  label="IFSC Code"
+                  value={form.bankIfsc}
+                  onChange={(v) => set("bankIfsc", v)}
+                  placeholder="HDFC0001234"
+                  enterKeyHint="next"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <UnderlineInput
+                label="Bank Name"
+                value={form.bankName}
+                onChange={(v) => set("bankName", v)}
+                placeholder="e.g. HDFC Bank"
+                enterKeyHint="next"
+              />
+              <div className="pl-2">
+                <UnderlineInput
+                  label="Branch"
+                  value={form.bankBranch}
+                  onChange={(v) => set("bankBranch", v)}
+                  placeholder="Branch name"
+                  enterKeyHint="next"
+                />
+              </div>
+            </div>
+          </SectionCard>
+          <SectionCard title="Statutory IDs">
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <UnderlineInput
+                label="PAN Number"
+                value={form.panNumber}
+                onChange={(v) => set("panNumber", v)}
+                placeholder="ABCDE1234F"
+                enterKeyHint="next"
+              />
+              <div className="pl-2">
+                <UnderlineInput
+                  label="Aadhaar Number"
+                  value={form.aadhaarNumber}
+                  onChange={(v) => set("aadhaarNumber", v)}
+                  placeholder="XXXX XXXX XXXX"
+                  enterKeyHint="next"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <UnderlineInput
+                label="PF Number"
+                value={form.pfNumber}
+                onChange={(v) => set("pfNumber", v)}
+                placeholder="PF a/c no."
+                enterKeyHint="next"
+              />
+              <div className="pl-2">
+                <UnderlineInput
+                  label="ESI Number"
+                  value={form.esiNumber}
+                  onChange={(v) => set("esiNumber", v)}
+                  placeholder="ESI no."
+                  enterKeyHint="next"
+                />
+              </div>
+            </div>
+            <UnderlineInput
+              label="UAN (Universal Account Number)"
+              value={form.uan}
+              onChange={(v) => set("uan", v)}
+              placeholder="UAN"
+              enterKeyHint="next"
+            />
+          </SectionCard>
+        </>
+      )}
+
+      {step === 4 && (
+        <>
+          <SectionCard title="Emergency Contact">
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <UnderlineInput
+                label="Contact Name"
+                value={form.emergencyContactName}
+                onChange={(v) => set("emergencyContactName", v)}
+                placeholder="e.g. Sunita Kumar"
+                enterKeyHint="next"
+              />
+              <div className="pl-2">
+                <UnderlineInput
+                  label="Contact Phone"
+                  value={form.emergencyContactPhone}
+                  onChange={(v) => set("emergencyContactPhone", v)}
+                  placeholder="98765 43210"
+                  type="tel"
+                  enterKeyHint="next"
+                />
+              </div>
+            </div>
+            <UnderlineInput
+              label="Relationship"
+              value={form.emergencyContactRelation}
+              onChange={(v) => set("emergencyContactRelation", v)}
+              placeholder="e.g. Spouse, Parent, Sibling"
+              enterKeyHint="next"
+            />
+          </SectionCard>
+          <SectionCard title="Address">
+            <UnderlineInput
+              label="Permanent Address"
+              value={form.permanentAddress}
+              onChange={(v) => set("permanentAddress", v)}
+              placeholder="Home address"
+              enterKeyHint="next"
+            />
+            <UnderlineInput
+              label="Current Address"
+              value={form.currentAddress}
+              onChange={(v) => set("currentAddress", v)}
+              placeholder="Stay address (if different)"
+              enterKeyHint="next"
+            />
+            <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-700)" }}>
+              Current address is used for migrant workers whose stay address differs from permanent address.
+            </p>
+          </SectionCard>
+        </>
+      )}
+
+      {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
+      <div
+        className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
+        style={{
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
+        }}
+      >
+        <div className="flex items-center justify-between gap-2">
+          {step > 0 ? (
+            <button
+              type="button"
+              onClick={prevStep}
+              disabled={saving}
+              className="flex items-center gap-1 h-11 px-3 rounded-[0.5rem] text-m-section font-semibold press disabled:opacity-50"
+              style={{
+                backgroundColor: "var(--color-ink-100)",
+                color: "var(--color-ink-700)",
+              }}
+            >
+              <ChevronLeft className="size-4" />
+              Back
+            </button>
+          ) : (
+            <div className="w-20" />
+          )}
+          {step < STEPS.length - 1 ? (
+            <button
+              type="button"
+              onClick={nextStep}
+              disabled={saving}
+              className="flex-1 h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+              style={{
+                backgroundColor: "var(--color-ink-950)",
+                color: "var(--color-paper)",
+              }}
+            >
+              Next
+              <ChevronRight className="size-4" />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 h-11 rounded-[0.5rem] text-m-section font-bold text-m-body press disabled:opacity-50 flex items-center justify-center gap-1.5"
+              style={{
+                backgroundColor: "var(--color-ink-950)",
+                color: "var(--color-paper)",
+              }}
+            >
+              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+              {saving ? "Adding…" : "Add Employee"}
+            </button>
+          )}
+        </div>
+      </div>
+    </form>
   );
 }
 

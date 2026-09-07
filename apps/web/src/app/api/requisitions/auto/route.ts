@@ -94,7 +94,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
           }
         }
       }
-    } catch { /* best-effort */ }
+    } catch (err) { console.warn("Requisition auto-create best-effort failed:", err); }
 
     revalidatePath("/requisitions");
     revalidatePath("/m/procurement");

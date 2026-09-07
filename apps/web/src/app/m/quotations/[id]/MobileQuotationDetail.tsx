@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ActionBar } from "@/components/mobile/v2/primitives";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { DetailHeroCard, DetailAlertBanner } from "@/components/mobile/v2/detail-primitives";
 import {
   Trophy,
   Plus,
@@ -161,14 +162,6 @@ export type { Request as QuotationDetailRequest, RequestLine as QuotationDetailL
 
 type Supplier = { id: string; name: string; phone: string | null; gstin: string | null };
 
-const STATUS_STYLE: Record<string, { color: string; label: string }> = {
-  OPEN: { color: "var(--color-ink-400)", label: "Open" },
-  QUOTES_COLLECTED: { color: "var(--color-signal)", label: "Quotes In" },
-  APPROVED: { color: "var(--color-go)", label: "Approved" },
-  CLOSED: { color: "var(--color-steel)", label: "Closed" },
-  CANCELLED: { color: "var(--color-stop)", label: "Cancelled" },
-};
-
 export function MobileQuotationDetail({
   request,
   lines,
@@ -191,8 +184,6 @@ export function MobileQuotationDetail({
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [approveQuoteId, setApproveQuoteId] = useState<string | null>(null);
   const [approveReason, setApproveReason] = useState("");
-
-  const style = STATUS_STYLE[request.status] ?? STATUS_STYLE.OPEN!;
 
   // Non-rejected quotes for the matrix.
   const activeQuotes = useMemo(() => quotes.filter((q) => q.status !== "REJECTED"), [quotes]);
@@ -286,56 +277,50 @@ export function MobileQuotationDetail({
   return (
     <div className="space-y-2 pb-20">
       {/* ── Header (compact) ── */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {onClose ? (
+      <DetailHeroCard
+        icon={FileText}
+        title={request.requestNumber}
+        titleMono
+        subtitle={request.title}
+        status={request.status}
+        action={onClose ? (
           <button type="button" onClick={onClose} className="p-2 -ml-2 rounded-[0.625rem] text-m-body press active:scale-95" style={{ color: "var(--color-ink-700)" }} aria-label="Close">
             <X className="size-5" />
           </button>
-        ) : null}
-        <h1 className="text-m-section font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>
-          {request.requestNumber}
-        </h1>
-        <span
-          className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded"
-          style={{ backgroundColor: style.color, color: "var(--color-paper)" }}
-        >
-          {style.label}
-        </span>
+        ) : undefined}
+      >
         {request.isUrgent ? (
           <span
-            className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded flex items-center gap-0.5"
+            className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded inline-flex items-center gap-0.5 mt-2"
             style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
           >
             <AlertCircle className="size-2.5" />
             URGENT
           </span>
         ) : null}
-        <span className="text-m-label font-bold ml-auto" style={{ color: "var(--color-ink-950)" }}>
-          {request.title}
-        </span>
-      </div>
-      <div className="flex items-center gap-2 flex-wrap text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-        <span>{request.projectName ?? "No project"}</span>
-        <span>·</span>
-        <span>by {request.submittedByName}</span>
-        <span>·</span>
-        <span>{formatDate(request.createdAt)}</span>
-        {request.requiredByDate ? (
-          <>
-            <span>·</span>
-            <span style={{ color: request.isUrgent ? "var(--color-stop)" : undefined }}>
-              Due {formatDate(request.requiredByDate)}
-              {request.daysUntilRequired !== null ? ` (${request.daysUntilRequired >= 0 ? `${request.daysUntilRequired}d` : `${Math.abs(request.daysUntilRequired)}d overdue`})` : ""}
-            </span>
-          </>
-        ) : null}
-        {request.workActivity ? (
-          <>
-            <span>·</span>
-            <span>{request.workActivity}</span>
-          </>
-        ) : null}
-      </div>
+        <div className="flex items-center gap-2 flex-wrap text-m-caption mt-1.5" style={{ color: "var(--color-ink-500)" }}>
+          <span>{request.projectName ?? "No project"}</span>
+          <span>·</span>
+          <span>by {request.submittedByName}</span>
+          <span>·</span>
+          <span>{formatDate(request.createdAt)}</span>
+          {request.requiredByDate ? (
+            <>
+              <span>·</span>
+              <span style={{ color: request.isUrgent ? "var(--color-stop)" : undefined }}>
+                Due {formatDate(request.requiredByDate)}
+                {request.daysUntilRequired !== null ? ` (${request.daysUntilRequired >= 0 ? `${request.daysUntilRequired}d` : `${Math.abs(request.daysUntilRequired)}d overdue`})` : ""}
+              </span>
+            </>
+          ) : null}
+          {request.workActivity ? (
+            <>
+              <span>·</span>
+              <span>{request.workActivity}</span>
+            </>
+          ) : null}
+        </div>
+      </DetailHeroCard>
 
       {/* ── Converted PO banner (compact) ── */}
       {request.convertedPo ? (
@@ -413,15 +398,11 @@ export function MobileQuotationDetail({
 
       {/* ── Approval reason ── */}
       {request.approvalReason ? (
-        <div
-          className="rounded-[0.5rem] border-l-2 p-2.5 text-m-body"
-          style={{ borderColor: "var(--color-signal)", backgroundColor: "var(--color-signal-wash)", color: "var(--color-ink-700)" }}
-        >
-          <p className="font-bold text-m-caption uppercase mb-1" style={{ color: "var(--color-signal-dark)" }}>
-            Approval Reason
-          </p>
-          {request.approvalReason}
-        </div>
+        <DetailAlertBanner
+          tone="warning"
+          title="Approval Reason"
+          description={request.approvalReason}
+        />
       ) : null}
 
       {/* ── Sticky bottom action bar ── */}

@@ -8,7 +8,7 @@ import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewEmployeeDialog } from "@/app/m/hr/employees/MobileNewEmployeeDialog";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
-import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { SectionCard, UnderlineInput, EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type LeaveType =
   | "CASUAL"
@@ -126,21 +126,10 @@ export function MobileNewLeaveForm({
   const labelClass = "block text-m-caption font-bold mb-0";
   const labelStyle = { color: "var(--color-ink-700)" };
 
-  const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
-  const sectionStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
-  };
-  const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
-  const sectionTitleStyle = { color: "var(--color-ink-950)" };
-
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       {/* Details */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Details
-        </p>
+      <SectionCard title="Details">
         <div
           className="grid grid-cols-2 gap-2 divide-x"
           style={{ borderColor: "var(--color-line)" }}
@@ -181,49 +170,35 @@ export function MobileNewLeaveForm({
             />
           </div>
         </div>
-      </div>
+      </SectionCard>
 
       {/* Dates */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Dates
-        </p>
+      <SectionCard title="Dates">
         <div
           className="grid grid-cols-2 gap-2 divide-x"
           style={{ borderColor: "var(--color-line)" }}
         >
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Start Date <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="date"
-              value={form.startDate}
-              onChange={(e) => set("startDate", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              End Date <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="date"
+          <UnderlineInput
+            label="Start Date"
+            value={form.startDate}
+            onChange={(v) => set("startDate", v)}
+            type="date"
+            required
+          />
+          <div className="pl-2">
+            <UnderlineInput
+              label="End Date"
               value={form.endDate}
-              onChange={(e) => set("endDate", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
+              onChange={(v) => set("endDate", v)}
+              type="date"
+              required
             />
           </div>
         </div>
-      </div>
+      </SectionCard>
 
       {/* Notes */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Notes
-        </p>
+      <SectionCard title="Notes">
         <div>
           <label className={labelClass} style={labelStyle}>
             Reason (optional)
@@ -237,7 +212,7 @@ export function MobileNewLeaveForm({
             style={inputStyle}
           />
         </div>
-      </div>
+      </SectionCard>
 
       {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
       <div

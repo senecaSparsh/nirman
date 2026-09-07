@@ -13,6 +13,7 @@ import {formatCurrencyCompact, formatDate} from "@/lib/utils";
 import { toast } from "sonner";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { DetailAlertBanner, DetailProgress } from "@/components/mobile/v2/detail-primitives";
 
 /* ─── Types ─── */
 
@@ -210,13 +211,8 @@ export function MobileCustomerDetailClient({
 
           {/* Payment progress bar */}
           {data.totals.totalValue > 0 ? (
-            <div className="flex h-1.5 rounded-full overflow-hidden mb-2" style={{ backgroundColor: "var(--color-paper-2)" }}>
-              <div
-                style={{
-                  width: `${100 - outstandingPct}%`,
-                  backgroundColor: "var(--color-go)",
-                }}
-              />
+            <div className="mb-2">
+              <DetailProgress label="Paid" pct={100 - outstandingPct} tone="go" />
             </div>
           ) : null}
 
@@ -434,9 +430,7 @@ function SaleCard({ sale: s }: { sale: SaleItem }) {
 
         {/* ── Payment progress bar ── */}
         {s.totalWithGst > 0 && paidPct < 100 ? (
-          <div className="flex h-1 rounded-full overflow-hidden mt-2" style={{ backgroundColor: "var(--color-paper-2)" }}>
-            <div style={{ width: `${paidPct}%`, backgroundColor: "var(--color-go)" }} />
-          </div>
+          <DetailProgress label="Paid" pct={paidPct} tone="go" />
         ) : null}
       </div>
     </Link>
@@ -454,17 +448,11 @@ function DeleteConfirm({
 }) {
   return (
     <MobileDialog open={true} onClose={onClose} title={`Delete ${customerName}?`}>
-          <div
-            className="rounded-[0.625rem] border p-3 mb-3"
-            style={{ borderColor: "var(--color-stop)", backgroundColor: `color-mix(in srgb, var(--color-stop) 5%, transparent)` }}
-          >
-            <p className="text-m-label" style={{ color: "var(--color-ink-700)" }}>
-              This customer will be permanently deleted.
-            </p>
-            <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
-              Only possible if they have no active sales.
-            </p>
-          </div>
+          <DetailAlertBanner
+            tone="danger"
+            title="This customer will be permanently deleted."
+            description="Only possible if they have no active sales."
+          />
           <div className="flex flex-col gap-2">
             <button
               onClick={onClose}

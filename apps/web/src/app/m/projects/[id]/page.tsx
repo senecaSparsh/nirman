@@ -1,7 +1,4 @@
-import { Suspense } from "react";
 import Link from "next/link";
-import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import {
   Building2, Home, ClipboardList,
@@ -12,23 +9,35 @@ import {
 import { MobileProjectPossession } from "./MobileProjectPossession";
 import { MobileProjectTabs } from "./MobileProjectTabs";
 import { MobileCheckMilestonesButton } from "./MobileCheckMilestonesButton";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { toNum } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { formatNumber, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileEmptyState,
-  MobileStatusBadge,
   SectionHead,
   mobileStatusColor,
   MobilePipelineStepper,
 } from "@/components/mobile/v2/primitives";
+import {
+  DetailHeroCard,
+  DetailProgress,
+  DetailKeyValue,
+  DetailKeyValueCard,
+  DetailAlertBanner,
+  DetailStatGrid,
+  DetailTimeline,
+  DetailLinkRow,
+  DetailPrintButton,
+  type TimelineStepData,
+} from "@/components/mobile/v2/detail-primitives";
 
 import { MobileEditProjectButton } from "./MobileEditProjectButton";
 import { MobileDeleteProjectButton } from "./MobileDeleteProjectButton";
 import { MobileLegalDocsSection } from "@/components/legal/mobile-legal-docs-section";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
+import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 
 /**
  * /m/projects/[id] — project detail page.
@@ -48,23 +57,8 @@ export default function MobileProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonDetail sections={6} />}>
-      <MobileProjectDetailContent params={params} />
-    </Suspense>
-  );
-}
-
-async function MobileProjectDetailContent({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  await connection();
-  const company = await getCompany();
-  const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.PROJECTS_MANAGE);
-  const { id } = await params;
-
+    <MobileDetailPage params={params} managePerm={PERM.PROJECTS_MANAGE} skeletonSections={6}>
+      {async ({ id, company, role, canManage }) => {
   const project = await prisma.project.findFirst({
     where: { id, companyId: company.id, deletedAt: null },
   });
@@ -170,34 +164,12 @@ async function MobileProjectDetailContent({
       </div>
 
       {/* ── Hero card ── */}
-      <div
-        className="rounded-[0.875rem] border p-3.5 mb-3"
-        style={{
-          borderColor: "var(--color-line)",
-          backgroundColor: "var(--color-paper)",
-        }}
-      >
-        <div className="flex items-center gap-2">
-          <div
-            className="grid place-items-center w-9 h-9 rounded-[0.5rem] shrink-0"
-            style={{ backgroundColor: "var(--color-concrete)" }}
-          >
-            <Building2 className="size-4" style={{ color: "var(--color-ink-700)" }} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <h1
-                className="font-bold text-m-section leading-tight truncate"
-                style={{ color: "var(--color-ink-950)" }}
-              >
-                {project.name}
-              </h1>
-              <MobileStatusBadge status={project.status} />
-            </div>
-            <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-              {typeLabel}
-            </p>
-          </div>
+      <DetailHeroCard
+        icon={Building2}
+        title={project.name}
+        subtitle={typeLabel}
+        status={project.status}
+        action={
           <div className="flex items-center gap-2">
             <MobileCheckMilestonesButton projectId={project.id} />
             {canManage && (
@@ -225,8 +197,8 @@ async function MobileProjectDetailContent({
               </>
             )}
           </div>
-        </div>
-
+        }
+      >
         {project.reraNumber && (
           <div className="mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-m-caption font-bold"
             style={{
@@ -264,36 +236,15 @@ async function MobileProjectDetailContent({
 
         {/* Budget progress bar */}
         {totalBudget > 0 ? (
-          <div className="mt-3">
-            <div className="flex items-baseline justify-between mb-1">
-              <span className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-                Budget used
-              </span>
-              <span
-                className="text-m-label font-bold tabular-nums"
-                style={{ color: isOverBudget ? "var(--color-stop)" : "var(--color-ink-950)" }}
-              >
-                {formatCurrencyCompact(totalProjectCost)} / {formatCurrencyCompact(totalBudget)}
-              </span>
-            </div>
-            <div
-              className="h-2 rounded-full overflow-hidden"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${budgetUsedPct}%`,
-                  backgroundColor: isOverBudget ? "var(--color-stop)" : budgetUsedPct > 80 ? "var(--color-signal)" : "var(--color-go)",
-                }}
-              />
-            </div>
-            <p className="text-m-caption mt-0.5 text-right tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-              {Math.round(budgetUsedPct)}%{isOverBudget ? ` · ${formatCurrencyCompact(totalProjectCost - totalBudget)} over` : ""}
-            </p>
-          </div>
+          <DetailProgress
+            label="Budget used"
+            value={`${formatCurrencyCompact(totalProjectCost)} / ${formatCurrencyCompact(totalBudget)}`}
+            pct={budgetUsedPct}
+            hint={`${Math.round(budgetUsedPct)}%${isOverBudget ? ` · ${formatCurrencyCompact(totalProjectCost - totalBudget)} over` : ""}`}
+            tone={isOverBudget ? "stop" : budgetUsedPct > 80 ? "signal" : "go"}
+          />
         ) : null}
-      </div>
+      </DetailHeroCard>
 
       {/* ── Section toggle tabs with badge counts ── */}
       <MobileProjectTabs
@@ -323,13 +274,13 @@ async function MobileProjectDetailContent({
               Overview
             </p>
           </div>
-          <div className="space-y-1.5">
-            <KpiRow label="Units" value={formatNumber(units.length, 0)} sub={`${availableUnits.length} avail`} />
-            <KpiRow label="Sold" value={formatNumber(soldUnits.length, 0)} tone="go" />
-            <KpiRow label="Cost" value={totalProjectCost ? formatCurrencyCompact(totalProjectCost) : "—"} />
-            <KpiRow label="₹/sqft" value={project.costPerSqft ? formatCurrencyCompact(toNum(project.costPerSqft)) : "—"} />
-            <KpiRow label="Land" value={landParcels > 0 ? `${landParcels}` : "—"} sub={landParcels > 0 ? "parcels" : undefined} />
-            <KpiRow label="Indents" value={String(requisitions)} sub="pending" tone={requisitions > 0 ? "signal" : undefined} />
+          <div>
+            <DetailKeyValue label="Units" value={`${formatNumber(units.length, 0)} ${availableUnits.length} avail`} />
+            <DetailKeyValue label="Sold" value={formatNumber(soldUnits.length, 0)} tone="go" />
+            <DetailKeyValue label="Cost" value={totalProjectCost ? formatCurrencyCompact(totalProjectCost) : "—"} />
+            <DetailKeyValue label="₹/sqft" value={project.costPerSqft ? formatCurrencyCompact(toNum(project.costPerSqft)) : "—"} />
+            <DetailKeyValue label="Land" value={landParcels > 0 ? `${landParcels} parcels` : "—"} />
+            <DetailKeyValue label="Indents" value={`${requisitions} pending`} tone={requisitions > 0 ? "signal" : "default"} />
           </div>
         </div>
 
@@ -352,12 +303,12 @@ async function MobileProjectDetailContent({
               Details
             </p>
           </div>
-          <div className="space-y-1.5">
-            <KpiRow label="Budget" value={project.totalBudget ? formatCurrencyCompact(toNum(project.totalBudget)) : "—"} />
-            <KpiRow label="Area" value={project.totalSellableArea ? `${formatNumber(toNum(project.totalSellableArea), 0)}` : "—"} sub="sqft" />
-            <KpiRow label="Type" value={typeLabel} />
-            {project.startDate ? <KpiRow label="Start" value={formatDate(project.startDate)} /> : null}
-            {project.endDate ? <KpiRow label="End" value={formatDate(project.endDate)} /> : null}
+          <div>
+            <DetailKeyValue label="Budget" value={project.totalBudget ? formatCurrencyCompact(toNum(project.totalBudget)) : "—"} />
+            <DetailKeyValue label="Area" value={project.totalSellableArea ? `${formatNumber(toNum(project.totalSellableArea), 0)} sqft` : "—"} />
+            <DetailKeyValue label="Type" value={typeLabel} />
+            {project.startDate ? <DetailKeyValue label="Start" value={formatDate(project.startDate)} /> : null}
+            {project.endDate ? <DetailKeyValue label="End" value={formatDate(project.endDate)} /> : null}
           </div>
         </div>
       </div>
@@ -656,9 +607,13 @@ async function MobileProjectDetailContent({
     </div>
     </PageContextProvider>
   );
+      }}
+    </MobileDetailPage>
+  );
 }
 
-/* ─── Quick action tile ─── */
+/* ─── Quick action tile ───
+   Icon merges with the tile background — no separate icon box. */
 function QuickActionTile({
   href,
   icon: Icon,
@@ -671,47 +626,17 @@ function QuickActionTile({
   return (
     <a
       href={href}
-      className="flex flex-col items-center gap-1 rounded-[0.625rem] border p-2 text-m-body text-m-body press"
+      className="flex flex-col items-center gap-1 rounded-[0.625rem] border p-2 text-m-body press"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
       }}
     >
       <Icon className="size-4" style={{ color: "var(--color-ink-700)" }} />
-      <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-950)" }}>
+      <span className="text-m-caption font-semibold text-center leading-tight" style={{ color: "var(--color-ink-950)" }}>
         {label}
       </span>
     </a>
-  );
-}
-
-/* ─── KPI row — compact label/value for the overview & details cards ─── */
-function KpiRow({
-  label,
-  value,
-  sub,
-  tone,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  tone?: "go" | "signal" | "stop";
-}) {
-  const color =
-    tone === "go" ? "var(--color-go)" :
-    tone === "signal" ? "var(--color-signal-dark)" :
-    tone === "stop" ? "var(--color-stop)" :
-    "var(--color-ink-950)";
-  return (
-    <div className="flex items-baseline justify-between gap-1">
-      <span className="text-m-caption shrink-0" style={{ color: "var(--color-ink-500)" }}>
-        {label}
-      </span>
-      <span className="text-m-caption font-bold text-right tabular-nums truncate" style={{ color }}>
-        {value}
-        {sub ? <span className="font-normal ml-1" style={{ color: "var(--color-ink-500)" }}>{" "}{sub}</span> : null}
-      </span>
-    </div>
   );
 }
 

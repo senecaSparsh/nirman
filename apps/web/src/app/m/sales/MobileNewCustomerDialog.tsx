@@ -6,6 +6,7 @@ import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 
 /**
  * Mobile bottom-sheet dialog for creating a customer inline.
@@ -81,85 +82,43 @@ export function MobileNewCustomerDialog({
     <MobileDialog open={open} onClose={onClose} title="New Customer" nested={nested}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Details */}
-          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Details</p>
-          {/* Name */}
-          <div>
-            <label
-              className="block text-m-caption font-bold mb-0"
-              style={{ color: "var(--color-ink-700)" }}
-            >
-              Name <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="text"
+          <SectionCard title="Details">
+            <UnderlineInput
+              label="Name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={setName}
               placeholder="e.g. Acme Constructions"
+              required
               autoFocus
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "transparent",
-                color: "var(--color-ink-950)",
-              }}
             />
-          </div>
 
           {/* Phone + Email */}
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <label
-                className="block text-m-caption font-bold mb-0"
-                style={{ color: "var(--color-ink-700)" }}
-              >
-                Phone
-              </label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="98765 43210"
-                className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
-                style={{
-                  borderColor: "var(--color-line)",
-                  backgroundColor: "transparent",
-                  color: "var(--color-ink-950)",
-                }}
-              />
-            </div>
+            <UnderlineInput
+              label="Phone"
+              value={phone}
+              onChange={setPhone}
+              placeholder="98765 43210"
+              type="tel"
+              inputMode="tel"
+            />
             <div className="pl-2">
-              <label
-                className="block text-m-caption font-bold mb-0"
-                style={{ color: "var(--color-ink-700)" }}
-              >
-                Email
-              </label>
-              <input
-                type="email"
+              <UnderlineInput
+                label="Email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={setEmail}
                 placeholder="accounts@acme.in"
-                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-                style={{
-                  borderColor: "var(--color-line)",
-                  backgroundColor: "transparent",
-                  color: "var(--color-ink-950)",
-                }}
+                type="email"
               />
             </div>
           </div>
-          </div>
+          </SectionCard>
 
           {/* Tax & Billing */}
-          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Tax & Billing</p>
-          {/* GSTIN */}
+          <SectionCard title="Tax & Billing">
+          {/* GSTIN — toUpperCase, stays inline */}
           <div>
-            <label
-              className="block text-m-caption font-bold mb-0"
-              style={{ color: "var(--color-ink-700)" }}
-            >
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               GSTIN
             </label>
             <input
@@ -168,20 +127,13 @@ export function MobileNewCustomerDialog({
               onChange={(e) => setGstin(e.target.value.toUpperCase())}
               placeholder="27ABCDE1234F1Z5"
               className="w-full h-7 px-1 text-m-caption font-mono uppercase outline-none border-b focus:border-b-2 transition-colors"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "transparent",
-                color: "var(--color-ink-950)",
-              }}
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
             />
           </div>
 
           {/* Address */}
           <div>
-            <label
-              className="block text-m-caption font-bold mb-0"
-              style={{ color: "var(--color-ink-700)" }}
-            >
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Address
             </label>
             <textarea
@@ -190,14 +142,10 @@ export function MobileNewCustomerDialog({
               placeholder="Billing address"
               rows={2}
               className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
-              style={{
-                borderColor: "var(--color-line)",
-                backgroundColor: "transparent",
-                color: "var(--color-ink-950)",
-              }}
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
             />
           </div>
-          </div>
+          </SectionCard>
 
           {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
           <div

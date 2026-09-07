@@ -42,6 +42,10 @@ export default async function EmploymentAgreementPage({
         where: { active: true },
         orderBy: { type: "asc" },
       },
+      salaryComponents: {
+        where: { active: true },
+        orderBy: [{ isDeduction: "asc" }, { type: "asc" }],
+      },
       crew: { select: { name: true } },
       activeProject: { select: { name: true } },
     },
@@ -188,6 +192,48 @@ export default async function EmploymentAgreementPage({
               The Employee shall be compensated at the rate of <strong>{wageText}</strong>, subject to
               applicable deductions (PF, ESI, TDS, profession tax) as per statutory requirements.
             </p>
+
+            {employee.salaryComponents.length > 0 && (
+              <div className="mt-2 overflow-hidden rounded border border-gray-300">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-2 py-1 text-left font-bold">Component</th>
+                      <th className="px-2 py-1 text-right font-bold">Amount (₹)</th>
+                      <th className="px-2 py-1 text-left font-bold">Frequency</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {employee.salaryComponents.filter((c) => !c.isDeduction).map((c) => (
+                      <tr key={c.id} className="border-t border-gray-200">
+                        <td className="px-2 py-1">{c.type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (ch) => ch.toUpperCase())}</td>
+                        <td className="px-2 py-1 text-right tabular-nums">
+                          {c.isPercentage && c.percentageOfBasic
+                            ? `${toNum(c.percentageOfBasic)}% of Basic`
+                            : formatCurrency(toNum(c.amount))}
+                        </td>
+                        <td className="px-2 py-1 text-gray-600">{c.frequency.toLowerCase()}</td>
+                      </tr>
+                    ))}
+                    {employee.salaryComponents.some((c) => c.isDeduction) && (
+                      <>
+                        <tr className="border-t border-gray-200 bg-gray-50">
+                          <td colSpan={3} className="px-2 py-1 font-bold text-gray-600">Deductions</td>
+                        </tr>
+                        {employee.salaryComponents.filter((c) => c.isDeduction).map((c) => (
+                          <tr key={c.id} className="border-t border-gray-200">
+                            <td className="px-2 py-1 pl-4">— {c.type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (ch) => ch.toUpperCase())}</td>
+                            <td className="px-2 py-1 text-right tabular-nums text-red-600">-{formatCurrency(toNum(c.amount))}</td>
+                            <td className="px-2 py-1 text-gray-600">{c.frequency.toLowerCase()}</td>
+                          </tr>
+                        ))}
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
             <p className="mt-1">{bankText}</p>
           </section>
 

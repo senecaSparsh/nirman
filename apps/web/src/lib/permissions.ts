@@ -1,14 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR from "swr";
+import { swrFetcher } from "@/lib/swr";
 import { hasPermission, isManagerOrAbove, normalizeRole, type Role } from "@/lib/roles";
 
+interface MeResponse {
+  id?: string | null;
+  role?: string | null;
+  permissions?: unknown;
+}
+
 /**
- * Client-side permission hook. Fetches the current user's role AND effective
- * permissions from `/api/me` (once per mount) and exposes `can(perm)` plus
+ * Client-side permission hook. Reads the current user's role AND effective
+ * permissions from `/api/me` via SWR and exposes `can(perm)` plus
  * convenience flags. Use this to gate create/edit/delete/approve buttons in
  * client components. The server is the source of truth — this hook is purely
  * for UI affordance; every API route enforces permissions server-side.
+ *
+ * SWR gives this three advantages over the old per-mount useEffect fetch:
+ *   1. Deduped — every usePermissions() on a page shares one /api/me request.
+ *   2. Cached — remounts render instantly with cached data and revalidate
+ *      in the background.
+ *   3. Pre-seeded — the root layout injects the server-resolved identity as
+ *      SWR fallback for "/api/me", so the role is correct on first paint
+ *      instead of popping in after a client round-trip.
  *
  * `permissions` is the merged set the server authorises against (role matrix
  * + RolePermission overrides + per-user UserPermission grants). Passing it to
@@ -19,33 +34,17 @@ import { hasPermission, isManagerOrAbove, normalizeRole, type Role } from "@/lib
  * invisible client-side.
  */
 export function usePermissions() {
+  const { data, isLoading } = useSWR<MeResponse | null>("/api/me", swrFetcher);
+
   // Default to the LEAST-privileged role while loading so privileged
   // buttons don't flash before /api/me resolves. The server is the
   // source of truth — this only affects UI affordance, not access.
-  const [role, setRole] = useState<Role>("SUPERVISOR");
-  const [userId, setUserId] = useState<string | null>(null);
-  const [permissions, setPermissions] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (cancelled) return;
-        if (d?.role) setRole(normalizeRole(d.role));
-        if (d?.id) setUserId(d.id);
-        if (Array.isArray(d?.permissions)) setPermissions(d.permissions as string[]);
-        setLoading(false);
-      })
-      .catch(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const role: Role = data?.role ? normalizeRole(data.role) : "SUPERVISOR";
+  const userId: string | null = data?.id ?? null;
+  const permissions: string[] = Array.isArray(data?.permissions)
+    ? (data.permissions as string[])
+    : [];
+  const loading = isLoading;
 
   return {
     role,

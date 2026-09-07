@@ -305,6 +305,37 @@ describe("G5 — duplicate destinations are declared, not accidental", () => {
   });
 });
 
+// ── G6 ────────────────────────────────────────────────────────────────────
+describe("G6 — module assignment is consistent with the parent graph", () => {
+  /**
+   * A route's `module` must match its parent's `module`, UNLESS the parent
+   * is `/m/home` — the five module hubs (inventory, hr, accounts, settings,
+   * and home itself) hang off Home by design, so their module intentionally
+   * differs from Home's `home` module.
+   *
+   * Before this guard was added, three accounts routes (expense-claims,
+   * petty-cash, supplier-payments) had `module: "home"` but `parent:
+   * "/m/accounts"`. Their Up button went to Accounts, but they appeared in
+   * the Home section of the NavSheet — a topological inconsistency that
+   * broke the user's mental model.
+   */
+  it("every non-hub route has the same module as its parent", () => {
+    const bad = ROUTES.filter((r) => {
+      if (r.parent === null) return false;
+      // Module hubs under /m/home are allowed to differ — they ARE the
+      // module boundary.
+      if (r.parent === "/m/home") return false;
+      const parent = ROUTE_BY_PATH.get(r.parent);
+      if (!parent) return false;
+      return r.module !== parent.module;
+    }).map((r) => `${r.path} (module: ${r.module}) -> ${r.parent} (module: ${ROUTE_BY_PATH.get(r.parent!)?.module})`);
+    expect(
+      bad,
+      `Module must match parent's module (or parent must be /m/home):\n${bad.join("\n")}`,
+    ).toEqual([]);
+  });
+});
+
 /* ═══════════════════════════════════════════════════════════════════════════
    G6-G8 — CAPABILITY GUARDS
 

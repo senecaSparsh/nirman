@@ -17,6 +17,7 @@ import {formatDate, formatRelativeTime} from "@/lib/utils";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { useMobileBack } from "@/components/mobile/v2/mobile-back-button";
+import { DetailHeroCard, DetailKeyValueCard } from "@/components/mobile/v2/detail-primitives";
 
 export type WorkflowDetail = {
   id: string;
@@ -152,27 +153,20 @@ export function MobileWorkflowDetailClient({
 
       <div className="p-3 space-y-4">
         {/* Info card */}
-        <div className="rounded-[0.625rem] border p-3 space-y-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          {workflow.description && (
-            <p className="text-m-body" style={{ color: "var(--color-ink-700)" }}>
-              {workflow.description}
-            </p>
-          )}
-          <div className="flex items-center gap-3 pt-1">
-            <span className="text-m-caption flex items-center gap-1" style={{ color: "var(--color-ink-500)" }}>
-              <Clock className="size-3" />
-              {scheduleLabel(workflow)}
-            </span>
-            <span className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
-              Created {formatDate(workflow.createdAt)}
-            </span>
-          </div>
-          {workflow.schedule?.nextRunAt && (
-            <div className="text-m-caption" style={{ color: "var(--color-steel)" }}>
-              Next run: {formatRelativeTime(new Date(workflow.schedule.nextRunAt))}
-            </div>
-          )}
-        </div>
+        <DetailKeyValueCard
+          entries={[
+            { label: "Schedule", value: scheduleLabel(workflow) },
+            { label: "Created", value: formatDate(workflow.createdAt) },
+            ...(workflow.schedule?.nextRunAt
+              ? [{ label: "Next run", value: formatRelativeTime(new Date(workflow.schedule.nextRunAt)) }]
+              : []),
+          ]}
+        />
+        {workflow.description && (
+          <p className="text-m-body -mt-2" style={{ color: "var(--color-ink-700)" }}>
+            {workflow.description}
+          </p>
+        )}
 
         {/* Actions */}
         {canManage && (

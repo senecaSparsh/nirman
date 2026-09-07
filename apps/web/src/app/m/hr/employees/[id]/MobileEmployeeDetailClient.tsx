@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -20,6 +21,7 @@ import {
   MobileStatusBadge,
 } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { DetailStatGrid } from "@/components/mobile/v2/detail-primitives";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { toast } from "sonner";
@@ -95,6 +97,10 @@ interface EmployeeData {
   reportingLocationId: string | null;
   userId: string | null;
   contractStatus: string | null;
+  offerLetterStatus: string | null;
+  offerLetterIssuedAt: string | null;
+  idCardStatus: string | null;
+  idCardIssuedAt: string | null;
   autoDepositEnabled: boolean | null;
   payDay: number | null;
   bankName: string | null;
@@ -103,6 +109,15 @@ interface EmployeeData {
   noticePeriodDays: number | null;
   contractStartDate: string | null;
   contractEndDate: string | null;
+  salaryComponents: {
+    id: string; type: string; amount: number; frequency: string;
+    isDeduction: boolean; isPercentage: boolean; percentageOfBasic: number | null;
+    notes: string | null; active: boolean;
+  }[];
+  benefits: {
+    id: string; type: string; amount: number | null; frequency: string;
+    startDate: string | null; endDate: string | null; notes: string | null; active: boolean;
+  }[];
   user: {
     email: string; role: string; phone: string | null; image: string | null;
     employeeCode: string | null; department: string | null;
@@ -347,7 +362,7 @@ export function MobileEmployeeDetailClient({
                 try {
                   const res = await fetch("/api/telephony/numbers/available");
                   if (res.ok) setAvailableNumbers(await res.json());
-                } catch { /* ignore */ }
+                } catch (err) { console.warn("Failed to load available numbers:", err); }
                 setShowCreateAccount(true);
               }}
               className="mt-2 w-full h-8 rounded-[0.375rem] text-m-caption font-bold flex items-center justify-center gap-1 press"
@@ -393,23 +408,26 @@ export function MobileEmployeeDetailClient({
           </div>
         )}
         {canManage && !employee.contractStatus && (
-          <a
-            href={`/hr/employees/${employee.id}`}
+          <Link
+            href={`/m/hr/onboarding/${employee.id}`}
             className="block text-m-caption text-primary text-center pt-1"
           >
-            Generate agreement from desktop →
-          </a>
+            Generate agreement →
+          </Link>
         )}
       </div>
 
       {/* ── Attendance ── */}
       <MobileSectionTitle>Attendance</MobileSectionTitle>
-      <div className="grid grid-cols-4 gap-1 mb-3">
-        <MobileStatCard label="Present" value={String(employee.attendanceStats.presentDays)} icon={Clock} />
-        <MobileStatCard label="Half" value={String(employee.attendanceStats.halfDays)} icon={Clock} />
-        <MobileStatCard label="Late" value={String(employee.attendanceStats.lateDays)} icon={Clock} />
-        <MobileStatCard label="Absent" value={String(employee.attendanceStats.absentDays)} icon={Clock} />
-      </div>
+      <DetailStatGrid
+        cols={4}
+        stats={[
+          { label: "Present", value: String(employee.attendanceStats.presentDays) },
+          { label: "Half", value: String(employee.attendanceStats.halfDays) },
+          { label: "Late", value: String(employee.attendanceStats.lateDays) },
+          { label: "Absent", value: String(employee.attendanceStats.absentDays) },
+        ]}
+      />
       {employee.attendances.length > 0 ? (
         <div className="flex flex-col gap-2 mb-4">
           {employee.attendances.slice(0, 15).map((a) => (
@@ -480,11 +498,14 @@ export function MobileEmployeeDetailClient({
 
       {/* ── Tasks ── */}
       <MobileSectionTitle>Tasks</MobileSectionTitle>
-      <div className="grid grid-cols-3 gap-1 mb-3">
-        <MobileStatCard label="Total" value={String(employee.tasks.length)} icon={ListChecks} />
-        <MobileStatCard label="Open" value={String(openTasks)} icon={ListChecks} />
-        <MobileStatCard label="Done" value={String(completedTasks)} icon={ListChecks} />
-      </div>
+      <DetailStatGrid
+        cols={3}
+        stats={[
+          { label: "Total", value: String(employee.tasks.length) },
+          { label: "Open", value: String(openTasks) },
+          { label: "Done", value: String(completedTasks) },
+        ]}
+      />
       {employee.tasks.length > 0 ? (
         <div className="flex flex-col gap-2 mb-4">
           {employee.tasks.slice(0, 15).map((t) => (
@@ -516,10 +537,13 @@ export function MobileEmployeeDetailClient({
 
       {/* ── DPRs ── */}
       <MobileSectionTitle>DPR Labor</MobileSectionTitle>
-      <div className="grid grid-cols-2 gap-1 mb-3">
-        <MobileStatCard label="Entries" value={String(employee.dprStats.count)} icon={FileText} />
-        <MobileStatCard label="Total Hours" value={`${employee.dprStats.totalHours.toFixed(1)}h`} icon={Clock} />
-      </div>
+      <DetailStatGrid
+        cols={2}
+        stats={[
+          { label: "Entries", value: String(employee.dprStats.count) },
+          { label: "Total Hours", value: `${employee.dprStats.totalHours.toFixed(1)}h` },
+        ]}
+      />
       {employee.dprHistory.length > 0 ? (
         <div className="flex flex-col gap-2 mb-4">
           {employee.dprHistory.slice(0, 10).map((d) => (
@@ -553,11 +577,14 @@ export function MobileEmployeeDetailClient({
 
       {/* ── Leave ── */}
       <MobileSectionTitle>Leave Requests</MobileSectionTitle>
-      <div className="grid grid-cols-3 gap-1 mb-3">
-        <MobileStatCard label="Total" value={String(employee.leaveStats.total)} icon={CalendarOff} />
-        <MobileStatCard label="Pending" value={String(employee.leaveStats.pending)} icon={CalendarOff} />
-        <MobileStatCard label="Approved" value={String(employee.leaveStats.approved)} icon={CalendarOff} />
-      </div>
+      <DetailStatGrid
+        cols={3}
+        stats={[
+          { label: "Total", value: String(employee.leaveStats.total) },
+          { label: "Pending", value: String(employee.leaveStats.pending) },
+          { label: "Approved", value: String(employee.leaveStats.approved) },
+        ]}
+      />
       {employee.leaveHistory.length > 0 ? (
         <div className="flex flex-col gap-2 mb-4">
           {employee.leaveHistory.slice(0, 10).map((l) => (

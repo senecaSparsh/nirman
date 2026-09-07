@@ -261,7 +261,7 @@ function OverviewTab({ data }: { data: SupplierCockpitData }) {
           <h2 className="mb-3 text-label text-muted-foreground">Quick Actions</h2>
           <div className="space-y-1">
             <ActionLink href="/procurement" label="Create Purchase Order" icon={<Truck className="h-3.5 w-3.5" />} />
-            <ActionLink href="/supplier-returns" label="Create Return" icon={<Undo2 className="h-3.5 w-3.5" />} />
+            <ActionLink href="/procurement?tab=returns" label="Create Return" icon={<Undo2 className="h-3.5 w-3.5" />} />
             <ActionLink href="/rate-contracts" label="Create Rate Contract" icon={<FileText className="h-3.5 w-3.5" />} />
           </div>
         </div>
@@ -431,7 +431,7 @@ function ReturnsTab({ data }: { data: SupplierCockpitData }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="text-body text-muted-foreground">{data.supplierReturns.length} returns</div>
-        <Link href="/supplier-returns"><Button size="sm" variant="outline"><Plus className="h-4 w-4" /> New Return</Button></Link>
+        <Link href="/procurement?tab=returns"><Button size="sm" variant="outline"><Plus className="h-4 w-4" /> New Return</Button></Link>
       </div>
 
       {data.supplierReturns.length === 0 ? (
@@ -439,7 +439,7 @@ function ReturnsTab({ data }: { data: SupplierCockpitData }) {
       ) : (
         <div className="divide-y divide-border rounded-lg border border-border">
           {data.supplierReturns.map((r) => (
-            <Link key={r.id} href="/supplier-returns" className="flex items-center gap-4 px-4 py-3 text-body transition-colors hover:bg-muted/30">
+            <Link key={r.id} href="/procurement?tab=returns" className="flex items-center gap-4 px-4 py-3 text-body transition-colors hover:bg-muted/30">
               <span className="w-32 shrink-0 font-mono text-caption font-medium text-foreground">{r.returnNumber}</span>
               <StatusPill status={r.status} />
               <span className="min-w-0 flex-1" />

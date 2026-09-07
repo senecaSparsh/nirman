@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 import { haptic } from "@/lib/haptic";
+import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
+import { useMobileBack } from "@/components/mobile/v2/mobile-back-button";
 
 export function MobileNewBrokerClient({
   onClose,
@@ -17,6 +19,7 @@ export function MobileNewBrokerClient({
   onCreated?: (id: string) => void;
 } = {}) {
   const router = useRouter();
+  const goBack = useMobileBack("/m/brokers");
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -58,14 +61,11 @@ export function MobileNewBrokerClient({
     }
   }
 
-  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "block text-m-caption font-bold mb-0";
-  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
     <div className={onClose ? "" : "pb-32"}>
@@ -73,7 +73,7 @@ export function MobileNewBrokerClient({
       {onClose ? null : (
       <div className="flex items-center gap-1 mb-3">
         <button
-          onClick={() => router.back()}
+          onClick={goBack}
           className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
           style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
         >
@@ -95,64 +95,48 @@ export function MobileNewBrokerClient({
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {/* Broker Details */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Broker Details</p>
-
-          {/* Name */}
-          <div>
-            <label className={labelClass} style={labelStyle}>Name *</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Rajesh Sharma"
-              className={inputClass}
-              style={inputStyle}
-              required
-            />
-          </div>
+        <SectionCard title="Broker Details">
+          <UnderlineInput
+            label="Name"
+            value={name}
+            onChange={setName}
+            placeholder="e.g. Rajesh Sharma"
+            required
+            autoFocus
+          />
 
           {/* Phone + Agency */}
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <label className={labelClass} style={labelStyle}>Phone</label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="9876543210"
-                inputMode="tel"
-                className={`${inputClass} tabular-nums`}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label className={labelClass} style={labelStyle}>Agency</label>
-              <input
-                type="text"
+            <UnderlineInput
+              label="Phone"
+              value={phone}
+              onChange={setPhone}
+              placeholder="9876543210"
+              type="tel"
+              inputMode="tel"
+            />
+            <div className="pl-2">
+              <UnderlineInput
+                label="Agency"
                 value={agency}
-                onChange={(e) => setAgency(e.target.value)}
+                onChange={setAgency}
                 placeholder="Sharma Properties"
-                className={inputClass}
-                style={inputStyle}
               />
             </div>
           </div>
 
           {/* Commission */}
           <div>
-            <label className={labelClass} style={labelStyle}>Default Commission %</label>
-            <input
+            <UnderlineInput
+              label="Default Commission %"
+              value={commission}
+              onChange={setCommission}
+              placeholder="e.g. 2.5"
               type="number"
               min="0"
               max="100"
               step="0.01"
               inputMode="decimal"
-              value={commission}
-              onChange={(e) => setCommission(e.target.value)}
-              placeholder="e.g. 2.5"
-              className={`${inputClass} tabular-nums`}
-              style={inputStyle}
             />
             <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-700)" }}>
               Auto-fills commission on new deals using this broker.
@@ -161,7 +145,9 @@ export function MobileNewBrokerClient({
 
           {/* Notes */}
           <div>
-            <label className={labelClass} style={labelStyle}>Notes</label>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Notes
+            </label>
             <textarea
               rows={2}
               value={notes}
@@ -171,13 +157,13 @@ export function MobileNewBrokerClient({
               style={inputStyle}
             />
           </div>
-        </div>
+        </SectionCard>
 
         {/* Submit */}
         <div className="flex gap-1 pt-2">
           <button
             type="button"
-            onClick={() => (onClose ? onClose() : router.back())}
+            onClick={() => (onClose ? onClose() : goBack())}
             disabled={saving}
             className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}

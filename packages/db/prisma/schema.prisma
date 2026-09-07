@@ -90,6 +90,7 @@ model Company {
   attendances    WorkerAttendance[]
   userMemberships UserCompany[]
   users          User[]
+  userPreferences UserPreference[]
   leaveRequests  LeaveRequest[]
   tenancies      Tenancy[]
   dailyReports   DailyReport[]
@@ -244,6 +245,34 @@ model UserPermission {
 }
 
 // ───────────────────────────────────────────────────────────
+//  USER PREFERENCES — per-user, per-company UI customization.
+//  A generic key→JSON store so future prefs (theme, density, list
+//  column order, etc.) reuse the same table without schema changes.
+//  Currently powers the editable/movable persona-aware quick-action
+//  bar on the mobile Inventory / HR / Accounts home pages.
+//
+//  Key convention: "<feature>:<module>:<tab>" e.g.
+//    "quick-actions:inventory:raw-material"
+//  Value: feature-specific JSON (for quick-actions: string[] of
+//  action keys in display order).
+// ───────────────────────────────────────────────────────────
+model UserPreference {
+  id        String   @id @default(cuid())
+  userId    String
+  companyId String
+  key       String   // e.g. "quick-actions:inventory:raw-material"
+  value     Json     // e.g. ["indents","purchase-orders",...] (ordered)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId, key])
+  @@index([companyId])
+}
+
+// ───────────────────────────────────────────────────────────
 //  Employees / workers — site labour and subcontracted crews.
 //  Separate from the auth User model: tracks site labour with
 //  their trade, wage structure, crew, and active project. Powers
@@ -336,6 +365,14 @@ model Employee {
   contractIssuedAt  DateTime?       // when the agreement was generated/issued
   contractConfirmedAt DateTime?     // when the employee confirmed/signed
   contractAttachmentId String?      // → EntityAttachment (the generated agreement document)
+  // ── Offer letter tracking ──
+  offerLetterStatus   ContractStatus? // DRAFT → ISSUED → CONFIRMED (reuses ContractStatus enum)
+  offerLetterIssuedAt DateTime?       // when the offer letter was generated/issued
+  offerLetterAttachmentId String?     // → EntityAttachment (the generated offer letter document)
+  // ── Employee ID card tracking ──
+  idCardStatus        ContractStatus? // DRAFT → ISSUED (reuses ContractStatus enum)
+  idCardIssuedAt      DateTime?       // when the ID card was generated
+  idCardAttachmentId  String?         // → EntityAttachment (the generated ID card document)
   // ── Pay day — day of month salary is credited (e.g. 7th) ──
   payDay            Int?            // 1-31, null = not set
   // ── Bank account — for salary credit ──
@@ -379,6 +416,7 @@ model Employee {
   dprLaborLines   DPRLaborLine[]
   leaveRequests   LeaveRequest[]
   benefits        EmployeeBenefit[]
+  salaryComponents SalaryComponent[] @relation("EmployeeSalaryComponents")
 
   @@index([companyId])
   @@index([deletedAt])
@@ -387,6 +425,8 @@ model Employee {
   @@index([activeProjectId])
   @@index([employmentType])
   @@index([contractStatus])
+  @@index([offerLetterStatus])
+  @@index([idCardStatus])
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -412,6 +452,67 @@ model EmployeeBenefit {
 
   @@index([employeeId])
   @@index([type])
+}
+
+// ── Salary component types — standard Indian payroll structure ──
+enum SalaryComponentType {
+  BASIC              // Basic salary (usually 40-50% of CTC)
+  HRA                // House Rent Allowance (40-50% of basic)
+  DA                 // Dearness Allowance (cost of living adjustment)
+  TA                 // Travelling / Transport Allowance
+  SPECIAL_ALLOWANCE  // Special / Other allowance (balance to reach CTC)
+  FOOD_ALLOWANCE     // Food / Meal allowance
+  MEDICAL_ALLOWANCE  // Medical allowance
+  UNIFORM_ALLOWANCE  // Uniform allowance
+  WASHING_ALLOWANCE  // Washing / maintenance allowance
+  LTA                // Leave Travel Allowance (annual)
+  PERFORMANCE_BONUS  // Performance / annual bonus
+  JOINING_BONUS      // One-time joining bonus
+  RETENTION_BONUS    // Retention bonus
+  EMPLOYER_PF        // Employer PF contribution (12% of basic)
+  EMPLOYEE_PF        // Employee PF contribution (12% of basic, deducted)
+  EMPLOYER_ESI       // Employer ESI contribution (3.25% of gross)
+  EMPLOYEE_ESI       // Employee ESI contribution (0.75% of gross, deducted)
+  GRATUITY           // Gratuity provision (4.81% of basic)
+  PROFESSION_TAX     // Profession tax (state-specific, deducted)
+  TDS                // Income tax / TDS (deducted at source)
+  OTHER              // any component not in the above list
+}
+
+// ── Salary component frequency ──
+enum ComponentFrequency {
+  MONTHLY    // paid every month
+  QUARTERLY  // paid every 3 months
+  HALF_YEARLY // paid twice a year
+  YEARLY     // paid annually (e.g. LTA, bonus)
+  ONE_TIME   // one-time payment (e.g. joining bonus)
+}
+
+// ───────────────────────────────────────────────────────────────
+//  SalaryComponent — the CTC breakdown for an employee.
+//  Each component has a type (BASIC, HRA, DA, TA, etc.), amount,
+//  frequency, and whether it's a deduction (PF, ESI, PT, TDS) or
+//  an earning (Basic, HRA, TA, etc.). Linked to Employee.
+// ───────────────────────────────────────────────────────────────
+model SalaryComponent {
+  id          String              @id @default(cuid())
+  employeeId  String
+  type        SalaryComponentType
+  amount      Decimal             @db.Decimal(14, 2) // monthly amount (or annual if frequency = YEARLY)
+  frequency   ComponentFrequency  @default(MONTHLY)
+  isDeduction Boolean             @default(false) // true for PF, ESI, PT, TDS (subtracted from gross)
+  isPercentage Boolean            @default(false) // if true, amount is a % of BASIC (e.g. HRA = 40% of basic)
+  percentageOfBasic Decimal?      @db.Decimal(5, 2) // percentage value (e.g. 40.00 for 40%)
+  notes       String?             // e.g. "HDFC Ergo group mediclaim"
+  active      Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  employee    Employee            @relation("EmployeeSalaryComponents", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([type])
+  @@unique([employeeId, type])
 }
 
 // User is shared with Better-Auth (prisma adapter). Required auth fields:
@@ -452,6 +553,7 @@ model User {
 
   company           Company?          @relation(fields: [companyId], references: [id], onDelete: SetNull)
   memberships       UserCompany[]
+  userPreferences   UserPreference[]
   sessions          Session[]
   accounts          Account[]
   passkeys          Passkey[]

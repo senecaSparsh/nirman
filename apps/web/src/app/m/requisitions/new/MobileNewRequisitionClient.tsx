@@ -18,6 +18,7 @@ import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDial
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { useSmartDefaults } from "@/lib/use-smart-defaults";
 import { SmartDefaultsBadge } from "@/components/mobile/v2/smart-defaults-badge";
+import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 
 interface ProjectItem { id: string; name: string; }
 interface MaterialItem { id: string; name: string; code: string; unit: string; }
@@ -218,17 +219,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
 
       <form onSubmit={handleSubmit} className="space-y-3">
         {/* ── Project + date ── */}
-        <div
-          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-        >
-          <div className="flex items-center gap-1.5 border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
-            <ShoppingCart className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
-            <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              Indent Details
-            </span>
-          </div>
-
+        <SectionCard title="Indent Details">
           {/* Project + Needed by date (side by side) */}
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
@@ -252,30 +243,19 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
                 )}
               />
             </div>
-            <div>
-              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-                Needed by date
-              </label>
-              <input
-                type="date"
-                value={neededByDate}
-                onChange={(e) => setNeededByDate(e.target.value)}
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
+            <UnderlineInput
+              label="Needed by date"
+              type="date"
+              value={neededByDate}
+              onChange={setNeededByDate}
+            />
           </div>
-        </div>
+        </SectionCard>
 
         {/* ── Material lines ── */}
-        <div
-          className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-        >
-          <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: "var(--color-line)" }}>
-            <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              Materials
-            </span>
+        <SectionCard
+          title="Materials"
+          action={
             <button
               type="button"
               onClick={addLine}
@@ -285,7 +265,8 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
               <Plus className="size-3" />
               <span>Add</span>
             </button>
-          </div>
+          }
+        >
 
           <div className="space-y-3">
             {lines.map((line, idx) => {
@@ -377,7 +358,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
               );
             })}
           </div>
-        </div>
+        </SectionCard>
 
         {/* ── Notes ── */}
         <div>

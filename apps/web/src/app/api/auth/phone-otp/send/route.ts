@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { json } from "@/lib/server";
-import { normalizePhone, generateOtpCode, OTP_CONFIG } from "@/lib/phone-otp";
+import { normalizePhone, normalizePhoneForLookup, generateOtpCode, OTP_CONFIG } from "@/lib/phone-otp";
 
 /**
  * POST /api/auth/phone-otp/send — request an OTP code.
@@ -75,8 +75,10 @@ export const POST = async (req: NextRequest) => {
   }
 
   // ── Find the user by normalized phone (indexed lookup, no full-table scan) ──
+  // Use variant lookup so "+91 70179 88293" matches a user stored as "7017988293".
+  const phoneVariants = normalizePhoneForLookup(rawPhone);
   const matchedUser = await prisma.user.findFirst({
-    where: { phoneNormalized: phone, active: true },
+    where: { phoneNormalized: { in: phoneVariants }, active: true },
     select: { id: true, name: true },
   });
 

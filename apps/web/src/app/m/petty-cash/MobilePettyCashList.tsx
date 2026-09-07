@@ -70,7 +70,7 @@ export function MobilePettyCashList({
         description="Site cash floats will appear here once created."
         action={
           canManage ? (
-            <Link href="/petty-cash" className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-body font-medium text-brand-foreground">
+            <Link href="/m/petty-cash/new" className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-body font-medium text-brand-foreground">
               <Plus className="size-4" /> Create Float
             </Link>
           ) : undefined
@@ -143,9 +143,10 @@ function PettyCashCard({ f }: { f: PettyCashFloatListItem }) {
   return (
     <>
       <div {...longPressBind}>
-        <Link
-          href={`/petty-cash?open=${f.id}`}
-          className="block rounded-xl border border-border bg-card p-3.5 shadow-sm transition-colors active:bg-muted/40"
+        <button
+          type="button"
+          onClick={() => { setPressPoint(null); setOverviewOpen(true); }}
+          className="block w-full text-left rounded-xl border border-border bg-card p-3.5 shadow-sm transition-colors active:bg-muted/40"
         >
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
@@ -182,7 +183,7 @@ function PettyCashCard({ f }: { f: PettyCashFloatListItem }) {
               </span>
             )}
           </div>
-        </Link>
+        </button>
       </div>
 
       {/* Long-press overview sheet */}

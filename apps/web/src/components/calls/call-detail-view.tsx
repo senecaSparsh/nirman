@@ -192,7 +192,9 @@ export function CallDetailView({
     try {
       await fetch(`/api/calls/${call.id}/tags?tagId=${tagId}`, { method: "DELETE" });
       setTags(tags.filter((t) => t.callTag.id !== tagId));
-    } catch {}
+    } catch (err) {
+      console.error("Failed to remove tag:", err);
+    }
   }
 
   async function saveDisposition() {

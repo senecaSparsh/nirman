@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { json, ForbiddenError, UnauthorizedError } from "@/lib/server";
-import { normalizePhone, createPhoneSession } from "@/lib/phone-otp";
+import { normalizePhone, normalizePhoneForLookup, createPhoneSession } from "@/lib/phone-otp";
 import { verifyPassword } from "better-auth/crypto";
 import { ServiceError } from "@nirman/services";
 
@@ -51,6 +51,11 @@ export const POST = async (req: NextRequest) => {
       return json({ error: "Please enter a valid phone number." }, { status: 400 });
     }
 
+    // Build all format variants (10-digit, 12-digit with 91 prefix, etc.)
+    // so the lookup matches regardless of how the user entered the number
+    // or how it was stored (admin may have entered +91 or just 10 digits).
+    const phoneVariants = normalizePhoneForLookup(rawPhone);
+
     if (password.length < 1) {
       return json({ error: "Password is required." }, { status: 400 });
     }
@@ -64,7 +69,7 @@ export const POST = async (req: NextRequest) => {
 
     // ── Find all active users with this phone number ──
     const matchedUsers = await prisma.user.findMany({
-      where: { phoneNormalized: phone, active: true },
+      where: { phoneNormalized: { in: phoneVariants }, active: true },
       select: {
         id: true,
         email: true,

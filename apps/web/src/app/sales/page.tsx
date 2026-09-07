@@ -10,18 +10,23 @@ import { PageLoading } from "@/components/page-loading";
 import type { AssetSaleRow, CustomerRow, LeadRow } from "@/lib/types";
 
 import { NoAccess } from "@/components/no-access";
-export default function SalesPage() {
+export default function SalesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   return (
     <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading sales…" variant="list" />}>
-        <SalesContent />
+        <SalesContent searchParams={searchParams} />
       </Suspense>
     </div>
   );
 }
 
-async function SalesContent() {
+async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   await connection();
+  const { tab } = await searchParams;
   const role = await getUserRole();
   const company = await getCompany();
 
@@ -301,6 +306,31 @@ async function SalesContent() {
     canManage: hasPermission(role, PERM.SALES_MANAGE),
   };
 
+  // ── Conditionally fetch Bank SMS data when the bank-sms tab is active ──
+  const smsRecords = tab === "bank-sms" ? await prisma.bankSms.findMany({
+    where: { companyId: company.id },
+    orderBy: { receivedAt: "desc" },
+    take: 200,
+  }) : [];
+
+  const smsItems = smsRecords.map((s) => ({
+    id: s.id,
+    sender: s.sender,
+    message: s.message,
+    receivedAt: s.receivedAt.toISOString(),
+    amount: s.amount ? toNum(s.amount) : null,
+    upiRef: s.upiRef,
+    bankName: s.bankName,
+    txnType: s.txnType,
+    counterparty: s.counterparty,
+    status: s.status,
+    matchedEntityType: s.matchedEntityType,
+    matchedEntityId: s.matchedEntityId,
+    paymentRecordId: s.paymentRecordId,
+    matchConfidence: s.matchConfidence ? toNum(s.matchConfidence) : null,
+    matchReason: s.matchReason,
+  }));
+
   // "Booked revenue" = sum of sale prices for non-cancelled sales.
   // This includes RESERVED (deposit only) — it's the total contract value,
   // not realized revenue. "Collected" is what's actually been received.
@@ -343,6 +373,8 @@ async function SalesContent() {
           projectName: unit.project.name,
         }))}
         assignees={salesMembers.map((membership) => membership.user)}
+        smsItems={smsItems}
+        smsPermissions={{ canCreate: hasPermission(role, PERM.SALE_CREATE) }}
         permissions={perms}
       />
     </>

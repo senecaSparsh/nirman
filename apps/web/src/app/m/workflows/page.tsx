@@ -1,10 +1,6 @@
-import { Suspense } from "react";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
-import { MobileNoAccess } from "@/components/mobile/v2/primitives";
+import { PERM } from "@/lib/roles";
+import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileWorkflowsList, type WorkflowListItem } from "./MobileWorkflowsList";
 
 /**
@@ -13,53 +9,41 @@ import { MobileWorkflowsList, type WorkflowListItem } from "./MobileWorkflowsLis
  */
 export default function MobileWorkflowsPage() {
   return (
-    <Suspense fallback={<MobileSkeletonList rows={6} />}>
-      <MobileWorkflowsContent />
-    </Suspense>
-  );
-}
+    <MobileListPage perm={PERM.CANVAS_VIEW} what="workflows" managePerm={PERM.WORKFLOWS_MANAGE}>
+      {async ({ company, canManage }) => {
+        const workflows = await prisma.workflow.findMany({
+          where: { companyId: company.id, deletedAt: null },
+          orderBy: { createdAt: "desc" },
+          include: {
+            _count: { select: { runs: true } },
+            schedules: {
+              where: { enabled: true },
+              select: { nextRunAt: true, intervalM: true, cron: true },
+            },
+          },
+        });
 
-async function MobileWorkflowsContent() {
-  await connection();
-  const company = await getCompany();
-  const role = await getUserRole();
+        const rows: WorkflowListItem[] = workflows.map((w) => ({
+          id: w.id,
+          name: w.name,
+          description: w.description,
+          icon: w.icon,
+          status: w.status,
+          runCount: w._count.runs,
+          nextRun: w.schedules[0]?.nextRunAt?.toISOString() ?? null,
+          schedule: w.schedules[0]
+            ? { intervalM: w.schedules[0].intervalM, cron: w.schedules[0].cron }
+            : null,
+          createdAt: w.createdAt.toISOString(),
+        }));
 
-  if (!hasPermission(role, PERM.CANVAS_VIEW)) {
-    return <MobileNoAccess what="workflows" />;
-  }
-
-  const canManage = hasPermission(role, PERM.WORKFLOWS_MANAGE);
-
-  const workflows = await prisma.workflow.findMany({
-    where: { companyId: company.id, deletedAt: null },
-    orderBy: { createdAt: "desc" },
-    include: {
-      _count: { select: { runs: true } },
-      schedules: {
-        where: { enabled: true },
-        select: { nextRunAt: true, intervalM: true, cron: true },
-      },
-    },
-  });
-
-  const rows: WorkflowListItem[] = workflows.map((w) => ({
-    id: w.id,
-    name: w.name,
-    description: w.description,
-    icon: w.icon,
-    status: w.status,
-    runCount: w._count.runs,
-    nextRun: w.schedules[0]?.nextRunAt?.toISOString() ?? null,
-    schedule: w.schedules[0]
-      ? { intervalM: w.schedules[0].intervalM, cron: w.schedules[0].cron }
-      : null,
-    createdAt: w.createdAt.toISOString(),
-  }));
-
-  return (
-    <MobileWorkflowsList
-      items={rows}
-      canManage={canManage}
-    />
+        return (
+          <MobileWorkflowsList
+            items={rows}
+            canManage={canManage}
+          />
+        );
+      }}
+    </MobileListPage>
   );
 }

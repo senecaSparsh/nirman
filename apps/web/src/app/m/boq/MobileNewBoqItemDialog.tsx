@@ -8,6 +8,7 @@ import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 
 type BoqItemType = "SECTION" | "SUBSECTION" | "LINE_ITEM";
 
@@ -164,10 +165,8 @@ export function MobileNewBoqItemDialog({
     <MobileDialog open={open} onClose={onClose} title="New BOQ Item">
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Item Details */}
-          <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Item Details</p>
-
-            {/* Type selector — horizontal */}
+          <SectionCard title="Item Details">
+            {/* Type selector — horizontal button group, stays custom */}
             <div>
               <label className={labelClass} style={labelStyle}>
                 Item Type
@@ -224,33 +223,24 @@ export function MobileNewBoqItemDialog({
 
             {/* Serial No + Description */}
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Serial No. <span style={{ color: "var(--color-stop)" }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.serialNo}
-                  onChange={(e) => set("serialNo", e.target.value)}
-                  placeholder="e.g. 1.1.1"
-                  autoFocus
-                  enterKeyHint="next"
-                  className={`${inputClass} font-mono`}
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label className={labelClass} style={labelStyle}>
-                  Description <span style={{ color: "var(--color-stop)" }}>*</span>
-                </label>
-                <input
-                  type="text"
+              <UnderlineInput
+                label="Serial No."
+                value={form.serialNo}
+                onChange={(v) => set("serialNo", v)}
+                placeholder="e.g. 1.1.1"
+                required
+                autoFocus
+                enterKeyHint="next"
+                mono
+              />
+              <div className="pl-2">
+                <UnderlineInput
+                  label="Description"
                   value={form.description}
-                  onChange={(e) => set("description", e.target.value)}
+                  onChange={(v) => set("description", v)}
                   placeholder="e.g. Concrete PCC"
+                  required
                   enterKeyHint="next"
-                  className={inputClass}
-                  style={inputStyle}
                 />
               </div>
             </div>
@@ -285,51 +275,38 @@ export function MobileNewBoqItemDialog({
 
                 {/* Unit + Qty + Rate */}
                 <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-                  <div>
-                    <label className={labelClass} style={labelStyle}>
-                      Unit <span style={{ color: "var(--color-stop)" }}>*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={form.unit}
-                      onChange={(e) => set("unit", e.target.value)}
-                      placeholder="CUM"
-                      enterKeyHint="next"
-                      className={inputClass}
-                      style={inputStyle}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass} style={labelStyle}>
-                      Qty <span style={{ color: "var(--color-stop)" }}>*</span>
-                    </label>
-                    <input
-                      type="number"
-                      min={0.001}
-                      step="any"
+                  <UnderlineInput
+                    label="Unit"
+                    value={form.unit}
+                    onChange={(v) => set("unit", v)}
+                    placeholder="CUM"
+                    required
+                    enterKeyHint="next"
+                  />
+                  <div className="pl-2">
+                    <UnderlineInput
+                      label="Qty"
                       value={form.estimatedQty}
-                      onChange={(e) => set("estimatedQty", e.target.value)}
+                      onChange={(v) => set("estimatedQty", v)}
                       placeholder="0"
+                      type="number"
+                      min="0.001"
+                      step="any"
                       inputMode="decimal"
-                      className={inputClass}
-                      style={inputStyle}
+                      required
                     />
                   </div>
-                  <div>
-                    <label className={labelClass} style={labelStyle}>
-                      Rate (₹){" "}
-                      <span style={{ color: "var(--color-stop)" }}>*</span>
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      step="any"
+                  <div className="pl-2">
+                    <UnderlineInput
+                      label="Rate (₹)"
                       value={form.rate}
-                      onChange={(e) => set("rate", e.target.value)}
+                      onChange={(v) => set("rate", v)}
                       placeholder="0"
+                      type="number"
+                      min="0"
+                      step="any"
                       inputMode="decimal"
-                      className={inputClass}
-                      style={inputStyle}
+                      required
                     />
                   </div>
                 </div>
@@ -350,7 +327,7 @@ export function MobileNewBoqItemDialog({
                 style={inputStyle}
               />
             </div>
-          </div>
+          </SectionCard>
 
           {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
           <div

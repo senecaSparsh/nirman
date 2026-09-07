@@ -4,12 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Phone, Mail, MapPin, BadgeCheck,
+  Phone, Mail,
   FileText, Banknote, Pencil, Loader2, Trash2,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { mobileStatusColor, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { DetailHeroCard, DetailKeyValueCard, DetailStatGrid } from "@/components/mobile/v2/detail-primitives";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";
@@ -115,13 +116,9 @@ export function MobileSupplierDetailClient({
   return (
     <div>
       {/* ── Header ── */}
-      <div className="flex items-center gap-2 mb-2">
-        <div className="flex-1 min-w-0">
-          <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
-            {name}
-          </p>
-        </div>
-        {canManage ? (
+      <DetailHeroCard
+        title={name}
+        action={canManage ? (
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setShowEdit(true)}
@@ -141,8 +138,8 @@ export function MobileSupplierDetailClient({
               {deleting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
             </button>
           </div>
-        ) : null}
-      </div>
+        ) : undefined}
+      />
 
       {/* ── Balance banner ── */}
       <div
@@ -227,69 +224,23 @@ export function MobileSupplierDetailClient({
       </div>
 
       {/* ── Info row ── */}
-      <div
-        className="rounded-[0.5rem] border overflow-hidden mb-3"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        {gstin ? (
-          <div className="flex items-center gap-2 px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
-            <BadgeCheck className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
-            <span className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>GSTIN</span>
-            <span className="text-m-label font-mono ml-auto truncate" style={{ color: "var(--color-ink-950)" }}>
-              {gstin}
-            </span>
-          </div>
-        ) : null}
-        {phone ? (
-          <div className="flex items-center gap-2 px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
-            <Phone className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
-            <span className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Phone</span>
-            <span className="text-m-label font-mono ml-auto truncate" style={{ color: "var(--color-ink-950)" }}>
-              {phone}
-            </span>
-          </div>
-        ) : null}
-        {address ? (
-          <div className="flex items-center gap-2 px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
-            <MapPin className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
-            <span className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Address</span>
-            <span className="text-m-label ml-auto truncate text-right" style={{ color: "var(--color-ink-950)" }}>
-              {address}
-            </span>
-          </div>
-        ) : null}
-      </div>
+      <DetailKeyValueCard
+        entries={[
+          ...(gstin ? [{ label: "GSTIN", value: gstin, mono: true }] : []),
+          ...(phone ? [{ label: "Phone", value: phone, mono: true }] : []),
+          ...(address ? [{ label: "Address", value: address }] : []),
+        ]}
+      />
 
       {/* ── Financial summary ── */}
-      <div
-        className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2 mb-3"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <div>
-          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Purchase Order Value
-          </p>
-          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {formatCurrencyCompact(totalPoValue)}
-          </p>
-        </div>
-        <div className="text-center">
-          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Paid
-          </p>
-          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
-            {formatCurrencyCompact(totalPaid)}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Owed
-          </p>
-          <p className="text-m-section font-bold tabular-nums" style={{ color: hasDues ? "var(--color-stop)" : "var(--color-ink-950)" }}>
-            {formatCurrencyCompact(balanceOwed)}
-          </p>
-        </div>
-      </div>
+      <DetailStatGrid
+        cols={3}
+        stats={[
+          { label: "Purchase Order Value", value: formatCurrencyCompact(totalPoValue) },
+          { label: "Paid", value: formatCurrencyCompact(totalPaid), tone: "go" },
+          { label: "Owed", value: formatCurrencyCompact(balanceOwed), tone: hasDues ? "stop" : "default" },
+        ]}
+      />
 
       {/* ── Tab switcher ── */}
       <div className="flex gap-1 mb-2">

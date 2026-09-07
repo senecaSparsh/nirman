@@ -15,6 +15,7 @@ import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { AttachmentList } from "@/components/attachments/attachment-list";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { DetailStatGrid, DetailKeyValueCard } from "@/components/mobile/v2/detail-primitives";
 
 type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
 type PaymentStatus = "PENDING" | "PARTIAL" | "PAID";
@@ -441,47 +442,15 @@ export function MobileMaterialSaleDetailClient({
       </div>
 
       {/* ── Financial summary ── */}
-      <div
-        className="flex items-center justify-between rounded-[0.5rem] border px-3 py-2 mb-3"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <div>
-          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Subtotal
-          </p>
-          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {formatCurrencyCompact(subtotal)}
-          </p>
-        </div>
-        <div className="text-center">
-          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            GST
-          </p>
-          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {formatCurrencyCompact(gstTotal)}
-          </p>
-        </div>
-        <div className="text-center">
-          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Cost
-          </p>
-          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
-            {formatCurrencyCompact(totalCost)}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Profit
-          </p>
-          <p
-            className="text-m-section font-bold tabular-nums flex items-center gap-0.5 justify-end"
-            style={{ color: grossProfit >= 0 ? "var(--color-go)" : "var(--color-stop)" }}
-          >
-            <TrendingUp className="size-2.5" />
-            {formatCurrencyCompact(grossProfit)}
-          </p>
-        </div>
-      </div>
+      <DetailStatGrid
+        cols={4}
+        stats={[
+          { label: "Subtotal", value: formatCurrencyCompact(subtotal) },
+          { label: "GST", value: formatCurrencyCompact(gstTotal) },
+          { label: "Cost", value: formatCurrencyCompact(totalCost) },
+          { label: "Profit", value: `${grossProfit >= 0 ? "+" : ""}${formatCurrencyCompact(grossProfit)}`, tone: grossProfit >= 0 ? "go" : "stop" },
+        ]}
+      />
 
       {/* Scrap recovery indicator */}
       {scrapSubtotal > 0 ? (

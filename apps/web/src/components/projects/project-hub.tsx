@@ -484,7 +484,7 @@ function OverviewTab({ data }: { data: ProjectHubData }) {
             <div className="divide-y divide-border">
               <ContextLink href={`/units?project=${project.id}`} label="Built Units" value={stats.builtUnitCount} />
               <ContextLink href={`/land?project=${project.id}`} label="Land Parcels" value={stats.landParcelCount} />
-              <ContextLink href="/requisitions" label="Indents" value={stats.openRequisitionCount} />
+              <ContextLink href="/procurement?tab=indents" label="Indents" value={stats.openRequisitionCount} />
               <ContextLink href="/procurement" label="Open POs" value={stats.openPOCount} />
               <ContextLink href="/equipment" label="Equipment" value={stats.equipmentCount} />
             </div>
@@ -704,7 +704,7 @@ function StockTab({ data }: { data: ProjectHubData }) {
     try {
       const res = await fetch(`/api/site-stock-valuation?projectId=${data.project.id}`);
       if (res.ok) setValuation(await res.json());
-    } catch { /* ignore */ } finally { setValuationLoading(false); }
+    } catch (err) { console.warn("Failed to load site stock valuation:", err); } finally { setValuationLoading(false); }
   }
 
   const toggle = (
@@ -1346,7 +1346,7 @@ function FinanceTab({ data }: { data: ProjectHubData }) {
           <p className="text-body text-foreground">
             <span className="font-medium text-danger">{formatCurrency(varianceAmt)} over budget</span>
             <span className="text-muted-foreground"> — actual is {variancePct.toFixed(1)}% above the {formatCurrency(budget)} budget.</span>
-            <Link href="/budget-variance" className="ml-2 font-medium text-brand hover:underline">Review line-by-line →</Link>
+            <Link href="/cost-control?tab=budget-variance" className="ml-2 font-medium text-brand hover:underline">Review line-by-line →</Link>
           </p>
         </div>
       )}
@@ -1357,7 +1357,7 @@ function FinanceTab({ data }: { data: ProjectHubData }) {
         <div className="flex flex-col rounded-lg border border-border bg-card p-4 shadow-raised">
           <div className="flex items-center justify-between">
             <h2 className="text-label text-muted-foreground">Cost Breakdown</h2>
-            <Link href="/budget-variance" className="text-caption font-medium text-brand hover:underline">Variance Detail →</Link>
+            <Link href="/cost-control?tab=budget-variance" className="text-caption font-medium text-brand hover:underline">Variance Detail →</Link>
           </div>
           <div className="mt-4 flex flex-1 flex-col justify-center space-y-2.5">
             {costBreakdown.length === 0 ? (
@@ -1456,8 +1456,8 @@ function FinanceTab({ data }: { data: ProjectHubData }) {
 
       {/* Analysis links */}
       <div className="flex justify-center gap-4">
-        <Link href="/profit-center" className="text-caption font-medium text-brand hover:underline">Profit Center →</Link>
-        <Link href="/project-control" className="text-caption font-medium text-brand hover:underline">EVM Analysis →</Link>
+        <Link href="/cost-control?tab=profit-center" className="text-caption font-medium text-brand hover:underline">Profit Center →</Link>
+        <Link href="/cost-control?tab=project-control" className="text-caption font-medium text-brand hover:underline">EVM Analysis →</Link>
         <Link href="/material-reconciliation" className="text-caption font-medium text-brand hover:underline">Material Reconciliation →</Link>
       </div>
 

@@ -35,6 +35,7 @@ interface RequestContext {
   user?: Promise<CurrentUser | null>;
   company?: Promise<unknown>;
   permissions?: Promise<string[]>;
+  navBootstrap?: Promise<NavBootstrap | null>;
 }
 
 const requestContextALS = new AsyncLocalStorage<RequestContext>();
@@ -1167,6 +1168,32 @@ export const employeeSchema = z.object({
   noticePeriodDays: z.coerce.number().int().min(0).max(365).optional().nullable(),
   contractStartDate: z.string().optional().nullable(),
   contractEndDate: z.string().optional().nullable(),
+  // Dossier fields — collected during hiring for complete onboarding
+  payDay: z.coerce.number().int().min(1).max(31).optional().nullable(),
+  bankAccountHolder: z.string().optional().nullable(),
+  bankAccountNumber: z.string().optional().nullable(),
+  bankIfsc: z.string().optional().nullable(),
+  bankName: z.string().optional().nullable(),
+  bankBranch: z.string().optional().nullable(),
+  panNumber: z.string().optional().nullable(),
+  aadhaarNumber: z.string().optional().nullable(),
+  pfNumber: z.string().optional().nullable(),
+  esiNumber: z.string().optional().nullable(),
+  uan: z.string().optional().nullable(),
+  emergencyContactName: z.string().optional().nullable(),
+  emergencyContactPhone: z.string().optional().nullable(),
+  emergencyContactRelation: z.string().optional().nullable(),
+  permanentAddress: z.string().optional().nullable(),
+  currentAddress: z.string().optional().nullable(),
+  // Salary components (CTC breakdown) — saved before auto-generating documents
+  salaryComponents: z.array(z.object({
+    type: z.string(),
+    amount: z.coerce.number().finite().nonnegative(),
+    frequency: z.enum(["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY", "ONE_TIME"]).optional(),
+    isDeduction: z.boolean().optional(),
+    isPercentage: z.boolean().optional(),
+    percentageOfBasic: z.coerce.number().finite().nullable().optional(),
+  })).optional(),
 });
 
 // ── Crew ──
@@ -1427,7 +1454,8 @@ export async function getSession() {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     return session;
-  } catch {
+  } catch (err) {
+    console.error("getSession failed:", err);
     return null;
   }
   });
@@ -1614,6 +1642,125 @@ export async function getUserPermissions(): Promise<string[]> {
   const userOverrides = userMembership?.userPermissions.map((p) => p.permission) ?? [];
   return effectivePermissions(user.role, [...roleOverrides, ...userOverrides]);
   });
+}
+
+/**
+ * Identity payload for the nav shells (desktop AppShell + mobile
+ * MobileShellV2). Resolved once per request in the root layout so the
+ * nav renders with the real role/permissions/company on first paint —
+ * no client-side /api/me + /api/company waterfall after hydration.
+ *
+ * `me` matches the /api/me response shape and `company` matches
+ * /api/company, so both can seed SWR's `fallback` cache directly — every
+ * client consumer (AppShell, usePermissions, page hooks) starts with
+ * real data instead of a least-privileged placeholder.
+ */
+export interface NavBootstrap {
+  me: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    role: string;
+    permissions: string[];
+  };
+  company: {
+    id: string;
+    name: string;
+    currency: string;
+    gstin: string | null;
+    pan: string | null;
+    address: string | null;
+    phone: string | null;
+    email: string | null;
+    businessType: string | null;
+    parentCompanyId: string | null;
+    companies: {
+      id: string;
+      name: string;
+      businessType: string | null;
+      parentName: string | null;
+      parentCompanyId: string | null;
+      isCurrent: boolean;
+    }[];
+  };
+}
+
+/**
+ * Resolve the nav identity for the current request, or null when there is
+ * no authenticated session (public routes — the client auth guard handles
+ * the redirect). Memoized per request: the root layout's call and the /m
+ * layout's call share one computation when the ALS context propagates.
+ */
+export async function getNavBootstrap(): Promise<NavBootstrap | null> {
+  const run = () =>
+    memoizeInRequest("navBootstrap", async () => {
+      const user = await getCurrentUser();
+      if (!user) return null;
+
+      const [company, permissions] = await Promise.all([
+        getCompany(),
+        getUserPermissions(),
+      ]);
+
+      // Same visibility rule as GET /api/company: superusers (and dev-bypass)
+      // see every company; everyone else sees only their memberships.
+      const isSuperuser = user.role === "OWNER" || user.role === "ADMIN";
+      const isDevBypass =
+        process.env.AUTH_BYPASS === "true" &&
+        process.env.NODE_ENV !== "production" &&
+        user.id === "dev";
+      const visible = await prisma.company.findMany({
+        where: {
+          deletedAt: null,
+          ...(isSuperuser || isDevBypass
+            ? {}
+            : { userMemberships: { some: { userId: user.id } } }),
+        },
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          businessType: true,
+          parentCompanyId: true,
+          parent: { select: { id: true, name: true } },
+        },
+      });
+
+      return {
+        me: {
+          id: user.id,
+          name: user.name || null,
+          email: user.email || null,
+          role: user.role,
+          permissions,
+        },
+        company: {
+          id: company.id,
+          name: company.name,
+          currency: company.currency,
+          gstin: company.gstin,
+          pan: company.pan,
+          address: company.address,
+          phone: company.phone,
+          email: company.email,
+          businessType: company.businessType,
+          parentCompanyId: company.parentCompanyId,
+          companies: visible.map((c) => ({
+            id: c.id,
+            name: c.name,
+            businessType: c.businessType,
+            parentName: c.parent?.name ?? null,
+            parentCompanyId: c.parentCompanyId ?? null,
+            isCurrent: c.id === company.id,
+          })),
+        },
+      };
+    });
+  // When no request context is active (called outside apiHandler/layout),
+  // create one so the internal getCurrentUser/getCompany/getUserPermissions
+  // calls still dedupe among themselves.
+  if (!requestContextALS.getStore()) return runWithRequestContext(run);
+  return run();
 }
 
 /** Error thrown when a permission/role check fails — caught by apiHandler. */

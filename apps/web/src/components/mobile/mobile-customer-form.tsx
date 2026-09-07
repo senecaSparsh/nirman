@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { toast } from "sonner";
 import {
-  UserPlus, Loader2, Check, AlertCircle, ChevronLeft, Send, Users,
+  UserPlus, Loader2, Check, AlertCircle, Send,
 } from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { BottomSheet } from "@/components/mobile/v2/bottom-sheet";
@@ -133,27 +132,6 @@ export function MobileCustomerForm({
 
   return (
     <div className={onClose ? "" : "pb-32"}>
-      {/* ── Header — hidden in modal mode (MobileFabModal provides title) ── */}
-      {onClose ? null : (
-      <div className="flex items-center gap-1 mb-3">
-        <Link href="/m/sales/new" aria-label="Back" className="shrink-0">
-          <ChevronLeft className="size-5" style={{ color: "var(--color-ink-700)" }} />
-        </Link>
-        <div className="flex-1 min-w-0">
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-            New Customer
-          </p>
-        </div>
-        <span
-          className="flex items-center gap-1.5 text-m-section font-extrabold tracking-tight px-2 py-0.5 rounded-full shrink-0"
-          style={{ color: "var(--color-ink-500)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
-        >
-          <Users className="size-2.5" />
-          Customer
-        </span>
-      </div>
-      )}
-
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {/* ── Name ── */}
         <FormField label="Customer name" required>

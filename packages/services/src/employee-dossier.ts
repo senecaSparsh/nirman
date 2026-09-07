@@ -1,5 +1,6 @@
 import { prisma, Prisma } from "@nirman/db";
 import { logAction } from "./audit";
+import { HrError } from "./hr";
 
 // ───────────────────────────────────────────────────────────────
 //  Employee Dossier — employment terms, bank, tax, benefits,
@@ -181,5 +182,196 @@ export async function deleteEmployeeBenefit(
       entityType: "EmployeeBenefit",
       entityId: benefitId,
     });
+  });
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Salary Components — CTC breakdown (Basic, HRA, DA, TA, etc.)
+//  Each employee can have multiple salary components that together
+//  form their salary structure. Used in offer letters, agreements,
+//  and payroll computation.
+// ───────────────────────────────────────────────────────────────
+
+export type SalaryComponentTypeInput =
+  | "BASIC" | "HRA" | "DA" | "TA" | "SPECIAL_ALLOWANCE"
+  | "FOOD_ALLOWANCE" | "MEDICAL_ALLOWANCE" | "UNIFORM_ALLOWANCE"
+  | "WASHING_ALLOWANCE" | "LTA" | "PERFORMANCE_BONUS"
+  | "JOINING_BONUS" | "RETENTION_BONUS"
+  | "EMPLOYER_PF" | "EMPLOYEE_PF" | "EMPLOYER_ESI" | "EMPLOYEE_ESI"
+  | "GRATUITY" | "PROFESSION_TAX" | "TDS" | "OTHER";
+
+export type ComponentFrequencyInput =
+  | "MONTHLY" | "QUARTERLY" | "HALF_YEARLY" | "YEARLY" | "ONE_TIME";
+
+export type CreateSalaryComponentInput = {
+  employeeId: string;
+  type: SalaryComponentTypeInput;
+  amount: number;
+  frequency?: ComponentFrequencyInput;
+  isDeduction?: boolean;
+  isPercentage?: boolean;
+  percentageOfBasic?: number | null;
+  notes?: string | null;
+};
+
+export async function createSalaryComponent(
+  input: CreateSalaryComponentInput,
+  companyId: string,
+  userId: string,
+) {
+  return prisma.$transaction(async (tx) => {
+    // Verify employee belongs to this company
+    const employee = await tx.employee.findFirst({
+      where: { id: input.employeeId, companyId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!employee) throw new HrError("Employee not found", 404);
+
+    // Upsert: if a component of this type already exists, update it
+    const component = await tx.salaryComponent.upsert({
+      where: {
+        employeeId_type: { employeeId: input.employeeId, type: input.type },
+      },
+      create: {
+        employeeId: input.employeeId,
+        type: input.type,
+        amount: new Prisma.Decimal(input.amount),
+        frequency: input.frequency ?? "MONTHLY",
+        isDeduction: input.isDeduction ?? false,
+        isPercentage: input.isPercentage ?? false,
+        percentageOfBasic: input.percentageOfBasic != null ? new Prisma.Decimal(input.percentageOfBasic) : null,
+        notes: input.notes ?? null,
+      },
+      update: {
+        amount: new Prisma.Decimal(input.amount),
+        frequency: input.frequency ?? "MONTHLY",
+        isDeduction: input.isDeduction ?? false,
+        isPercentage: input.isPercentage ?? false,
+        percentageOfBasic: input.percentageOfBasic != null ? new Prisma.Decimal(input.percentageOfBasic) : null,
+        notes: input.notes ?? null,
+      },
+    });
+
+    await logAction(tx, {
+      userId,
+      companyId,
+      action: "SALARY_COMPONENT_CREATE",
+      entityType: "SalaryComponent",
+      entityId: component.id,
+      after: { ...input, employeeId: input.employeeId } as Record<string, unknown>,
+    });
+
+    return component;
+  });
+}
+
+export type UpdateSalaryComponentInput = {
+  amount?: number;
+  frequency?: ComponentFrequencyInput;
+  isDeduction?: boolean;
+  isPercentage?: boolean;
+  percentageOfBasic?: number | null;
+  notes?: string | null;
+  active?: boolean;
+};
+
+export async function updateSalaryComponent(
+  componentId: string,
+  companyId: string,
+  userId: string,
+  input: UpdateSalaryComponentInput,
+) {
+  return prisma.$transaction(async (tx) => {
+    const data: Prisma.SalaryComponentUpdateInput = {};
+    if (input.amount !== undefined) data.amount = new Prisma.Decimal(input.amount);
+    if (input.frequency !== undefined) data.frequency = input.frequency;
+    if (input.isDeduction !== undefined) data.isDeduction = input.isDeduction;
+    if (input.isPercentage !== undefined) data.isPercentage = input.isPercentage;
+    if (input.percentageOfBasic !== undefined) data.percentageOfBasic = input.percentageOfBasic != null ? new Prisma.Decimal(input.percentageOfBasic) : null;
+    if (input.notes !== undefined) data.notes = input.notes ?? null;
+    if (input.active !== undefined) data.active = input.active;
+
+    const component = await tx.salaryComponent.update({ where: { id: componentId }, data });
+
+    await logAction(tx, {
+      userId,
+      companyId,
+      action: "SALARY_COMPONENT_UPDATE",
+      entityType: "SalaryComponent",
+      entityId: componentId,
+      after: input as Record<string, unknown>,
+    });
+
+    return component;
+  });
+}
+
+export async function deleteSalaryComponent(
+  componentId: string,
+  companyId: string,
+  userId: string,
+) {
+  return prisma.$transaction(async (tx) => {
+    await tx.salaryComponent.delete({ where: { id: componentId } });
+
+    await logAction(tx, {
+      userId,
+      companyId,
+      action: "SALARY_COMPONENT_DELETE",
+      entityType: "SalaryComponent",
+      entityId: componentId,
+    });
+  });
+}
+
+/**
+ * Batch-set salary components for an employee — replaces all existing
+ * components with the provided list. Used by the hiring form to set
+ * the full salary structure in one call.
+ */
+export async function setSalaryComponents(
+  employeeId: string,
+  companyId: string,
+  userId: string,
+  components: CreateSalaryComponentInput[],
+) {
+  return prisma.$transaction(async (tx) => {
+    const employee = await tx.employee.findFirst({
+      where: { id: employeeId, companyId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!employee) throw new HrError("Employee not found", 404);
+
+    // Delete existing components
+    await tx.salaryComponent.deleteMany({ where: { employeeId } });
+
+    // Create new ones
+    const created = await Promise.all(
+      components.map((c) =>
+        tx.salaryComponent.create({
+          data: {
+            employeeId,
+            type: c.type,
+            amount: new Prisma.Decimal(c.amount),
+            frequency: c.frequency ?? "MONTHLY",
+            isDeduction: c.isDeduction ?? false,
+            isPercentage: c.isPercentage ?? false,
+            percentageOfBasic: c.percentageOfBasic != null ? new Prisma.Decimal(c.percentageOfBasic) : null,
+            notes: c.notes ?? null,
+          },
+        }),
+      ),
+    );
+
+    await logAction(tx, {
+      userId,
+      companyId,
+      action: "SALARY_COMPONENTS_SET",
+      entityType: "Employee",
+      entityId: employeeId,
+      after: { count: created.length } as Record<string, unknown>,
+    });
+
+    return created;
   });
 }

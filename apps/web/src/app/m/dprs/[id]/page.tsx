@@ -1,21 +1,20 @@
-import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Cloud, Hammer, Users, AlertTriangle, CheckCircle2, XCircle, Printer } from "lucide-react";
-import { getCompany, getUserRole, getUserPermissions, toNum } from "@/lib/server";
+import { Cloud, Hammer, Users, CheckCircle2, XCircle } from "lucide-react";
+import { getUserPermissions, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
 import { AttachmentList } from "@/components/attachments/attachment-list";
 import { MobileEmptyState, mobileStatusColor } from "@/components/mobile/v2/primitives";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { resolveNextAction } from "@/lib/flow-map";
+import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileDprActions } from "./MobileDprActions";
 import { MobileDprVarianceButton } from "./MobileDprVarianceButton";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
+import { DetailAlertBanner, DetailPrintButton } from "@/components/mobile/v2/detail-primitives";
 
 export default function MobileDprDetailPage({
   params,
@@ -23,482 +22,454 @@ export default function MobileDprDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonDetail sections={6} />}>
-      <MobileDprDetailContent params={params} />
-    </Suspense>
-  );
-}
+    <MobileDetailPage params={params} managePerm={PERM.HR_MANAGE} skeletonSections={6}>
+      {async ({ id, company, role, canManage }) => {
+        const overrides = await getUserPermissions();
 
-async function MobileDprDetailContent({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  await connection();
-  const company = await getCompany();
-  const role = await getUserRole();
-  const overrides = await getUserPermissions();
-  const { id } = await params;
+        const dpr = await prisma.dailyProgressReport.findFirst({
+          where: { id, project: { companyId: company.id } },
+          include: {
+            project: { select: { id: true, name: true } },
+            submittedBy: { select: { id: true, name: true } },
+            subAdminApprovedBy: { select: { name: true } },
+            adminApprovedBy: { select: { name: true } },
+            materialLines: {
+              include: { material: { select: { name: true, unit: true, code: true } } },
+            },
+            laborLines: {
+              include: {
+                employee: { select: { id: true, name: true } },
+                crew: { select: { name: true } },
+              },
+            },
+          },
+        });
 
-  const dpr = await prisma.dailyProgressReport.findFirst({
-    where: { id, project: { companyId: company.id } },
-    include: {
-      project: { select: { id: true, name: true } },
-      submittedBy: { select: { id: true, name: true } },
-      subAdminApprovedBy: { select: { name: true } },
-      adminApprovedBy: { select: { name: true } },
-      materialLines: {
-        include: { material: { select: { name: true, unit: true, code: true } } },
-      },
-      laborLines: {
-        include: {
-          employee: { select: { id: true, name: true } },
-          crew: { select: { name: true } },
-        },
-      },
-    },
-  });
-
-  if (!dpr) {
-    return (
-      <div>
-        <div className="mb-4">
-        </div>
-        <MobileEmptyState icon={Hammer} title="Daily Progress Report not found" />
-      </div>
-    );
-  }
-
-  const canApproveSubAdmin = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN);
-  const canApproveAdmin = hasPermission(role, PERM.DPR_APPROVE_ADMIN);
-  const canResubmit = hasPermission(role, PERM.DPR_SUBMIT);
-  const canMarkCostPosted = hasPermission(role, PERM.FINANCE_VIEW);
-  const canManage = hasPermission(role, PERM.HR_MANAGE);
-
-  const status =
-    dpr.approvalStatus === "SUBMITTED" ? "submitted" :
-    dpr.approvalStatus === "SUB_ADMIN_APPROVED" ? "subAdmin" :
-    dpr.approvalStatus === "APPROVED" ? "approved" :
-    dpr.approvalStatus === "REJECTED" ? "rejected" : "submitted";
-
-  const statusColor = mobileStatusColor(dpr.approvalStatus);
-
-  const pct = Math.min(toNum(dpr.progressPct), 100);
-
-  // Totals
-  const totalMaterialCost = dpr.materialLines.reduce(
-    (s, l) => s + toNum(l.qty) * toNum(l.unitCost), 0,
-  );
-  const totalHours = dpr.laborLines.reduce((s, l) => s + toNum(l.hoursWorked), 0);
-
-  // Approval step info
-  const steps = [
-    {
-      label: "Submitted",
-      done: true,
-      date: formatDate(dpr.date),
-      person: dpr.submittedBy?.name ?? "—",
-    },
-    {
-      label: "Sub-Admin",
-      done: status === "subAdmin" || status === "approved",
-      date: dpr.subAdminApprovedAt ? formatDate(dpr.subAdminApprovedAt) : null,
-      person: dpr.subAdminApprovedBy?.name ?? null,
-    },
-    {
-      label: "Admin",
-      done: status === "approved",
-      date: dpr.adminApprovedAt ? formatDate(dpr.adminApprovedAt) : null,
-      person: dpr.adminApprovedBy?.name ?? null,
-    },
-  ];
-
-  const nextAction = resolveNextAction("dpr", dpr.approvalStatus, role, overrides);
-
-  // Permissions to announce to the NavSheet's Next Step resolver
-  const canActions: string[] = [];
-  if (canApproveSubAdmin) canActions.push(PERM.DPR_APPROVE_SUB_ADMIN);
-  if (canApproveAdmin) canActions.push(PERM.DPR_APPROVE_ADMIN);
-  if (canResubmit) canActions.push(PERM.DPR_SUBMIT);
-  if (canManage) canActions.push(PERM.HR_MANAGE);
-
-  return (
-    <PageContextProvider value={{
-      entityType: "dpr",
-      flowId: "dpr",
-      status: dpr.approvalStatus,
-      label: `DPR ${dpr.date.toISOString().slice(0, 10)}`,
-      subtitle: dpr.project?.name,
-      recordId: dpr.id,
-      canActions,
-    }}>
-    <div className="pb-20">
-      <RecordRecentItem type="dpr" id={dpr.id} label={`DPR ${dpr.date.toISOString().slice(0, 10)}`} sublabel={dpr.project?.name} href={`/m/dprs/${dpr.id}`} />
-
-      {/* ── Next action — the one thing to do, doable on this page ── */}
-      {nextAction ? (
-        <NextActionCardView
-          label={nextAction.label}
-          reason={nextAction.reason}
-          tone={nextAction.tone ?? "signal"}
-          hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
-          href={nextAction.action.type === "navigate" ? nextAction.action.href.replace("{id}", dpr.id) : undefined}
-        />
-      ) : null}
-
-      {/* ── Report header banner ── */}
-      <div
-        className="rounded-[0.75rem] overflow-hidden mb-4"
-        style={{ backgroundColor: "var(--color-paper)", border: "1px solid var(--color-line)" }}
-      >
-        {/* Color strip */}
-        <div className="h-1 w-full" style={{ backgroundColor: statusColor }} />
-
-        <div className="flex items-start gap-3 p-3.5">
-          {/* Left: date + project + badges */}
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-0.5">
-              <h1 className="text-m-section font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
-                {formatDate(dpr.date)}
-              </h1>
-              <a
-                href={`/api/dprs/${dpr.id}/print`}
-                className="ml-auto flex items-center gap-1 text-m-body font-semibold px-2.5 py-1 rounded-[0.5rem] border text-m-body press"
-                style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
-              >
-                <Printer className="size-3.5" />
-                Print
-              </a>
+        if (!dpr) {
+          return (
+            <div>
+              <div className="mb-4">
+              </div>
+              <MobileEmptyState icon={Hammer} title="Daily Progress Report not found" />
             </div>
-            <Link
-              href={`/m/projects/${dpr.project.id}`}
-              className="text-m-section font-semibold block mt-0.5 hover:underline"
-              style={{ color: "var(--color-ink-700)" }}
+          );
+        }
+
+        const canApproveSubAdmin = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN);
+        const canApproveAdmin = hasPermission(role, PERM.DPR_APPROVE_ADMIN);
+        const canResubmit = hasPermission(role, PERM.DPR_SUBMIT);
+        const canMarkCostPosted = hasPermission(role, PERM.FINANCE_VIEW);
+
+        const status =
+          dpr.approvalStatus === "SUBMITTED" ? "submitted" :
+          dpr.approvalStatus === "SUB_ADMIN_APPROVED" ? "subAdmin" :
+          dpr.approvalStatus === "APPROVED" ? "approved" :
+          dpr.approvalStatus === "REJECTED" ? "rejected" : "submitted";
+
+        const statusColor = mobileStatusColor(dpr.approvalStatus);
+
+        const pct = Math.min(toNum(dpr.progressPct), 100);
+
+        // Totals
+        const totalMaterialCost = dpr.materialLines.reduce(
+          (s, l) => s + toNum(l.qty) * toNum(l.unitCost), 0,
+        );
+        const totalHours = dpr.laborLines.reduce((s, l) => s + toNum(l.hoursWorked), 0);
+
+        // Approval step info
+        const steps = [
+          {
+            label: "Submitted",
+            done: true,
+            date: formatDate(dpr.date),
+            person: dpr.submittedBy?.name ?? "—",
+          },
+          {
+            label: "Sub-Admin",
+            done: status === "subAdmin" || status === "approved",
+            date: dpr.subAdminApprovedAt ? formatDate(dpr.subAdminApprovedAt) : null,
+            person: dpr.subAdminApprovedBy?.name ?? null,
+          },
+          {
+            label: "Admin",
+            done: status === "approved",
+            date: dpr.adminApprovedAt ? formatDate(dpr.adminApprovedAt) : null,
+            person: dpr.adminApprovedBy?.name ?? null,
+          },
+        ];
+
+        const nextAction = resolveNextAction("dpr", dpr.approvalStatus, role, overrides);
+
+        // Permissions to announce to the NavSheet's Next Step resolver
+        const canActions: string[] = [];
+        if (canApproveSubAdmin) canActions.push(PERM.DPR_APPROVE_SUB_ADMIN);
+        if (canApproveAdmin) canActions.push(PERM.DPR_APPROVE_ADMIN);
+        if (canResubmit) canActions.push(PERM.DPR_SUBMIT);
+        if (canManage) canActions.push(PERM.HR_MANAGE);
+
+        return (
+          <PageContextProvider value={{
+            entityType: "dpr",
+            flowId: "dpr",
+            status: dpr.approvalStatus,
+            label: `DPR ${dpr.date.toISOString().slice(0, 10)}`,
+            subtitle: dpr.project?.name,
+            recordId: dpr.id,
+            canActions,
+          }}>
+          <div className="pb-20">
+            <RecordRecentItem type="dpr" id={dpr.id} label={`DPR ${dpr.date.toISOString().slice(0, 10)}`} sublabel={dpr.project?.name} href={`/m/dprs/${dpr.id}`} />
+
+            {/* ── Next action — the one thing to do, doable on this page ── */}
+            {nextAction ? (
+              <NextActionCardView
+                label={nextAction.label}
+                reason={nextAction.reason}
+                tone={nextAction.tone ?? "signal"}
+                hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
+                href={nextAction.action.type === "navigate" ? nextAction.action.href.replace("{id}", dpr.id) : undefined}
+              />
+            ) : null}
+
+            {/* ── Report header banner ── */}
+            <div
+              className="rounded-[0.75rem] overflow-hidden mb-4"
+              style={{ backgroundColor: "var(--color-paper)", border: "1px solid var(--color-line)" }}
             >
-              {dpr.project.name}
-            </Link>
-            <div className="flex flex-wrap items-center gap-1.5 mt-2">
-              {dpr.workType ? (
-                <span
-                  className="text-m-caption font-bold uppercase px-2 py-0.5 rounded-[0.25rem]"
-                  style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
-                >
-                  {dpr.workType}
-                </span>
-              ) : null}
-              {dpr.weather ? (
-                <span
-                  className="text-m-caption font-semibold px-2 py-0.5 rounded-[0.25rem] flex items-center gap-1"
-                  style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}
-                >
-                  <Cloud className="size-2.5" />
-                  {dpr.weather}
-                </span>
-              ) : null}
-              <span
-                className="text-m-caption font-bold uppercase px-2 py-0.5 rounded-[0.25rem]"
-                style={{ backgroundColor: statusColor, color: "var(--color-paper)" }}
-              >
-                {dpr.approvalStatus.replace(/_/g, " ")}
-              </span>
-            </div>
-            <p className="text-m-caption mt-1.5" style={{ color: "var(--color-ink-500)" }}>
-              By {dpr.submittedBy?.name ?? "—"}
-            </p>
-          </div>
+              {/* Color strip */}
+              <div className="h-1 w-full" style={{ backgroundColor: statusColor }} />
 
-          {/* Right: large progress ring */}
-          <div className="shrink-0">
-            <ProgressRingLarge pct={pct} color={status === "rejected" ? "var(--color-stop)" : statusColor} />
-          </div>
-        </div>
-      </div>
-
-      {/* ── Narrative section ── */}
-      {dpr.workSummary ? (
-        <div className="mb-4">
-          <p className="text-m-caption font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-steel)" }}>
-            Work Summary
-          </p>
-          <p className="text-m-section leading-relaxed" style={{ color: "var(--color-ink-900)" }}>
-            {dpr.workSummary}
-          </p>
-        </div>
-      ) : null}
-
-      {dpr.blockers ? (
-        <div
-          className="rounded-[0.5rem] p-3 mb-4 flex items-start gap-2"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-stop) 8%, transparent)" }}
-        >
-          <AlertTriangle className="size-4 shrink-0 mt-0.5" style={{ color: "var(--color-stop)" }} />
-          <div>
-            <p className="text-m-caption font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--color-stop)" }}>
-              Blockers
-            </p>
-            <p className="text-m-section" style={{ color: "var(--color-ink-900)" }}>
-              {dpr.blockers}
-            </p>
-          </div>
-        </div>
-      ) : null}
-
-      {dpr.tomorrowPlan ? (
-        <div
-          className="rounded-[0.5rem] p-3 mb-4"
-          style={{ backgroundColor: "var(--color-paper-2)" }}
-        >
-          <p className="text-m-caption font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--color-steel)" }}>
-            Tomorrow&apos;s Plan
-          </p>
-          <p className="text-m-section" style={{ color: "var(--color-ink-700)" }}>
-            {dpr.tomorrowPlan}
-          </p>
-        </div>
-      ) : null}
-
-      {dpr.photoUrls && dpr.photoUrls.length > 0 ? (
-        <div className="mb-4">
-          <p className="text-m-caption font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-steel)" }}>
-            Site Photos
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {dpr.photoUrls.map((url, i) => (
-              <a
-                key={i}
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="relative block overflow-hidden rounded-[0.375rem] border aspect-video"
-                style={{ borderColor: "var(--color-line)" }}
-              >
-                <Image src={url} alt={`Site photo ${i + 1}`} fill className="object-cover" sizes="(max-width: 768px) 100vw, 400px" />
-              </a>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {/* ── Two-column data: Materials + Labor ── */}
-      <div className="grid grid-cols-2 gap-2 mb-4">
-        {/* Materials */}
-        <div
-          className="rounded-[0.625rem] border overflow-hidden"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-        >
-          <div className="flex items-center gap-1.5 px-2.5 py-2 border-b" style={{ borderColor: "var(--color-line)" }}>
-            <Hammer className="size-3" style={{ color: "var(--color-steel)" }} />
-            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
-              Materials
-            </span>
-          </div>
-          {dpr.materialLines.length === 0 ? (
-            <p className="text-m-caption p-2.5" style={{ color: "var(--color-ink-400)" }}>
-              None recorded
-            </p>
-          ) : (
-            <div>
-              {dpr.materialLines.map((ml, i) => (
-                <div
-                  key={ml.id}
-                  className="px-2.5 py-1.5"
-                  style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
-                >
-                  <p className="text-m-label font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
-                    {ml.material.name}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-                      {formatNumber(toNum(ml.qty), 0)} {ml.material.unit}
-                    </span>
-                    <span className="text-m-caption tabular-nums font-semibold" style={{ color: "var(--color-ink-700)" }}>
-                      {formatCurrency(toNum(ml.qty) * toNum(ml.unitCost))}
-                    </span>
+              <div className="flex items-start gap-3 p-3.5">
+                {/* Left: date + project + badges */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <h1 className="text-m-section font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+                      {formatDate(dpr.date)}
+                    </h1>
+                    <div className="ml-auto">
+                      <DetailPrintButton href={`/api/dprs/${dpr.id}/print`} />
+                    </div>
                   </div>
-                </div>
-              ))}
-              <div
-                className="px-2.5 py-1.5 flex items-center justify-between"
-                style={{ borderTop: "1px solid var(--color-line)" }}
-              >
-                <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>
-                  Total
-                </span>
-                <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-                  {formatCurrency(totalMaterialCost)}
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Labor */}
-        <div
-          className="rounded-[0.625rem] border overflow-hidden"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-        >
-          <div className="flex items-center gap-1.5 px-2.5 py-2 border-b" style={{ borderColor: "var(--color-line)" }}>
-            <Users className="size-3" style={{ color: "var(--color-steel)" }} />
-            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
-              Labor
-            </span>
-          </div>
-          {dpr.laborLines.length === 0 ? (
-            <p className="text-m-caption p-2.5" style={{ color: "var(--color-ink-400)" }}>
-              None recorded
-            </p>
-          ) : (
-            <div>
-              {dpr.laborLines.map((ll, i) => (
-                <div
-                  key={ll.id}
-                  className="px-2.5 py-1.5"
-                  style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
-                >
-                  <p className="text-m-label font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
-                    {ll.taskDescription}
-                  </p>
-                  <div className="flex items-center justify-between">
+                  <Link
+                    href={`/m/projects/${dpr.project.id}`}
+                    className="text-m-section font-semibold block mt-0.5 hover:underline"
+                    style={{ color: "var(--color-ink-700)" }}
+                  >
+                    {dpr.project.name}
+                  </Link>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    {dpr.workType ? (
+                      <span
+                        className="text-m-caption font-bold uppercase px-2 py-0.5 rounded-[0.25rem]"
+                        style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
+                      >
+                        {dpr.workType}
+                      </span>
+                    ) : null}
+                    {dpr.weather ? (
+                      <span
+                        className="text-m-caption font-semibold px-2 py-0.5 rounded-[0.25rem] flex items-center gap-1"
+                        style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}
+                      >
+                        <Cloud className="size-2.5" />
+                        {dpr.weather}
+                      </span>
+                    ) : null}
                     <span
-                      className="text-m-caption truncate"
-                      style={{ color: "var(--color-ink-500)", ...(ll.employee?.id ? { cursor: "pointer" } : {}) }}
-                      {...(ll.employee?.id ? { "data-emp-id": ll.employee.id } : {})}
+                      className="text-m-caption font-bold uppercase px-2 py-0.5 rounded-[0.25rem]"
+                      style={{ backgroundColor: statusColor, color: "var(--color-paper)" }}
                     >
-                      {ll.employee?.name ?? ll.crew?.name ?? "—"}
-                    </span>
-                    <span className="text-m-caption tabular-nums font-semibold" style={{ color: "var(--color-ink-700)" }}>
-                      {formatNumber(toNum(ll.hoursWorked), 1)}h
+                      {dpr.approvalStatus.replace(/_/g, " ")}
                     </span>
                   </div>
+                  <p className="text-m-caption mt-1.5" style={{ color: "var(--color-ink-500)" }}>
+                    By {dpr.submittedBy?.name ?? "—"}
+                  </p>
                 </div>
-              ))}
-              <div
-                className="px-2.5 py-1.5 flex items-center justify-between"
-                style={{ borderTop: "1px solid var(--color-line)" }}
-              >
-                <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>
-                  Total
-                </span>
-                <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-                  {formatNumber(totalHours, 1)}h
-                </span>
+
+                {/* Right: large progress ring */}
+                <div className="shrink-0">
+                  <ProgressRingLarge pct={pct} color={status === "rejected" ? "var(--color-stop)" : statusColor} />
+                </div>
               </div>
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* ── Variance analysis trigger ── */}
-      <MobileDprVarianceButton
-        dprId={dpr.id}
-        hasWorkType={!!dpr.workType}
-        hasVariance={!!dpr.varianceAnalysis}
-        canRun={canResubmit || canApproveSubAdmin || canApproveAdmin}
-      />
-
-      {/* ── Variance analysis (if present) ── */}
-      {dpr.varianceAnalysis ? (
-        <div
-          className="rounded-[0.5rem] p-3 mb-4 flex items-start gap-2"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, transparent)" }}
-        >
-          <AlertTriangle className="size-4 shrink-0 mt-0.5" style={{ color: "var(--color-signal)" }} />
-          <div>
-            <p className="text-m-caption font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--color-signal)" }}>
-              Variance Analysis
-            </p>
-            <p className="text-m-body" style={{ color: "var(--color-ink-700)" }}>
-              {typeof dpr.varianceAnalysis === "string"
-                ? dpr.varianceAnalysis
-                : "Over-consumption detected — see details"}
-            </p>
-          </div>
-        </div>
-      ) : null}
-
-      {/* ── Approval trail — horizontal stepper ── */}
-      <div className="mb-4">
-        <p className="text-m-caption font-bold uppercase tracking-wider mb-3" style={{ color: "var(--color-steel)" }}>
-          Approval Trail
-        </p>
-        <div className="flex items-start">
-          {steps.map((step, i) => (
-            <div key={step.label} className="flex items-start flex-1 last:flex-none">
-              {/* Step node */}
-              <div className="flex flex-col items-center gap-1 w-16 shrink-0">
-                <div
-                  className="w-7 h-7 rounded-full grid place-items-center border-2"
-                  style={{
-                    backgroundColor: step.done ? statusColor : "var(--color-paper)",
-                    borderColor: step.done ? statusColor : "var(--color-line)",
-                  }}
-                >
-                  {step.done ? (
-                    status === "rejected" && i > 0 ? (
-                      <XCircle className="size-3.5" style={{ color: "var(--color-paper)" }} />
-                    ) : (
-                      <CheckCircle2 className="size-3.5" style={{ color: "var(--color-paper)" }} />
-                    )
-                  ) : (
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
-                  )}
-                </div>
-                <span
-                  className="text-m-caption font-bold text-center"
-                  style={{ color: step.done ? "var(--color-ink-950)" : "var(--color-ink-400)" }}
-                >
-                  {step.label}
-                </span>
-                {step.done && step.person ? (
-                  <span className="text-m-caption text-center truncate w-full" style={{ color: "var(--color-ink-500)" }}>
-                    {step.person}
-                  </span>
-                ) : null}
-                {step.done && step.date ? (
-                  <span className="text-m-caption text-center" style={{ color: "var(--color-ink-400)" }}>
-                    {step.date}
-                  </span>
-                ) : null}
+            {/* ── Narrative section ── */}
+            {dpr.workSummary ? (
+              <div className="mb-4">
+                <p className="text-m-caption font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-steel)" }}>
+                  Work Summary
+                </p>
+                <p className="text-m-section leading-relaxed" style={{ color: "var(--color-ink-900)" }}>
+                  {dpr.workSummary}
+                </p>
               </div>
-              {/* Connector */}
-              {i < steps.length - 1 ? (
-                <div
-                  className="h-0.5 flex-1 mt-3.5 rounded-full"
-                  style={{
-                    backgroundColor: steps[i + 1]?.done ? statusColor : "var(--color-line)",
-                  }}
+            ) : null}
+
+            {dpr.blockers ? (
+              <div className="mb-4">
+                <DetailAlertBanner
+                  tone="danger"
+                  title="Blockers"
+                  description={dpr.blockers}
                 />
+              </div>
+            ) : null}
+
+            {dpr.tomorrowPlan ? (
+              <div
+                className="rounded-[0.5rem] p-3 mb-4"
+                style={{ backgroundColor: "var(--color-paper-2)" }}
+              >
+                <p className="text-m-caption font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--color-steel)" }}>
+                  Tomorrow&apos;s Plan
+                </p>
+                <p className="text-m-section" style={{ color: "var(--color-ink-700)" }}>
+                  {dpr.tomorrowPlan}
+                </p>
+              </div>
+            ) : null}
+
+            {dpr.photoUrls && dpr.photoUrls.length > 0 ? (
+              <div className="mb-4">
+                <p className="text-m-caption font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-steel)" }}>
+                  Site Photos
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {dpr.photoUrls.map((url, i) => (
+                    <a
+                      key={i}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="relative block overflow-hidden rounded-[0.375rem] border aspect-video"
+                      style={{ borderColor: "var(--color-line)" }}
+                    >
+                      <Image src={url} alt={`Site photo ${i + 1}`} fill className="object-cover" sizes="(max-width: 768px) 100vw, 400px" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {/* ── Two-column data: Materials + Labor ── */}
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {/* Materials */}
+              <div
+                className="rounded-[0.625rem] border overflow-hidden"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              >
+                <div className="flex items-center gap-1.5 px-2.5 py-2 border-b" style={{ borderColor: "var(--color-line)" }}>
+                  <Hammer className="size-3" style={{ color: "var(--color-steel)" }} />
+                  <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+                    Materials
+                  </span>
+                </div>
+                {dpr.materialLines.length === 0 ? (
+                  <p className="text-m-caption p-2.5" style={{ color: "var(--color-ink-400)" }}>
+                    None recorded
+                  </p>
+                ) : (
+                  <div>
+                    {dpr.materialLines.map((ml, i) => (
+                      <div
+                        key={ml.id}
+                        className="px-2.5 py-1.5"
+                        style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
+                      >
+                        <p className="text-m-label font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                          {ml.material.name}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                            {formatNumber(toNum(ml.qty), 0)} {ml.material.unit}
+                          </span>
+                          <span className="text-m-caption tabular-nums font-semibold" style={{ color: "var(--color-ink-700)" }}>
+                            {formatCurrency(toNum(ml.qty) * toNum(ml.unitCost))}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    <div
+                      className="px-2.5 py-1.5 flex items-center justify-between"
+                      style={{ borderTop: "1px solid var(--color-line)" }}
+                    >
+                      <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                        Total
+                      </span>
+                      <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                        {formatCurrency(totalMaterialCost)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Labor */}
+              <div
+                className="rounded-[0.625rem] border overflow-hidden"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              >
+                <div className="flex items-center gap-1.5 px-2.5 py-2 border-b" style={{ borderColor: "var(--color-line)" }}>
+                  <Users className="size-3" style={{ color: "var(--color-steel)" }} />
+                  <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+                    Labor
+                  </span>
+                </div>
+                {dpr.laborLines.length === 0 ? (
+                  <p className="text-m-caption p-2.5" style={{ color: "var(--color-ink-400)" }}>
+                    None recorded
+                  </p>
+                ) : (
+                  <div>
+                    {dpr.laborLines.map((ll, i) => (
+                      <div
+                        key={ll.id}
+                        className="px-2.5 py-1.5"
+                        style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
+                      >
+                        <p className="text-m-label font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                          {ll.taskDescription}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <span
+                            className="text-m-caption truncate"
+                            style={{ color: "var(--color-ink-500)", ...(ll.employee?.id ? { cursor: "pointer" } : {}) }}
+                            {...(ll.employee?.id ? { "data-emp-id": ll.employee.id } : {})}
+                          >
+                            {ll.employee?.name ?? ll.crew?.name ?? "—"}
+                          </span>
+                          <span className="text-m-caption tabular-nums font-semibold" style={{ color: "var(--color-ink-700)" }}>
+                            {formatNumber(toNum(ll.hoursWorked), 1)}h
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    <div
+                      className="px-2.5 py-1.5 flex items-center justify-between"
+                      style={{ borderTop: "1px solid var(--color-line)" }}
+                    >
+                      <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                        Total
+                      </span>
+                      <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                        {formatNumber(totalHours, 1)}h
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── Variance analysis trigger ── */}
+            <MobileDprVarianceButton
+              dprId={dpr.id}
+              hasWorkType={!!dpr.workType}
+              hasVariance={!!dpr.varianceAnalysis}
+              canRun={canResubmit || canApproveSubAdmin || canApproveAdmin}
+            />
+
+            {/* ── Variance analysis (if present) ── */}
+            {dpr.varianceAnalysis ? (
+              <div className="mb-4">
+                <DetailAlertBanner
+                  tone="warning"
+                  title="Variance Analysis"
+                  description={
+                    typeof dpr.varianceAnalysis === "string"
+                      ? dpr.varianceAnalysis
+                      : "Over-consumption detected — see details"
+                  }
+                />
+              </div>
+            ) : null}
+
+            {/* ── Approval trail — horizontal stepper ── */}
+            <div className="mb-4">
+              <p className="text-m-caption font-bold uppercase tracking-wider mb-3" style={{ color: "var(--color-steel)" }}>
+                Approval Trail
+              </p>
+              <div className="flex items-start">
+                {steps.map((step, i) => (
+                  <div key={step.label} className="flex items-start flex-1 last:flex-none">
+                    {/* Step node */}
+                    <div className="flex flex-col items-center gap-1 w-16 shrink-0">
+                      <div
+                        className="w-7 h-7 rounded-full grid place-items-center border-2"
+                        style={{
+                          backgroundColor: step.done ? statusColor : "var(--color-paper)",
+                          borderColor: step.done ? statusColor : "var(--color-line)",
+                        }}
+                      >
+                        {step.done ? (
+                          status === "rejected" && i > 0 ? (
+                            <XCircle className="size-3.5" style={{ color: "var(--color-paper)" }} />
+                          ) : (
+                            <CheckCircle2 className="size-3.5" style={{ color: "var(--color-paper)" }} />
+                          )
+                        ) : (
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
+                        )}
+                      </div>
+                      <span
+                        className="text-m-caption font-bold text-center"
+                        style={{ color: step.done ? "var(--color-ink-950)" : "var(--color-ink-400)" }}
+                      >
+                        {step.label}
+                      </span>
+                      {step.done && step.person ? (
+                        <span className="text-m-caption text-center truncate w-full" style={{ color: "var(--color-ink-500)" }}>
+                          {step.person}
+                        </span>
+                      ) : null}
+                      {step.done && step.date ? (
+                        <span className="text-m-caption text-center" style={{ color: "var(--color-ink-400)" }}>
+                          {step.date}
+                        </span>
+                      ) : null}
+                    </div>
+                    {/* Connector */}
+                    {i < steps.length - 1 ? (
+                      <div
+                        className="h-0.5 flex-1 mt-3.5 rounded-full"
+                        style={{
+                          backgroundColor: steps[i + 1]?.done ? statusColor : "var(--color-line)",
+                        }}
+                      />
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+              {status === "rejected" && dpr.approvalNotes ? (
+                <div
+                  className="rounded-[0.5rem] p-2.5 mt-3"
+                  style={{ backgroundColor: "color-mix(in srgb, var(--color-stop) 8%, transparent)" }}
+                >
+                  <p className="text-m-label font-semibold" style={{ color: "var(--color-stop)" }}>
+                    {dpr.approvalNotes}
+                  </p>
+                </div>
               ) : null}
             </div>
-          ))}
-        </div>
-        {status === "rejected" && dpr.approvalNotes ? (
-          <div
-            className="rounded-[0.5rem] p-2.5 mt-3"
-            style={{ backgroundColor: "color-mix(in srgb, var(--color-stop) 8%, transparent)" }}
-          >
-            <p className="text-m-label font-semibold" style={{ color: "var(--color-stop)" }}>
-              {dpr.approvalNotes}
-            </p>
+
+            <AttachmentList entityType="DailyProgressReport" entityId={dpr.id} />
+
+            {/* ── Sticky bottom action bar ── */}
+            <MobileDprActions
+              dprId={dpr.id}
+              status={dpr.approvalStatus}
+              canApproveSubAdmin={canApproveSubAdmin}
+              canApproveAdmin={canApproveAdmin}
+              canResubmit={canResubmit}
+              canMarkCostPosted={canMarkCostPosted}
+              canManage={canManage}
+              costPosted={!!dpr.costPostedDate}
+            />
           </div>
-        ) : null}
-      </div>
-
-      <AttachmentList entityType="DailyProgressReport" entityId={dpr.id} />
-
-      {/* ── Sticky bottom action bar ── */}
-      <MobileDprActions
-        dprId={dpr.id}
-        status={dpr.approvalStatus}
-        canApproveSubAdmin={canApproveSubAdmin}
-        canApproveAdmin={canApproveAdmin}
-        canResubmit={canResubmit}
-        canMarkCostPosted={canMarkCostPosted}
-        canManage={canManage}
-        costPosted={!!dpr.costPostedDate}
-      />
-    </div>
-    </PageContextProvider>
+          </PageContextProvider>
+        );
+      }}
+    </MobileDetailPage>
   );
 }
 

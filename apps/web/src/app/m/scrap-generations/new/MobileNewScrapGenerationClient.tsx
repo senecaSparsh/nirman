@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Plus, Trash2, Send, Loader2,
+  Plus, Trash2, Loader2,
   CheckCircle2,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
@@ -15,6 +15,11 @@ import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewStockLocationDialog";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
+import {
+  SectionCard,
+  UnderlineInput,
+  StickyActionBar,
+} from "@/components/mobile/v2/form-primitives";
 
 interface LocationItem {
   id: string;
@@ -260,10 +265,7 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {/* Destination & Linkage */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Destination & Linkage
-          </p>
+        <SectionCard title="Destination & Linkage">
           {/* ── Destination (full width) ── */}
           <MobileSelectWithCreate
             label="Destination location"
@@ -335,14 +337,12 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
               )}
             />
           </div>
-        </div>
+        </SectionCard>
 
         {/* Line Items */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <div className="flex items-center justify-between">
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              Line Items
-            </p>
+        <SectionCard
+          title="Line Items"
+          action={
             <button
               type="button"
               onClick={handleAddLine}
@@ -352,104 +352,92 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
               <Plus className="size-3" />
               <span>Add line</span>
             </button>
-          </div>
-          <div>
-            <div className="flex flex-col gap-3">
-              {lines.map((line, idx) => {
-                const mat = materials.find((m) => m.id === line.materialId);
-                const lineTotal = (Number(line.qty) || 0) * (Number(line.unitCost) || 0);
-                return (
-                  <div
-                    key={idx}
-                    className="rounded-[0.5rem] border p-2"
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                  >
-                    {/* Material selector */}
-                    <MobileSelectWithCreate
-                      label="Material"
-                      required
-                      placeholder="— Select material —"
-                      value={line.materialId}
-                      onChange={(val) => handleLineChange(idx, "materialId", val)}
-                      options={materials.map((mat) => ({ value: mat.id, label: `${mat.name} (${mat.code})` }))}
-                      inputClass={`${inputClass} text-m-body mb-2`}
-                      inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                      labelClass="text-m-caption font-semibold uppercase block mb-1"
-                      renderDialog={({ open, onClose, onCreated }) => (
-                        <MobileNewMaterialDialog
-                          open={open}
-                          onClose={onClose}
-                          categories={[]}
-                          onCreated={(m) => {
-                            setMaterials((prev) => [...prev, { id: m.id, name: m.name, code: m.code, unit: m.unit }]);
-                            onCreated(m.id, `${m.name} (${m.code})`);
-                          }}
-                        />
-                      )}
+          }
+        >
+          <div className="flex flex-col gap-3">
+            {lines.map((line, idx) => {
+              const mat = materials.find((m) => m.id === line.materialId);
+              const lineTotal = (Number(line.qty) || 0) * (Number(line.unitCost) || 0);
+              return (
+                <div
+                  key={idx}
+                  className="rounded-[0.5rem] border p-2"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                >
+                  {/* Material selector */}
+                  <MobileSelectWithCreate
+                    label="Material"
+                    required
+                    placeholder="— Select material —"
+                    value={line.materialId}
+                    onChange={(val) => handleLineChange(idx, "materialId", val)}
+                    options={materials.map((mat) => ({ value: mat.id, label: `${mat.name} (${mat.code})` }))}
+                    inputClass={`${inputClass} text-m-body mb-2`}
+                    inputStyle={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                    labelClass="text-m-caption font-semibold uppercase block mb-1"
+                    renderDialog={({ open, onClose, onCreated }) => (
+                      <MobileNewMaterialDialog
+                        open={open}
+                        onClose={onClose}
+                        categories={[]}
+                        onCreated={(m) => {
+                          setMaterials((prev) => [...prev, { id: m.id, name: m.name, code: m.code, unit: m.unit }]);
+                          onCreated(m.id, `${m.name} (${m.code})`);
+                        }}
+                      />
+                    )}
+                  />
+
+                  {/* Qty + unit cost */}
+                  <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                    <UnderlineInput
+                      label={`Qty${mat ? ` (${mat.unit})` : ""}`}
+                      value={line.qty}
+                      onChange={(v) => handleLineChange(idx, "qty", v)}
+                      placeholder="Qty"
+                      type="text"
+                      inputMode="decimal"
+                      min="0"
+                      step="any"
                     />
-
-                    {/* Qty + unit cost */}
-                    <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-                      <div>
-                        <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-700)" }}>
-                          Qty{mat ? ` (${mat.unit})` : ""}
-                        </label>
-                        <input
-                          type="text" inputMode="decimal"
-                          step="any"
-                          min="0"
-                          value={line.qty}
-                          onChange={(e) => handleLineChange(idx, "qty", e.target.value)}
-                          placeholder="Qty"
-                          className={`${inputClass} text-m-caption tabular-nums`}
-                          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                        />
-                      </div>
-                      <div className="pl-2">
-                        <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-700)" }}>
-                          Unit Cost
-                        </label>
-                        <input
-                          type="text" inputMode="decimal"
-                          step="any"
-                          min="0"
-                          value={line.unitCost}
-                          onChange={(e) => handleLineChange(idx, "unitCost", e.target.value)}
-                          placeholder="Cost"
-                          className={`${inputClass} text-m-caption tabular-nums`}
-                          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Line total + remove */}
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-m-caption font-bold tabular-nums" style={{ color: lineTotal > 0 ? "var(--color-go)" : "var(--color-ink-300)" }}>
-                        {lineTotal > 0 ? formatCurrency(lineTotal) : "—"}
-                      </span>
-                      {lines.length > 1 ? (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveLine(idx)}
-                          className="flex items-center gap-1.5 text-m-caption font-semibold text-m-body press"
-                          style={{ color: "var(--color-stop)" }}
-                        >
-                          <Trash2 className="size-3" /> Remove
-                        </button>
-                      ) : null}
+                    <div className="pl-2">
+                      <UnderlineInput
+                        label="Unit Cost"
+                        value={line.unitCost}
+                        onChange={(v) => handleLineChange(idx, "unitCost", v)}
+                        placeholder="Cost"
+                        type="text"
+                        inputMode="decimal"
+                        min="0"
+                        step="any"
+                      />
                     </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  {/* Line total + remove */}
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-m-caption font-bold tabular-nums" style={{ color: lineTotal > 0 ? "var(--color-go)" : "var(--color-ink-300)" }}>
+                      {lineTotal > 0 ? formatCurrency(lineTotal) : "—"}
+                    </span>
+                    {lines.length > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLine(idx)}
+                        className="flex items-center gap-1.5 text-m-caption font-semibold text-m-body press"
+                        style={{ color: "var(--color-stop)" }}
+                      >
+                        <Trash2 className="size-3" /> Remove
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
+        </SectionCard>
 
         {/* Notes */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Notes
-          </p>
+        <SectionCard title="Notes">
           <FormField label="Notes (optional)">
             <textarea
               value={notes}
@@ -460,47 +448,19 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
             />
           </FormField>
-        </div>
-
-        {/* ── Total + submit ── */}
-        <div
-          className="flex items-center justify-between py-2"
-          style={{ borderColor: "color-mix(in srgb, var(--color-go) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-go) 6%, var(--color-paper))" }}
-        >
-          <span className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-700)" }}>
-            Total Scrap Value
-          </span>
-          <span className="text-m-section font-bold tabular-nums" style={{ color: totalValue > 0 ? "var(--color-go)" : "var(--color-ink-300)" }}>
-            {totalValue > 0 ? formatCurrency(totalValue) : "—"}
-          </span>
-        </div>
+        </SectionCard>
 
         {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
-        <div
-          className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-4 -mb-4 px-4 py-2"
-          style={{
-            backgroundColor: "var(--color-paper)",
-            borderColor: "var(--color-line)",
+        <StickyActionBar
+          summaryLabel="Total Scrap Value"
+          summaryValue={totalValue > 0 ? formatCurrency(totalValue) : "—"}
+          submitLabel="Generate Scrap Slip"
+          onSubmit={() => {
+            const event = { preventDefault: () => {} } as unknown as React.FormEvent;
+            handleSubmit(event);
           }}
-        >
-          <div className="flex items-center justify-end gap-3">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex-1 flex items-center justify-center gap-1 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-            >
-              {submitting ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <>
-                  <Send className="size-4" />
-                  <span>Generate Scrap Slip</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
+          submitting={submitting}
+        />
       </form>
     </div>
   );

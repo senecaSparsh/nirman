@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Package, Printer, MapPin, User, Truck, Phone,
-  AlertCircle, Loader2, Ban, FileText, CheckCircle2,
+  AlertCircle, Loader2, Ban, CheckCircle2, FileText,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
@@ -13,6 +13,11 @@ import {
   MobileEmptyState,
   MobileStatCard,
 } from "@/components/mobile/v2/primitives";
+import {
+  DetailHeroCard,
+  DetailAlertBanner,
+  DetailStatGrid,
+} from "@/components/mobile/v2/detail-primitives";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { AttachmentList } from "@/components/attachments/attachment-list";
@@ -129,36 +134,18 @@ export function MobileMaterialIssueDetailClient({
   return (
     <div className="flex flex-col gap-4 pb-8">
       {/* ── Header ── */}
-      <div
-        className="rounded-[0.625rem] border p-3"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      <DetailHeroCard
+        title={issue.issueNumber ?? "Material Issue"}
+        subtitle={formatDate(issue.issueDate)}
+        status={issue.status}
       >
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <div className="min-w-0">
-            <h1 className="text-m-section font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
-              {issue.issueNumber ?? "Material Issue"}
-            </h1>
-            <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-              {formatDate(issue.issueDate)}
-            </p>
-          </div>
-          <span
-            className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem] shrink-0"
-            style={{
-              backgroundColor: isCancelled ? "var(--color-stop)" : "var(--color-go)",
-              color: "var(--color-paper)",
-            }}
-          >
-            {issue.status}
-          </span>
-        </div>
         <div className="flex items-center gap-1.5 mt-1.5">
           <Package className="size-3" style={{ color: "var(--color-steel)" }} />
           <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-700)" }}>
             {targetName}
           </span>
         </div>
-      </div>
+      </DetailHeroCard>
 
       {/* ── Cancelled banner ── */}
       {isCancelled ? (

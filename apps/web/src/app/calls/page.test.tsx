@@ -24,6 +24,12 @@ vi.mock("@/components/calls/calls-view", () => ({
   ),
 }));
 
+vi.mock("@/components/calls/calls-tabs", () => ({
+  CallsTabs: ({ callLog }: { callLog: React.ReactNode; telephony: React.ReactNode; canViewTelephony: boolean }) => (
+    <div data-testid="calls-tabs">{callLog}</div>
+  ),
+}));
+
 vi.mock("@/components/page-loading", () => ({
   PageLoading: () => <div data-testid="page-loading">Loading…</div>,
 }));

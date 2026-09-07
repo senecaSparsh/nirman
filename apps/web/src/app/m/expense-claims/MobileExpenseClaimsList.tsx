@@ -94,7 +94,7 @@ export function MobileExpenseClaimsList({
         description="Employee reimbursement claims will appear here once submitted."
         action={
           canCreate ? (
-            <Link href="/expense-claims" className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-body font-medium text-brand-foreground">
+            <Link href="/m/expense-claims/new" className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-body font-medium text-brand-foreground">
               <Plus className="size-4" /> New Claim
             </Link>
           ) : undefined
@@ -178,7 +178,7 @@ function ClaimCard({ claim }: { claim: ExpenseClaimListItem }) {
     <>
       <div {...longPressBind}>
         <Link
-          href={`/expense-claims?open=${claim.id}`}
+          href={`/m/expense-claims/${claim.id}`}
           className="block rounded-xl border border-border bg-card p-3.5 shadow-sm transition-colors active:bg-muted/40"
         >
           <div className="flex items-start justify-between gap-2">

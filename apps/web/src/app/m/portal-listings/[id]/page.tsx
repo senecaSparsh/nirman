@@ -1,9 +1,7 @@
-import { Suspense } from "react";
-import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
+import { toNum } from "@/lib/server";
+import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { Globe, IndianRupee, Home, Calendar, ExternalLink, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { getCompany, toNum } from "@/lib/server";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -20,101 +18,91 @@ export default function MobilePortalListingDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonDetail sections={6} />}>
-      <MobilePortalListingDetailContent params={params} />
-    </Suspense>
-  );
-}
+    <MobileDetailPage params={params} skeletonSections={6}>
+      {async ({ id, company }) => {
+        const listing = await prisma.portalListing.findFirst({
+          where: { id, companyId: company.id },
+          include: {
+            builtUnit: { select: { id: true, unitNumber: true, unitType: true, area: true, areaUnit: true } },
+          },
+        });
 
-async function MobilePortalListingDetailContent({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  await connection();
-  const company = await getCompany();
-  const { id } = await params;
+        if (!listing) {
+          return (
+            <div>
+              <div className="mb-4">
+              </div>
+              <MobileEmptyState icon={Globe} title="Listing not found" />
+            </div>
+          );
+        }
 
-  const listing = await prisma.portalListing.findFirst({
-    where: { id, companyId: company.id },
-    include: {
-      builtUnit: { select: { id: true, unitNumber: true, unitType: true, area: true, areaUnit: true } },
-    },
-  });
+        return (
+          <PageContextProvider value={{
+            entityType: "portal-listing",
+            status: listing.status,
+            label: listing.portalName,
+            subtitle: listing.builtUnit?.unitNumber ?? undefined,
+            recordId: listing.id,
+          }}>
+          <div className="pb-20">
+            <div className="mb-4">
+            </div>
 
-  if (!listing) {
-    return (
-      <div>
-        <div className="mb-4">
-        </div>
-        <MobileEmptyState icon={Globe} title="Listing not found" />
-      </div>
-    );
-  }
+            <MobileSectionTitle>Details</MobileSectionTitle>
+            <div className="flex flex-col gap-2.5">
+              <MobileRow icon={Globe} title="Portal" meta={listing.portalName} />
+              <MobileRow icon={CheckCircle2} title="Status" meta={listing.status} />
+              <MobileRow icon={Calendar} title="Created" meta={formatDate(listing.createdAt)} />
+              {listing.listingUrl && (
+                <MobileRow icon={ExternalLink} title="Listing URL" meta={listing.listingUrl} />
+              )}
+              {listing.syncError && (
+                <MobileRow icon={AlertTriangle} title="Sync Error" meta={listing.syncError} />
+              )}
+            </div>
 
-  return (
-    <PageContextProvider value={{
-      entityType: "portal-listing",
-      status: listing.status,
-      label: listing.portalName,
-      subtitle: listing.builtUnit?.unitNumber ?? undefined,
-      recordId: listing.id,
-    }}>
-    <div className="pb-20">
-      <div className="mb-4">
-      </div>
+            <MobileSectionTitle>Pricing</MobileSectionTitle>
+            <div className="grid grid-cols-2 gap-1.5 mb-4">
+              <MobileStatCard
+                label="Asking Price"
+                value={formatCurrency(toNum(listing.askingPrice))}
+                icon={IndianRupee}
+                tone="signal"
+              />
+              {listing.builtUnit && (
+                <MobileStatCard
+                  label="Area"
+                  value={`${toNum(listing.builtUnit.area)} ${listing.builtUnit.areaUnit}`}
+                  icon={Home}
+                />
+              )}
+            </div>
 
-      <MobileSectionTitle>Details</MobileSectionTitle>
-      <div className="flex flex-col gap-2.5">
-        <MobileRow icon={Globe} title="Portal" meta={listing.portalName} />
-        <MobileRow icon={CheckCircle2} title="Status" meta={listing.status} />
-        <MobileRow icon={Calendar} title="Created" meta={formatDate(listing.createdAt)} />
-        {listing.listingUrl && (
-          <MobileRow icon={ExternalLink} title="Listing URL" meta={listing.listingUrl} />
-        )}
-        {listing.syncError && (
-          <MobileRow icon={AlertTriangle} title="Sync Error" meta={listing.syncError} />
-        )}
-      </div>
+            {listing.builtUnit && (
+              <>
+                <MobileSectionTitle>Unit Details</MobileSectionTitle>
+                <div className="flex flex-col gap-2.5">
+                  <MobileRow icon={Home} title="Unit Number" meta={listing.builtUnit.unitNumber} />
+                  <MobileRow icon={Home} title="Type" meta={listing.builtUnit.unitType} />
+                </div>
+              </>
+            )}
 
-      <MobileSectionTitle>Pricing</MobileSectionTitle>
-      <div className="grid grid-cols-2 gap-1.5 mb-4">
-        <MobileStatCard
-          label="Asking Price"
-          value={formatCurrency(toNum(listing.askingPrice))}
-          icon={IndianRupee}
-          tone="signal"
-        />
-        {listing.builtUnit && (
-          <MobileStatCard
-            label="Area"
-            value={`${toNum(listing.builtUnit.area)} ${listing.builtUnit.areaUnit}`}
-            icon={Home}
-          />
-        )}
-      </div>
-
-      {listing.builtUnit && (
-        <>
-          <MobileSectionTitle>Unit Details</MobileSectionTitle>
-          <div className="flex flex-col gap-2.5">
-            <MobileRow icon={Home} title="Unit Number" meta={listing.builtUnit.unitNumber} />
-            <MobileRow icon={Home} title="Type" meta={listing.builtUnit.unitType} />
+            <MobilePortalListingActions
+              listingId={listing.id}
+              status={listing.status}
+              title={listing.title}
+              description={listing.description}
+              askingPrice={toNum(listing.askingPrice)}
+              bedrooms={listing.bedrooms}
+              bathrooms={listing.bathrooms}
+              furnishing={listing.furnishing}
+            />
           </div>
-        </>
-      )}
-
-      <MobilePortalListingActions
-        listingId={listing.id}
-        status={listing.status}
-        title={listing.title}
-        description={listing.description}
-        askingPrice={toNum(listing.askingPrice)}
-        bedrooms={listing.bedrooms}
-        bathrooms={listing.bathrooms}
-        furnishing={listing.furnishing}
-      />
-    </div>
-    </PageContextProvider>
+          </PageContextProvider>
+        );
+      }}
+    </MobileDetailPage>
   );
 }

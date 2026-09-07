@@ -1,9 +1,5 @@
-import { Suspense } from "react";
-import { connection } from "next/server";
-import { getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
-import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
-import { MobileNoAccess } from "@/components/mobile/v2/primitives";
+import { PERM } from "@/lib/roles";
+import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import { MobileNewWorkflowClient } from "./MobileNewWorkflowClient";
 
 /**
@@ -13,19 +9,8 @@ import { MobileNewWorkflowClient } from "./MobileNewWorkflowClient";
  */
 export default function MobileNewWorkflowPage() {
   return (
-    <Suspense fallback={<MobileSkeletonDetail />}>
-      <MobileNewWorkflowContent />
-    </Suspense>
+    <MobileNewEntityPage perm={PERM.WORKFLOWS_MANAGE} what="workflow creation" permission="WORKFLOWS_MANAGE" fields={4}>
+      {() => <MobileNewWorkflowClient />}
+    </MobileNewEntityPage>
   );
-}
-
-async function MobileNewWorkflowContent() {
-  await connection();
-  const role = await getUserRole();
-
-  if (!hasPermission(role, PERM.WORKFLOWS_MANAGE)) {
-    return <MobileNoAccess what="workflow creation" permission="WORKFLOWS_MANAGE" />;
-  }
-
-  return <MobileNewWorkflowClient />;
 }

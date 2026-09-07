@@ -6,26 +6,9 @@ import { Loader2, Plus, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 import { MobileProjectSelect } from "@/components/mobile/selectors";
 import { useTodayDate } from "@/lib/use-today-date";
-
-const inputClass =
-  "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
-const inputStyle = {
-  borderColor: "var(--color-line)",
-  backgroundColor: "transparent",
-  color: "var(--color-ink-950)",
-};
-const labelClass = "block text-m-caption font-bold mb-0";
-const labelStyle = { color: "var(--color-ink-700)" };
-
-const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
-const sectionStyle = {
-  borderColor: "var(--color-line)",
-  backgroundColor: "var(--color-paper)",
-};
-const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
-const sectionTitleStyle = { color: "var(--color-ink-950)" };
 
 /**
  * MobileNewInspectionForm — form content for scheduling an inspection.
@@ -103,10 +86,7 @@ export function MobileNewInspectionForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       {/* Details */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Details
-        </p>
+      <SectionCard title="Details">
         <div>
           <MobileProjectSelect
             value={form.projectId}
@@ -115,52 +95,34 @@ export function MobileNewInspectionForm({
             icon={FolderOpen}
           />
         </div>
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Title <span style={{ color: "var(--color-stop)" }}>*</span>
-          </label>
-          <input
-            value={form.title}
-            onChange={(e) => set("title", e.target.value)}
-            placeholder="e.g. Weekly safety walkthrough"
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
-      </div>
+        <UnderlineInput
+          label="Title"
+          value={form.title}
+          onChange={(v) => set("title", v)}
+          placeholder="e.g. Weekly safety walkthrough"
+          required
+        />
+      </SectionCard>
 
       {/* Schedule */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Schedule
-        </p>
+      <SectionCard title="Schedule">
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Scheduled Date
-            </label>
-            <input
-              type="date"
-              value={form.scheduledDate}
-              onChange={(e) => set("scheduledDate", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
+          <UnderlineInput
+            label="Scheduled Date"
+            value={form.scheduledDate}
+            onChange={(v) => set("scheduledDate", v)}
+            type="date"
+          />
           <div className="pl-2">
-            <label className={labelClass} style={labelStyle}>
-              Inspector Name (optional)
-            </label>
-            <input
+            <UnderlineInput
+              label="Inspector Name (optional)"
               value={form.inspectorName}
-              onChange={(e) => set("inspectorName", e.target.value)}
+              onChange={(v) => set("inspectorName", v)}
               placeholder="e.g. External safety auditor"
-              className={inputClass}
-              style={inputStyle}
             />
           </div>
         </div>
-      </div>
+      </SectionCard>
 
       {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
       <div

@@ -9,6 +9,7 @@ import { computeRiskLevel } from "@nirman/services/safety";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useWbsOptions } from "@/lib/use-wbs-options";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileProjectSelect } from "@/components/mobile/selectors";
 
@@ -69,20 +70,14 @@ export function MobileNewHazardForm({
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Failed"); } finally { setSaving(false); }
   }
 
-  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" };
   const labelClass = "block text-m-caption font-bold mb-0";
   const labelStyle = { color: "var(--color-ink-700)" };
-  const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
-  const sectionStyle = { borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" };
-  const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
-  const sectionTitleStyle = { color: "var(--color-ink-950)" };
 
   return (
     <div className="flex flex-col gap-3">
       {/* Details */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>Details</p>
+      <SectionCard title="Details">
         <div>
           <MobileProjectSelect
             value={form.projectId}
@@ -91,14 +86,18 @@ export function MobileNewHazardForm({
             icon={FolderOpen}
           />
         </div>
-        <div>
-          <label className={labelClass} style={labelStyle}>Title</label>
-          <input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Unprotected edge at 5th floor" className={inputClass} style={inputStyle} />
-        </div>
-        <div>
-          <label className={labelClass} style={labelStyle}>Location</label>
-          <input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower B, east side" className={inputClass} style={inputStyle} />
-        </div>
+        <UnderlineInput
+          label="Title"
+          value={form.title}
+          onChange={(v) => set("title", v)}
+          placeholder="e.g. Unprotected edge at 5th floor"
+        />
+        <UnderlineInput
+          label="Location"
+          value={form.location}
+          onChange={(v) => set("location", v)}
+          placeholder="e.g. Tower B, east side"
+        />
         <div>
           <MobileSelectWithCreate
             label="WBS Activity (optional)"
@@ -109,20 +108,18 @@ export function MobileNewHazardForm({
             disabled={wbsOptions.length === 0}
           />
         </div>
-      </div>
+      </SectionCard>
 
       {/* Description */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>Description</p>
+      <SectionCard title="Description">
         <div>
           <label className={labelClass} style={labelStyle}>Description</label>
           <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="What is the hazard?" className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors" style={inputStyle} />
         </div>
-      </div>
+      </SectionCard>
 
       {/* Risk Assessment */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>Risk Assessment</p>
+      <SectionCard title="Risk Assessment">
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass} style={labelStyle}>Likelihood (1-5)</label>
@@ -139,26 +136,26 @@ export function MobileNewHazardForm({
           <span className="text-m-caption" style={{ color: "var(--color-ink-700)" }}>Score: {lk * sv}</span>
           <span className="text-m-section font-bold uppercase" style={{ color: riskColor }}>{riskLevel}</span>
         </div>
-      </div>
+      </SectionCard>
 
       {/* Mitigation */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>Mitigation</p>
+      <SectionCard title="Mitigation">
         <div>
           <label className={labelClass} style={labelStyle}>Mitigation Plan (optional)</label>
           <textarea value={form.mitigationPlan} onChange={(e) => set("mitigationPlan", e.target.value)} rows={2} placeholder="How will the hazard be controlled?" className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors" style={inputStyle} />
         </div>
-        <div>
-          <label className={labelClass} style={labelStyle}>Target Resolution Date</label>
-          <input type="date" value={form.targetResolutionDate} onChange={(e) => set("targetResolutionDate", e.target.value)} className={inputClass} style={inputStyle} />
-        </div>
-      </div>
+        <UnderlineInput
+          label="Target Resolution Date"
+          value={form.targetResolutionDate}
+          onChange={(v) => set("targetResolutionDate", v)}
+          type="date"
+        />
+      </SectionCard>
 
       {/* Photo Evidence */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>Photo Evidence</p>
+      <SectionCard title="Photo Evidence">
         <PhotoUploader photos={attachments} onChange={setAttachments} maxPhotos={8} label="Add Photo" />
-      </div>
+      </SectionCard>
 
       {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
       <div

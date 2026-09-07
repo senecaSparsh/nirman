@@ -584,7 +584,7 @@ function PersonNode({
       />
 
       {open && expandable ? (
-        <PersonDetail person={person} depth={depth + 1} />
+        <PersonDetail person={person} depth={depth + 1} ancestorLast={[...ancestorLast, isLast]} />
       ) : null}
 
       {/* Teams (crews) led by this person */}
@@ -734,7 +734,7 @@ function MemberNode({
      6. Recent DPRs — last 3 submitted reports
      7. Contact — email + phone
    ═══════════════════════════════════════════════════════════════════════════ */
-function PersonDetail({ person, depth }: { person: OrgPersonNode; depth: number }) {
+function PersonDetail({ person, depth, ancestorLast }: { person: OrgPersonNode; depth: number; ancestorLast: boolean[] }) {
   const ts = person.taskSummary ?? { pending: 0, inProgress: 0, completed: 0, overdue: 0, dueToday: 0 };
   const hasTaskSummary = ts.pending + ts.inProgress + ts.completed + ts.overdue + ts.dueToday > 0;
   const att = person.attendance;
@@ -743,14 +743,31 @@ function PersonDetail({ person, depth }: { person: OrgPersonNode; depth: number 
   const totalTeamMembers = person.teams?.reduce((sum, t) => sum + (t.members?.length ?? 0), 0) ?? 0;
 
   return (
-    <div
-      className="ml-1 mb-1 rounded-[0.375rem] border p-2 space-y-2"
-      style={{
-        marginLeft: depth * INDENT_PX + 24,
-        borderColor: "var(--color-line)",
-        backgroundColor: "var(--color-paper-2)",
-      }}
-    >
+    <div className="flex">
+      {/* ── Connector columns — continue vertical lines through the detail card ── */}
+      {Array.from({ length: depth }, (_, i) => {
+        const isElbowLevel = i === depth - 1;
+        const ancestorWasLast = ancestorLast[i] ?? false;
+        if (!isElbowLevel && ancestorWasLast) {
+          return <div key={i} className="shrink-0" style={{ width: INDENT_PX }} />;
+        }
+        return (
+          <div key={i} className="relative shrink-0" style={{ width: INDENT_PX }}>
+            <div
+              className="absolute left-1/2 -translate-x-1/2"
+              style={{ top: 0, bottom: 0, width: 1, backgroundColor: "var(--color-line)" }}
+            />
+          </div>
+        );
+      })}
+      <div className="shrink-0" style={{ width: 24 }} />
+      <div
+        className="flex-1 mb-1 rounded-[0.375rem] border p-2 space-y-2"
+        style={{
+          borderColor: "var(--color-line)",
+          backgroundColor: "var(--color-paper-2)",
+        }}
+      >
       {/* ── 1. Status row (no role badge — it's in the TreeRow) ── */}
       {!person.active ? (
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -1005,6 +1022,7 @@ function PersonDetail({ person, depth }: { person: OrgPersonNode; depth: number 
           ) : null}
         </div>
       )}
+      </div>
     </div>
   );
 }

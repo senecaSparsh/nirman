@@ -47,7 +47,8 @@ function getMaxConcurrency(): number {
     // Fallback: OS total
     const mb = Math.floor(_require("node:os").totalmem() / (1024 * 1024));
     return Math.max(12, Math.min(200, Math.floor(mb / 32)));
-  } catch {
+  } catch (err) {
+    console.warn("backpressure memory detection fallback:", err);
     return 50;
   }
 }

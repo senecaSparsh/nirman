@@ -1,10 +1,8 @@
-import { Suspense } from "react";
-import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
+import { toNum } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { Truck } from "lucide-react";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { hasPermission, PERM } from "@/lib/roles";
+import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileSupplierDetailClient } from "./MobileSupplierDetailClient";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
@@ -16,102 +14,90 @@ export default function MobileSupplierDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonDetail sections={6} />}>
-      <MobileSupplierDetailContent params={params} />
-    </Suspense>
-  );
-}
+    <MobileDetailPage params={params} managePerm={PERM.PROCUREMENT_MANAGE} skeletonSections={6}>
+      {async ({ id, company, canManage }) => {
+        const supplier = await prisma.supplier.findFirst({
+          where: { id, companyId: company.id, deletedAt: null },
+          include: {
+            purchaseOrders: {
+              where: { companyId: company.id },
+              orderBy: { createdAt: "desc" },
+              take: 20,
+              select: {
+                id: true, poNumber: true, status: true, total: true,
+                createdAt: true, expectedDate: true,
+              },
+            },
+            supplierPayments: {
+              where: { companyId: company.id },
+              orderBy: { paymentDate: "desc" },
+              take: 20,
+              select: {
+                id: true, paymentNumber: true, amount: true,
+                paymentDate: true, paymentMode: true,
+              },
+            },
+          },
+        });
 
-async function MobileSupplierDetailContent({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  await connection();
-  const company = await getCompany();
-  const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.PROCUREMENT_MANAGE);
-  const { id } = await params;
+        if (!supplier) {
+          return (
+            <MobileEmptyState icon={Truck} title="Supplier not found" />
+          );
+        }
 
-  const supplier = await prisma.supplier.findFirst({
-    where: { id, companyId: company.id, deletedAt: null },
-    include: {
-      purchaseOrders: {
-        where: { companyId: company.id },
-        orderBy: { createdAt: "desc" },
-        take: 20,
-        select: {
-          id: true, poNumber: true, status: true, total: true,
-          createdAt: true, expectedDate: true,
-        },
-      },
-      supplierPayments: {
-        where: { companyId: company.id },
-        orderBy: { paymentDate: "desc" },
-        take: 20,
-        select: {
-          id: true, paymentNumber: true, amount: true,
-          paymentDate: true, paymentMode: true,
-        },
-      },
-    },
-  });
+        const balanceOwed = toNum(supplier.balanceOwed);
+        const totalPoValue = supplier.purchaseOrders.reduce((s, po) => s + toNum(po.total), 0);
+        const totalPaid = supplier.supplierPayments.reduce((s, p) => s + toNum(p.amount), 0);
 
-  if (!supplier) {
-    return (
-      <MobileEmptyState icon={Truck} title="Supplier not found" />
-    );
-  }
+        const pos = supplier.purchaseOrders.map((po) => ({
+          id: po.id,
+          poNumber: po.poNumber,
+          status: po.status,
+          total: toNum(po.total),
+          createdAt: po.createdAt.toISOString(),
+          expectedDate: po.expectedDate?.toISOString() ?? null,
+        }));
 
-  const balanceOwed = toNum(supplier.balanceOwed);
-  const totalPoValue = supplier.purchaseOrders.reduce((s, po) => s + toNum(po.total), 0);
-  const totalPaid = supplier.supplierPayments.reduce((s, p) => s + toNum(p.amount), 0);
+        const payments = supplier.supplierPayments.map((p) => ({
+          id: p.id,
+          paymentNumber: p.paymentNumber,
+          amount: toNum(p.amount),
+          paymentDate: p.paymentDate.toISOString(),
+          paymentMode: p.paymentMode,
+        }));
 
-  const pos = supplier.purchaseOrders.map((po) => ({
-    id: po.id,
-    poNumber: po.poNumber,
-    status: po.status,
-    total: toNum(po.total),
-    createdAt: po.createdAt.toISOString(),
-    expectedDate: po.expectedDate?.toISOString() ?? null,
-  }));
-
-  const payments = supplier.supplierPayments.map((p) => ({
-    id: p.id,
-    paymentNumber: p.paymentNumber,
-    amount: toNum(p.amount),
-    paymentDate: p.paymentDate.toISOString(),
-    paymentMode: p.paymentMode,
-  }));
-
-  return (
-    <PageContextProvider value={{
-      entityType: "supplier",
-      label: supplier.name,
-      subtitle: supplier.phone ?? undefined,
-      recordId: supplier.id,
-    }}>
-    <>
-      <RecordRecentItem type="supplier" id={supplier.id} label={supplier.name} sublabel={supplier.phone ?? undefined} href={`/m/suppliers/${supplier.id}`} />
-      <MobileSupplierDetailClient
-      supplierId={supplier.id}
-      name={supplier.name}
-      gstin={supplier.gstin}
-      phone={supplier.phone}
-      email={supplier.email}
-      address={supplier.address}
-      leadTimeDays={supplier.leadTimeDays ?? null}
-      version={supplier.version}
-      balanceOwed={balanceOwed}
-      totalPoValue={totalPoValue}
-      totalPaid={totalPaid}
-      poCount={supplier.purchaseOrders.length}
-      paymentCount={supplier.supplierPayments.length}
-      pos={pos}
-      payments={payments}
-      canManage={canManage}
-    />
-    </>
-    </PageContextProvider>
+        return (
+          <PageContextProvider value={{
+            entityType: "supplier",
+            label: supplier.name,
+            subtitle: supplier.phone ?? undefined,
+            recordId: supplier.id,
+          }}>
+          <>
+            <RecordRecentItem type="supplier" id={supplier.id} label={supplier.name} sublabel={supplier.phone ?? undefined} href={`/m/suppliers/${supplier.id}`} />
+            <MobileSupplierDetailClient
+            supplierId={supplier.id}
+            name={supplier.name}
+            gstin={supplier.gstin}
+            phone={supplier.phone}
+            email={supplier.email}
+            address={supplier.address}
+            leadTimeDays={supplier.leadTimeDays ?? null}
+            version={supplier.version}
+            balanceOwed={balanceOwed}
+            totalPoValue={totalPoValue}
+            totalPaid={totalPaid}
+            poCount={supplier.purchaseOrders.length}
+            paymentCount={supplier.supplierPayments.length}
+            pos={pos}
+            payments={payments}
+            canManage={canManage}
+          />
+          </>
+          </PageContextProvider>
+        );
+      }}
+    </MobileDetailPage>
   );
 }

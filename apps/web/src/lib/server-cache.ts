@@ -60,7 +60,8 @@ function getMaxEntries(): number {
     );
     // 500 entries per 2GB, capped at 2000. Each entry ~1-50KB.
     return Math.max(200, Math.min(2000, Math.floor(totalMB / 16)));
-  } catch {
+  } catch (err) {
+    console.warn("server-cache fallback:", err);
     return 500;
   }
 }

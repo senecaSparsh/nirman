@@ -8,8 +8,9 @@ import {Loader2, Play, Check, Ban, Trash2} from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
-import { ActionBar, MobileStatusBadge } from "@/components/mobile/v2/primitives";
+import { ActionBar } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { DetailHeroCard, DetailAlertBanner, DetailStatGrid, DetailKeyValueCard } from "@/components/mobile/v2/detail-primitives";
 
 interface InspectionDetail {
   id: string; inspectionNumber: string; title: string; status: string; result: string | null;
@@ -50,53 +51,50 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
     finally { setActing(null); setShowComplete(false); setCompleteForm({ result: "PASSED", findings: "", complianceNotes: "", followUpActions: "" }); }
   }
 
-  const resultTone = inspection.result ? RESULT_TONES[inspection.result] : null;
-  const resultBg = inspection.result ? RESULT_BG[inspection.result] : "var(--color-paper)";
-
   return (
-    <div className="space-y-4 pb-20">
+    <div className="pb-20">
       {/* Header */}
-      <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{inspection.inspectionNumber}</p>
-          <MobileStatusBadge status={inspection.status} />
-        </div>
-        <h1 className="text-m-section font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>{inspection.title}</h1>
-        <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>{inspection.projectName}</p>
-      </div>
+      <DetailHeroCard
+        title={inspection.title}
+        subtitle={inspection.projectName}
+        status={inspection.status}
+      >
+        <p className="text-m-label font-bold tabular-nums mt-2" style={{ color: "var(--color-ink-500)" }}>{inspection.inspectionNumber}</p>
+      </DetailHeroCard>
 
       {/* Result banner */}
       {inspection.result && (
-        <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: resultBg }}>
-          <div className="flex items-center justify-between">
-            <p className="text-m-label font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Result</p>
-            <span className="text-m-section font-bold uppercase" style={{ color: resultTone ?? undefined }}>{inspection.result.replace(/_/g, " ")}</span>
-          </div>
-        </div>
+        <DetailAlertBanner
+          tone={inspection.result === "PASSED" ? "success" : inspection.result === "PASSED_WITH_NOTES" ? "warning" : "danger"}
+          title={inspection.result.replace(/_/g, " ")}
+        />
       )}
 
       {/* Details */}
-      <div className="grid grid-cols-2 gap-2">
-        <DetailCard label="Scheduled" value={formatDate(inspection.scheduledDate)} />
-        {inspection.conductedDate && <DetailCard label="Conducted" value={formatDate(inspection.conductedDate)} />}
-        {inspection.inspectorName && <DetailCard label="Inspector" value={inspection.inspectorName} />}
-      </div>
+      <DetailStatGrid
+        cols={2}
+        stats={[
+          { label: "Scheduled", value: formatDate(inspection.scheduledDate) },
+          ...(inspection.conductedDate ? [{ label: "Conducted", value: formatDate(inspection.conductedDate) }] : []),
+          ...(inspection.inspectorName ? [{ label: "Inspector", value: inspection.inspectorName }] : []),
+        ]}
+      />
 
       {/* Findings */}
       {inspection.findings && (
-        <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <div className="rounded-[0.625rem] border p-3 mb-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <p className="text-m-label font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Findings</p>
           <p className="text-m-section" style={{ color: "var(--color-ink-950)" }}>{inspection.findings}</p>
         </div>
       )}
       {inspection.complianceNotes && (
-        <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <div className="rounded-[0.625rem] border p-3 mb-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <p className="text-m-label font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Compliance Notes</p>
           <p className="text-m-section" style={{ color: "var(--color-ink-950)" }}>{inspection.complianceNotes}</p>
         </div>
       )}
       {inspection.followUpActions && (
-        <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <div className="rounded-[0.625rem] border p-3 mb-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <p className="text-m-label font-semibold uppercase mb-1" style={{ color: "var(--color-ink-500)" }}>Follow-Up Actions</p>
           <p className="text-m-section" style={{ color: "var(--color-ink-950)" }}>{inspection.followUpActions}</p>
         </div>
@@ -104,7 +102,7 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
 
       {/* Photo evidence */}
       {inspection.attachments.length > 0 && (
-        <div className="mb-2">
+        <div className="mb-3">
           <p className="text-m-caption font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-steel)" }}>
             Photo Evidence ({inspection.attachments.length})
           </p>
@@ -119,13 +117,13 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
       )}
 
       {/* Timeline */}
-      <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <p className="text-m-label font-semibold uppercase mb-2" style={{ color: "var(--color-ink-500)" }}>Timeline</p>
-        <div className="space-y-1.5">
-          <TimelineRow label="Scheduled" date={inspection.scheduledDate} name={null} />
-          {inspection.conductedDate && <TimelineRow label="Conducted" date={inspection.conductedDate} name={inspection.conductedByName} />}
-        </div>
-      </div>
+      <DetailKeyValueCard
+        title="Timeline"
+        entries={[
+          { label: "Scheduled", value: formatDate(inspection.scheduledDate) },
+          ...(inspection.conductedDate ? [{ label: "Conducted", value: `${formatDate(inspection.conductedDate)}${inspection.conductedByName ? ` · by ${inspection.conductedByName}` : ""}` }] : []),
+        ]}
+      />
 
       {/* Actions */}
       {canManage && (
@@ -185,24 +183,6 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
   );
 }
 
-function DetailCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-      <p className="text-m-caption font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>{label}</p>
-      <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>{value}</p>
-    </div>
-  );
-}
-
-function TimelineRow({ label, date, name }: { label: string; date: string; name?: string | null }) {
-  return (
-    <div className="flex items-center justify-between">
-      <div><p className="text-m-label font-semibold" style={{ color: "var(--color-ink-950)" }}>{label}</p>{name && <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>by {name}</p>}</div>
-      <p className="text-m-label tabular-nums" style={{ color: "var(--color-ink-500)" }}>{formatDate(date)}</p>
-    </div>
-  );
-}
-
 function ActionButton({ onClick, loading, icon: Icon, label, variant }: { onClick: () => void; loading: boolean; icon: React.ComponentType<{ className?: string }>; label: string; variant: "primary" | "go" | "danger" | "secondary" }) {
   const styles: Record<string, React.CSSProperties> = {
     primary: { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", borderColor: "var(--color-ink-950)" },
@@ -216,5 +196,3 @@ function ActionButton({ onClick, loading, icon: Icon, label, variant }: { onClic
     </button>
   );
 }
-
-

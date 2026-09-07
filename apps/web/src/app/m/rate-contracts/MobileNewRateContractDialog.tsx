@@ -6,6 +6,7 @@ import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
@@ -123,22 +124,11 @@ export function MobileNewRateContractForm({
   };
   const labelClass = "block text-m-caption font-bold mb-0";
   const labelStyle = { color: "var(--color-ink-700)" };
-  const sectionClass = "rounded-[0.625rem] border p-3 flex flex-col gap-3";
-  const sectionStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "var(--color-paper)",
-  };
-  const sectionTitleClass = "text-m-section font-extrabold tracking-tight";
-  const sectionTitleStyle = { color: "var(--color-ink-950)" };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       {/* Details */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Details
-        </p>
-
+      <SectionCard title="Details">
         <MobileSelectWithCreate
           label="Supplier"
           required
@@ -184,121 +174,81 @@ export function MobileNewRateContractForm({
             />
           )}
         />
-      </div>
+      </SectionCard>
 
       {/* Pricing */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Pricing
-        </p>
-
-        <div>
-          <label className={labelClass} style={labelStyle}>
-            Agreed Rate (₹){" "}
-            <span style={{ color: "var(--color-stop)" }}>*</span>
-          </label>
-          <input
-            type="number"
-            min={0.01}
-            step="any"
-            value={form.agreedRate}
-            onChange={(e) => set("agreedRate", e.target.value)}
-            placeholder="0"
-            inputMode="decimal"
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
-      </div>
+      <SectionCard title="Pricing">
+        <UnderlineInput
+          label="Agreed Rate (₹)"
+          value={form.agreedRate}
+          onChange={(v) => set("agreedRate", v)}
+          placeholder="0"
+          type="number"
+          min="0.01"
+          step="any"
+          inputMode="decimal"
+          required
+        />
+      </SectionCard>
 
       {/* Validity */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Validity
-        </p>
-
+      <SectionCard title="Validity">
         <div
           className="grid grid-cols-2 gap-2 divide-x"
           style={{ borderColor: "var(--color-line)" }}
         >
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Valid From <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="date"
-              value={form.validFrom}
-              onChange={(e) => set("validFrom", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Valid To <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
-            <input
-              type="date"
+          <UnderlineInput
+            label="Valid From"
+            value={form.validFrom}
+            onChange={(v) => set("validFrom", v)}
+            type="date"
+            required
+          />
+          <div className="pl-2">
+            <UnderlineInput
+              label="Valid To"
               value={form.validTo}
-              onChange={(e) => set("validTo", e.target.value)}
-              className={inputClass}
-              style={inputStyle}
+              onChange={(v) => set("validTo", v)}
+              type="date"
+              required
             />
           </div>
         </div>
-      </div>
+      </SectionCard>
 
       {/* Quantity Limits */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Quantity Limits
-        </p>
-
+      <SectionCard title="Quantity Limits">
         <div
           className="grid grid-cols-2 gap-2 divide-x"
           style={{ borderColor: "var(--color-line)" }}
         >
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Min Qty (optional)
-            </label>
-            <input
-              type="number"
-              min={0}
-              step="any"
-              value={form.minQty}
-              onChange={(e) => set("minQty", e.target.value)}
-              placeholder="0"
-              inputMode="decimal"
-              className={inputClass}
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <label className={labelClass} style={labelStyle}>
-              Max Qty (optional)
-            </label>
-            <input
-              type="number"
-              min={0}
-              step="any"
+          <UnderlineInput
+            label="Min Qty (optional)"
+            value={form.minQty}
+            onChange={(v) => set("minQty", v)}
+            placeholder="0"
+            type="number"
+            min="0"
+            step="any"
+            inputMode="decimal"
+          />
+          <div className="pl-2">
+            <UnderlineInput
+              label="Max Qty (optional)"
               value={form.maxQty}
-              onChange={(e) => set("maxQty", e.target.value)}
+              onChange={(v) => set("maxQty", v)}
               placeholder="0"
+              type="number"
+              min="0"
+              step="any"
               inputMode="decimal"
-              className={inputClass}
-              style={inputStyle}
             />
           </div>
         </div>
-      </div>
+      </SectionCard>
 
       {/* Notes */}
-      <div className={sectionClass} style={sectionStyle}>
-        <p className={sectionTitleClass} style={sectionTitleStyle}>
-          Notes
-        </p>
-
+      <SectionCard title="Notes">
         <div>
           <label className={labelClass} style={labelStyle}>
             Notes (optional)
@@ -312,7 +262,7 @@ export function MobileNewRateContractForm({
             style={inputStyle}
           />
         </div>
-      </div>
+      </SectionCard>
 
       {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
       <div

@@ -18,6 +18,10 @@ import {
   Gift,
   UserPlus,
   Calendar,
+  IdCard,
+  Plus,
+  Trash2,
+  IndianRupee,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { RegisterTabs } from "@/components/mobile/v2/register-tabs";
@@ -72,6 +76,12 @@ export type OnboardingEmployeeData = {
   contractStatus: string | null;
   contractIssuedAt: string | null;
   contractConfirmedAt: string | null;
+  // Offer letter
+  offerLetterStatus: string | null;
+  offerLetterIssuedAt: string | null;
+  // ID card
+  idCardStatus: string | null;
+  idCardIssuedAt: string | null;
   employmentType: string | null;
   probationEndDate: string | null;
   confirmationDate: string | null;
@@ -105,6 +115,12 @@ export type OnboardingEmployeeData = {
     id: string; type: string; amount: number | null; frequency: string;
     startDate: string | null; endDate: string | null; notes: string | null; active: boolean;
   }[];
+  // Salary components (CTC breakdown)
+  salaryComponents: {
+    id: string; type: string; amount: number; frequency: string;
+    isDeduction: boolean; isPercentage: boolean; percentageOfBasic: number | null;
+    notes: string | null; active: boolean;
+  }[];
   // Attachments
   attachments: {
     id: string; category: string; label: string | null; createdAt: string;
@@ -119,7 +135,7 @@ export type OnboardingEmployeeData = {
   } | null;
 };
 
-const ONBOARDING_TABS = ["profile", "account", "agreement", "deposit", "dossier", "offboard"] as const;
+const ONBOARDING_TABS = ["profile", "account", "salary", "offer", "agreement", "idcard", "deposit", "dossier", "offboard"] as const;
 
 const HIERARCHY_LABELS = ["Management", "Manager", "Engineer", "Supervisor", "Skilled", "Labor"];
 
@@ -142,7 +158,7 @@ export function MobileOnboardingTab({
 }) {
   const [subTab, setSubTab] = useTabParam(ONBOARDING_TABS, "profile", { param: "onboard" });
 
-  // ── Onboarding progress (6 steps, same as desktop) ──
+  // ── Onboarding progress (9 steps) ──
   const hasProfile = !!(employee.name && (employee.phone || employee.user?.phone) && (employee.designation || employee.trade));
   const hasWage = employee.wageType === "DAILY" ? (employee.dailyRate ?? 0) > 0 : (employee.monthlySalary ?? 0) > 0;
   const hasEmploymentTerms = !!(
@@ -151,17 +167,23 @@ export function MobileOnboardingTab({
     (employee.employmentType !== "CONTRACT" || employee.contractStartDate) &&
     (employee.employmentType !== "PROBATION" || employee.contractStartDate)
   );
+  const hasSalaryStructure = (employee.salaryComponents ?? []).length > 0;
   const hasAccount = !!employee.userId;
+  const offerLetterIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.offerLetterStatus ?? "");
   const agreementIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.contractStatus ?? "");
   const agreementConfirmed = ["CONFIRMED", "EXPIRED"].includes(employee.contractStatus ?? "");
+  const idCardIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.idCardStatus ?? "");
   const hasAutoDeposit = employee.autoDepositEnabled === true;
 
   const steps = [
     { label: "Profile & Wage", done: hasProfile && hasWage },
     { label: "Employment Terms", done: hasEmploymentTerms },
+    { label: "Salary Structure", done: hasSalaryStructure },
     { label: "Login Account", done: hasAccount },
+    { label: "Offer Letter", done: offerLetterIssued },
     { label: "Agreement Issued", done: agreementIssued },
     { label: "Agreement Confirmed", done: agreementConfirmed },
+    { label: "ID Card", done: idCardIssued },
     { label: "Auto-Deposit", done: hasAutoDeposit },
   ];
   const completedCount = steps.filter((s) => s.done).length;
@@ -177,7 +199,10 @@ export function MobileOnboardingTab({
         tabs={[
           { value: "profile", label: "Profile" },
           { value: "account", label: "Account" },
+          { value: "salary", label: "Salary" },
+          { value: "offer", label: "Offer" },
           { value: "agreement", label: "Agreement" },
+          { value: "idcard", label: "ID Card" },
           { value: "deposit", label: "Deposit" },
           { value: "dossier", label: "Dossier" },
           { value: "offboard", label: "Offboard" },
@@ -206,8 +231,29 @@ export function MobileOnboardingTab({
         />
       )}
 
+      {subTab === "salary" && (
+        <SalarySubTab
+          employee={employee}
+          canManage={canManage}
+        />
+      )}
+
+      {subTab === "offer" && (
+        <OfferLetterSubTab
+          employee={employee}
+          canManage={canManage}
+        />
+      )}
+
       {subTab === "agreement" && (
         <AgreementSubTab
+          employee={employee}
+          canManage={canManage}
+        />
+      )}
+
+      {subTab === "idcard" && (
+        <IdCardSubTab
           employee={employee}
           canManage={canManage}
         />
@@ -742,7 +788,7 @@ function AccountSubTab({
     try {
       const res = await fetch("/api/telephony/numbers/available");
       if (res.ok) setAvailableNumbers(await res.json());
-    } catch { /* ignore — dialog handles empty list */ }
+    } catch (err) { console.warn("Failed to load available numbers:", err); }
     setShowCreateAccount(true);
   }
 
@@ -985,6 +1031,623 @@ function AccountActions({ employee }: { employee: OnboardingEmployeeData }) {
           </div>
         </MobileDialog>
       )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SALARY SUB-TAB — CTC breakdown (Basic, HRA, DA, TA, etc.)
+   Shows the salary structure with earnings, deductions, and CTC summary.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const SALARY_COMPONENT_LABELS: Record<string, string> = {
+  BASIC: "Basic Salary",
+  HRA: "House Rent Allowance (HRA)",
+  DA: "Dearness Allowance (DA)",
+  TA: "Travelling Allowance (TA)",
+  SPECIAL_ALLOWANCE: "Special Allowance",
+  FOOD_ALLOWANCE: "Food Allowance",
+  MEDICAL_ALLOWANCE: "Medical Allowance",
+  UNIFORM_ALLOWANCE: "Uniform Allowance",
+  WASHING_ALLOWANCE: "Washing Allowance",
+  LTA: "Leave Travel Allowance (LTA)",
+  PERFORMANCE_BONUS: "Performance Bonus",
+  JOINING_BONUS: "Joining Bonus",
+  RETENTION_BONUS: "Retention Bonus",
+  EMPLOYER_PF: "Employer PF Contribution",
+  EMPLOYEE_PF: "Employee PF Contribution",
+  EMPLOYER_ESI: "Employer ESI Contribution",
+  EMPLOYEE_ESI: "Employee ESI Contribution",
+  GRATUITY: "Gratuity",
+  PROFESSION_TAX: "Profession Tax",
+  TDS: "Income Tax (TDS)",
+  OTHER: "Other",
+};
+
+const SALARY_COMPONENT_OPTIONS = [
+  { value: "BASIC", label: "Basic Salary", isDeduction: false },
+  { value: "HRA", label: "HRA (House Rent)", isDeduction: false },
+  { value: "DA", label: "DA (Dearness Allowance)", isDeduction: false },
+  { value: "TA", label: "TA (Travelling Allowance)", isDeduction: false },
+  { value: "SPECIAL_ALLOWANCE", label: "Special Allowance", isDeduction: false },
+  { value: "FOOD_ALLOWANCE", label: "Food Allowance", isDeduction: false },
+  { value: "MEDICAL_ALLOWANCE", label: "Medical Allowance", isDeduction: false },
+  { value: "UNIFORM_ALLOWANCE", label: "Uniform Allowance", isDeduction: false },
+  { value: "WASHING_ALLOWANCE", label: "Washing Allowance", isDeduction: false },
+  { value: "LTA", label: "LTA (Leave Travel)", isDeduction: false },
+  { value: "PERFORMANCE_BONUS", label: "Performance Bonus", isDeduction: false },
+  { value: "JOINING_BONUS", label: "Joining Bonus", isDeduction: false },
+  { value: "EMPLOYER_PF", label: "Employer PF (12% of basic)", isDeduction: false },
+  { value: "EMPLOYEE_PF", label: "Employee PF (deducted)", isDeduction: true },
+  { value: "EMPLOYER_ESI", label: "Employer ESI (3.25%)", isDeduction: false },
+  { value: "EMPLOYEE_ESI", label: "Employee ESI (0.75%, deducted)", isDeduction: true },
+  { value: "GRATUITY", label: "Gratuity (4.81% of basic)", isDeduction: false },
+  { value: "PROFESSION_TAX", label: "Profession Tax (deducted)", isDeduction: true },
+  { value: "TDS", label: "TDS / Income Tax (deducted)", isDeduction: true },
+  { value: "OTHER", label: "Other", isDeduction: false },
+];
+
+function SalarySubTab({
+  employee,
+  canManage,
+}: {
+  employee: OnboardingEmployeeData;
+  canManage: boolean;
+}) {
+  const router = useRouter();
+  const components = employee.salaryComponents ?? [];
+  const earnings = components.filter((c) => !c.isDeduction);
+  const deductions = components.filter((c) => c.isDeduction);
+
+  // ── Edit state ──
+  const [editing, setEditing] = useState(false);
+  const [editComponents, setEditComponents] = useState(components);
+  const [saving, setSaving] = useState(false);
+  const [newType, setNewType] = useState("");
+  const [newAmount, setNewAmount] = useState("");
+  const [newFrequency, setNewFrequency] = useState("MONTHLY");
+  const [newIsPercentage, setNewIsPercentage] = useState(false);
+  const [newPercentage, setNewPercentage] = useState("");
+
+  // Keep editComponents in sync when employee data changes (e.g. after router.refresh)
+  useEffect(() => {
+    if (!editing) setEditComponents(employee.salaryComponents ?? []);
+  }, [employee.salaryComponents, editing]);
+
+  const monthlyGross = (editing ? editComponents : earnings)
+    .filter((c) => !c.isDeduction && c.frequency === "MONTHLY")
+    .reduce((sum, c) => sum + c.amount, 0);
+  const monthlyDeductions = (editing ? editComponents : deductions)
+    .filter((c) => c.isDeduction && c.frequency === "MONTHLY")
+    .reduce((sum, c) => sum + c.amount, 0);
+  const monthlyNet = monthlyGross - monthlyDeductions;
+  const annualCTC = (editing ? editComponents : components).reduce((sum, c) => {
+    if (c.isDeduction) return sum;
+    if (c.frequency === "MONTHLY") return sum + c.amount * 12;
+    if (c.frequency === "QUARTERLY") return sum + c.amount * 4;
+    if (c.frequency === "HALF_YEARLY") return sum + c.amount * 2;
+    if (c.frequency === "YEARLY") return sum + c.amount;
+    if (c.frequency === "ONE_TIME") return sum + c.amount;
+    return sum;
+  }, 0);
+
+  function handleAdd() {
+    if (!newType) { toast.error("Select a component type"); return; }
+    if (!newIsPercentage && (!newAmount || Number(newAmount) <= 0)) {
+      toast.error("Enter a valid amount"); return;
+    }
+    if (newIsPercentage && (!newPercentage || Number(newPercentage) <= 0)) {
+      toast.error("Enter a valid percentage"); return;
+    }
+    const option = SALARY_COMPONENT_OPTIONS.find((o) => o.value === newType);
+    setEditComponents((prev) => [
+      ...prev,
+      {
+        id: `temp-${Date.now()}`,
+        type: newType,
+        amount: newIsPercentage ? 0 : Number(newAmount),
+        frequency: newFrequency,
+        isDeduction: option?.isDeduction ?? false,
+        isPercentage: newIsPercentage,
+        percentageOfBasic: newIsPercentage ? Number(newPercentage) : null,
+        notes: null,
+        active: true,
+      },
+    ]);
+    setNewType(""); setNewAmount(""); setNewFrequency("MONTHLY");
+    setNewIsPercentage(false); setNewPercentage("");
+    haptic(10);
+  }
+
+  function handleRemove(idx: number) {
+    setEditComponents((prev) => prev.filter((_, i) => i !== idx));
+    haptic(10);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/employees/${employee.id}/salary-components`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          components: editComponents.map((c) => ({
+            type: c.type,
+            amount: c.amount,
+            frequency: c.frequency,
+            isDeduction: c.isDeduction,
+            isPercentage: c.isPercentage,
+            percentageOfBasic: c.percentageOfBasic,
+          })),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Failed to save");
+      }
+      toast.success("Salary structure saved");
+      haptic([10, 40, 80]);
+      setEditing(false);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleCancel() {
+    setEditComponents(components);
+    setEditing(false);
+  }
+
+  const displayComponents = editing ? editComponents : components;
+  const displayEarnings = displayComponents.filter((c) => !c.isDeduction);
+  const displayDeductions = displayComponents.filter((c) => c.isDeduction);
+
+  return (
+    <div className="space-y-3">
+      {/* ── CTC Summary card ── */}
+      <div
+        className="rounded-[0.75rem] overflow-hidden"
+        style={{ backgroundColor: "var(--color-paper)", border: "1px solid var(--color-line)" }}
+      >
+        <div className="px-3 pt-3 pb-1 flex items-center justify-between">
+          <span className="text-m-section font-bold flex items-center gap-1.5" style={{ color: "var(--color-ink-950)" }}>
+            <IndianRupee className="size-4" />
+            Salary Structure
+          </span>
+          {canManage && !editing && (
+            <button
+              onClick={() => { setEditing(true); setEditComponents(components); haptic(10); }}
+              className="text-m-caption font-semibold press"
+              style={{ color: "var(--color-accent, #2563eb)" }}
+            >
+              Edit
+            </button>
+          )}
+        </div>
+
+        {displayComponents.length === 0 && !editing ? (
+          <div className="px-3 pb-4">
+            <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
+              No salary components configured. {canManage ? "Tap Edit to add Basic, HRA, DA, TA, and other components." : ""}
+            </p>
+          </div>
+        ) : (
+          <div className="px-3 pb-3">
+            {/* Earnings */}
+            <div className="mt-2">
+              <p className="text-m-caption font-bold mb-1" style={{ color: "var(--color-ink-700)" }}>
+                EARNINGS
+              </p>
+              {displayEarnings.map((c, idx) => (
+                <div key={c.id} className="flex justify-between items-center py-1 border-b" style={{ borderColor: "var(--color-line)" }}>
+                  <span className="text-m-body flex-1" style={{ color: "var(--color-ink-950)" }}>
+                    {SALARY_COMPONENT_LABELS[c.type] ?? c.type}
+                    {c.isPercentage && c.percentageOfBasic != null && (
+                      <span className="text-m-caption ml-1" style={{ color: "var(--color-ink-500)" }}>
+                        ({c.percentageOfBasic}% of basic)
+                      </span>
+                    )}
+                    <span className="text-m-caption ml-1" style={{ color: "var(--color-ink-500)" }}>
+                      /{c.frequency.toLowerCase()}
+                    </span>
+                  </span>
+                  <span className="text-m-body font-semibold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                    {formatCurrency(c.amount)}
+                  </span>
+                  {editing && (
+                    <button
+                      onClick={() => handleRemove(displayComponents.indexOf(c))}
+                      className="ml-2 p-0.5"
+                      style={{ color: "var(--color-red-500, #dc2626)" }}
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <div className="flex justify-between py-1.5 font-bold">
+                <span className="text-m-body" style={{ color: "var(--color-ink-700)" }}>Gross Monthly</span>
+                <span className="text-m-body tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                  {formatCurrency(monthlyGross)}
+                </span>
+              </div>
+            </div>
+
+            {/* Deductions */}
+            {displayDeductions.length > 0 && (
+              <div className="mt-2">
+                <p className="text-m-caption font-bold mb-1" style={{ color: "var(--color-ink-700)" }}>
+                  DEDUCTIONS
+                </p>
+                {displayDeductions.map((c) => (
+                  <div key={c.id} className="flex justify-between items-center py-1 border-b" style={{ borderColor: "var(--color-line)" }}>
+                    <span className="text-m-body flex-1" style={{ color: "var(--color-ink-950)" }}>
+                      {SALARY_COMPONENT_LABELS[c.type] ?? c.type}
+                    </span>
+                    <span className="text-m-body font-semibold tabular-nums" style={{ color: "var(--color-red-500, #dc2626)" }}>
+                      -{formatCurrency(c.amount)}
+                    </span>
+                    {editing && (
+                      <button
+                        onClick={() => handleRemove(displayComponents.indexOf(c))}
+                        className="ml-2 p-0.5"
+                        style={{ color: "var(--color-red-500, #dc2626)" }}
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <div className="flex justify-between py-1.5 font-bold">
+                  <span className="text-m-body" style={{ color: "var(--color-ink-700)" }}>Total Deductions</span>
+                  <span className="text-m-body tabular-nums" style={{ color: "var(--color-red-500, #dc2626)" }}>
+                    -{formatCurrency(monthlyDeductions)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Summary */}
+            <div className="mt-2 pt-2 border-t-2 space-y-1" style={{ borderColor: "var(--color-line)" }}>
+              <div className="flex justify-between">
+                <span className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>Net Monthly</span>
+                <span className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                  {formatCurrency(monthlyNet)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Annual CTC</span>
+                <span className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                  {formatCurrency(annualCTC)}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Add component (edit mode) ── */}
+        {editing && (
+          <div className="px-3 pb-3 pt-2 border-t" style={{ borderColor: "var(--color-line)" }}>
+            <p className="text-m-caption font-bold mb-1.5" style={{ color: "var(--color-ink-700)" }}>ADD COMPONENT</p>
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <EnumSelect
+                label="Component"
+                value={newType}
+                onChange={setNewType}
+                placeholder="— Select —"
+                options={SALARY_COMPONENT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+              />
+              <div className="pl-2">
+                <EnumSelect
+                  label="Frequency"
+                  value={newFrequency}
+                  onChange={setNewFrequency}
+                  options={[
+                    { value: "MONTHLY", label: "Monthly" },
+                    { value: "QUARTERLY", label: "Quarterly" },
+                    { value: "HALF_YEARLY", label: "Half-Yearly" },
+                    { value: "YEARLY", label: "Yearly" },
+                    { value: "ONE_TIME", label: "One-time" },
+                  ]}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 divide-x mt-1" style={{ borderColor: "var(--color-line)" }}>
+              {newIsPercentage ? (
+                <UnderlineInput
+                  label="% of Basic"
+                  value={newPercentage}
+                  onChange={setNewPercentage}
+                  placeholder="e.g. 40"
+                  type="number"
+                  min="0"
+                  max="100"
+                />
+              ) : (
+                <UnderlineInput
+                  label="Amount (₹)"
+                  value={newAmount}
+                  onChange={setNewAmount}
+                  placeholder="0"
+                  type="number"
+                  min="0"
+                />
+              )}
+              <div className="pl-2 flex items-end pb-1">
+                <label className="flex items-center gap-1.5 text-m-caption" style={{ color: "var(--color-ink-700)" }}>
+                  <input
+                    type="checkbox"
+                    checked={newIsPercentage}
+                    onChange={(e) => setNewIsPercentage(e.target.checked)}
+                    className="size-4"
+                  />
+                  % of Basic
+                </label>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleAdd}
+              className="mt-1.5 w-full h-9 rounded-[0.5rem] text-m-section font-semibold press flex items-center justify-center gap-1.5"
+              style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-700)" }}
+            >
+              <Plus className="size-4" />
+              Add Component
+            </button>
+
+            {/* Save / Cancel */}
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={handleCancel}
+                className="flex-1 h-9 rounded-[0.5rem] text-m-body font-semibold press"
+                style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-700)" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-1 h-9 rounded-[0.5rem] text-m-body font-semibold press flex items-center justify-center gap-1.5"
+                style={{ backgroundColor: "var(--color-accent, #2563eb)", color: "white" }}
+              >
+                {saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+                Save
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   OFFER LETTER SUB-TAB — generate, view/print, regenerate
+   Uses: POST /api/employees/[id]/generate-offer-letter
+   Print page: /print/offer-letter/[id]
+   ═══════════════════════════════════════════════════════════════════════════ */
+function OfferLetterSubTab({
+  employee,
+  canManage,
+}: {
+  employee: OnboardingEmployeeData;
+  canManage: boolean;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  const status = employee.offerLetterStatus;
+  const issued = ["ISSUED", "CONFIRMED", "EXPIRED", "TERMINATED"].includes(status ?? "");
+
+  async function generate() {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/employees/${employee.id}/generate-offer-letter`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to generate offer letter");
+      haptic([10, 40, 80]);
+      toast.success(data.message ?? "Offer letter generated");
+      router.refresh();
+    } catch (err: unknown) {
+      haptic([50, 20, 50]);
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const statusLabel: Record<string, string> = {
+    DRAFT: "Draft",
+    ISSUED: "Issued",
+    CONFIRMED: "Confirmed",
+    EXPIRED: "Expired",
+    TERMINATED: "Terminated",
+  };
+
+  return (
+    <div className="space-y-3">
+      <div
+        className="rounded-[0.75rem] overflow-hidden"
+        style={{ backgroundColor: "var(--color-paper)", border: "1px solid var(--color-line)" }}
+      >
+        <div className="px-3 pt-3 pb-1 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText className="size-4" style={{ color: "var(--color-ink-500)" }} />
+            <span className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
+              Offer Letter
+            </span>
+          </div>
+          <span
+            className="text-m-caption font-semibold px-2 py-0.5 rounded-full"
+            style={{
+              backgroundColor: issued ? "var(--color-success-bg, #dcfce7)" : "var(--color-ink-100)",
+              color: issued ? "var(--color-success-text, #166534)" : "var(--color-ink-500)",
+            }}
+          >
+            {statusLabel[status ?? "DRAFT"] ?? "Draft"}
+          </span>
+        </div>
+
+        <div className="px-3 pb-3 space-y-2">
+          {employee.offerLetterIssuedAt && (
+            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+              Issued: {formatDate(employee.offerLetterIssuedAt)}
+            </p>
+          )}
+
+          <p className="text-m-body" style={{ color: "var(--color-ink-700)" }}>
+            The offer letter is a formal job offer document covering position, compensation,
+            employment type, and joining date. It is generated automatically when the employee
+            is created with the required fields.
+          </p>
+
+          {canManage && (
+            <button
+              onClick={generate}
+              disabled={busy}
+              className="w-full h-10 rounded-[0.5rem] text-m-section font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
+              style={{
+                backgroundColor: "var(--color-ink-950)",
+                color: "var(--color-paper)",
+              }}
+            >
+              {busy ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
+              {issued ? "Regenerate" : "Generate"} Offer Letter
+            </button>
+          )}
+
+          {issued && (
+            <a
+              href={`/print/offer-letter/${employee.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full h-10 rounded-[0.5rem] text-m-section font-semibold press flex items-center justify-center gap-1.5"
+              style={{
+                backgroundColor: "var(--color-ink-100)",
+                color: "var(--color-ink-700)",
+              }}
+            >
+              <FileText className="size-4" />
+              View / Print
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ID CARD SUB-TAB — generate, view/print, regenerate
+   Uses: POST /api/employees/[id]/generate-id-card
+   Print page: /print/employee-id-card/[id]
+   ═══════════════════════════════════════════════════════════════════════════ */
+function IdCardSubTab({
+  employee,
+  canManage,
+}: {
+  employee: OnboardingEmployeeData;
+  canManage: boolean;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  const status = employee.idCardStatus;
+  const issued = ["ISSUED", "CONFIRMED"].includes(status ?? "");
+
+  async function generate() {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/employees/${employee.id}/generate-id-card`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to generate ID card");
+      haptic([10, 40, 80]);
+      toast.success(data.message ?? "ID card generated");
+      router.refresh();
+    } catch (err: unknown) {
+      haptic([50, 20, 50]);
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const statusLabel: Record<string, string> = {
+    DRAFT: "Draft",
+    ISSUED: "Issued",
+    CONFIRMED: "Issued",
+  };
+
+  return (
+    <div className="space-y-3">
+      <div
+        className="rounded-[0.75rem] overflow-hidden"
+        style={{ backgroundColor: "var(--color-paper)", border: "1px solid var(--color-line)" }}
+      >
+        <div className="px-3 pt-3 pb-1 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <IdCard className="size-4" style={{ color: "var(--color-ink-500)" }} />
+            <span className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
+              Employee ID Card
+            </span>
+          </div>
+          <span
+            className="text-m-caption font-semibold px-2 py-0.5 rounded-full"
+            style={{
+              backgroundColor: issued ? "var(--color-success-bg, #dcfce7)" : "var(--color-ink-100)",
+              color: issued ? "var(--color-success-text, #166534)" : "var(--color-ink-500)",
+            }}
+          >
+            {statusLabel[status ?? "DRAFT"] ?? "Draft"}
+          </span>
+        </div>
+
+        <div className="px-3 pb-3 space-y-2">
+          {employee.idCardIssuedAt && (
+            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+              Issued: {formatDate(employee.idCardIssuedAt)}
+            </p>
+          )}
+
+          <p className="text-m-body" style={{ color: "var(--color-ink-700)" }}>
+            The ID card is a printable identification card with employee details, emergency
+            contact, and statutory IDs. Print on standard card stock and laminate.
+          </p>
+
+          {canManage && (
+            <button
+              onClick={generate}
+              disabled={busy}
+              className="w-full h-10 rounded-[0.5rem] text-m-section font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
+              style={{
+                backgroundColor: "var(--color-ink-950)",
+                color: "var(--color-paper)",
+              }}
+            >
+              {busy ? <Loader2 className="size-4 animate-spin" /> : <IdCard className="size-4" />}
+              {issued ? "Regenerate" : "Generate"} ID Card
+            </button>
+          )}
+
+          {issued && (
+            <a
+              href={`/print/employee-id-card/${employee.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full h-10 rounded-[0.5rem] text-m-section font-semibold press flex items-center justify-center gap-1.5"
+              style={{
+                backgroundColor: "var(--color-ink-100)",
+                color: "var(--color-ink-700)",
+              }}
+            >
+              <IdCard className="size-4" />
+              View / Print
+            </a>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

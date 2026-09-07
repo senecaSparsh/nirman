@@ -1,19 +1,17 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getWbsTree } from "@nirman/services";
 import { ListTree, ChevronRight, Calendar } from "lucide-react";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate, formatNumber } from "@/lib/utils";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import {
   MobileSectionTitle,
   MobileEmptyState,
   MobileStatCard,
-  MobileNoAccess,
 } from "@/components/mobile/v2/primitives";
+import { MobileProjectScopedPage } from "@/components/mobile/v2/project-scoped-page";
 import { MobileWbsProjectSelector } from "./MobileWbsProjectSelector";
 import { MobileWbsFab } from "./MobileNewWbsNodeDialog";
 
@@ -29,160 +27,150 @@ export default function MobileWbsPage({
   searchParams: Promise<{ project?: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonList rows={8} />}>
-      <MobileWbsContent searchParams={searchParams} />
-    </Suspense>
+    <MobileProjectScopedPage
+      searchParams={searchParams}
+      perm={PERM.WBS_VIEW}
+      what="Work Breakdown Structure"
+      permission={PERM.WBS_VIEW}
+    >
+      {async ({ company, role, projectId }) => {
+        // Fetch projects for the selector (PLANNED or ACTIVE only)
+        const projects = await prisma.project.findMany({
+          where: {
+            companyId: company.id,
+            deletedAt: null,
+            status: { in: ["PLANNED", "ACTIVE"] },
+          },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true },
+        });
+
+        const selectedProject = projectId
+          ? await prisma.project.findFirst({
+              where: {
+                id: projectId,
+                companyId: company.id,
+                deletedAt: null,
+              },
+              select: { id: true, name: true },
+            })
+          : null;
+
+        // Fetch the WBS tree for the selected project
+        const tree: WbsTreeNode[] = selectedProject
+          ? ((await getWbsTree(selectedProject.id)) as WbsTreeNode[])
+          : [];
+
+        // Flatten tree to compute summary stats
+        const allNodes = flattenTree(tree);
+        const totalNodes = allNodes.length;
+        const completedNodes = allNodes.filter((n) => toNum(n.progressPct) >= 100).length;
+        const inProgressNodes = allNodes.filter(
+          (n) => toNum(n.progressPct) > 0 && toNum(n.progressPct) < 100,
+        ).length;
+
+        const canManage = hasPermission(role, PERM.WBS_MANAGE);
+
+        // Fetch BOQ line items + all WBS nodes (for parent selection) when user can manage
+        const [boqItems, parentNodes] =
+          selectedProject && canManage
+            ? await Promise.all([
+                prisma.boqItem.findMany({
+                  where: { projectId: selectedProject.id, type: "LINE_ITEM" },
+                  orderBy: { serialNo: "asc" },
+                  select: { id: true, serialNo: true, description: true },
+                }),
+                prisma.wbsNode.findMany({
+                  where: { projectId: selectedProject.id },
+                  orderBy: { code: "asc" },
+                  select: { id: true, code: true, name: true, type: true },
+                }),
+              ])
+            : [[], []];
+
+        return (
+          <div>
+            {/* ── Project selector ── */}
+            <Suspense fallback={null}>
+              <MobileWbsProjectSelector
+                projects={projects}
+                selectedId={selectedProject?.id}
+              />
+            </Suspense>
+
+            {/* ── No project selected ── */}
+            {!selectedProject ? (
+              <MobileEmptyState
+                icon={ListTree}
+                title="Select a project"
+                hint="Choose a project above to view its Work Breakdown Structure tree."
+              />
+            ) : tree.length === 0 ? (
+              <MobileEmptyState
+                icon={ListTree}
+                title="No Work Breakdown Structure nodes yet"
+                hint={`The Work Breakdown Structure tree for ${selectedProject.name} is empty. Nodes show here once they are created.`}
+              />
+            ) : (
+              <>
+                {/* ── Summary stats ── */}
+                <MobileSectionTitle>Summary</MobileSectionTitle>
+                <div className="grid grid-cols-4 gap-1.5">
+                  <MobileStatCard
+                    label="Total"
+                    value={formatNumber(totalNodes, 0)}
+                    tone="neutral"
+                    icon={ListTree}
+                  />
+                  <MobileStatCard
+                    label="Completed"
+                    value={formatNumber(completedNodes, 0)}
+                    tone="go"
+                  />
+                  <MobileStatCard
+                    label="In Progress"
+                    value={formatNumber(inProgressNodes, 0)}
+                    tone="signal"
+                  />
+                </div>
+
+                {/* ── WBS tree ── */}
+                <MobileSectionTitle>Work Breakdown Structure Tree</MobileSectionTitle>
+                <div className="space-y-1.5">
+                  {tree.map((node) => (
+                    <WbsNodeRow key={node.id} node={node} depth={0} />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* FAB for adding WBS nodes */}
+            {selectedProject && canManage && (
+              <MobileWbsFab
+                projectId={selectedProject.id}
+                parentNodes={parentNodes.map((n) => ({
+                  id: n.id,
+                  code: n.code,
+                  name: n.name,
+                  type: n.type as "PROJECT_NODE" | "PHASE_NODE" | "ACTIVITY" | "SUB_ACTIVITY" | "MILESTONE",
+                }))}
+                boqItems={boqItems.map((b) => ({
+                  id: b.id,
+                  serialNo: b.serialNo,
+                  description: b.description,
+                }))}
+              />
+            )}
+          </div>
+        );
+      }}
+    </MobileProjectScopedPage>
   );
 }
 
 type WbsTreeNode = Awaited<ReturnType<typeof getWbsTree>>[number] & {
   children: WbsTreeNode[];
 };
-
-async function MobileWbsContent({
-  searchParams,
-}: {
-  searchParams: Promise<{ project?: string }>;
-}) {
-  await connection();
-  const company = await getCompany();
-  const role = await getUserRole();
-  const canView = hasPermission(role, PERM.WBS_VIEW);
-  const { project: projectId } = await searchParams;
-
-  // Fetch projects for the selector (PLANNED or ACTIVE only)
-  const projects = await prisma.project.findMany({
-    where: {
-      companyId: company.id,
-      deletedAt: null,
-      status: { in: ["PLANNED", "ACTIVE"] },
-    },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
-
-  if (!canView) {
-    return <MobileNoAccess what="Work Breakdown Structure" permission={PERM.WBS_VIEW} />;
-  }
-
-  const selectedProject = projectId
-    ? await prisma.project.findFirst({
-        where: {
-          id: projectId,
-          companyId: company.id,
-          deletedAt: null,
-        },
-        select: { id: true, name: true },
-      })
-    : null;
-
-  // Fetch the WBS tree for the selected project
-  const tree: WbsTreeNode[] = selectedProject
-    ? ((await getWbsTree(selectedProject.id)) as WbsTreeNode[])
-    : [];
-
-  // Flatten tree to compute summary stats
-  const allNodes = flattenTree(tree);
-  const totalNodes = allNodes.length;
-  const completedNodes = allNodes.filter((n) => toNum(n.progressPct) >= 100).length;
-  const inProgressNodes = allNodes.filter(
-    (n) => toNum(n.progressPct) > 0 && toNum(n.progressPct) < 100,
-  ).length;
-
-  const canManage = hasPermission(role, PERM.WBS_MANAGE);
-
-  // Fetch BOQ line items + all WBS nodes (for parent selection) when user can manage
-  const [boqItems, parentNodes] = selectedProject && canManage
-    ? await Promise.all([
-        prisma.boqItem.findMany({
-          where: { projectId: selectedProject.id, type: "LINE_ITEM" },
-          orderBy: { serialNo: "asc" },
-          select: { id: true, serialNo: true, description: true },
-        }),
-        prisma.wbsNode.findMany({
-          where: { projectId: selectedProject.id },
-          orderBy: { code: "asc" },
-          select: { id: true, code: true, name: true, type: true },
-        }),
-      ])
-    : [[], []];
-
-  return (
-    <div>
-      {/* ── Project selector ── */}
-      <Suspense fallback={null}>
-        <MobileWbsProjectSelector
-          projects={projects}
-          selectedId={selectedProject?.id}
-        />
-      </Suspense>
-
-      {/* ── No project selected ── */}
-      {!selectedProject ? (
-        <MobileEmptyState
-          icon={ListTree}
-          title="Select a project"
-          hint="Choose a project above to view its Work Breakdown Structure tree."
-        />
-      ) : tree.length === 0 ? (
-        <MobileEmptyState
-          icon={ListTree}
-          title="No Work Breakdown Structure nodes yet"
-          hint={`The Work Breakdown Structure tree for ${selectedProject.name} is empty. Nodes show here once they are created.`}
-        />
-      ) : (
-        <>
-          {/* ── Summary stats ── */}
-          <MobileSectionTitle>Summary</MobileSectionTitle>
-          <div className="grid grid-cols-4 gap-1.5">
-            <MobileStatCard
-              label="Total"
-              value={formatNumber(totalNodes, 0)}
-              tone="neutral"
-              icon={ListTree}
-            />
-            <MobileStatCard
-              label="Completed"
-              value={formatNumber(completedNodes, 0)}
-              tone="go"
-            />
-            <MobileStatCard
-              label="In Progress"
-              value={formatNumber(inProgressNodes, 0)}
-              tone="signal"
-            />
-          </div>
-
-          {/* ── WBS tree ── */}
-          <MobileSectionTitle>Work Breakdown Structure Tree</MobileSectionTitle>
-          <div className="space-y-1.5">
-            {tree.map((node) => (
-              <WbsNodeRow key={node.id} node={node} depth={0} />
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* FAB for adding WBS nodes */}
-      {selectedProject && canManage && (
-        <MobileWbsFab
-          projectId={selectedProject.id}
-          parentNodes={parentNodes.map((n) => ({
-            id: n.id,
-            code: n.code,
-            name: n.name,
-            type: n.type as "PROJECT_NODE" | "PHASE_NODE" | "ACTIVITY" | "SUB_ACTIVITY" | "MILESTONE",
-          }))}
-          boqItems={boqItems.map((b) => ({
-            id: b.id,
-            serialNo: b.serialNo,
-            description: b.description,
-          }))}
-        />
-      )}
-    </div>
-  );
-}
 
 /* ─── WBS node row (recursive) ─── */
 

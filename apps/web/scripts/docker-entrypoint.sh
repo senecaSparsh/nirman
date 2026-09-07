@@ -8,7 +8,9 @@
 #      Creates demo company, users, projects, stock, etc. WIPES transactional
 #      data on every run — do NOT leave this enabled in production.
 #   3. Production seed         — idempotent: chart of accounts + demo passwords
-#   4. Start the app           — hands off to start-with-recovery.mjs which
+#   4. SRG REALCON provisioning — idempotent: creates SRG REALCON company +
+#      7 team accounts on first run, silently skips on subsequent runs
+#   5. Start the app           — hands off to start-with-recovery.mjs which
 #                                wraps `next start` with auto-restart, health
 #                                checks, graceful shutdown, and memory monitoring.
 #
@@ -61,7 +63,19 @@ node --import tsx scripts/seed-prod.ts
 echo "✓ Seed complete"
 echo ""
 
-# ── 4. Start the production server with auto-recovery ───────────────────────
+# ── 4. SRG REALCON user provisioning (idempotent — runs once, then no-ops) ──
+# Creates the SRG REALCON parent company + 7 team member accounts with
+# RBAC roles, H1–H4 hierarchy, phone-based login, and call-system phone
+# numbers. On the first run it prints generated passwords to the deploy
+# logs (copy them!). On subsequent runs it detects the company + users
+# already exist and exits silently. Safe to run on every deploy.
+echo "── SRG REALCON user provisioning ──"
+cd /app/apps/web
+node scripts/create-srg-users.mjs || echo "  (SRG provisioning skipped or already done)"
+echo "✓ SRG provisioning check complete"
+echo ""
+
+# ── 5. Start the production server with auto-recovery ───────────────────────
 echo "── Starting Next.js production server ──"
 echo "   Wrapper: scripts/start-with-recovery.mjs"
 echo "   Features: graceful shutdown, crash auto-restart, health checks,"

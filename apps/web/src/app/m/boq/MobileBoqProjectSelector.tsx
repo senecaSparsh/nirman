@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { FolderOpen } from "lucide-react";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 
 export type BoqProjectOption = { id: string; name: string; code?: string | null };
@@ -15,9 +16,11 @@ export type BoqProjectOption = { id: string; name: string; code?: string | null 
 export function MobileBoqProjectSelector({
   projects,
   selectedId,
+  canCreate = false,
 }: {
   projects: BoqProjectOption[];
   selectedId?: string;
+  canCreate?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -46,13 +49,15 @@ export function MobileBoqProjectSelector({
           value: p.id,
           label: p.code ? `${p.code} — ${p.name}` : p.name,
         }))}
-        renderDialog={({ open, onClose, onCreated }) => (
-          <MobileNewProjectDialog
-            open={open}
-            onClose={onClose}
-            onCreated={(p) => onCreated(p.id, p.name)}
-          />
-        )}
+        renderDialog={canCreate ? ({ open, onClose, onCreated, originRect }) => (
+          <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project" nested>
+            <MobileNewProjectDialog
+              open={open}
+              onClose={onClose}
+              onCreated={(p) => onCreated(p.id, p.name)}
+            />
+          </MobileFabModal>
+        ) : undefined}
       />
     </div>
   );

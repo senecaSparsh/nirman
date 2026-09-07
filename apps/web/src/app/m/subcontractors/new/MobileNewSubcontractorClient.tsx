@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, Hammer } from "lucide-react";
 import { haptic } from "@/lib/haptic";
+import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
+import { useMobileBack } from "@/components/mobile/v2/mobile-back-button";
 
 export function MobileNewSubcontractorClient({
   onClose,
@@ -17,6 +19,7 @@ export function MobileNewSubcontractorClient({
   onCreated?: (id: string) => void;
 } = {}) {
   const router = useRouter();
+  const goBack = useMobileBack("/m/subcontractors");
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [trade, setTrade] = useState("");
@@ -60,14 +63,11 @@ export function MobileNewSubcontractorClient({
     }
   }
 
-  const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
   const inputStyle = {
     borderColor: "var(--color-line)",
     backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
-  const labelClass = "block text-m-caption font-bold mb-0";
-  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
     <div className={onClose ? "" : "pb-32"}>
@@ -75,7 +75,7 @@ export function MobileNewSubcontractorClient({
       {onClose ? null : (
       <div className="flex items-center gap-1 mb-3">
         <button
-          onClick={() => router.back()}
+          onClick={goBack}
           className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
           style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
         >
@@ -98,94 +98,67 @@ export function MobileNewSubcontractorClient({
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {/* Identity */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Identity
-          </p>
-          <div>
-            <label className={labelClass} style={labelStyle}>Name *</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Ramesh Masonry"
-              className={inputClass}
-              style={inputStyle}
-              required
-            />
-          </div>
-        </div>
+        <SectionCard title="Identity">
+          <UnderlineInput
+            label="Name"
+            value={name}
+            onChange={setName}
+            placeholder="e.g. Ramesh Masonry"
+            required
+            autoFocus
+          />
+        </SectionCard>
 
         {/* Trade & Tax */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Trade & Tax
-          </p>
+        <SectionCard title="Trade & Tax">
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <label className={labelClass} style={labelStyle}>Trade</label>
-              <input
-                type="text"
-                value={trade}
-                onChange={(e) => setTrade(e.target.value)}
-                placeholder="Masonry, Plumbing…"
-                className={inputClass}
-                style={inputStyle}
-              />
-            </div>
+            <UnderlineInput
+              label="Trade"
+              value={trade}
+              onChange={setTrade}
+              placeholder="Masonry, Plumbing…"
+            />
             <div className="pl-2">
-              <label className={labelClass} style={labelStyle}>GSTIN</label>
-              <input
-                type="text"
+              <UnderlineInput
+                label="GSTIN"
                 value={gstin}
-                onChange={(e) => setGstin(e.target.value)}
+                onChange={setGstin}
                 placeholder="22AAAAA0000A1Z5"
-                className={`${inputClass} font-mono`}
-                style={inputStyle}
+                mono
               />
             </div>
           </div>
-        </div>
+        </SectionCard>
 
         {/* Contact */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Contact
-          </p>
+        <SectionCard title="Contact">
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-            <div>
-              <label className={labelClass} style={labelStyle}>Phone</label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="9876543210"
-                inputMode="tel"
-                className={`${inputClass} tabular-nums`}
-                style={inputStyle}
-              />
-            </div>
+            <UnderlineInput
+              label="Phone"
+              value={phone}
+              onChange={setPhone}
+              placeholder="9876543210"
+              type="tel"
+              inputMode="tel"
+            />
             <div className="pl-2">
-              <label className={labelClass} style={labelStyle}>Email</label>
-              <input
-                type="email"
+              <UnderlineInput
+                label="Email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={setEmail}
                 placeholder="contact@firm.com"
-                className={inputClass}
-                style={inputStyle}
+                type="email"
               />
             </div>
           </div>
-        </div>
+        </SectionCard>
 
         {/* Address */}
-        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Address
-          </p>
+        <SectionCard title="Address">
           <div>
-            <label className={labelClass} style={labelStyle}>Address</label>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Address
+            </label>
             <textarea
               rows={2}
               value={address}
@@ -195,7 +168,7 @@ export function MobileNewSubcontractorClient({
               style={inputStyle}
             />
           </div>
-        </div>
+        </SectionCard>
 
         {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
         <div
@@ -208,7 +181,7 @@ export function MobileNewSubcontractorClient({
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => (onClose ? onClose() : router.back())}
+              onClick={() => (onClose ? onClose() : goBack())}
               disabled={saving}
               className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
               style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}

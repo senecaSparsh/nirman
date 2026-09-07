@@ -1,10 +1,7 @@
-import { Suspense } from "react";
-import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
-import { notFound } from "next/navigation";
+import { getCompany, toNum } from "@/lib/server";
+import { PERM } from "@/lib/roles";
+import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import { MobileNewPortalListingClient } from "./MobileNewPortalListingClient";
 
 /**
@@ -13,45 +10,40 @@ import { MobileNewPortalListingClient } from "./MobileNewPortalListingClient";
  */
 export default function MobileNewPortalListingPage() {
   return (
-    <Suspense fallback={<MobileSkeletonList rows={4} />}>
-      <MobileNewPortalListingContent />
-    </Suspense>
+    <MobileNewEntityPage perm={PERM.SALES_MANAGE} what="create portal listings" permission="sales.manage" fields={4}>
+      {async () => {
+        const company = await getCompany();
+
+        const units = await prisma.builtUnit.findMany({
+          where: {
+            project: { companyId: company.id },
+            deletedAt: null,
+            status: "AVAILABLE",
+          },
+          orderBy: { unitNumber: "asc" },
+          select: {
+            id: true,
+            unitNumber: true,
+            unitType: true,
+            area: true,
+            areaUnit: true,
+            askingPrice: true,
+            project: { select: { name: true } },
+          },
+        });
+
+        const serialized = units.map((u) => ({
+          id: u.id,
+          unitNumber: u.unitNumber,
+          unitType: u.unitType,
+          projectName: u.project.name,
+          area: toNum(u.area),
+          areaUnit: u.areaUnit,
+          askingPrice: u.askingPrice ? toNum(u.askingPrice) : null,
+        }));
+
+        return <MobileNewPortalListingClient units={serialized} />;
+      }}
+    </MobileNewEntityPage>
   );
-}
-
-async function MobileNewPortalListingContent() {
-  await connection();
-  const company = await getCompany();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.SALES_MANAGE)) notFound();
-
-  const units = await prisma.builtUnit.findMany({
-    where: {
-      project: { companyId: company.id },
-      deletedAt: null,
-      status: "AVAILABLE",
-    },
-    orderBy: { unitNumber: "asc" },
-    select: {
-      id: true,
-      unitNumber: true,
-      unitType: true,
-      area: true,
-      areaUnit: true,
-      askingPrice: true,
-      project: { select: { name: true } },
-    },
-  });
-
-  const serialized = units.map((u) => ({
-    id: u.id,
-    unitNumber: u.unitNumber,
-    unitType: u.unitType,
-    projectName: u.project.name,
-    area: toNum(u.area),
-    areaUnit: u.areaUnit,
-    askingPrice: u.askingPrice ? toNum(u.askingPrice) : null,
-  }));
-
-  return <MobileNewPortalListingClient units={serialized} />;
 }

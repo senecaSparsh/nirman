@@ -5,6 +5,9 @@ import {
   materialInventoryValue,
   unsoldAssetValue,
   projectPnl,
+  seedChartOfAccounts,
+  getExpenseBudgetVariance,
+  type ExpenseBudgetVariance,
 } from "@nirman/services";
 import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
@@ -12,24 +15,35 @@ import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { FinanceView } from "@/components/finance/finance-view";
 import { SupplierInvoicesView } from "@/components/finance/supplier-invoices-view";
+import { ExpensesView } from "@/components/expenses/expenses-view";
+import { ExpenseClaimsView } from "@/components/expenses/expense-claims-view";
+import { PettyCashView } from "@/components/expenses/petty-cash-view";
+import { RecurringExpensesView } from "@/components/expenses/recurring-expenses-view";
+import { ExpenseBudgetsView } from "@/components/expenses/expense-budgets-view";
+import { SupplierPaymentsView } from "@/components/finance/supplier-payments-view";
 import { PageLoading } from "@/components/page-loading";
 import { FinanceTabs } from "@/components/finance/finance-tabs";
 import { OutstandingActionCard } from "@/components/finance/outstanding-action-card";
-import type { ProjectCostRow, AuditLogRow, ProjectOption } from "@/lib/types";
+import type { ProjectCostRow, AuditLogRow, ProjectOption, ExpenseRow, ExpenseCategoryRow, GlAccountOption } from "@/lib/types";
 
 import { NoAccess } from "@/components/no-access";
-export default function FinancePage() {
+export default function FinancePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   return (
     <div className="space-y-6">
       <Suspense fallback={<PageLoading label="Loading finance…" variant="list" />}>
-        <FinanceContent />
+        <FinanceContent searchParams={searchParams} />
       </Suspense>
     </div>
   );
 }
 
-async function FinanceContent() {
+async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   await connection();
+  const { tab } = await searchParams;
   const role = await getUserRole();
   const company = await getCompany();
 
@@ -76,7 +90,7 @@ async function FinanceContent() {
       take: 200,
       where: { deletedAt: null, companyId: company.id },
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, gstin: true, phone: true, email: true, address: true, balanceOwed: true, leadTimeDays: true },
     }),
     prisma.purchaseOrder.findMany({
       take: 200,
@@ -165,11 +179,93 @@ async function FinanceContent() {
     canDelete: hasPermission(role, PERM.FINANCE_MANAGE),
   };
 
+  // ── Conditional data fetching for expense-related tabs ──
+  // Only fetch when the tab is active to keep the page light.
+  const activeTab = tab ?? "overview";
+  const needExpenses = activeTab === "expenses";
+  const needClaims = activeTab === "claims";
+  const needPettyCash = activeTab === "petty-cash";
+  const needRecurring = activeTab === "recurring";
+  const needBudgets = activeTab === "budgets";
+  const needSupplierPayments = activeTab === "supplier-payments";
+
+  // Shared lookups for expense tabs
+  const [expenseCategories, glAccounts, users] = await Promise.all([
+    prisma.expenseCategory.findMany({ where: { companyId: company.id }, orderBy: { name: "asc" } }),
+    (async () => {
+      let accounts = await prisma.glAccount.findMany({ orderBy: { code: "asc" }, select: { code: true, name: true, type: true, isSystem: true } });
+      if (accounts.length === 0) { await seedChartOfAccounts(); accounts = await prisma.glAccount.findMany({ orderBy: { code: "asc" }, select: { code: true, name: true, type: true, isSystem: true } }); }
+      return accounts;
+    })(),
+    prisma.user.findMany({ where: { memberships: { some: { companyId: company.id } } }, orderBy: { name: "asc" }, select: { id: true, name: true }, take: 200 }),
+  ]);
+
+  const categoryRows: ExpenseCategoryRow[] = expenseCategories.map((c) => ({ id: c.id, name: c.name, glAccountCode: c.glAccountCode, description: c.description, isActive: c.isActive }));
+  const glAccountOptions: GlAccountOption[] = glAccounts.map((a) => ({ code: a.code, name: a.name, type: a.type, isSystem: a.isSystem }));
+  const employeeOptions = users.map((u) => ({ id: u.id, name: u.name }));
+
+  // Fetch expense tab data conditionally
+  const expenseData = needExpenses ? await prisma.expense.findMany({
+    take: 500, where: { companyId: company.id }, orderBy: { date: "desc" },
+    include: { project: { select: { id: true, name: true } }, categoryMaster: { select: { id: true, name: true, glAccountCode: true } }, supplier: { select: { id: true, name: true } }, approvedBy: { select: { id: true, name: true } }, submittedBy: { select: { id: true, name: true } }, createdBy: { select: { id: true, name: true } } },
+  }) : [];
+
+  const expenseViewRows: ExpenseRow[] = expenseData.map((e) => ({
+    id: e.id, projectId: e.projectId, projectName: e.project?.name ?? null,
+    categoryId: e.categoryId, categoryName: e.categoryMaster?.name ?? null, category: e.category,
+    amount: toNum(e.amount), subtotal: toNum(e.subtotal), cgst: toNum(e.cgst), sgst: toNum(e.sgst), igst: toNum(e.igst),
+    tdsAmount: toNum(e.tdsAmount), supplierId: e.supplierId, supplierName: e.supplier?.name ?? null,
+    payeeName: e.payeeName, paymentMode: e.paymentMode, bankAccount: e.bankAccount,
+    chequeNo: e.chequeNo, chequeDate: e.chequeDate?.toISOString() ?? null, chequePhotoUrl: e.chequePhotoUrl,
+    referenceNo: e.referenceNo, receiptUrl: e.receiptUrl, status: e.status,
+    submittedById: e.submittedById, submittedByName: e.submittedBy?.name ?? null,
+    submittedAt: e.submittedAt?.toISOString() ?? null,
+    approvedById: e.approvedById, approvedByName: e.approvedBy?.name ?? null,
+    approvedAt: e.approvedAt?.toISOString() ?? null, rejectedReason: e.rejectedReason,
+    glPostedAt: e.glPostedAt?.toISOString() ?? null, createdByName: e.createdBy?.name ?? null,
+    date: e.date.toISOString(), notes: e.notes,
+  }));
+
+  // Fetch claims tab data conditionally
+  const claimsData = needClaims ? await prisma.expenseClaim.findMany({
+    take: 200, where: { companyId: company.id }, orderBy: { createdAt: "desc" },
+    include: { claimant: { select: { id: true, name: true } }, project: { select: { id: true, name: true } }, lines: { select: { id: true, amount: true } } },
+  }) : [];
+
+  // Fetch petty cash tab data conditionally
+  const pettyCashData = needPettyCash ? await prisma.pettyCashFloat.findMany({
+    take: 200, where: { companyId: company.id }, orderBy: { name: "asc" },
+    include: { project: { select: { id: true, name: true } }, custodian: { select: { id: true, name: true } }, topUps: { orderBy: { date: "desc" }, take: 20, include: { createdBy: { select: { name: true } } } } },
+  }) : [];
+
+  // Fetch recurring expenses tab data conditionally
+  const recurringData = needRecurring ? await prisma.recurringExpense.findMany({
+    take: 200, where: { companyId: company.id }, orderBy: { nextRunDate: "asc" },
+    include: { project: { select: { id: true, name: true } }, categoryMaster: { select: { id: true, name: true } }, supplier: { select: { id: true, name: true } } },
+  }) : [];
+
+  // Fetch expense budgets tab data conditionally
+  const budgetResult = needBudgets ? await Promise.all([
+    prisma.expenseBudget.findMany({
+      take: 200, where: { companyId: company.id }, orderBy: { periodStart: "desc" },
+      include: { project: { select: { id: true, name: true } }, categoryMaster: { select: { id: true, name: true } } },
+    }),
+    getExpenseBudgetVariance(company.id),
+  ]) : null;
+  const budgetData = budgetResult?.[0] ?? [];
+  const budgetVariance: ExpenseBudgetVariance[] = budgetResult?.[1] ?? [];
+
+  // Fetch supplier payments tab data conditionally
+  const supplierPaymentsData = needSupplierPayments ? await prisma.supplierPayment.findMany({
+    take: 200, where: { companyId: company.id }, orderBy: { paymentDate: "desc" },
+    include: { supplier: { select: { id: true, name: true } }, purchaseOrder: { select: { poNumber: true } }, invoice: { select: { invoiceNumber: true } }, createdBy: { select: { name: true } } },
+  }) : [];
+
   return (
     <>
       <PageHeader
         title="Finance"
-        description="Company position, project P&L, and money flow — every cost and expense that moved this period, plus supplier invoices awaiting payment."
+        description="Company position, project P&L, money flow, expenses, claims, petty cash, and supplier payments — all in one place."
         stats={[
           { label: "Inventory", value: formatCurrency(toNum(inventoryVal)), hint: "Current value of material stock on hand, valued at moving average cost." },
           { label: "Unsold Assets", value: formatCurrency(toNum(unsoldAssets.total)), hint: "Book value of unsold land parcels and built units still in inventory." },
@@ -197,6 +293,100 @@ async function FinanceContent() {
             suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
             purchaseOrders={purchaseOrders.map((p) => ({ id: p.id, poNumber: p.poNumber, supplierId: p.supplierId }))}
             permissions={{ canManage: hasPermission(role, PERM.FINANCE_MANAGE) }}
+          />
+        }
+        expenses={
+          <ExpensesView
+            expenses={expenseViewRows}
+            categories={categoryRows}
+            projects={projectOptions}
+            suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
+            glAccounts={glAccountOptions}
+            permissions={{ canCreate: hasPermission(role, PERM.EXPENSE_CREATE), canApprove: hasPermission(role, PERM.EXPENSE_APPROVE), canManage: hasPermission(role, PERM.FINANCE_MANAGE), canView: true }}
+          />
+        }
+        claims={
+          <ExpenseClaimsView
+            claims={claimsData.map((c) => ({
+              id: c.id, claimantId: c.claimantId, claimantName: c.claimant.name,
+              projectId: c.projectId, projectName: c.project?.name ?? null,
+              status: c.status, totalAmount: toNum(c.totalAmount), description: c.description,
+              submittedAt: c.submittedAt?.toISOString() ?? null, approvedAt: c.approvedAt?.toISOString() ?? null,
+              paidAt: c.paidAt?.toISOString() ?? null, paymentMode: c.paymentMode, referenceNo: c.referenceNo,
+              lineCount: c.lines.length, createdAt: c.createdAt.toISOString(),
+            }))}
+            employees={employeeOptions}
+            projects={projectOptions}
+            categories={categoryRows}
+            permissions={{ canCreate: hasPermission(role, PERM.EXPENSE_CREATE), canApprove: hasPermission(role, PERM.EXPENSE_APPROVE), canManage: hasPermission(role, PERM.FINANCE_MANAGE) }}
+          />
+        }
+        pettyCash={
+          <PettyCashView
+            floats={pettyCashData.map((f) => ({
+              id: f.id, name: f.name, projectId: f.projectId, projectName: f.project?.name ?? null,
+              floatAmount: toNum(f.floatAmount), topUpTotal: toNum(f.topUpTotal), spentTotal: toNum(f.spentTotal),
+              custodianId: f.custodianId, custodianName: f.custodian?.name ?? null,
+              topUps: f.topUps.map((t) => ({
+                id: t.id, amount: toNum(t.amount), paymentMode: t.paymentMode, referenceNo: t.referenceNo,
+                notes: t.notes, date: t.date.toISOString(), createdByName: t.createdBy?.name ?? null,
+              })),
+            }))}
+            projects={projectOptions}
+            employees={employeeOptions}
+            categories={categoryRows}
+            permissions={{ canManage: hasPermission(role, PERM.FINANCE_MANAGE) }}
+          />
+        }
+        recurring={
+          <RecurringExpensesView
+            items={recurringData.map((r) => ({
+              id: r.id, category: r.category, categoryName: r.categoryMaster?.name ?? null,
+              amount: toNum(r.amount), frequency: r.frequency,
+              startDate: r.startDate.toISOString(), endDate: r.endDate?.toISOString() ?? null,
+              nextRunDate: r.nextRunDate.toISOString(), lastRunDate: r.lastRunDate?.toISOString() ?? null,
+              isActive: r.isActive, projectId: r.projectId, projectName: r.project?.name ?? null,
+              payeeName: r.payeeName, supplierId: r.supplierId, supplierName: r.supplier?.name ?? null,
+              paymentMode: r.paymentMode, notes: r.notes,
+            }))}
+            projects={projectOptions}
+            suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
+            categories={categoryRows}
+            permissions={{ canManage: hasPermission(role, PERM.FINANCE_MANAGE) }}
+          />
+        }
+        budgets={
+          <ExpenseBudgetsView
+            budgets={(() => {
+              const varianceMap = new Map(budgetVariance.map((v) => [v.budgetId, v]));
+              return budgetData.map((b) => {
+                const v = varianceMap.get(b.id);
+                return {
+                  id: b.id, category: b.category, categoryName: b.categoryMaster?.name ?? null,
+                  amount: toNum(b.amount), periodStart: b.periodStart.toISOString(), periodEnd: b.periodEnd.toISOString(),
+                  projectId: b.projectId, projectName: b.project?.name ?? null, notes: b.notes,
+                  actualAmount: v?.actualAmount ?? 0, variance: v?.variance ?? toNum(b.amount),
+                  utilizationPct: v?.utilizationPct ?? 0,
+                };
+              });
+            })()}
+            projects={projectOptions}
+            categories={categoryRows}
+            permissions={{ canManage: hasPermission(role, PERM.FINANCE_MANAGE) }}
+          />
+        }
+        supplierPayments={
+          <SupplierPaymentsView
+            payments={supplierPaymentsData.map((p) => ({
+              id: p.id, paymentNumber: p.paymentNumber, supplierId: p.supplierId, supplierName: p.supplier?.name ?? "",
+              purchaseOrderId: p.purchaseOrderId, poNumber: p.purchaseOrder?.poNumber ?? null,
+              invoiceId: p.invoiceId, invoiceNumber: p.invoice?.invoiceNumber ?? null,
+              amount: toNum(p.amount), tdsAmount: toNum(p.tdsAmount), tdsSection: p.tdsSection,
+              netPaidAmount: toNum(p.netPaidAmount), paymentDate: p.paymentDate.toISOString(),
+              paymentMode: p.paymentMode, referenceNo: p.referenceNo, chequePhotoUrl: p.chequePhotoUrl,
+              notes: p.notes, createdByName: p.createdBy?.name ?? null,
+            }))}
+            suppliers={suppliers.map((s) => ({ id: s.id, name: s.name, gstin: s.gstin, phone: s.phone, email: s.email, address: s.address, balanceOwed: toNum(s.balanceOwed), openPOs: 0, poCount: 0, leadTimeDays: s.leadTimeDays }))}
           />
         }
       />

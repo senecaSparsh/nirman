@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-import { connection } from "next/server";
 import Link from "next/link";
 import {
   User,
@@ -24,13 +22,13 @@ import {
   getSupplierOutstanding,
   getTallySyncStats,
 } from "@nirman/services";
-import { getCompany, getCurrentUser, toNum } from "@/lib/server";
+import { getCurrentUser, toNum } from "@/lib/server";
 import {formatCurrencyCompact, formatNumber, formatDate, humanizeAuditAction} from "@/lib/utils";
 import {
   MobileRow,
   Badge,
 } from "@/components/mobile/v2/primitives";
-import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
+import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { InstallAppRow } from "@/components/mobile/install-prompt";
 import { ThemeToggleRow } from "@/components/mobile/theme-toggle-row";
 import { CurrencyToggleRow } from "@/components/mobile/currency-toggle-row";
@@ -54,348 +52,344 @@ import { MobileSignOutButton } from "@/components/mobile/sign-out-button";
  */
 export default function SettingsPage() {
   return (
-    <Suspense fallback={<MobileSkeletonHome />}>
-      <SettingsContent />
-    </Suspense>
-  );
-}
+    <MobileHubPage>
+      {async ({ company }) => {
+        const user = await getCurrentUser();
 
-async function SettingsContent() {
-  await connection();
-  const company = await getCompany();
-  const user = await getCurrentUser();
+        const isOwner = user?.role === "OWNER" || user?.role === "ADMIN";
 
-  const isOwner = user?.role === "OWNER" || user?.role === "ADMIN";
+        // ── Fetch all data in parallel ──
+        const [
+          portfolio,
+          supplierOutstanding,
+          tallyStats,
+          userCompanies,
+          teamMembers,
+          recentActivity,
+          , // pendingDues (unused)
+          receivableDues,
+        ] = await Promise.all([
+          // Portfolio summary
+          getCompanyPortfolioSummary(company.id).catch(() => ({
+            totalPortfolioValue: 0,
+            totalRevenue: 0,
+            soldUnits: 0,
+            availableUnits: 0,
+            unsoldAssetValue: 0,
+            activeProjectCount: 0,
+          })),
+          // Supplier outstanding (payables)
+          getSupplierOutstanding(company.id).catch(() => []),
+          // Tally sync stats
+          getTallySyncStats(company.id).catch(() => ({
+            total: 0, synced: 0, failed: 0, pending: 0, imported: 0, variance: 0,
+          })),
+          // User's companies (for switcher)
+          user
+            ? prisma.userCompany.findMany({
+                where: { userId: user.id },
+                include: { company: { select: { id: true, name: true, deletedAt: true } } },
+              }).then((m) => m.filter((m) => m.company.deletedAt === null))
+            : [],
+          // Team members
+          isOwner
+            ? prisma.userCompany.findMany({
+                where: { companyId: company.id },
+                include: { user: { select: { id: true, name: true, email: true, active: true } } },
+                take: 20,
+              })
+            : [],
+          // Recent audit activity (last 8)
+          prisma.auditLog.findMany({
+            where: { companyId: company.id },
+            orderBy: { timestamp: "desc" },
+            take: 8,
+            select: {
+              id: true,
+              action: true,
+              entityType: true,
+              entityId: true,
+              after: true,
+              timestamp: true,
+              user: { select: { name: true } },
+            },
+          }).catch(() => []),
+          // Pending payables (overdue POs)
+          prisma.purchaseOrder.count({
+            where: {
+              companyId: company.id,
+              status: { in: ["RECEIVED", "PARTIAL"] },
+            },
+          }).catch(() => 0),
+          // Receivable dues (unpaid asset sales)
+          prisma.assetSale.count({
+            where: {
+              companyId: company.id,
+              paymentStatus: { in: ["PENDING", "PARTIAL"] },
+            },
+          }).catch(() => 0),
+        ]);
 
-  // ── Fetch all data in parallel ──
-  const [
-    portfolio,
-    supplierOutstanding,
-    tallyStats,
-    userCompanies,
-    teamMembers,
-    recentActivity,
-    , // pendingDues (unused)
-    receivableDues,
-  ] = await Promise.all([
-    // Portfolio summary
-    getCompanyPortfolioSummary(company.id).catch(() => ({
-      totalPortfolioValue: 0,
-      totalRevenue: 0,
-      soldUnits: 0,
-      availableUnits: 0,
-      unsoldAssetValue: 0,
-      activeProjectCount: 0,
-    })),
-    // Supplier outstanding (payables)
-    getSupplierOutstanding(company.id).catch(() => []),
-    // Tally sync stats
-    getTallySyncStats(company.id).catch(() => ({
-      total: 0, synced: 0, failed: 0, pending: 0, imported: 0, variance: 0,
-    })),
-    // User's companies (for switcher)
-    user
-      ? prisma.userCompany.findMany({
-          where: { userId: user.id },
-          include: { company: { select: { id: true, name: true, deletedAt: true } } },
-        }).then((m) => m.filter((m) => m.company.deletedAt === null))
-      : [],
-    // Team members
-    isOwner
-      ? prisma.userCompany.findMany({
-          where: { companyId: company.id },
-          include: { user: { select: { id: true, name: true, email: true, active: true } } },
-          take: 20,
-        })
-      : [],
-    // Recent audit activity (last 8)
-    prisma.auditLog.findMany({
-      where: { companyId: company.id },
-      orderBy: { timestamp: "desc" },
-      take: 8,
-      select: {
-        id: true,
-        action: true,
-        entityType: true,
-        entityId: true,
-        after: true,
-        timestamp: true,
-        user: { select: { name: true } },
-      },
-    }).catch(() => []),
-    // Pending payables (overdue POs)
-    prisma.purchaseOrder.count({
-      where: {
-        companyId: company.id,
-        status: { in: ["RECEIVED", "PARTIAL"] },
-      },
-    }).catch(() => 0),
-    // Receivable dues (unpaid asset sales)
-    prisma.assetSale.count({
-      where: {
-        companyId: company.id,
-        paymentStatus: { in: ["PENDING", "PARTIAL"] },
-      },
-    }).catch(() => 0),
-  ]);
+        const totalPayables = supplierOutstanding.reduce(
+          (s, o) => s + toNum(o.balanceOwed),
+          0,
+        );
+        const payableVendorCount = supplierOutstanding.filter((o) => toNum(o.balanceOwed) > 0).length;
 
-  const totalPayables = supplierOutstanding.reduce(
-    (s, o) => s + toNum(o.balanceOwed),
-    0,
-  );
-  const payableVendorCount = supplierOutstanding.filter((o) => toNum(o.balanceOwed) > 0).length;
+        const now = new Date();
 
-  const now = new Date();
+        return (
+          <div>
+            {/* ════════════════════════════════════════════════════════════════════
+                ZONE 1 — COMPANY CONTEXT
+                The anchor: who am I and which company am I in.
+                Merged header + switcher — tappable to switch when multiple.
+                ════════════════════════════════════════════════════════════════════ */}
+            <div className="mb-4">
+              <CompanySwitcher
+                currentCompanyId={company.id}
+                currency={company.currency}
+                role={user?.role ?? "—"}
+                parentCompanyId={company.parentCompanyId}
+                companies={userCompanies.map((m) => ({
+                  id: m.company.id,
+                  name: m.company.name,
+                  role: m.role,
+                }))}
+              />
+            </div>
 
-  return (
-    <div>
-      {/* ════════════════════════════════════════════════════════════════════
-          ZONE 1 — COMPANY CONTEXT
-          The anchor: who am I and which company am I in.
-          Merged header + switcher — tappable to switch when multiple.
-          ════════════════════════════════════════════════════════════════════ */}
-      <div className="mb-4">
-        <CompanySwitcher
-          currentCompanyId={company.id}
-          currency={company.currency}
-          role={user?.role ?? "—"}
-          parentCompanyId={company.parentCompanyId}
-          companies={userCompanies.map((m) => ({
-            id: m.company.id,
-            name: m.company.name,
-            role: m.role,
-          }))}
-        />
-      </div>
+            {/* ════════════════════════════════════════════════════════════════════
+                ZONE 2 — BUSINESS OVERVIEW (owner/admin only)
+                A mini-dashboard: last month's numbers + dues that need attention.
+                Clearly separated as "business" not "settings".
+                ════════════════════════════════════════════════════════════════════ */}
+            {isOwner ? (
+              <ZoneDivider label="Business overview" />
+            ) : null}
 
-      {/* ════════════════════════════════════════════════════════════════════
-          ZONE 2 — BUSINESS OVERVIEW (owner/admin only)
-          A mini-dashboard: last month's numbers + dues that need attention.
-          Clearly separated as "business" not "settings".
-          ════════════════════════════════════════════════════════════════════ */}
-      {isOwner ? (
-        <ZoneDivider label="Business overview" />
-      ) : null}
+            {isOwner ? (
+              <>
+                {/* Dues & analysis — colored-border rows */}
+                <div className="flex flex-col gap-2 mb-4">
+                  <DuesRow
+                    icon={Receipt}
+                    label="Pending payables"
+                    value={formatCurrencyCompact(totalPayables)}
+                    hint={`${payableVendorCount} vendors with dues`}
+                    tone="stop"
+                    href="/m/accounts"
+                  />
+                  <DuesRow
+                    icon={Wallet}
+                    label="Receivable dues"
+                    value={`${receivableDues} sales`}
+                    hint="partial/unpaid"
+                    tone="signal"
+                    href="/m/accounts?tab=receipts"
+                  />
+                  <DuesRow
+                    icon={TrendingUp}
+                    label="Portfolio value"
+                    value={formatCurrencyCompact(toNum(portfolio.totalPortfolioValue))}
+                    hint={`${portfolio.availableUnits} units available`}
+                    tone="go"
+                    href="/m/real-estate?tab=projects"
+                  />
+                  <DuesRow
+                    icon={AlertTriangle}
+                    label="Tally pending"
+                    value={formatNumber(tallyStats.pending, 0)}
+                    hint={tallyStats.pending > 0 ? "awaiting sync" : "all synced"}
+                    tone={tallyStats.pending > 0 ? "stop" : "go"}
+                    href="/m/accounts?tab=gl"
+                  />
+                </div>
+              </>
+            ) : null}
 
-      {isOwner ? (
-        <>
-          {/* Dues & analysis — colored-border rows */}
-          <div className="flex flex-col gap-2 mb-4">
-            <DuesRow
-              icon={Receipt}
-              label="Pending payables"
-              value={formatCurrencyCompact(totalPayables)}
-              hint={`${payableVendorCount} vendors with dues`}
-              tone="stop"
-              href="/m/accounts"
-            />
-            <DuesRow
-              icon={Wallet}
-              label="Receivable dues"
-              value={`${receivableDues} sales`}
-              hint="partial/unpaid"
-              tone="signal"
-              href="/m/accounts?tab=receipts"
-            />
-            <DuesRow
-              icon={TrendingUp}
-              label="Portfolio value"
-              value={formatCurrencyCompact(toNum(portfolio.totalPortfolioValue))}
-              hint={`${portfolio.availableUnits} units available`}
-              tone="go"
-              href="/m/real-estate?tab=projects"
-            />
-            <DuesRow
-              icon={AlertTriangle}
-              label="Tally pending"
-              value={formatNumber(tallyStats.pending, 0)}
-              hint={tallyStats.pending > 0 ? "awaiting sync" : "all synced"}
-              tone={tallyStats.pending > 0 ? "stop" : "go"}
-              href="/m/accounts?tab=gl"
-            />
-          </div>
-        </>
-      ) : null}
+            {/* ════════════════════════════════════════════════════════════════════
+                ZONE 3 — PROFILE
+                Who am I and what am I doing here.
+                ════════════════════════════════════════════════════════════════════ */}
+            <ZoneDivider label="Profile" />
+            <div className="flex flex-col gap-2 mb-4">
+              <MobileRow
+                href="/m/me"
+                icon={User}
+                title={user?.name ?? "Profile"}
+                subtitle={user?.email ?? "—"}
+                meta="Edit"
+                badge={<Badge tone="steel">{user?.role ?? "—"}</Badge>}
+              />
+              <MobileRow
+                href="/m/queue"
+                icon={Calendar}
+                title="My activity"
+                subtitle="Offline queue & recent actions"
+                meta={formatDate(now)}
+              />
+            </div>
 
-      {/* ════════════════════════════════════════════════════════════════════
-          ZONE 3 — PROFILE
-          Who am I and what am I doing here.
-          ════════════════════════════════════════════════════════════════════ */}
-      <ZoneDivider label="Profile" />
-      <div className="flex flex-col gap-2 mb-4">
-        <MobileRow
-          href="/m/me"
-          icon={User}
-          title={user?.name ?? "Profile"}
-          subtitle={user?.email ?? "—"}
-          meta="Edit"
-          badge={<Badge tone="steel">{user?.role ?? "—"}</Badge>}
-        />
-        <MobileRow
-          href="/m/queue"
-          icon={Calendar}
-          title="My activity"
-          subtitle="Offline queue & recent actions"
-          meta={formatDate(now)}
-        />
-      </div>
+            {/* ════════════════════════════════════════════════════════════════════
+                ZONE 4 — ADMINISTRATION (owner/admin only)
+                Company config, team management, data export, permissions.
+                ════════════════════════════════════════════════════════════════════ */}
+            {isOwner ? (
+              <>
+                <ZoneDivider label="Administration" />
+                <div className="flex flex-col gap-2 mb-4">
+                  <MobileRow
+                    href="/m/settings/company"
+                    icon={Building2}
+                    title="Company details"
+                    subtitle="Name, GSTIN, PAN, address, phone"
+                    meta="Edit"
+                  />
+                  <MobileRow
+                    href="/m/settings/team"
+                    icon={Users}
+                    title="Team & permissions"
+                    subtitle={`${teamMembers.length} members`}
+                    meta="Manage"
+                  />
+                  <MobileRow
+                    href="/m/stock-locations"
+                    icon={MapPin}
+                    title="Stock locations"
+                    subtitle="Warehouses, project sites, departments"
+                    meta="Manage"
+                  />
+                  <MobileRow
+                    href="/m/permissions"
+                    icon={Shield}
+                    title="Permission matrix"
+                    subtitle="Role-based access control"
+                    meta="View"
+                  />
+                  <MobileRow
+                    href="/m/settings/export"
+                    icon={Download}
+                    title="Bulk export"
+                    subtitle="CSV / PDF data export"
+                    meta="Export"
+                  />
+                </div>
+              </>
+            ) : null}
 
-      {/* ════════════════════════════════════════════════════════════════════
-          ZONE 4 — ADMINISTRATION (owner/admin only)
-          Company config, team management, data export, permissions.
-          ════════════════════════════════════════════════════════════════════ */}
-      {isOwner ? (
-        <>
-          <ZoneDivider label="Administration" />
-          <div className="flex flex-col gap-2 mb-4">
-            <MobileRow
-              href="/m/settings/company"
-              icon={Building2}
-              title="Company details"
-              subtitle="Name, GSTIN, PAN, address, phone"
-              meta="Edit"
-            />
-            <MobileRow
-              href="/m/settings/team"
-              icon={Users}
-              title="Team & permissions"
-              subtitle={`${teamMembers.length} members`}
-              meta="Manage"
-            />
-            <MobileRow
-              href="/m/stock-locations"
-              icon={MapPin}
-              title="Stock locations"
-              subtitle="Warehouses, project sites, departments"
-              meta="Manage"
-            />
-            <MobileRow
-              href="/m/permissions"
-              icon={Shield}
-              title="Permission matrix"
-              subtitle="Role-based access control"
-              meta="View"
-            />
-            <MobileRow
-              href="/m/settings/export"
-              icon={Download}
-              title="Bulk export"
-              subtitle="CSV / PDF data export"
-              meta="Export"
-            />
-          </div>
-        </>
-      ) : null}
+            {/* ════════════════════════════════════════════════════════════════════
+                ZONE 5 — NOTIFICATIONS
+                Alert preferences and delivery settings.
+                ════════════════════════════════════════════════════════════════════ */}
+            <ZoneDivider label="Notifications" />
+            <div className="flex flex-col gap-2 mb-4">
+              <MobileRow
+                href="/m/settings/notifications"
+                icon={Bell}
+                title="Alert preferences"
+                subtitle="Low stock, approvals, dues"
+                meta="Configure"
+              />
+            </div>
 
-      {/* ════════════════════════════════════════════════════════════════════
-          ZONE 5 — NOTIFICATIONS
-          Alert preferences and delivery settings.
-          ════════════════════════════════════════════════════════════════════ */}
-      <ZoneDivider label="Notifications" />
-      <div className="flex flex-col gap-2 mb-4">
-        <MobileRow
-          href="/m/settings/notifications"
-          icon={Bell}
-          title="Alert preferences"
-          subtitle="Low stock, approvals, dues"
-          meta="Configure"
-        />
-      </div>
-
-      {/* ════════════════════════════════════════════════════════════════════
-          ZONE 6 — APP
-          Theme, currency, install — personal device preferences.
-          ════════════════════════════════════════════════════════════════════ */}
-      <ZoneDivider label="App" />
-      <div className="flex flex-col gap-2 mb-4">
-        <ThemeToggleRow />
-        <CurrencyToggleRow />
-        <InstallAppRow />
-        <Link
-          href="/?desktop=1"
-          className="flex items-center gap-2.5 rounded-[0.5rem] border px-3 py-2.5 text-m-body press"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-        >
-          <Monitor className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
-          <div className="flex-1 min-w-0">
-            <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>
-              View desktop site
-            </p>
-            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-              Switch to the full desktop ERP interface
-            </p>
-          </div>
-          <ChevronRight className="size-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />
-        </Link>
-      </div>
-
-      {/* ════════════════════════════════════════════════════════════════════
-          ZONE 7 — RECENT ACTIVITY
-          Audit log feed — informational, at the bottom.
-          ════════════════════════════════════════════════════════════════════ */}
-      {recentActivity.length > 0 ? (
-        <>
-          <ZoneDivider label="Recent activity" />
-          <div className="flex flex-col gap-1.5 mb-4">
-            {recentActivity.map((log) => {
-              const desc = auditDescription(log.action, log.after);
-              return (
-              <div
-                key={log.id}
-                className="flex items-center gap-2 rounded-[0.5rem] border p-2"
-                style={{
-                  borderColor: "var(--color-line)",
-                  backgroundColor: "var(--color-paper)",
-                }}
+            {/* ════════════════════════════════════════════════════════════════════
+                ZONE 6 — APP
+                Theme, currency, install — personal device preferences.
+                ════════════════════════════════════════════════════════════════════ */}
+            <ZoneDivider label="App" />
+            <div className="flex flex-col gap-2 mb-4">
+              <ThemeToggleRow />
+              <CurrencyToggleRow />
+              <InstallAppRow />
+              <Link
+                href="/?desktop=1"
+                className="flex items-center gap-2.5 rounded-[0.5rem] border px-3 py-2.5 text-m-body press"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               >
-                <span
-                  className="shrink-0 w-1.5 h-1.5 rounded-full"
-                  style={{ backgroundColor: "var(--color-steel)" }}
-                />
-                <div className="min-w-0 flex-1">
-                  <p
-                    className="text-m-label font-semibold truncate"
-                    style={{ color: "var(--color-ink-950)" }}
-                  >
-                    {humanizeAuditAction(log.action)}
+                <Monitor className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                    View desktop site
                   </p>
-                  {desc ? (
-                    <p
-                      className="text-m-caption truncate"
-                      style={{ color: "var(--color-ink-700)" }}
-                    >
-                      {desc}
-                    </p>
-                  ) : null}
-                  <p
-                    className="text-m-caption mt-0.5"
-                    style={{ color: "var(--color-ink-500)" }}
-                  >
-                    {log.user?.name ?? "System"} · {formatDate(log.timestamp)}
+                  <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                    Switch to the full desktop ERP interface
                   </p>
                 </div>
-              </div>
-              );
-            })}
+                <ChevronRight className="size-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />
+              </Link>
+            </div>
+
+            {/* ════════════════════════════════════════════════════════════════════
+                ZONE 7 — RECENT ACTIVITY
+                Audit log feed — informational, at the bottom.
+                ════════════════════════════════════════════════════════════════════ */}
+            {recentActivity.length > 0 ? (
+              <>
+                <ZoneDivider label="Recent activity" />
+                <div className="flex flex-col gap-1.5 mb-4">
+                  {recentActivity.map((log) => {
+                    const desc = auditDescription(log.action, log.after);
+                    return (
+                    <div
+                      key={log.id}
+                      className="flex items-center gap-2 rounded-[0.5rem] border p-2"
+                      style={{
+                        borderColor: "var(--color-line)",
+                        backgroundColor: "var(--color-paper)",
+                      }}
+                    >
+                      <span
+                        className="shrink-0 w-1.5 h-1.5 rounded-full"
+                        style={{ backgroundColor: "var(--color-steel)" }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className="text-m-label font-semibold truncate"
+                          style={{ color: "var(--color-ink-950)" }}
+                        >
+                          {humanizeAuditAction(log.action)}
+                        </p>
+                        {desc ? (
+                          <p
+                            className="text-m-caption truncate"
+                            style={{ color: "var(--color-ink-700)" }}
+                          >
+                            {desc}
+                          </p>
+                        ) : null}
+                        <p
+                          className="text-m-caption mt-0.5"
+                          style={{ color: "var(--color-ink-500)" }}
+                        >
+                          {log.user?.name ?? "System"} · {formatDate(log.timestamp)}
+                        </p>
+                      </div>
+                    </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : null}
+
+            {/* ════════════════════════════════════════════════════════════════════
+                ZONE 8 — SIGN OUT + VERSION
+                The exit, at the very bottom.
+                ════════════════════════════════════════════════════════════════════ */}
+            <div className="mt-2 mb-4">
+              <SignOutButton />
+            </div>
+
+            <p
+              className="text-center text-m-caption mb-4"
+              style={{ color: "var(--color-ink-300)" }}
+            >
+              Nirman Inventory OS v1.0
+            </p>
           </div>
-        </>
-      ) : null}
-
-      {/* ════════════════════════════════════════════════════════════════════
-          ZONE 8 — SIGN OUT + VERSION
-          The exit, at the very bottom.
-          ════════════════════════════════════════════════════════════════════ */}
-      <div className="mt-2 mb-4">
-        <SignOutButton />
-      </div>
-
-      <p
-        className="text-center text-m-caption mb-4"
-        style={{ color: "var(--color-ink-300)" }}
-      >
-        Nirman Inventory OS v1.0
-      </p>
-    </div>
+        );
+      }}
+    </MobileHubPage>
   );
 }
 

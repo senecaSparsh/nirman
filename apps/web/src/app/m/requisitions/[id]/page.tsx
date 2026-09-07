@@ -1,13 +1,10 @@
-import { Suspense } from "react";
 import Link from "next/link";
-import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, getUserPermissions, toNum } from "@/lib/server";
+import { getUserPermissions, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber, formatDate, formatCurrency } from "@/lib/utils";
-import { Printer, FileText } from "lucide-react";
-import { MobileEmptyState, MobileStatusBadge, MobilePipelineStepper, type MobilePipelineStep, ActionBar } from "@/components/mobile/v2/primitives";
+import { FileText } from "lucide-react";
+import { MobileEmptyState, MobilePipelineStepper, type MobilePipelineStep, ActionBar } from "@/components/mobile/v2/primitives";
 import { AttachmentList } from "@/components/attachments/attachment-list";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { resolveNextAction } from "@/lib/flow-map";
@@ -15,13 +12,15 @@ import { MobileRequisitionActions } from "@/components/mobile/mobile-requisition
 import { MobileQuotePanel } from "./MobileQuotePanel";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
+import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
+import { DetailHeroCard, DetailPrintButton, DetailTimeline, type TimelineStepData } from "@/components/mobile/v2/detail-primitives";
 
 /**
  * /m/requisitions/[id] — requisition detail as a workflow document.
  *
- * Distinct from other detail pages: no hero card, no KPI grid, no icon boxes.
- * Instead: compact header strip → vertical workflow timeline → line items
- * table → notes block → sticky bottom action bar.
+ * Distinct from other detail pages: no KPI grid, no icon boxes.
+ * Instead: hero card → pipeline stepper → vertical workflow timeline →
+ * line items table → notes block → sticky bottom action bar.
  */
 export default function MobileRequisitionDetailPage({
   params,
@@ -29,467 +28,381 @@ export default function MobileRequisitionDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonDetail sections={6} />}>
-      <MobileRequisitionDetailContent params={params} />
-    </Suspense>
-  );
-}
+    <MobileDetailPage params={params} managePerm={PERM.PROCUREMENT_MANAGE} skeletonSections={6}>
+      {async ({ id, company, role, canManage }) => {
+        const overrides = await getUserPermissions();
 
-async function MobileRequisitionDetailContent({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  await connection();
-  const company = await getCompany();
-  const role = await getUserRole();
-  const overrides = await getUserPermissions();
-  const { id } = await params;
+        const req = await prisma.materialRequisition.findFirst({
+          where: { id, project: { companyId: company.id } },
+          include: {
+            project: { select: { id: true, name: true } },
+            phase: { select: { name: true } },
+            requestedBy: { select: { name: true } },
+            approvedBy: { select: { name: true } },
+            rejectedBy: { select: { name: true } },
+            vendorQuotes: {
+              select: {
+                id: true,
+                status: true,
+                isCheapest: true,
+                landedTotal: true,
+                supplier: { select: { id: true, name: true } },
+                selectedAt: true,
+                selectionReason: true,
+                lines: { select: { materialId: true, unitPrice: true, unitLandedCost: true } },
+              },
+            },
+            lines: {
+              include: {
+                material: { select: { id: true, code: true, name: true, unit: true, currentCost: true } },
+                preferredSupplier: { select: { id: true, name: true } },
+              },
+              orderBy: { material: { name: "asc" } },
+            },
+          },
+        });
 
-  const req = await prisma.materialRequisition.findFirst({
-    where: { id, project: { companyId: company.id } },
-    include: {
-      project: { select: { id: true, name: true } },
-      phase: { select: { name: true } },
-      requestedBy: { select: { name: true } },
-      approvedBy: { select: { name: true } },
-      rejectedBy: { select: { name: true } },
-      vendorQuotes: {
-        select: {
-          id: true,
-          status: true,
-          isCheapest: true,
-          landedTotal: true,
-          supplier: { select: { id: true, name: true } },
-          selectedAt: true,
-          selectionReason: true,
-          lines: { select: { materialId: true, unitPrice: true, unitLandedCost: true } },
-        },
-      },
-      lines: {
-        include: {
-          material: { select: { id: true, code: true, name: true, unit: true, currentCost: true } },
-          preferredSupplier: { select: { id: true, name: true } },
-        },
-        orderBy: { material: { name: "asc" } },
-      },
-    },
-  });
+        if (!req) {
+          return (
+            <div>
+              <div className="mb-4">
+              </div>
+              <MobileEmptyState icon={FileText} title="Indent not found" />
+            </div>
+          );
+        }
 
-  if (!req) {
-    return (
-      <div>
-        <div className="mb-4">
-        </div>
-        <MobileEmptyState icon={FileText} title="Indent not found" />
-      </div>
-    );
-  }
+        const canApprove = hasPermission(role, PERM.REQUISITION_APPROVE);
 
-  const canApprove = hasPermission(role, PERM.REQUISITION_APPROVE);
-  const canManage = hasPermission(role, PERM.PROCUREMENT_MANAGE);
+        const [suppliers, locations] = await Promise.all([
+          prisma.supplier.findMany({
+            where: { deletedAt: null },
+            select: { id: true, name: true },
+            orderBy: { name: "asc" },
+          }),
+          prisma.stockLocation.findMany({
+            where: { companyId: company.id, deletedAt: null },
+            select: { id: true, name: true, type: true, projectId: true },
+            orderBy: { name: "asc" },
+          }),
+        ]);
 
-  const [suppliers, locations] = await Promise.all([
-    prisma.supplier.findMany({
-      where: { deletedAt: null },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.stockLocation.findMany({
-      where: { companyId: company.id, deletedAt: null },
-      select: { id: true, name: true, type: true, projectId: true },
-      orderBy: { name: "asc" },
-    }),
-  ]);
+        const lines = req.lines.map((l) => ({
+          id: l.id,
+          materialId: l.material.id,
+          materialName: l.material.name,
+          materialCode: l.material.code,
+          unit: l.material.unit,
+          qtyRequested: toNum(l.qtyRequested),
+          notes: l.notes,
+          currentStock: l.currentStock != null ? toNum(l.currentStock) : null,
+          lastRate: l.lastRate != null ? toNum(l.lastRate) : null,
+          suggestedCost: toNum(l.material.currentCost),
+          preferredSupplierId: l.preferredSupplierId,
+        }));
 
-  const lines = req.lines.map((l) => ({
-    id: l.id,
-    materialId: l.material.id,
-    materialName: l.material.name,
-    materialCode: l.material.code,
-    unit: l.material.unit,
-    qtyRequested: toNum(l.qtyRequested),
-    notes: l.notes,
-    currentStock: l.currentStock != null ? toNum(l.currentStock) : null,
-    lastRate: l.lastRate != null ? toNum(l.lastRate) : null,
-    suggestedCost: toNum(l.material.currentCost),
-    preferredSupplierId: l.preferredSupplierId,
-  }));
+        const reqPayload = {
+          id: req.id,
+          reqNumber: req.reqNumber,
+          status: req.status,
+          projectName: req.project?.name ?? null,
+          projectId: req.project?.id ?? null,
+          phaseName: req.phase?.name ?? null,
+          requestDate: req.requestDate.toISOString(),
+          neededByDate: req.neededByDate?.toISOString() ?? null,
+          notes: req.notes,
+          rejectReason: req.rejectReason,
+          convertedPoId: req.convertedPoId,
+        };
 
-  const reqPayload = {
-    id: req.id,
-    reqNumber: req.reqNumber,
-    status: req.status,
-    projectName: req.project?.name ?? null,
-    projectId: req.project?.id ?? null,
-    phaseName: req.phase?.name ?? null,
-    requestDate: req.requestDate.toISOString(),
-    neededByDate: req.neededByDate?.toISOString() ?? null,
-    notes: req.notes,
-    rejectReason: req.rejectReason,
-    convertedPoId: req.convertedPoId,
-  };
+        // Timeline data
+        const totalItems = lines.reduce((s, l) => s + l.qtyRequested, 0);
+        const quoteCount = req.vendorQuotes.length;
+        const quotesMet = quoteCount >= req.minQuotesRequired || req.quotesWaived;
 
-  // Timeline data
-  const totalItems = lines.reduce((s, l) => s + l.qtyRequested, 0);
-  const quoteCount = req.vendorQuotes.length;
-  const quotesMet = quoteCount >= req.minQuotesRequired || req.quotesWaived;
+        // ── Winning quote (SELECTED status) — passed to ConvertForm for display ──
+        const winningQuote = req.vendorQuotes.find((q) => q.status === "SELECTED");
+        const winningQuoteData = winningQuote
+          ? {
+              id: winningQuote.id,
+              supplierName: winningQuote.supplier.name,
+              supplierId: winningQuote.supplier.id,
+              landedTotal: toNum(winningQuote.landedTotal),
+              selectedAt: winningQuote.selectedAt?.toISOString() ?? null,
+              selectionReason: winningQuote.selectionReason,
+              isCheapest: winningQuote.isCheapest,
+              lineCosts: Object.fromEntries(
+                winningQuote.lines.map((l) => [l.materialId, toNum(l.unitPrice)]),
+              ),
+            }
+          : null;
 
-  // ── Winning quote (SELECTED status) — passed to ConvertForm for display ──
-  const winningQuote = req.vendorQuotes.find((q) => q.status === "SELECTED");
-  const winningQuoteData = winningQuote
-    ? {
-        id: winningQuote.id,
-        supplierName: winningQuote.supplier.name,
-        supplierId: winningQuote.supplier.id,
-        landedTotal: toNum(winningQuote.landedTotal),
-        selectedAt: winningQuote.selectedAt?.toISOString() ?? null,
-        selectionReason: winningQuote.selectionReason,
-        isCheapest: winningQuote.isCheapest,
-        lineCosts: Object.fromEntries(
-          winningQuote.lines.map((l) => [l.materialId, toNum(l.unitPrice)]),
-        ),
-      }
-    : null;
+        // Needed-by urgency
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        let neededText = "";
+        let neededUrgent = false;
+        if (req.neededByDate) {
+          const needed = new Date(req.neededByDate); needed.setHours(0, 0, 0, 0);
+          const diff = Math.round((needed.getTime() - today.getTime()) / 86400000);
+          if (diff < 0) { neededText = `${Math.abs(diff)}d overdue`; neededUrgent = true; }
+          else if (diff === 0) { neededText = "today"; neededUrgent = true; }
+          else if (diff <= 3) { neededText = `${diff}d left`; neededUrgent = true; }
+          else { neededText = formatDate(req.neededByDate); }
+        }
 
-  // Needed-by urgency
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  let neededText = "";
-  let neededUrgent = false;
-  if (req.neededByDate) {
-    const needed = new Date(req.neededByDate); needed.setHours(0, 0, 0, 0);
-    const diff = Math.round((needed.getTime() - today.getTime()) / 86400000);
-    if (diff < 0) { neededText = `${Math.abs(diff)}d overdue`; neededUrgent = true; }
-    else if (diff === 0) { neededText = "today"; neededUrgent = true; }
-    else if (diff <= 3) { neededText = `${diff}d left`; neededUrgent = true; }
-    else { neededText = formatDate(req.neededByDate); }
-  }
+        // Pipeline position: Indent → Quote → PO → GRN → Issue
+        const pipelineSteps: MobilePipelineStep[] = [
+          { label: "Indent", state: "current" },
+          { label: "Quote", state: quoteCount > 0 ? "done" : "pending" },
+          {
+            label: "PO",
+            state: req.convertedPoId ? "done" : "pending",
+            href: req.convertedPoId ? `/m/procurement/${req.convertedPoId}` : undefined,
+          },
+          { label: "GRN", state: "pending" },
+          { label: "Issue", state: "pending" },
+        ];
 
-  // Pipeline position: Indent → Quote → PO → GRN → Issue
-  const pipelineSteps: MobilePipelineStep[] = [
-    { label: "Indent", state: "current" },
-    { label: "Quote", state: quoteCount > 0 ? "done" : "pending" },
-    {
-      label: "PO",
-      state: req.convertedPoId ? "done" : "pending",
-      href: req.convertedPoId ? `/m/procurement/${req.convertedPoId}` : undefined,
-    },
-    { label: "GRN", state: "pending" },
-    { label: "Issue", state: "pending" },
-  ];
+        const nextAction = resolveNextAction("requisition", req.status, role, overrides);
 
-  const nextAction = resolveNextAction("requisition", req.status, role, overrides);
+        // Permissions to announce to the NavSheet's Next Step resolver
+        const canActions: string[] = [];
+        if (canApprove) canActions.push(PERM.REQUISITION_APPROVE);
+        if (canManage) canActions.push(PERM.PROCUREMENT_MANAGE);
 
-  // Permissions to announce to the NavSheet's Next Step resolver
-  const canActions: string[] = [];
-  if (canApprove) canActions.push(PERM.REQUISITION_APPROVE);
-  if (canManage) canActions.push(PERM.PROCUREMENT_MANAGE);
+        // ── Workflow timeline steps ──
+        const timelineSteps: TimelineStepData[] = [
+          {
+            label: "Created",
+            date: formatDate(req.createdAt),
+            detail: req.requestedBy?.name ?? "—",
+            state: "done",
+            color: "var(--color-go)",
+          },
+        ];
 
-  return (
-    <PageContextProvider value={{
-      entityType: "requisition",
-      flowId: "requisition",
-      status: req.status,
-      label: req.reqNumber,
-      subtitle: req.project?.name,
-      recordId: req.id,
-      canActions,
-    }}>
-    <div className="pb-20">
-      <RecordRecentItem type="requisition" id={req.id} label={req.reqNumber} sublabel={req.project?.name} href={`/m/requisitions/${req.id}`} />
+        if (req.status !== "DRAFT") {
+          timelineSteps.push({
+            label: "Submitted",
+            date: formatDate(req.requestDate),
+            state: "done",
+            color: "var(--color-go)",
+          });
+        } else {
+          timelineSteps.push({
+            label: "Draft — not submitted",
+            detail: "Awaiting submission",
+            state: "current",
+          });
+        }
 
-      {/* ── Next action — the one thing to do, doable on this page ── */}
-      {nextAction ? (
-        <NextActionCardView
-          label={nextAction.label}
-          reason={nextAction.reason}
-          tone={nextAction.tone ?? "signal"}
-          hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
-          href={nextAction.action.type === "navigate" ? nextAction.action.href.replace("{id}", req.id) : undefined}
-        />
-      ) : null}
+        if (req.status === "SUBMITTED") {
+          timelineSteps.push({
+            label: "Awaiting approval",
+            detail: canApprove ? "Your action needed" : "Pending approver review",
+            state: "current",
+          });
+        } else if (req.status === "APPROVED" || req.status === "CONVERTED") {
+          timelineSteps.push({
+            label: "Approved",
+            date: req.approvedAt ? formatDate(req.approvedAt) : "—",
+            detail: req.approvedBy?.name ?? "—",
+            state: "done",
+            color: "var(--color-go)",
+          });
+        } else if (req.status === "REJECTED") {
+          timelineSteps.push({
+            label: "Rejected",
+            date: req.rejectedAt ? formatDate(req.rejectedAt) : "—",
+            detail: req.rejectReason ?? req.rejectedBy?.name ?? "—",
+            state: "done",
+            color: "var(--color-stop)",
+          });
+        }
 
-      {/* Req number + status + print in one compact header row */}
-      <div className="mb-4">
-        <div className="flex items-center gap-2 mb-1">
-          <h1 className="text-m-section font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>
-            {req.reqNumber}
-          </h1>
-          <MobileStatusBadge status={req.status} />
-          <a
-            href={`/print/requisition/${req.id}`}
-            className="ml-auto flex items-center gap-1 text-m-body font-semibold px-2.5 py-1 rounded-[0.5rem] border text-m-body press"
-            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
-          >
-            <Printer className="size-3.5" />
-            Print
-          </a>
-        </div>
-        <div className="flex items-center gap-3 text-m-body" style={{ color: "var(--color-ink-500)" }}>
-          <Link
-            href={`/m/projects/${req.project?.id ?? ""}`}
-            className="font-semibold hover:underline"
-            style={{ color: "var(--color-ink-700)" }}
-          >
-            {req.project?.name ?? "No project"}
-          </Link>
-          {neededText ? (
-            <span
-              className="font-bold px-1.5 py-0.5 rounded"
-              style={{
-                backgroundColor: neededUrgent ? "var(--color-stop)" : "var(--color-concrete)",
-                color: neededUrgent ? "var(--color-paper)" : "var(--color-ink-500)",
-              }}
+        if (req.status === "APPROVED") {
+          timelineSteps.push({
+            label: quotesMet ? "Ready to convert" : "Needs quotes",
+            detail: quotesMet
+              ? "Convert to purchase order"
+              : `${quoteCount}/${req.minQuotesRequired} vendor quotes`,
+            state: "current",
+          });
+        }
+
+        if (req.status === "CONVERTED" && req.convertedPoId) {
+          timelineSteps.push({
+            label: "Converted to PO",
+            detail: "View purchase order →",
+            state: "done",
+            color: "var(--color-go)",
+          });
+        }
+
+        return (
+          <PageContextProvider value={{
+            entityType: "requisition",
+            flowId: "requisition",
+            status: req.status,
+            label: req.reqNumber,
+            subtitle: req.project?.name,
+            recordId: req.id,
+            canActions,
+          }}>
+          <div className="pb-20">
+            <RecordRecentItem type="requisition" id={req.id} label={req.reqNumber} sublabel={req.project?.name} href={`/m/requisitions/${req.id}`} />
+
+            {/* ── Next action — the one thing to do, doable on this page ── */}
+            {nextAction ? (
+              <NextActionCardView
+                label={nextAction.label}
+                reason={nextAction.reason}
+                tone={nextAction.tone ?? "signal"}
+                hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
+                href={nextAction.action.type === "navigate" ? nextAction.action.href.replace("{id}", req.id) : undefined}
+              />
+            ) : null}
+
+            {/* ── Hero card — req number + status + print + project link + needed-by ── */}
+            <DetailHeroCard
+              title={req.reqNumber}
+              titleMono
+              status={req.status}
+              action={<DetailPrintButton href={`/print/requisition/${req.id}`} />}
             >
-              {neededText}
-            </span>
-          ) : null}
-        </div>
-      </div>
-
-      {/* Pipeline position — where this indent sits in the macro flow */}
-      <div className="mb-4 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-        <MobilePipelineStepper steps={pipelineSteps} />
-      </div>
-
-      {/* ── Workflow timeline ── */}
-      <div className="mb-5">
-        <p className="text-m-caption font-bold uppercase tracking-wider mb-3" style={{ color: "var(--color-steel)" }}>
-          Workflow
-        </p>
-        <div className="relative pl-6">
-          {/* Vertical line */}
-          <div
-            className="absolute left-[7px] top-1 bottom-1 w-px"
-            style={{ backgroundColor: "var(--color-line)" }}
-          />
-
-          <TimelineStep
-            done
-            color="var(--color-go)"
-            label="Created"
-            date={formatDate(req.createdAt)}
-            detail={req.requestedBy?.name ?? "—"}
-          />
-
-          {req.status !== "DRAFT" ? (
-            <TimelineStep
-              done
-              color="var(--color-go)"
-              label="Submitted"
-              date={formatDate(req.requestDate)}
-            />
-          ) : (
-            <TimelineStep
-              color="var(--color-signal)"
-              label="Draft — not submitted"
-              detail="Awaiting submission"
-            />
-          )}
-
-          {req.status === "SUBMITTED" ? (
-            <TimelineStep
-              color="var(--color-signal)"
-              label="Awaiting approval"
-              detail={canApprove ? "Your action needed" : "Pending approver review"}
-            />
-          ) : req.status === "APPROVED" || req.status === "CONVERTED" ? (
-            <TimelineStep
-              done
-              color="var(--color-go)"
-              label="Approved"
-              date={req.approvedAt ? formatDate(req.approvedAt) : "—"}
-              detail={req.approvedBy?.name ?? "—"}
-            />
-          ) : req.status === "REJECTED" ? (
-            <TimelineStep
-              done
-              color="var(--color-stop)"
-              label="Rejected"
-              date={req.rejectedAt ? formatDate(req.rejectedAt) : "—"}
-              detail={req.rejectReason ?? req.rejectedBy?.name ?? "—"}
-            />
-          ) : null}
-
-          {req.status === "APPROVED" ? (
-            <TimelineStep
-              color={quotesMet ? "var(--color-go)" : "var(--color-signal)"}
-              label={quotesMet ? "Ready to convert" : "Needs quotes"}
-              detail={quotesMet
-                ? "Convert to purchase order"
-                : `${quoteCount}/${req.minQuotesRequired} vendor quotes`}
-            />
-          ) : null}
-
-          {req.status === "CONVERTED" && req.convertedPoId ? (
-            <TimelineStep
-              done
-              color="var(--color-go)"
-              label="Converted to PO"
-              detail={
+              <div className="flex items-center gap-3 text-m-body mt-2" style={{ color: "var(--color-ink-500)" }}>
                 <Link
-                  href={`/m/procurement/${req.convertedPoId}`}
+                  href={`/m/projects/${req.project?.id ?? ""}`}
                   className="font-semibold hover:underline"
                   style={{ color: "var(--color-ink-700)" }}
                 >
-                  View purchase order →
+                  {req.project?.name ?? "No project"}
                 </Link>
-              }
-            />
-          ) : null}
-        </div>
-      </div>
-
-      {/* ── Line items table ── */}
-      <div className="mb-5">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-m-caption font-bold uppercase tracking-wider" style={{ color: "var(--color-steel)" }}>
-            Items
-          </p>
-          <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
-            {lines.length} lines · {formatNumber(totalItems, 0)} units
-          </span>
-        </div>
-        <div
-          className="rounded-[0.625rem] border overflow-hidden"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-        >
-          {lines.map((l, i) => (
-            <div
-              key={l.id}
-              className="flex items-center gap-2 px-2.5 py-2"
-              style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
-            >
-              <div className="min-w-0 flex-1">
-                <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
-                  {l.materialName}
-                </p>
-                <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
-                  {l.materialCode}
-                  {l.currentStock != null ? ` · stock ${formatNumber(l.currentStock, 0)}` : ""}
-                  {l.lastRate != null ? ` · last ${formatCurrency(l.lastRate)}` : ""}
-                </p>
+                {neededText ? (
+                  <span
+                    className="font-bold px-1.5 py-0.5 rounded"
+                    style={{
+                      backgroundColor: neededUrgent ? "var(--color-stop)" : "var(--color-concrete)",
+                      color: neededUrgent ? "var(--color-paper)" : "var(--color-ink-500)",
+                    }}
+                  >
+                    {neededText}
+                  </span>
+                ) : null}
               </div>
-              <div className="text-right shrink-0">
-                <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-                  {formatNumber(l.qtyRequested, 0)}
+            </DetailHeroCard>
+
+            {/* Pipeline position — where this indent sits in the macro flow */}
+            <div className="mb-4 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+              <MobilePipelineStepper steps={pipelineSteps} />
+            </div>
+
+            {/* ── Workflow timeline ── */}
+            <DetailTimeline steps={timelineSteps} title="Workflow" />
+
+            {/* ── Line items table ── */}
+            <div className="mb-5">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-m-caption font-bold uppercase tracking-wider" style={{ color: "var(--color-steel)" }}>
+                  Items
                 </p>
-                <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                  {l.unit}
-                </p>
+                <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
+                  {lines.length} lines · {formatNumber(totalItems, 0)} units
+                </span>
+              </div>
+              <div
+                className="rounded-[0.625rem] border overflow-hidden"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              >
+                {lines.map((l, i) => (
+                  <div
+                    key={l.id}
+                    className="flex items-center gap-2 px-2.5 py-2"
+                    style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                        {l.materialName}
+                      </p>
+                      <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
+                        {l.materialCode}
+                        {l.currentStock != null ? ` · stock ${formatNumber(l.currentStock, 0)}` : ""}
+                        {l.lastRate != null ? ` · last ${formatCurrency(l.lastRate)}` : ""}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                        {formatNumber(l.qtyRequested, 0)}
+                      </p>
+                      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                        {l.unit}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* ── Vendor quotes + comparative statement (mobile) ──
-          Shown when the requisition is APPROVED (quotes collection phase)
-          or when quotes already exist. Inline — no redirection. */}
-      {req.status === "APPROVED" || quoteCount > 0 ? (
-        <MobileQuotePanel
-          requisitionId={req.id}
-          reqNumber={req.reqNumber}
-          requisitionLines={lines.map((l) => ({
-            materialId: l.materialId,
-            materialCode: l.materialCode,
-            materialName: l.materialName,
-            unit: l.unit,
-            qtyRequested: l.qtyRequested,
-          }))}
-          suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
-          canApprove={canApprove}
-          canCreate={canManage}
-        />
-      ) : null}
+            {/* ── Vendor quotes + comparative statement (mobile) ──
+                Shown when the requisition is APPROVED (quotes collection phase)
+                or when quotes already exist. Inline — no redirection. */}
+            {req.status === "APPROVED" || quoteCount > 0 ? (
+              <MobileQuotePanel
+                requisitionId={req.id}
+                reqNumber={req.reqNumber}
+                requisitionLines={lines.map((l) => ({
+                  materialId: l.materialId,
+                  materialCode: l.materialCode,
+                  materialName: l.materialName,
+                  unit: l.unit,
+                  qtyRequested: l.qtyRequested,
+                }))}
+                suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
+                canApprove={canApprove}
+                canCreate={canManage}
+              />
+            ) : null}
 
-      {/* ── Notes block ── */}
-      {req.notes ? (
-        <div className="mb-5">
-          <p className="text-m-caption font-bold uppercase tracking-wider mb-2" style={{ color: "var(--color-steel)" }}>
-            Notes
-          </p>
-          <div
-            className="rounded-[0.625rem] border-l-2 p-3 text-m-section italic"
-            style={{
-              borderColor: "var(--color-steel)",
-              backgroundColor: "var(--color-paper)",
-              color: "var(--color-ink-700)",
-            }}
-          >
-            {req.notes}
+            {/* ── Notes block ── */}
+            {req.notes ? (
+              <div className="mb-5">
+                <p className="text-m-caption font-bold uppercase tracking-wider mb-2" style={{ color: "var(--color-steel)" }}>
+                  Notes
+                </p>
+                <div
+                  className="rounded-[0.625rem] border-l-2 p-3 text-m-section italic"
+                  style={{
+                    borderColor: "var(--color-steel)",
+                    backgroundColor: "var(--color-paper)",
+                    color: "var(--color-ink-700)",
+                  }}
+                >
+                  {req.notes}
+                </div>
+              </div>
+            ) : null}
+
+            <AttachmentList entityType="MaterialRequisition" entityId={req.id} />
+
+            {/* ── Sticky bottom action bar ── */}
+            <ActionBar>
+                <MobileRequisitionActions
+                  requisition={reqPayload}
+                  lines={lines}
+                  suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
+                  locations={locations.map((l) => ({ id: l.id, name: l.name, type: l.type, projectId: l.projectId }))}
+                  canApprove={canApprove}
+                  canManage={canManage}
+                  quoteCount={quoteCount}
+                  minQuotesRequired={req.minQuotesRequired}
+                  quotesWaived={req.quotesWaived}
+                  winningQuote={winningQuoteData}
+                />
+            </ActionBar>
           </div>
-        </div>
-      ) : null}
-
-      <AttachmentList entityType="MaterialRequisition" entityId={req.id} />
-
-      {/* ── Sticky bottom action bar ── */}
-      <ActionBar>
-          <MobileRequisitionActions
-            requisition={reqPayload}
-            lines={lines}
-            suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
-            locations={locations.map((l) => ({ id: l.id, name: l.name, type: l.type, projectId: l.projectId }))}
-            canApprove={canApprove}
-            canManage={canManage}
-            quoteCount={quoteCount}
-            minQuotesRequired={req.minQuotesRequired}
-            quotesWaived={req.quotesWaived}
-            winningQuote={winningQuoteData}
-          />
-      </ActionBar>
-    </div>
-    </PageContextProvider>
-  );
-}
-
-/* ── Timeline step component ── */
-function TimelineStep({
-  done,
-  color,
-  label,
-  date,
-  detail,
-}: {
-  done?: boolean;
-  color: string;
-  label: string;
-  date?: string;
-  detail?: React.ReactNode;
-}) {
-  return (
-    <div className="relative pb-4 last:pb-0">
-      {/* Dot */}
-      <div
-        className="absolute -left-6 top-0.5 w-3.5 h-3.5 rounded-full border-2"
-        style={{
-          backgroundColor: done ? color : "var(--color-paper)",
-          borderColor: color,
-        }}
-      >
-        {done ? (
-          <div className="absolute inset-0 grid place-items-center">
-            <div className="w-1 h-1 rounded-full" style={{ backgroundColor: "var(--color-paper)" }} />
-          </div>
-        ) : null}
-      </div>
-      {/* Content */}
-      <div>
-        <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-          {label}
-        </p>
-        {date ? (
-          <p className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-            {date}
-          </p>
-        ) : null}
-        {detail ? (
-          <p className="text-m-label mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-            {detail}
-          </p>
-        ) : null}
-      </div>
-    </div>
+          </PageContextProvider>
+        );
+      }}
+    </MobileDetailPage>
   );
 }

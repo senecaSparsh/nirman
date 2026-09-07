@@ -1,20 +1,21 @@
-import { Suspense } from "react";
-import Link from "next/link";
-import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
-import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { Undo2, FileText, Building2, MapPin, ShieldCheck } from "lucide-react";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
+import Link from "next/link";
+import { Undo2 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import {
   MobileSectionTitle,
-  MobileRow,
   MobileEmptyState,
-  MobileStatCard,
-  MobileStatusBadge,
   ActionBar,
 } from "@/components/mobile/v2/primitives";
+import {
+  DetailHeroCard,
+  DetailStatGrid,
+  DetailKeyValueCard,
+  DetailAlertBanner,
+} from "@/components/mobile/v2/detail-primitives";
 import { MobileDetailActions } from "@/components/mobile/mobile-detail-actions";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
@@ -30,195 +31,189 @@ export default function MobileSupplierReturnDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense fallback={<MobileSkeletonDetail sections={6} />}>
-      <MobileSupplierReturnDetailContent params={params} />
-    </Suspense>
-  );
-}
+    <MobileDetailPage params={params} managePerm={PERM.PROCUREMENT_MANAGE} skeletonSections={6}>
+      {async ({ id, company, canManage }) => {
+        const ret = await prisma.supplierReturn.findFirst({
+          where: { id, companyId: company.id },
+          include: {
+            supplier: { select: { id: true, name: true } },
+            location: { select: { id: true, name: true } },
+            lines: {
+              include: { material: { select: { id: true, name: true, unit: true, code: true } } },
+            },
+          },
+        });
 
-async function MobileSupplierReturnDetailContent({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  await connection();
-  const company = await getCompany();
-  const role = await getUserRole();
-  const { id } = await params;
-
-  const ret = await prisma.supplierReturn.findFirst({
-    where: { id, companyId: company.id },
-    include: {
-      supplier: { select: { id: true, name: true } },
-      location: { select: { id: true, name: true } },
-      lines: {
-        include: { material: { select: { id: true, name: true, unit: true, code: true } } },
-      },
-    },
-  });
-
-  if (!ret) {
-    return (
-      <div>
-        <div className="mb-4">
-        </div>
-        <MobileEmptyState icon={Undo2} title="Return not found" />
-      </div>
-    );
-  }
-
-  // Fetch linked gate pass for SUBMITTED returns (to show gate pass approval status)
-  const gatePass = ret.status === "SUBMITTED"
-    ? await prisma.gatePass.findFirst({
-        where: { refType: "SupplierReturn", refId: ret.id },
-        select: { id: true, gatePassNumber: true, status: true },
-      })
-    : null;
-
-  const totalValue = ret.lines.reduce((s, l) => s + toNum(l.qty) * toNum(l.unitCost), 0);
-
-  // ── RBAC ──────────────────────────────────────────────────
-  const canManage = hasPermission(role, PERM.PROCUREMENT_MANAGE);
-  const isDraft = ret.status === "DRAFT";
-  const isSubmitted = ret.status === "SUBMITTED";
-  const isCancellable = ret.status !== "COMPLETED" && ret.status !== "CANCELLED";
-
-  const actions = canManage
-    ? [
-        ...(isDraft
-          ? [
-              {
-                label: "Submit Return",
-                icon: "Send",
-                endpoint: `/api/supplier-returns/${ret.id}`,
-                body: { action: "submit" },
-                successMsg: `Return ${ret.returnNumber} submitted`,
-                variant: "primary" as const,
-                confirm: "Submit this supplier return?",
-              },
-            ]
-          : []),
-        ...(isSubmitted
-          ? [
-              {
-                label: "Mark Completed",
-                icon: "CheckCircle2",
-                endpoint: `/api/supplier-returns/${ret.id}`,
-                body: { action: "complete" },
-                successMsg: `Return ${ret.returnNumber} completed`,
-                variant: "primary" as const,
-                confirm: "Mark this return as completed (credit note received)?",
-              },
-            ]
-          : []),
-        ...(isCancellable
-          ? [
-              {
-                label: "Cancel Return",
-                icon: "XCircle",
-                endpoint: `/api/supplier-returns/${ret.id}`,
-                body: { action: "cancel" },
-                successMsg: `Return ${ret.returnNumber} cancelled`,
-                variant: "danger" as const,
-                confirm: "Cancel this supplier return? This cannot be undone.",
-              },
-            ]
-          : []),
-      ]
-    : [];
-
-  return (
-    <PageContextProvider value={{
-      entityType: "supplierReturn",
-      status: ret.status,
-      label: ret.returnNumber,
-      subtitle: ret.supplier.name,
-      recordId: ret.id,
-    }}>
-    <div className="pb-20">
-      <div className="flex items-center justify-between gap-2 mb-4">
-        <MobileStatusBadge status={ret.status} />
-      </div>
-
-      <div className="grid grid-cols-2 gap-1.5 mb-4">
-        <MobileStatCard label="Credit Value" value={formatCurrencyCompact(totalValue)} icon={Undo2} tone="signal" />
-        <MobileStatCard label="Line Items" value={String(ret.lines.length)} icon={Undo2} />
-      </div>
-
-      <MobileSectionTitle>Details</MobileSectionTitle>
-      <div className="flex flex-col gap-2.5">
-        <MobileRow icon={Building2} title="Supplier" meta={ret.supplier.name} />
-        <MobileRow icon={MapPin} title="From Location" meta={ret.location.name} />
-        <MobileRow icon={FileText} title="Return Date" meta={formatDate(ret.returnDate)} />
-        {ret.creditNoteNo && <MobileRow icon={FileText} title="Credit Note No" meta={ret.creditNoteNo} />}
-        {ret.notes && <MobileRow icon={FileText} title="Notes" meta={ret.notes} />}
-      </div>
-
-      <MobileSectionTitle>Line Items ({ret.lines.length})</MobileSectionTitle>
-      {ret.lines.length === 0 ? (
-        <MobileEmptyState icon={Undo2} title="No line items" />
-      ) : (
-        <div className="flex flex-col gap-2.5">
-          {ret.lines.map((l) => (
-            <Link
-              key={l.id}
-              href={`/m/materials/${l.material.id}`}
-              className="flex min-h-11 items-center gap-2.5 rounded-[0.875rem] border p-3.5 transition-colors active:opacity-80"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-            >
-              <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.375rem]"
-                style={{ backgroundColor: "var(--color-concrete)" }}
-              >
-                <Undo2 className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>{l.material.name}</div>
-                <div className="truncate text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                  {l.material.code}
-                  {l.reason ? ` · ${l.reason}` : ""} · {formatCurrency(toNum(l.unitCost))}/{l.material.unit}
-                </div>
+        if (!ret) {
+          return (
+            <div>
+              <div className="mb-4">
               </div>
-              <span className="shrink-0 text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-                {formatNumber(toNum(l.qty), 0)} {l.material.unit}
-              </span>
-            </Link>
-          ))}
-        </div>
-      )}
+              <MobileEmptyState icon={Undo2} title="Return not found" />
+            </div>
+          );
+        }
 
-      {/* ── Gate pass status banner (for SUBMITTED returns) ── */}
-      {gatePass && (
-        <div className="rounded-[0.5rem] border px-3 py-2 mb-3 flex items-center gap-2" style={{
-          borderColor: gatePass.status === "APPROVED" || gatePass.status === "EXITED"
-            ? "color-mix(in srgb, var(--color-go) 30%, var(--color-line))"
-            : "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
-          backgroundColor: gatePass.status === "APPROVED" || gatePass.status === "EXITED"
-            ? "color-mix(in srgb, var(--color-go) 6%, var(--color-paper))"
-            : "color-mix(in srgb, var(--color-signal) 6%, var(--color-paper))",
-        }}>
-          <ShieldCheck className="size-3.5 shrink-0" style={{
-            color: gatePass.status === "APPROVED" || gatePass.status === "EXITED"
-              ? "var(--color-go)" : "var(--color-signal-dark)",
-          }} />
-          <span className="text-m-caption flex-1" style={{ color: "var(--color-ink-700)" }}>
-            Gate pass <span className="font-mono font-semibold">{gatePass.gatePassNumber}</span> —{" "}
-            {gatePass.status === "PENDING" ? "awaiting approval. Completion blocked until approved." :
-             gatePass.status === "APPROVED" ? "approved — ready to complete." :
-             gatePass.status === "REJECTED" ? "rejected — resubmit or cancel the gate pass." :
-             `${gatePass.status}`}
-          </span>
-          <Link href="/m/gate-pass" className="text-m-caption font-semibold shrink-0" style={{ color: "var(--color-brand)" }}>
-            View →
-          </Link>
-        </div>
-      )}
+        // Fetch linked gate pass for SUBMITTED returns (to show gate pass approval status)
+        const gatePass = ret.status === "SUBMITTED"
+          ? await prisma.gatePass.findFirst({
+              where: { refType: "SupplierReturn", refId: ret.id },
+              select: { id: true, gatePassNumber: true, status: true },
+            })
+          : null;
 
-      {/* ── Inline actions ────────────────────────────────────── */}
-      <ActionBar>
-        <MobileDetailActions actions={actions} />
-      </ActionBar>
-    </div>
-    </PageContextProvider>
+        const totalValue = ret.lines.reduce((s, l) => s + toNum(l.qty) * toNum(l.unitCost), 0);
+
+        // ── RBAC ──────────────────────────────────────────────────
+        const isDraft = ret.status === "DRAFT";
+        const isSubmitted = ret.status === "SUBMITTED";
+        const isCancellable = ret.status !== "COMPLETED" && ret.status !== "CANCELLED";
+
+        const actions = canManage
+          ? [
+              ...(isDraft
+                ? [
+                    {
+                      label: "Submit Return",
+                      icon: "Send",
+                      endpoint: `/api/supplier-returns/${ret.id}`,
+                      body: { action: "submit" },
+                      successMsg: `Return ${ret.returnNumber} submitted`,
+                      variant: "primary" as const,
+                      confirm: "Submit this supplier return?",
+                    },
+                  ]
+                : []),
+              ...(isSubmitted
+                ? [
+                    {
+                      label: "Mark Completed",
+                      icon: "CheckCircle2",
+                      endpoint: `/api/supplier-returns/${ret.id}`,
+                      body: { action: "complete" },
+                      successMsg: `Return ${ret.returnNumber} completed`,
+                      variant: "primary" as const,
+                      confirm: "Mark this return as completed (credit note received)?",
+                    },
+                  ]
+                : []),
+              ...(isCancellable
+                ? [
+                    {
+                      label: "Cancel Return",
+                      icon: "XCircle",
+                      endpoint: `/api/supplier-returns/${ret.id}`,
+                      body: { action: "cancel" },
+                      successMsg: `Return ${ret.returnNumber} cancelled`,
+                      variant: "danger" as const,
+                      confirm: "Cancel this supplier return? This cannot be undone.",
+                    },
+                  ]
+                : []),
+            ]
+          : [];
+
+        const gatePassApproved =
+          gatePass?.status === "APPROVED" || gatePass?.status === "EXITED";
+        const gatePassMessage =
+          gatePass?.status === "PENDING"
+            ? "awaiting approval. Completion blocked until approved."
+            : gatePass?.status === "APPROVED"
+              ? "approved — ready to complete."
+              : gatePass?.status === "REJECTED"
+                ? "rejected — resubmit or cancel the gate pass."
+                : `${gatePass?.status}`;
+
+        return (
+          <PageContextProvider value={{
+            entityType: "supplierReturn",
+            status: ret.status,
+            label: ret.returnNumber,
+            subtitle: ret.supplier.name,
+            recordId: ret.id,
+          }}>
+          <div className="pb-20">
+            <DetailHeroCard
+              icon={Undo2}
+              title={ret.returnNumber}
+              titleMono
+              subtitle={ret.supplier.name}
+              status={ret.status}
+            />
+
+            <DetailStatGrid
+              cols={2}
+              stats={[
+                { label: "Credit Value", value: formatCurrencyCompact(totalValue), tone: "signal" },
+                { label: "Line Items", value: String(ret.lines.length) },
+              ]}
+            />
+
+            <DetailKeyValueCard
+              title="Details"
+              entries={[
+                { label: "Supplier", value: ret.supplier.name },
+                { label: "From Location", value: ret.location.name },
+                { label: "Return Date", value: formatDate(ret.returnDate) },
+                ...(ret.creditNoteNo ? [{ label: "Credit Note No", value: ret.creditNoteNo }] : []),
+                ...(ret.notes ? [{ label: "Notes", value: ret.notes }] : []),
+              ]}
+            />
+
+            <MobileSectionTitle>Line Items ({ret.lines.length})</MobileSectionTitle>
+            {ret.lines.length === 0 ? (
+              <MobileEmptyState icon={Undo2} title="No line items" />
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {ret.lines.map((l) => (
+                  <Link
+                    key={l.id}
+                    href={`/m/materials/${l.material.id}`}
+                    className="flex min-h-11 items-center gap-2.5 rounded-[0.875rem] border p-3.5 transition-colors active:opacity-80"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                  >
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.375rem]"
+                      style={{ backgroundColor: "var(--color-concrete)" }}
+                    >
+                      <Undo2 className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>{l.material.name}</div>
+                      <div className="truncate text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                        {l.material.code}
+                        {l.reason ? ` · ${l.reason}` : ""} · {formatCurrency(toNum(l.unitCost))}/{l.material.unit}
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                      {formatNumber(toNum(l.qty), 0)} {l.material.unit}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            {/* ── Gate pass status banner (for SUBMITTED returns) ── */}
+            {gatePass && (
+              <DetailAlertBanner
+                tone={gatePassApproved ? "success" : "warning"}
+                title={`Gate pass ${gatePass.gatePassNumber}`}
+                description={gatePassMessage}
+              >
+                <Link href="/m/gate-pass" className="text-m-caption font-semibold" style={{ color: "var(--color-brand)" }}>
+                  View →
+                </Link>
+              </DetailAlertBanner>
+            )}
+
+            {/* ── Inline actions ────────────────────────────────────── */}
+            <ActionBar>
+              <MobileDetailActions actions={actions} />
+            </ActionBar>
+          </div>
+          </PageContextProvider>
+        );
+      }}
+    </MobileDetailPage>
   );
 }

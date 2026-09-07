@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   ChevronLeft,
+  ChevronRight,
   ChevronDown,
   Check,
   Loader2,
@@ -16,10 +17,12 @@ import {
   Search,
 } from "lucide-react";
 import { useSession, signOut as authSignOut } from "@/lib/auth-client";
+import { mutate } from "swr";
 import { CommandPalette } from "@/components/command-palette";
 import { usePullToRefresh } from "@/components/mobile/use-pull-to-refresh";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { NavSheet } from "@/components/mobile/v2/nav-sheet";
+import { TabSwitcher } from "@/components/mobile/v2/tab-switcher";
 import { VoiceAgentButton } from "@/components/mobile/v2/voice-agent-button";
 import { MobileGlobalSearch } from "@/components/mobile/v2/mobile-global-search";
 import { useCompanySwitch } from "@/lib/use-company-switch";
@@ -37,6 +40,7 @@ import {
   type RouteEntry,
 } from "@/lib/route-manifest";
 import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
+import type { NavBootstrap } from "@/lib/server";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MOBILE SHELL V2 — "site-grade" minimal layout
@@ -74,7 +78,16 @@ type CompanyOption = {
   isCurrent: boolean;
 };
 
-export function MobileShellV2({ children }: { children: React.ReactNode }) {
+export function MobileShellV2({
+  children,
+  initial,
+}: {
+  children: React.ReactNode;
+  /** Server-resolved nav identity from the /m layout. When present, the
+   * shell renders with the real role/permissions/company on first paint
+   * (no client waterfall, no session spinner). */
+  initial?: NavBootstrap | null;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, isPending: sessionLoading } = useSession();
@@ -83,13 +96,22 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
   // This ensures the device tier cookie is always set, even on pages that don't
   // use AdaptiveData. The server reads this cookie to decide SSR vs client-fetch.
   useDeviceTierWithCaps();
-  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>({
-    name: "Nirman",
-    role: "PROJECT_MANAGER",
-    parentCompanyId: null,
-    permissions: [],
-  });
-  const [companies, setCompanies] = useState<CompanyOption[]>([]);
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(() =>
+    initial
+      ? {
+          name: initial.company.name,
+          role: initial.me.role,
+          parentCompanyId: initial.company.parentCompanyId,
+          permissions: initial.me.permissions,
+        }
+      : {
+          name: "Nirman",
+          role: "PROJECT_MANAGER",
+          parentCompanyId: null,
+          permissions: [],
+        },
+  );
+  const [companies, setCompanies] = useState<CompanyOption[]>(initial?.company.companies ?? []);
   const [companySwitcherOpen, setCompanySwitcherOpen] = useState(false);
   const [switchingCompanyId, setSwitchingCompanyId] = useState<string | null>(null);
   const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
@@ -134,7 +156,10 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
 
   // ── Resolve company name + role via /api/me + /api/company ──
   // Both fetches run in parallel (Promise.all) to halve the waterfall.
+  // Skipped when `initial` is provided — the /m layout already resolved
+  // the same data server-side, so refetching would just double the work.
   useEffect(() => {
+    if (initial) return;
     let cancelled = false;
     Promise.all([
       fetch("/api/me").then((r) => (r.ok ? r.json() : null)).catch(() => null),
@@ -155,7 +180,7 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initial]);
 
   // ── Update document title to the current company name ──────
   // Once we know the active company, the tab title becomes
@@ -261,6 +286,11 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
           if (Array.isArray(c?.companies)) setCompanies(c.companies);
         })
         .catch(() => {});
+      // Invalidate SWR caches so child components using usePermissions
+      // or useSWR("/api/company") stay in sync after the switch —
+      // permissions are company-scoped and must be re-fetched.
+      mutate("/api/me");
+      mutate("/api/company");
       refreshBadgeCounts();
     }
     window.addEventListener("nirman-company-switched", onCompanySwitched as EventListener);
@@ -290,7 +320,15 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
     return refreshBadgeCounts();
   }, [refreshBadgeCounts]);
 
-  if (process.env.NEXT_PUBLIC_AUTH_BYPASS !== "true" && sessionLoading && !session) {
+  // The session spinner only applies when the server did NOT already prove
+  // a session exists (initial === undefined → unauthenticated or bootstrap
+  // failed → keep the old gate so we still wait for useSession/redirect).
+  if (
+    !initial &&
+    process.env.NEXT_PUBLIC_AUTH_BYPASS !== "true" &&
+    sessionLoading &&
+    !session
+  ) {
     return (
       <div className="flex min-h-dvh items-center justify-center" style={{ backgroundColor: "var(--color-paper-2)" }}>
         <Loader2 className="size-6 animate-spin" style={{ color: "var(--color-ink-300)" }} />
@@ -373,6 +411,7 @@ function MobileShellInner({
 }) {
   const [isOffline, setIsOffline] = useState(false);
   const [navSheetOpen, setNavSheetOpen] = useState(false);
+  const [tabSwitcherOpen, setTabSwitcherOpen] = useState(false);
   const companySwitcherRef = useRef<HTMLDivElement>(null);
   const { pending: offlineQueueCount, syncing: offlineSyncing, sync: _syncOfflineQueue } = useOfflineQueue();
   const { trackVisit } = useRecentPages();
@@ -452,15 +491,25 @@ function MobileShellInner({
   // Tracks a touch that starts within 28px of the left edge. If the user
   // swipes right by >80px without lifting, we call router.back().
   // Handlers are MERGED with pull-to-refresh below — both gestures coexist.
-  const touchStart = useRef<{ x: number; y: number; time: number } | null>(null);
+  //
+  // ── Right-edge swipe → Tab Switcher ──
+  // The opposite gesture: a touch starting within 28px of the RIGHT edge
+  // that swipes LEFT by >80px opens the Safari-style tab overview. This is
+  // the "opposite direction of going back" the owner requested.
+  const touchStart = useRef<{ x: number; y: number; time: number; edge: "left" | "right" | null } | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
+  const [rightSwipeOffset, setRightSwipeOffset] = useState(0);
 
   const onSwipeTouchStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
     if (!t) return;
-    // Track touches that start near the left edge (wider zone for reliability)
-    if (t.clientX < 28) {
-      touchStart.current = { x: t.clientX, y: t.clientY, time: Date.now() };
+    const winW = typeof window !== "undefined" ? window.innerWidth : 9999;
+    // Track touches that start near the left edge (back) or right edge (tabs)
+    let edge: "left" | "right" | null = null;
+    if (t.clientX < 28) edge = "left";
+    else if (winW - t.clientX < 28) edge = "right";
+    if (edge) {
+      touchStart.current = { x: t.clientX, y: t.clientY, time: Date.now(), edge };
     }
   };
 
@@ -471,32 +520,44 @@ function MobileShellInner({
     const dx = t.clientX - touchStart.current.x;
     const dy = Math.abs(t.clientY - touchStart.current.y);
     // Cancel if this is a vertical scroll, not a horizontal swipe
-    if (dy > 50 && dx < 40) {
+    if (dy > 50 && Math.abs(dx) < 40) {
       touchStart.current = null;
       setSwipeOffset(0);
+      setRightSwipeOffset(0);
       return;
     }
-    if (dx > 0) {
+    if (touchStart.current.edge === "left" && dx > 0) {
       setSwipeOffset(Math.min(dx, 120));
+    } else if (touchStart.current.edge === "right" && dx < 0) {
+      setRightSwipeOffset(Math.min(Math.abs(dx), 120));
     }
   };
 
   const onSwipeTouchEnd = () => {
     if (!touchStart.current) {
       setSwipeOffset(0);
+      setRightSwipeOffset(0);
       return;
     }
     const elapsed = Date.now() - touchStart.current.time;
-    if (swipeOffset > 80 || (swipeOffset > 40 && elapsed < 300)) {
-      // Edge-swipe = Back (OS convention), not Up
-      if (typeof window !== "undefined" && window.history.length > 1) {
-        router.back();
-      } else {
-        goUp();
+    if (touchStart.current.edge === "left") {
+      if (swipeOffset > 80 || (swipeOffset > 40 && elapsed < 300)) {
+        // Edge-swipe = Back (OS convention), not Up
+        if (typeof window !== "undefined" && window.history.length > 1) {
+          router.back();
+        } else {
+          goUp();
+        }
+      }
+    } else if (touchStart.current.edge === "right") {
+      // Right-edge swipe left → open tab switcher
+      if (rightSwipeOffset > 80 || (rightSwipeOffset > 40 && elapsed < 300)) {
+        setTabSwitcherOpen(true);
       }
     }
     touchStart.current = null;
     setSwipeOffset(0);
+    setRightSwipeOffset(0);
   };
 
   // ── Up navigation (deterministic, deep-link safe) ──
@@ -588,12 +649,12 @@ function MobileShellInner({
       >
         <div className="flex items-center justify-between gap-2">
           {/* Left: Up chevron (drill-down) + 3-dot menu (always) + name */}
-          <div className="flex items-center gap-1 min-w-0">
+          <div className="flex items-center gap-0 min-w-0">
             {isDrillDown && (
               <button
                 onClick={goUp}
                 aria-label="Go back"
-                className="press grid place-items-center size-9 rounded-[0.375rem] text-m-body"
+                className="press grid place-items-center size-8 rounded-[0.375rem] text-m-body"
                 style={{ color: "var(--color-ink-700)" }}
               >
                 <ChevronLeft className="size-5" />
@@ -602,7 +663,7 @@ function MobileShellInner({
             <button
               onClick={() => setNavSheetOpen(true)}
               aria-label="Open menu"
-              className="press grid place-items-center size-9 rounded-[0.375rem]"
+              className="press grid place-items-center size-8 rounded-[0.375rem]"
               style={{ color: "var(--color-ink-500)" }}
             >
               <MoreVertical className="size-5" />
@@ -784,6 +845,28 @@ function MobileShellInner({
             />
           </div>
         ) : null}
+        {/* Right-edge swipe indicator — shows a tab-switcher icon that follows the finger */}
+        {rightSwipeOffset > 8 ? (
+          <div
+            className="pointer-events-none fixed top-1/2 -translate-y-1/2 z-40 flex items-center justify-center rounded-full"
+            style={{
+              right: `${Math.min(rightSwipeOffset - 24, 60)}px`,
+              width: "32px",
+              height: "32px",
+              backgroundColor: "color-mix(in srgb, var(--color-paper) 80%, transparent)",
+              backdropFilter: "blur(12px) saturate(180%)",
+              WebkitBackdropFilter: "blur(12px) saturate(180%)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              opacity: Math.min(rightSwipeOffset / 80, 1),
+              transition: rightSwipeOffset === 0 ? "opacity 0.2s, right 0.2s" : "none",
+            }}
+          >
+            <ChevronRight
+              className="size-5"
+              style={{ color: "var(--color-ink-700)" }}
+            />
+          </div>
+        ) : null}
         {/* Centered content container — matches Nirman OS buyer/ops layout */}
         <div
           className="mx-auto w-full max-w-md px-3.5 py-3 overflow-x-hidden fade-in"
@@ -830,6 +913,14 @@ function MobileShellInner({
         onClose={() => setNavSheetOpen(false)}
         moduleId={activeTab?.module ?? manifestMatchRoute(pathname)?.module ?? "home"}
         persona={persona}
+        permissions={companyInfo.permissions}
+      />
+
+      {/* ══ TAB SWITCHER — right-edge swipe-left expands, persists as rail ══ */}
+      <TabSwitcher
+        open={tabSwitcherOpen}
+        onCollapse={() => setTabSwitcherOpen(false)}
+        onExpand={() => setTabSwitcherOpen(true)}
       />
     </div>
   );

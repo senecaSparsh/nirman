@@ -7,9 +7,16 @@ import { Loader2, Send, Check, X, Ban, Play, Trash2, Pencil } from "lucide-react
 import { haptic } from "@/lib/haptic";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
-import { ActionBar, MobileStatusBadge } from "@/components/mobile/v2/primitives";
+import { ActionBar } from "@/components/mobile/v2/primitives";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import {
+  DetailHeroCard,
+  DetailStatGrid,
+  DetailTimeline,
+  DetailAlertBanner,
+  type TimelineStepData,
+} from "@/components/mobile/v2/detail-primitives";
 
 interface ChangeOrderDetail {
   id: string;
@@ -156,29 +163,60 @@ export function MobileChangeOrderDetailClient({
   const costDeltaPositive = co.costDelta > 0;
   const costDeltaNegative = co.costDelta < 0;
 
+  const timelineSteps: TimelineStepData[] = [
+    { label: "Created", date: formatDate(co.createdAt), state: "done" },
+  ];
+  if (co.submittedAt) {
+    timelineSteps.push({
+      label: "Submitted",
+      date: formatDate(co.submittedAt),
+      detail: co.submittedByName ? `by ${co.submittedByName}` : undefined,
+      state: "done",
+    });
+  }
+  if (co.approvedAt) {
+    timelineSteps.push({
+      label: "Approved",
+      date: formatDate(co.approvedAt),
+      detail: co.approvedByName ? `by ${co.approvedByName}` : undefined,
+      state: "done",
+    });
+  }
+  if (co.clientApprovedBy) {
+    timelineSteps.push({
+      label: "Client Approved",
+      date: formatDate(co.clientApprovedAt ?? co.approvedAt ?? co.createdAt),
+      detail: `by ${co.clientApprovedBy}`,
+      state: "done",
+    });
+  }
+  if (co.implementedAt) {
+    timelineSteps.push({
+      label: "Implemented",
+      date: formatDate(co.implementedAt),
+      detail: co.implementedByName ? `by ${co.implementedByName}` : undefined,
+      state: "done",
+    });
+  }
+
   return (
     <div className="space-y-4 pb-20">
       {/* Header */}
-      <div
-        className="rounded-[0.625rem] border p-3"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      <DetailHeroCard
+        title={co.title}
+        subtitle={`${TYPE_LABELS[co.type] ?? co.type} · ${REASON_LABELS[co.reason] ?? co.reason}`}
+        status={co.status}
       >
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-            {co.changeOrderNo}
-          </p>
-          <MobileStatusBadge status={co.status} />
-        </div>
-        <h1 className="text-m-section font-bold leading-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
-          {co.title}
-        </h1>
-        <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>
-          {TYPE_LABELS[co.type] ?? co.type} · {REASON_LABELS[co.reason] ?? co.reason}
+        <p
+          className="text-m-label font-mono tabular-nums mt-2"
+          style={{ color: "var(--color-ink-500)" }}
+        >
+          {co.changeOrderNo}
         </p>
-        <p className="text-m-label mt-1" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-label mt-0.5" style={{ color: "var(--color-ink-500)" }}>
           {co.projectName}{co.phaseName ? ` · ${co.phaseName}` : ""}
         </p>
-      </div>
+      </DetailHeroCard>
 
       {/* Description */}
       <div
@@ -197,35 +235,22 @@ export function MobileChangeOrderDetailClient({
       </div>
 
       {/* Impact summary */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-caption font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>Original Amount</p>
-          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {formatCurrency(co.originalAmount)}
-          </p>
-        </div>
-        <div className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-caption font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>Revised Amount</p>
-          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {formatCurrency(co.revisedAmount)}
-          </p>
-        </div>
-        <div className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-caption font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>Cost Delta</p>
-          <p
-            className="text-m-section font-bold tabular-nums"
-            style={{ color: costDeltaPositive ? "var(--color-stop)" : costDeltaNegative ? "var(--color-go)" : "var(--color-ink-950)" }}
-          >
-            {costDeltaPositive ? "+" : ""}{formatCurrency(co.costDelta)}
-          </p>
-        </div>
-        <div className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <p className="text-m-caption font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>Schedule Delta</p>
-          <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {co.scheduleDeltaDays > 0 ? "+" : ""}{co.scheduleDeltaDays} days
-          </p>
-        </div>
-      </div>
+      <DetailStatGrid
+        cols={2}
+        stats={[
+          { label: "Original Amount", value: formatCurrency(co.originalAmount) },
+          { label: "Revised Amount", value: formatCurrency(co.revisedAmount) },
+          {
+            label: "Cost Delta",
+            value: `${costDeltaPositive ? "+" : ""}${formatCurrency(co.costDelta)}`,
+            tone: costDeltaPositive ? "stop" : costDeltaNegative ? "go" : "default",
+          },
+          {
+            label: "Schedule Delta",
+            value: `${co.scheduleDeltaDays > 0 ? "+" : ""}${co.scheduleDeltaDays} days`,
+          },
+        ]}
+      />
 
       {/* Lines */}
       <div
@@ -267,25 +292,10 @@ export function MobileChangeOrderDetailClient({
       </div>
 
       {/* Approval timeline */}
-      <div
-        className="rounded-[0.625rem] border p-3"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <p className="text-m-label font-semibold uppercase mb-2" style={{ color: "var(--color-ink-500)" }}>Timeline</p>
-        <div className="space-y-1.5">
-          <TimelineRow label="Created" date={co.createdAt} />
-          {co.submittedAt && <TimelineRow label="Submitted" date={co.submittedAt} name={co.submittedByName} />}
-          {co.approvedAt && <TimelineRow label="Approved" date={co.approvedAt} name={co.approvedByName} />}
-          {co.clientApprovedBy && <TimelineRow label="Client Approved" date={co.clientApprovedAt ?? co.approvedAt ?? co.createdAt} name={co.clientApprovedBy} />}
-          {co.implementedAt && <TimelineRow label="Implemented" date={co.implementedAt} name={co.implementedByName} />}
-          {co.rejectReason && (
-            <div className="mt-2 rounded-[0.375rem] p-2" style={{ backgroundColor: "var(--color-stop-bg, rgba(220,38,38,0.08))" }}>
-              <p className="text-m-label font-bold" style={{ color: "var(--color-stop)" }}>Rejected</p>
-              <p className="text-m-label" style={{ color: "var(--color-ink-700)" }}>{co.rejectReason}</p>
-            </div>
-          )}
-        </div>
-      </div>
+      <DetailTimeline steps={timelineSteps} title="Timeline" />
+      {co.rejectReason && (
+        <DetailAlertBanner tone="danger" title="Rejected" description={co.rejectReason} />
+      )}
 
       {/* Notes */}
       {co.notes && (
@@ -569,18 +579,6 @@ export function MobileChangeOrderDetailClient({
   );
 }
 
-function TimelineRow({ label, date, name }: { label: string; date: string; name?: string | null }) {
-  return (
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-950)" }}>{label}</p>
-        {name && <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>by {name}</p>}
-      </div>
-      <p className="text-m-label tabular-nums" style={{ color: "var(--color-ink-500)" }}>{formatDate(date)}</p>
-    </div>
-  );
-}
-
 function ActionButton({
   onClick,
   loading,
@@ -612,4 +610,3 @@ function ActionButton({
     </button>
   );
 }
-

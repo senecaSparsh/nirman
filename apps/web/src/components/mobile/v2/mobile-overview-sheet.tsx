@@ -132,7 +132,7 @@ export function MobileOverviewSheet({
         onClick={onClose}
         style={{
           backgroundColor: visible
-            ? "color-mix(in srgb, var(--color-ink-950) 45%, transparent)"
+            ? "rgba(0, 0, 0, 0.45)"
             : "transparent",
           transition: "background-color 0.2s ease",
         }}
@@ -161,8 +161,8 @@ export function MobileOverviewSheet({
       style={{
         // Backdrop: dim + blur that animates in with the popup
         backgroundColor: visible
-          ? "color-mix(in srgb, var(--color-ink-950) 45%, transparent)"
-          : "color-mix(in srgb, var(--color-ink-950) 0%, transparent)",
+          ? "rgba(0, 0, 0, 0.45)"
+          : "rgba(0, 0, 0, 0)",
         backdropFilter: visible ? "blur(8px)" : "blur(0px)",
         WebkitBackdropFilter: visible ? "blur(8px)" : "blur(0px)",
         transition:
