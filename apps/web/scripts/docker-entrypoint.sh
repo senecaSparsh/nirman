@@ -4,15 +4,19 @@
 #
 # Runs on every container start (including Coolify deploys / restarts):
 #   1. Prisma migrate deploy  — applies pending DB migrations (safe, ordered)
-#   2. [Optional] Demo seed   — only if SEED_DEMO_DATA=true (FIRST TIME ONLY!)
-#      Creates demo company, users, projects, stock, etc. WIPES transactional
-#      data on every run — do NOT leave this enabled in production.
-#   3. Production seed         — idempotent: chart of accounts + demo passwords
-#   4. SRG REALCON provisioning — idempotent: creates SRG REALCON company +
-#      7 team accounts on first run, silently skips on subsequent runs
-#   5. Start the app           — hands off to start-with-recovery.mjs which
+#   2. Production seed         — idempotent: chart of accounts only (no mock data)
+#   3. SRG REALCON provisioning — idempotent: creates SRG REALCON company +
+#      7 team accounts on first run, silently skips on subsequent runs.
+#      This is the FIRST and ONLY data added to a clean production database.
+#   4. Start the app           — hands off to start-with-recovery.mjs which
 #                                wraps `next start` with auto-restart, health
 #                                checks, graceful shutdown, and memory monitoring.
+#
+# PRODUCTION POLICY:
+#   The production database starts CLEAN — no demo companies, no mock users,
+#   no fake projects or stock. The SRG REALCON provisioning script is the
+#   first real data added. The demo seed (seed.ts) is NEVER run in production.
+#   It is only available locally via `pnpm --filter @nirman/services seed`.
 #
 # Why migrations run here (not at build time):
 #   The Docker build stage doesn't have DATABASE_URL (secrets are runtime-only
@@ -23,10 +27,9 @@
 #
 # Idempotency:
 #   - `prisma migrate deploy` only applies pending migrations; no-ops if up to date.
-#   - `seed:prod` upserts the chart of accounts and demo user passwords.
-#   Both are safe to run on every deploy/restart.
-#   - The demo seed (`seed.ts`) is NOT idempotent for transactional data — it
-#     wipes and recreates it. Only run it once, on first deploy.
+#   - `seed:prod` upserts the chart of accounts (structural, not mock data).
+#   - `create-srg-users.mjs` creates missing records only; never resets passwords.
+#   All three are safe to run on every deploy/restart.
 # ─────────────────────────────────────────────────────────────────────────────
 set -e
 
@@ -42,22 +45,24 @@ node scripts/migrate-deploy.mjs
 echo "✓ Migrations complete"
 echo ""
 
-# ── 2. Demo seed (FIRST TIME ONLY — controlled by SEED_DEMO_DATA env var) ───
-# The demo seed creates a realistic construction company with users, projects,
-# stock, suppliers, etc. It WIPES transactional data on every run, so only
-# enable this for the initial deploy, then turn it off.
+# ── 2. Demo seed — HARD BLOCKED in production ───────────────────────────────
+# The demo seed creates fake companies, users, projects, stock, suppliers, etc.
+# It WIPES all transactional data on every run. It is for LOCAL DEVELOPMENT ONLY.
+#
+# If SEED_DEMO_DATA=true is accidentally left set in Coolify, we warn but do NOT
+# run it. The production database must stay clean — SRG REALCON is the first data.
 if [ "$SEED_DEMO_DATA" = "true" ]; then
-  echo "── Running demo seed (SEED_DEMO_DATA=true) ──"
-  echo "   WARNING: This wipes all transactional data and recreates demo data."
-  echo "   Disable SEED_DEMO_DATA after this deploy to preserve user data."
-  cd /app/packages/services
-  node --import tsx prisma/seed.ts
-  echo "✓ Demo seed complete"
+  echo "── ⚠️  SEED_DEMO_DATA=true is set but IGNORED in production ──"
+  echo "   The demo seed creates fake data and wipes the database."
+  echo "   Production starts clean — SRG REALCON is the first real data."
+  echo "   → Remove SEED_DEMO_DATA from your Coolify env vars."
   echo ""
 fi
 
 # ── 3. Production seed (idempotent — safe on every deploy) ──────────────────
-echo "── Running production seed ──"
+# Seeds only the chart of accounts (structural data needed for GL posting).
+# Does NOT create any users, companies, or mock data.
+echo "── Running production seed (chart of accounts) ──"
 cd /app/apps/web
 node --import tsx scripts/seed-prod.ts
 echo "✓ Seed complete"
@@ -69,6 +74,8 @@ echo ""
 # numbers. On the first run it prints generated passwords to the deploy
 # logs (copy them!). On subsequent runs it detects the company + users
 # already exist and exits silently. Safe to run on every deploy.
+#
+# This is the FIRST and ONLY data added to a clean production database.
 echo "── SRG REALCON user provisioning ──"
 cd /app/apps/web
 node scripts/create-srg-users.mjs || echo "  (SRG provisioning skipped or already done)"
