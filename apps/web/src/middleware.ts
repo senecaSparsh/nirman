@@ -4,13 +4,24 @@ import { NextRequest, NextResponse } from "next/server";
  * Auth + surface-selection middleware.
  *
  * SURFACE SELECTION (mobile vs desktop):
- * The ONLY surface redirect is done HERE (server-side, UA-based) for the
- * bare home route "/" — this is a one-time *landing* redirect that sends
- * mobile users to "/m" so they never see a flash of desktop content.
- * There is NO reverse redirect ("/m" → "/") and NO client-side surface
- * swapping. Once a user is on a surface (desktop "/" or mobile "/m"),
- * they stay there — regardless of resize, navigation, or UA. This
- * eliminates the disruptive desktop↔mobile redirects.
+ * Two layers work together to ensure the user always sees the correct
+ * surface for their screen size:
+ *
+ * 1. SERVER-SIDE (this middleware, UA-based): A one-time *landing*
+ *    redirect sends mobile-UA users from "/" to "/m" so they never see
+ *    a flash of desktop content on initial load. This is the initial
+ *    guess — it prevents the flash but is not the final word.
+ *
+ * 2. CLIENT-SIDE (<SurfaceAdapter>, screen-size-based): Mounted in the
+ *    root layout, watches `window.matchMedia("(max-width: 1023px)")` and
+ *    instantly redirects between surfaces when the viewport crosses the
+ *    breakpoint. This handles resize, orientation change, and corrects
+ *    any UA-based misclassification. No mobile user sees desktop, no
+ *    desktop user sees mobile — regardless of how they resize.
+ *
+ * The client-side adapter is the source of truth for screen-size-based
+ * routing. The server-side UA redirect is just a flash-prevention
+ * optimization for the initial page load.
  *
  * Rules:
  *   · "/" + mobile UA + no desktop cookie  →  302 to "/m"  (one-time landing)

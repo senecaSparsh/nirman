@@ -7,6 +7,7 @@ import { AppShell } from "@/components/app-shell";
 import { EmployeeNavListener } from "@/components/employee-nav-listener";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 import { ErrorCatcher } from "@/components/dev/error-catcher";
+import { SurfaceAdapter } from "@/components/surface-adapter";
 // SW register is client-only and not needed for first paint — lazy-loaded
 // via a client wrapper (ssr:false dynamic imports can't be used directly
 // in Server Components).
@@ -115,6 +116,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Suspense fallback={<div className="min-h-screen bg-background" />}>
           <SWRConfig value={swrValue}>
             <CurrencyProvider>
+              {/* Surface adapter — watches viewport width and instantly
+                  redirects between mobile (/m/*) and desktop (/*) surfaces.
+                  Breakpoint: 1024px. No mobile user sees desktop, no desktop
+                  user sees mobile. Adapts on resize/orientation change. */}
+              <SurfaceAdapter />
               <EmployeeNavListener />
               <AppShell isDev={process.env.NODE_ENV !== "production"} hasSession={!!nav}>{children}</AppShell>
               {/* Surface selection is now one-time only: the middleware
