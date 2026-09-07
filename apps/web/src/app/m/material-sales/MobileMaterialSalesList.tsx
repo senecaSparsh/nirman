@@ -18,6 +18,7 @@ import {
   MobileSearchHeader,
   MobileFilterIcon,
   MobileCardGrid,
+  MobileFab,
   MobileNoResults,
   MobileSummaryStrip,
   type SummaryStat,
@@ -217,6 +218,10 @@ export function MobileMaterialSalesList({
           ) : null}
         </div>
       )}
+
+      {canCreate ? (
+        <MobileFab href="/m/sales/new" label="New material sale" />
+      ) : null}
     </div>
   );
 }

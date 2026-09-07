@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import {
-  TrendingUp, Plus,
+  TrendingUp,
   CheckCircle2, PauseCircle, Split, Maximize, DollarSign, Building2,
   Banknote, MapPin,
 } from "lucide-react";
@@ -11,6 +11,7 @@ import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
+  MobileFab,
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -153,20 +154,29 @@ export function MobileLandList({
         <MobileEmptyState
           icon={MapPin}
           title="No land purchases yet"
-          hint="Record a land purchase to start development"
-          action={
-            canManage ? (
-              <button
-                type="button"
-                onClick={() => setShowWizard(true)}
-                className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press"
-                style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-              >
-                <Plus className="size-3.5" /> Add Land Purchase
-              </button>
-            ) : undefined
-          }
+          hint={canManage ? "Tap + to record your first land purchase" : "Land purchases will appear here once recorded."}
         />
+        {canManage ? (
+          <>
+            {/* Book Land (Token) — secondary action, sits above the FAB */}
+            <button
+              onClick={() => setShowBook(true)}
+              className="fixed right-4 z-30 flex items-center gap-1.5 rounded-full shadow-lg text-m-body press pl-3 pr-4 py-2.5"
+              style={{
+                bottom: "calc(8.25rem + max(env(safe-area-inset-bottom), 0px))",
+                backgroundColor: "var(--color-signal)",
+                color: "var(--color-paper)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+              }}
+              aria-label="Book land with token"
+            >
+              <Banknote className="size-4" />
+              <span className="text-m-caption font-bold">Book Land</span>
+            </button>
+            {/* New Land Purchase — primary FAB */}
+            <MobileFab onClick={() => setShowWizard(true)} label="Record new land purchase" isOpen={showWizard} />
+          </>
+        ) : null}
         {showWizard && (
           <MobileLandWizard
             open={showWizard}
@@ -342,15 +352,13 @@ export function MobileLandList({
 
       {/* ── FAB: New Land Purchase (opens guided wizard) ── */}
       {canManage && (
-        <div
-          className="fixed right-3 z-30 flex flex-col gap-2"
-          style={{ bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)" }}
-        >
-          {/* Book Land (Token) — secondary action */}
+        <>
+          {/* Book Land (Token) — secondary action, sits above the FAB */}
           <button
             onClick={() => setShowBook(true)}
-            className="flex items-center gap-1.5 rounded-full shadow-lg text-m-body press pl-3 pr-4 py-2.5"
+            className="fixed right-4 z-30 flex items-center gap-1.5 rounded-full shadow-lg text-m-body press pl-3 pr-4 py-2.5"
             style={{
+              bottom: "calc(8.25rem + max(env(safe-area-inset-bottom), 0px))",
               backgroundColor: "var(--color-signal)",
               color: "var(--color-paper)",
               boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
@@ -361,19 +369,8 @@ export function MobileLandList({
             <span className="text-m-caption font-bold">Book Land</span>
           </button>
           {/* New Land Purchase — primary FAB */}
-          <button
-            onClick={() => setShowWizard(true)}
-            className="grid place-items-center size-12 rounded-full shadow-lg press self-end"
-            style={{
-              backgroundColor: "var(--color-ink-950)",
-              color: "var(--color-paper)",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-            }}
-            aria-label="Record new land purchase"
-          >
-            <Plus className="size-5" />
-          </button>
-        </div>
+          <MobileFab onClick={() => setShowWizard(true)} label="Record new land purchase" isOpen={showWizard} />
+        </>
       )}
 
       {/* ── Guided Land Purchase Wizard (primary) ── */}

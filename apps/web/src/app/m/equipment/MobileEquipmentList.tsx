@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Wrench, CheckCircle2, MapPin, Settings, Archive, Plus,
+  Wrench, CheckCircle2, MapPin, Settings, Archive,
   Eye, Share2, Calendar, FileText, Package, TrendingDown, IndianRupee,
 } from "lucide-react";
 import { formatCurrencyCompact, formatCurrency, formatDate } from "@/lib/utils";
@@ -19,6 +19,7 @@ import {
   MobileSearchHeader,
   MobileFilterIcon,
   MobileCardGrid,
+  MobileFab,
   MobileNoResults,
   MobileSummaryStrip,
 } from "@/components/mobile/v2/scaffold";
@@ -120,22 +121,16 @@ export function MobileEquipmentList({
 
   if (items.length === 0) {
     return (
-      <MobileEmptyState
-        icon={Wrench}
-        title="No equipment yet"
-        hint="Add equipment to track assignments and maintenance"
-        action={
-          canCreate ? (
-            <Link
-              href="/m/equipment/new"
-              className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-            >
-              <Plus className="size-3.5" /> Add Equipment
-            </Link>
-          ) : undefined
-        }
-      />
+      <div>
+        <MobileEmptyState
+          icon={Wrench}
+          title="No equipment yet"
+          hint={canCreate ? "Tap + to add your first equipment" : "Equipment will appear here once added."}
+        />
+        {canCreate ? (
+          <MobileFab href="/m/equipment/new" label="Add equipment" />
+        ) : null}
+      </div>
     );
   }
 
@@ -202,6 +197,10 @@ export function MobileEquipmentList({
           ))}
         </MobileCardGrid>
       )}
+
+      {canCreate ? (
+        <MobileFab href="/m/equipment/new" label="Add equipment" />
+      ) : null}
     </div>
   );
 }

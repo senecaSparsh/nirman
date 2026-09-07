@@ -167,9 +167,9 @@ export function MobileQuotationsList({
         <MobileEmptyState
           icon={FileText}
           title="No quotation requests"
-          description={
+          hint={
             canCreate
-              ? "Tap the + button below to create your first quotation request."
+              ? "Tap + to create your first quotation request"
               : "Quotation requests will appear here once created."
           }
         />

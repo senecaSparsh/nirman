@@ -11,7 +11,6 @@ import { MobileProcurementList, type ProcurementListItem, type DirectPurchaseLis
 import { MobileRequisitionsList, type RequisitionListItem } from "../requisitions/MobileRequisitionsList";
 import { MobileQuotationsList, type QuotationListItem } from "../quotations/MobileQuotationsList";
 import { MobileSupplierReturnsList, type SupplierReturnItem } from "../supplier-returns/MobileSupplierReturnsList";
-import { MobileEmptyState, MobileSectionTitle } from "@/components/mobile/v2/primitives";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { formatCurrency } from "@/lib/utils";
 import { MobileNewRequisitionClient } from "../requisitions/new/MobileNewRequisitionClient";
@@ -272,17 +271,6 @@ export function MobileProcurementHubTabs({
             exportColumns={returnExportColumns}
             exportSummary={`${returnItems.length} returns · ${formatCurrency(returnTotalValue)}`}
           />
-
-          {returnItems.length === 0 && (
-            <>
-              <MobileSectionTitle>Recent</MobileSectionTitle>
-              <MobileEmptyState
-                icon={Undo2}
-                title="No purchase returns"
-                hint="Tap the + button below to create your first return"
-              />
-            </>
-          )}
 
           {returnCanCreate && (
             <MobileFab onClick={(e) => openForm("returns", e)} label="New return" isOpen={showForm === "returns"} />

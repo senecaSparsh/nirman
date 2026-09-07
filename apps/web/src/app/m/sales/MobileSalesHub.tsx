@@ -231,7 +231,7 @@ function MobileLeadPipeline({
           <MobileEmptyState
             icon={ContactRound}
             title="No leads yet"
-            description="Add the enquiry once, then keep every follow-up and site visit attached."
+            hint={canManage ? "Tap + to add your first lead" : "Leads will appear here once created."}
           />
         ) : (
           <MobileNoResults

@@ -91,11 +91,16 @@ export function MobileDepartmentsList({
         <MobileEmptyState
           icon={Building2}
           title="No departments yet"
-          description={canManage ? "Tap the + button below to create your first department." : "Departments will appear here once created."}
+          hint={canManage ? "Tap + to create your first department" : "Departments will appear here once created."}
         />
-        <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="Add Department">
-          <DepartmentFormDialog onClose={fab.close} />
-        </MobileFabModal>
+        {canManage ? (
+          <>
+            <MobileFab onClick={fab.toggle} label="Add department" isOpen={fab.isOpen} />
+            <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="Add Department">
+              <DepartmentFormDialog onClose={fab.close} />
+            </MobileFabModal>
+          </>
+        ) : null}
       </>
     );
   }

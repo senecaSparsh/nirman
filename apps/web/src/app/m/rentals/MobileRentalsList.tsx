@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   KeyRound, Phone, AlertCircle, Calendar,
-  Clock, ChevronRight, Plus,
+  Clock, ChevronRight,
   Eye, Share2, User, Home, IndianRupee,
 } from "lucide-react";
 import { formatCurrencyCompact, formatCurrency, formatDate } from "@/lib/utils";
@@ -19,6 +19,7 @@ import { MobileNewTenancyDialog } from "./MobileNewTenancyDialog";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
+  MobileFab,
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -252,19 +253,7 @@ export function MobileRentalsList({
 
       {/* ── FAB: New Tenancy ── */}
       {canManage && (unitAssets.length > 0 || parcelAssets.length > 0) && (
-        <button
-          onClick={() => setShowNew(true)}
-          className="fixed right-3 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
-          style={{
-            bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
-            backgroundColor: "var(--color-ink-950)",
-            color: "var(--color-paper)",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-          }}
-          aria-label="Add new tenancy"
-        >
-          <Plus className="size-5" />
-        </button>
+        <MobileFab onClick={() => setShowNew(true)} label="Add new tenancy" isOpen={showNew} />
       )}
 
       {/* ── New Tenancy Dialog ── */}

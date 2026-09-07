@@ -580,6 +580,40 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
       return json({ items, nextCursor });
     }
 
+    case "supplier-payments": {
+      await requirePermission(PERM.FINANCE_VIEW);
+      const payments = await prisma.supplierPayment.findMany({
+        where: {
+          companyId: { in: groupCompanyIds },
+          ...cursorFilter,
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: BATCH_SIZE + 1,
+        include: {
+          supplier: { select: { id: true, name: true } },
+          purchaseOrder: { select: { poNumber: true } },
+          invoice: { select: { invoiceNumber: true } },
+        },
+      });
+      const hasMore = payments.length > BATCH_SIZE;
+      const batch = hasMore ? payments.slice(0, BATCH_SIZE) : payments;
+      const items = batch.map((p) => ({
+        id: p.id,
+        paymentNumber: p.paymentNumber,
+        supplierName: p.supplier.name,
+        poNumber: p.purchaseOrder?.poNumber ?? null,
+        invoiceNumber: p.invoice?.invoiceNumber ?? null,
+        amount: toNum(p.amount),
+        paymentDate: p.paymentDate.toISOString(),
+        paymentMode: p.paymentMode,
+      }));
+      const last = batch[batch.length - 1];
+      const nextCursor = hasMore && last
+        ? `${last.createdAt.toISOString()}|${last.id}`
+        : null;
+      return json({ items, nextCursor });
+    }
+
     default:
       return json({ error: "Unknown list type" }, { status: 404 });
   }

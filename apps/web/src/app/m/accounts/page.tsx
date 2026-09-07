@@ -432,10 +432,11 @@ async function AccountsExpensesTab() {
   const canCreate = hasPermission(role, PERM.EXPENSE_CREATE);
   const canView = true; // already gated by FINANCE_VIEW above
 
+  const BATCH_SIZE = 40;
   const expenses = await prisma.expense.findMany({
     where: { companyId: company.id },
-    orderBy: { date: "desc" },
-    take: 80,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: BATCH_SIZE + 1,
     include: {
       project: { select: { id: true, name: true } },
       categoryMaster: { select: { id: true, name: true } },
@@ -443,7 +444,14 @@ async function AccountsExpensesTab() {
     },
   });
 
-  const rows: ExpenseListItem[] = expenses.map((e) => ({
+  const hasMore = expenses.length > BATCH_SIZE;
+  const batch = hasMore ? expenses.slice(0, BATCH_SIZE) : expenses;
+  const last = batch[batch.length - 1];
+  const nextCursor = hasMore && last
+    ? `${last.createdAt.toISOString()}|${last.id}`
+    : null;
+
+  const rows: ExpenseListItem[] = batch.map((e) => ({
     id: e.id,
     category: e.category,
     amount: toNum(e.amount),
@@ -467,6 +475,8 @@ async function AccountsExpensesTab() {
       categoryCount={categories.size}
       canView={canView}
       canCreate={canCreate}
+      loadMoreUrl="/api/mobile/list/expenses"
+      initialCursor={nextCursor}
       exportTitle="Expenses"
       exportRows={rows as unknown as Record<string, unknown>[]}
       exportColumns={[
@@ -493,17 +503,25 @@ async function AccountsClaimsTab() {
   const canApprove = hasPermission(role, PERM.EXPENSE_APPROVE);
   const canCreate = hasPermission(role, PERM.EXPENSE_CREATE);
 
+  const BATCH_SIZE = 40;
   const claims = await prisma.expenseClaim.findMany({
     where: { companyId: company.id },
-    orderBy: { createdAt: "desc" },
-    take: 80,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: BATCH_SIZE + 1,
     include: {
       claimant: { select: { id: true, name: true } },
       project: { select: { id: true, name: true } },
     },
   });
 
-  const rows: ExpenseClaimListItem[] = claims.map((c) => ({
+  const hasMore = claims.length > BATCH_SIZE;
+  const batch = hasMore ? claims.slice(0, BATCH_SIZE) : claims;
+  const last = batch[batch.length - 1];
+  const nextCursor = hasMore && last
+    ? `${last.createdAt.toISOString()}|${last.id}`
+    : null;
+
+  const rows: ExpenseClaimListItem[] = batch.map((c) => ({
     id: c.id,
     claimantName: c.claimant?.name ?? "—",
     projectName: c.project?.name ?? null,
@@ -523,6 +541,8 @@ async function AccountsClaimsTab() {
       pendingCount={pendingCount}
       canApprove={canApprove}
       canCreate={canCreate}
+      loadMoreUrl="/api/mobile/list/expense-claims"
+      initialCursor={nextCursor}
     />
   );
 }
@@ -576,10 +596,11 @@ async function AccountsPaymentsTab() {
   if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
   const canManage = hasPermission(role, PERM.FINANCE_MANAGE);
 
+  const BATCH_SIZE = 40;
   const payments = await prisma.supplierPayment.findMany({
     where: { companyId: company.id },
-    orderBy: { paymentDate: "desc" },
-    take: 80,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: BATCH_SIZE + 1,
     include: {
       supplier: { select: { id: true, name: true } },
       purchaseOrder: { select: { poNumber: true } },
@@ -587,7 +608,14 @@ async function AccountsPaymentsTab() {
     },
   });
 
-  const rows: SupplierPaymentListItem[] = payments.map((p) => ({
+  const hasMore = payments.length > BATCH_SIZE;
+  const batch = hasMore ? payments.slice(0, BATCH_SIZE) : payments;
+  const last = batch[batch.length - 1];
+  const nextCursor = hasMore && last
+    ? `${last.createdAt.toISOString()}|${last.id}`
+    : null;
+
+  const rows: SupplierPaymentListItem[] = batch.map((p) => ({
     id: p.id,
     paymentNumber: p.paymentNumber,
     supplierName: p.supplier.name,
@@ -605,6 +633,8 @@ async function AccountsPaymentsTab() {
       items={rows}
       totalAmount={totalAmount}
       canManage={canManage}
+      loadMoreUrl="/api/mobile/list/supplier-payments"
+      initialCursor={nextCursor}
     />
   );
 }

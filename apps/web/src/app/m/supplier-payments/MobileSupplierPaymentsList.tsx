@@ -18,6 +18,7 @@ import {
   type SummaryStat,
 } from "@/components/mobile/v2/scaffold";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
 
 export type SupplierPaymentListItem = {
   id: string;
@@ -31,15 +32,25 @@ export type SupplierPaymentListItem = {
 };
 
 export function MobileSupplierPaymentsList({
-  items,
+  items: initialItems,
   totalAmount,
   canManage,
+  loadMoreUrl,
+  initialCursor,
 }: {
   items: SupplierPaymentListItem[];
   totalAmount: number;
   canManage?: boolean;
+  loadMoreUrl?: string;
+  initialCursor?: string | null;
 }) {
   const [query, setQuery] = useState("");
+
+  const { items, hasMore, loading, loadMore } = usePaginatedList<SupplierPaymentListItem>(
+    initialItems,
+    loadMoreUrl ?? "",
+    initialCursor ?? null,
+  );
 
   const filtered = useMemo(() => {
     if (!query.trim()) return items;
@@ -82,6 +93,14 @@ export function MobileSupplierPaymentsList({
         ))}
       </MobileCardGrid>
       {filtered.length === 0 && <MobileNoResults query={query} />}
+      {loadMoreUrl ? (
+        <MobileLoadMore
+          onClick={loadMore}
+          loading={loading}
+          hasMore={hasMore}
+          count={items.length}
+        />
+      ) : null}
     </div>
   );
 }
