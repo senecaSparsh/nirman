@@ -51,7 +51,7 @@ export default function SitePage() {
             include: { supplier: { select: { name: true } } },
           }),
           prisma.workerAttendance.count({
-            where: { employee: { companyId: company.id }, date: { gte: startOfToday, lt: endOfToday }, checkIn: { not: null } },
+            where: { employee: { companyId: company.id, deletedAt: null }, date: { gte: startOfToday, lt: endOfToday }, checkIn: { not: null } },
           }),
           prisma.project.findMany({
             where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },

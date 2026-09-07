@@ -96,6 +96,7 @@ async function MobilePendingListContent() {
     }),
     prisma.task.findMany({
       where: {
+        assignedTo: { memberships: { some: { companyId: company.id } } },
         status: { in: ["PENDING", "IN_PROGRESS"] },
         dueDate: { lt: new Date() },
       },
@@ -104,7 +105,11 @@ async function MobilePendingListContent() {
       include: { assignedTo: { select: { name: true } } },
     }),
     prisma.task.findMany({
-      where: { status: "PENDING", dueDate: { gte: new Date() } },
+      where: {
+        assignedTo: { memberships: { some: { companyId: company.id } } },
+        status: "PENDING",
+        dueDate: { gte: new Date() },
+      },
       orderBy: { dueDate: "asc" },
       take: 15,
       include: { assignedTo: { select: { name: true } } },

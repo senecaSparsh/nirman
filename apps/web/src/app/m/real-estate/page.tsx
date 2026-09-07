@@ -323,12 +323,42 @@ async function RealEstateCustomersTab() {
     }),
   ]);
 
-  const customerStats = {
-    customerCount: customers.length,
-    withDues: 0,
-    totalOutstanding: 0,
-    pipelineValue: 0,
-  };
+  // Compute real customer stats from the loaded data.
+  // Each customer's outstanding = sum of (salePrice + gstAmount - received payments)
+  // for asset sales + (totalAmount - received payments) for material sales.
+  const customerStats = (() => {
+    let withDues = 0;
+    let totalOutstanding = 0;
+    let pipelineValue = 0;
+    for (const c of customers) {
+      let customerOutstanding = 0;
+      for (const s of c.assetSales) {
+        if (s.paymentStatus === "PENDING" || s.paymentStatus === "PARTIAL") {
+          const total = toNum(s.salePrice) + toNum(s.gstAmount);
+          const received = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+          customerOutstanding += Math.max(0, total - received);
+        }
+      }
+      for (const s of c.materialSales) {
+        if (s.paymentStatus === "PENDING" || s.paymentStatus === "PARTIAL") {
+          const received = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+          customerOutstanding += Math.max(0, toNum(s.totalAmount) - received);
+        }
+      }
+      if (customerOutstanding > 0) withDues++;
+      totalOutstanding += customerOutstanding;
+    }
+    // Pipeline value = sum of lead budgets (use max budget as estimate)
+    for (const l of leads) {
+      pipelineValue += toNum(l.budgetMax ?? l.budgetMin ?? 0);
+    }
+    return {
+      customerCount: customers.length,
+      withDues,
+      totalOutstanding,
+      pipelineValue,
+    };
+  })();
 
   return (
     <MobileCustomersLeadsTabs

@@ -397,8 +397,9 @@ async function AccountsOverviewContent() {
 async function AccountsExpensesTab() {
   const company = await getCompany();
   const role = await getUserRole();
-  const canView = hasPermission(role, PERM.FINANCE_VIEW);
+  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
   const canCreate = hasPermission(role, PERM.EXPENSE_CREATE);
+  const canView = true; // already gated by FINANCE_VIEW above
 
   const expenses = await prisma.expense.findMany({
     where: { companyId: company.id },
@@ -457,6 +458,7 @@ async function AccountsExpensesTab() {
 async function AccountsClaimsTab() {
   const company = await getCompany();
   const role = await getUserRole();
+  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
   const canApprove = hasPermission(role, PERM.EXPENSE_APPROVE);
   const canCreate = hasPermission(role, PERM.EXPENSE_CREATE);
 
@@ -498,6 +500,7 @@ async function AccountsClaimsTab() {
 async function AccountsPettyCashTab() {
   const company = await getCompany();
   const role = await getUserRole();
+  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
   const canManage = hasPermission(role, PERM.FINANCE_MANAGE);
 
   const floats = await prisma.pettyCashFloat.findMany({
@@ -539,6 +542,7 @@ async function AccountsPettyCashTab() {
 async function AccountsPaymentsTab() {
   const company = await getCompany();
   const role = await getUserRole();
+  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
   const canManage = hasPermission(role, PERM.FINANCE_MANAGE);
 
   const payments = await prisma.supplierPayment.findMany({

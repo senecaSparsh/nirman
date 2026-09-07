@@ -142,7 +142,7 @@ async function MobileEmployeeDetailContent({
   }> = [];
   if (employee.userId) {
     const taskRows = await prisma.task.findMany({
-      where: { assignedToId: employee.userId },
+      where: { assignedToId: employee.userId, assignedTo: { memberships: { some: { companyId: company.id } } } },
       orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
       take: 50,
       include: { assignedBy: { select: { name: true } } },

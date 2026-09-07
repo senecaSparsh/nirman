@@ -99,6 +99,7 @@ function sameDay(a: Date, b: Date): boolean {
  * Completely different from the company-wide ledger view.
  */
 export function MobileLocationDetail({
+  locationId,
   locationName,
   locationType,
   items,
@@ -109,6 +110,7 @@ export function MobileLocationDetail({
   canManage = false,
   categories = [],
 }: {
+  locationId: string;
   locationName: string;
   locationType: string;
   items: DetailStockItem[];
@@ -211,7 +213,7 @@ export function MobileLocationDetail({
           <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Receive</span>
         </Link>
         <Link
-          href="/m/stock"
+          href={`/m/transfers/new?from=${locationId}`}
           className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >

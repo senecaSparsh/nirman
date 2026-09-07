@@ -35,7 +35,7 @@ async function MobileEmployeesContent() {
 
   const [employees, projects, stockLocations] = await Promise.all([
     prisma.employee.findMany({
-      where: { companyId: company.id, active: true },
+      where: { companyId: company.id, active: true, deletedAt: null },
       orderBy: { name: "asc" },
       take: 100,
       select: {

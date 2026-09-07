@@ -22,19 +22,26 @@ export default function MobileStockPage({
 
         // ── Location detail view: when locationId is set (and no materialId) ──
         // Different mental model: "what's at this location?" not "company ledger filtered"
+        // SECURITY: All queries must be scoped to the current company to prevent
+        // cross-tenant data exposure when a user guesses another company's locationId.
         if (locationId && !materialId) {
           const [location, locationItems, movements, inTransitIncoming, inTransitOutgoing, categories] = await Promise.all([
             prisma.stockLocation.findUnique({
-              where: { id: locationId },
+              where: { id: locationId, companyId: company.id, deletedAt: null },
               select: { id: true, name: true, type: true },
             }),
             prisma.stockLocationItem.findMany({
-              where: { locationId, qty: { not: 0 } },
+              where: { locationId, location: { companyId: company.id }, qty: { not: 0 } },
               include: { material: { select: { id: true, name: true, code: true, unit: true } } },
               orderBy: { material: { name: "asc" } },
             }),
+            // Movements are already company-scoped: the location check above
+            // (line 30) ensures locationId belongs to company.id, so any
+            // movement from/to that location is inherently within the company.
             prisma.stockMovement.findMany({
-              where: { OR: [{ fromLocationId: locationId }, { toLocationId: locationId }] },
+              where: {
+                OR: [{ fromLocationId: locationId }, { toLocationId: locationId }],
+              },
               orderBy: { timestamp: "desc" },
               take: 50,
               include: {
@@ -45,7 +52,7 @@ export default function MobileStockPage({
             }),
             // In-transit transfers incoming to this location
             prisma.stockTransfer.findMany({
-              where: { toLocationId: locationId, status: "IN_TRANSIT" },
+              where: { toLocationId: locationId, status: "IN_TRANSIT", fromLocation: { companyId: company.id } },
               include: {
                 fromLocation: { select: { name: true } },
                 lines: { include: { material: { select: { name: true, unit: true } } } },
@@ -54,14 +61,14 @@ export default function MobileStockPage({
             }),
             // In-transit transfers outgoing from this location
             prisma.stockTransfer.findMany({
-              where: { fromLocationId: locationId, status: "IN_TRANSIT" },
+              where: { fromLocationId: locationId, status: "IN_TRANSIT", toLocation: { companyId: company.id } },
               include: {
                 toLocation: { select: { name: true } },
                 lines: { include: { material: { select: { name: true, unit: true } } } },
               },
               orderBy: { dispatchedAt: "desc" },
             }),
-            // Material categories for inline material creation
+            // Material categories for inline material creation (global table, not company-scoped)
             prisma.materialCategory.findMany({
               where: { deletedAt: null },
               select: { id: true, name: true, unit: true },
@@ -79,6 +86,7 @@ export default function MobileStockPage({
 
           return (
             <MobileLocationDetail
+              locationId={location.id}
               locationName={location.name}
               locationType={location.type as string}
               canManage={canManage}
