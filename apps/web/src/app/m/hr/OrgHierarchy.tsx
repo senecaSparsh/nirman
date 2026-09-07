@@ -1137,25 +1137,22 @@ function TreeRow({
 
       {/* ── Name + role tag + badge ── */}
       {nameHref ? (
-        <div className="relative min-w-0 ml-1.5">
-          <Link
-            href={nameHref}
-            onClick={nameOnClick}
-            className={`min-w-0 truncate press ${nameBold ? "text-m-body font-bold" : "text-m-label font-semibold"}`}
-            style={{ color: "var(--color-ink-950)" }}
-          >
-            <span className="truncate">{name}</span>
-          </Link>
+        <Link
+          href={nameHref}
+          onClick={nameOnClick}
+          className={`min-w-0 truncate press ml-1.5 ${nameBold ? "text-m-body font-bold" : "text-m-label font-semibold"}`}
+          style={{ color: "var(--color-ink-950)" }}
+        >
+          <span className="truncate">{name}</span>
           {roleTag ? (
             <span
-              className="absolute rounded-full px-1 py-px text-[0.5rem] font-bold uppercase whitespace-nowrap shrink-0"
+              className="ml-0.5 inline-block rounded text-[0.45rem] font-bold uppercase whitespace-nowrap shrink-0 align-top"
               style={{
-                top: -7,
-                right: 0,
                 backgroundColor: "rgba(120, 120, 120, 0.12)",
                 color: "var(--color-ink-500)",
-                backdropFilter: "blur(4px)",
-                WebkitBackdropFilter: "blur(4px)",
+                padding: "0 2px",
+                lineHeight: 1.1,
+                verticalAlign: "top",
               }}
             >
               {roleTag}
@@ -1163,40 +1160,36 @@ function TreeRow({
           ) : null}
           {badge ? (
             <span
-              className="absolute rounded-full px-1 py-px text-[0.5rem] font-bold uppercase whitespace-nowrap shrink-0"
+              className="ml-0.5 inline-block rounded text-[0.45rem] font-bold uppercase whitespace-nowrap shrink-0 align-top"
               style={{
-                top: -7,
-                right: roleTag ? "2.5rem" : 0,
                 backgroundColor: "rgba(180, 100, 40, 0.12)",
                 color: "var(--color-signal-dark)",
-                backdropFilter: "blur(4px)",
-                WebkitBackdropFilter: "blur(4px)",
+                padding: "0 2px",
+                lineHeight: 1.1,
+                verticalAlign: "top",
               }}
             >
               {badge}
             </span>
           ) : null}
-        </div>
+        </Link>
       ) : (
-        <div className="relative min-w-0 ml-1.5">
-          <button
-            type="button"
-            onClick={nameOnClick}
-            className={`min-w-0 truncate text-left press ${nameBold ? "text-m-body font-bold" : "text-m-label font-semibold"}`}
-            style={{ color: "var(--color-ink-950)" }}
-          >
-            <span className="truncate">{name}</span>
-          </button>
+        <button
+          type="button"
+          onClick={nameOnClick}
+          className={`min-w-0 truncate text-left press ml-1.5 ${nameBold ? "text-m-body font-bold" : "text-m-label font-semibold"}`}
+          style={{ color: "var(--color-ink-950)" }}
+        >
+          <span className="truncate">{name}</span>
           {roleTag ? (
             <span
-              className="absolute rounded-full px-1 py-px text-[0.5rem] font-bold uppercase whitespace-nowrap shrink-0"
+              className="ml-0.5 inline-block rounded text-[0.45rem] font-bold uppercase whitespace-nowrap shrink-0 align-top"
               style={{
-                top: -7,
-                right: 0,
                 backgroundColor: "rgba(120, 120, 120, 0.12)",
                 color: "var(--color-ink-500)",
-                backdropFilter: "blur(4px)",
-                WebkitBackdropFilter: "blur(4px)",
+                padding: "0 2px",
+                lineHeight: 1.1,
+                verticalAlign: "top",
               }}
             >
               {roleTag}
@@ -1204,20 +1197,19 @@ function TreeRow({
           ) : null}
           {badge ? (
             <span
-              className="absolute rounded-full px-1 py-px text-[0.5rem] font-bold uppercase whitespace-nowrap shrink-0"
+              className="ml-0.5 inline-block rounded text-[0.45rem] font-bold uppercase whitespace-nowrap shrink-0 align-top"
               style={{
-                top: -7,
-                right: roleTag ? "2.5rem" : 0,
                 backgroundColor: "rgba(180, 100, 40, 0.12)",
                 color: "var(--color-signal-dark)",
-                backdropFilter: "blur(4px)",
-                WebkitBackdropFilter: "blur(4px)",
+                padding: "0 2px",
+                lineHeight: 1.1,
+                verticalAlign: "top",
               }}
             >
               {badge}
             </span>
           ) : null}
-        </div>
+        </button>
       )}
 
       {/* ── Sub-label ── */}
