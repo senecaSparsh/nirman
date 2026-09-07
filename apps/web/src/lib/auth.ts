@@ -21,7 +21,13 @@ try {
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   // Static baseURL — simplest and most reliable for single-domain deploys.
-  baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+  // Fall back to NEXT_PUBLIC_APP_URL (always set in Coolify/Render) so the
+  // origin check + cookie config are correct even when BETTER_AUTH_URL is
+  // not explicitly set. Without this, baseURL defaults to
+  // http://localhost:3000 which causes origin-check failures on /api/auth/*
+  // endpoints and wrong cookie attributes (no __Secure- prefix, no Secure
+  // flag) in HTTPS production.
+  baseURL: process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
   // No dev fallback — env-validation.ts crashes the process in production if
   // BETTER_AUTH_SECRET is missing. In dev, generate a stable per-install secret
   // so sessions persist across restarts (derived from the app URL).
