@@ -6,7 +6,7 @@ import {
   Package, Send, Loader2, Plus,
   CheckCircle2, Sparkles,
 } from "lucide-react";
-import { formatCurrencyCompact } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { HsnSacSearch } from "@/components/hsn-sac-search";
@@ -414,7 +414,7 @@ export default function MobileNewMaterialClient({
                     if (data.unitCost > 0) {
                       setStandardCost(String(data.unitCost));
                       haptic(10);
-                      toast.success(`Pulled ₹${data.unitCost} from last purchase`);
+                      toast.success(`Pulled ${formatCurrency(data.unitCost)} from last purchase`);
                     } else {
                       toast.info("No previous purchase found");
                     }

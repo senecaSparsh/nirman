@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ChevronRight,
   Sun,
@@ -29,6 +28,7 @@ import {
 } from "lucide-react";
 import { useRecentItems } from "@/lib/use-recent-items";
 import { formatDate, formatCurrencyCompact } from "@/lib/utils";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    HOME TREE — file-system tree for the mobile home page
@@ -96,7 +96,6 @@ type BriefingData = {
 };
 
 export function HomeTree({ userName }: { userName: string | null }) {
-  const _router = useRouter();
   const { items: recentItems } = useRecentItems();
   const [briefing, setBriefing] = React.useState<BriefingData | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -135,7 +134,8 @@ export function HomeTree({ userName }: { userName: string | null }) {
   }, [error, loading, fetchBriefing]);
 
   // Greeting
-  const hour = new Date().getHours();
+  const now = useHydratedDate();
+  const hour = now?.getHours() ?? 12;
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const firstName = userName ? userName.split(" ")[0] : "there";
 
@@ -206,12 +206,13 @@ export function HomeTree({ userName }: { userName: string | null }) {
             {greeting}, {firstName}
           </span>
           <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-            · {formatDate(new Date())}
+            · {now ? formatDate(now) : ""}
           </span>
         </div>
         <button
           onClick={() => fetchBriefing(true)}
           disabled={refreshing}
+          aria-label="Refresh briefing"
           className="grid place-items-center size-6 rounded-full press disabled:opacity-50"
           style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}
         >
@@ -345,7 +346,7 @@ function TreeFolder({
         nameOnClick={() => setOpen((o) => !o)}
         right={
           <span
-            className="text-m-caption font-bold tabular-nums shrink-0"
+            className="text-m-micro font-bold tabular-nums shrink-0"
             style={{ color: "var(--color-ink-500)" }}
           >
             {count}
@@ -394,7 +395,7 @@ function TreeLeaf({
       right={
         count != null ? (
           <span
-            className="text-m-caption font-bold tabular-nums shrink-0"
+            className="text-m-micro font-bold tabular-nums shrink-0"
             style={{ color: "var(--color-ink-500)" }}
           >
             {count}
@@ -486,7 +487,7 @@ function TreeRow({
       {/* ── Chevron ── */}
       <div className="shrink-0 w-4 flex items-center justify-center">
         {chevron ? (
-          <button type="button" onClick={onChevronClick} className="text-m-body press">
+          <button type="button" onClick={onChevronClick} aria-label="Expand section" className="text-m-body press">
             <ChevronRight
               className="size-3 transition-transform"
               style={{
@@ -511,7 +512,7 @@ function TreeRow({
         <Link
           href={nameHref}
           onClick={nameOnClick}
-          className={`min-w-0 truncate press ml-1.5 ${nameBold ? "text-m-body font-bold" : "text-m-label font-semibold"}`}
+          className={`min-w-0 truncate press ml-1.5 ${nameBold ? "text-m-label font-bold" : "text-m-caption font-semibold"}`}
           style={{ color: "var(--color-ink-950)" }}
         >
           <span className="truncate">{name}</span>
@@ -520,7 +521,7 @@ function TreeRow({
         <button
           type="button"
           onClick={nameOnClick}
-          className={`min-w-0 truncate text-left press ml-1.5 ${nameBold ? "text-m-body font-bold" : "text-m-label font-semibold"}`}
+          className={`min-w-0 truncate text-left press ml-1.5 ${nameBold ? "text-m-label font-bold" : "text-m-caption font-semibold"}`}
           style={{ color: "var(--color-ink-950)" }}
         >
           <span className="truncate">{name}</span>
@@ -530,7 +531,7 @@ function TreeRow({
       {/* ── Sub-label ── */}
       {sub ? (
         <span
-          className="text-m-caption shrink-0 ml-1 truncate max-w-[35%]"
+          className="text-m-micro shrink-0 ml-1 truncate max-w-[35%]"
           style={{ color: "var(--color-ink-400)" }}
         >
           {sub}

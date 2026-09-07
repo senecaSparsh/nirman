@@ -188,7 +188,7 @@ export default function MobileVehiclesPage() {
                 <p className="text-m-section font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>{selected.vehicleNumber}</p>
                 <p className="text-m-caption" style={{ color: "var(--color-steel)" }}>{TYPE_LABELS[selected.vehicleType] ?? selected.vehicleType} · {selected.tripCount} trips</p>
               </div>
-              <button onClick={() => setSelected(null)} className="text-m-body press p-1"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
+              <button onClick={() => setSelected(null)} aria-label="Clear selected vehicle" className="text-m-body press p-1"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
             </div>
 
             {/* Photo */}

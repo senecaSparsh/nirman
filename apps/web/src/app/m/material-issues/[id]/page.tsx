@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, getUserPermissions, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
@@ -30,6 +30,7 @@ async function MobileMaterialIssueDetailContent({
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
+  const overrides = await getUserPermissions();
   const canIssue = hasPermission(role, PERM.STOCK_ISSUE);
   const { id } = await params;
 
@@ -113,7 +114,7 @@ async function MobileMaterialIssueDetailContent({
         { label: "Cancelled", state: "pending" },
       ];
 
-  const nextAction = resolveNextAction("materialIssue", issue.status, role);
+  const nextAction = resolveNextAction("materialIssue", issue.status, role, overrides);
 
   const canActions: string[] = [];
   if (canIssue) canActions.push(PERM.STOCK_ISSUE);

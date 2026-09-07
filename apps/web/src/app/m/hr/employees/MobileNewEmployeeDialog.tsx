@@ -397,9 +397,6 @@ export function MobileNewEmployeeForm({
               />
             </div>
             <div>
-              <label className={labelClass} style={labelStyle}>
-                Active Project
-              </label>
               <MobileSelectWithCreate
                 label="Active Project"
                 value={form.activeProjectId}
@@ -413,9 +410,6 @@ export function MobileNewEmployeeForm({
 
           {/* Reporting Location (geo-fence attendance) */}
           <div>
-            <label className={labelClass} style={labelStyle}>
-              Reporting Location
-            </label>
             <MobileSelectWithCreate
               label="Reporting Location"
               value={form.reportingLocationId}

@@ -177,11 +177,11 @@ export function ActionBar({ children }: { children: React.ReactNode }) {
       style={{
         /* Apple §12 — match the bottom nav's translucent material so
            stacked bars (nav + action) read as one glass layer, not two
-           different surfaces. */
+           different surfaces. Hairline edge uses --color-line. */
         backgroundColor: "color-mix(in srgb, var(--color-paper) 88%, transparent)",
         backdropFilter: "blur(20px) saturate(180%)",
         WebkitBackdropFilter: "blur(20px) saturate(180%)",
-        borderTop: "1px solid color-mix(in srgb, var(--color-paper) 60%, transparent)",
+        borderTop: "1px solid var(--color-line)",
       }}
     >
       <div className="mx-auto w-full max-w-[34rem]">{children}</div>

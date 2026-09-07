@@ -176,9 +176,6 @@ export function MobileNewWbsNodeDialog({
             {/* Parent (optional) */}
             {parentNodes.length > 0 && (
               <div>
-                <label className={labelClass} style={labelStyle}>
-                  Parent (optional)
-                </label>
                 <MobileSelectWithCreate
                   label="Parent"
                   value={form.parentId}
@@ -324,9 +321,6 @@ export function MobileNewWbsNodeDialog({
             {(form.type === "ACTIVITY" || form.type === "SUB_ACTIVITY") &&
               boqItems.length > 0 && (
                 <div>
-                  <label className={labelClass} style={labelStyle}>
-                    Link to BOQ Item (optional)
-                  </label>
                   <MobileSelectWithCreate
                     label="BOQ Item"
                     value={form.boqItemId}

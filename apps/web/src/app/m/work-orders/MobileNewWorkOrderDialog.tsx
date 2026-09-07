@@ -265,7 +265,6 @@ export function MobileNewWorkOrderForm({
               )}
             />
             <div>
-              <label className={labelClass} style={labelStyle}>Subcontractor <span style={{ color: "var(--color-stop)" }}>*</span></label>
               <MobileSelectWithCreate
                 label="Subcontractor"
                 required
@@ -463,7 +462,7 @@ export function MobileNewWorkOrderForm({
           <div className="w-full max-w-md rounded-t-[1rem] border-t p-4 pb-safe max-h-[70vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Select Bill of Quantities Items</p>
-              <button type="button" onClick={() => setShowBoqPicker(false)} className="grid place-items-center size-7 rounded-[0.375rem] press" style={{ color: "var(--color-ink-500)" }}>
+              <button type="button" onClick={() => setShowBoqPicker(false)} aria-label="Close BOQ picker" className="grid place-items-center size-7 rounded-[0.375rem] press" style={{ color: "var(--color-ink-500)" }}>
                 <X className="size-4" />
               </button>
             </div>
@@ -501,7 +500,7 @@ export function MobileNewWorkOrderForm({
                         <p className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{item.serialNo}</p>
                         <p className="text-m-body font-semibold leading-tight" style={{ color: "var(--color-ink-950)" }}>{item.description}</p>
                         <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-                          {item.estimatedQty ? `${item.estimatedQty} ` : ""}{item.unit ?? ""} {item.rate ? `· ₹${formatCurrency(item.rate)}/${item.unit ?? ""}` : ""}
+                          {item.estimatedQty ? `${item.estimatedQty} ` : ""}{item.unit ?? ""} {item.rate ? `· ${formatCurrency(item.rate)}/${item.unit ?? ""}` : ""}
                         </p>
                       </div>
                       {isSelected ? (

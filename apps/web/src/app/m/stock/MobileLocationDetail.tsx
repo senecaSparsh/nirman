@@ -307,6 +307,7 @@ export function MobileLocationDetail({
           {query ? (
             <button
               onClick={() => setQuery("")}
+              aria-label="Clear location"
               className="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center size-5 press"
             >
               <X className="size-3" style={{ color: "var(--color-ink-500)" }} />

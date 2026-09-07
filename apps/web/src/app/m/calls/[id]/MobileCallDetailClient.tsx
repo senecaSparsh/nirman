@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { formatCurrency } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileStatCard,
@@ -363,7 +364,7 @@ export function MobileCallDetailClient({
         />
         <MobileStatCard
           label="Cost"
-          value={call.callCost ? `₹${call.callCost}` : "—"}
+          value={call.callCost ? formatCurrency(call.callCost) : "—"}
           icon={User}
           tone="signal"
         />

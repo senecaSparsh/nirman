@@ -715,11 +715,19 @@ function MobileTwilioTab() {
   const [status, setStatus] = useState<{
     configured: boolean;
     account?: { friendlyName: string; status: string; type: string };
-    numbers?: { phoneNumber: string; configured: boolean }[];
+    numbers?: {
+      sid: string;
+      phoneNumber: string;
+      friendlyName: string | null;
+      synced: boolean;
+      webhookConfigured: boolean;
+    }[];
+    syncedNumbers?: { id: string; phoneNumber: string; providerNumberId: string; label: string | null; status: string }[];
     syncedCount?: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [webhookLoadingId, setWebhookLoadingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [accessDenied, setAccessDenied] = useState(false);
 
@@ -749,7 +757,7 @@ function MobileTwilioTab() {
   async function syncNumbers() {
     setSyncing(true);
     try {
-      const res = await fetch("/api/telephony/twilio/sync-numbers", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const res = await fetch("/api/telephony/twilio/sync-numbers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ configureWebhooks: true }) });
       const data = await res.json();
       if (res.ok) {
         toast.success(`Synced ${data.synced ?? 0} numbers`);
@@ -770,7 +778,7 @@ function MobileTwilioTab() {
       const res = await fetch("/api/telephony/twilio/sync-calls", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
       const data = await res.json();
       if (res.ok) {
-        toast.success(`Synced ${data.total ?? 0} calls`);
+        toast.success(`Synced ${data.total ?? 0} calls (${data.created ?? 0} new, ${data.updated ?? 0} updated)`);
         haptic();
       } else {
         toast.error(data.error ?? "Sync failed");
@@ -779,6 +787,28 @@ function MobileTwilioTab() {
       toast.error("Network error");
     }
     setSyncing(false);
+  }
+
+  async function toggleWebhook(companyPhoneId: string, action: "configure" | "clear") {
+    setWebhookLoadingId(companyPhoneId);
+    try {
+      const res = await fetch("/api/telephony/twilio/configure-webhook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyPhoneId, action }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(action === "configure" ? "Webhook configured" : "Webhook cleared");
+        haptic();
+        fetchStatus();
+      } else {
+        toast.error(data.error ?? "Failed");
+      }
+    } catch {
+      toast.error("Network error");
+    }
+    setWebhookLoadingId(null);
   }
 
   // Fetch on mount — the API enforces owner-only access (returns 403 otherwise)
@@ -875,21 +905,43 @@ TWILIO_AUTH_TOKEN=xxx...`}
         ]}
       />
 
-      {/* Numbers list */}
+      {/* Numbers list with webhook toggle */}
       {status.numbers && status.numbers.length > 0 && (
         <Card className="p-3">
           <SectionHead title="Phone Numbers" />
           <div className="space-y-2">
-            {status.numbers.map((n, i) => (
-              <div key={i} className="flex items-center justify-between">
-                <span className="text-m-body font-semibold" style={{ color: "var(--color-ink-900)" }}>
-                  {n.phoneNumber}
-                </span>
-                <Badge tone={n.configured ? "go" : "signal"}>
-                  {n.configured ? "Webhook OK" : "No webhook"}
-                </Badge>
-              </div>
-            ))}
+            {status.numbers.map((n) => {
+              const syncedPhone = status.syncedNumbers?.find((s) => s.providerNumberId === n.sid);
+              return (
+                <div key={n.sid} className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-m-body font-semibold truncate" style={{ color: "var(--color-ink-900)" }}>
+                      {n.phoneNumber}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <Badge tone={n.synced ? "go" : "neutral"}>
+                        {n.synced ? "Synced" : "Not synced"}
+                      </Badge>
+                      <Badge tone={n.webhookConfigured ? "go" : "signal"}>
+                        {n.webhookConfigured ? "Webhook OK" : "No webhook"}
+                      </Badge>
+                    </div>
+                  </div>
+                  {syncedPhone && (
+                    <Button
+                      variant={n.webhookConfigured ? "ghost" : "signal"}
+                      size="md"
+                      onClick={() => toggleWebhook(syncedPhone.id, n.webhookConfigured ? "clear" : "configure")}
+                      disabled={webhookLoadingId === syncedPhone.id}
+                    >
+                      {webhookLoadingId === syncedPhone.id
+                        ? <Loader2 className="size-3.5 animate-spin" />
+                        : n.webhookConfigured ? "Clear" : "Set webhook"}
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </Card>
       )}
@@ -898,7 +950,7 @@ TWILIO_AUTH_TOKEN=xxx...`}
       <div className="space-y-2">
         <Button variant="signal" size="lg" fullWidth onClick={syncNumbers} disabled={syncing}>
           {syncing ? <Loader2 className="size-4 animate-spin" /> : <Cloud className="size-4" />}
-          Sync Numbers
+          Sync Numbers + Webhooks
         </Button>
         <Button variant="secondary" size="lg" fullWidth onClick={syncCalls} disabled={syncing}>
           {syncing ? <Loader2 className="size-4 animate-spin" /> : <PhoneIncoming className="size-4" />}

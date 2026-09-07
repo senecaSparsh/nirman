@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, getUserPermissions, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
 import { MobileMaterialSaleDetailClient } from "./MobileMaterialSaleDetailClient";
@@ -29,6 +29,7 @@ async function MobileMaterialSaleDetailContent({
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
+  const overrides = await getUserPermissions();
   const { id } = await params;
 
   const sale = await prisma.materialSale.findFirst({
@@ -95,7 +96,7 @@ async function MobileMaterialSaleDetailContent({
       })
     : null;
 
-  const nextAction = resolveNextAction("materialSale", sale.status, role);
+  const nextAction = resolveNextAction("materialSale", sale.status, role, overrides);
 
   // Lifecycle pipeline: PENDING → ACTIVE → CANCELLED
   const msPipelineSteps: MobilePipelineStep[] = sale.status === "CANCELLED"

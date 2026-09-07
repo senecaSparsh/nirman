@@ -12,6 +12,7 @@ import { useRecentItems, type RecentItem } from "@/lib/use-recent-items";
 import { useAutoScroll } from "@/lib/use-auto-scroll";
 import { formatDate } from "@/lib/utils";
 import { MobileCompanyFab } from "./MobileCompanyFab";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MOBILE HOME — Orbit Navigation Hub
@@ -128,7 +129,8 @@ export function HomeTopSection({ userName }: { userName: string | null }) {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function GreetingHeader({ userName }: { userName: string | null }) {
-  const hour = new Date().getHours();
+  const now = useHydratedDate();
+  const hour = now?.getHours() ?? 12;
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const firstName = userName ? userName.split(" ")[0] : "there";
   return (
@@ -139,7 +141,7 @@ function GreetingHeader({ userName }: { userName: string | null }) {
           {greeting}, {firstName}
         </div>
         <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-          {formatDate(new Date())}
+          {now ? formatDate(now) : ""}
         </div>
       </div>
     </div>

@@ -589,6 +589,7 @@ function ReturnForm({
                     <button
                       type="button"
                       onClick={() => onRemoveLine(idx)}
+                      aria-label="Remove item"
                       className="text-m-body press"
                       style={{ color: "var(--color-stop)" }}
                     >

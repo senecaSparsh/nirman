@@ -556,6 +556,7 @@ function QuotationAnalysisOverlay({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Clear search"
             className="p-1 press"
             style={{ color: "var(--color-ink-700)" }}
           >

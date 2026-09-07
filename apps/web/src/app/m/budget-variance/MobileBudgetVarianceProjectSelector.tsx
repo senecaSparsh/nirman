@@ -90,7 +90,7 @@ export function MobileBudgetVarianceProjectSelector({
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                 Select Project
               </p>
-              <button onClick={() => setOpen(false)} className="text-m-body press">
+              <button onClick={() => setOpen(false)} aria-label="Close project selector" className="text-m-body press">
                 <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
               </button>
             </div>

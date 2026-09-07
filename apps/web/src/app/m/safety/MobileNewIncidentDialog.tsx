@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import { useWbsOptions } from "@/lib/use-wbs-options";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileProjectSelect } from "@/components/mobile/selectors";
+import { useTodayDate } from "@/lib/use-today-date";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type IncidentType = "ACCIDENT" | "NEAR_MISS" | "INJURY" | "FATALITY" | "PROPERTY_DAMAGE" | "ENVIRONMENTAL" | "FIRE" | "STRUCTURAL" | "OTHER";
@@ -49,13 +50,18 @@ const sectionTitleStyle = { color: "var(--color-ink-950)" };
  */
 export function MobileNewIncidentForm({ onClose, projects }: { onClose: () => void; projects: { id: string; name: string }[] }) {
   const router = useRouter();
+  const today = useTodayDate();
   const [saving, setSaving] = useState(false);
   const [attachments, setAttachments] = useState<{ url: string; fileName?: string }[]>([]);
   const [form, setForm] = useState({
     projectId: projects[0]?.id ?? "", title: "", description: "", type: "ACCIDENT" as IncidentType, severity: "FIRST_AID" as IncidentSeverity,
-    incidentDate: new Date().toISOString().slice(0, 10), incidentTime: "", location: "", peopleInvolved: "",
+    incidentDate: "", incidentTime: "", location: "", peopleInvolved: "",
     injuredCount: "0", fatalities: "0", propertyDamageEstimate: "", wbsNodeId: "",
   });
+
+  useEffect(() => {
+    if (today) setForm((f) => (f.incidentDate ? f : { ...f, incidentDate: today }));
+  }, [today]);
 
   const wbsOptions = useWbsOptions(form.projectId || null);
 

@@ -1164,6 +1164,30 @@ input[type="number"] {
   animation: panel-out 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* ── Side panel (right) — slides in from the right edge. ── */
+@keyframes panel-right-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes panel-right-out {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+.panel-right-in {
+  animation: panel-right-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.panel-right-out {
+  animation: panel-right-out 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 /* ── Skeleton — loading is a shape, not a spinner ─────────────────
    Gradient + sweep only. Border-radius is intentionally NOT set here so
    consumers control it (bars want `rounded`, dots want `rounded-full`) —

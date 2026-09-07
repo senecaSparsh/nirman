@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { MobileDocUploader } from "../../MobileDocUploader";
 import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { useTodayDateState } from "@/lib/use-today-date";
 
 /* ─── Types ─── */
 
@@ -813,8 +814,8 @@ function PaymentSheet({
   onSuccess: () => void;
 }) {
   const [amount, setAmount] = useState(String(monthlyRent));
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
-  const [dueDate, setDueDate] = useState(new Date().toISOString().slice(0, 10));
+  const [paymentDate, setPaymentDate] = useTodayDateState();
+  const [dueDate, setDueDate] = useTodayDateState();
   const [mode, setMode] = useState("BANK");
   const [reference, setReference] = useState("");
   const [tdsAmount, setTdsAmount] = useState("");
@@ -1429,7 +1430,7 @@ function UploadDraftSheet({
   const [documentUrl, setDocumentUrl] = useState("");
   const [documentName, setDocumentName] = useState("");
   const [draftNotes, setDraftNotes] = useState("");
-  const [draftDate, setDraftDate] = useState(new Date().toISOString().slice(0, 10));
+  const [draftDate, setDraftDate] = useTodayDateState();
 
   const submit = () => {
     if (!documentUrl && !draftNotes.trim()) {
@@ -1500,7 +1501,7 @@ function ChangeTenantSheet({
   const [newTenantName, setNewTenantName] = useState("");
   const [newTenantPhone, setNewTenantPhone] = useState("");
   const [newTenantEmail, setNewTenantEmail] = useState("");
-  const [newStartDate, setNewStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [newStartDate, setNewStartDate] = useTodayDateState();
   const [newEndDate, setNewEndDate] = useState("");
   const [newMonthlyRent, setNewMonthlyRent] = useState("");
   const [newSecurityDeposit, setNewSecurityDeposit] = useState("");

@@ -215,6 +215,7 @@ export function MobileEquipmentDetailClient({
           <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={() => setShowEdit(true)}
+              aria-label="Edit equipment"
               className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
               style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
             >
@@ -223,6 +224,7 @@ export function MobileEquipmentDetailClient({
             <button
               onClick={handleDelete}
               disabled={deleting}
+              aria-label="Delete equipment"
               className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
               style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-stop)" }}
             >
@@ -925,7 +927,7 @@ function PickerSheet({
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
           <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>{title}</p>
-          <button onClick={onClose} className="text-m-body press">
+          <button onClick={onClose} aria-label="Close selector" className="text-m-body press">
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
           </button>
         </div>

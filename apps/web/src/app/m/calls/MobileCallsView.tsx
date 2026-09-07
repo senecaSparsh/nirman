@@ -7,6 +7,7 @@ import {
   Play, ShieldAlert, Voicemail, Clock,
 } from "lucide-react";
 import { haptic } from "@/lib/haptic";
+import { formatDate } from "@/lib/utils";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -14,6 +15,7 @@ import {
   MobileSummaryStrip,
 } from "@/components/mobile/v2/scaffold";
 import { Card, Badge } from "@/components/mobile/v2/primitives";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 
 type CallStatus = "RINGING" | "ANSWERED" | "MISSED" | "BUSY" | "REJECTED" | "FAILED" | "VOICEMAIL";
 type Direction = "INBOUND" | "OUTBOUND" | "INTERNAL";
@@ -57,9 +59,9 @@ function formatDuration(sec: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-function formatRelative(iso: string): string {
+function formatRelative(iso: string, now: Date | null): string {
   const d = new Date(iso);
-  const now = new Date();
+  if (!now) return formatDate(iso);
   const diffMs = now.getTime() - d.getTime();
   const diffMin = Math.floor(diffMs / 60000);
   const diffHr = Math.floor(diffMin / 60);
@@ -94,6 +96,7 @@ export function MobileCallsView({
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [phoneFilter, setPhoneFilter] = useState<string>("all");
+  const now = useHydratedDate();
 
   const filtered = useMemo(() => {
     let result = calls;
@@ -190,6 +193,7 @@ export function MobileCallsView({
               call={call}
               canViewFullNumber={canViewFullNumber}
               canListenRecording={canListenRecording}
+              now={now}
             />
           ))}
         </div>
@@ -202,10 +206,12 @@ function CallCard({
   call,
   canViewFullNumber,
   canListenRecording,
+  now,
 }: {
   call: CallRow;
   canViewFullNumber: boolean;
   canListenRecording: boolean;
+  now: Date | null;
 }) {
   const otherParty = call.direction === "INBOUND" ? call.fromNumber : call.toNumber;
   const staffName = call.caller?.name ?? call.callee?.name ?? "—";
@@ -285,7 +291,7 @@ function CallCard({
                 <Voicemail className="size-3" style={{ color: "var(--color-signal-dark)" }} />
               )}
               <span className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-400)" }}>
-                {formatRelative(call.startedAt)}
+                {formatRelative(call.startedAt, now)}
               </span>
             </div>
             {call.durationSec > 0 && (

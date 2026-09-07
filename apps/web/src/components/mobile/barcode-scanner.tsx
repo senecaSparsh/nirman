@@ -186,6 +186,7 @@ export function BarcodeScanner({
             stopCamera();
             onClose();
           }}
+          aria-label="Close scanner"
           className="rounded-full p-1.5 text-white hover:bg-white/10"
         >
           <X className="h-5 w-5" />

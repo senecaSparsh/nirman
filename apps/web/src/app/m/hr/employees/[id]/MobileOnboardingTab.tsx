@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -30,6 +30,7 @@ import {
 import { AttachmentList } from "@/components/attachments/attachment-list";
 import { MobileCreateAccountDialog } from "@/app/m/hr/employees/MobileCreateAccountDialog";
 import { haptic } from "@/lib/haptic";
+import { useTodayDateState } from "@/lib/use-today-date";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MobileOnboardingTab — the full hiring → account → agreement → deposit →
@@ -1899,6 +1900,7 @@ function BenefitsCard({ employee, canManage }: { employee: OnboardingEmployeeDat
                     {canManage && (
                       <button
                         onClick={() => { haptic(10); setEditingId(b.id); }}
+                        aria-label="Edit"
                         className="shrink-0 p-1 press"
                         style={{ color: "var(--color-ink-400)" }}
                       >
@@ -2087,6 +2089,7 @@ function BenefitEditor({
           <button
             onClick={() => { haptic(10); setConfirmingDelete(true); }}
             disabled={saving}
+            aria-label="Remove"
             className="h-9 px-3 rounded-[0.5rem] border text-m-label font-bold press"
             style={{ borderColor: "color-mix(in srgb, var(--color-stop) 30%, transparent)", color: "var(--color-stop)" }}
           >
@@ -2181,14 +2184,18 @@ function OffboardSubTab({
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState("");
-  const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0] ?? "");
+  const [endDate, setEndDate] = useTodayDateState();
   const [reactivating, setReactivating] = useState(false);
 
   const isActive = employee.active;
   const noticeDays = employee.noticePeriodDays;
-  const contractEnded = employee.contractEndDate
-    ? new Date(employee.contractEndDate) < new Date()
-    : false;
+  // Compare dates only after mount to avoid SSR/client timezone mismatch.
+  const [contractEnded, setContractEnded] = useState(false);
+  useEffect(() => {
+    if (employee.contractEndDate) {
+      setContractEnded(new Date(employee.contractEndDate) < new Date());
+    }
+  }, [employee.contractEndDate]);
 
   // Pre-exit checklist items — computed from employee data
   const checklist = [

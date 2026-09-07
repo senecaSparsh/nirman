@@ -21,6 +21,7 @@ import {
   type Role,
 } from "@/lib/roles";
 import { haptic } from "@/lib/haptic";
+import { formatCurrency } from "@/lib/utils";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import {
   SectionCard,
@@ -571,7 +572,7 @@ export function MobileCreateAccountDialog({
                       onChange={setSelectedPhoneId}
                       options={availableNumbers.map((n) => ({
                         value: n.id,
-                        label: `${n.phoneNumber}${n.label ? ` — ${n.label}` : ""}${n.status === "RECYCLED" ? " (recycled)" : ""}${n.monthlyCost ? ` — ₹${n.monthlyCost}/mo` : ""}`,
+                        label: `${n.phoneNumber}${n.label ? ` — ${n.label}` : ""}${n.status === "RECYCLED" ? " (recycled)" : ""}${n.monthlyCost ? ` — ${formatCurrency(n.monthlyCost)}/mo` : ""}`,
                       }))}
                     />
                     <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>

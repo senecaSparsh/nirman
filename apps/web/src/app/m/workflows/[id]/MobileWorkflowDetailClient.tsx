@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import {formatDate, formatRelativeTime} from "@/lib/utils";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { useMobileBack } from "@/components/mobile/v2/mobile-back-button";
 
 export type WorkflowDetail = {
   id: string;
@@ -81,6 +82,7 @@ export function MobileWorkflowDetailClient({
   canManage?: boolean;
 }) {
   const router = useRouter();
+  const goBack = useMobileBack("/m/workflows");
   const [running, setRunning] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -131,7 +133,7 @@ export function MobileWorkflowDetailClient({
         style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
       >
         <div className="flex items-center gap-2 mb-2">
-          <button onClick={() => router.push("/m/workflows")} className="text-m-body press p-1 -ml-1">
+          <button onClick={goBack} className="text-m-body press p-1 -ml-1">
             <ChevronLeft className="size-5" style={{ color: "var(--color-ink-500)" }} />
           </button>
           <div className="flex-1 min-w-0">

@@ -5,7 +5,7 @@ import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { Cloud, Hammer, Users, AlertTriangle, CheckCircle2, XCircle, Printer } from "lucide-react";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, getUserPermissions, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
 import { AttachmentList } from "@/components/attachments/attachment-list";
@@ -37,6 +37,7 @@ async function MobileDprDetailContent({
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
+  const overrides = await getUserPermissions();
   const { id } = await params;
 
   const dpr = await prisma.dailyProgressReport.findFirst({
@@ -112,7 +113,7 @@ async function MobileDprDetailContent({
     },
   ];
 
-  const nextAction = resolveNextAction("dpr", dpr.approvalStatus, role);
+  const nextAction = resolveNextAction("dpr", dpr.approvalStatus, role, overrides);
 
   // Permissions to announce to the NavSheet's Next Step resolver
   const canActions: string[] = [];

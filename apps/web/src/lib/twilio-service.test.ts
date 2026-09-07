@@ -129,12 +129,12 @@ describe("mapTwilioDirection", () => {
     expect(mapTwilioDirection("outbound-dial")).toBe("OUTBOUND");
   });
 
-  it("maps trunking-originating to OUTBOUND (default)", () => {
+  it("maps trunking-originating to OUTBOUND (PBX user dials out via SIP trunk)", () => {
     expect(mapTwilioDirection("trunking-originating")).toBe("OUTBOUND");
   });
 
-  it("maps trunking-terminating to OUTBOUND (default)", () => {
-    expect(mapTwilioDirection("trunking-terminating")).toBe("OUTBOUND");
+  it("maps trunking-terminating to INBOUND (external caller delivered to PBX via SIP trunk)", () => {
+    expect(mapTwilioDirection("trunking-terminating")).toBe("INBOUND");
   });
 
   it("defaults unknown direction to OUTBOUND", () => {

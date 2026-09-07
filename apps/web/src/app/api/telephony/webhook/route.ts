@@ -1,11 +1,16 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { json } from "@/lib/server";
-import { normalizePhone } from "@/lib/phone-otp";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import {
+  normalizeTwilioNumber,
+  isSafeRecordingUrl,
+  shouldRecordCall,
+  parseTwilioPrice,
+} from "@/lib/twilio-service";
 
 /**
- * POST /api/telephony/webhook — provider webhook receiver.
+ * POST /api/telephony/webhook — generic provider webhook receiver.
  *
  * NO AUTH — verified by provider signature (HMAC-SHA256).
  *
@@ -13,10 +18,9 @@ import { createHmac, timingSafeEqual } from "node:crypto";
  *   1. Verifies the webhook signature using the provider's secret from
  *      TelephonyProviderConfig.apiSecretRef.
  *   2. Parses the webhook body and normalizes the event.
- *   3. Upserts a CallLog with source="AUTO".
+ *   3. Upserts a CallLog with source="AUTO" by (companyId, providerCallId).
  *   4. Auto-matches parties by phone number to Users/Customers/Suppliers.
- *   5. Downloads the recording if a URL is provided (deferred — stores URL
- *      for now; actual download would require a background job).
+ *   5. Stores the recording URL if provided (SSRF-validated).
  *
  * Query params:
  *   ?provider=EXOTEL  — identifies which provider config to use
@@ -32,40 +36,48 @@ import { createHmac, timingSafeEqual } from "node:crypto";
  * CallLog with source="AUTO".
  */
 export const POST = async (req: NextRequest) => {
-  const url = new URL(req.url);
-  const provider = url.searchParams.get("provider") ?? "MANUAL";
-  const companyId = url.searchParams.get("companyId");
+  try {
+    const url = new URL(req.url);
+    const provider = url.searchParams.get("provider") ?? "MANUAL";
+    const companyId = url.searchParams.get("companyId");
 
-  if (!companyId) {
-    return json({ error: "companyId query parameter is required" }, { status: 400 });
-  }
+    if (!companyId) {
+      return json({ error: "companyId query parameter is required" }, { status: 400 });
+    }
 
-  // Verify the company exists
-  const company = await prisma.company.findFirst({
-    where: { id: companyId, deletedAt: null },
-  });
-  if (!company) {
-    return json({ error: "Company not found" }, { status: 404 });
-  }
+    // Verify the company exists
+    const company = await prisma.company.findFirst({
+      where: { id: companyId, deletedAt: null },
+      select: { id: true, recordingMode: true },
+    });
+    if (!company) {
+      return json({ error: "Company not found" }, { status: 404 });
+    }
 
-  // Get the raw body for signature verification
-  const rawBody = await req.text();
+    // Get the raw body for signature verification
+    const rawBody = await req.text();
 
-  // Find the provider config for this company + provider
-  const providerConfig = await prisma.telephonyProviderConfig.findFirst({
-    where: { companyId, provider, deletedAt: null, active: true },
-  });
+    // Find the provider config for this company + provider
+    const providerConfig = await prisma.telephonyProviderConfig.findFirst({
+      where: { companyId, provider, deletedAt: null, active: true },
+    });
 
-  // Signature verification (if a provider config exists with a secret)
-  if (providerConfig) {
-    const secret = providerConfig.apiSecretRef;
-    const signatureHeader =
-      req.headers.get("x-signature") ??
-      req.headers.get("x-exotel-signature") ??
-      req.headers.get("x-knowlarity-signature") ??
-      req.headers.get("x-twilio-signature");
+    // Signature verification — FAIL CLOSED when a provider config exists.
+    // A configured provider must sign its webhooks; an unsigned request
+    // against a configured provider is treated as an attack, not a test.
+    // Only the "MANUAL" provider (no config row) accepts unsigned payloads,
+    // and even then only outside production.
+    if (providerConfig) {
+      const secret = providerConfig.apiSecretRef;
+      const signatureHeader =
+        req.headers.get("x-signature") ??
+        req.headers.get("x-exotel-signature") ??
+        req.headers.get("x-knowlarity-signature") ??
+        req.headers.get("x-twilio-signature");
 
-    if (signatureHeader) {
+      if (!signatureHeader) {
+        return json({ error: "Missing webhook signature" }, { status: 401 });
+      }
       const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
       const expectedBuf = Buffer.from(expected);
       const providedBuf = Buffer.from(signatureHeader);
@@ -75,182 +87,198 @@ export const POST = async (req: NextRequest) => {
       ) {
         return json({ error: "Invalid webhook signature" }, { status: 401 });
       }
+    } else if (provider !== "MANUAL" || process.env.NODE_ENV === "production") {
+      // No provider config AND not the explicit MANUAL provider, or we're in
+      // production — reject. In production, even MANUAL requires a config row
+      // with a secret, because an unsigned endpoint is an open injection point.
+      return json({ error: "No telephony provider configured for this company" }, { status: 404 });
     }
-  }
 
-  // Parse the webhook body
-  let payload: Record<string, unknown>;
-  try {
-    payload = JSON.parse(rawBody);
-  } catch {
-    // Some providers send form-encoded data
+    // Parse the webhook body
+    let payload: Record<string, unknown>;
     try {
-      const formData = new URLSearchParams(rawBody);
-      payload = Object.fromEntries(formData.entries());
+      payload = JSON.parse(rawBody);
     } catch {
-      return json({ error: "Unable to parse webhook body" }, { status: 400 });
+      // Some providers send form-encoded data
+      try {
+        const formData = new URLSearchParams(rawBody);
+        payload = Object.fromEntries(formData.entries());
+      } catch {
+        return json({ error: "Unable to parse webhook body" }, { status: 400 });
+      }
     }
-  }
 
-  // ── Generic parser: extract common fields from the webhook payload ──
-  // This is a flexible parser that tries to map various provider field names
-  // to our CallLog schema. Real provider-specific parsers would be added
-  // as separate functions when SDKs are integrated.
-  const parsed = parseGenericWebhook(payload, provider);
+    // ── Generic parser: extract common fields from the webhook payload ──
+    const parsed = parseGenericWebhook(payload, provider);
 
-  if (!parsed) {
-    // Store the raw webhook for debugging even if we can't parse it
-    console.warn("[webhook] Unparseable webhook payload for provider:", provider, payload);
-    return json({ ok: true, message: "Webhook received but could not parse call data" }, { status: 200 });
-  }
+    if (!parsed) {
+      // Store the raw webhook for debugging even if we can't parse it
+      console.warn("[webhook] Unparseable webhook payload for provider:", provider, payload);
+      return json({ ok: true, message: "Webhook received but could not parse call data" }, { status: 200 });
+    }
 
-  // ── Auto-match parties by phone number ──
-  const fromNorm = normalizePhone(parsed.fromNumber);
-  const toNorm = normalizePhone(parsed.toNumber);
+    // ── Auto-match parties by phone number ──
+    const fromNorm = normalizeTwilioNumber(parsed.fromNumber);
+    const toNorm = normalizeTwilioNumber(parsed.toNumber);
 
-  // Match the company phone number
-  const companyPhone = await prisma.companyPhone.findFirst({
-    where: {
-      companyId,
-      deletedAt: null,
-      OR: [{ phoneNormalized: fromNorm }, { phoneNormalized: toNorm }],
-    },
-  });
-
-  // Determine direction: if the company number is the "to" number → INBOUND
-  // If the company number is the "from" number → OUTBOUND
-  let direction = parsed.direction;
-  if (!direction && companyPhone) {
-    direction = companyPhone.phoneNormalized === toNorm ? "INBOUND" : "OUTBOUND";
-  }
-  direction = direction ?? "INBOUND";
-
-  // Match staff by phone number (the company side)
-  const companySideNumber = direction === "INBOUND" ? toNorm : fromNorm;
-  const externalSideNumber = direction === "INBOUND" ? fromNorm : toNorm;
-
-  // Find the staff user assigned to this company phone
-  let callerUserId: string | null = null;
-  if (companyPhone?.assignedToUserId) {
-    callerUserId = companyPhone.assignedToUserId;
-  } else {
-    // Try to match by user's phone number
-    const matchedUser = await prisma.user.findFirst({
-      where: { phoneNormalized: companySideNumber, active: true },
-      select: { id: true },
-    });
-    if (matchedUser) callerUserId = matchedUser.id;
-  }
-
-  // Match external number to customers/suppliers (by phone field — may be
-  // unnormalized, so we also try a contains match on the last 10 digits)
-  const last10 = externalSideNumber.slice(-10);
-  const [matchedCustomer, matchedSupplier] = await Promise.all([
-    prisma.customer.findFirst({
+    // Match the company phone number
+    const companyPhone = await prisma.companyPhone.findFirst({
       where: {
         companyId,
         deletedAt: null,
-        OR: [
-          { phone: externalSideNumber },
-          ...(last10.length >= 10 ? [{ phone: { contains: last10 } }] : []),
-        ],
-      },
-      select: { id: true },
-    }).catch(() => null),
-    prisma.supplier.findFirst({
-      where: {
-        companyId,
-        deletedAt: null,
-        OR: [
-          { phone: externalSideNumber },
-          ...(last10.length >= 10 ? [{ phone: { contains: last10 } }] : []),
-        ],
-      },
-      select: { id: true },
-    }).catch(() => null),
-  ]);
-
-  // ── Upsert the CallLog ──
-  // If we have a providerCallId, try to find an existing call to update;
-  // otherwise create a new one.
-  let callLog;
-  if (parsed.providerCallId) {
-    callLog = await prisma.callLog.findFirst({
-      where: { companyId, providerCallId: parsed.providerCallId },
-    });
-  }
-
-  if (callLog) {
-    // Update the existing call with new status/timing
-    callLog = await prisma.callLog.update({
-      where: { id: callLog.id },
-      data: {
-        status: parsed.status ?? callLog.status,
-        connectedAt: parsed.connectedAt ? new Date(parsed.connectedAt) : callLog.connectedAt,
-        endedAt: parsed.endedAt ? new Date(parsed.endedAt) : callLog.endedAt,
-        durationSec: parsed.durationSec ?? callLog.durationSec,
-        ringDurationSec: parsed.ringDurationSec ?? callLog.ringDurationSec,
-        disposition: parsed.disposition ?? callLog.disposition,
-        ...(parsed.recordingUrl && !callLog.recordingId ? {} : {}),
+        OR: [{ phoneNormalized: fromNorm }, { phoneNormalized: toNorm }],
       },
     });
-  } else {
-    callLog = await prisma.callLog.create({
-      data: {
-        companyId,
-        direction,
-        fromNumber: fromNorm,
-        toNumber: toNorm,
-        companyPhoneId: companyPhone?.id ?? null,
-        callerUserId,
-        status: parsed.status ?? "RINGING",
-        startedAt: parsed.startedAt ? new Date(parsed.startedAt) : new Date(),
-        connectedAt: parsed.connectedAt ? new Date(parsed.connectedAt) : null,
-        endedAt: parsed.endedAt ? new Date(parsed.endedAt) : null,
-        durationSec: parsed.durationSec ?? 0,
-        ringDurationSec: parsed.ringDurationSec ?? 0,
-        disposition: parsed.disposition ?? null,
-        recordingConsent: parsed.recordingConsent ?? false,
-        provider,
-        providerCallId: parsed.providerCallId ?? null,
-        source: "AUTO",
-        relatedCustomerId: matchedCustomer?.id ?? null,
-        relatedSupplierId: matchedSupplier?.id ?? null,
-        callCost: parsed.callCost ?? null,
-      },
-    });
-  }
 
-  // ── Handle recording URL ──
-  // Check the company's recording mode before storing the recording:
-  //   ALL      → record everyone
-  //   SELECTED → only record if the identified staff member (callerUserId)
-  //              has recordCalls=true on their UserCompany membership
-  //   NONE     → don't record at all
-  if (parsed.recordingUrl && !callLog.recordingId) {
-    const company = await prisma.company.findUnique({
-      where: { id: companyId },
-      select: { recordingMode: true },
-    });
-    const mode = company?.recordingMode ?? "ALL";
+    // Determine direction: if the company number is the "to" number → INBOUND
+    // If the company number is the "from" number → OUTBOUND
+    let direction = parsed.direction;
+    if (!direction && companyPhone) {
+      direction = companyPhone.phoneNormalized === toNorm ? "INBOUND" : "OUTBOUND";
+    }
+    direction = direction ?? "INBOUND";
 
-    let shouldRecord = false;
-    if (mode === "ALL") {
-      shouldRecord = true;
-    } else if (mode === "SELECTED" && callerUserId) {
+    // Match staff by phone number (the company side)
+    const companySideNumber = direction === "INBOUND" ? toNorm : fromNorm;
+    const externalSideNumber = direction === "INBOUND" ? fromNorm : toNorm;
+
+    // Find the staff user assigned to this company phone
+    let callerUserId: string | null = null;
+    if (companyPhone?.assignedToUserId) {
+      callerUserId = companyPhone.assignedToUserId;
+    } else {
+      // Try to match by user's phone number
+      const matchedUser = await prisma.user.findFirst({
+        where: { phoneNormalized: companySideNumber, active: true },
+        select: { id: true },
+      });
+      if (matchedUser) callerUserId = matchedUser.id;
+    }
+
+    // Match external number to customers/suppliers (by phone field — may be
+    // unnormalized, so we also try a contains match on the last 10 digits)
+    const last10 = externalSideNumber.slice(-10);
+    const [matchedCustomer, matchedSupplier] = await Promise.all([
+      prisma.customer.findFirst({
+        where: {
+          companyId,
+          deletedAt: null,
+          OR: [
+            { phone: externalSideNumber },
+            ...(last10.length >= 10 ? [{ phone: { contains: last10 } }] : []),
+          ],
+        },
+        select: { id: true },
+      }).catch(() => null),
+      prisma.supplier.findFirst({
+        where: {
+          companyId,
+          deletedAt: null,
+          OR: [
+            { phone: externalSideNumber },
+            ...(last10.length >= 10 ? [{ phone: { contains: last10 } }] : []),
+          ],
+        },
+        select: { id: true },
+      }).catch(() => null),
+    ]);
+
+    // Derive recordingConsent from the company's recording mode + the
+    // assigned staff member's recordCalls flag (for SELECTED mode).
+    let recordCallsFlag = false;
+    if (callerUserId && company.recordingMode === "SELECTED") {
       const membership = await prisma.userCompany.findFirst({
         where: { companyId, userId: callerUserId },
         select: { recordCalls: true },
       });
-      shouldRecord = membership?.recordCalls ?? false;
+      recordCallsFlag = membership?.recordCalls ?? false;
     }
-    // mode === "NONE" → shouldRecord stays false
+    const recordingConsent = shouldRecordCall(company.recordingMode, recordCallsFlag);
 
-    if (shouldRecord) {
+    // Validate the recording URL with the SSRF guard before storing.
+    const safeRecordingUrl =
+      parsed.recordingUrl && isSafeRecordingUrl(parsed.recordingUrl)
+        ? parsed.recordingUrl
+        : null;
+
+    // ── Upsert the CallLog ──
+    // If we have a providerCallId, upsert by the unique (companyId, providerCallId)
+    // constraint — race-safe against concurrent callbacks. If no providerCallId,
+    // just create (can't upsert without a unique key).
+    let callLog;
+    if (parsed.providerCallId) {
+      callLog = await prisma.callLog.upsert({
+        where: { companyId_providerCallId: { companyId, providerCallId: parsed.providerCallId } },
+        update: {
+          status: parsed.status ?? undefined,
+          connectedAt: parsed.connectedAt ? new Date(parsed.connectedAt) : undefined,
+          endedAt: parsed.endedAt ? new Date(parsed.endedAt) : undefined,
+          durationSec: parsed.durationSec ?? undefined,
+          ringDurationSec: parsed.ringDurationSec ?? undefined,
+          disposition: parsed.disposition ?? undefined,
+          callCost: parsed.callCost != null ? parsed.callCost : undefined,
+          // Backfill caller/companyPhone if they weren't set on the initial create
+          ...(callerUserId ? { callerUserId } : {}),
+          ...(companyPhone ? { companyPhoneId: companyPhone.id } : {}),
+        },
+        create: {
+          companyId,
+          direction,
+          fromNumber: fromNorm,
+          toNumber: toNorm,
+          companyPhoneId: companyPhone?.id ?? null,
+          callerUserId,
+          status: parsed.status ?? "RINGING",
+          startedAt: parsed.startedAt ? new Date(parsed.startedAt) : new Date(),
+          connectedAt: parsed.connectedAt ? new Date(parsed.connectedAt) : null,
+          endedAt: parsed.endedAt ? new Date(parsed.endedAt) : null,
+          durationSec: parsed.durationSec ?? 0,
+          ringDurationSec: parsed.ringDurationSec ?? 0,
+          disposition: parsed.disposition ?? null,
+          recordingConsent,
+          provider,
+          providerCallId: parsed.providerCallId,
+          source: "AUTO",
+          relatedCustomerId: matchedCustomer?.id ?? null,
+          relatedSupplierId: matchedSupplier?.id ?? null,
+          callCost: parsed.callCost ?? null,
+        },
+      });
+    } else {
+      callLog = await prisma.callLog.create({
+        data: {
+          companyId,
+          direction,
+          fromNumber: fromNorm,
+          toNumber: toNorm,
+          companyPhoneId: companyPhone?.id ?? null,
+          callerUserId,
+          status: parsed.status ?? "RINGING",
+          startedAt: parsed.startedAt ? new Date(parsed.startedAt) : new Date(),
+          connectedAt: parsed.connectedAt ? new Date(parsed.connectedAt) : null,
+          endedAt: parsed.endedAt ? new Date(parsed.endedAt) : null,
+          durationSec: parsed.durationSec ?? 0,
+          ringDurationSec: parsed.ringDurationSec ?? 0,
+          disposition: parsed.disposition ?? null,
+          recordingConsent,
+          provider,
+          providerCallId: null,
+          source: "AUTO",
+          relatedCustomerId: matchedCustomer?.id ?? null,
+          relatedSupplierId: matchedSupplier?.id ?? null,
+          callCost: parsed.callCost ?? null,
+        },
+      });
+    }
+
+    // ── Handle recording URL ──
+    // Only store if the recording config says this call should be recorded
+    // AND we don't already have a recording stored for this call.
+    if (safeRecordingUrl && !callLog.recordingId && recordingConsent) {
       const recording = await prisma.callRecording.create({
         data: {
           callLogId: callLog.id,
-          storageUrl: parsed.recordingUrl,
+          storageUrl: safeRecordingUrl,
           storageProvider: "provider",
           format: parsed.recordingFormat ?? "mp3",
           durationSec: parsed.durationSec ?? 0,
@@ -261,9 +289,14 @@ export const POST = async (req: NextRequest) => {
         data: { recordingId: recording.id },
       });
     }
-  }
 
-  return json({ ok: true, callLogId: callLog.id }, { status: 200 });
+    return json({ ok: true, callLogId: callLog.id }, { status: 200 });
+  } catch (err) {
+    // Return 200 so the provider doesn't retry — call metadata is non-critical
+    // and can be recovered via the sync-calls backfill endpoint.
+    console.error("[telephony-webhook] Error:", err);
+    return json({ ok: false, error: "Webhook processing failed" }, { status: 200 });
+  }
 };
 
 // ── Generic webhook parser ──
@@ -280,7 +313,6 @@ interface ParsedWebhook {
   disposition?: string;
   recordingUrl?: string;
   recordingFormat?: string;
-  recordingConsent?: boolean;
   providerCallId?: string;
   callCost?: number;
 }
@@ -316,7 +348,8 @@ function parseGenericWebhook(payload: Record<string, unknown>, provider: string)
   const recordingUrl = String(get(["recordingUrl", "RecordingUrl", "recording_url", "record_url"]) ?? "");
   const recordingFormat = String(get(["recordingFormat", "RecordingFormat"]) ?? "");
   const providerCallId = String(get(["callId", "CallId", "call_id", "CallSid", "callUUID", "id"]) ?? "");
-  const callCost = Number(get(["cost", "callCost", "CallCost", "price"]) ?? 0) || undefined;
+  const rawCost = get(["cost", "callCost", "CallCost", "price", "Price"]);
+  const callCost = parseTwilioPrice(typeof rawCost === "string" ? rawCost : null);
 
   // Map provider-specific status names to our schema
   const statusMap: Record<string, string> = {
@@ -334,6 +367,10 @@ function parseGenericWebhook(payload: Record<string, unknown>, provider: string)
   };
   const mappedStatus = (statusMap[status.toLowerCase()] ?? (status ? status.toUpperCase() : undefined)) || undefined;
 
+  // provider is used for signature verification above, not for parsing —
+  // the generic parser extracts fields by name across all providers.
+  void provider;
+
   return {
     direction: direction || undefined,
     fromNumber,
@@ -347,7 +384,6 @@ function parseGenericWebhook(payload: Record<string, unknown>, provider: string)
     recordingUrl: recordingUrl || undefined,
     recordingFormat: recordingFormat || undefined,
     providerCallId: providerCallId || undefined,
-    callCost,
-    recordingConsent: provider !== "MANUAL",
+    callCost: callCost ?? undefined,
   };
 }

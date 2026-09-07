@@ -147,9 +147,6 @@ export function MobileNewSupplierPaymentClient({
         {/* Supplier */}
         <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <div>
-            <label className={labelClass} style={labelStyle}>
-              Supplier <span style={{ color: "var(--color-stop)" }}>*</span>
-            </label>
             <MobileSupplierSelect
               required
               value={supplierId}
@@ -189,7 +186,6 @@ export function MobileNewSupplierPaymentClient({
 
             {supplierPos.length > 0 && (
               <div>
-                <label className={labelClass} style={labelStyle}>Purchase Order</label>
                 <MobileSelectWithCreate
                   label="Purchase Order"
                   value={purchaseOrderId}
@@ -208,7 +204,6 @@ export function MobileNewSupplierPaymentClient({
 
             {supplierInvoices.length > 0 && (
               <div>
-                <label className={labelClass} style={labelStyle}>Invoice</label>
                 <MobileSelectWithCreate
                   label="Invoice"
                   value={invoiceId}
@@ -293,6 +288,7 @@ export function MobileNewSupplierPaymentClient({
                   <button
                     type="button"
                     onClick={() => setChequePhotoUrl("")}
+                    aria-label="Close image preview"
                     className="absolute top-1 right-1 rounded-full p-1 text-m-body press"
                     style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 70%, transparent)" }}
                   >

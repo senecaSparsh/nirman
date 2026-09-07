@@ -249,6 +249,7 @@ export function MobileRequisitionActions({
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 disabled={busy === "delete"}
+                aria-label="Reject"
                 className="touch grid place-items-center rounded-[0.5rem] text-m-body press"
                 style={{ color: "var(--color-ink-500)" }}
               >

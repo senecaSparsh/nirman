@@ -33,11 +33,14 @@ export const GET = apiHandler(async (req: NextRequest) => {
  * POST /api/telephony/providers — add a provider config.
  * Requires TELEPHONY_MANAGE.
  *
- * Body: { provider, apiKey?, apiSecret?, apiKeyRef?, apiSecretRef?, webhookUrl?, settings?, active? }
+ * Body: { provider, apiKeyRef, apiSecretRef, webhookUrl?, settings?, active? }
  *
- * Accepts either raw API keys (apiKey/apiSecret) or pre-existing encrypted
- * references (apiKeyRef/apiSecretRef). When raw keys are provided, they are
- * stored as references (in production, these would be encrypted via KMS).
+ * Stores REFERENCES to API keys (e.g. "env:EXOTEL_API_KEY", "kms:key-123"),
+ * never the raw key material. In production, raw apiKey/apiSecret values
+ * are REJECTED — they must be stored in env vars or a KMS-backed secret
+ * manager and referenced here. In dev, raw keys are accepted with a
+ * warning (prefixed with "raw:") for quick testing.
+ *
  * The webhookUrl is auto-generated if not provided.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
@@ -60,15 +63,32 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: "provider is required" }, { status: 400 });
   }
 
-  // Accept either raw keys or pre-existing refs
+  const validProviders = ["EXOTEL", "KNOWLARITY", "TWILIO"];
+  if (!validProviders.includes(provider.trim())) {
+    return json({ error: `provider must be one of: ${validProviders.join(", ")}` }, { status: 400 });
+  }
+
+  // In production, REJECT raw API keys — they must be stored in env vars
+  // or a KMS-backed secret manager and referenced via apiKeyRef/apiSecretRef.
+  // Storing raw keys in the DB (even with a "raw:" prefix) is a security gap
+  // because the DB may be backed up, logged, or exposed via Prisma Studio.
+  if (process.env.NODE_ENV === "production" && (apiKey || apiSecret)) {
+    return json(
+      { error: "Raw API keys are not allowed in production. Store them in environment variables or KMS and provide apiKeyRef/apiSecretRef references (e.g. 'env:EXOTEL_API_KEY')." },
+      { status: 400 },
+    );
+  }
+
+  // Accept either raw keys (dev only) or pre-existing refs.
+  // In dev, raw keys are stored with a "raw:" prefix for quick testing.
   const finalApiKeyRef = apiKeyRef ?? (apiKey ? `raw:${apiKey}` : null);
   const finalApiSecretRef = apiSecretRef ?? (apiSecret ? `raw:${apiSecret}` : null);
 
   if (!finalApiKeyRef) {
-    return json({ error: "apiKey or apiKeyRef is required" }, { status: 400 });
+    return json({ error: "apiKeyRef is required (or apiKey in dev mode)" }, { status: 400 });
   }
   if (!finalApiSecretRef) {
-    return json({ error: "apiSecret or apiSecretRef is required" }, { status: 400 });
+    return json({ error: "apiSecretRef is required (or apiSecret in dev mode)" }, { status: 400 });
   }
 
   // Auto-generate webhook URL if not provided

@@ -252,6 +252,7 @@ export function MobileEmployeeDetailClient({
           {canManage ? (
             <button
               onClick={() => setShowEdit(true)}
+              aria-label="Edit employee"
               className="shrink-0 flex items-center justify-center size-8 rounded-[0.375rem] text-m-body press"
               style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
             >

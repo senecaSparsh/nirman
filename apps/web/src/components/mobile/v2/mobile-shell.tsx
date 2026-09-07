@@ -26,13 +26,17 @@ import { useCompanySwitch } from "@/lib/use-company-switch";
 import { useRecentPages } from "@/lib/use-nav-preferences";
 import { usePageContext } from "@/components/mobile/v2/page-context";
 import { useDeviceTierWithCaps } from "@/lib/device-tier-client";
-import { upHref as manifestUpHref, activeTabFor as manifestActiveTabFor, badgeEndpointsFor as manifestBadgeEndpointsFor, titleFor as manifestTitleFor, matchRoute as manifestMatchRoute, type NavContext } from "@/lib/route-manifest";
 import {
-  tabsForRole,
-  roleToPersona,
-  type ModuleTab,
-  type Persona,
-} from "@/lib/mobile-nav-v2";
+  upHref as manifestUpHref,
+  activeTabFor as manifestActiveTabFor,
+  badgeEndpointsFor as manifestBadgeEndpointsFor,
+  titleFor as manifestTitleFor,
+  matchRoute as manifestMatchRoute,
+  tabsFor as manifestTabsFor,
+  type NavContext,
+  type RouteEntry,
+} from "@/lib/route-manifest";
+import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MOBILE SHELL V2 — "site-grade" minimal layout
@@ -300,7 +304,13 @@ export function MobileShellV2({ children }: { children: React.ReactNode }) {
   // to be able to pick which company they're working in.
   const canSwitchCompany = companies.length > 1;
 
-  const personaTabs = tabsForRole(companyInfo.role);
+  // ── Tab bar from the route manifest (single source of truth) ──
+  // Previously this used tabsForRole() from mobile-nav-v2 while the ACTIVE tab
+  // was resolved from the manifest. The two sets disagreed, so on 101 routes
+  // (procurement persona) the highlighted tab wasn't even on screen, Settings
+  // could never highlight at all, and badges — keyed by manifest path — never
+  // matched the old `?tab=` hrefs. One source fixes all three.
+  const personaTabs = manifestTabsFor({ permissions: companyInfo.permissions, persona });
 
   return (
     <MobileShellInner
@@ -355,7 +365,7 @@ function MobileShellInner({
   badgeCounts: Record<string, number>;
   pathname: string;
   router: ReturnType<typeof useRouter>;
-  personaTabs: ModuleTab[];
+  personaTabs: RouteEntry[];
   persona: Persona;
   searchOpen: boolean;
   onSearchOpenChange: (open: boolean) => void;
@@ -408,7 +418,7 @@ function MobileShellInner({
   // query-stripped hrefs and matched several tabs on /m/hr.
   const navCtx: NavContext = { permissions: companyInfo.permissions, persona };
   const activeTabPath = manifestActiveTabFor(pathname, navCtx);
-  const activeTab = personaTabs.find((t) => t.href.split("?")[0] === activeTabPath);
+  const activeTab = personaTabs.find((t) => t.path === activeTabPath);
 
   // A "drill-down" is any /m/* page that is NOT a tab root.
   // Uses the manifest's activeTabFor — if the active tab path equals the
@@ -429,7 +439,7 @@ function MobileShellInner({
   // IMPORTANT: We defer the title to after mount to guarantee server and
   // client produce identical HTML on first paint.
   const pageCtx = usePageContext();
-  const computedTitle = pageCtx.label ?? activeTab?.label ?? manifestTitleFor(pathname);
+  const computedTitle = pageCtx.label ?? activeTab?.title ?? manifestTitleFor(pathname);
   const computedSubtitle = pageCtx.subtitle;
   const [drillDownTitle, setDrillDownTitle] = useState("");
   const [drillDownSubtitle, setDrillDownSubtitle] = useState("");
@@ -523,7 +533,7 @@ function MobileShellInner({
   };
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden" style={{ backgroundColor: "var(--color-paper)" }}>
+    <div className="flex h-dvh flex-col overflow-hidden" style={{ backgroundColor: "var(--color-paper-2)" }}>
       <CommandPalette userRole={companyInfo.role as string} />
 
       {/* ── Offline banner — subtle indicator, not an alarm ── */}
@@ -567,12 +577,13 @@ function MobileShellInner({
         className="sticky top-0 z-30 px-4 py-2.5"
         style={{
           /* Apple §12 — translucent material, not an opaque bar. Content
-             scrolls underneath; blur + saturate conveys hierarchy. Bright
-             bottom edge = light catching the material. */
+             scrolls underneath; blur + saturate conveys hierarchy. Hairline
+             bottom edge uses --color-line for a consistent separator on
+             both light + dark themes. */
           backgroundColor: "color-mix(in srgb, var(--color-paper) 88%, transparent)",
           backdropFilter: "blur(20px) saturate(180%)",
           WebkitBackdropFilter: "blur(20px) saturate(180%)",
-          borderBottom: "1px solid color-mix(in srgb, var(--color-paper) 60%, transparent)",
+          borderBottom: "1px solid var(--color-line)",
         }}
       >
         <div className="flex items-center justify-between gap-2">
@@ -581,7 +592,7 @@ function MobileShellInner({
             {isDrillDown && (
               <button
                 onClick={goUp}
-                aria-label="Up"
+                aria-label="Go back"
                 className="press grid place-items-center size-9 rounded-[0.375rem] text-m-body"
                 style={{ color: "var(--color-ink-700)" }}
               >
@@ -590,7 +601,7 @@ function MobileShellInner({
             )}
             <button
               onClick={() => setNavSheetOpen(true)}
-              aria-label="All pages"
+              aria-label="Open menu"
               className="press grid place-items-center size-9 rounded-[0.375rem]"
               style={{ color: "var(--color-ink-500)" }}
             >
@@ -690,7 +701,7 @@ function MobileShellInner({
             {/* Persistent search — available on every page (fixes D1 reach) */}
             <button
               onClick={() => onSearchOpenChange(true)}
-              aria-label="Search"
+              aria-label="Open search"
               className="press grid place-items-center size-9 rounded-[0.375rem]"
               style={{ color: "var(--color-ink-500)" }}
             >
@@ -788,22 +799,23 @@ function MobileShellInner({
         style={{
           /* Apple §12 — translucent material, not an opaque bar. Content
              scrolls underneath; the blur + saturate conveys hierarchy
-             without stealing focus. Bright top edge = light catching the
-             material (Apple's vibrancy detail). */
+             without stealing focus. Hairline top edge uses the design
+             system's --color-line so it reads as an intentional separator
+             on both light + dark themes, not a mismatched color seam. */
           backgroundColor: "color-mix(in srgb, var(--color-paper) 88%, transparent)",
           backdropFilter: "blur(20px) saturate(180%)",
           WebkitBackdropFilter: "blur(20px) saturate(180%)",
-          borderTop: "1px solid color-mix(in srgb, var(--color-paper) 60%, transparent)",
+          borderTop: "1px solid var(--color-line)",
         }}
         aria-label="Module navigation"
       >
         <div className="mx-auto w-full max-w-[34rem] flex items-stretch px-2 pb-safe">
           {personaTabs.map((tab) => (
             <TabButton
-              key={tab.id}
+              key={tab.path}
               tab={tab}
-              active={tab.href.split("?")[0] === activeTabPath}
-              badge={badgeCounts[tab.href]}
+              active={tab.path === activeTabPath}
+              badge={badgeCounts[tab.path]}
             />
           ))}
         </div>
@@ -816,7 +828,7 @@ function MobileShellInner({
       <NavSheet
         open={navSheetOpen}
         onClose={() => setNavSheetOpen(false)}
-        moduleId={activeTab?.id ?? manifestMatchRoute(pathname)?.module ?? "home"}
+        moduleId={activeTab?.module ?? manifestMatchRoute(pathname)?.module ?? "home"}
         persona={persona}
       />
     </div>
@@ -824,11 +836,12 @@ function MobileShellInner({
 }
 
 /** A bottom tab button — 56px touch target, amber underline for active. */
-function TabButton({ tab, active, badge }: { tab: ModuleTab; active: boolean; badge?: number }) {
+function TabButton({ tab, active, badge }: { tab: RouteEntry; active: boolean; badge?: number }) {
   const Icon = tab.icon;
+  const label = tab.title;
   return (
     <Link
-      href={tab.href}
+      href={tab.path}
       prefetch
       aria-current={active ? "page" : undefined}
       className={[
@@ -871,7 +884,7 @@ function TabButton({ tab, active, badge }: { tab: ModuleTab; active: boolean; ba
         className="text-m-caption font-semibold tracking-wide"
         style={{ color: active ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
       >
-        {tab.label}
+        {label}
       </span>
     </Link>
   );

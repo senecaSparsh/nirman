@@ -12,6 +12,7 @@ import {
   Card,
 } from "@/components/mobile/v2/primitives";
 import { Package } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 /**
  * /m/material-issues — mobile list of stock issues (material consumption
@@ -86,7 +87,7 @@ async function MobileMaterialIssuesContent() {
                 Total issued value
               </p>
               <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-                ₹{totalValue.toLocaleString("en-IN")}
+                {formatCurrency(totalValue)}
               </p>
             </div>
             {pendingCount > 0 && (
@@ -124,7 +125,7 @@ async function MobileMaterialIssuesContent() {
             const meta = `${issue.issueDate.toLocaleDateString("en-IN", {
               day: "2-digit",
               month: "short",
-            })} · ${issue.lines.length} item${issue.lines.length === 1 ? "" : "s"} · ₹${lineValue.toLocaleString("en-IN")}`;
+            })} · ${issue.lines.length} item${issue.lines.length === 1 ? "" : "s"} · ${formatCurrency(lineValue)}`;
             return (
               <MobileRow
                 key={issue.id}

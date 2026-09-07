@@ -1,4 +1,4 @@
-import { getUserRole } from "@/lib/server";
+import { getUserRole, getUserPermissions } from "@/lib/server";
 import { hasPermission, type Permission } from "@/lib/roles";
 import { NoAccess } from "@/components/no-access";
 
@@ -31,7 +31,8 @@ export async function PermissionGate({
   children: React.ReactNode;
 }) {
   const role = await getUserRole();
-  if (!hasPermission(role, perm)) {
+  const overrides = await getUserPermissions();
+  if (!hasPermission(role, perm, overrides)) {
     return <NoAccess what={what} />;
   }
   return <>{children}</>;

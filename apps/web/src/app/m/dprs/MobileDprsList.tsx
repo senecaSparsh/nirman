@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { PageLead, NextActionCard } from "@/components/mobile/v2/guidance";
 import { SwipeableListItem } from "@/components/mobile/swipeable-item";
 import {
@@ -95,6 +96,8 @@ export function MobileDprsList({
     initialCursor ?? null,
   );
 
+  const hydratedNow = useHydratedDate();
+
   const filtered = useMemo(() => {
     let result = items;
     if (statusFilter !== "ALL") {
@@ -113,17 +116,20 @@ export function MobileDprsList({
 
   // Group by date label
   const grouped = useMemo(() => {
-    const today = newDate();
-    const yesterday = newDate();
-    yesterday.setDate(yesterday.getDate() - 1);
+    // Use hydrated date to avoid SSR/client timezone mismatch.
+    // Before mount, no grouping by "Today"/"Yesterday" — everything goes to "Earlier".
+    const today = hydratedNow ? new Date(hydratedNow.getTime()) : null;
+    if (today) today.setHours(0, 0, 0, 0);
+    const yesterday = today ? new Date(today) : null;
+    if (yesterday) yesterday.setDate(yesterday.getDate() - 1);
     const groups: { label: string; items: DprListItem[] }[] = [];
     const map = new Map<string, DprListItem[]>();
 
     for (const d of filtered) {
       const dDate = new Date(d.date);
-      const label = sameDay(dDate, today)
+      const label = today && sameDay(dDate, today)
         ? "Today"
-        : sameDay(dDate, yesterday)
+        : yesterday && sameDay(dDate, yesterday)
           ? "Yesterday"
           : formatDate(d.date);
       if (!map.has(label)) map.set(label, []);
@@ -133,7 +139,7 @@ export function MobileDprsList({
       groups.push({ label, items });
     }
     return groups;
-  }, [filtered]);
+  }, [filtered, hydratedNow]);
 
   if (items.length === 0) {
     return (
@@ -525,12 +531,6 @@ function ProgressRing({ pct, color }: { pct: number; color: string }) {
 }
 
 /* ── Date helpers ── */
-function newDate(): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
 function sameDay(a: Date, b: Date): boolean {
   return (
     a.getFullYear() === b.getFullYear() &&

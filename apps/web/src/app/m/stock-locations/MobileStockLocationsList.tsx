@@ -255,6 +255,7 @@ function LocationCard({
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={onEdit}
+                  aria-label="Edit location"
                   className="grid place-items-center size-8 rounded-[0.625rem] active:opacity-70 transition-colors press"
                   title="Edit location"
                 >
@@ -263,6 +264,7 @@ function LocationCard({
                 <button
                   onClick={onDelete}
                   disabled={isDeleting || loc.itemCount > 0}
+                  aria-label="Delete location"
                   className="grid place-items-center size-8 rounded-[0.625rem] active:opacity-70 transition-colors disabled:opacity-30 press"
                   title={loc.itemCount > 0 ? "Cannot delete location with stock" : "Delete location"}
                 >

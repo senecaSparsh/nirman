@@ -1,6 +1,6 @@
 import { Suspense, type ReactNode } from "react";
 import { connection } from "next/server";
-import { getUserRole } from "@/lib/server";
+import { getUserRole, getUserPermissions } from "@/lib/server";
 import { hasPermission, type Permission } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
@@ -76,7 +76,8 @@ export async function MobileNewEntityPage({
   const content = async () => {
     await connection();
     const role = await getUserRole();
-    if (!hasPermission(role, perm)) {
+    const overrides = await getUserPermissions();
+    if (!hasPermission(role, perm, overrides)) {
       return <MobileNoAccess what={what ?? "this page"} permission={permission} />;
     }
     return children();

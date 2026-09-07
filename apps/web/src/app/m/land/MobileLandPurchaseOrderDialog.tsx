@@ -11,6 +11,7 @@ import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileProjectSelect } from "@/components/mobile/selectors";
+import { useTodayDateState, useTodayDate } from "@/lib/use-today-date";
 
 const AREA_UNITS = ["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"] as const;
 const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as const;
@@ -38,12 +39,13 @@ export function MobileLandPurchaseOrderDialog({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const todayForReset = useTodayDate();
 
   const [sellerId, setSellerId] = useState("");
   const [sellerName, setSellerName] = useState("");
   const [sellerContact, setSellerContact] = useState("");
   const [projectId, setProjectId] = useState("");
-  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().slice(0, 10));
+  const [purchaseDate, setPurchaseDate] = useTodayDateState();
   const [totalArea, setTotalArea] = useState("");
   const [areaUnit, setAreaUnit] = useState<(typeof AREA_UNITS)[number]>("SQFT");
   const [totalCost, setTotalCost] = useState("");
@@ -67,7 +69,7 @@ export function MobileLandPurchaseOrderDialog({
 
   function reset() {
     setSellerId(""); setSellerName(""); setSellerContact(""); setProjectId("");
-    setPurchaseDate(new Date().toISOString().slice(0, 10));
+    setPurchaseDate(todayForReset || new Date().toISOString().slice(0, 10));
     setTotalArea(""); setAreaUnit("SQFT"); setTotalCost(""); setRegistryNo(""); setLocation("");
     setTokenAmount(""); setTokenPaymentMode("BANK_TRANSFER"); setTokenCheque(EMPTY_MOBILE_CHEQUE);
     setAtsDocUrl(""); setAtsDocName("");
@@ -179,7 +181,6 @@ export function MobileLandPurchaseOrderDialog({
           <div className={sectionBoxClass} style={sectionBoxStyle}>
             <p className={sectionHeadingClass} style={sectionHeadingStyle}>Seller</p>
             <div>
-              <label className={labelClass} style={labelStyle}>Seller *</label>
               {sellers.length > 0 ? (
                 <MobileSelectWithCreate
                   label="Seller"

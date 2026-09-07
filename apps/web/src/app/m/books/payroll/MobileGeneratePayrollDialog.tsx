@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -41,11 +41,16 @@ export function MobileGeneratePayrollDialog({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const now = new Date();
   const [form, setForm] = useState<FormState>({
-    month: String(now.getMonth() + 1), // 1-12
-    year: String(now.getFullYear()),
+    month: "",
+    year: "",
   });
+
+  // Set current month/year after mount to avoid hydration mismatch.
+  useEffect(() => {
+    const now = new Date();
+    setForm({ month: String(now.getMonth() + 1), year: String(now.getFullYear()) });
+  }, []);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));

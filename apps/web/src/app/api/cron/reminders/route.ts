@@ -21,7 +21,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const cronSecret = req.headers.get("x-cron-secret");
   const expectedSecret = process.env.CRON_SECRET;
   // In dev with AUTH_BYPASS, allow without secret. In prod, require the secret.
-  if (process.env.AUTH_BYPASS !== "true") {
+  // The NODE_ENV check ensures AUTH_BYPASS can never skip the secret in production.
+  if (!(process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production")) {
     if (!expectedSecret || cronSecret !== expectedSecret) {
       return json({ error: "Unauthorized" }, { status: 401 });
     }

@@ -285,6 +285,7 @@ export function OrbitNavigator({
         {breadcrumb.length > 1 ? (
           <button
             onClick={handleBack}
+            aria-label="Previous"
             className="touch grid place-items-center rounded-[0.5rem] text-m-body press shrink-0"
             style={{ color: "var(--color-ink-700)" }}
           >
@@ -322,6 +323,7 @@ export function OrbitNavigator({
         {!inline && onClose ? (
           <button
             onClick={onClose}
+            aria-label="Close"
             className="touch grid place-items-center rounded-[0.5rem] text-m-body press shrink-0"
             style={{ color: "var(--color-ink-700)" }}
           >
@@ -674,6 +676,7 @@ function ChildCard({
           {child.hasChildren ? (
             <button
               onClick={onDrillDown}
+              aria-label="Next step"
               className="grid place-items-center size-4 rounded-[0.25rem] press"
               style={{ color: "var(--color-ink-500)" }}
             >

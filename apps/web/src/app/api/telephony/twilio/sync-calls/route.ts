@@ -9,6 +9,9 @@ import {
   normalizeTwilioNumber,
   mapTwilioCallStatus,
   mapTwilioDirection,
+  parseTwilioPrice,
+  isSafeRecordingUrl,
+  shouldRecordCall,
 } from "@/lib/twilio-service";
 
 /**
@@ -50,6 +53,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
   let updated = 0;
   let skipped = 0;
 
+  // Fetch the company's recording mode once (same for all calls in this sync).
+  const companyData = await prisma.company.findUnique({
+    where: { id: company.id },
+    select: { recordingMode: true },
+  });
+  const recordingMode = companyData?.recordingMode ?? "ALL";
+
   for (const call of twilioCalls) {
     const fromNorm = normalizeTwilioNumber(call.from);
     const toNorm = normalizeTwilioNumber(call.to);
@@ -64,9 +74,21 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
     const mappedDirection = mapTwilioDirection(call.direction);
     const mappedStatus = mapTwilioCallStatus(call.status);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const companySideNumber = mappedDirection === "INBOUND" ? toNorm : fromNorm;
     const externalSideNumber = mappedDirection === "INBOUND" ? fromNorm : toNorm;
+
+    // Match staff by the company phone's assignment, with fallback to
+    // matching the user's phone number — same logic as the status
+    // webhook, so the same call gets the same callerUserId regardless
+    // of whether it arrived via webhook or sync-calls.
+    let callerUserId: string | null = companyPhone.assignedToUserId ?? null;
+    if (!callerUserId) {
+      const matchedUser = await prisma.user.findFirst({
+        where: { phoneNormalized: companySideNumber, active: true },
+        select: { id: true },
+      });
+      callerUserId = matchedUser?.id ?? null;
+    }
 
     // Match external number to customers/suppliers
     const last10 = externalSideNumber.slice(-10);
@@ -95,94 +117,95 @@ export const POST = apiHandler(async (req: NextRequest) => {
       }).catch(() => null),
     ]);
 
-    // Check if this call already exists (by providerCallId)
-    const existing = await prisma.callLog.findFirst({
+    // Derive recordingConsent from the company's recording mode + the
+    // assigned staff member's recordCalls flag (for SELECTED mode).
+    let recordCallsFlag = false;
+    if (companyPhone.assignedToUserId && recordingMode === "SELECTED") {
+      const membership = await prisma.userCompany.findFirst({
+        where: { companyId: company.id, userId: companyPhone.assignedToUserId },
+        select: { recordCalls: true },
+      });
+      recordCallsFlag = membership?.recordCalls ?? false;
+    }
+    const recordingConsent = shouldRecordCall(recordingMode, recordCallsFlag);
+
+    // Check if this call already exists (for accurate created/updated counts).
+    // The actual write uses upsert (race-safe) — this findFirst is only
+    // for reporting, so a rare race may miscount by one but won't duplicate.
+    const existed = await prisma.callLog.findFirst({
       where: { companyId: company.id, providerCallId: call.sid },
+      select: { id: true, recordingId: true },
     });
 
-    if (existing) {
-      // Update with any new info
-      await prisma.callLog.update({
-        where: { id: existing.id },
-        data: {
-          status: mappedStatus,
-          durationSec: parseInt(call.duration, 10) || existing.durationSec,
-          endedAt: call.endTime ? new Date(call.endTime) : existing.endedAt,
-          callCost: call.price ? parseFloat(call.price) : undefined,
-        },
-      });
-      updated++;
-      continue;
-    }
-
-    // Create new CallLog
-    const callLog = await prisma.callLog.create({
-      data: {
+    // Upsert by the unique (companyId, providerCallId) constraint —
+    // race-safe against concurrent sync-calls or webhook callbacks.
+    const callLog = await prisma.callLog.upsert({
+      where: { companyId_providerCallId: { companyId: company.id, providerCallId: call.sid } },
+      update: {
+        status: mappedStatus,
+        durationSec: parseInt(call.duration, 10) || undefined,
+        endedAt: call.endTime ? new Date(call.endTime) : undefined,
+        callCost: parseTwilioPrice(call.price) ?? undefined,
+      },
+      create: {
         companyId: company.id,
         direction: mappedDirection,
         fromNumber: fromNorm,
         toNumber: toNorm,
         companyPhoneId: companyPhone.id,
-        callerUserId: companyPhone.assignedToUserId,
+        callerUserId,
         status: mappedStatus,
         startedAt: call.startTime ? new Date(call.startTime) : new Date(),
         connectedAt: call.startTime ? new Date(call.startTime) : null,
         endedAt: call.endTime ? new Date(call.endTime) : null,
         durationSec: parseInt(call.duration, 10),
-        recordingConsent: true,
+        recordingConsent,
         provider: "TWILIO",
         providerCallId: call.sid,
         source: "AUTO",
         relatedCustomerId: matchedCustomer?.id ?? null,
         relatedSupplierId: matchedSupplier?.id ?? null,
-        callCost: call.price ? parseFloat(call.price) : null,
+        callCost: parseTwilioPrice(call.price),
       },
     });
 
+    if (existed) {
+      updated++;
+    } else {
+      created++;
+    }
+
     // Try to fetch recording for this call (read-only).
-    // Respects the company's recording mode (ALL/SELECTED/NONE).
-    try {
-      const companyData = await prisma.company.findUnique({
-        where: { id: company.id },
-        select: { recordingMode: true },
-      });
-      const mode = companyData?.recordingMode ?? "ALL";
-
-      let shouldRecord = false;
-      if (mode === "ALL") {
-        shouldRecord = true;
-      } else if (mode === "SELECTED" && companyPhone.assignedToUserId) {
-        const membership = await prisma.userCompany.findFirst({
-          where: { companyId: company.id, userId: companyPhone.assignedToUserId },
-          select: { recordCalls: true },
-        });
-        shouldRecord = membership?.recordCalls ?? false;
-      }
-
-      if (shouldRecord) {
+    // Only fetch if the recording config says this call should be recorded
+    // AND we don't already have a recording stored for this call.
+    if (recordingConsent && !callLog.recordingId) {
+      try {
         const recordings = await fetchCallRecordings(call.sid);
         if (recordings.length > 0) {
           const rec = recordings[0]!;
-          const recording = await prisma.callRecording.create({
-            data: {
-              callLogId: callLog.id,
-              storageUrl: `https://api.twilio.com${rec.uri.replace(".json", "")}`,
-              storageProvider: "twilio",
-              format: "mp3",
-              durationSec: parseInt(rec.duration, 10) || 0,
-            },
-          });
-          await prisma.callLog.update({
-            where: { id: callLog.id },
-            data: { recordingId: recording.id },
-          });
+          // Construct the full recording URL and validate it with the
+          // SSRF guard before storing (only allows twilio.com domains).
+          const fullUrl = `https://api.twilio.com${rec.uri.replace(".json", "")}`;
+          if (isSafeRecordingUrl(fullUrl)) {
+            const recording = await prisma.callRecording.create({
+              data: {
+                callLogId: callLog.id,
+                storageUrl: fullUrl,
+                storageProvider: "twilio",
+                format: "mp3",
+                durationSec: parseInt(rec.duration, 10) || 0,
+              },
+            });
+            await prisma.callLog.update({
+              where: { id: callLog.id },
+              data: { recordingId: recording.id },
+            });
+          }
         }
+      } catch {
+        // Recording fetch failure shouldn't fail the sync
       }
-    } catch {
-      // Recording fetch failure shouldn't fail the sync
     }
-
-    created++;
   }
 
   await logAction(prisma, {

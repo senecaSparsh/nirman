@@ -1010,7 +1010,7 @@ export function MobileLandDetailClient({
               <p className="text-m-body font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-600)" }}>
                 Cadastre Plan
               </p>
-              <button onClick={() => setCadastreZoom(false)} className="text-m-body press">
+              <button onClick={() => setCadastreZoom(false)} aria-label="Close cadastre plan" className="text-m-body press">
                 <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
               </button>
             </div>
@@ -1614,7 +1614,7 @@ export function MobileLandDetailClient({
                     className="size-3.5"
                   />
                   <span className="text-m-caption" style={{ color: "var(--color-ink-700)" }}>
-                    Allow partial registry — complete with ₹{formatCurrencyCompact(balanceDue)} balance due
+                    Allow partial registry — complete with {formatCurrencyCompact(balanceDue)} balance due
                   </span>
                 </label>
               )}
@@ -2005,6 +2005,7 @@ function ParcelCard({
             {canManage ? (
               <button
                 onClick={() => setShowDelete(true)}
+                aria-label="Delete parcel"
                 className="flex items-center gap-0.5 text-m-label font-semibold px-2 py-1 rounded text-m-body press"
                 style={{ color: "var(--color-stop)" }}
               >
@@ -2336,7 +2337,7 @@ function PartitionSheet({
                   Sub-parcel {i + 1}
                 </span>
                 {children.length > 2 ? (
-                  <button onClick={() => removeChild(i)} className="text-m-body press">
+                  <button onClick={() => removeChild(i)} aria-label="Remove sub-parcel" className="text-m-body press">
                     <X className="size-3" style={{ color: "var(--color-stop)" }} />
                   </button>
                 ) : null}
@@ -2539,7 +2540,7 @@ function SellSheet({
                 <span className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
                   {selectedCustomer.name}
                 </span>
-                <button onClick={() => setSelectedCustomer(null)} className="text-m-body press">
+                <button onClick={() => setSelectedCustomer(null)} aria-label="Clear selected buyer" className="text-m-body press">
                   <X className="size-3" style={{ color: "var(--color-ink-500)" }} />
                 </button>
               </div>
@@ -2986,7 +2987,7 @@ function LandPaymentScheduleModal({
                 <div key={idx} className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)" }}>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-m-caption font-bold" style={{ color: "var(--color-steel)" }}>Installment {idx + 1}</span>
-                    <button onClick={() => removeItem(idx)} className="text-m-body press">
+                    <button onClick={() => removeItem(idx)} aria-label="Remove installment" className="text-m-body press">
                       <Trash2 className="size-3" style={{ color: "var(--color-stop)" }} />
                     </button>
                   </div>

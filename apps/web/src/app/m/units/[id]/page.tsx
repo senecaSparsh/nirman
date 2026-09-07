@@ -7,7 +7,7 @@ import {
   Home, ShoppingCart, Building2,
   IndianRupee, ClipboardList, TrendingUp,
 } from "lucide-react";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserRole, getUserPermissions } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
 import {
@@ -52,6 +52,7 @@ async function MobileUnitDetailContent({
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
+  const overrides = await getUserPermissions();
   const { id } = await params;
 
   const unit = await prisma.builtUnit.findFirst({
@@ -91,7 +92,7 @@ async function MobileUnitDetailContent({
   // RERA areas
   const hasRera = unit.carpetArea || unit.superBuiltUpArea || unit.balconyArea || unit.clearHeight || unit.hasLoadingDock;
 
-  const nextAction = resolveNextAction("builtUnit", unit.status, role);
+  const nextAction = resolveNextAction("builtUnit", unit.status, role, overrides);
 
   return (
     <PageContextProvider value={{

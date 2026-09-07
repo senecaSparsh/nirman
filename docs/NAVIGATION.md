@@ -136,6 +136,17 @@ research mandates).
 **D9 — Unconditional badge fetching.** `ALL_BADGE_TABS` fires 4 API calls on every
 shell mount for every persona, including badges for tabs that persona cannot see.
 
+**D10 — Per-user permission grants are invisible in the UI.** _(critical)_
+The server authorises against `role matrix + RolePermission + UserPermission`
+(`getUserPermissions()` in `lib/server.ts`). The client received **only `role`**:
+`/api/me` returned no permissions and `usePermissions().can()` was
+`hasPermission(role, perm)` — the role matrix alone. So a permission granted to
+one individual through the Team screen was enforced by the API but produced no
+nav entry, no menu row and no button anywhere. Granting it was silently a no-op
+unless the user typed the URL. Navigation compounded this by filtering on a
+_third_, coarser model — persona — so three different notions of access were live
+at once. Fixed in Phase 1.5; see §3.6.
+
 ### 1.4 Why the previous audit's defence no longer holds
 
 `docs/MOBILE_UX_AUDIT.md` §A4 justifies the NavSheet over a "More" tab on the
@@ -321,7 +332,79 @@ Mitigations for a 22-file blast radius (`use-tab-param.ts` consumers):
   duplicate route, permanently — external links and bookmarks keep working.
 - Migrate hub-by-hub, one PR per hub.
 
-### 3.6 Up vs Back
+### 3.6 Role- and permission-adaptive navigation
+
+**The problem.** Access is not a role. It is `role matrix + RolePermission
+overrides + per-user UserPermission grants`, merged by `effectivePermissions()`
+and enforced by `getUserPermissions()` in `lib/server.ts`. Because
+`UserPermission` rows are granted per individual — exactly what the employee
+account-creation flow does — the real population of access patterns is `2^n`,
+not seven personas. A store keeper with `finance.view` and `po.approve` added by
+hand is a supported, ordinary configuration.
+
+**The bug this exposed** _(D10, found while designing this)_. The server
+authorises against the merged set. The **client only ever received `role`** —
+`/api/me` returned no permissions, and `usePermissions().can()` was
+`hasPermission(role, perm)`, i.e. the role matrix alone. So a permission granted
+to one individual was enforced by the API but **invisible in the UI**: no nav
+entry, no menu row, no button. Granting it was silently a no-op unless the user
+typed the URL. Three different access models were live at once — effective
+permissions (server), role matrix (client `can()`), and persona (navigation).
+
+**The fix — separate two questions the old design conflated:**
+
+| Question                      | Answer comes from                                       | Nature                                                        |
+| ----------------------------- | ------------------------------------------------------- | ------------------------------------------------------------- |
+| **May I open this?**          | `perm` on the route vs the user's effective permissions | Hard gate. Identical to the server's answer.                  |
+| **Is this prominent for me?** | persona (derived from role)                             | Soft ranking. Tab slots, section order, what starts expanded. |
+
+Persona **never hides anything you are allowed to open**. That single rule is
+what makes arbitrary permission patterns work with _zero_ extra navigation
+config: grant one store keeper `finance.view` and Books appears in their menu;
+nothing in `route-manifest.ts` changes.
+
+**Implementation.**
+
+- Every route declares `perm` — the permission required to open it, the same key
+  the page already enforces. Seeded by extracting `PERM.*` references from each
+  route's own files (146 of 177 routes), with a hand-reviewed override list for
+  the ~30 cases where the cheapest referenced permission was a write/approve key
+  that would have hidden the page from legitimate read-only users.
+- Omitted `perm` **inherits from `parent`** (`permFor` walks the chain), so
+  `/m/materials/[id]` needs no restatement of `inventory.view`. A route whose
+  whole chain omits it is universal — Home, My Profile, Settings, Queue.
+- `/api/me` now returns `permissions: string[]` (the effective set). The mobile
+  shell already fetches `/api/me`, so this costs no extra round-trip.
+- `canAccess(route, permissions)` gates the menu, the tab bar **and search** —
+  search included, or search becomes a way to walk into a 403.
+- `tabsFor(ctx)` takes the persona's four preferred tabs, drops any the user
+  cannot access, and backfills from a global priority list ending in four
+  universal routes — so **every user gets exactly four valid tabs**, however
+  narrow their grants. Prominence is deliberately _stable_: an unrelated grant
+  must not rearrange the bar under the user's thumb (guard G7).
+- `menuFor(ctx)` returns every accessible route grouped by module, with
+  `prominent` deciding order and initial expansion. Nothing accessible is
+  hidden — which is also how the 17 URL-only routes rejoin the navigation, for
+  the people entitled to them.
+- **Project scoping stays out of navigation.** `ProjectAssignment.scopedRole`
+  filters _data_, not routes: the route appears, the page shows only their
+  projects. Conflating the two would hide whole modules from site staff.
+
+**Why this is the elegant form.** The alternatives all scale badly:
+per-role menu definitions (13 roles × drift), per-user stored menus (unbounded
+state, needs migration on every new route), or feature flags per user (same
+problem plus no relation to authorisation). Gating on the permission the server
+already checks means navigation cannot disagree with authorisation — there is
+only one source of truth for access, and the nav is a pure function of it.
+
+Two invariants now enforce it, property-tested over 69 permission sets
+(7 personas + superuser + zero-permission + 60 random):
+
+- **G6 — no dead ends.** Nothing the navigation surfaces can 403.
+- **G7 — no invisible capability.** Every permission that gates a route surfaces
+  at least one menu entry when held. This is the regression test for D10.
+
+### 3.7 Up vs Back
 
 - Header chevron = **Up** (`entry.parent`) — deterministic, deep-link safe.
 - Edge-swipe = **Back** (`history.back()`) — matches OS convention; keep it.
@@ -335,14 +418,21 @@ Mitigations for a 22-file blast radius (`use-tab-param.ts` consumers):
 
 | #   | Assertion                                                                   | Status         |
 | --- | --------------------------------------------------------------------------- | -------------- |
-| G1  | Every `app/m/**/page.tsx` has a manifest entry, and every entry has a file  | ✅ 176/176     |
+| G1  | Every `app/m/**/page.tsx` has a manifest entry, and every entry has a file  | ✅ 177/177     |
 | G2  | Every route is ≤3 hops from a tab root for ≥1 persona; no orphaned parents  | ✅             |
-| G3  | Exactly one tab resolves active for every route × persona it is visible to  | ✅             |
+| G3  | Exactly one tab resolves active for every route the user can open           | ✅             |
 | G4  | `parent` is a path ancestor or a hub; no cycles; never points at a redirect | ✅             |
 | G5  | Routes sharing a list component declare each other in `sharesListWith`      | ✅ 19 declared |
-| G6  | Next Step renders on ≥1 real detail page (dead-code canary)                 | Phase 2        |
+| G6  | Nothing the nav surfaces can 403; every `perm` is a real permission key     | ✅             |
+| G7  | Every permission that gates a route surfaces ≥1 menu entry when held        | ✅             |
+| G8  | Exactly four valid tabs, ≤1 active, for any permission set                  | ✅             |
+| G9  | Only an allowlisted handful of routes are ungated (universal)               | ✅ 4 allowed   |
+| G10 | Next Step renders on ≥1 real detail page (dead-code canary)                 | Phase 2        |
 
-26 assertions in `apps/web/src/lib/route-manifest.test.ts`, all passing.
+36 assertions in `apps/web/src/lib/route-manifest.test.ts`, all passing.
+G6-G8 are property-based over 69 permission sets (7 personas + superuser +
+zero-permission + 60 seeded-random), because per-user `UserPermission` grants
+make the real access space `2^n`, not seven personas.
 
 G1 is the important one: it makes orphan routes _impossible_, not merely
 discouraged, and it is what stops this document being needed again in six months.
@@ -357,9 +447,38 @@ other module hub hangs off it, so the parent chain always terminates at a tab
 root. That is now enforced by G4 (`only Home is a root`), and it is exactly the
 kind of defect a diagram review never catches.
 
-The one deliberate exception is recorded in the test as `TAB_EXEMPT`: the `field`
-persona has no Home tab (all four slots are daily work — Site, Tasks, DPR, Stock),
-so five back-office routes render with no tab highlighted. See §7 Q2.
+**And what the capability guards caught after that.** Once G3 ran against real
+permission sets instead of persona groups, the `field` tab set failed on **81**
+routes. A `SITE_ENGINEER` does not only touch Site/Tasks/DPR/Stock — the role
+matrix grants them `boq.view`, `procurement.view`, `inventory.view`, `hr.view`
+and `assets.view`, so 81 routes they are entitled to open had no tab to anchor
+them. **Every persona now has Home as tab 1** (Tasks lost the slot; `/m/site`
+already surfaces it one tap away). The `TAB_EXEMPT` escape hatch from the earlier
+draft is deleted — the invariant now holds with no exceptions, which settles §7 Q2
+on evidence rather than taste.
+
+**And the leak G9 was written to catch.** A route with no `perm` anywhere up its
+parent chain is open to everyone, and no amount of self-consistency checking
+finds that — `canAccess` returns true _by definition_. The seed had left the
+Inventory, HR, Site, Pulse, Attendance and Expenses hubs ungated, because those
+particular page files reference no `PERM.*` directly (their child pages do). Net
+effect: a user with **zero** permissions saw Inventory and HR tabs and a 17-route
+menu. Twelve hubs are now gated explicitly and the universal set is an
+allowlist of four — `/m/home`, `/m/me`, `/m/queue`, `/m/settings`. Redirect stubs
+are exempt, since their target enforces the gate.
+
+Observed behaviour after the fix:
+
+| User                            | Tabs                                         | Menu routes |
+| ------------------------------- | -------------------------------------------- | ----------- |
+| zero permissions                | Home / More / My Profile / Offline Queue     | 4           |
+| `STORE_KEEPER`                  | Home / POs / Stock / Suppliers               | 46          |
+| `STORE_KEEPER` + `finance.view` | Home / POs / Stock / Suppliers _(unchanged)_ | 71          |
+| `SITE_ENGINEER`                 | Home / Field Dashboard / DPRs / Stock        | 62          |
+| `OWNER`                         | Home / Inventory / HR / Accounts             | 104         |
+
+The third row is the point: one extra grant widens what they can reach by 25
+routes without disturbing the tab bar under their thumb.
 
 ### 4.2 Task-based validation
 
@@ -378,13 +497,14 @@ overlay for a _browsable_ destination.
 
 ## 5. Migration plan
 
-| Phase                       | Work                                                                                                                                                                                   | Risk                              | Unblocks           |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------ |
-| **1. Manifest + guards** ✅ | `route-manifest.ts` — 176 entries + derivation helpers; `route-manifest.test.ts` — 26 guards. No UI change; nothing imports it yet.                                                    | Low — additive                    | everything         |
-| **2. Shell rewrite**        | Header (Up/Menu/Title/Search/Actions), 4-tab bar, page-context store, active-tab from manifest. Delete `TITLE_MAP`, `MODULE_GROUP_MAP`, `PATH_TO_MODULE`, `goBackFallback`. Add G3/G6. | Medium — every page's chrome      | D1, D2, D3, D4, D7 |
-| **3. Canonical URLs**       | `?tab=` → segments, one hub per PR; delete duplicate routes; add permanent redirects. Add G5.                                                                                          | Medium — 22 files, external links | D6                 |
-| **4. Menu + long tail**     | Regenerate NavSheet from the manifest (full-width panel, ≥44 px targets), wire the 57 orphans, persona-scoped badges. Add G2.                                                          | Low                               | D5, D8, D9         |
-| **5. Desktop convergence**  | `WORLDS` in `lib/nav.ts` becomes a projection of the manifest; one IA, two renderers.                                                                                                  | Medium — 1246-line file           | the 7th map        |
+| Phase                       | Work                                                                                                                                                                                      | Risk                              | Unblocks            |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------- |
+| **1. Manifest + guards** ✅ | `route-manifest.ts` — 177 entries + derivation helpers; `route-manifest.test.ts` — 35 guards. No UI change; nothing imports it yet.                                                       | Low — additive                    | everything          |
+| **1.5 Capability model** ✅ | `perm` per route + inheritance; `/api/me` returns effective `permissions`; `canAccess`/`tabsFor`/`menuFor`/`searchableFor` gate on capability with persona as ranking only. Guards G6-G8. | Low — additive                    | D10, all of Phase 2 |
+| **2. Shell rewrite**        | Header (Up/Menu/Title/Search/Actions), 4-tab bar, page-context store, active-tab from manifest. Delete `TITLE_MAP`, `MODULE_GROUP_MAP`, `PATH_TO_MODULE`, `goBackFallback`. Add G3/G6.    | Medium — every page's chrome      | D1, D2, D3, D4, D7  |
+| **3. Canonical URLs**       | `?tab=` → segments, one hub per PR; delete duplicate routes; add permanent redirects. Add G5.                                                                                             | Medium — 22 files, external links | D6                  |
+| **4. Menu + long tail**     | Regenerate NavSheet from the manifest (full-width panel, ≥44 px targets), wire the 57 orphans, persona-scoped badges. Add G2.                                                             | Low                               | D5, D8, D9          |
+| **5. Desktop convergence**  | `WORLDS` in `lib/nav.ts` becomes a projection of the manifest; one IA, two renderers.                                                                                                     | Medium — 1246-line file           | the 7th map         |
 
 Phases 1-2 remove all four critical defects. Phase 5 is separable and can be
 deferred without leaving the codebase in an inconsistent state.
@@ -411,19 +531,31 @@ These are good and survive unchanged:
 
 1. **Tab sets (§3.3)** — draft only. Lock them from real usage data, or ship the
    draft and iterate?
-2. **`/m/home` for field personas** — `field` has no Home tab, which is why five
-   back-office routes (`/m/accounts`, `/m/expenses`, `/m/me`, `/m/settings`,
-   `/m/books/receipts/[id]`) show no active tab for a site engineer. Three options:
-   (a) give `field` a Home tab, evicting one of Site/Tasks/DPR/Stock;
-   (b) scope those routes with `personas` so they never appear in a field user's
-   menu — a product call about whether a site engineer should see the company
-   expense log; (c) accept an unhighlighted tab bar on five rarely-visited pages.
-   Currently (c), recorded explicitly as `TAB_EXEMPT` so it cannot grow silently.
+2. ~~**`/m/home` for field personas**~~ — **RESOLVED on evidence.** Every persona
+   gets Home as tab 1. Running G3 against real permission sets showed a
+   `SITE_ENGINEER` can open 81 routes with no tab to anchor them (they hold
+   `boq.view`, `procurement.view`, `inventory.view`, `hr.view`, `assets.view`).
+   Tasks gave up the slot — `/m/site` already surfaces it one tap away.
+   `TAB_EXEMPT` deleted; the invariant holds with no exceptions.
 3. **Phase 5 scope** — converge desktop onto the manifest now, or ship mobile
    first and leave `lib/nav.ts` as-is for a release?
 4. **Deleting duplicate routes** — safe to remove `/m/transfers`, `/m/expense-claims`
    et al. behind permanent redirects, or are any of these URLs in circulation
    (WhatsApp shares, saved bookmarks, printed QR codes)?
-5. **The 20 unreferenced routes** — are all 20 wanted? Some `/new` pages may be
+5. **The 17 unreferenced routes** — are all 17 wanted? Some `/new` pages may be
    intentionally superseded by FAB modals, in which case they should be _deleted_,
    not linked.
+6. **`/api/me` caching vs permission changes.** `/api/me` is cached
+   `private, max-age=60, stale-while-revalidate=300`. Now that it carries
+   `permissions`, revoking a grant can take up to 5 minutes to disappear from the
+   UI. The API still refuses the request throughout, so this is a cosmetic
+   staleness, not a security hole — but if you want revocation to feel instant,
+   drop `stale-while-revalidate` or bump a session version on permission change.
+7. **Per-route `perm` review.** 146 of 177 routes were seeded by extracting
+   `PERM.*` from each page, then hand-corrected in ~30 places where the cheapest
+   referenced permission was a write/approve key. Worth a domain read-through —
+   an over-tight `perm` hides a page from people who should see it, and I
+   inferred these from code, not from how you actually staff the business. The
+   construction routes are the ones I'd check first: there is no `wo.view` in
+   `PERM`, so I gated Work Orders / Change Orders / QC / Safety on
+   `projects.view`.

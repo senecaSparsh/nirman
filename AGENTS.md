@@ -208,14 +208,26 @@ msg)` that returns 504 on timeout. Applied to `/api/cron/backup` (120s) and
   immutable — no soft delete needed.
 - **Mobile navigation / adding a `/m` route**: `apps/web/src/lib/route-manifest.ts` is the SINGLE
   SOURCE OF TRUTH for mobile navigation. Creating `app/m/<path>/page.tsx` REQUIRES adding a matching
-  `RouteEntry` — `route-manifest.test.ts` (26 guards, runs in CI) fails the build if you do one
+  `RouteEntry` — `route-manifest.test.ts` (36 guards, runs in CI) fails the build if you do one
   without the other. It also enforces that `parent` is a real path ancestor or hub, that Home is the
-  only root, that exactly one tab resolves active per route × persona, and that two routes rendering
-  the same list component declare each other in `sharesListWith`. This exists because six
-  hand-maintained nav maps had drifted: 46 of 121 real static routes were missing from them and 17
-  were reachable only by typing the URL. Header title, Up target, breadcrumbs, menu tree, active tab,
-  search index and badge endpoints are all DERIVED from the manifest — never re-declare them.
-  Full rationale + the remaining phases: `docs/NAVIGATION.md`.
+  only root, that exactly one tab resolves active for every route a user can open, and that two
+  routes rendering the same list component declare each other in `sharesListWith`. This exists
+  because six hand-maintained nav maps had drifted: 46 of 121 real static routes were missing from
+  them and 17 were reachable only by typing the URL. Header title, Up target, breadcrumbs, menu tree,
+  active tab, search index and badge endpoints are all DERIVED from the manifest — never re-declare
+  them. Full rationale + the remaining phases: `docs/NAVIGATION.md`.
+- **Nav access = permissions, NOT role and NOT persona**: each `RouteEntry` declares `perm` — the
+  permission needed to open it (inherited from `parent` when omitted; no perm anywhere up the chain
+  = universal). `canAccess()` gates the menu, tab bar AND search against the user's EFFECTIVE
+  permissions (role matrix + `RolePermission` + per-user `UserPermission`), which `/api/me` now
+  returns as `permissions: string[]`. Persona is a RANKING hint only — it picks tab slots and
+  section order and must NEVER hide something the user is allowed to open. This is what makes
+  arbitrary per-user grants work with zero nav config: grant one store keeper `finance.view` and
+  Books appears in their menu. Before this, the client only knew `role`, so an individually granted
+  permission was enforced by the API but invisible in the UI — granting it was a silent no-op.
+  Guards G6-G9 are property-tested over 69 permission sets; G9 also asserts that only 4 allowlisted routes are ungated (an ungated route is open to EVERY user). When you add a page, set `perm` to
+  the SAME key the page/API enforces, and prefer the `*.view` key — a write/approve key as the gate
+  hides the page from legitimate read-only users.
 - **Procurement scope**: every `PurchaseOrder` must set `procurementScope` (COMPANY or PROJECT).
   COMPANY → receive into a company warehouse location; PROJECT → receive into a project site.
 - **Land partition**: atomic transaction — validate Σ child area = parent area, create children,

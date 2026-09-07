@@ -248,6 +248,7 @@ export function VehicleCapture({
             <button
               type="button"
               onClick={() => { haptic(5); onChange({ ...value, photoUrl: undefined }); }}
+              aria-label="Clear photo"
               className="absolute top-1 right-1 grid place-items-center size-5 rounded-full"
               style={{ backgroundColor: "var(--color-ink-950)" }}
             >

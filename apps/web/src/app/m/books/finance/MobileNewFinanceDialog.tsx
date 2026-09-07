@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCrea
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
+import { useTodayDate } from "@/lib/use-today-date";
 
 type Tab = "expense" | "projectCost";
 
@@ -92,6 +93,7 @@ export function MobileNewFinanceDialog({
   canCreateProjectCost: boolean;
 }) {
   const router = useRouter();
+  const today = useTodayDate();
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState<Tab>(
     canCreateExpense ? "expense" : "projectCost",
@@ -100,19 +102,26 @@ export function MobileNewFinanceDialog({
     projectId: "",
     category: "",
     amount: "",
-    date: new Date().toISOString().slice(0, 10),
+    date: "",
     notes: "",
   });
   const [costForm, setCostForm] = useState<ProjectCostForm>({
     projectId: "",
     costType: "LABOUR",
     amount: "",
-    date: new Date().toISOString().slice(0, 10),
+    date: "",
     vendor: "",
     subcontractorId: "",
     notes: "",
   });
   const [receiptPhotos, setReceiptPhotos] = useState<{ url: string; fileName?: string }[]>([]);
+
+  // Set today's date after mount to avoid hydration mismatches.
+  useEffect(() => {
+    if (!today) return;
+    setExpenseForm((f) => (f.date ? f : { ...f, date: today }));
+    setCostForm((f) => (f.date ? f : { ...f, date: today }));
+  }, [today]);
 
   function setExpense<K extends keyof ExpenseForm>(
     key: K,
@@ -503,9 +512,6 @@ export function MobileNewFinanceDialog({
                 {/* Subcontractor (from master) */}
                 {subcontractors.length > 0 && (
                   <div>
-                    <label className={labelClass} style={labelStyle}>
-                      Subcontractor (optional)
-                    </label>
                     <MobileSelectWithCreate
                       label="Subcontractor"
                       value={costForm.subcontractorId}

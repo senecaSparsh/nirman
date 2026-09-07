@@ -1301,7 +1301,7 @@ export function MobileLandWizard({
                         onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
                         placeholder="Label (e.g. Yearly Lease Rent)"
                       />
-                      <button type="button" onClick={() => setExtraCosts((arr) => arr.filter((_, j) => j !== i))} className="mt-1.5 shrink-0" style={{ color: "var(--color-ink-400)" }}>
+                      <button type="button" onClick={() => setExtraCosts((arr) => arr.filter((_, j) => j !== i))} aria-label="Remove extra cost" className="mt-1.5 shrink-0" style={{ color: "var(--color-ink-400)" }}>
                         <X className="size-4" />
                       </button>
                     </div>

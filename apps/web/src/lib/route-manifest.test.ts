@@ -355,10 +355,41 @@ describe("G6 — navigation never shows a dead end", () => {
     }
   });
 
-  it("a user with no permissions still gets a usable shell", () => {
+  /**
+   * A route with no `perm` anywhere up its parent chain is open to everyone.
+   * That is correct for a handful of routes and a silent leak for any other —
+   * `canAccess` returns true by definition, so no amount of self-consistency
+   * checking catches it. When the seed left the Inventory, HR, Site, Pulse and
+   * Expenses hubs universal (their page files reference no PERM directly), a
+   * zero-permission user got Inventory and HR tabs and a 17-route menu.
+   *
+   * So the universal set is an allowlist, not an accident.
+   */
+  it("only genuinely universal routes are ungated", () => {
+    const UNIVERSAL = ["/m/home", "/m/me", "/m/queue", "/m/settings"];
+    // Redirect stubs need no gate of their own — whatever they redirect to
+    // enforces one, and G4 already guarantees they are never an Up target.
+    const ungated = ROUTES
+      .filter((r) => r.kind !== "redirect" && !permFor(r))
+      .map((r) => r.path)
+      .sort();
+    expect(
+      ungated,
+      "A route with no perm is open to EVERY user, including one with zero " +
+      "permissions. Either give it a `perm` or add it to this allowlist " +
+      "deliberately.",
+    ).toEqual(UNIVERSAL.sort());
+  });
+
+  it("a user with no permissions gets a usable but empty-handed shell", () => {
     const ctx: NavContext = { persona: "field", permissions: [] };
+    // Still four tabs (Home + universal backfill) so the shell never breaks…
     expect(tabsFor(ctx)).toHaveLength(4);
-    expect(menuFor(ctx).length).toBeGreaterThan(0);
+    // …but nothing they aren't entitled to.
+    const paths = menuFor(ctx).flatMap((s) => s.routes).map((r) => r.path);
+    expect(paths).not.toContain("/m/inventory");
+    expect(paths).not.toContain("/m/hr");
+    expect(paths).not.toContain("/m/accounts");
   });
 });
 

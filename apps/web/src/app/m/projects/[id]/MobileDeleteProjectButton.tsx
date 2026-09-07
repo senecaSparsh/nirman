@@ -45,6 +45,7 @@ export function MobileDeleteProjectButton({ projectId, name }: { projectId: stri
       <button
         onClick={handleDelete}
         disabled={busy}
+        aria-label="Delete project"
         className="grid place-items-center h-7 w-7 rounded-[0.5rem] border-2 press"
         style={{
           borderColor: "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))",

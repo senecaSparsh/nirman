@@ -26,6 +26,7 @@ import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewLeadClient } from "./new/MobileNewLeadClient";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 
 type StageFilter = "ALL" | "NEW" | "CONTACTED" | "SITE_VISIT" | "NEGOTIATION" | "BOOKED" | "LOST";
 
@@ -245,8 +246,8 @@ function LeadCard({ l }: { l: LeadListItem }) {
   const priorityColor = PRIORITY_COLORS[l.priority] ?? "var(--color-ink-500)";
   const isHot = l.priority === "HOT";
   const isConverted = !!l.convertedAt;
-  const now = new Date();
-  const followUpOverdue = l.nextFollowUpAt && new Date(l.nextFollowUpAt) <= now;
+  const now = useHydratedDate();
+  const followUpOverdue = l.nextFollowUpAt && now && new Date(l.nextFollowUpAt) <= now;
 
   // ── Long-press overview sheet (data already in the list item — no fetch) ──
   const [overviewOpen, setOverviewOpen] = useState(false);

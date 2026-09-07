@@ -259,7 +259,7 @@ export function MobilePortalListingActions({
             </div>
             <div className="flex items-center justify-between px-3 pb-2">
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Edit Listing</p>
-              <button type="button" onClick={() => setShowEdit(false)} className="text-m-body press p-1">
+              <button type="button" onClick={() => setShowEdit(false)} aria-label="Close edit dialog" className="text-m-body press p-1">
                 <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
               </button>
             </div>
@@ -328,7 +328,7 @@ export function MobilePortalListingActions({
             </div>
             <div className="flex items-center justify-between px-3 pb-2">
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Delete Listing?</p>
-              <button type="button" onClick={() => setShowDelete(false)} className="text-m-body press p-1">
+              <button type="button" onClick={() => setShowDelete(false)} aria-label="Close delete dialog" className="text-m-body press p-1">
                 <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
               </button>
             </div>

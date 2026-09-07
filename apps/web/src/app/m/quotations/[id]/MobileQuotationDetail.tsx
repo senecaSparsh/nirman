@@ -1872,7 +1872,7 @@ function AddQuoteDialog({
     <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "var(--color-paper)" }}>
       {/* Header */}
       <div className="flex items-center gap-2 p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-        <button onClick={onClose} className="p-1 press" style={{ color: "var(--color-ink-700)" }}>
+        <button onClick={onClose} aria-label="Close add supplier quote" className="p-1 press" style={{ color: "var(--color-ink-700)" }}>
           <X className="size-5" />
         </button>
         <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
@@ -2406,7 +2406,7 @@ function ApproveDialog({
     <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "var(--color-paper)" }}>
       {/* Header */}
       <div className="flex items-center gap-2 p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
-        <button onClick={onCancel} className="p-1 press" style={{ color: "var(--color-ink-700)" }}>
+        <button onClick={onCancel} aria-label="Close select winning quote" className="p-1 press" style={{ color: "var(--color-ink-700)" }}>
           <X className="size-5" />
         </button>
         <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>

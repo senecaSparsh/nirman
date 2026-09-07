@@ -85,7 +85,7 @@ export function MobileSmsIngest() {
           <h2 className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
             Paste Bank SMS
           </h2>
-          <button onClick={() => !saving && setOpen(false)}>
+          <button onClick={() => !saving && setOpen(false)} aria-label="Close dialog">
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
           </button>
         </div>

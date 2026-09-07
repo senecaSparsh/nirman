@@ -140,6 +140,7 @@ export function MobileChequeFields({
             <button
               type="button"
               onClick={() => set("chequePhotoUrl", "")}
+              aria-label="Remove cheque"
               className="absolute top-1 right-1 rounded-full p-1 text-m-body press"
               style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 70%, transparent)" }}
             >

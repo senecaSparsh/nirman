@@ -953,9 +953,6 @@ export function MobileStockOutClient({
             {/* Built unit (issue mode, if the project has units) */}
             {mode === "issue" && units.length > 0 ? (
               <div>
-                <label className={labelClass} style={labelStyle}>
-                  Built unit (optional)
-                </label>
                 <MobileSelectWithCreate
                   label="Built unit"
                   value={builtUnitId}
@@ -1078,6 +1075,7 @@ export function MobileStockOutClient({
                         <button
                           type="button"
                           onClick={() => handleRemoveLine(idx)}
+                          aria-label="Remove line"
                           className="text-m-body press"
                           style={{ color: "var(--color-stop)" }}
                         >

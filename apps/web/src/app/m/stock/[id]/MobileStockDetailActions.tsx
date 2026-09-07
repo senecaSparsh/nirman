@@ -80,6 +80,7 @@ export function MobileStockDetailActions({
       <div className="flex items-center gap-1.5 mb-3">
         <button
           onClick={() => setShowEdit(true)}
+          aria-label="Edit"
           className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
           style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
         >
@@ -88,6 +89,7 @@ export function MobileStockDetailActions({
         <button
           onClick={handleDelete}
           disabled={deleting}
+          aria-label="Delete"
           className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
           style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-stop)" }}
         >
@@ -183,6 +185,7 @@ function EditMaterialModal({
           </Field>
           <Field label="Category *">
             <MobileCategorySelect
+              label=""
               required
               value={categoryId}
               onChange={setCategoryId}

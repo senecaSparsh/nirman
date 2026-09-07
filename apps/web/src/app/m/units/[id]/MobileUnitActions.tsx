@@ -31,7 +31,7 @@ function SheetHeader({ title, onClose }: { title: string; onClose: () => void })
       </div>
       <div className="flex items-center justify-between px-3 pb-2">
         <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>{title}</p>
-        <button onClick={onClose} className="text-m-body press p-1">
+        <button onClick={onClose} aria-label="Close dialog" className="text-m-body press p-1">
           <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
         </button>
       </div>

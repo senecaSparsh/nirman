@@ -206,9 +206,6 @@ export function MobileNewBoqItemDialog({
             {/* Parent (optional) */}
             {parentItems.length > 0 && (
               <div>
-                <label className={labelClass} style={labelStyle}>
-                  Parent (optional)
-                </label>
                 <MobileSelectWithCreate
                   label="Parent"
                   value={form.parentId}

@@ -108,6 +108,7 @@ export function MobileSubcontractorDetailClient({
         {canManage ? (
           <button
             onClick={() => setShowEdit(true)}
+            aria-label="Edit"
             className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
             style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
           >

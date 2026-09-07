@@ -333,9 +333,6 @@ export function MobileAttendanceForm({
             Filters
           </p>
           <div>
-            <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
-              Project (optional)
-            </label>
             <div className="flex gap-1.5 items-center">
               <div className="flex-1">
                 <MobileSelectWithCreate
@@ -351,6 +348,7 @@ export function MobileAttendanceForm({
                 type="button"
                 onClick={requestGps}
                 disabled={gpsLoading}
+                aria-label="Use my location"
                 className="shrink-0 grid place-items-center w-10 h-10 rounded-[0.5rem] border text-m-body press disabled:opacity-50"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
                 title="Use my location to auto-select project"

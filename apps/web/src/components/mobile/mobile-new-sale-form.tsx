@@ -447,7 +447,7 @@ export function MobileNewSaleForm({
                   </p>
                 ) : (
                   <MobileSelectWithCreate
-                    label="Project"
+                    label=""
                     required
                     value={projectId}
                     onChange={onProjectChange}
@@ -465,7 +465,7 @@ export function MobileNewSaleForm({
                   </p>
                 ) : (
                   <MobileSelectWithCreate
-                    label={assetType === "BUILT_UNIT" ? "Unit" : "Parcel"}
+                    label=""
                     required
                     value={selectedAssetId}
                     onChange={onAssetChange}
@@ -618,7 +618,7 @@ export function MobileNewSaleForm({
                 {brokers.length > 0 && (
                   <FormFieldSm label="Select from Broker Master">
                     <MobileSelectWithCreate
-                      label="Broker"
+                      label=""
                       value={brokerId}
                       onChange={(id) => {
                         setBrokerId(id);
@@ -1003,6 +1003,7 @@ export function MobileNewSaleForm({
                     <button
                       type="button"
                       onClick={() => setTerms(terms.filter((_, idx) => idx !== i))}
+                      aria-label="Remove sale item"
                       className="text-m-body press mt-0.5"
                       style={{ color: "var(--color-ink-500)" }}
                     >
@@ -1083,6 +1084,7 @@ export function MobileNewSaleForm({
                     <button
                       type="button"
                       onClick={() => setSchedule(schedule.filter((_, idx) => idx !== i))}
+                      aria-label="Remove sale item"
                       className="text-m-body press"
                       style={{ color: "var(--color-ink-500)" }}
                     >

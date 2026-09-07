@@ -257,9 +257,6 @@ export function MobileNewChangeOrderForm({
           Details
         </p>
         <div>
-          <label className={labelClass} style={labelStyle}>
-            Project
-          </label>
           <MobileProjectSelect
             value={form.projectId}
             onChange={(v) => set("projectId", v)}

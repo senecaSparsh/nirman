@@ -66,6 +66,7 @@ export function MobileDocUploader({
           <button
             type="button"
             onClick={onRemove}
+            aria-label="Remove uploaded file"
             className="rounded-full p-0.5 text-m-body press shrink-0"
             style={{ color: "var(--color-stop)" }}
           >

@@ -80,12 +80,21 @@ export async function getCompany() {
   const selectedId = (await cookies()).get("nirman-company-id")?.value;
   const isDevBypass = process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production";
 
-  if (selectedId) {
+  // ── Fail closed: no company resolution without authentication ──
+  // Without an authenticated user (and not in dev-bypass), we must NOT
+  // resolve an arbitrary company from a cookie, and we must NOT create one
+  // as a side effect of a GET. Throw so the caller surfaces a 401 instead
+  // of silently operating on the wrong tenant.
+  if (!user && !isDevBypass) {
+    throw new Error("getCompany() called without an authenticated user");
+  }
+
+  if (selectedId && user) {
     const selected = await prisma.company.findFirst({
       where: {
         id: selectedId,
         deletedAt: null,
-        ...(isDevBypass ? {} : { userMemberships: { some: { userId: user?.id } } }),
+        userMemberships: { some: { userId: user.id } },
       },
     });
     if (selected) return selected;
@@ -98,7 +107,7 @@ export async function getCompany() {
     if (assigned) return assigned;
   }
 
-  // In dev-bypass mode, fall back to any company (no membership filter).
+  // In dev-bypass mode only, fall back to any company (no membership filter).
   if (isDevBypass) {
     const existing = await prisma.company.findFirst({
       where: { deletedAt: null },
@@ -120,8 +129,9 @@ export async function getCompany() {
   }
 
   // No company found — create a default one and add the user as a member.
-  // This only happens for the very first user or in dev-bypass with an empty DB.
-  // The user should rename this via Settings → Company details.
+  // This only happens for the very first user (onboarding) or in dev-bypass
+  // with an empty DB. It is NEVER reached for unauthenticated requests
+  // because the fail-closed guard above throws first.
   return prisma.company.create({
     data: {
       name: "My Company",

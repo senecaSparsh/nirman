@@ -306,6 +306,7 @@ export function MobileNewTaskForm({
           <button
             type="button"
             onClick={addSubtask}
+            aria-label="Add task"
             className="shrink-0 grid place-items-center size-8 rounded-[0.375rem] border press"
             style={{
               borderColor: "var(--color-line)",
@@ -336,6 +337,7 @@ export function MobileNewTaskForm({
                 <button
                   type="button"
                   onClick={() => removeSubtask(i)}
+                  aria-label="Remove task"
                   className="text-m-body press"
                   style={{ color: "var(--color-ink-300)" }}
                 >

@@ -7,7 +7,7 @@ import {
   ScanLine, Truck, AlertTriangle,
   Building2, IndianRupee, ClipboardList, Printer,
 } from "lucide-react";
-import { getCompany, getCompanyGroupIds, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getCompanyGroupIds, getUserRole, getUserPermissions, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import {
@@ -48,6 +48,7 @@ async function MobilePoDetailContent({
   const company = await getCompany();
   const groupCompanyIds = await getCompanyGroupIds(company);
   const role = await getUserRole();
+  const overrides = await getUserPermissions();
   const { id } = await params;
 
   // Show POs from the entire company group — quotation-approved POs may
@@ -220,7 +221,7 @@ async function MobilePoDetailContent({
 
   // Resolve the next action for this PO's status + the viewer's role.
   // Server-side — no permission function crosses the boundary.
-  const nextAction = resolveNextAction("procurement", po.status, role);
+  const nextAction = resolveNextAction("procurement", po.status, role, overrides);
 
   // Permissions to announce to the NavSheet's Next Step resolver
   const canActions: string[] = [];

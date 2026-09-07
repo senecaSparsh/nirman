@@ -278,6 +278,7 @@ function ManagerBriefingCarousel({
         <button
           onClick={onRefresh}
           disabled={refreshing}
+          aria-label="Refresh briefing"
           className="grid place-items-center size-6 rounded-full press disabled:opacity-50"
           style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}
         >

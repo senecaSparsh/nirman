@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
@@ -52,6 +52,13 @@ export function MobileTransferReceiveDialog({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [nowStr, setNowStr] = useState("");
+  useEffect(() => {
+    const d = new Date();
+    setNowStr(
+      `${d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} · ${d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`,
+    );
+  }, []);
 
   // Proof fields
   const [photos, setPhotos] = useState<{ url: string; fileName?: string }[]>([]);
@@ -221,7 +228,7 @@ export function MobileTransferReceiveDialog({
           <div className="flex items-center gap-1.5">
             <Calendar className="size-3 shrink-0" style={{ color: "var(--color-steel)" }} />
             <span className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-steel)" }}>
-              {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} · {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+              {nowStr}
             </span>
           </div>
           <div className="flex items-center gap-1.5 flex-1 min-w-0">
@@ -369,7 +376,7 @@ export function MobileTransferReceiveDialog({
             <div className="flex items-center gap-2 p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
               <AlertTriangle className="size-4 shrink-0" style={{ color: "var(--color-stop)" }} />
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Return to Source?</p>
-              <button onClick={() => { if (!submitting) setShowReturn(false); }} className="text-m-body press shrink-0 p-1 ml-auto">
+              <button onClick={() => { if (!submitting) setShowReturn(false); }} aria-label="Close return to source dialog" className="text-m-body press shrink-0 p-1 ml-auto">
                 <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
               </button>
             </div>
@@ -413,6 +420,13 @@ export function MobileTransferDispatchDialog({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [nowStr, setNowStr] = useState("");
+  useEffect(() => {
+    const d = new Date();
+    setNowStr(
+      `${d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} · ${d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`,
+    );
+  }, []);
 
   // Transport fields
   const [deliveryMode, setDeliveryMode] = useState("");
@@ -521,7 +535,7 @@ export function MobileTransferDispatchDialog({
           <div className="flex items-center gap-1.5">
             <Calendar className="size-3 shrink-0" style={{ color: "var(--color-steel)" }} />
             <span className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-steel)" }}>
-              {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} · {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+              {nowStr}
             </span>
           </div>
         </div>

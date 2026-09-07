@@ -609,7 +609,7 @@ export function MobileDprForm({
         <div className="flex gap-1.5 items-center">
           <div className="flex-1">
             <MobileSelectWithCreate
-              label="Project"
+              label=""
               required
               value={fProject}
               onChange={onProjectChange}
@@ -781,6 +781,7 @@ export function MobileDprForm({
                 <button
                   type="button"
                   onClick={() => removeMaterialLine(idx)}
+                  aria-label="Remove"
                   className="text-m-body press"
                 >
                   <X className="size-3" style={{ color: "var(--color-stop)" }} />
@@ -877,6 +878,7 @@ export function MobileDprForm({
                 <button
                   type="button"
                   onClick={() => removeLaborLine(idx)}
+                  aria-label="Remove"
                   className="text-m-body press"
                 >
                   <X className="size-3" style={{ color: "var(--color-stop)" }} />

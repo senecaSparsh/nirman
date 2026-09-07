@@ -458,6 +458,7 @@ export function MobileQuotePanel({
                       <button
                         type="button"
                         onClick={() => setEditingQuote(quote)}
+                        aria-label="Edit quote"
                         className="flex items-center gap-0.5 text-m-caption font-semibold px-1.5 py-1 rounded text-m-body press ml-auto"
                         style={{ color: "var(--color-ink-700)" }}
                       >
@@ -466,6 +467,7 @@ export function MobileQuotePanel({
                       <button
                         type="button"
                         onClick={() => deleteQuote(quote.id)}
+                        aria-label="Delete quote"
                         className="flex items-center gap-0.5 text-m-caption font-semibold px-1.5 py-1 rounded text-m-body press"
                         style={{ color: "var(--color-stop)" }}
                       >
@@ -741,6 +743,7 @@ function MobileQuoteUploadDialog({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close upload quote dialog"
             className="touch grid place-items-center rounded-[0.5rem] text-m-body press"
             style={{ color: "var(--color-ink-500)" }}
           >
@@ -806,6 +809,7 @@ function MobileQuoteUploadDialog({
                   <button
                     type="button"
                     onClick={clearFile}
+                    aria-label="Clear selected file"
                     className="shrink-0 press"
                     style={{ color: "var(--color-ink-500)" }}
                   >
@@ -1153,6 +1157,7 @@ function SupplierPickerModal({
           </p>
           <button
             onClick={onClose}
+            aria-label="Close supplier picker"
             className="touch grid place-items-center rounded-[0.5rem] text-m-body press"
             style={{ color: "var(--color-ink-500)" }}
           >
@@ -1269,6 +1274,7 @@ function WaiveDialog({
           </p>
           <button
             onClick={onCancel}
+            aria-label="Close waive quote dialog"
             className="touch grid place-items-center rounded-[0.5rem] text-m-body press"
             style={{ color: "var(--color-ink-500)" }}
           >
@@ -1425,6 +1431,7 @@ function MobileEditQuoteDialog({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close edit quote dialog"
             className="touch grid place-items-center rounded-[0.5rem] text-m-body press"
             style={{ color: "var(--color-ink-500)" }}
           >

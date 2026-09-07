@@ -1,4 +1,5 @@
 import TwilioSDK from "twilio";
+import type { NextRequest } from "next/server";
 
 type TwilioClient = TwilioSDK.Twilio;
 
@@ -60,6 +61,51 @@ export function isTwilioConfigured(): boolean {
 /** Get the Twilio account SID (for display, not secret). */
 export function getTwilioAccountSid(): string | null {
   return process.env.TWILIO_ACCOUNT_SID ?? null;
+}
+
+// ── Webhook signature verification ──
+
+/**
+ * Verify that a request actually came from Twilio by checking the
+ * X-Twilio-Signature header against the expected HMAC-SHA1 signature
+ * computed from the auth token + full URL + raw body.
+ *
+ * Twilio signs the *exact* URL it was configured with (including the
+ * query string), so we must reconstruct the full URL from the request.
+ * In dev (no auth token configured, or AUTH_BYPASS), verification is
+ * skipped so local testing with `twilio` CLI still works.
+ *
+ * @returns true if the signature is valid (or verification is disabled in dev)
+ */
+export function verifyTwilioSignature(
+  req: NextRequest,
+  rawBody: string,
+): boolean {
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  // In dev without credentials configured, skip verification so local
+  // webhook testing still works. In production, missing credentials is
+  // a misconfiguration — fail closed (reject).
+  if (!authToken) {
+    return process.env.NODE_ENV !== "production";
+  }
+
+  const signature = req.headers.get("x-twilio-signature");
+  if (!signature) return false;
+
+  // Reconstruct the full URL *as Twilio sees it*. Twilio signs the URL
+  // it was configured with, which is the public URL (NEXT_PUBLIC_APP_URL),
+  // not localhost. If the app is behind a proxy/load balancer, the
+  // request's `req.url` may be internal — so prefer the configured
+  // public URL when available, falling back to the request URL.
+  const publicBaseUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const reqUrl = new URL(req.url);
+  const fullPath = reqUrl.pathname + reqUrl.search;
+
+  const fullUrl = publicBaseUrl
+    ? `${publicBaseUrl.replace(/\/$/, "")}${fullPath}`
+    : req.url;
+
+  return TwilioSDK.validateRequestWithBody(authToken, signature, fullUrl, rawBody);
 }
 
 // ── Types ──
@@ -291,11 +337,62 @@ export function mapTwilioCallStatus(twilioStatus: string): string {
  * Determine call direction from Twilio's direction field.
  * Twilio: "inbound" | "outbound-api" | "outbound-dial" | "trunking-originating"
  *         | "trunking-terminating" | "client" | "test"
+ *
+ * - inbound*           → INBOUND
+ * - outbound*          → OUTBOUND
+ * - client (Twilio Client SDK, staff-to-staff softphone) → INTERNAL
+ * - trunking-* (SIP trunk) → OUTBOUND (originating) / INBOUND (terminating)
+ * - test               → OUTBOUND (placeholder, shouldn't occur in prod)
  */
 export function mapTwilioDirection(twilioDirection: string): "INBOUND" | "OUTBOUND" | "INTERNAL" {
-  if (twilioDirection.startsWith("inbound")) return "INBOUND";
-  if (twilioDirection.startsWith("outbound")) return "OUTBOUND";
-  return "OUTBOUND"; // default
+  const d = twilioDirection.toLowerCase();
+  if (d.startsWith("inbound")) return "INBOUND";
+  if (d.startsWith("trunking-terminating")) return "INBOUND";
+  if (d.startsWith("trunking-originating")) return "OUTBOUND";
+  if (d.startsWith("client")) return "INTERNAL";
+  if (d.startsWith("outbound")) return "OUTBOUND";
+  return "OUTBOUND"; // default — includes "test" and unknowns
+}
+
+/**
+ * Parse a Twilio price string into a positive JS number.
+ *
+ * Twilio returns prices as NEGATIVE numbers (e.g. "-0.012") because they
+ * represent debits/credits. We store the absolute cost value (always
+ * positive) on CallLog.callCost — the sign convention is that a call
+ * always *costs* money, so a positive number is unambiguous.
+ *
+ * This centralizes the parsing so the webhook and sync-calls paths
+ * produce identical values (previously the webhook stripped the "-"
+ * while sync-calls used parseFloat directly, causing sign mismatches).
+ *
+ * @returns positive number, or null if the price is missing/invalid
+ */
+export function parseTwilioPrice(price: string | null | undefined): number | null {
+  if (!price) return null;
+  const n = parseFloat(price.replace("-", ""));
+  if (Number.isNaN(n)) return null;
+  return n;
+}
+
+/**
+ * Determine whether a call should be recorded, based on the company's
+ * recording mode and (for SELECTED mode) the assigned staff member's
+ * recordCalls flag.
+ *
+ * @param recordingMode  "ALL" | "SELECTED" | "NONE" (from Company.recordingMode)
+ * @param recordCalls    the assigned user's recordCalls flag (from UserCompany).
+ *                       Only used when mode is "SELECTED". null/undefined → false.
+ * @returns true if the call should be recorded
+ */
+export function shouldRecordCall(
+  recordingMode: string,
+  recordCalls: boolean | null | undefined,
+): boolean {
+  if (recordingMode === "NONE") return false;
+  if (recordingMode === "ALL") return true;
+  if (recordingMode === "SELECTED") return !!recordCalls;
+  return false; // unknown mode → don't record (fail safe)
 }
 
 /**

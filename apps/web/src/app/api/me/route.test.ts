@@ -11,7 +11,17 @@ import { GET } from "./route";
 describe("GET /api/me", () => {
   beforeEach(() => {
     setSessionUser({ role: "OWNER" });
-    mockPrisma().user!.findUnique.mockResolvedValue({ phone: "+91 98765 43210" });
+    mockPrisma().user!.findUnique.mockResolvedValue({
+      phone: "+91 98765 43210",
+      mustChangePassword: false,
+      image: null,
+      active: true,
+      employeeCode: null,
+      designation: null,
+      department: null,
+      joiningDate: null,
+      lastLoginAt: null,
+    });
   });
 
   it("returns the current user's info when authenticated", async () => {

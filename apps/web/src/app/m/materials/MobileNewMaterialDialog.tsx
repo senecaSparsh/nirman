@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Plus, X, Search, Check } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { formatCurrency } from "@/lib/utils";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
@@ -518,7 +519,7 @@ export function MobileNewMaterialForm({
                 className="font-bold"
                 style={{ color: "var(--color-ink-500)" }}
               >
-                ₹{(Number(standardCost) * (1 + gstRate / 100)).toFixed(2)}
+                {formatCurrency(Number(standardCost) * (1 + gstRate / 100))}
               </span>
             </p>
           ) : null}
@@ -600,6 +601,7 @@ export function MobileNewMaterialForm({
               </h3>
               <button
                 onClick={() => setShowHsnPicker(false)}
+                aria-label="Clear"
                 className="press grid place-items-center size-7 rounded-[0.375rem]"
                 style={{ color: "var(--color-ink-700)" }}
               >

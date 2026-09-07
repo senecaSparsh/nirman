@@ -1,4 +1,5 @@
 import { MobileShellV2 } from "@/components/mobile/v2/mobile-shell";
+import { NavigationTracker } from "@/components/mobile/v2/navigation-tracker";
 import { ChunkErrorRecovery } from "@/components/dev/chunk-error-recovery";
 
 /**
@@ -17,6 +18,7 @@ import { ChunkErrorRecovery } from "@/components/dev/chunk-error-recovery";
 export default function MobileLayout({ children }: { children: React.ReactNode }) {
   return (
     <MobileShellV2>
+      <NavigationTracker />
       {children}
       <ChunkErrorRecovery />
     </MobileShellV2>

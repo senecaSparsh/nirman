@@ -6,6 +6,7 @@ import {
   Send, CheckCircle, Banknote, Lock, Loader2, X, Printer,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatCurrency } from "@/lib/utils";
 import { ActionBar } from "@/components/mobile/v2/primitives";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
@@ -107,7 +108,7 @@ export function MobileWorkOrderActions({
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
           >
             <Banknote className="size-4" />
-            Pay Advance{advanceBalance > 0 ? ` (₹${advanceBalance.toFixed(0)})` : ""}
+            Pay Advance{advanceBalance > 0 ? ` (${formatCurrency(advanceBalance)})` : ""}
           </button>
         ) : null}
 
@@ -166,7 +167,7 @@ export function MobileWorkOrderActions({
             </div>
             <div className="flex items-center justify-between px-3 pb-2">
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Pay Advance</p>
-              <button onClick={() => setShowAdvance(false)} className="text-m-body press p-1">
+              <button onClick={() => setShowAdvance(false)} aria-label="Close advance dialog" className="text-m-body press p-1">
                 <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
               </button>
             </div>
@@ -235,7 +236,7 @@ export function MobileWorkOrderActions({
             </div>
             <div className="flex items-center justify-between px-3 pb-2">
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Release Retention?</p>
-              <button onClick={() => setShowRetention(false)} className="text-m-body press p-1">
+              <button onClick={() => setShowRetention(false)} aria-label="Close retention dialog" className="text-m-body press p-1">
                 <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
               </button>
             </div>

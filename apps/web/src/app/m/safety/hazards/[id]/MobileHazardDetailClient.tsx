@@ -311,7 +311,7 @@ function BottomSheet({ title, onClose, children }: { title: string; onClose: () 
       <div className="mt-auto rounded-t-[1rem] max-h-[70vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}>
         <div className="sticky top-0 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <h2 className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>{title}</h2>
-          <button onClick={onClose} className="text-m-body press"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
+          <button onClick={onClose} aria-label="Close sheet" className="text-m-body press"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
         </div>
         <div className="p-4">{children}</div>
       </div>

@@ -24,7 +24,7 @@ export const GET = apiHandler(async () => {
 
   const canCreateCompany =
     hasPermission(role, PERM.COMPANY_MANAGE) && !company.parentCompanyId;
-  const isDevBypass = process.env.AUTH_BYPASS === "true";
+  const isDevBypass = process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production";
 
   let memberships;
   if (user && !isDevBypass) {

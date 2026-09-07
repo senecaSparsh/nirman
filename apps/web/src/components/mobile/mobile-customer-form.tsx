@@ -136,7 +136,7 @@ export function MobileCustomerForm({
       {/* ── Header — hidden in modal mode (MobileFabModal provides title) ── */}
       {onClose ? null : (
       <div className="flex items-center gap-1 mb-3">
-        <Link href="/m/sales/new" className="shrink-0">
+        <Link href="/m/sales/new" aria-label="Back" className="shrink-0">
           <ChevronLeft className="size-5" style={{ color: "var(--color-ink-700)" }} />
         </Link>
         <div className="flex-1 min-w-0">

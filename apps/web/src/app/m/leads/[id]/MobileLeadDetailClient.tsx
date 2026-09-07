@@ -624,6 +624,7 @@ function LogActivityForm({ leadId }: { leadId: string }) {
         </h3>
         <button
           onClick={() => setOpen(false)}
+          aria-label="Close activity form"
           className="press grid place-items-center size-6 rounded-[0.25rem]"
           style={{ color: "var(--color-ink-500)" }}
         >

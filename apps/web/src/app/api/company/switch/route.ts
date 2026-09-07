@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   }
 
   // Enforce: only OWNER/ADMIN at the top of the hierarchy can switch
-  const isDevBypass = process.env.AUTH_BYPASS === "true";
+  const isDevBypass = process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production";
   if (!isDevBypass) {
     const current = await getCompany();
     const isOwnerAdmin = user.role === "OWNER" || user.role === "ADMIN";

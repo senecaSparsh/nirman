@@ -25,7 +25,20 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   // Fetch phone + effective permissions in parallel (permissions hit
   // RolePermission + UserCompany.userPermissions).
   const [dbUser, permissions] = await Promise.all([
-    prisma.user.findUnique({ where: { id: sessionUser.id }, select: { phone: true, mustChangePassword: true } }),
+    prisma.user.findUnique({
+      where: { id: sessionUser.id },
+      select: {
+        phone: true,
+        mustChangePassword: true,
+        image: true,
+        active: true,
+        employeeCode: true,
+        designation: true,
+        department: true,
+        joiningDate: true,
+        lastLoginAt: true,
+      },
+    }),
     getUserPermissions().catch(() => [] as string[]),
   ]);
   const res = json({
@@ -34,6 +47,13 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     email: sessionUser.email ?? null,
     role: sessionUser.role ?? null,
     phone: dbUser?.phone ?? null,
+    image: dbUser?.image ?? null,
+    active: dbUser?.active ?? true,
+    employeeCode: dbUser?.employeeCode ?? null,
+    designation: dbUser?.designation ?? null,
+    department: dbUser?.department ?? null,
+    joiningDate: dbUser?.joiningDate?.toISOString() ?? null,
+    lastLoginAt: dbUser?.lastLoginAt?.toISOString() ?? null,
     mustChangePassword: dbUser?.mustChangePassword ?? false,
     permissions,
   });

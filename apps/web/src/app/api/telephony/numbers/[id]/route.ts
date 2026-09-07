@@ -3,6 +3,7 @@ import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { logAction } from "@nirman/services";
+import { clearNumberWebhook } from "@/lib/twilio-service";
 
 /**
  * GET /api/telephony/numbers/[id] — number detail with assignment history.
@@ -129,7 +130,13 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const data: Record<string, unknown> = {};
   if (label !== undefined) data.label = label;
   if (department !== undefined) data.department = department;
-  if (status !== undefined) data.status = status;
+  if (status !== undefined) {
+    const validStatuses = ["ACTIVE", "INACTIVE", "RECYCLED", "SUSPENDED"];
+    if (!validStatuses.includes(status)) {
+      return json({ error: `status must be one of: ${validStatuses.join(", ")}` }, { status: 400 });
+    }
+    data.status = status;
+  }
   if (consentBeep !== undefined) data.consentBeep = consentBeep;
 
   if (Object.keys(data).length > 0) {
@@ -185,6 +192,18 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     where: { companyPhoneId: id, returnedAt: null },
     data: { returnedAt: new Date(), reason: "Number deleted" },
   });
+
+  // If this is a Twilio number, clear the webhook configuration on the
+  // Twilio side so Twilio stops sending call events for a deleted number.
+  // This is a free operation (just updating a URL). Failures are logged
+  // but don't block the delete — the number is already soft-deleted locally.
+  if (existing.provider === "TWILIO" && existing.providerNumberId) {
+    try {
+      await clearNumberWebhook(existing.providerNumberId);
+    } catch (err) {
+      console.error(`[numbers-delete] Failed to clear Twilio webhook for ${existing.phoneNumber}:`, err);
+    }
+  }
 
   await logAction(prisma, {
     userId: user.id,

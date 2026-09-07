@@ -106,6 +106,7 @@ export function PhotoCapture({
             <button
               type="button"
               onClick={() => removePhoto(i)}
+              aria-label="Clear photo"
               className="absolute top-0.5 right-0.5 grid place-items-center size-4 rounded-full"
               style={{ backgroundColor: "var(--color-ink-950)" }}
             >
@@ -562,6 +563,7 @@ export function ReceivingPhotoUpload({
         <button
           type="button"
           onClick={() => { haptic(5); onChange(null); }}
+          aria-label="Clear photo"
           className="absolute top-0.5 right-0.5 grid place-items-center size-4 rounded-full"
           style={{ backgroundColor: "var(--color-ink-950)" }}
         >

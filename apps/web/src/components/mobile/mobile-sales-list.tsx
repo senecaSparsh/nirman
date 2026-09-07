@@ -201,6 +201,7 @@ function SaleCard({
       <button
         onClick={onToggle}
         disabled={submitting}
+        aria-label="Expand row"
         className="flex min-h-12 w-full items-center gap-3 px-4 py-2 text-left press transition-colors"
       >
         <span

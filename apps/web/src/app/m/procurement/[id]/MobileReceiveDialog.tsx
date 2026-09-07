@@ -1002,6 +1002,7 @@ export function MobileReceiveDialog({
                             <button
                               type="button"
                               onClick={() => { haptic(5); toggleByWeight(l.id); }}
+                              aria-label={byWeight ? "Switch to count" : "Switch to weight"}
                               className="flex items-center justify-center h-8 rounded-[0.375rem] border text-m-body press"
                               style={{
                                 backgroundColor: byWeight ? "color-mix(in srgb, var(--color-signal) 15%, transparent)" : "var(--color-paper-2)",
@@ -1296,7 +1297,7 @@ export function MobileReceiveDialog({
             <div className="rounded-t-[0.75rem] flex flex-col" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
                 <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Confirm Receipt</p>
-                <button onClick={() => { if (!submitting) setConfirmLines(null); }} className="text-m-body press p-1"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
+                <button onClick={() => { if (!submitting) setConfirmLines(null); }} aria-label="Close receipt confirmation" className="text-m-body press p-1"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
               </div>
               <div className="max-h-[35vh] overflow-y-auto p-3 space-y-2">
                 {confirmLines.map((l, i) => (
@@ -1339,7 +1340,7 @@ export function MobileReceiveDialog({
             <div className="rounded-t-[0.75rem] flex flex-col" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
                 <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-stop)" }}>Confirm Rejection</p>
-                <button onClick={() => { if (!submitting) setShowRejectConfirm(false); }} className="text-m-body press p-1"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
+                <button onClick={() => { if (!submitting) setShowRejectConfirm(false); }} aria-label="Close rejection confirmation" className="text-m-body press p-1"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
               </div>
               <div className="p-3 space-y-2">
                 <div className="rounded-[0.375rem] p-2" style={{ backgroundColor: "color-mix(in srgb, var(--color-stop) 8%, transparent)" }}>

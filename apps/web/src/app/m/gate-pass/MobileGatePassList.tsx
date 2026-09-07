@@ -705,9 +705,6 @@ export function MobileGatePassFormDialog({
               Location
             </p>
             <div>
-              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-                Location <span className="">*</span>
-              </label>
               <MobileSelectWithCreate
                 label="Location"
                 required
@@ -719,9 +716,6 @@ export function MobileGatePassFormDialog({
             </div>
             {projects.length > 0 && (
               <div>
-                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-                  Project (optional)
-                </label>
                 <MobileProjectSelect
                 label="Project"
                 value={projectId}
@@ -887,6 +881,7 @@ export function MobileGatePassFormDialog({
                   {lines.length > 1 && (
                     <button
                       onClick={() => setLines(lines.filter((_, idx) => idx !== i))}
+                      aria-label="Clear selected"
                       className="shrink-0 press pb-1"
                     >
                       <X className="size-3.5" />

@@ -6,6 +6,7 @@ import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { useTodayDate } from "@/lib/use-today-date";
 
 interface CostComponent {
   id: string;
@@ -20,10 +21,6 @@ interface CostComponent {
   postedAmount: number;
   scheduledTotal: number;
   notes: string | null;
-}
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 const INTERVAL_LABELS: Record<string, string> = {
@@ -43,13 +40,14 @@ export function MobileLandCostComponentDialog({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const today = useTodayDate();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     label: "",
     amount: "",
     frequency: "ONE_TIME" as "ONE_TIME" | "RECURRING",
     interval: "YEARLY" as "MONTHLY" | "QUARTERLY" | "HALF_YEARLY" | "YEARLY",
-    startDate: todayISO(),
+    startDate: "",
     endDate: "",
     occurrences: "",
     notes: "",
@@ -62,7 +60,7 @@ export function MobileLandCostComponentDialog({
         amount: String(editing.amount ?? ""),
         frequency: editing.frequency,
         interval: editing.interval ?? "YEARLY",
-        startDate: editing.startDate ? editing.startDate.slice(0, 10) : todayISO(),
+        startDate: editing.startDate ? editing.startDate.slice(0, 10) : today,
         endDate: editing.endDate ? editing.endDate.slice(0, 10) : "",
         occurrences: editing.occurrences != null ? String(editing.occurrences) : "",
         notes: editing.notes ?? "",
@@ -73,13 +71,13 @@ export function MobileLandCostComponentDialog({
         amount: "",
         frequency: "ONE_TIME",
         interval: "YEARLY",
-        startDate: todayISO(),
+        startDate: today,
         endDate: "",
         occurrences: "",
         notes: "",
       });
     }
-  }, [editing]);
+  }, [editing, today]);
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));

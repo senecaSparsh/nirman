@@ -308,6 +308,7 @@ function MobilePayDialog({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close payment dialog"
             className="touch grid place-items-center rounded-[0.5rem] text-m-body press"
             style={{ color: "var(--color-ink-500)" }}
           >
@@ -576,6 +577,7 @@ function MobileAddLineDialog({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close add line dialog"
             className="touch grid place-items-center rounded-[0.5rem] text-m-body press"
             style={{ color: "var(--color-ink-500)" }}
           >
@@ -591,12 +593,6 @@ function MobileAddLineDialog({
             </p>
           {/* Material */}
           <div>
-            <label
-              className="text-m-caption font-semibold block mb-1"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              Material *
-            </label>
             <MobileSelectWithCreate
               label="Material"
               required

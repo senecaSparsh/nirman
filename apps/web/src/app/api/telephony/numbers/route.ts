@@ -74,6 +74,20 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: "phoneNumber is required" }, { status: 400 });
   }
 
+  // Validate phone number format — must be at least 7 digits after
+  // stripping non-digit characters (allows +, spaces, dashes in display).
+  const digitCount = phoneNumber.replace(/\D/g, "").length;
+  if (digitCount < 7 || digitCount > 15) {
+    return json({ error: "phoneNumber must contain 7-15 digits" }, { status: 400 });
+  }
+
+  // Validate numberType enum
+  const validTypes = ["VIRTUAL", "MOBILE", "LANDLINE", "TOLL_FREE"];
+  const finalType = numberType ?? "VIRTUAL";
+  if (!validTypes.includes(finalType)) {
+    return json({ error: `numberType must be one of: ${validTypes.join(", ")}` }, { status: 400 });
+  }
+
   const normalized = normalizePhone(phoneNumber);
 
   // Check for duplicate normalized number in this company
@@ -89,7 +103,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       companyId: company.id,
       phoneNumber: phoneNumber.trim(),
       phoneNormalized: normalized,
-      numberType: numberType ?? "VIRTUAL",
+      numberType: finalType,
       provider: provider ?? null,
       providerNumberId: providerNumberId ?? null,
       department: department ?? null,

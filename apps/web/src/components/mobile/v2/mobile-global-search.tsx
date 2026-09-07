@@ -23,7 +23,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useRecentItems, recordRecentItem, type RecentItem } from "@/lib/use-recent-items";
-import { ALL_NAV_LINKS } from "@/lib/mobile-nav-v2";
+import { SEARCH_INDEX } from "@/lib/route-manifest";
 import { useRecentPages } from "@/lib/use-nav-preferences";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileNoResults } from "@/components/mobile/v2/scaffold";
@@ -165,7 +165,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
     items: results.filter((r) => r.type === type),
   })).filter((g) => g.items.length > 0), [results]);
 
-  // ── Page results — filter ALL_NAV_LINKS locally (no API call) ──
+  // ── Page results — filter SEARCH_INDEX locally (no API call) ──
   // This is the universal reachability safety net: any page is one
   // search away, regardless of NavSheet structure.
   // Results are sorted by frecency: pages you visit often float to the
@@ -173,15 +173,15 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
   const pageResults = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    return ALL_NAV_LINKS.filter((link) => {
-      const label = link.label.toLowerCase();
-      const subtitle = (link.subtitle ?? "").toLowerCase();
-      return label.includes(q) || subtitle.includes(q);
+    return SEARCH_INDEX.filter((entry) => {
+      const label = entry.title.toLowerCase();
+      const subtitle = entry.hint.toLowerCase();
+      return label.includes(q) || subtitle.includes(q) || entry.terms.includes(q);
     })
       .sort((a, b) => {
         // Frecency: pages with more visits rank higher
-        const aVisits = visitCounts[a.href] ?? 0;
-        const bVisits = visitCounts[b.href] ?? 0;
+        const aVisits = visitCounts[a.path] ?? 0;
+        const bVisits = visitCounts[b.path] ?? 0;
         return bVisits - aVisits;
       })
       .slice(0, 8);
@@ -327,14 +327,14 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
             >
               Pages
             </div>
-            {pageResults.map((link) => {
-              const Icon = link.icon as LucideIcon;
+            {pageResults.map((entry) => {
+              const Icon = entry.icon as LucideIcon;
               return (
                 <button
-                  key={link.href}
+                  key={entry.path}
                   onClick={() => {
                     onClose();
-                    router.push(link.href);
+                    router.push(entry.path);
                   }}
                   className="text-m-body press w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
                 >
@@ -349,14 +349,14 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
                       className="text-m-body font-medium truncate"
                       style={{ color: "var(--color-ink-950)" }}
                     >
-                      <Highlight text={link.label} query={trimmedQuery} />
+                      <Highlight text={entry.title} query={trimmedQuery} />
                     </div>
-                    {link.subtitle ? (
+                    {entry.hint ? (
                       <div
                         className="text-m-caption truncate"
                         style={{ color: "var(--color-ink-400)" }}
                       >
-                        <Highlight text={link.subtitle} query={trimmedQuery} />
+                        <Highlight text={entry.hint} query={trimmedQuery} />
                       </div>
                     ) : null}
                   </div>

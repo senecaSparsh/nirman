@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { prisma, type DprApprovalStatus } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, getUserPermissions, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobilePageHeader } from "@/components/mobile/v2/primitives";
 import { MobileRefreshButton } from "@/components/mobile/v2/scaffold";
@@ -18,12 +18,16 @@ export async function MobileApprovals({ title }: { title: string }) {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();
+  // Effective permissions = role matrix + RolePermission overrides + per-user
+  // UserPermission grants. Passing as `overrides` to hasPermission means a
+  // permission granted to one individual is honored here, matching the API.
+  const overrides = await getUserPermissions();
 
-  const canApprovePo = hasPermission(role, PERM.PO_APPROVE);
-  const canApproveReq = hasPermission(role, PERM.REQUISITION_APPROVE);
-  const canApproveGatePass = hasPermission(role, PERM.GATE_PASS_APPROVE);
-  const canApproveDprSubAdmin = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN);
-  const canApproveDprAdmin = hasPermission(role, PERM.DPR_APPROVE_ADMIN);
+  const canApprovePo = hasPermission(role, PERM.PO_APPROVE, overrides);
+  const canApproveReq = hasPermission(role, PERM.REQUISITION_APPROVE, overrides);
+  const canApproveGatePass = hasPermission(role, PERM.GATE_PASS_APPROVE, overrides);
+  const canApproveDprSubAdmin = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN, overrides);
+  const canApproveDprAdmin = hasPermission(role, PERM.DPR_APPROVE_ADMIN, overrides);
 
   // If the user can't approve anything, don't surface the queue.
   if (!canApprovePo && !canApproveReq && !canApproveGatePass && !canApproveDprSubAdmin && !canApproveDprAdmin) {

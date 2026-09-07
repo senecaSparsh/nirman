@@ -442,6 +442,7 @@ export function MobileNewQuotationClient({
                     <button
                       type="button"
                       onClick={() => removeLine(l.key)}
+                      aria-label="Remove line"
                       className="shrink-0 p-1 press"
                       style={{ color: "var(--color-stop)" }}
                     >
@@ -510,6 +511,7 @@ export function MobileNewQuotationClient({
                 setShowMaterialPicker(false);
                 setMaterialSearch("");
               }}
+              aria-label="Clear search"
               className="p-1 press"
               style={{ color: "var(--color-ink-700)" }}
             >

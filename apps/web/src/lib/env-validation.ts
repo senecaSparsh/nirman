@@ -137,6 +137,29 @@ export function validateEnv(): EnvValidationResult {
   const warnings: string[] = [];
   const isProd = process.env.NODE_ENV === "production";
 
+  // Safety check: AUTH_BYPASS=true must NEVER be set in production.
+  // This is a fatal error — it bypasses authentication entirely, exposing
+  // the whole app to unauthenticated access. We fail before the server
+  // starts rather than relying on every call site to check NODE_ENV.
+  if (isAuthBypassDangerous(process.env.AUTH_BYPASS, isProd)) {
+    const msg =
+      "AUTH_BYPASS=true is set in production! This bypasses authentication entirely. " +
+      "Remove it from the Render dashboard immediately.";
+    console.error(
+      [
+        "",
+        "═══════════════════════════════════════════════════════════════",
+        "  FATAL: AUTH_BYPASS IS SET IN PRODUCTION",
+        "═══════════════════════════════════════════════════════════════",
+        `  ${msg}`,
+        "  The server will exit to prevent unauthenticated access.",
+        "═══════════════════════════════════════════════════════════════",
+        "",
+      ].join("\n"),
+    );
+    process.exit(1);
+  }
+
   for (const spec of ENV_VARS) {
     const value = process.env[spec.key];
     const isRequired = spec.required && !(spec.prodOnly && !isProd);
@@ -146,14 +169,6 @@ export function validateEnv(): EnvValidationResult {
     } else if (!value && spec.required === false) {
       // Optional var not set — note it but don't fail.
       // Only warn for non-optional-in-prod vars that are missing in dev.
-    }
-
-    // Safety check: AUTH_BYPASS should NEVER be set in production.
-    if (isProd && process.env.AUTH_BYPASS === "true") {
-      warnings.push(
-        "AUTH_BYPASS=true is set in production! This bypasses authentication entirely. " +
-          "Remove it from the Render dashboard immediately.",
-      );
     }
 
     // Warn about important optional vars missing in production

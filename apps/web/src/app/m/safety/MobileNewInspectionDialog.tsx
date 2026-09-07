@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileProjectSelect } from "@/components/mobile/selectors";
+import { useTodayDate } from "@/lib/use-today-date";
 
 const inputClass =
   "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
@@ -46,11 +47,12 @@ export function MobileNewInspectionForm({
   projects: { id: string; name: string }[];
 }) {
   const router = useRouter();
+  const today = useTodayDate();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     projectId: projects[0]?.id ?? "",
     title: "",
-    scheduledDate: new Date().toISOString().slice(0, 10),
+    scheduledDate: "",
     inspectorName: "",
   });
 
@@ -58,10 +60,10 @@ export function MobileNewInspectionForm({
     setForm({
       projectId: projects[0]?.id ?? "",
       title: "",
-      scheduledDate: new Date().toISOString().slice(0, 10),
+      scheduledDate: today || new Date().toISOString().slice(0, 10),
       inspectorName: "",
     });
-  }, [projects]);
+  }, [projects, today]);
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm((f) => ({ ...f, [k]: v }));

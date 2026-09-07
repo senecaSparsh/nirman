@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, getUserPermissions, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
@@ -38,6 +38,7 @@ async function MobileTransferDetailContent({
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
+  const overrides = await getUserPermissions();
   const { id } = await params;
 
   if (!hasPermission(role, PERM.INVENTORY_VIEW)) {
@@ -215,7 +216,7 @@ async function MobileTransferDetailContent({
     pipelineSteps[2] = { label: "Receive", state: "skipped" };
   }
 
-  const nextAction = resolveNextAction("stockTransfer", transfer.status, role);
+  const nextAction = resolveNextAction("stockTransfer", transfer.status, role, overrides);
 
   return (
     <PageContextProvider value={{

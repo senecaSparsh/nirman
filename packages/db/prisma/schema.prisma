@@ -6436,6 +6436,12 @@ model CallLog {
   @@index([toNumber])
   @@index([status])
   @@index([relatedProjectId])
+  // Prevent duplicate call logs from concurrent Twilio status callbacks
+  // (Twilio retries on 5xx, and near-simultaneous state transitions can
+  // race). providerCallId is nullable — manual calls have no provider ID —
+  // and Postgres allows multiple NULLs in a unique index, so manual calls
+  // are unaffected. This enables true upsert-by-providerCallId.
+  @@unique([companyId, providerCallId])
 }
 
 // ───────────────────────────────────────────────────────────

@@ -118,6 +118,7 @@ export function SearchableMaterialPicker({
           <button
             type="button"
             onClick={() => setQuery("")}
+            aria-label="Clear selection"
             className="press"
             style={{ color: "var(--color-ink-500)" }}
           >

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, getUserPermissions, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber, formatDate, formatCurrency } from "@/lib/utils";
 import { Printer, FileText } from "lucide-react";
@@ -43,6 +43,7 @@ async function MobileRequisitionDetailContent({
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
+  const overrides = await getUserPermissions();
   const { id } = await params;
 
   const req = await prisma.materialRequisition.findFirst({
@@ -177,7 +178,7 @@ async function MobileRequisitionDetailContent({
     { label: "Issue", state: "pending" },
   ];
 
-  const nextAction = resolveNextAction("requisition", req.status, role);
+  const nextAction = resolveNextAction("requisition", req.status, role, overrides);
 
   // Permissions to announce to the NavSheet's Next Step resolver
   const canActions: string[] = [];

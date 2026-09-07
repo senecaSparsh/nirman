@@ -1100,6 +1100,7 @@ export function MobileSaleDetailClient({
                 {canManage && (
                   <button
                     onClick={(e) => { e.preventDefault(); sendWhatsAppConfirmation(p.id); }}
+                    aria-label="Send WhatsApp confirmation"
                     className="shrink-0 text-m-body press"
                     title="Send WhatsApp confirmation"
                   >

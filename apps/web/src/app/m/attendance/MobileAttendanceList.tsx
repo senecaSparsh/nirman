@@ -175,6 +175,7 @@ export function MobileAttendanceList({
         {(dateFilter || projectFilter) ? (
           <button
             onClick={() => { setDateFilter(""); setProjectFilter(""); }}
+            aria-label="Clear filter"
             className="text-m-body press rounded-[0.375rem] px-2.5 py-1.5 text-m-label font-semibold"
             style={{ color: "var(--color-steel)" }}
           >

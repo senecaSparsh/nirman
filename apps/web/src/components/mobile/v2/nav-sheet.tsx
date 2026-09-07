@@ -322,7 +322,7 @@ export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
 
           {/* ── Related pages (workflow cross-links, flow-aware when available) ── */}
           {finalRelatedLinks.length > 0 && (
-            <NavSection title="Related">
+            <NavSection title="Related" collapsible>
               <div className="flex flex-col gap-0.5">
                 {finalRelatedLinks.map((link) => (
                   <NavSheetRow
@@ -339,7 +339,7 @@ export function NavSheet({ open, onClose, moduleId, persona }: NavSheetProps) {
           )}
 
           {/* ── Accordion: all modules as collapsible sections ── */}
-          <NavSection title="All Pages">
+          <NavSection title="All Pages" collapsible>
             {ALL_NAV_MODULES.filter((mod) => allModules[mod.id]).map((mod) => {
               const groups = allModules[mod.id] ?? [];
               const isExpanded = currentExpanded === mod.id;
@@ -522,16 +522,23 @@ function NavGroupSection({
 }
 
 /** Bordered section wrapper with a title header. Gives each NavSheet
- *  section (Recent, Related, Quick Access, etc.) a visual card boundary. */
+ *  section (Recent, Related, Quick Access, etc.) a visual card boundary.
+ *  When `collapsible` is true, the title becomes a tap target that
+ *  expands/collapses the section body (with a chevron indicator). */
 function NavSection({
   title,
   tone = "default",
+  collapsible = false,
+  defaultExpanded = true,
   children,
 }: {
   title: string;
   tone?: "default" | "signal";
+  collapsible?: boolean;
+  defaultExpanded?: boolean;
   children: React.ReactNode;
 }) {
+  const [expanded, setExpanded] = React.useState(defaultExpanded);
   const titleColor = tone === "signal" ? "var(--color-signal-dark)" : "var(--color-ink-500)";
   return (
     <div
@@ -541,25 +548,46 @@ function NavSection({
         border: "1px solid var(--color-line)",
       }}
     >
-      <h3
-        className="text-m-caption uppercase tracking-wide font-semibold mb-1.5"
-        style={{ color: titleColor }}
-      >
-        {title}
-      </h3>
-      {children}
+      {collapsible ? (
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="flex items-center gap-1 w-full mb-0.5 press"
+        >
+          <h3
+            className="text-m-caption uppercase tracking-wide font-semibold flex-1 text-left"
+            style={{ color: titleColor }}
+          >
+            {title}
+          </h3>
+          {expanded ? (
+            <ChevronDown className="size-3 shrink-0" style={{ color: titleColor }} />
+          ) : (
+            <ChevronRight className="size-3 shrink-0" style={{ color: titleColor }} />
+          )}
+        </button>
+      ) : (
+        <h3
+          className="text-m-caption uppercase tracking-wide font-semibold mb-1.5"
+          style={{ color: titleColor }}
+        >
+          {title}
+        </h3>
+      )}
+      {expanded && children}
     </div>
   );
 }
 
 /** Compact navigation row — flat, no box. Clean: just icon + label.
- *  `depth` controls left padding for visual hierarchy (0 = module level, 1 = group level). */
+ *  `depth` controls left padding for visual hierarchy (0 = module level, 1 = group level).
+ *  Pin button on the right toggles pinned state. Visit count badge shown for recent pages. */
 function NavSheetRow({
   link,
   active,
   onClick,
   pinned,
-  onTogglePin: _onTogglePin,
+  onTogglePin,
+  visitCount,
   depth = 0,
 }: {
   link: NavLink;
@@ -567,6 +595,7 @@ function NavSheetRow({
   onClick: () => void;
   pinned: boolean;
   onTogglePin: (href: string) => void;
+  visitCount?: number;
   depth?: number;
 }) {
   const Icon = link.icon as LucideIcon;
@@ -584,7 +613,7 @@ function NavSheetRow({
         href={link.href}
         prefetch
         onClick={onClick}
-        className="flex items-center gap-2 flex-1 min-w-0 py-1.5 pr-2 press"
+        className="flex items-center gap-2 flex-1 min-w-0 py-1.5 pr-1 press"
         style={{ paddingLeft: `${leftPad}rem` }}
       >
         <Icon
@@ -597,13 +626,30 @@ function NavSheetRow({
         >
           {link.label}
         </span>
-        {pinned && (
-          <Pin
-            className="size-2.5 shrink-0"
-            style={{ color: "var(--color-signal-dark)", fill: "currentColor" }}
-          />
+        {visitCount != null && visitCount > 1 && (
+          <span
+            className="text-m-micro font-bold tabular-nums shrink-0"
+            style={{ color: "var(--color-ink-400)" }}
+          >
+            {visitCount}×
+          </span>
         )}
       </Link>
+      {/* Pin toggle — tap to pin/unpin. Doesn't navigate. */}
+      <button
+        type="button"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTogglePin(link.href); }}
+        className="grid place-items-center size-5 shrink-0 mr-0.5 press"
+        aria-label={pinned ? "Unpin from Quick Access" : "Pin to Quick Access"}
+      >
+        <Pin
+          className="size-2.5"
+          style={{
+            color: pinned ? "var(--color-signal-dark)" : "var(--color-ink-300)",
+            fill: pinned ? "currentColor" : "none",
+          }}
+        />
+      </button>
     </div>
   );
 }

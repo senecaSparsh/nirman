@@ -528,16 +528,19 @@ export function nextActionFor(
 }
 
 /**
- * Server-side resolver — takes a role string and uses hasPermission
- * directly, so server components can resolve the next action without
- * passing a function across the server/client boundary.
+ * Server-side resolver — takes a role string and the user's effective
+ * permissions (role matrix + RolePermission overrides + per-user
+ * UserPermission grants) and uses hasPermission directly, so server
+ * components can resolve the next action without passing a function
+ * across the server/client boundary.
  */
 export function resolveNextAction(
   flowId: FlowId,
   status: string,
   role: string,
+  overrides?: string[],
 ): NextAction | undefined {
-  return nextActionFor(flowId, status, (perm) => hasPermission(role, perm));
+  return nextActionFor(flowId, status, (perm) => hasPermission(role, perm, overrides));
 }
 
 /**

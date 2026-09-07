@@ -463,6 +463,7 @@ export default function MobileNewStockCountClient({ onClose, onCreated }: { onCl
                     <button
                       type="button"
                       onClick={() => handleRemoveLine(line.materialId)}
+                      aria-label="Remove item"
                       className="shrink-0 text-m-body press"
                     >
                       <Trash2 className="size-3" style={{ color: "var(--color-stop)" }} />
