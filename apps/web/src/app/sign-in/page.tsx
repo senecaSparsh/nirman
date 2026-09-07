@@ -167,13 +167,19 @@ function SignInForm() {
 
   // Shared post-login routing. Honours an explicit redirect first, then
   // sends phones to /m, otherwise to the role's home world.
+  //
+  // IMPORTANT: We use window.location.assign() (full page load) instead of
+  // router.push() (client-side navigation). This is necessary because
+  // Better-Auth's useSession() hook caches session state in a nanostore.
+  // When the sign-in page loaded, useSession() called get-session and
+  // cached null. Our custom phone-auth route creates a session via a
+  // plain fetch(), but the nanostore still holds the stale null.
+  // router.push() navigates without re-initializing hooks, so AppShell's
+  // useSession() reads the stale null and triggers authSignOut().
+  // window.location.assign() forces a full page load, which re-initializes
+  // useSession() with a fresh get-session call that sees the new session
+  // cookie and returns the real session.
   async function routeAfterLogin() {
-    // Refresh Better-Auth's client-side session store. The email login flow
-    // does this internally via authClient.signIn.email(), but our custom
-    // phone-auth routes use a plain fetch() — Better-Auth's nanostore still
-    // holds the pre-login null. Without this, AppShell's useSession() returns
-    // the stale null and triggers authSignOut() → redirect to /sign-in.
-    await authClient.getSession({ query: { disableCookieCache: true } }).catch(() => {});
     // If the user selected a company on the login screen, set the cookie
     // before navigating so the first page load uses the right company.
     if (selectedCompanyId) {
@@ -192,24 +198,20 @@ function SignInForm() {
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null);
     if (me?.mustChangePassword) {
-      router.push("/change-password");
-      router.refresh();
+      window.location.assign("/change-password");
       return;
     }
     const redirect = searchParams.get("redirect");
     if (redirect) {
-      router.push(redirect);
-      router.refresh();
+      window.location.assign(redirect);
       return;
     }
     const onPhone = window.matchMedia("(max-width: 1023px)").matches;
     if (onPhone) {
-      router.push("/m");
-      router.refresh();
+      window.location.assign("/m");
       return;
     }
-    router.push(homeWorldFor(me?.role ?? "PROJECT_MANAGER").href);
-    router.refresh();
+    window.location.assign(homeWorldFor(me?.role ?? "PROJECT_MANAGER").href);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -490,8 +492,7 @@ function SignInForm() {
         setSelectedCompanyId(data.companies[0]?.id ?? "");
         // Session is already created — just need to pick company
         if (data.mustChangePassword) {
-          router.push("/change-password");
-          router.refresh();
+          window.location.assign("/change-password");
           return;
         }
         await routeAfterLogin();
@@ -499,8 +500,7 @@ function SignInForm() {
       }
       // Must change password on first login
       if (data.mustChangePassword) {
-        router.push("/change-password");
-        router.refresh();
+        window.location.assign("/change-password");
         return;
       }
       await routeAfterLogin();
@@ -534,16 +534,14 @@ function SignInForm() {
         })));
         setSelectedCompanyId(data.companies[0]?.id ?? "");
         if (data.mustChangePassword) {
-          router.push("/change-password");
-          router.refresh();
+          window.location.assign("/change-password");
           return;
         }
         await routeAfterLogin();
         return;
       }
       if (data.mustChangePassword) {
-        router.push("/change-password");
-        router.refresh();
+        window.location.assign("/change-password");
         return;
       }
       await routeAfterLogin();
