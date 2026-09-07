@@ -528,7 +528,13 @@ function PersonNode({
   // the card should always be expandable if there's data or children.
   const effectiveIsFolder = mounted ? isFolder : false;
   const expandable = isFolder || hasDetail;
-  const subParts = [person.designation, person.employeeCode].filter(Boolean);
+  // Build the sub-label from designation + employeeCode, but skip the
+  // designation if it's the same as the roleLabel (e.g. "Owner" / "Owner")
+  // to avoid showing the same word twice in the row.
+  const subParts = [
+    person.designation && person.designation !== person.roleLabel ? person.designation : null,
+    person.employeeCode,
+  ].filter(Boolean);
   const sub = subParts.length > 0 ? subParts.join(" · ") : undefined;
 
   // Right-side content: descendant count for folders, task count for leaves
@@ -998,30 +1004,37 @@ function PersonDetail({ person, depth, ancestorLast }: { person: OrgPersonNode; 
       ) : null}
 
       {/* ── 7. Contact ── */}
-      {(person.email || person.phone) && (
-        <div className="flex items-center gap-3 flex-wrap">
-          {person.email ? (
-            <a
-              href={`mailto:${person.email}`}
-              className="inline-flex items-center gap-1 text-m-caption press"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              <Mail className="size-2.5" />
-              {person.email}
-            </a>
-          ) : null}
-          {person.phone ? (
-            <a
-              href={`tel:${person.phone}`}
-              className="inline-flex items-center gap-1 text-m-caption press"
-              style={{ color: "var(--color-ink-500)" }}
-            >
-              <Phone className="size-2.5" />
-              {person.phone}
-            </a>
-          ) : null}
-        </div>
-      )}
+      {/* Hide placeholder emails (phone+...@nirman.internal) — they're
+          not real emails, just Better-Auth placeholders for phone-based
+          login. Showing them would display the phone number twice. */}
+      {(() => {
+        const realEmail = person.email && !person.email.endsWith("@nirman.internal") ? person.email : null;
+        if (!realEmail && !person.phone) return null;
+        return (
+          <div className="flex items-center gap-3 flex-wrap">
+            {realEmail ? (
+              <a
+                href={`mailto:${realEmail}`}
+                className="inline-flex items-center gap-1 text-m-caption press"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                <Mail className="size-2.5" />
+                {realEmail}
+              </a>
+            ) : null}
+            {person.phone ? (
+              <a
+                href={`tel:${person.phone}`}
+                className="inline-flex items-center gap-1 text-m-caption press"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                <Phone className="size-2.5" />
+                {person.phone}
+              </a>
+            ) : null}
+          </div>
+        );
+      })()}
       </div>
     </div>
   );
