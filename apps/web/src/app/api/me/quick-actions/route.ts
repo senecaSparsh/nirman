@@ -46,7 +46,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
    Upserted per (userId, companyId, key). */
 
 const PutBody = z.object({
-  module: z.enum(["inventory", "hr", "accounts"]),
+  module: z.enum(["inventory", "hr", "accounts", "site"]),
   tab: z.string().min(1).max(40),
   order: z.array(z.string()).min(0).max(24),
 });

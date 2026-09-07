@@ -28,6 +28,7 @@ import {
   ClipboardCheck,
   Calculator,
   Layers,
+  Recycle,
 } from "lucide-react";
 import type { Persona } from "@/lib/mobile-nav-v2";
 import type { QuickActionTab } from "@/components/mobile/v2/quick-actions-bar";
@@ -144,15 +145,47 @@ export const ACCOUNTS_QUICK_ACTIONS: QuickActionTab[] = [
   },
 ];
 
+export const SITE_QUICK_ACTIONS: QuickActionTab[] = [
+  {
+    id: "daily",
+    label: "Daily",
+    icon: "📋",
+    actions: [
+      { key: "quick-issue", href: "/m/stock-out?mode=issue", icon: Send, label: "Quick Issue", personas: ["field", "ops", "procurement"] },
+      { key: "receive", href: "/m/site/receive", icon: Truck, label: "Receive Stock", personas: ["field", "procurement", "ops"] },
+      { key: "dpr", href: "/m/site/dpr", icon: ClipboardList, label: "Submit DPR", personas: ["field", "ops", "hr", "executive"] },
+      { key: "attendance", href: "/m/site/attendance", icon: CalendarCheck, label: "Attendance", personas: ["field", "hr", "ops", "executive"] },
+      { key: "tasks", href: "/m/site/tasks", icon: ListChecks, label: "Tasks", personas: ["field", "ops", "hr", "executive"] },
+      { key: "scrap", href: "/m/stock?tab=scrap", icon: Recycle, label: "Scrap Log", personas: ["field", "ops", "procurement"] },
+      { key: "site-stock", href: "/m/site/stock", icon: Package, label: "Site Stock", personas: ["field", "ops", "procurement", "executive"] },
+      { key: "field", href: "/m/site/field", icon: MapPin, label: "Field", personas: ["field", "ops", "procurement"] },
+    ],
+  },
+  {
+    id: "site-ops",
+    label: "Site Ops",
+    icon: "🏗️",
+    actions: [
+      { key: "projects", href: "/m/projects", icon: Building2, label: "Projects", personas: ["ops", "executive", "field", "sales"] },
+      { key: "work-orders", href: "/m/work-orders", icon: Wrench, label: "Work Orders", personas: ["ops", "field", "executive"] },
+      { key: "safety", href: "/m/safety", icon: ShieldAlert, label: "Safety", personas: ["field", "ops", "executive"] },
+      { key: "measurement-book", href: "/m/measurement-book", icon: ClipboardCheck, label: "MB", personas: ["field", "ops", "executive"] },
+      { key: "stock-out", href: "/m/stock-out", icon: Send, label: "Stock Out", personas: ["field", "procurement", "ops"] },
+      { key: "dprs", href: "/m/dprs", icon: TrendingUp, label: "All DPRs", personas: ["ops", "hr", "executive", "field"] },
+    ],
+  },
+];
+
 /** All catalogs keyed by module id — used by the server pages. */
-export const QUICK_ACTION_CATALOGS: Record<"inventory" | "hr" | "accounts", QuickActionTab[]> = {
+export const QUICK_ACTION_CATALOGS: Record<"inventory" | "hr" | "accounts" | "site", QuickActionTab[]> = {
   inventory: INVENTORY_QUICK_ACTIONS,
   hr: HR_QUICK_ACTIONS,
   accounts: ACCOUNTS_QUICK_ACTIONS,
+  site: SITE_QUICK_ACTIONS,
 };
 
 /** Helper for server pages: load saved layouts for all tabs of a module. */
-export function quickActionKeysFor(module: "inventory" | "hr" | "accounts"): string[] {
+export function quickActionKeysFor(module: "inventory" | "hr" | "accounts" | "site"): string[] {
   return QUICK_ACTION_CATALOGS[module].map((t) => `quick-actions:${module}:${t.id}`);
 }
 

@@ -94,7 +94,7 @@ export interface QuickActionTab {
 
 interface QuickActionsBarProps {
   /** Which module this bar belongs to — used as the persistence namespace. */
-  module: "inventory" | "hr" | "accounts";
+  module: "inventory" | "hr" | "accounts" | "site";
   /** The current user's persona — drives default action filtering. */
   persona: Persona;
   /** The full tab + action catalog for this module. */

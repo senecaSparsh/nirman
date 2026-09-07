@@ -1,13 +1,11 @@
 import Link from "next/link";
 import { prisma } from "@nirman/db";
-import {
-  Package, CalendarCheck,
-  ClipboardList, Truck, Recycle, ListTodo,
-} from "lucide-react";
 import { getCurrentUser } from "@/lib/server";
+import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatDate } from "@/lib/utils";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
+import { SiteInteractive } from "./site-interactive";
 
 /**
  * Field persona home — "Site".
@@ -23,7 +21,7 @@ export default function SitePage() {
         const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
 
-        const [myTasks, myDprToday, recentIssues, inTransitPOs, attendanceToday, projects] = await Promise.all([
+        const [myTasks, myDprToday, recentIssues, inTransitPOs, projects, qaCtx] = await Promise.all([
           prisma.task.findMany({
             where: { assignedToId: user?.id ?? "none", status: { in: ["PENDING", "IN_PROGRESS", "BLOCKED"] } },
             orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
@@ -50,14 +48,12 @@ export default function SitePage() {
             take: 5,
             include: { supplier: { select: { name: true } } },
           }),
-          prisma.workerAttendance.count({
-            where: { employee: { companyId: company.id, deletedAt: null }, date: { gte: startOfToday, lt: endOfToday }, checkIn: { not: null } },
-          }),
           prisma.project.findMany({
             where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
             select: { id: true, name: true, status: true },
             take: 5,
           }),
+          loadQuickActionContext("site"),
         ]);
 
         // ── Attention banners ──
@@ -113,22 +109,13 @@ export default function SitePage() {
           });
         }
 
-        const dprDone = !!myDprToday;
-
         return (
           <div className="space-y-3">
             {/* ── Attention banner ── */}
             <AttentionBannerCarousel banners={attentionBanners} />
 
-            {/* ── Quick actions — 6-col single row with live context badges ── */}
-            <div className="grid grid-cols-6 gap-1.5">
-              <ActionCard href="/m/stock-out?mode=issue" icon={Package} label="Quick Issue" sub="Material challan" />
-              <ActionCard href="/m/site/receive" icon={Truck} label="Receive Stock" sub="Scan PO / gate entry" badge={inTransitPOs.length > 0 ? String(inTransitPOs.length) : undefined} badgeTone={overduePOs.length > 0 ? "stop" : "steel"} />
-              <ActionCard href="/m/site/dpr" icon={ClipboardList} label="Submit Daily Progress Report" sub="Progress & variance" badge={dprDone ? "Done" : "Due"} badgeTone={dprDone ? "go" : "signal"} />
-              <ActionCard href="/m/site/attendance" icon={CalendarCheck} label="Attendance" sub="GPS tagged" badge={attendanceToday > 0 ? String(attendanceToday) : undefined} badgeTone="steel" />
-              <ActionCard href="/m/stock?tab=scrap" icon={Recycle} label="Scrap Log" sub="Log scrap generation" />
-              <ActionCard href="/m/site/tasks" icon={ListTodo} label="Open Tasks" sub="Site punch list" badge={myTasks.length > 0 ? String(myTasks.length) : undefined} badgeTone={overdueTasks.length > 0 ? "stop" : "steel"} />
-            </div>
+            {/* ── Quick actions — editable, drag-to-reorder (same as inventory) ── */}
+            <SiteInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} />
 
             {/* ── Open Tasks + Awaiting Receipt — 2-col side by side ── */}
             <div className="grid grid-cols-2 gap-2 items-start">
@@ -318,56 +305,6 @@ export default function SitePage() {
         );
       }}
     </MobileHubPage>
-  );
-}
-
-/* ─── Action card — compact for 6-col row ─── */
-function ActionCard({
-  href,
-  icon: Icon,
-  label,
-  sub: _sub,
-  badge,
-  badgeTone,
-}: {
-  href: string;
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-  label: string;
-  sub: string;
-  badge?: string;
-  badgeTone?: "go" | "signal" | "stop" | "steel";
-}) {
-  const badgeColor =
-    badgeTone === "go" ? "var(--color-go)" :
-    badgeTone === "signal" ? "var(--color-signal)" :
-    badgeTone === "stop" ? "var(--color-stop)" :
-    "var(--color-steel)";
-  return (
-    <Link
-      href={href}
-      className="flex flex-col items-center rounded-[0.5rem] border p-1.5 text-m-body press overflow-hidden"
-      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-    >
-      <div className="relative mb-1">
-        <span
-          className="grid place-items-center w-7 h-7 rounded-[0.375rem] shrink-0"
-          style={{ backgroundColor: "var(--color-concrete)" }}
-        >
-          <Icon className="size-3.5" style={{ color: "var(--color-ink-700)" }} />
-        </span>
-        {badge ? (
-          <span
-            className="absolute -top-1 -right-1.5 text-m-caption font-bold tabular-nums px-1 py-0 rounded-full leading-none min-w-[1rem] text-center"
-            style={{ backgroundColor: badgeColor, color: "var(--color-paper)" }}
-          >
-            {badge}
-          </span>
-        ) : null}
-      </div>
-      <p className="text-m-caption font-bold leading-tight text-center" style={{ color: "var(--color-ink-950)" }}>
-        {label}
-      </p>
-    </Link>
   );
 }
 
