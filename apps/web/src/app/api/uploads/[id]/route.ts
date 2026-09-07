@@ -34,8 +34,8 @@ const INLINE_MIME_TYPES = new Set([
  * Query params:
  *   - download=true → force Content-Disposition: attachment (download instead of inline)
  */
-export const GET = apiHandler<NextRequest, { params: Promise<{ id: string }> }>(
-  async (req: NextRequest, ctx) => {
+export const GET = apiHandler(
+  async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
     const user = await requireUser();
     const company = await getCompany();
     const { id } = await ctx.params;
