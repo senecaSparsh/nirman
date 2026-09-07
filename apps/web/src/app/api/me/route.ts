@@ -22,13 +22,18 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     );
   }
   const sessionUser = session.user as { id: string; name?: string; email?: string; role?: string };
-  // Fetch phone + effective permissions in parallel (permissions hit
-  // RolePermission + UserCompany.userPermissions).
+  // Fetch phone + role + effective permissions in parallel (permissions hit
+  // RolePermission + UserCompany.userPermissions). We read `role` from the DB
+  // rather than the session because Better-Auth's session user may not always
+  // include additional fields reliably (e.g. after a session is created via
+  // the custom phone-password flow). The DB is the source of truth.
   const [dbUser, permissions] = await Promise.all([
     prisma.user.findUnique({
       where: { id: sessionUser.id },
       select: {
         phone: true,
+        role: true,
+        name: true,
         mustChangePassword: true,
         image: true,
         active: true,
@@ -43,9 +48,9 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   ]);
   const res = json({
     id: sessionUser.id,
-    name: sessionUser.name ?? null,
+    name: dbUser?.name ?? sessionUser.name ?? null,
     email: sessionUser.email ?? null,
-    role: sessionUser.role ?? null,
+    role: dbUser?.role ?? sessionUser.role ?? null,
     phone: dbUser?.phone ?? null,
     image: dbUser?.image ?? null,
     active: dbUser?.active ?? true,

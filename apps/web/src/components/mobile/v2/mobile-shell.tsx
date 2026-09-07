@@ -172,7 +172,9 @@ export function MobileShellV2({
           role: me?.role ?? prev.role,
           name: company?.name ?? prev.name,
           parentCompanyId: company?.parentCompanyId ?? null,
-          permissions: Array.isArray(me?.permissions) ? me.permissions : prev.permissions,
+          permissions: Array.isArray(me?.permissions) && me.permissions.length > 0
+            ? me.permissions
+            : prev.permissions,
         }));
       }
       if (Array.isArray(company?.companies)) setCompanies(company.companies);
