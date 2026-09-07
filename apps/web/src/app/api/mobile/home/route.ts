@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { apiHandler, json, getCurrentUser, getCompany } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM, hasPermission, roleTier } from "@/lib/roles";
 import { getUserRole } from "@/lib/server";
 
 /**
@@ -103,12 +103,14 @@ export const GET = apiHandler(async () => {
     employeeCount: m.company._count.employees,
   }));
 
-  // Self-check-in data
+  // Self-check-in data — only for field/execution staff (tier 4+)
+  // Executives and senior management don't need GPS attendance tracking.
   const today = new Date();
   const startOfToday = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
   const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
 
-  const myEmployee = user
+  const isFieldStaff = roleTier(role) >= 4;
+  const myEmployee = user && isFieldStaff
     ? await prisma.employee.findFirst({
         where: { userId: user.id, companyId: company.id, deletedAt: null, active: true },
         select: { id: true, name: true },

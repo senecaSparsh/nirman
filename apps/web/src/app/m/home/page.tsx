@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import { headers } from "next/headers";
 import { prisma } from "@nirman/db";
 import { getCompany, getCurrentUser } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM, hasPermission, roleTier } from "@/lib/roles";
 import { getUserRole } from "@/lib/server";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import { type CompanyCardData } from "./home-client";
@@ -135,12 +135,17 @@ async function HomeContent() {
     employeeCount: m.company._count.employees,
   }));
 
-  // ── Self-check-in widget: fetch the user's employee record + today's attendance ──
+  // ── Self-check-in widget: only for field/execution staff (tier 4+) ──
+  // Executives (OWNER, ADMIN, DEVELOPER) and senior management don't need
+  // GPS attendance tracking — they're office-based. The SRG provisioning
+  // script creates Employee records for all staff (including the Owner)
+  // for HR purposes, but that doesn't mean the Owner should check in.
   const today = new Date();
   const startOfToday = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
   const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
 
-  const myEmployee = user
+  const isFieldStaff = roleTier(role) >= 4;
+  const myEmployee = user && isFieldStaff
     ? await prisma.employee.findFirst({
         where: { userId: user.id, companyId: company.id, deletedAt: null, active: true },
         select: { id: true, name: true },
