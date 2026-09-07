@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
-import { Coins, Plus, Wallet, Share2, Tag, Building2, User, IndianRupee, Hash, Calendar } from "lucide-react";
+import { Coins, Wallet, Share2, Tag, Building2, User, IndianRupee, Hash, Calendar } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 import { useLongPress } from "@/lib/use-long-press";
@@ -67,14 +66,7 @@ export function MobilePettyCashList({
       <MobileEmptyState
         icon={Coins}
         title="No petty cash floats"
-        description="Site cash floats will appear here once created."
-        action={
-          canManage ? (
-            <Link href="/m/petty-cash/new" className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-body font-medium text-brand-foreground">
-              <Plus className="size-4" /> Create Float
-            </Link>
-          ) : undefined
-        }
+        hint={canManage ? "Tap + to create your first float" : "Site cash floats will appear here once created."}
       />
     );
   }

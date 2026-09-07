@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
-import { Receipt, Plus, Share2, Calendar, Tag, IndianRupee, CreditCard, Building2, FileText } from "lucide-react";
+import { Receipt, Share2, Calendar, Tag, IndianRupee, CreditCard, Building2, FileText } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 import { useLongPress } from "@/lib/use-long-press";
@@ -120,18 +119,7 @@ export function MobileExpensesList({
       <MobileEmptyState
         icon={Receipt}
         title="No expenses yet"
-        hint="Record an expense to track spending"
-        action={
-          canCreate ? (
-            <Link
-              href="/m/books/finance"
-              className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-            >
-              <Plus className="size-3.5" /> Record Expense
-            </Link>
-          ) : undefined
-        }
+        hint={canCreate ? "Tap + to record your first expense" : "Expenses will appear here once added"}
       />
     );
   }

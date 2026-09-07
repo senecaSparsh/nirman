@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Receipt, Plus, Clock, CheckCircle2, XCircle, Eye, Share2, User, Calendar, IndianRupee, Tag, FileText } from "lucide-react";
+import { Receipt, Clock, CheckCircle2, XCircle, Eye, Share2, User, Calendar, IndianRupee, Tag, FileText } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 import { useLongPress } from "@/lib/use-long-press";
@@ -102,14 +102,7 @@ export function MobileExpenseClaimsList({
       <MobileEmptyState
         icon={Receipt}
         title="No expense claims"
-        description="Employee reimbursement claims will appear here once submitted."
-        action={
-          canCreate ? (
-            <Link href="/m/expense-claims/new" className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-body font-medium text-brand-foreground">
-              <Plus className="size-4" /> New Claim
-            </Link>
-          ) : undefined
-        }
+        hint={canCreate ? "Tap + to submit your first claim" : "Employee reimbursement claims will appear here once submitted."}
       />
     );
   }

@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
-import { Banknote, Plus, Share2, Hash, Calendar, Building2, IndianRupee, CreditCard, FileText } from "lucide-react";
+import { Banknote, Share2, Hash, Calendar, Building2, IndianRupee, CreditCard, FileText } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 import { useLongPress } from "@/lib/use-long-press";
@@ -64,14 +63,7 @@ export function MobileSupplierPaymentsList({
       <MobileEmptyState
         icon={Banknote}
         title="No supplier payments"
-        description="Payments made to suppliers will appear here once recorded."
-        action={
-          canManage ? (
-            <Link href="/m/supplier-payments/new" className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-body font-medium text-brand-foreground">
-              <Plus className="size-4" /> Record Payment
-            </Link>
-          ) : undefined
-        }
+        hint={canManage ? "Tap + to record your first payment" : "Payments made to suppliers will appear here once recorded."}
       />
     );
   }

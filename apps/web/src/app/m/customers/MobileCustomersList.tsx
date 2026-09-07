@@ -132,11 +132,25 @@ export function MobileCustomersList({
 
   if (items.length === 0) {
     return (
-      <MobileEmptyState
-        icon={Users}
-        title="No customers yet"
-        description={canCreate ? "Tap the + button below to add your first customer." : "Customers will appear here once added."}
-      />
+      <div>
+        <MobileEmptyState
+          icon={Users}
+          title="No customers yet"
+          hint={canCreate ? "Tap + to add your first customer" : "Customers will appear here once added."}
+        />
+        {canCreate ? (
+          <>
+            <MobileFab onClick={fab.toggle} label="New customer" icon={UserPlus} isOpen={fab.isOpen} />
+            <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="New Customer">
+              <MobileCustomerForm
+                existingPhones={existingPhones}
+                onClose={fab.close}
+                onCreated={() => window.location.reload()}
+              />
+            </MobileFabModal>
+          </>
+        ) : null}
+      </div>
     );
   }
 

@@ -168,11 +168,32 @@ export function MobileLeadsList({
 
   if (items.length === 0) {
     return (
-      <MobileEmptyState
-        icon={UserPlus}
-        title="No leads yet"
-        description={canCreate ? "Tap the + button below to create your first lead." : "Leads will appear here once created."}
-      />
+      <div>
+        <MobileEmptyState
+          icon={UserPlus}
+          title="No leads yet"
+          hint={canCreate ? "Tap + to create your first lead" : "Leads will appear here once created."}
+        />
+        {canCreate ? (
+          <>
+            <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="Add lead" />
+            <MobileFabModal
+              open={fab.isOpen}
+              onClose={fab.close}
+              originRect={fab.originRect}
+              title="New Lead"
+            >
+              <MobileNewLeadClient
+                projects={newLeadProjects ?? []}
+                units={newLeadUnits ?? []}
+                assignees={newLeadAssignees ?? []}
+                onClose={fab.close}
+                onCreated={() => router.refresh()}
+              />
+            </MobileFabModal>
+          </>
+        ) : null}
+      </div>
     );
   }
 
