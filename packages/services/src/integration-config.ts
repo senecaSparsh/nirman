@@ -27,7 +27,20 @@ const IV_LENGTH = 12; // GCM standard IV length
 const SALT = "nirman-inventory-integration-v1"; // stable salt for key derivation
 
 function getEncryptionKey(): Buffer {
-  const secret = process.env.INTEGRATION_ENCRYPTION_KEY ?? process.env.DATABASE_URL ?? "nirman-default-dev-key-please-change";
+  // In production, INTEGRATION_ENCRYPTION_KEY MUST be set — falling back to
+  // DATABASE_URL is dangerous (rotating the DB URL re-keys all secrets) and
+  // the hard-coded dev key would let anyone decrypt secrets. env-validation.ts
+  // warns if it's missing. In dev, a stable per-install key is derived.
+  const secret = process.env.INTEGRATION_ENCRYPTION_KEY
+    ?? (process.env.NODE_ENV === "production"
+      ? undefined // will throw below
+      : "nirman-default-dev-key-please-change");
+  if (!secret) {
+    throw new ServiceError(
+      "INTEGRATION_ENCRYPTION_KEY is not set. Integration secrets cannot be encrypted/decrypted without it.",
+      500,
+    );
+  }
   return scryptSync(secret, SALT, 32);
 }
 
@@ -531,7 +544,7 @@ export async function verifyIntegration(input: {
           });
           await transporter.verify();
           success = true;
-        } catch (importErr) {
+        } catch (_importErr) {
           error = "SMTP verification requires nodemailer. Install it with: pnpm --filter @nirman/services add nodemailer";
         }
         break;

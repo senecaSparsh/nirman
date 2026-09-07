@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { writeFile, unlink, mkdir, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { join, isAbsolute } from "node:path";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, requirePermission, requireUser } from "@/lib/server";
@@ -8,7 +8,11 @@ import { PERM } from "@/lib/roles";
 
 // Files are stored OUTSIDE public/ so they are not served as static assets.
 // Access is mediated by GET /api/uploads/[id] which checks auth + company ownership.
-const UPLOAD_DIR = join(process.cwd(), "storage", "uploads");
+// Honor the UPLOAD_DIR env var (set in docker-compose/render.yaml) so deployments
+// that mount a volume at a different path actually persist files to the volume.
+const UPLOAD_DIR = process.env.UPLOAD_DIR
+  ? (isAbsolute(process.env.UPLOAD_DIR) ? process.env.UPLOAD_DIR : join(process.cwd(), process.env.UPLOAD_DIR))
+  : join(process.cwd(), "storage", "uploads");
 const MAX_SIZE = 25 * 1024 * 1024; // 25 MB
 
 // Strict allow-list of MIME types. We do NOT allow:

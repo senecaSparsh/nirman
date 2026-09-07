@@ -81,12 +81,40 @@ const nextConfig: NextConfig = {
         headers: [{ key: "Cache-Control", value: "no-store" }],
       },
       {
-        // Request device hints from Chrome/Android so the server can
-        // estimate device tier before JS loads (first visit, no cookie).
+        // Security headers applied to ALL routes.
+        // CSP allows inline styles (Next.js styled-jsx + Tailwind require it),
+        // 'unsafe-eval' is NOT included, images allow data: + blob: for uploads,
+        // connect-src includes the app origin for fetch/SWR.
         source: "/(.*)",
         headers: [
           { key: "Accept-CH", value: "Sec-CH-Device-Memory, Sec-CH-RTT, Sec-CH-Downlink" },
           { key: "Vary", value: "Sec-CH-Device-Memory" },
+          // HSTS — enforce HTTPS for 1 year, include subdomains
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains; preload" },
+          // Prevent clickjacking — deny all framing
+          { key: "X-Frame-Options", value: "DENY" },
+          // Prevent MIME-type sniffing
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // Control referrer information sent to other origins
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // Restrict browser features (camera, mic, geo, payment)
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
+          // CSP — restrict resource loading to prevent XSS injection
+          { key: "Content-Security-Policy", value: [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob: https:",
+            "font-src 'self' data:",
+            "connect-src 'self' https:",
+            "frame-ancestors 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "object-src 'none'",
+            "upgrade-insecure-requests",
+          ].join("; ") },
+          // COOP — isolate browsing context to prevent cross-origin window access
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
         ],
       },
     ];

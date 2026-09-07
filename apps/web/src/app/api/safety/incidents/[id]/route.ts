@@ -29,15 +29,20 @@ const actionSchema = z.object({
 });
 
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requirePermission(PERM.SAFETY_VIEW);
+  const company = await getCompany();
   const { id } = await ctx.params;
+  // Verify company ownership before returning (prevent cross-tenant IDOR)
+  const existing = await prisma.safetyIncident.findUnique({ where: { id }, select: { companyId: true } });
+  if (!existing) return json({ error: "Incident not found" }, { status: 404 });
+  if (existing.companyId !== company.id) return json({ error: "Incident not found" }, { status: 404 });
   const incident = await getIncident(id);
   if (!incident) return json({ error: "Incident not found" }, { status: 404 });
   return json(incident);
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.WO_MANAGE);
+  const user = await requirePermission(PERM.SAFETY_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
   const body = await req.json();
@@ -81,7 +86,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.WO_MANAGE);
+  const user = await requirePermission(PERM.SAFETY_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
   const existing = await prisma.safetyIncident.findUnique({ where: { id }, select: { companyId: true } });

@@ -75,10 +75,13 @@ export function isPublicRoute(pathname: string): boolean {
   );
 }
 
-/** Check if a pathname is an auth rate-limited endpoint (sign-in/sign-up/password). */
+/** Check if a pathname is an auth rate-limited endpoint.
+ * Covers all sensitive auth endpoints: sign-in, sign-up, password reset/change,
+ * phone-otp, phone-password, demo-login, and bootstrap.
+ */
 export function isAuthRateLimitedPath(pathname: string): boolean {
   if (!pathname.startsWith("/api/auth/")) return false;
-  return /sign-in|sign-up|password/.test(pathname);
+  return /sign-in|sign-up|password|phone-otp|phone-password|demo-login|bootstrap/.test(pathname);
 }
 
 // ── Edge-compatible auth rate limiter ──────────────────────────
@@ -110,10 +113,16 @@ function evictAuthBuckets() {
 }
 
 function getClientIp(req: NextRequest): string {
-  const xff = req.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0]?.trim() ?? "";
+  // Prefer x-real-ip (set by Traefik/Nginx — single value, not spoofable)
   const realIp = req.headers.get("x-real-ip");
   if (realIp) return realIp.trim();
+  // Fall back to x-forwarded-for — use the LAST value (set by the trusted proxy),
+  // not the first (which can be spoofed by the client)
+  const xff = req.headers.get("x-forwarded-for");
+  if (xff) {
+    const parts = xff.split(",").map((s) => s.trim());
+    return parts[parts.length - 1] ?? "";
+  }
   return "local";
 }
 
@@ -155,7 +164,21 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Public routes — always accessible
+  // Rate-limit sensitive auth endpoints BEFORE the public-route early return.
+  // This must run first — otherwise the public route check for /api/auth/*
+  // returns next() and the rate limiter below is never reached.
+  if (isAuthRateLimitedPath(pathname)) {
+    evictAuthBuckets();
+    const ip = getClientIp(req);
+    if (!checkAuthRateLimit(ip)) {
+      return NextResponse.json(
+        { error: "Too many attempts. Please wait a minute and try again." },
+        { status: 429, headers: { "Retry-After": "60" } },
+      );
+    }
+  }
+
+  // Public routes — always accessible (after rate limiting check above)
   if (
     pathname === "/sign-in" ||
     pathname.startsWith("/sign-in/") ||
@@ -187,19 +210,6 @@ export function middleware(req: NextRequest) {
   // Redirecting API routes here would serve HTML to fetch() callers,
   // causing JSON parse errors ("Fetch failed loading").
   if (pathname.startsWith("/api/")) {
-    // Rate-limit auth endpoints (sign-in, sign-up, password) to prevent
-    // brute-force attacks. Better-Auth's built-in rate limiter is disabled,
-    // so this is the primary gate.
-    if (isAuthRateLimitedPath(pathname)) {
-      evictAuthBuckets();
-      const ip = getClientIp(req);
-      if (!checkAuthRateLimit(ip)) {
-        return NextResponse.json(
-          { error: "Too many attempts. Please wait a minute and try again." },
-          { status: 429, headers: { "Retry-After": "60" } },
-        );
-      }
-    }
     return NextResponse.next();
   }
 

@@ -234,6 +234,9 @@ export const PERM = {
   CALL_ANALYTICS: "call.analytics",
   TELEPHONY_VIEW: "telephony.view",
   TELEPHONY_MANAGE: "telephony.manage",
+  // Safety — incidents, hazards, inspections
+  SAFETY_VIEW: "safety.view",
+  SAFETY_MANAGE: "safety.manage",
 } as const;
 
 export type Permission = (typeof PERM)[keyof typeof PERM];
@@ -329,6 +332,12 @@ export const PERMISSION_MODULES: {
     icon: "Settings",
     permissions: [PERM.USERS_VIEW, PERM.USERS_MANAGE, PERM.COMPANY_MANAGE, PERM.ATTACHMENT_MANAGE],
   },
+  {
+    key: "safety",
+    label: "Safety",
+    icon: "ShieldAlert",
+    permissions: [PERM.SAFETY_VIEW, PERM.SAFETY_MANAGE],
+  },
 ];
 
 export const ROLES: Record<Role, RoleDef> = {
@@ -394,6 +403,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.CALL_VIEW, PERM.CALL_VIEW_ALL, PERM.CALL_VIEW_CHILD, PERM.CALL_VIEW_FULL_NUMBER,
       PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_RECORDING_LISTEN, PERM.CALL_ANALYTICS,
       PERM.TELEPHONY_VIEW,
+      PERM.SAFETY_VIEW, PERM.SAFETY_MANAGE,
     ],
     canManageUsers: false,
     canAssignTasks: true,
@@ -452,6 +462,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.LEGAL_MANAGE,
       PERM.CALL_VIEW, PERM.CALL_VIEW_ALL, PERM.CALL_VIEW_FULL_NUMBER,
       PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_RECORDING_LISTEN, PERM.CALL_ANALYTICS,
+      PERM.SAFETY_VIEW, PERM.SAFETY_MANAGE,
     ],
     canManageUsers: false,
     canAssignTasks: true,
@@ -522,6 +533,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.VEHICLE_VIEW,
       PERM.GATE_PASS_VIEW, PERM.GATE_PASS_CREATE, PERM.GATE_PASS_MANAGE,
       PERM.CALL_VIEW, PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_RECORDING_LISTEN,
+      PERM.SAFETY_VIEW, PERM.SAFETY_MANAGE,
     ],
     canManageUsers: false,
     canAssignTasks: false,
@@ -611,6 +623,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.HR_VIEW, PERM.DPR_VIEW, PERM.DPR_SUBMIT,
       PERM.GATE_PASS_VIEW, PERM.GATE_PASS_CREATE, PERM.GATE_PASS_EXIT,
       PERM.CALL_VIEW, PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_RECORDING_LISTEN,
+      PERM.SAFETY_VIEW,
     ],
     canManageUsers: false,
     canAssignTasks: false,
@@ -633,6 +646,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.TASKS_VIEW,
       PERM.GATE_PASS_VIEW,
       PERM.CALL_VIEW, PERM.CALL_CREATE,
+      PERM.SAFETY_VIEW, PERM.SAFETY_MANAGE,
     ],
     canManageUsers: false,
     canAssignTasks: false,

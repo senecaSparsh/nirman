@@ -22,7 +22,12 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   // Static baseURL — simplest and most reliable for single-domain deploys.
   baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
-  secret: process.env.BETTER_AUTH_SECRET ?? "dev-only-fallback-secret-not-for-production-use-32chars",
+  // No dev fallback — env-validation.ts crashes the process in production if
+  // BETTER_AUTH_SECRET is missing. In dev, generate a stable per-install secret
+  // so sessions persist across restarts (derived from the app URL).
+  secret: process.env.BETTER_AUTH_SECRET ?? (process.env.NODE_ENV === "production"
+    ? undefined // env-validation.ts will crash before this is reached
+    : `dev-secret-${appOrigin}-32chars-padding!!`),
   // Disable rate limiting — Render's proxy doesn't forward client IP headers,
   // so Better-Auth falls back to a single shared rate-limit bucket for ALL
   // users. This causes 429s after just a few requests. With a single-client

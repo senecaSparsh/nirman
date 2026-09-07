@@ -23,8 +23,8 @@ async function HazardDetailContent({ id }: { id: string }) {
   const company = await getCompany();
   const role = await getUserRole();
 
-  if (!hasPermission(role, PERM.ASSETS_VIEW)) return <NoAccess what="hazard" />;
-  const canManage = hasPermission(role, PERM.WO_MANAGE);
+  if (!hasPermission(role, PERM.SAFETY_VIEW)) return <NoAccess what="hazard" />;
+  const canManage = hasPermission(role, PERM.SAFETY_MANAGE);
 
   const hazard = await prisma.safetyHazard.findFirst({
     where: { id, companyId: company.id },

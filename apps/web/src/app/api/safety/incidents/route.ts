@@ -23,7 +23,7 @@ const createSchema = z.object({
 });
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requirePermission(PERM.SAFETY_VIEW);
   const company = await getCompany();
   const projectId = req.nextUrl.searchParams.get("projectId") ?? undefined;
   const status = req.nextUrl.searchParams.get("status") as IncidentStatus | undefined;
@@ -39,7 +39,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.WO_MANAGE);
+  const user = await requirePermission(PERM.SAFETY_MANAGE);
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });

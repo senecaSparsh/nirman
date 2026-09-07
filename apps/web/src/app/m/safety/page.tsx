@@ -22,7 +22,7 @@ async function MobileSafetyPageContent() {
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.WO_MANAGE);
+  const canManage = hasPermission(role, PERM.SAFETY_MANAGE);
 
   const [incidents, hazards, inspections, projects] = await Promise.all([
     prisma.safetyIncident.findMany({

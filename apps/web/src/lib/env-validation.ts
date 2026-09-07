@@ -80,6 +80,26 @@ const ENV_VARS: EnvVarSpec[] = [
     required: false,
     description: "Set to 'true' for headless dev (skips sign-in). NEVER set in production.",
   },
+  {
+    key: "CRON_SECRET",
+    required: false,
+    description: "Secret key for cron job endpoints (/api/cron/*). Required for automated backups.",
+  },
+  {
+    key: "INTEGRATION_ENCRYPTION_KEY",
+    required: false,
+    description: "AES-256 key for encrypting integration secrets at rest. Required if integrations are used.",
+  },
+  {
+    key: "UPLOAD_DIR",
+    required: false,
+    description: "Directory for file uploads (defaults to storage/uploads). Set to match volume mount in production.",
+  },
+  {
+    key: "SENTRY_DSN",
+    required: false,
+    description: "Sentry DSN for error tracking (optional — Sentry disabled without it).",
+  },
 ];
 
 export interface EnvValidationResult {
@@ -134,6 +154,17 @@ export function validateEnv(): EnvValidationResult {
         "AUTH_BYPASS=true is set in production! This bypasses authentication entirely. " +
           "Remove it from the Render dashboard immediately.",
       );
+    }
+
+    // Warn about important optional vars missing in production
+    if (isProd && !value && spec.key === "CRON_SECRET") {
+      warnings.push("CRON_SECRET is not set — automated backups and cron reminders will not work.");
+    }
+    if (isProd && !value && spec.key === "INTEGRATION_ENCRYPTION_KEY") {
+      warnings.push("INTEGRATION_ENCRYPTION_KEY is not set — integration secrets cannot be encrypted. Setting any integration will fail.");
+    }
+    if (isProd && !value && spec.key === "SENTRY_DSN") {
+      warnings.push("SENTRY_DSN is not set — production errors will not be tracked.");
     }
   }
 

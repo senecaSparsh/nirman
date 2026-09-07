@@ -23,7 +23,7 @@ async function SafetyContent() {
   const role = await getUserRole();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.ASSETS_VIEW)) {
+  if (!hasPermission(role, PERM.SAFETY_VIEW)) {
     return <NoAccess what="safety management" />;
   }
 
@@ -54,7 +54,7 @@ async function SafetyContent() {
     }),
   ]);
 
-  const canManage = hasPermission(role, PERM.WO_MANAGE);
+  const canManage = hasPermission(role, PERM.SAFETY_MANAGE);
 
   const serializedIncidents = incidents.map((i) => ({
     id: i.id, incidentNumber: i.incidentNumber, title: i.title, type: i.type, severity: i.severity, status: i.status,

@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile, stat } from "node:fs/promises";
-import { join } from "node:path";
+import { join, isAbsolute } from "node:path";
 import { prisma } from "@nirman/db";
 import { getCompany, requireUser } from "@/lib/server";
 
-const UPLOAD_DIR = join(process.cwd(), "storage", "uploads");
+// Honor the UPLOAD_DIR env var (must match the POST route's resolution)
+const UPLOAD_DIR = process.env.UPLOAD_DIR
+  ? (isAbsolute(process.env.UPLOAD_DIR) ? process.env.UPLOAD_DIR : join(process.cwd(), process.env.UPLOAD_DIR))
+  : join(process.cwd(), "storage", "uploads");
 
 // MIME types that are safe to inline (display in <img> or browser PDF viewer).
 // Everything else is served with Content-Disposition: attachment.

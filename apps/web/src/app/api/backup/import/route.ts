@@ -4,6 +4,26 @@ import { apiHandler, requirePermission, getCompany } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
+ * Allowlist of Prisma model names that are permitted in backup imports.
+ * This excludes security-sensitive models (user, userCompany, account,
+ * session, rolePermission, verification, etc.) to prevent privilege
+ * escalation or cross-company data injection via a malicious backup file.
+ */
+const IMPORTABLE_MODELS = new Set([
+  "company", "project", "department", "stockLocation", "materialCategory",
+  "material", "supplier", "subcontractor", "customer", "broker", "landSeller",
+  "equipment", "vehicle", "landPurchase", "purchaseOrder", "directPurchase",
+  "materialRequisition", "supplierPayment", "supplierReturn",
+  "stockLocationItem", "stockMovement", "materialIssue", "stockTransfer",
+  "stockCount", "scrapGeneration", "assetSale", "materialSale",
+  "glAccount", "journalEntry", "projectCost", "expense",
+  "employee", "payrollPeriod", "attendance", "dailyProgressReport",
+  "wbsElement", "boq", "workOrder", "measurementBook",
+  "lead", "task", "safetyIncident", "safetyHazard", "safetyInspection",
+  "gatePass", "auditLog",
+]);
+
+/**
  * POST /api/backup/import — restore from a JSON backup file.
  *
  * Body: the backup JSON object (same format as /api/backup/export).
@@ -26,9 +46,19 @@ export const POST = apiHandler(async (req: NextRequest) => {
   let totalRecords = 0;
   const tableCounts: Record<string, number> = {};
 
+  // Reject any table key that is not in the allowlist — prevents importing
+  // sensitive models (user, account, session, rolePermission, etc.)
+  for (const modelName of Object.keys(tables)) {
+    if (!IMPORTABLE_MODELS.has(modelName)) {
+      return NextResponse.json(
+        { error: `Table '${modelName}' is not permitted in backup imports` },
+        { status: 400 },
+      );
+    }
+  }
+
   // Process in dependency order (parents first)
   const orderedTables = Object.keys(tables).sort((a, b) => {
-    // Simple heuristic: process in the order they appear in the export plan
     const order = [
       "company", "project", "department", "stockLocation", "materialCategory",
       "material", "supplier", "subcontractor", "customer", "broker", "landSeller",
