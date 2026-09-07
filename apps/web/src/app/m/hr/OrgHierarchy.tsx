@@ -703,7 +703,7 @@ function MemberNode({
       iconBg="var(--color-paper-2)"
       chevron={false}
       name={member.name}
-      nameHref="/m/employees"
+      nameHref="/m/hr/employees"
       nameBold={false}
       sub={sub}
       right={

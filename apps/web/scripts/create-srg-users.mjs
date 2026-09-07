@@ -235,7 +235,39 @@ async function main() {
   console.log(`Date: ${new Date().toISOString()}`);
   console.log("");
 
-  // ── 0. Early-exit check: if SRG REALCON already exists with all 7 users,
+  // ── 0a. Cleanup: soft-delete auto-created "My Company" entries ──
+  // getCompany() in lib/server.ts auto-creates a company named "My Company"
+  // when an authenticated user has no company membership. This can happen
+  // during failed login attempts before the auth fix was deployed. These
+  // ghost companies have no real data (no projects, stock, etc.) and confuse
+  // users who see them in the company picker. We soft-delete them here.
+  const ghostCompanies = await prisma.company.findMany({
+    where: { name: "My Company", deletedAt: null },
+    select: {
+      id: true,
+      createdAt: true,
+      _count: { select: { projects: true, stockLocations: true, materials: true, customers: true, suppliers: true } },
+    },
+  });
+  for (const ghost of ghostCompanies) {
+    const hasRealData = ghost._count.projects > 0 || ghost._count.stockLocations > 0 || ghost._count.materials > 0 || ghost._count.customers > 0 || ghost._count.suppliers > 0;
+    if (!hasRealData) {
+      await prisma.company.update({
+        where: { id: ghost.id },
+        data: { deletedAt: new Date() },
+      });
+      // Also soft-delete the UserCompany memberships so getCompany() skips them
+      await prisma.userCompany.updateMany({
+        where: { companyId: ghost.id },
+        data: { role: "INACTIVE" },
+      });
+      console.log(`  Cleaned up auto-created "My Company" (id: ${ghost.id}, created: ${ghost.createdAt.toISOString()})`);
+    } else {
+      console.log(`  WARNING: "My Company" (id: ${ghost.id}) has real data — not deleting. Rename it in the UI.`);
+    }
+  }
+
+  // ── 0b. Early-exit check: if SRG REALCON already exists with all 7 users,
   //    skip entirely. This makes the script safe to run on every deploy —
   //    it provisions once, then silently no-ops forever. ──
   const existingCompany = await prisma.company.findFirst({

@@ -129,19 +129,25 @@ export async function getCompany() {
     if (member) return member;
   }
 
-  // No company found — create a default one and add the user as a member.
-  // This only happens for the very first user (onboarding) or in dev-bypass
-  // with an empty DB. It is NEVER reached for unauthenticated requests
-  // because the fail-closed guard above throws first.
-  return prisma.company.create({
-    data: {
-      name: "My Company",
-      currency: "INR",
-      ...(user && !isDevBypass
-        ? { userMemberships: { create: { userId: user.id, role: user.role } } }
-        : {}),
-    },
-  });
+  // No company found. In dev-bypass mode, create a default one (onboarding).
+  // In production, throw — an authenticated user without a company membership
+  // is a provisioning error, not an onboarding flow. Auto-creating "My Company"
+  // in production caused ghost companies during failed login attempts.
+  if (isDevBypass) {
+    return prisma.company.create({
+      data: {
+        name: "My Company",
+        currency: "INR",
+        ...(user
+          ? { userMemberships: { create: { userId: user.id, role: user.role } } }
+          : {}),
+      },
+    });
+  }
+  throw new Error(
+    `No company found for authenticated user ${user?.id ?? "(unknown)"} — this is a provisioning error. ` +
+    `Run the SRG provisioning script or assign the user to a company.`,
+  );
   });
 }
 
