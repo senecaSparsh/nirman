@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useTodayDate } from "@/lib/use-today-date";
@@ -608,20 +609,11 @@ export function MobileFinanceFab({
 
   return (
     <>
-      <button
+      <MobileFab
         onClick={() => setOpen(true)}
-        className="fixed right-3 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
-        style={{
-          bottom:
-            "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
-          backgroundColor: "var(--color-ink-950)",
-          color: "var(--color-paper)",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-        }}
-        aria-label="Add expense or project cost"
-      >
-        <Plus className="size-5" />
-      </button>
+        label="Add expense or project cost"
+        isOpen={open}
+      />
 
       {open && (
         <MobileNewFinanceDialog

@@ -1,12 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { useTabParam } from "@/lib/use-tab-param";
 import { MobileFab } from "@/components/mobile/v2/scaffold";
-import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { RegisterTabs } from "@/components/mobile/v2/register-tabs";
-import { MobileNewFinanceDialog } from "../books/finance/MobileNewFinanceDialog";
+import { MobileFinanceFab } from "../books/finance/MobileNewFinanceDialog";
 
 const TABS = ["overview", "expenses", "claims", "petty-cash", "payments", "receipts", "gl"] as const;
 type TabValue = (typeof TABS)[number];
@@ -45,9 +42,10 @@ interface SubcontractorOption {
  * on the active tab.
  *
  * FAB: each list tab gets a floating "+" button, consistent with the
- * procurement hub. Expenses opens the finance dialog (expense + project
- * cost). Claims, petty-cash, and payments navigate to their respective
- * /new pages (full-screen forms). Receipts and GL have no create action.
+ * procurement hub. Expenses uses MobileFinanceFab (self-contained FAB +
+ * dialog, same as /m/books/finance). Claims, petty-cash, and payments
+ * navigate to their respective /new pages (full-screen forms). Receipts
+ * and GL have no create action.
  */
 export function MobileAccountsHubTabs({
   counts = {},
@@ -73,37 +71,6 @@ export function MobileAccountsHubTabs({
   canManagePayments?: boolean;
 }) {
   const [tab, setTab] = useTabParam(TABS, "overview");
-  const router = useRouter();
-
-  // ── Modal form state (matches procurement hub pattern) ──
-  const [showForm, setShowForm] = useState<TabValue | null>(null);
-  const [fabRect, setFabRect] = useState<DOMRect | null>(null);
-
-  // Close any open form when the tab changes
-  useEffect(() => {
-    setShowForm(null);
-    setFabRect(null);
-  }, [tab]);
-
-  const openForm = useCallback((which: TabValue, e?: React.MouseEvent) => {
-    if (showForm === which) {
-      closeForm();
-      return;
-    }
-    if (e?.currentTarget instanceof HTMLElement) {
-      setFabRect(e.currentTarget.getBoundingClientRect());
-    } else {
-      setFabRect(null);
-    }
-    setShowForm(which);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showForm]);
-
-  function closeForm() {
-    setShowForm(null);
-    setFabRect(null);
-    router.refresh();
-  }
 
   // Navigate to a /new page (for tabs with full-screen forms)
   function navigateToNew(href: string) {
@@ -115,7 +82,7 @@ export function MobileAccountsHubTabs({
     count: counts[t.value as TabValue],
   }));
 
-  // Determine FAB visibility and label per tab
+  // Determine FAB visibility per tab
   const showExpenseFab = tab === "expenses" && (canCreateExpense || canCreateProjectCost);
   const showClaimFab = tab === "claims" && canCreateClaim;
   const showPettyCashFab = tab === "petty-cash" && canManagePettyCash;
@@ -126,12 +93,13 @@ export function MobileAccountsHubTabs({
       <RegisterTabs tabs={tabsWithCounts} value={tab} onChange={setTab} />
       {children}
 
-      {/* ── FAB per tab (matches procurement hub pattern) ── */}
+      {/* ── FAB per tab ── */}
       {showExpenseFab && (
-        <MobileFab
-          onClick={(e) => openForm("expenses", e)}
-          label="Add expense"
-          isOpen={showForm === "expenses"}
+        <MobileFinanceFab
+          projects={projects}
+          subcontractors={subcontractors}
+          canCreateExpense={canCreateExpense}
+          canCreateProjectCost={canCreateProjectCost}
         />
       )}
       {showClaimFab && (
@@ -152,24 +120,6 @@ export function MobileAccountsHubTabs({
           label="Record payment"
         />
       )}
-
-      {/* ── Dialog forms (spring up from the FAB) ── */}
-      <MobileFabModal
-        open={showForm === "expenses"}
-        onClose={closeForm}
-        originRect={fabRect}
-        title="Add Expense"
-      >
-        <MobileNewFinanceDialog
-          open={showForm === "expenses"}
-          onClose={closeForm}
-          projects={projects}
-          subcontractors={subcontractors}
-          canCreateExpense={canCreateExpense}
-          canCreateProjectCost={canCreateProjectCost}
-          initialTab="expense"
-        />
-      </MobileFabModal>
     </div>
   );
 }
