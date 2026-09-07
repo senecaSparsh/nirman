@@ -1,5 +1,5 @@
 import { createHmac, randomBytes } from "node:crypto";
-import { prisma } from "@nirman/db";
+import { auth } from "@/lib/auth";
 
 /**
  * Phone-OTP login helpers.
@@ -9,9 +9,12 @@ import { prisma } from "@nirman/db";
  * `getSession()`, middleware, `/api/me`, and company selection all work the
  * same as email+password login.
  *
- * The session is created directly in the DB (same table Better-Auth uses),
- * and the session cookie is signed with the same HMAC-SHA256 algorithm that
- * Better-Auth's `setSignedCookie` uses.
+ * The session is created via Better-Auth's own `internalAdapter.createSession`
+ * (same method `signInEmail` uses internally), and the session cookie is signed
+ * with the same HMAC-SHA256 algorithm + secret that Better-Auth's
+ * `setSignedCookie` uses. The cookie name and attributes are read from
+ * Better-Auth's own context (`auth.$context.authCookies`), so they always
+ * match — including the `__Secure-` prefix in HTTPS production.
  */
 
 /** Strip everything except digits — normalises +91, spaces, dashes, etc. */
@@ -78,55 +81,52 @@ export const OTP_CONFIG = {
  * Create a real Better-Auth session for the given user ID and return a
  * ready-to-use `Set-Cookie` header value for the session token cookie.
  *
- * This creates a Session row directly in the DB (same table Better-Auth uses),
- * then signs the token cookie with HMAC-SHA256 using the same secret.
- *
- * The cookie name is `better-auth.session_token` (or `__Secure-` prefixed in
- * HTTPS production). The attributes match the auth config: HttpOnly, Path=/,
- * SameSite=Lax, Max-Age=365 days.
+ * Uses Better-Auth's own `internalAdapter.createSession()` (same method
+ * `signInEmail` calls internally) to create the Session row, then signs the
+ * cookie using the exact same secret, cookie name, and attributes that
+ * Better-Auth's `setSignedCookie` would use — read from `auth.$context` so
+ * they always match, including the `__Secure-` prefix in HTTPS production.
  */
 export async function createPhoneSession(userId: string): Promise<{
   setCookieHeader: string;
   session: { id: string; token: string; userId: string; expiresAt: Date };
 }> {
-  // 1. Create the session directly in the DB — same table Better-Auth uses.
-  const token = randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 60 * 60 * 24 * 365 * 1000); // 365 days
+  // 1. Access Better-Auth's internal context (same context used by signInEmail).
+  const ctx = await auth.$context;
 
-  const session = await prisma.session.create({
-    data: {
-      token,
-      userId,
-      expiresAt,
-    },
-  });
+  // 2. Create the session via Better-Auth's own internal adapter — this is
+  //    the exact same call that signInEmail makes internally, so the Session
+  //    row is identical to what an email+password login would produce.
+  const session = await ctx.internalAdapter.createSession(userId);
 
-  // 2. Determine the cookie name + attributes from the auth config.
-  const secret = process.env.BETTER_AUTH_SECRET ?? "dev-only-fallback-secret-not-for-production-use-32chars";
-  const isProduction = process.env.NODE_ENV === "production";
-  const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
-  const isHttps = baseURL.startsWith("https://") || (isProduction && !baseURL.startsWith("http://"));
-  const securePrefix = isHttps ? "__Secure-" : "";
-  const cookieName = `${securePrefix}better-auth.session_token`;
+  if (!session) {
+    throw new Error("Failed to create session — Better-Auth internal adapter returned null.");
+  }
 
-  // Session expiry from auth.ts: 365 days
-  const maxAge = 60 * 60 * 24 * 365;
+  // 3. Read the cookie name + attributes from Better-Auth's own config.
+  //    This guarantees the cookie name matches what getSession() expects,
+  //    including the __Secure- prefix in HTTPS production.
+  const cookieConfig = ctx.authCookies.sessionToken;
+  const cookieName = cookieConfig.name;
+  const attrs = cookieConfig.attributes;
 
-  // 3. Sign the token: HMAC-SHA256(token, secret) → base64, then
-  //    encodeURIComponent(token + "." + signature).
+  // 4. Sign the cookie value using the same HMAC-SHA256 algorithm + secret
+  //    that Better-Auth's setSignedCookie uses. We've verified that Node.js
+  //    createHmac("sha256", secret).update(token).digest("base64") produces
+  //    byte-identical output to Better-Auth's WebCrypto-based signCookieValue.
+  const secret = ctx.secret;
   const signature = createHmac("sha256", secret).update(session.token).digest("base64");
   const signedValue = `${session.token}.${signature}`;
   const encodedValue = encodeURIComponent(signedValue);
 
-  // 4. Build the Set-Cookie header.
-  const parts = [
-    `${cookieName}=${encodedValue}`,
-    "Path=/",
-    "HttpOnly",
-    "SameSite=Lax",
-    `Max-Age=${maxAge}`,
-  ];
-  if (isHttps) parts.push("Secure");
+  // 5. Build the Set-Cookie header using Better-Auth's own attributes.
+  const parts = [`${cookieName}=${encodedValue}`];
+  if (attrs.path) parts.push(`Path=${attrs.path}`);
+  if (attrs.httpOnly) parts.push("HttpOnly");
+  if (attrs.sameSite) parts.push(`SameSite=${attrs.sameSite.charAt(0).toUpperCase()}${attrs.sameSite.slice(1)}`);
+  if (typeof attrs.maxAge === "number" && attrs.maxAge >= 0) parts.push(`Max-Age=${Math.floor(attrs.maxAge)}`);
+  if (attrs.secure) parts.push("Secure");
+  if (attrs.domain) parts.push(`Domain=${attrs.domain}`);
 
   return {
     setCookieHeader: parts.join("; "),
@@ -134,7 +134,7 @@ export async function createPhoneSession(userId: string): Promise<{
       id: session.id,
       token: session.token,
       userId: session.userId,
-      expiresAt: session.expiresAt,
+      expiresAt: new Date(session.expiresAt),
     },
   };
 }
