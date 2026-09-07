@@ -124,7 +124,7 @@ export function MobileExpensesList({
         action={
           canCreate ? (
             <Link
-              href="/m/accounts?tab=expenses"
+              href="/m/books/finance"
               className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >

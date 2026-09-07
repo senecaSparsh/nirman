@@ -84,6 +84,7 @@ export function MobileNewFinanceDialog({
   subcontractors = [],
   canCreateExpense,
   canCreateProjectCost,
+  initialTab,
 }: {
   open: boolean;
   onClose: () => void;
@@ -91,12 +92,13 @@ export function MobileNewFinanceDialog({
   subcontractors?: { id: string; name: string; trade: string | null }[];
   canCreateExpense: boolean;
   canCreateProjectCost: boolean;
+  initialTab?: Tab;
 }) {
   const router = useRouter();
   const today = useTodayDate();
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState<Tab>(
-    canCreateExpense ? "expense" : "projectCost",
+    initialTab ?? (canCreateExpense ? "expense" : "projectCost"),
   );
   const [expenseForm, setExpenseForm] = useState<ExpenseForm>({
     projectId: "",

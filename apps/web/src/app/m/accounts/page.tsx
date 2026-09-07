@@ -49,14 +49,35 @@ export default function AccountsHomePage({
 }) {
   return (
     <MobileHubPage>
-      {async ({ company }) => {
+      {async ({ company, role }) => {
         const { tab } = await searchParams;
 
+        // ── Permission flags for FABs ──
+        const canCreateExpense = hasPermission(role, PERM.EXPENSE_CREATE);
+        const canCreateProjectCost = hasPermission(role, PERM.FINANCE_MANAGE);
+        const canCreateClaim = hasPermission(role, PERM.EXPENSE_CREATE);
+        const canManagePettyCash = hasPermission(role, PERM.FINANCE_MANAGE);
+        const canManagePayments = hasPermission(role, PERM.FINANCE_MANAGE);
+
         // ── Fetch badge counts for the tab bar ──
-        const [pendingClaimsCount] = await Promise.all([
+        const [pendingClaimsCount, projects, subcontractors] = await Promise.all([
           prisma.expenseClaim.count({
             where: { companyId: company.id, status: "SUBMITTED" },
           }).catch(() => 0),
+          (canCreateExpense || canCreateProjectCost)
+            ? prisma.project.findMany({
+                where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+                select: { id: true, name: true },
+                orderBy: { name: "asc" },
+              })
+            : [],
+          canCreateProjectCost
+            ? prisma.subcontractor.findMany({
+                where: { companyId: company.id, deletedAt: null },
+                select: { id: true, name: true, trade: true },
+                orderBy: { name: "asc" },
+              })
+            : [],
         ]);
 
         const counts = {
@@ -85,7 +106,17 @@ export default function AccountsHomePage({
         }
 
         return (
-          <MobileAccountsHubTabs activeTab={activeTab} counts={counts}>
+          <MobileAccountsHubTabs
+            activeTab={activeTab}
+            counts={counts}
+            projects={projects}
+            subcontractors={subcontractors}
+            canCreateExpense={canCreateExpense}
+            canCreateProjectCost={canCreateProjectCost}
+            canCreateClaim={canCreateClaim}
+            canManagePettyCash={canManagePettyCash}
+            canManagePayments={canManagePayments}
+          >
             {content}
           </MobileAccountsHubTabs>
         );
