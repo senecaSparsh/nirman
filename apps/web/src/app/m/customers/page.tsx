@@ -19,10 +19,11 @@ export default function MobileCustomersPage() {
     <MobileListPage managePerm={PERM.SALES_MANAGE} skeletonRows={8}>
       {async ({ company, canManage }) => {
         // Fetch ALL customers for this company (not just those with asset sales)
+        const BATCH_SIZE = 40;
         const [customers, leads] = await Promise.all([
           prisma.customer.findMany({
             where: { companyId: company.id, deletedAt: null },
-            orderBy: { name: "asc" },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
             include: {
               assetSales: {
                 where: { companyId: company.id, status: "ACTIVE" },
@@ -42,7 +43,7 @@ export default function MobileCustomersPage() {
                 },
               },
             },
-            take: 200,
+            take: BATCH_SIZE + 1,
           }),
           // Fetch leads so they show inside the customers section (client request)
           prisma.lead.findMany({
@@ -61,7 +62,14 @@ export default function MobileCustomersPage() {
           }),
         ]);
 
-        const rows: CustomerListItem[] = customers.map((c) => {
+        const hasMore = customers.length > BATCH_SIZE;
+        const batch = hasMore ? customers.slice(0, BATCH_SIZE) : customers;
+        const last = batch[batch.length - 1];
+        const nextCursor = hasMore && last
+          ? `${last.createdAt.toISOString()}|${last.id}`
+          : null;
+
+        const rows: CustomerListItem[] = batch.map((c) => {
           const assetSales = c.assetSales;
           const materialSales = c.materialSales;
           const allSales = [...assetSales, ...materialSales];
@@ -106,7 +114,7 @@ export default function MobileCustomersPage() {
         const pipelineValue = rows.reduce((s, r) => s + r.totalValue, 0);
 
         // Existing phone numbers for duplicate-check in the new-customer FAB modal
-        const existingPhones = customers
+        const existingPhones = batch
           .map((c) => c.phone)
           .filter((p): p is string => p !== null);
 
@@ -139,6 +147,8 @@ export default function MobileCustomersPage() {
               canCreate={canManage}
               canEdit={canManage}
               canDelete={canManage}
+              customerLoadMoreUrl="/api/mobile/list/customers"
+              customerInitialCursor={nextCursor}
               customerStats={{
                 customerCount: rows.length,
                 withDues: withDues.length,

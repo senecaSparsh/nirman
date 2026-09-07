@@ -25,6 +25,7 @@ import {
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileCustomerForm } from "@/components/mobile/mobile-customer-form";
@@ -67,11 +68,13 @@ const PAYMENT_BADGE: Record<string, { color: string; label: string }> = {
  * owed across all customers — the #1 thing a sales manager cares about.
  */
 export function MobileCustomersList({
-  items,
+  items: initialItems,
   stats,
   canCreate = false,
   canEdit = false,
   canDelete = false,
+  loadMoreUrl,
+  initialCursor,
   exportTitle,
   exportRows,
   exportColumns,
@@ -83,6 +86,8 @@ export function MobileCustomersList({
   canCreate?: boolean;
   canEdit?: boolean;
   canDelete?: boolean;
+  loadMoreUrl?: string;
+  initialCursor?: string | null;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
@@ -93,6 +98,12 @@ export function MobileCustomersList({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const fab = useFabModal();
+
+  const { items, loading, hasMore, loadMore } = usePaginatedList<CustomerListItem>(
+    initialItems,
+    loadMoreUrl ?? "",
+    initialCursor ?? null,
+  );
 
   const filtered = useMemo(() => {
     let result = items;
@@ -239,6 +250,15 @@ export function MobileCustomersList({
           ))}
         </div>
       )}
+
+      {loadMoreUrl ? (
+        <MobileLoadMore
+          onClick={loadMore}
+          loading={loading}
+          hasMore={hasMore}
+          count={items.length}
+        />
+      ) : null}
     </div>
   );
 }

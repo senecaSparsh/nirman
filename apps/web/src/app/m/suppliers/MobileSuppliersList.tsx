@@ -24,6 +24,7 @@ import {
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
 import { MobileNewSupplierForm } from "./MobileNewSupplierDialog";
 
 type DuesFilter = "ALL" | "DUE" | "CLEAR";
@@ -48,10 +49,12 @@ const FILTER_OPTIONS: { label: string; value: DuesFilter }[] = [
  * Procurement-style cards in a 2-col grid with dues accent.
  */
 export function MobileSuppliersList({
-  items,
+  items: initialItems,
   totalOwed,
   withDuesCount,
   canCreate,
+  loadMoreUrl,
+  initialCursor,
   exportTitle,
   exportRows,
   exportColumns,
@@ -61,6 +64,8 @@ export function MobileSuppliersList({
   totalOwed: number;
   withDuesCount: number;
   canCreate?: boolean;
+  loadMoreUrl?: string;
+  initialCursor?: string | null;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
@@ -69,6 +74,12 @@ export function MobileSuppliersList({
   const [query, setQuery] = useState("");
   const [duesFilter, setDuesFilter] = useState<DuesFilter>("ALL");
   const fab = useFabModal();
+
+  const { items, loading, hasMore, loadMore } = usePaginatedList<SupplierListItem>(
+    initialItems,
+    loadMoreUrl ?? "",
+    initialCursor ?? null,
+  );
 
   const filtered = useMemo(() => {
     let result = items;
@@ -150,6 +161,15 @@ export function MobileSuppliersList({
           ))}
         </MobileCardGrid>
       )}
+
+      {loadMoreUrl ? (
+        <MobileLoadMore
+          onClick={loadMore}
+          loading={loading}
+          hasMore={hasMore}
+          count={items.length}
+        />
+      ) : null}
 
       {/* ── New supplier FAB ── */}
       {canCreate ? (

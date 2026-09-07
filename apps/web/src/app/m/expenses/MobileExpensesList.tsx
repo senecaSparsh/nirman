@@ -21,6 +21,7 @@ import {
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
 
 export type ExpenseListItem = {
   id: string;
@@ -41,10 +42,12 @@ export type ExpenseListItem = {
  * Finance-style cards in a 2-col grid with amount accent.
  */
 export function MobileExpensesList({
-  items,
+  items: initialItems,
   totalAmount,
   categoryCount,
   canCreate,
+  loadMoreUrl,
+  initialCursor,
   exportTitle,
   exportRows,
   exportColumns,
@@ -55,6 +58,8 @@ export function MobileExpensesList({
   categoryCount: number;
   canView?: boolean;
   canCreate?: boolean;
+  loadMoreUrl?: string;
+  initialCursor?: string | null;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
@@ -62,6 +67,12 @@ export function MobileExpensesList({
 }) {
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
+
+  const { items, loading, hasMore, loadMore } = usePaginatedList<ExpenseListItem>(
+    initialItems,
+    loadMoreUrl ?? "",
+    initialCursor ?? null,
+  );
 
   const categories = useMemo(() => {
     const set = new Set(items.map((e) => e.category));
@@ -174,6 +185,15 @@ export function MobileExpensesList({
           ))}
         </MobileCardGrid>
       )}
+
+      {loadMoreUrl ? (
+        <MobileLoadMore
+          onClick={loadMore}
+          loading={loading}
+          hasMore={hasMore}
+          count={items.length}
+        />
+      ) : null}
     </div>
   );
 }

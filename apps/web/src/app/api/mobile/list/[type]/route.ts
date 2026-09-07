@@ -285,6 +285,301 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
       return json({ items, nextCursor });
     }
 
+    case "suppliers": {
+      await requirePermission(PERM.PROCUREMENT_VIEW);
+      const suppliers = await prisma.supplier.findMany({
+        where: {
+          companyId: { in: groupCompanyIds },
+          deletedAt: null,
+          ...cursorFilter,
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: BATCH_SIZE + 1,
+        select: {
+          id: true,
+          name: true,
+          gstin: true,
+          phone: true,
+          createdAt: true,
+          purchaseOrders: { where: { status: { in: ["ORDERED", "PARTIAL"] } }, select: { id: true } },
+        },
+      });
+      const hasMore = suppliers.length > BATCH_SIZE;
+      const batch = hasMore ? suppliers.slice(0, BATCH_SIZE) : suppliers;
+      const items = batch.map((s) => ({
+        id: s.id,
+        name: s.name,
+        gstin: s.gstin ?? null,
+        phone: s.phone ?? null,
+        poCount: s.purchaseOrders.length,
+        balanceOwed: 0,
+      }));
+      const last = batch[batch.length - 1];
+      const nextCursor = hasMore && last
+        ? `${last.createdAt.toISOString()}|${last.id}`
+        : null;
+      return json({ items, nextCursor });
+    }
+
+    case "expenses": {
+      await requirePermission(PERM.FINANCE_VIEW);
+      const expenses = await prisma.expense.findMany({
+        where: {
+          companyId: { in: groupCompanyIds },
+          ...cursorFilter,
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: BATCH_SIZE + 1,
+        include: {
+          project: { select: { name: true } },
+          supplier: { select: { name: true } },
+        },
+      });
+      const hasMore = expenses.length > BATCH_SIZE;
+      const batch = hasMore ? expenses.slice(0, BATCH_SIZE) : expenses;
+      const items = batch.map((e) => ({
+        id: e.id,
+        category: e.category,
+        amount: toNum(e.amount),
+        date: e.date.toISOString(),
+        projectName: e.project?.name ?? null,
+        notes: e.notes ?? null,
+        status: e.status,
+        paymentMode: e.paymentMode ?? null,
+        payeeName: e.payeeName ?? null,
+        supplierName: e.supplier?.name ?? null,
+        receiptUrl: e.receiptUrl ?? null,
+      }));
+      const last = batch[batch.length - 1];
+      const nextCursor = hasMore && last
+        ? `${last.createdAt.toISOString()}|${last.id}`
+        : null;
+      return json({ items, nextCursor });
+    }
+
+    case "expense-claims": {
+      await requirePermission(PERM.FINANCE_VIEW);
+      const claims = await prisma.expenseClaim.findMany({
+        where: {
+          companyId: { in: groupCompanyIds },
+          ...cursorFilter,
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: BATCH_SIZE + 1,
+        include: {
+          claimant: { select: { name: true } },
+          project: { select: { name: true } },
+        },
+      });
+      const hasMore = claims.length > BATCH_SIZE;
+      const batch = hasMore ? claims.slice(0, BATCH_SIZE) : claims;
+      const items = batch.map((c) => ({
+        id: c.id,
+        claimantName: c.claimant?.name ?? "Unknown",
+        projectName: c.project?.name ?? null,
+        status: c.status,
+        totalAmount: toNum(c.totalAmount),
+        submittedAt: c.submittedAt?.toISOString() ?? c.createdAt.toISOString(),
+        description: c.description ?? null,
+      }));
+      const last = batch[batch.length - 1];
+      const nextCursor = hasMore && last
+        ? `${last.createdAt.toISOString()}|${last.id}`
+        : null;
+      return json({ items, nextCursor });
+    }
+
+    case "customers": {
+      await requirePermission(PERM.SALES_VIEW);
+      const customers = await prisma.customer.findMany({
+        where: {
+          companyId: { in: groupCompanyIds },
+          deletedAt: null,
+          ...cursorFilter,
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: BATCH_SIZE + 1,
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+          gstin: true,
+          createdAt: true,
+          assetSales: { where: { status: "ACTIVE" }, select: { salePrice: true, gstAmount: true, paymentStatus: true, payments: { where: { status: "RECEIVED" }, select: { amount: true } } } },
+          materialSales: { where: { status: "ACTIVE" }, select: { totalAmount: true, paymentStatus: true, payments: { select: { amount: true } } } },
+        },
+      });
+      const hasMore = customers.length > BATCH_SIZE;
+      const batch = hasMore ? customers.slice(0, BATCH_SIZE) : customers;
+      const items = batch.map((c) => {
+        let totalValue = 0, totalPaid = 0, dueCount = 0, activeCount = 0;
+        for (const s of c.assetSales) {
+          activeCount++;
+          totalValue += toNum(s.salePrice) + toNum(s.gstAmount);
+          totalPaid += s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+          if (s.paymentStatus === "PENDING" || s.paymentStatus === "PARTIAL") dueCount++;
+        }
+        for (const s of c.materialSales) {
+          activeCount++;
+          totalValue += toNum(s.totalAmount);
+          totalPaid += s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+          if (s.paymentStatus === "PENDING" || s.paymentStatus === "PARTIAL") dueCount++;
+        }
+        return {
+          id: c.id,
+          name: c.name,
+          phone: c.phone ?? null,
+          email: c.email ?? null,
+          gstin: c.gstin ?? null,
+          activeCount,
+          totalValue,
+          totalPaid,
+          outstanding: Math.max(0, totalValue - totalPaid),
+          dueCount,
+          paymentStatus: dueCount > 0 ? "DUE" : "CLEAR",
+        };
+      });
+      const last = batch[batch.length - 1];
+      const nextCursor = hasMore && last
+        ? `${last.createdAt.toISOString()}|${last.id}`
+        : null;
+      return json({ items, nextCursor });
+    }
+
+    case "leads": {
+      await requirePermission(PERM.SALES_VIEW);
+      const leads = await prisma.lead.findMany({
+        where: {
+          companyId: { in: groupCompanyIds },
+          deletedAt: null,
+          ...cursorFilter,
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: BATCH_SIZE + 1,
+        select: {
+          id: true, name: true, phone: true, email: true,
+          source: true, stage: true, priority: true, score: true,
+          nextFollowUpAt: true, lastContactAt: true, convertedAt: true,
+          createdAt: true, budgetMin: true, budgetMax: true,
+          interestedUnitType: true,
+          project: { select: { name: true } },
+          assignedTo: { select: { name: true } },
+        },
+      });
+      const hasMore = leads.length > BATCH_SIZE;
+      const batch = hasMore ? leads.slice(0, BATCH_SIZE) : leads;
+      const items = batch.map((l) => ({
+        id: l.id,
+        name: l.name,
+        phone: l.phone ?? "",
+        email: l.email ?? null,
+        source: l.source ?? "DIRECT",
+        stage: l.stage,
+        priority: l.priority ?? "medium",
+        score: l.score ?? 0,
+        projectName: l.project?.name ?? null,
+        assignedToName: l.assignedTo?.name ?? null,
+        nextFollowUpAt: l.nextFollowUpAt?.toISOString() ?? null,
+        lastContactAt: l.lastContactAt?.toISOString() ?? null,
+        budgetMin: l.budgetMin ? toNum(l.budgetMin) : null,
+        budgetMax: l.budgetMax ? toNum(l.budgetMax) : null,
+        interestedUnitType: l.interestedUnitType ?? null,
+        convertedAt: l.convertedAt?.toISOString() ?? null,
+        createdAt: l.createdAt.toISOString(),
+      }));
+      const last = batch[batch.length - 1];
+      const nextCursor = hasMore && last
+        ? `${last.createdAt.toISOString()}|${last.id}`
+        : null;
+      return json({ items, nextCursor });
+    }
+
+    case "material-issues": {
+      await requirePermission(PERM.INVENTORY_VIEW);
+      const issues = await prisma.materialIssue.findMany({
+        where: {
+          fromLocation: { companyId: { in: groupCompanyIds }, deletedAt: null },
+          ...cursorFilter,
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: BATCH_SIZE + 1,
+        include: {
+          project: { select: { name: true } },
+          department: { select: { name: true } },
+          issuedBy: { select: { name: true } },
+          lines: { select: { qty: true, unitCost: true, material: { select: { name: true, unit: true } } } },
+        },
+      });
+      const hasMore = issues.length > BATCH_SIZE;
+      const batch = hasMore ? issues.slice(0, BATCH_SIZE) : issues;
+      const items = batch.map((i) => ({
+        id: i.id,
+        issueNumber: i.issueNumber ?? null,
+        date: i.issueDate.toISOString(),
+        status: i.status,
+        projectName: i.project?.name ?? null,
+        departmentName: i.department?.name ?? null,
+        issuedByName: i.issuedBy?.name ?? null,
+        lineCount: i.lines.length,
+        totalValue: i.lines.reduce((s, l) => s + toNum(l.qty) * toNum(l.unitCost), 0),
+        createdAt: i.createdAt.toISOString(),
+      }));
+      const last = batch[batch.length - 1];
+      const nextCursor = hasMore && last
+        ? `${last.createdAt.toISOString()}|${last.id}`
+        : null;
+      return json({ items, nextCursor });
+    }
+
+    case "gate-passes": {
+      await requirePermission(PERM.INVENTORY_VIEW);
+      const passes = await prisma.gatePass.findMany({
+        where: {
+          companyId: { in: groupCompanyIds },
+          ...cursorFilter,
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: BATCH_SIZE + 1,
+        include: {
+          location: { select: { name: true } },
+          lines: { select: { id: true, materialCode: true, materialName: true, unit: true, qty: true, description: true } },
+        },
+      });
+      const hasMore = passes.length > BATCH_SIZE;
+      const batch = hasMore ? passes.slice(0, BATCH_SIZE) : passes;
+      const items = batch.map((g) => ({
+        id: g.id,
+        gatePassNumber: g.gatePassNumber,
+        status: g.status,
+        category: g.category,
+        locationName: g.location?.name ?? null,
+        vehicleNumber: g.vehicleNumber ?? null,
+        vehicleType: g.vehicleType ?? null,
+        driverName: g.driverName ?? null,
+        driverPhone: g.driverPhone ?? null,
+        transporterName: g.transporterName ?? null,
+        destination: g.destination ?? null,
+        purpose: g.purpose ?? null,
+        notes: g.notes ?? null,
+        createdAt: g.createdAt.toISOString(),
+        lineCount: g.lines.length,
+        lines: g.lines.map((l) => ({
+          id: l.id,
+          materialCode: l.materialCode ?? null,
+          materialName: l.materialName ?? null,
+          unit: l.unit ?? null,
+          qty: toNum(l.qty),
+          description: l.description ?? null,
+        })),
+      }));
+      const last = batch[batch.length - 1];
+      const nextCursor = hasMore && last
+        ? `${last.createdAt.toISOString()}|${last.id}`
+        : null;
+      return json({ items, nextCursor });
+    }
+
     default:
       return json({ error: "Unknown list type" }, { status: 404 });
   }

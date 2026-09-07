@@ -13,15 +13,23 @@ export default function MobileLeadsPage() {
   return (
     <MobileListPage managePerm={PERM.SALE_CREATE}>
       {async ({ company, canManage }) => {
+        const BATCH_SIZE = 40;
         const leads = await prisma.lead.findMany({
           where: { companyId: company.id, deletedAt: null },
-          orderBy: { createdAt: "desc" },
-          take: 80,
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: BATCH_SIZE + 1,
           include: {
             project: { select: { id: true, name: true } },
             assignedTo: { select: { id: true, name: true } },
           },
         });
+
+        const hasMore = leads.length > BATCH_SIZE;
+        const batch = hasMore ? leads.slice(0, BATCH_SIZE) : leads;
+        const last = batch[batch.length - 1];
+        const nextCursor = hasMore && last
+          ? `${last.createdAt.toISOString()}|${last.id}`
+          : null;
 
         // Dropdown data for the inline new-lead FAB modal.
         const [newLeadProjects, newLeadUnits, newLeadAssignees] = canManage
@@ -54,7 +62,7 @@ export default function MobileLeadsPage() {
 
         const now = new Date();
 
-        const rows: LeadListItem[] = leads.map((l) => ({
+        const rows: LeadListItem[] = batch.map((l) => ({
           id: l.id,
           name: l.name,
           phone: l.phone,
@@ -103,6 +111,8 @@ export default function MobileLeadsPage() {
               bookedCount={bookedCount}
               followUpsDue={followUpsDue}
               canCreate={canManage}
+              loadMoreUrl="/api/mobile/list/leads"
+              initialCursor={nextCursor}
               exportTitle="Leads"
               exportRows={rows as unknown as Record<string, unknown>[]}
               exportColumns={exportColumns}

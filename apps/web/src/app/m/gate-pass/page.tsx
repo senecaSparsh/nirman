@@ -18,11 +18,12 @@ export default function MobileGatePassPage() {
         const canCreate = hasPermission(role, PERM.GATE_PASS_CREATE);
         const canManage = hasPermission(role, PERM.GATE_PASS_MANAGE);
 
+        const BATCH_SIZE = 40;
         const [gatePasses, locations, projects] = await Promise.all([
           prisma.gatePass.findMany({
             where: { companyId: company.id, status: { in: ["DRAFT", "PENDING", "APPROVED", "EXITED", "REJECTED"] } },
-            orderBy: { createdAt: "desc" },
-            take: 50,
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            take: BATCH_SIZE + 1,
             include: {
               lines: true,
               location: { select: { name: true } },
@@ -45,12 +46,19 @@ export default function MobileGatePassPage() {
           }),
         ]);
 
-        const pending = gatePasses.filter((g) => g.status === "PENDING");
-        const approved = gatePasses.filter((g) => g.status === "APPROVED");
-        const exited = gatePasses.filter((g) => g.status === "EXITED");
-        const rejected = gatePasses.filter((g) => g.status === "REJECTED");
+        const hasMore = gatePasses.length > BATCH_SIZE;
+        const batch = hasMore ? gatePasses.slice(0, BATCH_SIZE) : gatePasses;
+        const last = batch[batch.length - 1];
+        const nextCursor = hasMore && last
+          ? `${last.createdAt.toISOString()}|${last.id}`
+          : null;
 
-        const rows = gatePasses.map((gp) => ({
+        const pending = batch.filter((g) => g.status === "PENDING");
+        const approved = batch.filter((g) => g.status === "APPROVED");
+        const exited = batch.filter((g) => g.status === "EXITED");
+        const rejected = batch.filter((g) => g.status === "REJECTED");
+
+        const rows = batch.map((gp) => ({
           id: gp.id,
           gatePassNumber: gp.gatePassNumber,
           status: gp.status,
@@ -136,6 +144,8 @@ export default function MobileGatePassPage() {
                 canExit={canExit}
                 canCreate={canCreate}
                 canManage={canManage}
+                loadMoreUrl="/api/mobile/list/gate-passes"
+                initialCursor={nextCursor}
                 exportTitle="Gate Passes"
                 exportRows={rows as unknown as Record<string, unknown>[]}
                 exportColumns={[

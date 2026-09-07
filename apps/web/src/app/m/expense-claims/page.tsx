@@ -16,17 +16,25 @@ export default function MobileExpenseClaimsPage() {
         const canApprove = hasPermission(role, PERM.EXPENSE_APPROVE);
         const canCreate = hasPermission(role, PERM.EXPENSE_CREATE);
 
+        const BATCH_SIZE = 40;
         const claims = await prisma.expenseClaim.findMany({
           where: { companyId: company.id },
-          orderBy: { createdAt: "desc" },
-          take: 80,
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: BATCH_SIZE + 1,
           include: {
             claimant: { select: { id: true, name: true } },
             project: { select: { id: true, name: true } },
           },
         });
 
-        const rows: ExpenseClaimListItem[] = claims.map((c) => ({
+        const hasMore = claims.length > BATCH_SIZE;
+        const batch = hasMore ? claims.slice(0, BATCH_SIZE) : claims;
+        const last = batch[batch.length - 1];
+        const nextCursor = hasMore && last
+          ? `${last.createdAt.toISOString()}|${last.id}`
+          : null;
+
+        const rows: ExpenseClaimListItem[] = batch.map((c) => ({
           id: c.id,
           claimantName: c.claimant?.name ?? "—",
           projectName: c.project?.name ?? null,
@@ -46,6 +54,8 @@ export default function MobileExpenseClaimsPage() {
             pendingCount={pendingCount}
             canApprove={canApprove}
             canCreate={canCreate}
+            loadMoreUrl="/api/mobile/list/expense-claims"
+            initialCursor={nextCursor}
           />
         );
       }}

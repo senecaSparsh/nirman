@@ -20,6 +20,8 @@ export function MobileCustomersLeadsTabs({
   customerStats,
   leadCount,
   existingPhones = [],
+  customerLoadMoreUrl,
+  customerInitialCursor,
 }: {
   customers: CustomerListItem[];
   leads: LeadListItem[];
@@ -35,6 +37,8 @@ export function MobileCustomersLeadsTabs({
   leadCount: number;
   /** Existing phone numbers for duplicate-check in the new-customer FAB modal. */
   existingPhones?: string[];
+  customerLoadMoreUrl?: string;
+  customerInitialCursor?: string | null;
 }) {
   const [tab, setTab] = useState<"customers" | "leads">("customers");
 
@@ -97,6 +101,8 @@ export function MobileCustomersLeadsTabs({
           canDelete={canDelete}
           stats={customerStats}
           existingPhones={existingPhones}
+          loadMoreUrl={customerLoadMoreUrl}
+          initialCursor={customerInitialCursor}
           exportTitle="Customers"
           exportRows={customers as unknown as Record<string, unknown>[]}
           exportColumns={[

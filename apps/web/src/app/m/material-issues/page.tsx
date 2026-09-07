@@ -5,12 +5,11 @@ import { Package } from "lucide-react";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {
   MobilePageHeader,
-  MobileStatusBadge,
-  MobileRow,
   MobileEmptyState,
   Card,
 } from "@/components/mobile/v2/primitives";
 import { formatCurrency } from "@/lib/utils";
+import { MobileMaterialIssuesList, type MaterialIssueListItem } from "./MobileMaterialIssuesList";
 
 /**
  * /m/material-issues — mobile list of stock issues (material consumption
@@ -21,7 +20,7 @@ export default function MobileMaterialIssuesPage() {
   return (
     <MobileListPage perm={PERM.INVENTORY_VIEW} what="material issues" permission="inventory.view">
       {async ({ company }) => {
-        const BATCH_SIZE = 60;
+        const BATCH_SIZE = 40;
         const issues = await prisma.materialIssue.findMany({
           where: {
             fromLocation: { companyId: company.id, deletedAt: null },
@@ -32,12 +31,17 @@ export default function MobileMaterialIssuesPage() {
             project: { select: { name: true } },
             department: { select: { name: true } },
             subcontractor: { select: { name: true } },
+            issuedBy: { select: { name: true } },
             lines: { select: { qty: true, unitCost: true } },
           },
         });
 
         const hasMore = issues.length > BATCH_SIZE;
         const batch = hasMore ? issues.slice(0, BATCH_SIZE) : issues;
+        const last = batch[batch.length - 1];
+        const nextCursor = hasMore && last
+          ? `${last.createdAt.toISOString()}|${last.id}`
+          : null;
 
         const totalValue = batch
           .filter((i) => i.status === "COMPLETED")
@@ -49,6 +53,19 @@ export default function MobileMaterialIssuesPage() {
           );
 
         const pendingCount = batch.filter((i) => i.status === "PENDING").length;
+
+        const serialized: MaterialIssueListItem[] = batch.map((i) => ({
+          id: i.id,
+          issueNumber: i.issueNumber ?? null,
+          date: i.issueDate.toISOString(),
+          status: i.status,
+          projectName: i.project?.name ?? null,
+          departmentName: i.department?.name ?? null,
+          issuedByName: i.issuedBy?.name ?? null,
+          lineCount: i.lines.length,
+          totalValue: i.lines.reduce((s, l) => s + toNum(l.qty) * toNum(l.unitCost), 0),
+          createdAt: i.createdAt.toISOString(),
+        }));
 
         return (
           <div>
@@ -89,36 +106,11 @@ export default function MobileMaterialIssuesPage() {
                 description="Stock issued to projects or departments will appear here."
               />
             ) : (
-              <div className="flex flex-col gap-2 px-4">
-                {batch.map((issue) => {
-                  const target =
-                    issue.project?.name ??
-                    issue.department?.name ??
-                    issue.subcontractor?.name ??
-                    "—";
-                  const lineValue = issue.lines.reduce(
-                    (s, l) => s + toNum(l.qty) * toNum(l.unitCost),
-                    0,
-                  );
-                  const meta = `${issue.issueDate.toLocaleDateString("en-IN", {
-                    day: "2-digit",
-                    month: "short",
-                  })} · ${issue.lines.length} item${issue.lines.length === 1 ? "" : "s"} · ${formatCurrency(lineValue)}`;
-                  return (
-                    <MobileRow
-                      key={issue.id}
-                      href={`/m/material-issues/${issue.id}`}
-                      icon={Package}
-                      title={issue.issueNumber ?? "Issue"}
-                      subtitle={target}
-                      meta={meta}
-                      badge={
-                        <MobileStatusBadge status={issue.status} label={issue.status} />
-                      }
-                    />
-                  );
-                })}
-              </div>
+              <MobileMaterialIssuesList
+                initialItems={serialized}
+                loadMoreUrl="/api/mobile/list/material-issues"
+                initialCursor={nextCursor}
+              />
             )}
           </div>
         );

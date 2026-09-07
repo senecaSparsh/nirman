@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -30,6 +30,7 @@ import {
   MobileFab,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
@@ -52,18 +53,18 @@ type GatePassRow = {
   destination: string | null;
   purpose: string | null;
   notes: string | null;
-  approvalNotes: string | null;
-  exitNotes: string | null;
+  approvalNotes?: string | null;
+  exitNotes?: string | null;
   createdAt: string;
-  submittedAt: string | null;
-  approvedAt: string | null;
-  exitedAt: string | null;
-  approvedByName: string | null;
-  createdByName: string | null;
-  submittedByName: string | null;
-  rejectedByName: string | null;
-  exitedByName: string | null;
-  rejectionReason: string | null;
+  submittedAt?: string | null;
+  approvedAt?: string | null;
+  exitedAt?: string | null;
+  approvedByName?: string | null;
+  createdByName?: string | null;
+  submittedByName?: string | null;
+  rejectedByName?: string | null;
+  exitedByName?: string | null;
+  rejectionReason?: string | null;
   lineCount: number;
   lines: {
     id: string;
@@ -102,11 +103,13 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export function MobileGatePassList({
-  gatePasses,
+  gatePasses: initialItems,
   canApprove,
   canExit,
   canCreate,
   canManage,
+  loadMoreUrl,
+  initialCursor,
   exportTitle,
   exportRows,
   exportColumns,
@@ -117,6 +120,8 @@ export function MobileGatePassList({
   canExit: boolean;
   canCreate: boolean;
   canManage: boolean;
+  loadMoreUrl?: string;
+  initialCursor?: string | null;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
@@ -133,16 +138,19 @@ export function MobileGatePassList({
   const [exitNotes, setExitNotes] = useState("");
   const [exitPhotos, setExitPhotos] = useState<{ url: string; fileName?: string }[]>([]);
 
-  // ── Optimistic updates: maintain a local copy of gate passes that
-  // updates immediately on action, then syncs with server. If the server
-  // fails, we revert to the original prop data.
-  const [localGps, setLocalGps] = useState<GatePassRow[]>(gatePasses);
-  // Keep local state in sync when server data changes (e.g. after router.refresh())
-  useEffect(() => { setLocalGps(gatePasses); }, [gatePasses]);
+  // ── Paginated list: maintains the items array across "Load More" fetches.
+  // Optimistic updates use `setItems` directly (same pattern as the old
+  // localGps state). The initial `gatePasses` prop is also used to revert
+  // failed optimistic updates.
+  const { items, loading, hasMore, loadMore, setItems } = usePaginatedList<GatePassRow>(
+    initialItems,
+    loadMoreUrl ?? "",
+    initialCursor ?? null,
+  );
 
-  function updateGpStatus(id: string, status: GatePassRow["status"]) {
-    setLocalGps((prev) => prev.map((gp) => gp.id === id ? { ...gp, status } : gp));
-  }
+  const updateGpStatus = useCallback((id: string, status: GatePassRow["status"]) => {
+    setItems((prev) => prev.map((gp) => gp.id === id ? { ...gp, status } : gp));
+  }, [setItems]);
 
   const toggle = useCallback((id: string) => {
     setExpanded((prev) => {
@@ -154,15 +162,15 @@ export function MobileGatePassList({
   }, []);
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return localGps;
+    if (!query.trim()) return items;
     const q = query.toLowerCase();
-    return localGps.filter((gp) =>
+    return items.filter((gp) =>
       gp.gatePassNumber.toLowerCase().includes(q) ||
       (gp.vehicleNumber ?? "").toLowerCase().includes(q) ||
       (gp.driverName ?? "").toLowerCase().includes(q) ||
       (gp.destination ?? "").toLowerCase().includes(q),
     );
-  }, [localGps, query]);
+  }, [items, query]);
 
   const handleAction = useCallback(
     async (id: string, action: string, body?: Record<string, unknown>) => {
@@ -193,14 +201,14 @@ export function MobileGatePassList({
         router.refresh();
       } catch (err: unknown) {
         // ── Revert: restore the original status from server props ──
-        const original = gatePasses.find((gp) => gp.id === id);
+        const original = initialItems.find((gp) => gp.id === id);
         if (original) updateGpStatus(id, original.status);
         toast.error(err instanceof Error ? err.message : "Action failed");
       } finally {
         setActionLoading(null);
       }
     },
-    [router, gatePasses],
+    [router, initialItems, updateGpStatus],
   );
 
   const submitReject = useCallback(() => {
@@ -467,6 +475,15 @@ export function MobileGatePassList({
           </div>
         );
       })}
+
+      {loadMoreUrl ? (
+        <MobileLoadMore
+          onClick={loadMore}
+          loading={loading}
+          hasMore={hasMore}
+          count={items.length}
+        />
+      ) : null}
 
       {/* Reject dialog */}
       {rejectTarget && (

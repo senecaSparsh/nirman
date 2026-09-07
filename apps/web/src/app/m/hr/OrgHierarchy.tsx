@@ -7,14 +7,11 @@ import {
   Building2,
   HardHat,
   Layers,
-  CircleUser,
   Mail,
   Phone,
   ClipboardList,
   FileText,
   Inbox,
-  Folder,
-  FolderOpen,
   Users,
   Wrench,
   CheckCircle2,
@@ -40,18 +37,6 @@ import { MobileEmptyState } from "@/components/mobile/v2/primitives";
    ═══════════════════════════════════════════════════════════════════════════ */
 
 const INDENT_PX = 20;
-
-// ── Tier → colour (for the role badge + icon background) ──
-const TIER_STYLE: Record<number, { bg: string; fg: string }> = {
-  1: { bg: "var(--color-ink-950)", fg: "var(--color-paper)" },
-  2: { bg: "var(--color-steel)", fg: "#fff" },
-  3: { bg: "var(--color-signal)", fg: "var(--color-ink-950)" },
-  4: { bg: "var(--color-concrete)", fg: "var(--color-ink-700)" },
-  5: { bg: "var(--color-paper-2)", fg: "var(--color-ink-500)" },
-};
-function tierStyle(tier: number) {
-  return TIER_STYLE[tier] ?? TIER_STYLE[5]!;
-}
 
 export interface OrgScope {
   kind: string;
@@ -496,14 +481,6 @@ function PersonNode({
   defaultOpen: boolean;
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
-  // Turbopack RSC serialization can lose recursive `reports`/`teams` arrays
-  // (and even primitive fields like `descendantCount`/`hasChildren`) when
-  // passing complex nested objects from Server → Client components.
-  // We use a `mounted` state to defer the folder/leaf icon decision to after
-  // hydration, ensuring server and client render the same initial icon.
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => { setMounted(true); }, []);
-  const ts = tierStyle(person.tier);
   const hasReports = (person.reports?.length ?? 0) > 0;
   const hasTeams = (person.teams?.length ?? 0) > 0;
   const hasDetail =
@@ -522,11 +499,6 @@ function PersonNode({
     (person.leave?.pendingRequests ?? 0) > 0 ||
     person.leave?.onLeaveToday === true;
   const isFolder = person.hasChildren === true || hasReports || hasTeams;
-  // Before mount, always render as a leaf (CircleUser) to match the client's
-  // initial render (where nested data is lost). After mount, use the real value.
-  // NOTE: `effectiveIsFolder` only affects the ICON, not expandability —
-  // the card should always be expandable if there's data or children.
-  const effectiveIsFolder = mounted ? isFolder : false;
   const expandable = isFolder || hasDetail;
   // Build the sub-label from designation + employeeCode, but skip the
   // designation if it's the same as the roleLabel (e.g. "Owner" / "Owner")
@@ -538,7 +510,7 @@ function PersonNode({
   const sub = subParts.length > 0 ? subParts.join(" · ") : undefined;
 
   // Right-side content: descendant count for folders, task count for leaves
-  const rightContent = effectiveIsFolder ? (
+  const rightContent = isFolder ? (
     <span
       className="text-m-caption font-bold tabular-nums shrink-0"
       style={{ color: "var(--color-ink-500)" }}
@@ -561,18 +533,6 @@ function PersonNode({
         depth={depth}
         isLast={isLast}
         ancestorLast={ancestorLast}
-        icon={
-          effectiveIsFolder ? (
-            open ? (
-              <FolderOpen className="size-2.5" style={{ color: ts.fg }} />
-            ) : (
-              <Folder className="size-2.5" style={{ color: ts.fg }} />
-            )
-          ) : (
-            <CircleUser className="size-2.5" style={{ color: ts.fg }} />
-          )
-        }
-        iconBg={ts.bg}
         chevron={expandable}
         chevronOpen={open}
         onChevronClick={() => expandable && setOpen((o) => !o)}
@@ -582,8 +542,6 @@ function PersonNode({
         nameBold={person.tier <= 2}
         badge={person.isSelf ? "You" : undefined}
         roleTag={person.roleLabel}
-        roleTagBg={ts.bg}
-        roleTagFg={ts.fg}
         sub={sub}
         right={rightContent}
         callHref={person.phone ? `tel:${person.phone}` : undefined}
@@ -705,8 +663,6 @@ function MemberNode({
       depth={depth}
       isLast={isLast}
       ancestorLast={ancestorLast}
-      icon={<HardHat className="size-2.5" style={{ color: "var(--color-ink-500)" }} />}
-      iconBg="var(--color-paper-2)"
       chevron={false}
       name={member.name}
       nameHref="/m/hr/employees"
@@ -1071,8 +1027,6 @@ function TreeRow({
   nameBold,
   badge,
   roleTag,
-  roleTagBg,
-  roleTagFg,
   sub,
   right,
   callHref,
@@ -1081,8 +1035,8 @@ function TreeRow({
   depth: number;
   isLast: boolean;
   ancestorLast: boolean[];
-  icon: React.ReactNode;
-  iconBg: string;
+  icon?: React.ReactNode;
+  iconBg?: string;
   chevron?: boolean;
   chevronOpen?: boolean;
   onChevronClick?: () => void;
@@ -1093,8 +1047,6 @@ function TreeRow({
   badge?: string;
   /** Role label tag rendered right after the name (e.g. "OWNER", "ADMIN"). */
   roleTag?: string;
-  roleTagBg?: string;
-  roleTagFg?: string;
   sub?: string;
   right?: React.ReactNode;
   /** If set, renders a phone call button at the rightmost end of the row. */
@@ -1173,13 +1125,15 @@ function TreeRow({
         ) : null}
       </div>
 
-      {/* ── Icon ── */}
-      <span
-        className="grid place-items-center size-4 rounded-[0.1875rem] shrink-0"
-        style={{ backgroundColor: iconBg }}
-      >
-        {icon}
-      </span>
+      {/* ── Icon (only for group nodes, not person rows) ── */}
+      {icon ? (
+        <span
+          className="grid place-items-center size-4 rounded-[0.1875rem] shrink-0"
+          style={{ backgroundColor: iconBg }}
+        >
+          {icon}
+        </span>
+      ) : null}
 
       {/* ── Name + role tag + badge ── */}
       {nameHref ? (
@@ -1192,10 +1146,10 @@ function TreeRow({
           <span className="truncate">{name}</span>
           {roleTag ? (
             <span
-              className="ml-1 inline-block rounded px-1 py-px text-m-caption font-bold uppercase align-middle shrink-0"
+              className="ml-1 inline-block rounded px-0.5 py-px text-[0.55rem] font-bold uppercase align-middle shrink-0"
               style={{
-                backgroundColor: roleTagBg ?? "var(--color-concrete)",
-                color: roleTagFg ?? "var(--color-ink-700)",
+                backgroundColor: "var(--color-ink-950)",
+                color: "var(--color-paper)",
               }}
             >
               {roleTag}
@@ -1203,7 +1157,7 @@ function TreeRow({
           ) : null}
           {badge ? (
             <span
-              className="ml-1 inline-block rounded px-1 py-px text-m-caption font-bold uppercase align-middle shrink-0"
+              className="ml-1 inline-block rounded px-0.5 py-px text-[0.55rem] font-bold uppercase align-middle shrink-0"
               style={{ backgroundColor: "var(--color-signal-wash)", color: "var(--color-signal-dark)" }}
             >
               {badge}
@@ -1220,10 +1174,10 @@ function TreeRow({
           <span className="truncate">{name}</span>
           {roleTag ? (
             <span
-              className="ml-1 inline-block rounded px-1 py-px text-m-caption font-bold uppercase align-middle shrink-0"
+              className="ml-1 inline-block rounded px-0.5 py-px text-[0.55rem] font-bold uppercase align-middle shrink-0"
               style={{
-                backgroundColor: roleTagBg ?? "var(--color-concrete)",
-                color: roleTagFg ?? "var(--color-ink-700)",
+                backgroundColor: "var(--color-ink-950)",
+                color: "var(--color-paper)",
               }}
             >
               {roleTag}
@@ -1231,7 +1185,7 @@ function TreeRow({
           ) : null}
           {badge ? (
             <span
-              className="ml-1 inline-block rounded px-1 py-px text-m-caption font-bold uppercase align-middle shrink-0"
+              className="ml-1 inline-block rounded px-0.5 py-px text-[0.55rem] font-bold uppercase align-middle shrink-0"
               style={{ backgroundColor: "var(--color-signal-wash)", color: "var(--color-signal-dark)" }}
             >
               {badge}

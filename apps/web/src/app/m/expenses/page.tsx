@@ -17,10 +17,11 @@ export default function MobileExpensesPage() {
         const canView = hasPermission(role, PERM.FINANCE_VIEW);
         const canCreate = hasPermission(role, PERM.EXPENSE_CREATE);
 
+        const BATCH_SIZE = 40;
         const expenses = await prisma.expense.findMany({
           where: { companyId: company.id },
-          orderBy: { date: "desc" },
-          take: 80,
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: BATCH_SIZE + 1,
           include: {
             project: { select: { id: true, name: true } },
             categoryMaster: { select: { id: true, name: true } },
@@ -28,7 +29,14 @@ export default function MobileExpensesPage() {
           },
         });
 
-        const rows: ExpenseListItem[] = expenses.map((e) => ({
+        const hasMore = expenses.length > BATCH_SIZE;
+        const batch = hasMore ? expenses.slice(0, BATCH_SIZE) : expenses;
+        const last = batch[batch.length - 1];
+        const nextCursor = hasMore && last
+          ? `${last.createdAt.toISOString()}|${last.id}`
+          : null;
+
+        const rows: ExpenseListItem[] = batch.map((e) => ({
           id: e.id,
           category: e.category,
           amount: toNum(e.amount),
@@ -65,6 +73,8 @@ export default function MobileExpensesPage() {
               categoryCount={categories.size}
               canView={canView}
               canCreate={canCreate}
+              loadMoreUrl="/api/mobile/list/expenses"
+              initialCursor={nextCursor}
               exportTitle="Expenses"
               exportRows={rows as unknown as Record<string, unknown>[]}
               exportColumns={exportColumns}

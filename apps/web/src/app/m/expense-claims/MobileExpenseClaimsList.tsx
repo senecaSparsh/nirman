@@ -21,6 +21,7 @@ import {
   type SummaryStat,
 } from "@/components/mobile/v2/scaffold";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
 
 export type ExpenseClaimListItem = {
   id: string;
@@ -41,21 +42,31 @@ const STATUS_META: Record<string, { label: string; icon: typeof Clock; color: st
 };
 
 export function MobileExpenseClaimsList({
-  items,
+  items: initialItems,
   totalAmount,
   pendingCount,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   canApprove,
   canCreate,
+  loadMoreUrl,
+  initialCursor,
 }: {
   items: ExpenseClaimListItem[];
   totalAmount: number;
   pendingCount: number;
   canApprove?: boolean;
   canCreate?: boolean;
+  loadMoreUrl?: string;
+  initialCursor?: string | null;
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+
+  const { items, loading, hasMore, loadMore } = usePaginatedList<ExpenseClaimListItem>(
+    initialItems,
+    loadMoreUrl ?? "",
+    initialCursor ?? null,
+  );
 
   const statusOptions = useMemo(() => {
     const set = new Set(items.map((c) => c.status));
@@ -125,6 +136,14 @@ export function MobileExpenseClaimsList({
         ))}
       </MobileCardGrid>
       {filtered.length === 0 && <MobileNoResults query={query} />}
+      {loadMoreUrl ? (
+        <MobileLoadMore
+          onClick={loadMore}
+          loading={loading}
+          hasMore={hasMore}
+          count={items.length}
+        />
+      ) : null}
     </div>
   );
 }

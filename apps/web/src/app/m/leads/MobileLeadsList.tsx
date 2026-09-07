@@ -23,6 +23,7 @@ import {
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewLeadClient } from "./new/MobileNewLeadClient";
@@ -90,11 +91,13 @@ const FILTER_OPTIONS: { label: string; value: StageFilter }[] = [
  * Card grid with stage accent and priority indicator.
  */
 export function MobileLeadsList({
-  items,
+  items: initialItems,
   hotCount,
   bookedCount,
   followUpsDue,
   canCreate,
+  loadMoreUrl,
+  initialCursor,
   exportTitle,
   exportRows,
   exportColumns,
@@ -108,6 +111,8 @@ export function MobileLeadsList({
   bookedCount: number;
   followUpsDue: number;
   canCreate?: boolean;
+  loadMoreUrl?: string;
+  initialCursor?: string | null;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
@@ -121,6 +126,12 @@ export function MobileLeadsList({
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [stageFilter, setStageFilter] = useState<StageFilter>("ALL");
+
+  const { items, loading, hasMore, loadMore } = usePaginatedList<LeadListItem>(
+    initialItems,
+    loadMoreUrl ?? "",
+    initialCursor ?? null,
+  );
 
   const filtered = useMemo(() => {
     let result = items;
@@ -214,6 +225,15 @@ export function MobileLeadsList({
           ))}
         </MobileCardGrid>
       )}
+
+      {loadMoreUrl ? (
+        <MobileLoadMore
+          onClick={loadMore}
+          loading={loading}
+          hasMore={hasMore}
+          count={items.length}
+        />
+      ) : null}
 
       {/* ── New lead FAB ── */}
       {canCreate ? (

@@ -14,10 +14,11 @@ export default function MobileSuppliersPage() {
   return (
     <MobileListPage managePerm={PERM.PROCUREMENT_MANAGE}>
       {async ({ company, canManage }) => {
+        const BATCH_SIZE = 40;
         const suppliers = await prisma.supplier.findMany({
           where: { companyId: company.id, deletedAt: null },
-          orderBy: { name: "asc" },
-          take: 80,
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: BATCH_SIZE + 1,
           include: {
             _count: {
               select: {
@@ -27,7 +28,14 @@ export default function MobileSuppliersPage() {
           },
         });
 
-        const rows: SupplierListItem[] = suppliers.map((s) => ({
+        const hasMore = suppliers.length > BATCH_SIZE;
+        const batch = hasMore ? suppliers.slice(0, BATCH_SIZE) : suppliers;
+        const last = batch[batch.length - 1];
+        const nextCursor = hasMore && last
+          ? `${last.createdAt.toISOString()}|${last.id}`
+          : null;
+
+        const rows: SupplierListItem[] = batch.map((s) => ({
           id: s.id,
           name: s.name,
           gstin: s.gstin ?? null,
@@ -52,6 +60,8 @@ export default function MobileSuppliersPage() {
             totalOwed={totalOwed}
             withDuesCount={withDues.length}
             canCreate={canManage}
+            loadMoreUrl="/api/mobile/list/suppliers"
+            initialCursor={nextCursor}
             exportTitle="Suppliers"
             exportRows={rows as unknown as Record<string, unknown>[]}
             exportColumns={exportColumns}
