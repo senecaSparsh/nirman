@@ -92,7 +92,7 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
       where: {
         companyId: company.id,
         role: { in: ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "SALES_MANAGER"] },
-        user: { active: true },
+        user: { active: true, isHidden: { not: true } },
       },
       orderBy: { user: { name: "asc" } },
       select: { user: { select: { id: true, name: true } } },

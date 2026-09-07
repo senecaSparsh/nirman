@@ -401,7 +401,7 @@ async function loadOrgTree(
 
   // ── Fetch all memberships with user info, scopes, and reporting line ──
   const memberships = await prisma.userCompany.findMany({
-    where: { companyId },
+    where: { companyId, user: { isHidden: { not: true } } },
     include: {
       user: {
         select: {

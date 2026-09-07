@@ -34,7 +34,7 @@ export default function MobileNewLeadPage() {
             where: {
               companyId: company.id,
               role: { in: ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "SALES_MANAGER"] },
-              user: { active: true },
+              user: { active: true, isHidden: { not: true } },
             },
             orderBy: { user: { name: "asc" } },
             select: { user: { select: { id: true, name: true } } },

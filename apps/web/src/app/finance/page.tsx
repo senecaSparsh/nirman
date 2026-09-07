@@ -197,7 +197,7 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
       if (accounts.length === 0) { await seedChartOfAccounts(); accounts = await prisma.glAccount.findMany({ orderBy: { code: "asc" }, select: { code: true, name: true, type: true, isSystem: true } }); }
       return accounts;
     })(),
-    prisma.user.findMany({ where: { memberships: { some: { companyId: company.id } } }, orderBy: { name: "asc" }, select: { id: true, name: true }, take: 200 }),
+    prisma.user.findMany({ where: { memberships: { some: { companyId: company.id } }, isHidden: { not: true } }, orderBy: { name: "asc" }, select: { id: true, name: true }, take: 200 }),
   ]);
 
   const categoryRows: ExpenseCategoryRow[] = expenseCategories.map((c) => ({ id: c.id, name: c.name, glAccountCode: c.glAccountCode, description: c.description, isActive: c.isActive }));

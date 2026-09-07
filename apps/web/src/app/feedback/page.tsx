@@ -8,12 +8,12 @@ export const metadata = {
 };
 
 /**
- * Feedback Inbox — the developer/owner's view of all user feedback.
+ * Feedback Inbox — the developer's view of all user feedback.
  * Shows screenshots, voice note playback, text, user info, and the
  * page URL where the feedback was submitted. Supports filtering by
  * status + category, and resolving/archiving/reopening feedback.
  *
- * Access: DEVELOPER, OWNER, ADMIN only (enforced in the API routes).
+ * Access: DEVELOPER only (enforced in the API routes).
  */
 export default function FeedbackPage() {
   return (

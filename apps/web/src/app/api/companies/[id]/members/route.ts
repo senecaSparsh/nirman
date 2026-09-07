@@ -14,7 +14,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
   const { id } = await ctx.params;
 
   const members = await prisma.userCompany.findMany({
-    where: { companyId: id },
+    where: { companyId: id, user: { isHidden: { not: true } } },
     orderBy: { user: { name: "asc" } },
     include: {
       user: { select: { id: true, name: true, email: true, active: true } },

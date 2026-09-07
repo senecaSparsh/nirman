@@ -42,7 +42,7 @@ async function SiteTasksContent() {
     }),
     canAssign
       ? prisma.userCompany.findMany({
-          where: { companyId: company.id, user: { active: true } },
+          where: { companyId: company.id, user: { active: true, isHidden: { not: true } } },
           include: { user: { select: { id: true, name: true } } },
           orderBy: { user: { name: "asc" } },
         })

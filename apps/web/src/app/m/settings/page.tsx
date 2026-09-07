@@ -94,7 +94,7 @@ export default function SettingsPage() {
           // Team members
           isOwner
             ? prisma.userCompany.findMany({
-                where: { companyId: company.id },
+                where: { companyId: company.id, user: { isHidden: { not: true } } },
                 include: { user: { select: { id: true, name: true, email: true, active: true } } },
                 take: 20,
               })

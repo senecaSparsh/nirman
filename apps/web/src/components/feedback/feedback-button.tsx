@@ -18,7 +18,7 @@ import { FeedbackDialog } from "./feedback-dialog";
  * The button is positioned bottom-right on desktop, and bottom-right
  * above the mobile tab bar on mobile. It's hidden on auth/print pages.
  *
- * For DEVELOPER/OWNER/ADMIN roles, a small badge shows the count of
+ * For the DEVELOPER role, a small badge shows the count of
  * unread (NEW) feedback entries — clicking the badge navigates to the
  * feedback inbox at /feedback.
  *
@@ -34,9 +34,9 @@ export function FeedbackButton() {
   // first paint instead of popping in after a client fetch.
   const { data: meData } = useSWR<{ role?: string | null } | null>("/api/me", swrFetcher);
   const role = meData?.role ?? null;
-  const canSeeInbox = role === "OWNER" || role === "ADMIN" || role === "DEVELOPER";
+  const canSeeInbox = role === "DEVELOPER";
 
-  // Fetch unread feedback count only for developer/owner/admin.
+  // Fetch unread feedback count only for the developer.
   // Conditional key (null when not eligible) → SWR skips the fetch.
   const { data: statsData } = useSWR(
     canSeeInbox ? "/api/feedback/stats" : null,

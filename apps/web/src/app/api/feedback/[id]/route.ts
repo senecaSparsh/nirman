@@ -9,7 +9,7 @@ import {
 import { apiHandler, json, requireUser } from "@/lib/server";
 
 /**
- * GET /api/feedback/[id] — get a single feedback entry (DEVELOPER/OWNER/ADMIN).
+ * GET /api/feedback/[id] — get a single feedback entry (DEVELOPER only).
  * Also marks NEW feedback as READ on first view.
  */
 export const GET = apiHandler(async (
@@ -17,8 +17,8 @@ export const GET = apiHandler(async (
   { params }: { params: Promise<{ id: string }> },
 ) => {
   const user = await requireUser();
-  if (user.role !== "OWNER" && user.role !== "ADMIN" && user.role !== "DEVELOPER") {
-    return json({ error: "Forbidden — only developers and owners can view feedback." }, { status: 403 });
+  if (user.role !== "DEVELOPER") {
+    return json({ error: "Forbidden — only the developer can view feedback." }, { status: 403 });
   }
   const { id } = await params;
   const feedback = await getFeedback(id);
@@ -30,7 +30,7 @@ export const GET = apiHandler(async (
 });
 
 /**
- * PATCH /api/feedback/[id] — update feedback status (DEVELOPER/OWNER/ADMIN).
+ * PATCH /api/feedback/[id] — update feedback status (DEVELOPER only).
  *
  * Body: {
  *   action: "resolve" | "archive" | "reopen" | "markRead",
@@ -42,8 +42,8 @@ export const PATCH = apiHandler(async (
   { params }: { params: Promise<{ id: string }> },
 ) => {
   const user = await requireUser();
-  if (user.role !== "OWNER" && user.role !== "ADMIN" && user.role !== "DEVELOPER") {
-    return json({ error: "Forbidden — only developers and owners can manage feedback." }, { status: 403 });
+  if (user.role !== "DEVELOPER") {
+    return json({ error: "Forbidden — only the developer can manage feedback." }, { status: 403 });
   }
   const { id } = await params;
 

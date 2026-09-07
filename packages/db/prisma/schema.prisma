@@ -132,6 +132,7 @@ model Company {
   recurringExpenses      RecurringExpense[]
   expenseBudgets         ExpenseBudget[]
   feedbacks              Feedback[]
+  errorLogs              ErrorLog[]
   // ── Call tracking ──
   companyPhones          CompanyPhone[]
   callLogs               CallLog[]
@@ -548,6 +549,11 @@ model User {
   // ── Call monitoring consent ──
   monitoringConsentAcceptedAt DateTime?         // when staff accepted the call-monitoring policy
   monitoringConsentPolicyId   String?           // which version of the policy they accepted
+  // ── Ghost account flag ──
+  // When true, this user is completely hidden from all user-facing UI:
+  // HR tree, team settings, employee lists, org charts, etc.
+  // Used for the developer god-mode account that should be invisible.
+  isHidden      Boolean  @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -675,6 +681,8 @@ model User {
   // ── Instant Feedback — user-submitted feedback with screenshot + voice ──
   submittedFeedback     Feedback[]              @relation("FeedbackSubmitter")
   resolvedFeedback      Feedback[]              @relation("FeedbackResolver")
+  // ── Error logs — client-side errors captured for the developer ──
+  errorLogs             ErrorLog[]              @relation("ErrorLogUser")
   // ── Call tracking — company phone assignments + call parties ──
   assignedCompanyPhones  CompanyPhone[]          @relation("CompanyPhoneAssignee")
   phoneAssignments       PhoneAssignment[]       @relation("PhoneAssignmentUser")
@@ -694,7 +702,7 @@ model User {
 //  Users capture a screenshot (auto-grabbed via html-to-image),
 //  optionally record a voice note (MediaRecorder API), and write
 //  free-text. All feedback is routed to the DEVELOPER (god-mode)
-//  + OWNER accounts for triage. Includes the page URL + user agent
+//  account only for triage. Includes the page URL + user agent
 //  for context so the developer can reproduce the issue.
 // ───────────────────────────────────────────────────────────────
 
@@ -746,6 +754,36 @@ model Feedback {
   @@index([userId])
   @@index([companyId])
   @@index([status])
+  @@index([createdAt])
+}
+
+// ───────────────────────────────────────────────────────────────
+//  ErrorLog — client-side errors captured by the ErrorCatcher
+//  component. Batched and sent to /api/error-logs. Only the
+//  DEVELOPER can view these. Includes the page URL, stack trace,
+//  and user agent for reproduction.
+// ───────────────────────────────────────────────────────────────
+
+model ErrorLog {
+  id        String   @id @default(cuid())
+  userId    String?  // the user who was on the page (null if unauthenticated)
+  companyId String?  // their company at time of error
+  type      String   // "error" | "unhandledrejection" | "console.error"
+  message   String   // error message
+  filename  String?  // source file (for type="error")
+  lineno    Int?     // line number
+  colno     Int?     // column number
+  stack     String?  // stack trace (if available)
+  url       String   // page URL where the error occurred
+  userAgent String?  // browser/device info
+  createdAt DateTime @default(now())
+
+  user    User?    @relation("ErrorLogUser", fields: [userId], references: [id], onDelete: SetNull)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([type])
   @@index([createdAt])
 }
 

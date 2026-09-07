@@ -931,7 +931,7 @@ function MobileShellInner({
 /** A bottom tab button — 56px touch target, amber underline for active. */
 function TabButton({ tab, active, badge }: { tab: RouteEntry; active: boolean; badge?: number }) {
   const Icon = tab.icon;
-  const label = tab.title;
+  const label = tab.shortTitle ?? tab.title;
   return (
     <Link
       href={tab.path}
@@ -974,7 +974,7 @@ function TabButton({ tab, active, badge }: { tab: RouteEntry; active: boolean; b
 
       {/* Label */}
       <span
-        className="text-m-caption font-semibold tracking-wide"
+        className="text-m-caption font-semibold tracking-wide text-center leading-tight"
         style={{ color: active ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
       >
         {label}

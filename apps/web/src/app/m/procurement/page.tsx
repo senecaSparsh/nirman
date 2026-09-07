@@ -228,7 +228,7 @@ export default function MobileProcurementPage() {
         let pendingIds = new Set<string>();
         if (membership) {
           const directReports = await prisma.userCompany.findMany({
-            where: { reportsToUserCompanyId: membership.id },
+            where: { reportsToUserCompanyId: membership.id, user: { isHidden: { not: true } } },
             select: { id: true },
           });
           const reportIds = new Set(directReports.map((r) => r.id));

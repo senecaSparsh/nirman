@@ -129,7 +129,7 @@ export async function CallsContent({
         select: { id: true, version: true, policyText: true, effectiveAt: true, _count: { select: { acceptances: true } } },
       }),
       prisma.userCompany.findMany({
-        where: { companyId: company.id },
+        where: { companyId: company.id, user: { isHidden: { not: true } } },
         select: { id: true, recordCalls: true, user: { select: { id: true, name: true, role: true, active: true } } },
         orderBy: { user: { name: "asc" } },
       }),

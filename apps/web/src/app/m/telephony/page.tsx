@@ -37,7 +37,7 @@ export default function MobileTelephonyPage() {
             select: { id: true, version: true, policyText: true, effectiveAt: true, _count: { select: { acceptances: true } } },
           }),
           prisma.userCompany.findMany({
-            where: { companyId: company.id },
+            where: { companyId: company.id, user: { isHidden: { not: true } } },
             select: {
               id: true,
               recordCalls: true,

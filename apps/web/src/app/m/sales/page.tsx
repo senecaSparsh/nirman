@@ -57,7 +57,7 @@ export default function MobileSalesPage() {
             select: { id: true, unitNumber: true, unitType: true, projectId: true, project: { select: { name: true } } },
           }),
           prisma.userCompany.findMany({
-            where: { companyId: company.id, role: { in: ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "SALES_MANAGER"] }, user: { active: true } },
+            where: { companyId: company.id, role: { in: ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "SALES_MANAGER"] }, user: { active: true, isHidden: { not: true } } },
             orderBy: { user: { name: "asc" } },
             select: { user: { select: { id: true, name: true } } },
           }),

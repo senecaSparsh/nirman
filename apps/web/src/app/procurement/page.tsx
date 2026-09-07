@@ -182,7 +182,7 @@ async function ProcurementContent() {
     membership
       ? prisma.userCompany.findMany({
           take: 200,
-          where: { reportsToUserCompanyId: membership.id },
+          where: { reportsToUserCompanyId: membership.id, user: { isHidden: { not: true } } },
           select: { id: true },
         })
       : [],

@@ -58,7 +58,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 });
 
 /**
- * GET /api/feedback — list feedback entries (DEVELOPER/OWNER/ADMIN only).
+ * GET /api/feedback — list feedback entries (DEVELOPER only).
  *
  * Query params:
  *   - status: NEW | READ | RESOLVED | ARCHIVED
@@ -68,9 +68,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
  */
 export const GET = apiHandler(async (req: NextRequest) => {
   const user = await requireUser();
-  // Only god-mode / executive roles can view the feedback inbox.
-  if (user.role !== "OWNER" && user.role !== "ADMIN" && user.role !== "DEVELOPER") {
-    return json({ error: "Forbidden — only developers and owners can view feedback." }, { status: 403 });
+  // Only the developer can view the feedback inbox.
+  if (user.role !== "DEVELOPER") {
+    return json({ error: "Forbidden — only the developer can view feedback." }, { status: 403 });
   }
 
   const { searchParams } = req.nextUrl;

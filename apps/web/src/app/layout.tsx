@@ -6,6 +6,7 @@ import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { EmployeeNavListener } from "@/components/employee-nav-listener";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
+import { ErrorCatcher } from "@/components/dev/error-catcher";
 // SW register is client-only and not needed for first paint — lazy-loaded
 // via a client wrapper (ssr:false dynamic imports can't be used directly
 // in Server Components).
@@ -125,8 +126,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   disruptive desktop↔mobile redirects. */}
               {/* Instant feedback — floating button on every page.
                   Auto-captures a screenshot, lets users record voice +
-                  write feedback, routes it to the developer/owner. */}
+                  write feedback, routes it to the developer only.
+                  The inbox + unread badge are only visible to DEVELOPER. */}
               <FeedbackButton />
+              {/* Error catcher — captures all client-side errors and
+                  sends them to /api/error-logs for the developer. */}
+              <ErrorCatcher />
             </CurrencyProvider>
           </SWRConfig>
         </Suspense>

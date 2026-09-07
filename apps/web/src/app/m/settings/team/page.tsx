@@ -43,7 +43,7 @@ async function TeamContent() {
   // Get all users in this company with their membership info
   const [memberships, projects, departments] = await Promise.all([
     prisma.userCompany.findMany({
-      where: { companyId: company.id },
+      where: { companyId: company.id, user: { isHidden: { not: true } } },
       orderBy: { createdAt: "asc" },
       include: {
         user: { select: { id: true, name: true, email: true, phone: true, active: true, role: true, designation: true, department: true, employeeCode: true, joiningDate: true } },

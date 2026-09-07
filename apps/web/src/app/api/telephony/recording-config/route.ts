@@ -17,7 +17,7 @@ export const GET = apiHandler(async () => {
   const company = await getCompany();
 
   const memberships = await prisma.userCompany.findMany({
-    where: { companyId: company.id },
+    where: { companyId: company.id, user: { isHidden: { not: true } } },
     select: {
       id: true,
       recordCalls: true,

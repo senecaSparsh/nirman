@@ -101,7 +101,7 @@ export async function SettingsContent() {
     }),
     // Fetch memberships for the reportsTo selector (create user wizard)
     prisma.userCompany.findMany({
-      where: { companyId: company.id, user: { active: true } },
+      where: { companyId: company.id, user: { active: true, isHidden: { not: true } } },
       select: {
         id: true,
         userId: true,

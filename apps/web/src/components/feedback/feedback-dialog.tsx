@@ -32,7 +32,7 @@ import { cn } from "@/lib/utils";
  *   3. Lets the user write free-text feedback
  *   4. On submit, uploads screenshot + voice via /api/uploads, then
  *      POSTs the feedback to /api/feedback — which routes it to the
- *      DEVELOPER (god-mode) + OWNER accounts.
+ *      DEVELOPER (god-mode) account only.
  * ═══════════════════════════════════════════════════════════════════
  */
 
