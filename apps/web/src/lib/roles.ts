@@ -237,6 +237,8 @@ export const PERM = {
   // Safety — incidents, hazards, inspections
   SAFETY_VIEW: "safety.view",
   SAFETY_MANAGE: "safety.manage",
+  // Audit — view audit logs (before/after payloads)
+  AUDIT_VIEW: "audit.view",
 } as const;
 
 export type Permission = (typeof PERM)[keyof typeof PERM];
@@ -330,7 +332,7 @@ export const PERMISSION_MODULES: {
     key: "admin",
     label: "Admin & Settings",
     icon: "Settings",
-    permissions: [PERM.USERS_VIEW, PERM.USERS_MANAGE, PERM.COMPANY_MANAGE, PERM.ATTACHMENT_MANAGE],
+    permissions: [PERM.USERS_VIEW, PERM.USERS_MANAGE, PERM.COMPANY_MANAGE, PERM.ATTACHMENT_MANAGE, PERM.AUDIT_VIEW],
   },
   {
     key: "safety",
@@ -404,6 +406,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_RECORDING_LISTEN, PERM.CALL_ANALYTICS,
       PERM.TELEPHONY_VIEW,
       PERM.SAFETY_VIEW, PERM.SAFETY_MANAGE,
+      PERM.AUDIT_VIEW,
     ],
     canManageUsers: false,
     canAssignTasks: true,

@@ -137,6 +137,19 @@ function SignInForm() {
         body: JSON.stringify({ companyId: selectedCompanyId }),
       }).catch(() => {});
     }
+    // Fetch the user profile once — used both for the must-change-password
+    // check and for role-based routing. The phone flow already handles
+    // mustChangePassword server-side and returns before reaching here, so
+    // this check is what enforces it for email sign-in (admin-created email
+    // users default to mustChangePassword=true).
+    const me = await fetch("/api/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
+    if (me?.mustChangePassword) {
+      router.push("/change-password");
+      router.refresh();
+      return;
+    }
     const redirect = searchParams.get("redirect");
     if (redirect) {
       router.push(redirect);
@@ -149,9 +162,6 @@ function SignInForm() {
       router.refresh();
       return;
     }
-    const me = await fetch("/api/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .catch(() => null);
     router.push(homeWorldFor(me?.role ?? "PROJECT_MANAGER").href);
     router.refresh();
   }
@@ -890,14 +900,9 @@ function SignInForm() {
               {loading ? "Signing in…" : "Sign in"}
             </Button>
 
-            <div className="text-center">
-              <a
-                href="/forgot-password"
-                className="text-caption text-muted-foreground underline hover:text-foreground"
-              >
-                Forgot password?
-              </a>
-            </div>
+            <p className="text-center text-micro text-muted-foreground">
+              Forgot your password? Contact your administrator to reset it.
+            </p>
           </form>
         )}
 
@@ -934,10 +939,7 @@ function SignInForm() {
         )}
 
         <p className="mt-5 text-center text-caption text-muted-foreground">
-          No account?{" "}
-          <a href="/sign-up" className="font-medium text-foreground underline">
-            Set up your company
-          </a>
+          Need an account? Contact your administrator.
         </p>
       </div>
     </div>

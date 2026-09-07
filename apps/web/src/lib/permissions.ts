@@ -11,7 +11,10 @@ import { hasPermission, isManagerOrAbove, normalizeRole, type Role } from "@/lib
  * for UI affordance; every API route enforces permissions server-side.
  */
 export function usePermissions() {
-  const [role, setRole] = useState<Role>("PROJECT_MANAGER");
+  // Default to the LEAST-privileged role while loading so privileged
+  // buttons don't flash before /api/me resolves. The server is the
+  // source of truth — this only affects UI affordance, not access.
+  const [role, setRole] = useState<Role>("SUPERVISOR");
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createTask } from "@nirman/services";
-import { apiHandler, json, requirePermission, requireUser, taskSchema } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireUser, taskSchema } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate } from "@/lib/utils";
 
@@ -14,6 +14,7 @@ import { formatDate } from "@/lib/utils";
 export const GET = apiHandler(async (req: NextRequest) => {
   const user = await requireUser();
   const role = user.role;
+  const company = await getCompany();
 
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
@@ -26,6 +27,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
   // Non-managers only see their own tasks
   if (!hasPermission(role, PERM.TASKS_ASSIGN)) {
     where.assignedToId = user.id;
+  } else {
+    // Managers see tasks for users in their company only (tenant isolation)
+    where.assignedTo = { memberships: { some: { companyId: company.id } } };
   }
 
   const tasks = await prisma.task.findMany({
@@ -60,6 +64,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
  */
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.TASKS_ASSIGN);
+  const company = await getCompany();
 
   const body = await req.json();
   const parsed = taskSchema.safeParse(body);
@@ -67,16 +72,17 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
 
-  // Verify assignee exists and is active
-  const assignee = await prisma.user.findUnique({
-    where: { id: parsed.data.assignedToId },
+  // Verify assignee exists, is active, and is in the actor's company
+  const assignee = await prisma.user.findFirst({
+    where: {
+      id: parsed.data.assignedToId,
+      active: true,
+      memberships: { some: { companyId: company.id } },
+    },
     select: { id: true, active: true, name: true },
   });
   if (!assignee) {
-    return json({ error: "Assignee not found" }, { status: 400 });
-  }
-  if (!assignee.active) {
-    return json({ error: "Cannot assign a task to an inactive user" }, { status: 400 });
+    return json({ error: "Assignee not found or not in your company" }, { status: 400 });
   }
 
   const created = await createTask({

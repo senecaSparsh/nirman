@@ -29,7 +29,7 @@ const SUPERVISOR = { role: "SUPERVISOR" as const };
 describe("POST /api/tasks/[id]/comments", () => {
   beforeEach(() => {
     setSessionUser(OWNER);
-    mockPrisma().task!.findUnique.mockResolvedValue({ assignedToId: "user-owner-1" });
+    mockPrisma().task!.findFirst.mockResolvedValue({ assignedToId: "user-owner-1" });
   });
 
   it("returns 201 on successful comment creation", async () => {
@@ -51,7 +51,7 @@ describe("POST /api/tasks/[id]/comments", () => {
   });
 
   it("returns 404 when task not found", async () => {
-    mockPrisma().task!.findUnique.mockResolvedValue(null);
+    mockPrisma().task!.findFirst.mockResolvedValue(null);
     const res = await POST(
       makeRequest("/api/tasks/task-99/comments", { method: "POST", body: { body: "Test" } }),
       { params: Promise.resolve({ id: "task-99" }) },
@@ -61,7 +61,7 @@ describe("POST /api/tasks/[id]/comments", () => {
 
   it("returns 403 when user is not assignee and not a manager", async () => {
     setSessionUser(SUPERVISOR);
-    mockPrisma().task!.findUnique.mockResolvedValue({ assignedToId: "other-user" });
+    mockPrisma().task!.findFirst.mockResolvedValue({ assignedToId: "other-user" });
     const res = await POST(
       makeRequest("/api/tasks/task-1/comments", { method: "POST", body: { body: "Test" } }),
       { params: Promise.resolve({ id: "task-1" }) },

@@ -164,6 +164,26 @@ export async function getCompanyGroupIds(current?: { id: string; parentCompanyId
   return [...ids];
 }
 
+/**
+ * Validate that all attachment upload IDs belong to the user's company.
+ * Prevents cross-company attachment linking (e.g. linking another company's
+ * upload ID to a safety record). Returns an error message string if any
+ * attachment doesn't belong to the company, or null if all are valid.
+ *
+ * Empty/undefined attachment arrays are valid (no check needed).
+ */
+export async function validateAttachments(attachmentIds: string[] | undefined, companyId: string): Promise<string | null> {
+  if (!attachmentIds || attachmentIds.length === 0) return null;
+  const valid = await prisma.upload.findMany({
+    where: { id: { in: attachmentIds }, companyId },
+    select: { id: true },
+  });
+  if (valid.length !== attachmentIds.length) {
+    return "One or more attachments do not belong to your company.";
+  }
+  return null;
+}
+
 /** Convert a Prisma Decimal (or string) to a JS number for client serialization. */
 export function toNum(v: unknown): number {
   if (v == null) return 0;
@@ -1690,6 +1710,8 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
     rateLimit?: "read" | "write" | "auth" | "webhook" | "heavy" | false;
     /** Cache tag for server-side caching (GET only). Set to enable. */
     cache?: { tag: string; ttlMs?: number };
+    /** Skip session check — for cron/webhook routes that authenticate via secret header. */
+    skipSession?: boolean;
   } = {},
 ) {
   return async (req: Request, ctx: TCtx): Promise<Response> => {
@@ -1708,9 +1730,11 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
     const untrack = trackRequest();
     return runWithRequestContext(async () => {
     try {
-        const session = await getSession();
-        if (!session) {
-          return json({ error: "Unauthorized" }, { status: 401 });
+        if (!opts.skipSession) {
+          const session = await getSession();
+          if (!session) {
+            return json({ error: "Unauthorized" }, { status: 401 });
+          }
         }
 
         // Auto-apply rate limiting (unless explicitly disabled).

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma, type Prisma } from "@nirman/db";
-import { apiHandler, json, requireUser } from "@/lib/server";
+import { apiHandler, json, requirePermission } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 
 /**
  * GET /api/audit?entityType=X&entityId=Y
@@ -15,7 +16,7 @@ import { apiHandler, json, requireUser } from "@/lib/server";
  * (legacy) are only visible to OWNER/ADMIN.
  */
 export const GET = apiHandler(async (req: NextRequest) => {
-  const user = await requireUser();
+  const user = await requirePermission(PERM.AUDIT_VIEW);
   const { searchParams } = new URL(req.url);
   const entityType = searchParams.get("entityType");
   const entityId = searchParams.get("entityId");

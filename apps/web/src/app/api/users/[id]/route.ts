@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, requirePermission, json, userRoleSchema } from "@/lib/server";
+import { apiHandler, requirePermission, getCompany, json, userRoleSchema } from "@/lib/server";
 import { canAssignRole, PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
@@ -31,6 +31,17 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   const existing = await prisma.user.findUnique({ where: { id: userId } });
   if (!existing) {
+    return json({ error: "User not found" }, { status: 404 });
+  }
+
+  // Verify the target user is a member of the actor's current company
+  // (prevents cross-tenant user management).
+  const company = await getCompany();
+  const membership = await prisma.userCompany.findFirst({
+    where: { userId, companyId: company.id },
+    select: { id: true },
+  });
+  if (!membership && existing.companyId !== company.id) {
     return json({ error: "User not found" }, { status: 404 });
   }
 

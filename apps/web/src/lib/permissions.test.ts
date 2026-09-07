@@ -20,7 +20,7 @@ describe("usePermissions", () => {
     fetchSpy.mockResolvedValue({ ok: true, json: () => Promise.resolve({ role: "OWNER", id: "u1" }) });
     const { result } = renderHook(() => usePermissions());
     expect(result.current.loading).toBe(true);
-    expect(result.current.role).toBe("PROJECT_MANAGER");
+    expect(result.current.role).toBe("SUPERVISOR");
   });
 
   it("fetches /api/me and sets the role on success", async () => {
@@ -36,14 +36,14 @@ describe("usePermissions", () => {
     const { result } = renderHook(() => usePermissions());
     await waitFor(() => expect(result.current.loading).toBe(false));
     // Role stays as default
-    expect(result.current.role).toBe("PROJECT_MANAGER");
+    expect(result.current.role).toBe("SUPERVISOR");
   });
 
   it("sets loading=false when response is not ok", async () => {
     fetchSpy.mockResolvedValue({ ok: false, json: () => Promise.resolve(null) });
     const { result } = renderHook(() => usePermissions());
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.role).toBe("PROJECT_MANAGER");
+    expect(result.current.role).toBe("SUPERVISOR");
   });
 
   it("can() delegates to hasPermission with the current role", async () => {

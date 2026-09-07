@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { getIncident, updateIncident, investigateIncident, closeIncident, cancelIncident, deleteIncident } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, validateAttachments } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -75,6 +75,8 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
 
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  const attachErr = await validateAttachments(parsed.data.attachments, company.id);
+  if (attachErr) return json({ error: attachErr }, { status: 403 });
   try {
     return json(await updateIncident(id, {
       ...parsed.data,

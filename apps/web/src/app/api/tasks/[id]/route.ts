@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { updateTaskStatus, reassignTask } from "@nirman/services";
-import { apiHandler, json, requirePermission, requireUser, taskStatusSchema } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireUser, taskStatusSchema } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 
 /**
@@ -11,18 +11,20 @@ import { PERM, hasPermission } from "@/lib/roles";
  */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requireUser();
+  const company = await getCompany();
   const { id: taskId } = await params;
 
-  const task = await prisma.task.findUnique({
+  const task = await prisma.task.findFirst({
     where: { id: taskId },
-    include: { assignedTo: { select: { id: true } } },
+    include: { assignedTo: { select: { id: true, memberships: { where: { companyId: company.id }, select: { id: true } } } } },
   });
   if (!task) return json({ error: "Task not found" }, { status: 404 });
 
   const isAssignee = task.assignedToId === user.id;
   const isManager = hasPermission(user.role, PERM.TASKS_ASSIGN);
-  if (!isAssignee && !isManager) {
-    return json({ error: "Forbidden" }, { status: 403 });
+  const sameCompany = task.assignedTo.memberships.length > 0;
+  if (!sameCompany || (!isAssignee && !isManager)) {
+    return json({ error: "Task not found" }, { status: 404 });
   }
 
   // Re-fetch with full relations via the service.
@@ -40,9 +42,15 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requireUser();
+  const company = await getCompany();
   const { id: taskId } = await params;
 
-  const existing = await prisma.task.findUnique({ where: { id: taskId } });
+  const existing = await prisma.task.findFirst({
+    where: {
+      id: taskId,
+      assignedTo: { memberships: { some: { companyId: company.id } } },
+    },
+  });
   if (!existing) {
     return json({ error: "Task not found" }, { status: 404 });
   }
@@ -107,9 +115,15 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
  */
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.TASKS_ASSIGN);
+  const company = await getCompany();
 
   const { id: taskId } = await params;
-  const existing = await prisma.task.findUnique({ where: { id: taskId } });
+  const existing = await prisma.task.findFirst({
+    where: {
+      id: taskId,
+      assignedTo: { memberships: { some: { companyId: company.id } } },
+    },
+  });
   if (!existing) {
     return json({ error: "Task not found" }, { status: 404 });
   }

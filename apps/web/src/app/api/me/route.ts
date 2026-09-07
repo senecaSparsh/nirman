@@ -25,7 +25,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   // Fetch phone + effective permissions in parallel (permissions hit
   // RolePermission + UserCompany.userPermissions).
   const [dbUser, permissions] = await Promise.all([
-    prisma.user.findUnique({ where: { id: sessionUser.id }, select: { phone: true } }),
+    prisma.user.findUnique({ where: { id: sessionUser.id }, select: { phone: true, mustChangePassword: true } }),
     getUserPermissions().catch(() => [] as string[]),
   ]);
   const res = json({
@@ -34,6 +34,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     email: sessionUser.email ?? null,
     role: sessionUser.role ?? null,
     phone: dbUser?.phone ?? null,
+    mustChangePassword: dbUser?.mustChangePassword ?? false,
     permissions,
   });
   // User role/name changes rarely — cache for 60s, revalidate in background.

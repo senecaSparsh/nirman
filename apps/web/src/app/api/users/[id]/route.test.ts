@@ -60,6 +60,8 @@ describe("PATCH /api/users/[id]", () => {
     mockPrisma().lead!.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma().userCompany!.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma().userCompany!.findMany.mockResolvedValue([]);
+    // Company membership check: target user is a member of company-1
+    mockPrisma().userCompany!.findFirst.mockResolvedValue({ id: "uc-target" });
   });
 
   it("updates a user's role and returns { ok: true }", async () => {
@@ -157,5 +159,21 @@ describe("PATCH /api/users/[id]", () => {
     expect(res.status).toBe(200);
     expect(mockPrisma().session!.deleteMany).toHaveBeenCalled();
     expect(mockPrisma().task!.updateMany).toHaveBeenCalled();
+  });
+
+  it("returns 404 when target user is not in the actor's company (cross-tenant denial)", async () => {
+    // Target user exists but has no membership in the actor's company
+    mockPrisma().user!.findUnique.mockImplementation(async (args: any) => {
+      if (args?.where?.id === "user-owner-1") {
+        return { id: "user-owner-1", role: "OWNER", companyId: "company-1", active: true };
+      }
+      return { id: "u-other", role: "SITE_ENGINEER", active: true, name: "Jane", companyId: "company-2" };
+    });
+    mockPrisma().userCompany!.findFirst.mockResolvedValue(null);
+    const res = await PATCH(
+      makeRequest("/api/users/u-other", { method: "PATCH", body: { role: "STORE_KEEPER" } }),
+      makeCtx("u-other"),
+    );
+    expect(res.status).toBe(404);
   });
 });

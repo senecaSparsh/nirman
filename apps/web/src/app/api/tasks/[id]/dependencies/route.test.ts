@@ -30,6 +30,8 @@ const SUPERVISOR = { role: "SUPERVISOR" as const };
 describe("POST /api/tasks/[id]/dependencies", () => {
   beforeEach(() => {
     setSessionUser(OWNER);
+    // verifyTaskInCompany checks both tasks via task.findFirst
+    mockPrisma().task!.findFirst.mockResolvedValue({ id: "task-1" });
   });
 
   it("returns 201 on successful dependency creation", async () => {
@@ -72,6 +74,7 @@ describe("POST /api/tasks/[id]/dependencies", () => {
 describe("DELETE /api/tasks/[id]/dependencies", () => {
   beforeEach(() => {
     setSessionUser(OWNER);
+    mockPrisma().task!.findFirst.mockResolvedValue({ id: "task-1" });
   });
 
   it("returns 200 on successful dependency removal", async () => {

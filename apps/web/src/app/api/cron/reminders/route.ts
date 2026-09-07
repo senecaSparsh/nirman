@@ -74,4 +74,4 @@ export const POST = apiHandler(async (req: NextRequest) => {
     recurringExpenses,
     legalDocs,
   });
-});
+}, { skipSession: true, rateLimit: false });

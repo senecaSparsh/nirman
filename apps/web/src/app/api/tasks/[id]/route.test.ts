@@ -11,10 +11,38 @@ import {
 vi.mock("@/lib/auth", () => authMocks.authFactory());
 vi.mock("@nirman/db", () => authMocks.dbFactory());
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn(), unstable_cache: (fn: unknown) => fn }));
+vi.mock("@nirman/services", async () => {
+  const actual = await vi.importActual("@nirman/services");
+  return {
+    ...actual,
+    getTaskDetail: vi.fn().mockResolvedValue({
+      id: "task-1",
+      title: "Fix bug",
+      description: "Fix the login bug",
+      instructions: null,
+      status: "PENDING",
+      priority: "medium",
+      dueDate: "2024-12-31",
+      completedAt: null,
+      createdAt: "2024-01-01",
+      assignedToId: "user-owner-1",
+      assignedTo: { id: "user-owner-1", name: "Test Owner", email: "owner@test.com", role: "OWNER", employees: [] },
+      assignedBy: { id: "user-owner-1", name: "Test Owner" },
+      subtasks: [],
+      comments: [],
+      activities: [],
+      timeLogs: [],
+      blocking: [],
+      blockedBy: [],
+    }),
+    updateTaskStatus: vi.fn().mockResolvedValue({ id: "task-1", status: "IN_PROGRESS" }),
+  };
+});
 
 vi.spyOn(console, "error").mockImplementation(() => {});
 
 import { GET, PATCH, DELETE } from "./route";
+import { getTaskDetail } from "@nirman/services";
 
 const OWNER = { role: "OWNER" as const };
 const ACCOUNTANT = { role: "ACCOUNTANT" as const };
@@ -31,7 +59,7 @@ function prismaTask(overrides: Partial<Record<string, unknown>> = {}) {
     completedAt: null,
     createdAt: new Date("2024-01-01"),
     assignedToId: "user-owner-1",
-    assignedTo: { id: "user-owner-1" },
+    assignedTo: { id: "user-owner-1", memberships: [{ id: "uc-1" }] },
     ...overrides,
   };
 }
@@ -56,10 +84,9 @@ const ctx = { params: Promise.resolve({ id: "task-1" }) };
 describe("GET /api/tasks/[id]", () => {
   beforeEach(() => {
     setSessionUser(OWNER);
-    // First call: initial existence check. Second call: getTaskDetail re-fetch.
-    mockPrisma().task!.findUnique
-      .mockResolvedValueOnce(prismaTask())
-      .mockResolvedValueOnce(taskDetail());
+    // Route uses findFirst for initial check; getTaskDetail is mocked
+    mockPrisma().task!.findFirst.mockResolvedValue(prismaTask());
+    vi.mocked(getTaskDetail).mockResolvedValue(taskDetail() as any);
   });
 
   it("returns 200 with the task detail", async () => {
@@ -71,14 +98,14 @@ describe("GET /api/tasks/[id]", () => {
   });
 
   it("returns 404 when task not found", async () => {
-    mockPrisma().task!.findUnique.mockReset().mockResolvedValue(null);
+    mockPrisma().task!.findFirst.mockReset().mockResolvedValue(null);
     const res = await GET(makeRequest("/api/tasks/missing"), ctx);
     expect(res.status).toBe(404);
   });
 
   it("returns 401 when not authenticated", async () => {
     clearSession();
-    mockPrisma().task!.findUnique.mockResolvedValue(prismaTask());
+    mockPrisma().task!.findFirst.mockResolvedValue(prismaTask());
     const res = await GET(makeRequest("/api/tasks/task-1"), ctx);
     expect(res.status).toBe(401);
   });
@@ -87,7 +114,7 @@ describe("GET /api/tasks/[id]", () => {
 describe("PATCH /api/tasks/[id]", () => {
   beforeEach(() => {
     setSessionUser(OWNER);
-    mockPrisma().task!.findUnique.mockResolvedValue(prismaTask());
+    mockPrisma().task!.findFirst.mockResolvedValue(prismaTask());
     mockPrisma().task!.update.mockResolvedValue(prismaTask({ status: "IN_PROGRESS" }));
   });
 
@@ -110,7 +137,7 @@ describe("PATCH /api/tasks/[id]", () => {
   });
 
   it("returns 404 when task not found", async () => {
-    mockPrisma().task!.findUnique.mockResolvedValue(null);
+    mockPrisma().task!.findFirst.mockResolvedValue(null);
     const res = await PATCH(
       makeRequest("/api/tasks/missing", { method: "PATCH", body: { status: "IN_PROGRESS" } }),
       ctx,
@@ -120,7 +147,7 @@ describe("PATCH /api/tasks/[id]", () => {
 
   it("returns 403 when non-assignee non-manager tries to update", async () => {
     setSessionUser(ACCOUNTANT);
-    mockPrisma().task!.findUnique.mockResolvedValue(prismaTask({ assignedToId: "someone-else" }));
+    mockPrisma().task!.findFirst.mockResolvedValue(prismaTask({ assignedToId: "someone-else" }));
     const res = await PATCH(
       makeRequest("/api/tasks/task-1", { method: "PATCH", body: { title: "X" } }),
       ctx,
@@ -132,7 +159,7 @@ describe("PATCH /api/tasks/[id]", () => {
 describe("DELETE /api/tasks/[id]", () => {
   beforeEach(() => {
     setSessionUser(OWNER);
-    mockPrisma().task!.findUnique.mockResolvedValue(prismaTask());
+    mockPrisma().task!.findFirst.mockResolvedValue(prismaTask());
     mockPrisma().task!.delete.mockResolvedValue(prismaTask());
   });
 
@@ -144,7 +171,7 @@ describe("DELETE /api/tasks/[id]", () => {
   });
 
   it("returns 404 when task not found", async () => {
-    mockPrisma().task!.findUnique.mockResolvedValue(null);
+    mockPrisma().task!.findFirst.mockResolvedValue(null);
     const res = await DELETE(makeRequest("/api/tasks/missing", { method: "DELETE" }), ctx);
     expect(res.status).toBe(404);
   });

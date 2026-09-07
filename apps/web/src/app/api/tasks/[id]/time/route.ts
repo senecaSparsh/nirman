@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { startTimer, stopTimer } from "@nirman/services";
-import { apiHandler, json, requireUser } from "@/lib/server";
+import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { z } from "zod";
 
@@ -13,9 +13,13 @@ const stopSchema = z.object({ note: z.string().max(500).optional() });
  */
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requireUser();
+  const company = await getCompany();
   const { id: taskId } = await params;
 
-  const task = await prisma.task.findUnique({ where: { id: taskId }, select: { assignedToId: true } });
+  const task = await prisma.task.findFirst({
+    where: { id: taskId, assignedTo: { memberships: { some: { companyId: company.id } } } },
+    select: { assignedToId: true },
+  });
   if (!task) return json({ error: "Task not found" }, { status: 404 });
 
   const isAssignee = task.assignedToId === user.id;

@@ -37,20 +37,24 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
+    // Disable Better-Auth's built-in public /sign-up/email endpoint. This
+    // app is invite-only: the first owner is created via /api/auth/bootstrap
+    // (gated to an empty DB), and all subsequent users are created by an
+    // admin via direct prisma.user.create. Without this, anyone could POST
+    // {email, password, name} and create a dangling user that getCompany()
+    // would silently promote into a new isolated tenant. The databaseHook
+    // below (user.create.before → false) is a second layer of defense in
+    // case this flag is ever accidentally removed.
+    disableSignUp: true,
     minPasswordLength: 8,
-    // Password reset flow. In dev (no email provider), the reset URL is
-    // logged to the server console. In production, wire an email provider
-    // (Resend/SES/SendGrid) to actually send the link.
-    sendResetPassword: async ({ user, url }) => {
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`[Password Reset] ${user.email} → ${url}`);
-        return;
-      }
-      // TODO: wire an email provider in production.
-      // For now, log so the admin can forward the link manually.
-      console.log(`[Password Reset] ${user.email} → ${url}`);
-    },
-    // Revoke all other sessions when a password is reset (security best practice).
+    // Password resets are admin-managed, not self-service. Employees contact
+    // their administrator, who resets the password from Team settings via
+    // POST /api/users/[id]/reset-password (direct Prisma, not Better-Auth).
+    // Better-Auth's self-service reset endpoints (requestPasswordReset /
+    // resetPassword) are effectively dead — no UI calls them and no
+    // sendResetPassword callback is configured. The admin flow sets
+    // mustChangePassword=true so the employee chooses their own password
+    // on next login.
     revokeSessionsOnPasswordReset: true,
   },
   user: {
@@ -71,6 +75,27 @@ export const auth = betterAuth({
         required: false,
         defaultValue: true,
         input: false,
+      },
+    },
+  },
+  // ── Disable public self-sign-up ────────────────────────────────────
+  // This app is invite-only. The first owner is created via
+  // /api/auth/bootstrap (gated to an empty DB), and all subsequent users are
+  // created by an admin from the Team settings page using direct
+  // prisma.user.create — which bypasses Better-Auth's adapter and therefore
+  // these hooks. Better-Auth's built-in /sign-up/email endpoint, however, is
+  // live whenever emailAndPassword is enabled. Without this hook anyone could
+  // POST {email, password, name} and create a dangling user (role defaults to
+  // PROJECT_MANAGER, no companyId, no UserCompany membership) which
+  // getCompany() would then silently promote into a brand-new isolated
+  // "My Company" tenant — i.e. open registration into a fresh tenant.
+  // Returning false from user.create.before cancels the write. This hook only
+  // fires on Better-Auth adapter writes, so bootstrap / admin / demo-login
+  // flows (which use prisma directly) are completely unaffected.
+  databaseHooks: {
+    user: {
+      create: {
+        before: async () => false,
       },
     },
   },

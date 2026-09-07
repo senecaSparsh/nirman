@@ -34,7 +34,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   return withTimeout(doBackup(), 120_000, "Backup timed out after 120s");
-});
+}, { skipSession: true, rateLimit: false });
 
 async function doBackup(): Promise<Response> {
   const startTime = Date.now();

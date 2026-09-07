@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import {apiHandler, json, requireUser} from "@/lib/server";
+import {apiHandler, getCompany, json, requireUser} from "@/lib/server";
 
 /**
  * GET /api/suppliers/[id]/last-grn — returns logistics fields from the
@@ -12,12 +12,20 @@ import {apiHandler, json, requireUser} from "@/lib/server";
  */
 export const GET = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requireUser();
+  const company = await getCompany();
   const { id } = await params;
+
+  // Verify the supplier belongs to the user's company (prevents cross-tenant access)
+  const supplier = await prisma.supplier.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
+    select: { id: true },
+  });
+  if (!supplier) return json({ found: false });
 
   // Find the most recent GRN for any PO from this supplier
   const lastGrn = await prisma.goodsReceipt.findFirst({
     where: {
-      purchaseOrder: { supplierId: id },
+      purchaseOrder: { supplierId: id, companyId: company.id },
       // Only consider GRNs that actually have vehicle info
       vehicleNumber: { not: null },
     },

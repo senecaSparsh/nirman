@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { toggleSubTask, deleteSubTask, reorderSubTasks } from "@nirman/services";
-import { apiHandler, json, requireUser } from "@/lib/server";
+import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 
 /**
@@ -11,9 +11,13 @@ import { PERM, hasPermission } from "@/lib/roles";
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string; sid: string }> }) => {
   const user = await requireUser();
+  const company = await getCompany();
   const { id: taskId, sid } = await params;
 
-  const task = await prisma.task.findUnique({ where: { id: taskId }, select: { assignedToId: true } });
+  const task = await prisma.task.findFirst({
+    where: { id: taskId, assignedTo: { memberships: { some: { companyId: company.id } } } },
+    select: { assignedToId: true },
+  });
   if (!task) return json({ error: "Task not found" }, { status: 404 });
 
   const isAssignee = task.assignedToId === user.id;
@@ -43,9 +47,13 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string; sid: string }> }) => {
   const user = await requireUser();
+  const company = await getCompany();
   const { id: taskId, sid } = await params;
 
-  const task = await prisma.task.findUnique({ where: { id: taskId }, select: { assignedToId: true } });
+  const task = await prisma.task.findFirst({
+    where: { id: taskId, assignedTo: { memberships: { some: { companyId: company.id } } } },
+    select: { assignedToId: true },
+  });
   if (!task) return json({ error: "Task not found" }, { status: 404 });
 
   const isAssignee = task.assignedToId === user.id;

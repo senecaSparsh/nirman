@@ -140,25 +140,29 @@ async function main() {
     process.exit(result.code);
   }
 
-  // Step 2b: Always run `db push` after migrations to ensure the DB schema
-  // is fully synced with schema.prisma. This catches columns/tables that were
-  // skipped by the "already exists" migration resolution (where we marked a
-  // migration as applied without running its SQL). db push only ADDS missing
-  // schema elements — it won't drop data unless columns were removed from the
-  // schema (which we never do for master entities per AGENTS.md soft-delete
-  // convention).
-  console.log("[migrate:deploy] running: prisma db push (ensure schema sync)");
-  // --accept-data-loss is needed because Prisma warns about adding unique
-  // constraints on existing columns. On a fresh DB (or when there are no
-  // actual duplicate values), there is no data loss — the flag just silences
-  // the warning. Without it, db push exits non-zero and the schema doesn't
-  // get synced, causing "column does not exist" errors at runtime.
+  // Step 2b: Run `db push` (WITHOUT --accept-data-loss) to ensure the DB
+  // schema is fully synced with schema.prisma. This catches columns/tables
+  // that were skipped by the "already exists" migration resolution.
+  //
+  // We do NOT use --accept-data-loss per AGENTS.md:
+  //   "Never use db push --accept-data-loss in production — it can drop
+  //    columns/tables."
+  // Without the flag, db push will:
+  //   - Add missing columns/tables (safe, no data loss)
+  //   - Exit non-zero if it detects a change that WOULD lose data (e.g.
+  //     dropping a column or adding a unique constraint on a column with
+  //     duplicates). In that case, we log the warning and continue — the
+  //     migration should have already handled the schema change.
+  console.log("[migrate:deploy] running: prisma db push (ensure schema sync, no data loss)");
   const pushResult = await runCommand(
-    ["prisma", "db", "push", "--skip-generate", "--accept-data-loss"],
+    ["prisma", "db", "push", "--skip-generate"],
     "db push",
   );
   if (pushResult.code !== 0) {
-    console.log("[migrate:deploy] db push had warnings — continuing anyway");
+    console.log("[migrate:deploy] db push exited non-zero (may need a migration for schema changes) — continuing");
+    // Log the output for debugging but don't fail the deploy — the migrations
+    // above should have already applied the schema. db push is a safety net
+    // for additive changes only.
   }
 
   // Step 3: Run data-fixes.sql (optional — non-fatal if missing/empty)

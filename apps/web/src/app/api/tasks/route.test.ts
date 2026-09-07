@@ -71,7 +71,8 @@ describe("POST /api/tasks", () => {
   beforeEach(() => {
     setSessionUser(OWNER);
     mockPrisma().task!.create.mockResolvedValue({ id: "task-1" });
-    mockPrisma().user!.findUnique.mockResolvedValue({ id: "user-owner-1", active: true, name: "Test Owner" });
+    // Assignee check now uses findFirst with company membership filter
+    mockPrisma().user!.findFirst.mockResolvedValue({ id: "user-owner-1", active: true, name: "Test Owner" });
   });
 
   it("returns 400 on invalid input (missing required title)", async () => {
@@ -85,13 +86,8 @@ describe("POST /api/tasks", () => {
   });
 
   it("returns 400 when assignee not found", async () => {
-    // getCurrentUser is memoized per-request via AsyncLocalStorage, so the
-    // auth chain calls user.findUnique only once (not 3x as before). The
-    // 2nd call = assignee check.
-    const authUser = { id: "user-owner-1", role: "OWNER", companyId: "company-1", active: true };
-    mockPrisma().user!.findUnique
-      .mockResolvedValueOnce(authUser)
-      .mockResolvedValueOnce(null);
+    // Assignee check uses user.findFirst (with company membership filter)
+    mockPrisma().user!.findFirst.mockResolvedValue(null);
     const res = await POST(
       makeRequest("/api/tasks", { method: "POST", body: { title: "X", assignedToId: "ghost" } }),
       {},
@@ -100,10 +96,8 @@ describe("POST /api/tasks", () => {
   });
 
   it("returns 400 when assignee is inactive", async () => {
-    const authUser = { id: "user-owner-1", role: "OWNER", companyId: "company-1", active: true };
-    mockPrisma().user!.findUnique
-      .mockResolvedValueOnce(authUser)
-      .mockResolvedValueOnce({ id: "u1", active: false, name: "Inactive" });
+    // findFirst filters by active: true, so inactive users return null
+    mockPrisma().user!.findFirst.mockResolvedValue(null);
     const res = await POST(
       makeRequest("/api/tasks", { method: "POST", body: { title: "X", assignedToId: "u1" } }),
       {},
