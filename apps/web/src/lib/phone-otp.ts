@@ -78,17 +78,30 @@ export const OTP_CONFIG = {
 } as const;
 
 /**
- * Create a real Better-Auth session for the given user ID and return a
- * ready-to-use `Set-Cookie` header value for the session token cookie.
+ * Create a real Better-Auth session for the given user ID and return the
+ * cookie name, signed value, and attributes so the caller can set it via
+ * `NextResponse.cookies.set()` — the proper Next.js way.
  *
  * Uses Better-Auth's own `internalAdapter.createSession()` (same method
  * `signInEmail` calls internally) to create the Session row, then signs the
- * cookie using the exact same secret, cookie name, and attributes that
- * Better-Auth's `setSignedCookie` would use — read from `auth.$context` so
- * they always match, including the `__Secure-` prefix in HTTPS production.
+ * cookie value with the same HMAC-SHA256 algorithm + secret that Better-Auth's
+ * `setSignedCookie` uses. The cookie name and attributes are read from
+ * Better-Auth's own context (`auth.$context.authCookies`), so they always
+ * match — including the `__Secure-` prefix in HTTPS production.
  */
 export async function createPhoneSession(userId: string): Promise<{
-  setCookieHeader: string;
+  cookie: {
+    name: string;
+    value: string;
+    attributes: {
+      path?: string;
+      httpOnly?: boolean;
+      sameSite?: "lax" | "strict" | "none";
+      maxAge?: number;
+      secure?: boolean;
+      domain?: string;
+    };
+  };
   session: { id: string; token: string; userId: string; expiresAt: Date };
 }> {
   // 1. Access Better-Auth's internal context (same context used by signInEmail).
@@ -114,22 +127,28 @@ export async function createPhoneSession(userId: string): Promise<{
   //    that Better-Auth's setSignedCookie uses. We've verified that Node.js
   //    createHmac("sha256", secret).update(token).digest("base64") produces
   //    byte-identical output to Better-Auth's WebCrypto-based signCookieValue.
+  //    NOTE: We do NOT encodeURIComponent the value here — NextResponse.cookies.set()
+  //    does its own encoding, and double-encoding would break signature verification.
+  //    Better-Auth's parseCookies() does decodeURIComponent on read, so the
+  //    round-trip is: raw signed value → cookies.set() encodes → browser stores
+  //    encoded → browser sends encoded → parseCookies decodes → raw signed value. ✓
   const secret = ctx.secret;
   const signature = createHmac("sha256", secret).update(session.token).digest("base64");
   const signedValue = `${session.token}.${signature}`;
-  const encodedValue = encodeURIComponent(signedValue);
-
-  // 5. Build the Set-Cookie header using Better-Auth's own attributes.
-  const parts = [`${cookieName}=${encodedValue}`];
-  if (attrs.path) parts.push(`Path=${attrs.path}`);
-  if (attrs.httpOnly) parts.push("HttpOnly");
-  if (attrs.sameSite) parts.push(`SameSite=${attrs.sameSite.charAt(0).toUpperCase()}${attrs.sameSite.slice(1)}`);
-  if (typeof attrs.maxAge === "number" && attrs.maxAge >= 0) parts.push(`Max-Age=${Math.floor(attrs.maxAge)}`);
-  if (attrs.secure) parts.push("Secure");
-  if (attrs.domain) parts.push(`Domain=${attrs.domain}`);
 
   return {
-    setCookieHeader: parts.join("; "),
+    cookie: {
+      name: cookieName,
+      value: signedValue,
+      attributes: {
+        path: attrs.path,
+        httpOnly: attrs.httpOnly,
+        sameSite: attrs.sameSite as "lax" | "strict" | "none" | undefined,
+        maxAge: typeof attrs.maxAge === "number" ? Math.floor(attrs.maxAge) : undefined,
+        secure: attrs.secure,
+        domain: attrs.domain,
+      },
+    },
     session: {
       id: session.id,
       token: session.token,

@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
 import { json, ForbiddenError, UnauthorizedError } from "@/lib/server";
 import { normalizePhone, normalizePhoneForLookup, createPhoneSession } from "@/lib/phone-otp";
@@ -81,11 +81,11 @@ export const POST = async (req: NextRequest) => {
       },
     });
 
-    const { setCookieHeader } = await createPhoneSession(user.id);
+    const { cookie } = await createPhoneSession(user.id);
 
     // If user has multiple memberships, return company picker
     if (user.memberships.length > 1) {
-      return json({
+      const res = NextResponse.json({
         ok: true,
         requiresCompanySelect: true,
         user: {
@@ -100,13 +100,12 @@ export const POST = async (req: NextRequest) => {
           role: uc.role,
         })),
         mustChangePassword: user.mustChangePassword,
-      }, {
-        status: 200,
-        headers: { "Set-Cookie": setCookieHeader },
-      });
+      }, { status: 200 });
+      res.cookies.set(cookie.name, cookie.value, cookie.attributes);
+      return res;
     }
 
-    return json({
+    const res = NextResponse.json({
       ok: true,
       user: {
         id: user.id,
@@ -115,10 +114,9 @@ export const POST = async (req: NextRequest) => {
         role: user.role,
       },
       mustChangePassword: user.mustChangePassword,
-    }, {
-      status: 200,
-      headers: { "Set-Cookie": setCookieHeader },
-    });
+    }, { status: 200 });
+    res.cookies.set(cookie.name, cookie.value, cookie.attributes);
+    return res;
   } catch (err: unknown) {
     if (err instanceof ServiceError) {
       return json({ error: err.message }, { status: err.status ?? 400 });

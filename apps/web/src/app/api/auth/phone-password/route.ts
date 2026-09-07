@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
 import { json, ForbiddenError, UnauthorizedError } from "@/lib/server";
 import { normalizePhone, normalizePhoneForLookup, createPhoneSession } from "@/lib/phone-otp";
@@ -194,8 +194,8 @@ export const POST = async (req: NextRequest) => {
     if (winner.memberships.length > 1) {
       // Create the session first, then return the company list.
       // The client will show a company picker and call /api/company/switch.
-      const { setCookieHeader } = await createPhoneSession(winner.id);
-      return json({
+      const { cookie } = await createPhoneSession(winner.id);
+      const res = NextResponse.json({
         ok: true,
         requiresCompanySelect: true,
         user: {
@@ -210,16 +210,15 @@ export const POST = async (req: NextRequest) => {
           role: uc.role,
         })),
         mustChangePassword: winner.mustChangePassword,
-      }, {
-        status: 200,
-        headers: { "Set-Cookie": setCookieHeader },
-      });
+      }, { status: 200 });
+      res.cookies.set(cookie.name, cookie.value, cookie.attributes);
+      return res;
     }
 
     // ── Single company (or no membership) → create session + return ──
-    const { setCookieHeader } = await createPhoneSession(winner.id);
+    const { cookie } = await createPhoneSession(winner.id);
 
-    return json({
+    const res = NextResponse.json({
       ok: true,
       user: {
         id: winner.id,
@@ -228,10 +227,9 @@ export const POST = async (req: NextRequest) => {
         role: winner.role,
       },
       mustChangePassword: winner.mustChangePassword,
-    }, {
-      status: 200,
-      headers: { "Set-Cookie": setCookieHeader },
-    });
+    }, { status: 200 });
+    res.cookies.set(cookie.name, cookie.value, cookie.attributes);
+    return res;
   } catch (err: unknown) {
     if (err instanceof ServiceError) {
       return json({ error: err.message }, { status: err.status ?? 400 });

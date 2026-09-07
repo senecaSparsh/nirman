@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
 import { json } from "@/lib/server";
 import { createPhoneSession, normalizePhoneForLookup } from "@/lib/phone-otp";
@@ -57,9 +57,9 @@ export const POST = async (req: NextRequest) => {
     data: { usedAt: new Date(), userId: user.id },
   });
 
-  const { setCookieHeader } = await createPhoneSession(user.id);
+  const { cookie } = await createPhoneSession(user.id);
 
-  return json(
+  const res = NextResponse.json(
     {
       ok: true,
       user: {
@@ -69,9 +69,8 @@ export const POST = async (req: NextRequest) => {
         role: user.role,
       },
     },
-    {
-      status: 200,
-      headers: { "Set-Cookie": setCookieHeader },
-    },
+    { status: 200 },
   );
+  res.cookies.set(cookie.name, cookie.value, cookie.attributes);
+  return res;
 };

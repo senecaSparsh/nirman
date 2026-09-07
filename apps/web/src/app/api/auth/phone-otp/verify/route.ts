@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
 import { json } from "@/lib/server";
 import { normalizePhone, normalizePhoneForLookup, createPhoneSession, OTP_CONFIG } from "@/lib/phone-otp";
@@ -124,9 +124,9 @@ export const POST = async (req: NextRequest) => {
     });
 
     const user = matchedUsers[0]!;
-    const { setCookieHeader } = await createPhoneSession(user.id);
+    const { cookie } = await createPhoneSession(user.id);
 
-    return json(
+    const res = NextResponse.json(
       {
         ok: true,
         user: {
@@ -136,11 +136,10 @@ export const POST = async (req: NextRequest) => {
           role: user.role,
         },
       },
-      {
-        status: 200,
-        headers: { "Set-Cookie": setCookieHeader },
-      },
+      { status: 200 },
     );
+    res.cookies.set(cookie.name, cookie.value, cookie.attributes);
+    return res;
   }
 
   // ── Multiple users — return a picker list (don't mark code as used yet) ──
