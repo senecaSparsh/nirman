@@ -28,6 +28,9 @@ import {
   type MobileColumnSpec,
 } from "@/components/mobile/v2/export-share-bar";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { useFabModal } from "@/lib/use-fab-modal";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import MobileNewEquipmentClient from "./new/MobileNewEquipmentClient";
 
 type EquipmentFilter =
   | "ALL"
@@ -91,6 +94,7 @@ export function MobileEquipmentList({
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<EquipmentFilter>("ALL");
+  const fab = useFabModal();
 
   const filtered = useMemo(() => {
     let result = items;
@@ -128,7 +132,15 @@ export function MobileEquipmentList({
           hint={canCreate ? "Tap + to add your first equipment" : "Equipment will appear here once added."}
         />
         {canCreate ? (
-          <MobileFab href="/m/equipment/new" label="Add equipment" />
+          <>
+            <MobileFab onClick={fab.toggle} label="Add equipment" isOpen={fab.isOpen} />
+            <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="Add Equipment">
+              <MobileNewEquipmentClient
+                onClose={fab.close}
+                onCreated={() => { fab.close(); window.location.reload(); }}
+              />
+            </MobileFabModal>
+          </>
         ) : null}
       </div>
     );
@@ -199,7 +211,15 @@ export function MobileEquipmentList({
       )}
 
       {canCreate ? (
-        <MobileFab href="/m/equipment/new" label="Add equipment" />
+        <>
+          <MobileFab onClick={fab.toggle} label="Add equipment" isOpen={fab.isOpen} />
+          <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="Add Equipment">
+            <MobileNewEquipmentClient
+              onClose={fab.close}
+              onCreated={() => { fab.close(); window.location.reload(); }}
+            />
+          </MobileFabModal>
+        </>
       ) : null}
     </div>
   );

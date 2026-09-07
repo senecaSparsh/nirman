@@ -14,9 +14,12 @@ type Employee = { id: string; name: string };
 export function MobileNewPettyCashClient({
   projects,
   employees,
+  onCreated,
 }: {
   projects: Project[];
   employees: Employee[];
+  onClose?: () => void;
+  onCreated?: () => void;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -55,8 +58,12 @@ export function MobileNewPettyCashClient({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Failed to create float");
       toast.success("Petty cash float created");
-      router.push("/m/petty-cash");
-      router.refresh();
+      if (onCreated) {
+        onCreated();
+      } else {
+        router.push("/m/petty-cash");
+        router.refresh();
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {

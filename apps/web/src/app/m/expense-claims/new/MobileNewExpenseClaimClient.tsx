@@ -13,9 +13,12 @@ type Project = { id: string; name: string };
 export function MobileNewExpenseClaimClient({
   employees,
   projects,
+  onCreated,
 }: {
   employees: Employee[];
   projects: Project[];
+  onClose?: () => void;
+  onCreated?: (id: string) => void;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -50,8 +53,12 @@ export function MobileNewExpenseClaimClient({
       toast.success("Expense claim created", {
         description: "Add line items from the claim detail page.",
       });
-      router.push(`/m/expense-claims/${data.id}`);
-      router.refresh();
+      if (onCreated) {
+        onCreated(data.id);
+      } else {
+        router.push(`/m/expense-claims/${data.id}`);
+        router.refresh();
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {

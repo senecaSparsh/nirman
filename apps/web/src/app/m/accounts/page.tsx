@@ -60,11 +60,13 @@ export default function AccountsHomePage({
         const canManagePayments = hasPermission(role, PERM.FINANCE_MANAGE);
 
         // ── Fetch badge counts for the tab bar ──
-        const [pendingClaimsCount, projects, subcontractors] = await Promise.all([
+        const needEmployees = canCreateClaim || canManagePettyCash;
+        const needPayments = canManagePayments;
+        const [pendingClaimsCount, projects, subcontractors, employees, paymentForm] = await Promise.all([
           prisma.expenseClaim.count({
             where: { companyId: company.id, status: "SUBMITTED" },
           }).catch(() => 0),
-          (canCreateExpense || canCreateProjectCost)
+          (canCreateExpense || canCreateProjectCost || canCreateClaim || canManagePettyCash)
             ? prisma.project.findMany({
                 where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
                 select: { id: true, name: true },
@@ -78,6 +80,46 @@ export default function AccountsHomePage({
                 orderBy: { name: "asc" },
               })
             : [],
+          needEmployees
+            ? prisma.user.findMany({
+                where: { memberships: { some: { companyId: company.id } } },
+                orderBy: { name: "asc" },
+                select: { id: true, name: true },
+              })
+            : [],
+          needPayments
+            ? (async () => {
+                const [suppliers, purchaseOrders, invoices] = await Promise.all([
+                  prisma.supplier.findMany({
+                    where: { companyId: company.id, deletedAt: null },
+                    select: { id: true, name: true, balanceOwed: true },
+                    orderBy: { name: "asc" },
+                    take: 200,
+                  }),
+                  prisma.purchaseOrder.findMany({
+                    where: {
+                      companyId: company.id,
+                      supplierId: { not: undefined as unknown as string },
+                      status: { in: ["APPROVED", "ORDERED", "PARTIAL", "RECEIVED"] },
+                    },
+                    select: { id: true, poNumber: true, supplierId: true, total: true, status: true },
+                    orderBy: { createdAt: "desc" },
+                    take: 100,
+                  }),
+                  prisma.supplierInvoice.findMany({
+                    where: { companyId: company.id, status: { in: ["PENDING", "PARTIAL"] } },
+                    select: { id: true, invoiceNumber: true, supplierId: true, totalAmount: true, status: true },
+                    orderBy: { createdAt: "desc" },
+                    take: 100,
+                  }),
+                ]);
+                return {
+                  suppliers: suppliers.map((s) => ({ id: s.id, name: s.name, balanceOwed: s.balanceOwed?.toString() ?? "0" })),
+                  purchaseOrders: purchaseOrders.map((p) => ({ id: p.id, poNumber: p.poNumber, supplierId: p.supplierId, total: p.total.toString(), status: p.status })),
+                  invoices: invoices.map((i) => ({ id: i.id, invoiceNumber: i.invoiceNumber, supplierId: i.supplierId, totalAmount: i.totalAmount.toString(), status: i.status })),
+                };
+              })()
+            : { suppliers: [], purchaseOrders: [], invoices: [] },
         ]);
 
         const counts = {
@@ -111,6 +153,10 @@ export default function AccountsHomePage({
             counts={counts}
             projects={projects}
             subcontractors={subcontractors}
+            employees={employees}
+            suppliers={paymentForm.suppliers}
+            purchaseOrders={paymentForm.purchaseOrders}
+            invoices={paymentForm.invoices}
             canCreateExpense={canCreateExpense}
             canCreateProjectCost={canCreateProjectCost}
             canCreateClaim={canCreateClaim}

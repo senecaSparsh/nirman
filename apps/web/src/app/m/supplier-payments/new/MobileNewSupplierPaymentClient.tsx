@@ -30,10 +30,13 @@ export function MobileNewSupplierPaymentClient({
   suppliers: initialSuppliers,
   purchaseOrders,
   invoices,
+  onCreated,
 }: {
   suppliers: Supplier[];
   purchaseOrders: PO[];
   invoices: Invoice[];
+  onClose?: () => void;
+  onCreated?: () => void;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -118,8 +121,12 @@ export function MobileNewSupplierPaymentClient({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Failed to record payment");
       toast.success("Supplier payment recorded");
-      router.push("/m/accounts?tab=payments");
-      router.refresh();
+      if (onCreated) {
+        onCreated();
+      } else {
+        router.push("/m/accounts?tab=payments");
+        router.refresh();
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
