@@ -168,6 +168,12 @@ function SignInForm() {
   // Shared post-login routing. Honours an explicit redirect first, then
   // sends phones to /m, otherwise to the role's home world.
   async function routeAfterLogin() {
+    // Refresh Better-Auth's client-side session store. The email login flow
+    // does this internally via authClient.signIn.email(), but our custom
+    // phone-auth routes use a plain fetch() — Better-Auth's nanostore still
+    // holds the pre-login null. Without this, AppShell's useSession() returns
+    // the stale null and triggers authSignOut() → redirect to /sign-in.
+    await authClient.getSession({ query: { disableCookieCache: true } }).catch(() => {});
     // If the user selected a company on the login screen, set the cookie
     // before navigating so the first page load uses the right company.
     if (selectedCompanyId) {
