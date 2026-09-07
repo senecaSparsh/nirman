@@ -34,7 +34,7 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
-      "npx eslint --fix --max-warnings=0"
+      "npx eslint --fix --max-warnings=0 --no-warn-ignored"
     ],
     "*.{json,md,css}": [
       "npx prettier --write"

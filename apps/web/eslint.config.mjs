@@ -51,7 +51,22 @@ const eslintConfig = [
   ...nextCoreWebVitals,
   ...nextTypescript,
   {
-    ignores: [".next/**", "node_modules/**"],
+    // Ignore build output, deps, and root-level config files that aren't
+    // part of the app source. Without this, lint-staged running eslint on
+    // next.config.ts produces a "file ignored" warning that fails the
+    // --max-warnings=0 gate.
+    ignores: [
+      ".next/**",
+      "node_modules/**",
+      "next.config.ts",
+      "next.config.mjs",
+      "next.config.js",
+      "postcss.config.mjs",
+      "tailwind.config.ts",
+      "sentry.server.config.ts",
+      "sentry.client.config.ts",
+      "sentry.edge.config.ts",
+    ],
   },
   {
     plugins: {
