@@ -159,13 +159,32 @@ export function AppShell({
   // Runs in ALL environments (including dev) so that expired sessions
   // redirect to /sign-in. Only skipped when NEXT_PUBLIC_AUTH_BYPASS=true
   // is set explicitly (headless dev mode).
+  //
+  // Grace period: when the session first appears null (not loading), we
+  // wait 2s before signing out. This handles three edge cases:
+  //   1. Phone-auth creates the session via a custom route (plain fetch),
+  //      then routeAfterLogin() calls authClient.getSession() to update
+  //      Better-Auth's nanostore. There can be a timing gap between the
+  //      nanostore update and AppShell's re-render on the new route.
+  //   2. Better-Auth's cookie cache (5-min TTL) may briefly return a
+  //      stale null from the pre-login get-session call.
+  //   3. Slow networks where the get-session round-trip takes >0ms.
+  // If the session is genuinely expired, 2s is a negligible delay. If
+  // it's a timing artifact, the session resolves within 2s and no
+  // sign-out occurs.
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_AUTH_BYPASS === "true") return;
     if (isAuthRoute(pathname) || isPrintRoute(pathname)) return;
-    if (!sessionLoading && !session) {
-      authSignOut().catch(() => {});
-      router.replace("/sign-in");
-    }
+    if (sessionLoading || session) return; // still loading or have session — no action
+    // Session is null and not loading — start grace period
+    const timer = setTimeout(() => {
+      // Re-check: session may have arrived during the wait
+      if (!session) {
+        authSignOut().catch(() => {});
+        router.replace("/sign-in");
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
   }, [session, sessionLoading, router, pathname]);
 
   // ── Global 401 interceptor ──────────────────────────────────
