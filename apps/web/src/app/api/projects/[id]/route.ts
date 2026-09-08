@@ -140,7 +140,10 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
 
 export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.PROJECTS_MANAGE);
+  const company = await getCompany();
   const { id } = await ctx.params;
+  const existing = await prisma.project.findFirst({ where: { id, companyId: company.id, deletedAt: null }, select: { id: true } });
+  if (!existing) return json({ error: "Project not found" }, { status: 404 });
   try {
     await softDelete("Project", id);
     return json({ ok: true });

@@ -73,8 +73,16 @@ export const GET = apiHandler(async (req: NextRequest) => {
  */
 export const POST = apiHandler(async (req: NextRequest) => {
   await requireUser();
+  const company = await getCompany();
   const body = await req.json();
   const action = body?.action as string;
+
+  // Verify the relevant parcel belongs to the user's company before any action
+  const parcelIdToCheck = body?.parentParcelId ?? body?.parcelId;
+  if (parcelIdToCheck) {
+    const owned = await prisma.landParcel.findFirst({ where: { id: parcelIdToCheck, landPurchase: { companyId: company.id }, deletedAt: null }, select: { id: true } });
+    if (!owned) return json({ error: "Parcel not found" }, { status: 404 });
+  }
 
   if (action === "partition") {
     const user = await requirePermission(PERM.LAND_PARTITION);

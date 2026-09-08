@@ -23,7 +23,10 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+  const company = await getCompany();
   const { id } = await params;
+  const existing = await prisma.rateContract.findFirst({ where: { id, companyId: company.id }, select: { id: true } });
+  if (!existing) return json({ error: "Rate contract not found" }, { status: 404 });
   const body = await req.json();
   if (body?.action === "cancel") {
     try {

@@ -117,6 +117,9 @@ const convertSchema = z.object({
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requireUser();
   const { id } = await params;
+  const company = await getCompany();
+  const existing = await prisma.materialRequisition.findFirst({ where: { id, project: { companyId: company.id } }, select: { id: true } });
+  if (!existing) return json({ error: "Indent not found" }, { status: 404 });
   const body = await req.json();
   const action = body?.action as string;
 

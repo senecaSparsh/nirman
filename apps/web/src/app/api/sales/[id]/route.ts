@@ -186,6 +186,9 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.SALES_MANAGE);
   const { id } = await params;
+  const company = await getCompany();
+  const existing = await prisma.assetSale.findFirst({ where: { id, companyId: company.id }, select: { id: true } });
+  if (!existing) return json({ error: "Sale not found" }, { status: 404 });
   const body = await req.json();
   const action = body?.action as string;
 
@@ -229,6 +232,8 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   const user = await requirePermission(PERM.SALES_MANAGE);
   const company = await getCompany();
   const { id } = await params;
+  const saleExists = await prisma.assetSale.findFirst({ where: { id, companyId: company.id }, select: { id: true } });
+  if (!saleExists) return json({ error: "Sale not found" }, { status: 404 });
   const body = await req.json();
   const action = body?.action as string;
 

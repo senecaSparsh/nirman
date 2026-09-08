@@ -89,7 +89,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.HR_MANAGE);
+  const company = await getCompany();
   const { id } = await params;
+  const existing = await prisma.employee.findFirst({ where: { id, companyId: company.id, deletedAt: null }, select: { id: true } });
+  if (!existing) return json({ error: "Employee not found" }, { status: 404 });
   try {
     await softDelete("Employee", id);
     revalidatePath("/hr/employees");

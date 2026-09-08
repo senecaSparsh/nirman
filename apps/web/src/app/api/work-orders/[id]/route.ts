@@ -47,6 +47,9 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requireUser();
   const { id } = await params;
+  const company = await getCompany();
+  const existing = await prisma.subcontractorWorkOrder.findFirst({ where: { id, companyId: company.id }, select: { id: true } });
+  if (!existing) return json({ error: "Work order not found" }, { status: 404 });
   const body = await req.json();
   const action = body?.action;
 

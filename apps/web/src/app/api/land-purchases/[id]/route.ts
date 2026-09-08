@@ -313,7 +313,10 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
 
 export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.ASSETS_MANAGE);
+  const company = await getCompany();
   const { id } = await ctx.params;
+  const existing = await prisma.landPurchase.findFirst({ where: { id, companyId: company.id, deletedAt: null }, select: { id: true } });
+  if (!existing) return json({ error: "Land purchase not found" }, { status: 404 });
   try {
     await softDelete("LandPurchase", id);
     revalidatePath("/land");

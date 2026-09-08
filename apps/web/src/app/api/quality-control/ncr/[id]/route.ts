@@ -29,9 +29,12 @@ const actionSchema = z.object({
 // GET /api/quality-control/ncr/[id]
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.ASSETS_VIEW);
+  const company = await getCompany();
   const { id } = await ctx.params;
+  const existing = await prisma.nonConformanceReport.findUnique({ where: { id }, select: { companyId: true } });
+  if (!existing) return json({ error: "NCR not found" }, { status: 404 });
+  if (existing.companyId !== company.id) return json({ error: "NCR does not belong to your company" }, { status: 403 });
   const ncr = await getNcr(id);
-  if (!ncr) return json({ error: "NCR not found" }, { status: 404 });
   return json(ncr);
 });
 

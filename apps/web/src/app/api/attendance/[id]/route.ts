@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { prisma } from "@nirman/db";
 import { deleteAttendance, logAction, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, attendanceSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -44,7 +45,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.HR_MANAGE);
+  const company = await getCompany();
   const { id } = await params;
+  const existing = await prisma.workerAttendance.findFirst({ where: { id, companyId: company.id }, select: { id: true } });
+  if (!existing) return json({ error: "Attendance record not found" }, { status: 404 });
   try {
     await deleteAttendance(id, user.id);
     return json({ ok: true });

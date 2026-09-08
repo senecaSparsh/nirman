@@ -33,7 +33,10 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.STOCK_ISSUE);
+  const company = await getCompany();
   const { id } = await params;
+  const existing = await prisma.materialIssue.findFirst({ where: { id, project: { companyId: company.id } }, select: { id: true } });
+  if (!existing) return json({ error: "Material issue not found" }, { status: 404 });
   const body = await req.json();
   const action = body?.action as string;
 
