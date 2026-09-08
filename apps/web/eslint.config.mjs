@@ -115,6 +115,10 @@ const eslintConfig = [
       // chunk desync in dynamically-imported (next/dynamic ssr:false) chunks.
       // Only fires in files with a "use client" directive.
       "nirman/no-process-env-node-env-in-client": "warn",
+      // This rule is for the Pages Router — this app uses the App Router
+      // exclusively (no /pages directory). Without disabling it, every lint
+      // run prints "Pages directory cannot be found at .../pages or .../src/pages".
+      "@next/next/no-html-link-for-pages": "off",
     },
   },
   // Test files — relax rules that are noisy in tests (any types for mock
