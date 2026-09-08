@@ -93,6 +93,7 @@ export type DprRow = {
   progressPct: number;
   blockers: string | null;
   tomorrowPlan: string | null;
+  submittedById: string | null;
   submittedByName: string | null;
   approvalStatus: DprApprovalStatus;
   subAdminApprovedByName: string | null;
@@ -146,6 +147,7 @@ export function DprsView({
   employees,
   workTypes,
   permissions,
+  currentUserId,
 }: {
   dprs: DprRow[];
   projects: { id: string; name: string }[];
@@ -153,6 +155,7 @@ export function DprsView({
   employees: { id: string; name: string }[];
   workTypes?: string[];
   permissions?: { canSubmit?: boolean; canSubAdminApprove?: boolean; canAdminApprove?: boolean };
+  currentUserId?: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -381,17 +384,17 @@ export function DprsView({
             <Wallet className="mr-1 h-3.5 w-3.5" /> Mark Cost Posted
           </Button>
         )}
-        {canSubAdminApprove && d.approvalStatus === "SUBMITTED" && (
+        {canSubAdminApprove && d.approvalStatus === "SUBMITTED" && d.submittedById !== currentUserId && (
           <Button size="sm" variant="outline" disabled={approving} onClick={(e) => { e.stopPropagation(); approvalAction(d.id, "subAdminApprove"); }}>
             <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Sub-Admin
           </Button>
         )}
-        {canAdminApprove && d.approvalStatus === "SUB_ADMIN_APPROVED" && (
+        {canAdminApprove && d.approvalStatus === "SUB_ADMIN_APPROVED" && d.submittedById !== currentUserId && (
           <Button size="sm" disabled={approving} onClick={(e) => { e.stopPropagation(); approvalAction(d.id, "adminApprove"); }}>
             <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Approve
           </Button>
         )}
-        {((canSubAdminApprove || canAdminApprove) && (d.approvalStatus === "SUBMITTED" || d.approvalStatus === "SUB_ADMIN_APPROVED")) && (
+        {((canSubAdminApprove || canAdminApprove) && (d.approvalStatus === "SUBMITTED" || d.approvalStatus === "SUB_ADMIN_APPROVED") && d.submittedById !== currentUserId) && (
           <Button size="sm" variant="ghost" className="text-danger" onClick={(e) => { e.stopPropagation(); setRejectTarget(d); setRejectReason(""); }}>
             <XCircle className="mr-1 h-3.5 w-3.5" /> Reject
           </Button>
@@ -559,6 +562,7 @@ export function DprsView({
           onClose={() => setDetailTarget(null)}
           canSubAdminApprove={canSubAdminApprove}
           canAdminApprove={canAdminApprove}
+          currentUserId={currentUserId}
           approving={approving}
           onApprove={(action) => { approvalAction(detailTarget.id, action); setDetailTarget(null); }}
           onReject={() => { setRejectTarget(detailTarget); setDetailTarget(null); }}
@@ -965,6 +969,7 @@ function DprDetailDialog({
   onClose,
   canSubAdminApprove,
   canAdminApprove,
+  currentUserId,
   approving,
   onApprove,
   onReject,
@@ -973,6 +978,7 @@ function DprDetailDialog({
   onClose: () => void;
   canSubAdminApprove: boolean;
   canAdminApprove: boolean;
+  currentUserId?: string;
   approving: boolean;
   onApprove: (action: string) => void;
   onReject: () => void;
@@ -1124,8 +1130,8 @@ function DprDetailDialog({
             )}
 
             {/* ── DPR Cost Preview (for approvers) ── */}
-            {((canSubAdminApprove && dpr.approvalStatus === "SUBMITTED") ||
-              (canAdminApprove && dpr.approvalStatus === "SUB_ADMIN_APPROVED")) && (
+            {((canSubAdminApprove && dpr.approvalStatus === "SUBMITTED" && dpr.submittedById !== currentUserId) ||
+              (canAdminApprove && dpr.approvalStatus === "SUB_ADMIN_APPROVED" && dpr.submittedById !== currentUserId)) && (
               <div className="rounded-lg border border-brand/20 bg-brand/5 p-3">
                 <div className="mb-2 flex items-center gap-1.5 text-caption font-semibold text-muted-foreground">
                   <Wallet className="h-3.5 w-3.5" /> DPR Cost Preview
@@ -1171,16 +1177,16 @@ function DprDetailDialog({
             )}
 
             {/* ── Approval actions (visible alongside cost context) ── */}
-            {((canSubAdminApprove && dpr.approvalStatus === "SUBMITTED") ||
-              (canAdminApprove && dpr.approvalStatus === "SUB_ADMIN_APPROVED")) && (
+            {((canSubAdminApprove && dpr.approvalStatus === "SUBMITTED" && dpr.submittedById !== currentUserId) ||
+              (canAdminApprove && dpr.approvalStatus === "SUB_ADMIN_APPROVED" && dpr.submittedById !== currentUserId)) && (
               <div className="flex items-center gap-2 rounded-lg border border-brand/30 bg-brand/5 p-3">
                 <span className="text-caption font-medium text-muted-foreground">Approve this DPR:</span>
-                {canSubAdminApprove && dpr.approvalStatus === "SUBMITTED" && (
+                {canSubAdminApprove && dpr.approvalStatus === "SUBMITTED" && dpr.submittedById !== currentUserId && (
                   <Button size="sm" variant="outline" disabled={approving} onClick={() => onApprove("subAdminApprove")}>
                     <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Sub-Admin Approve
                   </Button>
                 )}
-                {canAdminApprove && dpr.approvalStatus === "SUB_ADMIN_APPROVED" && (
+                {canAdminApprove && dpr.approvalStatus === "SUB_ADMIN_APPROVED" && dpr.submittedById !== currentUserId && (
                   <Button size="sm" disabled={approving} onClick={() => onApprove("adminApprove")}>
                     <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Admin Approve
                   </Button>

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ROLE_LIST, assignableRoles, type Role } from "@/lib/roles";
+import { ROLE_LIST, ROLES, assignableRoles } from "@/lib/roles";
 import type { DepartmentRow } from "@/lib/types";
 
 type ProjectOption = { id: string; name: string };
@@ -30,12 +30,14 @@ export function CreateUserDialog({
   projects,
   departments,
   managers,
+  customRoles,
   onClose,
 }: {
   actorRole: string;
   projects: ProjectOption[];
   departments: DepartmentRow[];
   managers: { membershipId: string; userId: string; name: string; role: string }[];
+  customRoles?: { id: string; key: string; label: string; description: string; baseRole: string; tier: number; permissions: string[] }[];
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -46,7 +48,7 @@ export function CreateUserDialog({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<Role>(assignableRoles(actorRole)[0] ?? "PROJECT_MANAGER");
+  const [role, setRole] = useState<string>(assignableRoles(actorRole)[0] ?? "PROJECT_MANAGER");
   const [employeeCode, setEmployeeCode] = useState("");
   const [designation, setDesignation] = useState("");
   const [department, setDepartment] = useState("");
@@ -62,6 +64,13 @@ export function CreateUserDialog({
   // This step is just a confirmation + info screen.
 
   const assignable = assignableRoles(actorRole);
+  // Include custom roles the actor can assign (based on tier)
+  const actorTierNum = (ROLES as Record<string, { tier: number }>)[actorRole]?.tier ?? 5;
+  const assignableCustom = (customRoles ?? []).filter((cr) => actorTierNum < cr.tier);
+  const allAssignable = [
+    ...assignable.map((r) => ({ key: r, label: ROLES[r]?.label ?? r })),
+    ...assignableCustom.map((cr) => ({ key: cr.key, label: cr.label })),
+  ];
   const availableDepartments = departments.filter((d) => d.active);
 
   function handleScopeTypeChange(newType: "COMPANY" | "DEPARTMENT" | "PROJECT") {
@@ -217,13 +226,15 @@ export function CreateUserDialog({
           <p className="text-caption text-muted-foreground">Either email or phone is required for login.</p>
           <div className="space-y-1.5">
             <Label>Role *</Label>
-            <Select value={role} onChange={(e) => setRole(e.target.value as Role)}>
-              {assignable.map((r) => {
-                const def = ROLE_LIST.find((rl) => rl.key === r);
-                return <option key={r} value={r}>{def?.label ?? r}</option>;
+            <Select value={role} onChange={(e) => setRole(e.target.value)}>
+              {allAssignable.map((r) => {
+                const def = ROLE_LIST.find((rl) => rl.key === r.key);
+                return <option key={r.key} value={r.key}>{def?.label ?? r.label}</option>;
               })}
             </Select>
-            <p className="text-caption text-muted-foreground">{ROLE_LIST.find((r) => r.key === role)?.description}</p>
+            <p className="text-caption text-muted-foreground">
+              {ROLE_LIST.find((r) => r.key === role)?.description ?? (customRoles ?? []).find((cr) => cr.key === role)?.description ?? "Custom role"}
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

@@ -133,6 +133,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
     if (action === "approve") {
       const user = await requirePermission(PERM.REQUISITION_APPROVE);
+      // Prevent self-approval — the requester cannot approve their own indent.
+      const req = await prisma.materialRequisition.findFirst({
+        where: { id, project: { companyId: company.id } },
+        select: { requestedById: true },
+      });
+      if (req?.requestedById === user.id) {
+        return json({ error: "You cannot approve your own indent. Ask another approver to review it." }, { status: 403 });
+      }
       await approveRequisition(id, user.id);
       revalidatePath("/requisitions");
       revalidatePath("/m/procurement");
@@ -140,6 +148,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
     if (action === "reject") {
       const user = await requirePermission(PERM.REQUISITION_APPROVE);
+      // Prevent self-rejection — same logic as self-approval.
+      const req = await prisma.materialRequisition.findFirst({
+        where: { id, project: { companyId: company.id } },
+        select: { requestedById: true },
+      });
+      if (req?.requestedById === user.id) {
+        return json({ error: "You cannot reject your own indent. Ask another approver to review it." }, { status: 403 });
+      }
       await rejectRequisition(id, user.id, body?.rejectReason);
       revalidatePath("/requisitions");
       revalidatePath("/m/procurement");

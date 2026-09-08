@@ -53,6 +53,7 @@ export function RequisitionFormDialog({
   const [phaseId, setPhaseId] = useState("");
   const [neededByDate, setNeededByDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [saveAsDraft, setSaveAsDraft] = useState(false);
   const [lines, setLines] = useState<Line[]>([newLine()]);
 
   const filteredPhases = projectId ? phases.filter((p) => p.projectId === projectId) : [];
@@ -166,6 +167,7 @@ export function RequisitionFormDialog({
           phaseId: phaseId || null,
           neededByDate: neededByDate || null,
           notes: notes.trim() || null,
+          autoSubmit: !saveAsDraft,
           lines: validLines.map((l) => ({
             materialId: l.materialId,
             qtyRequested: Number(l.qtyRequested),
@@ -177,33 +179,41 @@ export function RequisitionFormDialog({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create indent");
       const reqId = data.id ?? "";
-      toast.success(`Indent ${data.reqNumber} created`, {
-        description: "Submit it for approval when you're ready to order.",
-        action: {
-          label: "Submit for Approval",
-          onClick: async () => {
-            try {
-              const r = await fetch(`/api/requisitions/${reqId}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "submit" }),
-              });
-              const d = await r.json();
-              if (!r.ok) throw new Error(d.error ?? "Submit failed");
-              toast.success("Indent submitted", {
-                description: "It's now in the approval queue.",
-                action: { label: "View Queue", onClick: () => router.push("/approvals") },
-              });
-              router.refresh();
-            } catch (err: unknown) {
-              toast.error(err instanceof Error ? err.message : "Submit failed");
-            }
+      if (data.submitted) {
+        toast.success(`Indent ${data.reqNumber} submitted for approval`, {
+          description: "It's now in the approval queue for a manager to review.",
+          action: { label: "View Queue", onClick: () => router.push("/approvals") },
+        });
+      } else {
+        toast.success(`Indent ${data.reqNumber} saved as draft`, {
+          description: "Submit it for approval when you're ready to order.",
+          action: {
+            label: "Submit for Approval",
+            onClick: async () => {
+              try {
+                const r = await fetch(`/api/requisitions/${reqId}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ action: "submit" }),
+                });
+                const d = await r.json();
+                if (!r.ok) throw new Error(d.error ?? "Submit failed");
+                toast.success("Indent submitted", {
+                  description: "It's now in the approval queue.",
+                  action: { label: "View Queue", onClick: () => router.push("/approvals") },
+                });
+                router.refresh();
+              } catch (err: unknown) {
+                toast.error(err instanceof Error ? err.message : "Submit failed");
+              }
+            },
           },
-        },
-      });
+        });
+      }
       onOpenChange(false);
       // Reset form
       setProjectId(""); setPhaseId(""); setNeededByDate(""); setNotes("");
+      setSaveAsDraft(false);
       setLines([newLine()]);
       router.refresh();
     } catch (err: unknown) {
@@ -289,13 +299,24 @@ export function RequisitionFormDialog({
           />
         </div>
 
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={saving}>
-            {saving ? "Creating…" : "Create Indent"}
-          </Button>
+        <div className="flex items-center justify-between gap-2 pt-2">
+          <label className="flex items-center gap-2 text-caption text-muted-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={saveAsDraft}
+              onChange={(e) => setSaveAsDraft(e.target.checked)}
+              className="h-4 w-4 rounded border-border"
+            />
+            Save as draft
+          </label>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Creating…" : saveAsDraft ? "Save Draft" : "Create & Submit"}
+            </Button>
+          </div>
         </div>
       </form>
     </Dialog>

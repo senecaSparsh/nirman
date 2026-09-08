@@ -136,6 +136,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   }
   if (action === "approve") {
     const user = await requirePermission(PERM.PO_APPROVE);
+    // Prevent self-approval — the creator cannot approve their own PO.
+    const po = await prisma.purchaseOrder.findFirst({
+      where: { id, companyId: { in: groupCompanyIds } },
+      select: { createdById: true },
+    });
+    if (po?.createdById === user.id) {
+      return json({ error: "You cannot approve your own purchase order. Ask another approver to review it." }, { status: 403 });
+    }
     await approvePurchaseOrder(id, user.role, user.id, body?.approvalNotes);
   } else if (action === "order") {
     const user = await requirePermission(PERM.PROCUREMENT_MANAGE);

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, Loader2, Network, Plug, Pencil, Layers, Warehouse, Lock, KeyRound, History, Upload, Search } from "lucide-react";
+import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, ShieldPlus, Loader2, Network, Plug, Pencil, Layers, Warehouse, Lock, KeyRound, History, Upload, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,7 @@ import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { formatCurrency } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
-import { ROLE_LIST, assignableRoles, canAssignRole, type Role } from "@/lib/roles";
+import { ROLE_LIST, ROLES, assignableRoles, canAssignRole, type Role } from "@/lib/roles";
 import { CompaniesManager, type CompanyRow } from "@/components/settings/companies-manager";
 import { CostCentresTab } from "@/components/settings/cost-centres-tab";
 import { PeopleTab } from "@/components/settings/people-tab";
@@ -73,6 +73,7 @@ export function SettingsView({
   canManageCompanies,
   actorRole,
   managers,
+  customRoles,
 }: {
   company: CompanyInfo;
   users: UserRow[];
@@ -85,6 +86,7 @@ export function SettingsView({
   canManageCompanies: boolean;
   actorRole: string;
   managers: { membershipId: string; userId: string; name: string; role: string }[];
+  customRoles?: { id: string; key: string; label: string; description: string; baseRole: string; tier: number; permissions: string[] }[];
 }) {
   const [tab, setTab] = useTabParam(
     ["company","users","locations","cost-centres","people","companies","integrations"] as const,
@@ -462,7 +464,7 @@ export function SettingsView({
         </TabsContent>
 
         <TabsContent value="users">
-          <UsersManager users={users} actorRole={actorRole} companyId={company.id} projects={projects} departments={departments} managers={managers} />
+          <UsersManager users={users} actorRole={actorRole} companyId={company.id} projects={projects} departments={departments} managers={managers} customRoles={customRoles} />
         </TabsContent>
 
         <TabsContent value="locations">
@@ -799,7 +801,7 @@ function LocationsTab({
 // ── Users Manager — role + active status management ──────────
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function UsersManager({ users, actorRole, companyId, projects, departments, managers }: { users: UserRow[]; actorRole: string; companyId: string; projects: { id: string; name: string }[]; departments: DepartmentRow[]; managers: { membershipId: string; userId: string; name: string; role: string }[] }) {
+function UsersManager({ users, actorRole, companyId, projects, departments, managers, customRoles }: { users: UserRow[]; actorRole: string; companyId: string; projects: { id: string; name: string }[]; departments: DepartmentRow[]; managers: { membershipId: string; userId: string; name: string; role: string }[]; customRoles?: { id: string; key: string; label: string; description: string; baseRole: string; tier: number; permissions: string[] }[] }) {
   const router = useRouter();
   const { canManageUsers, userId: currentUserId } = usePermissions();
   const canManage = canManageUsers();
@@ -814,8 +816,12 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
   const [activityUser, setActivityUser] = useState<UserRow | null>(null);
   const [userSearch, setUserSearch] = useState("");
   const [confirmDeactivate, setConfirmDeactivate] = useState<UserRow | null>(null);
+  const [showCreateRole, setShowCreateRole] = useState(false);
 
   const assignable = assignableRoles(actorRole);
+  // Include custom roles the actor can assign (based on tier)
+  const actorTierNum = (ROLES as Record<string, { tier: number }>)[actorRole]?.tier ?? 5;
+  const assignableCustomRoles = (customRoles ?? []).filter((cr) => actorTierNum < cr.tier);
 
   const filteredUsers = userSearch.trim()
     ? users.filter((u) => {
@@ -921,6 +927,9 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
             <Button size="sm" variant="outline" onClick={() => setShowRolePerms(true)}>
               <Shield className="h-3.5 w-3.5" /> Role Permissions
             </Button>
+            <Button size="sm" variant="outline" onClick={() => setShowCreateRole(true)}>
+              <ShieldPlus className="h-3.5 w-3.5" /> Custom Role
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setShowBulkImport(true)}>
               <Upload className="h-3.5 w-3.5" /> Bulk Import
             </Button>
@@ -993,12 +1002,13 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
                         disabled={saving === u.id}
                         className="h-8 w-36 text-caption"
                       >
-                        {/* Show current role + any role the actor can assign. */}
-                        {[u.role, ...assignableRoles(actorRole)]
+                        {/* Show current role + any role the actor can assign + custom roles. */}
+                        {[u.role, ...assignableRoles(actorRole), ...assignableCustomRoles.map((cr) => cr.key as Role)]
                           .filter((r, i, arr) => arr.indexOf(r) === i)
                           .map((r) => {
                             const def = ROLE_LIST.find((rl) => rl.key === r);
-                            return <option key={r} value={r}>{def?.label ?? r}</option>;
+                            const customDef = (customRoles ?? []).find((cr) => cr.key === r);
+                            return <option key={r} value={r}>{def?.label ?? customDef?.label ?? r}</option>;
                           })}
                       </Select>
                     ) : (
@@ -1144,7 +1154,16 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
           projects={projects}
           departments={departments}
           managers={managers}
+          customRoles={customRoles}
           onClose={() => setShowCreateUser(false)}
+        />
+      )}
+
+      {/* Create custom role dialog */}
+      {showCreateRole && (
+        <CreateCustomRoleDialog
+          onClose={() => setShowCreateRole(false)}
+          onCreated={() => { setShowCreateRole(false); router.refresh(); }}
         />
       )}
 
@@ -1302,6 +1321,114 @@ function EditUserProfileDialog({
           <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancel</Button>
           <Button type="submit" size="sm" disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+          </Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Create Custom Role Dialog
+// ───────────────────────────────────────────────────────────────
+function CreateCustomRoleDialog({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [key, setKey] = useState("");
+  const [label, setLabel] = useState("");
+  const [description, setDescription] = useState("");
+  const [baseRole, setBaseRole] = useState<string>("SITE_ENGINEER");
+  const [saving, setSaving] = useState(false);
+
+  const baseRoles = ROLE_LIST.filter((r) => r.key !== "OWNER" && r.key !== "DEVELOPER");
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!key.trim() || !label.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/custom-roles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: key.trim().toUpperCase().replace(/\s+/g, "_"),
+          label: label.trim(),
+          description: description.trim(),
+          baseRole,
+          permissions: [],
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to create role");
+      toast.success(data.message ?? "Custom role created");
+      onCreated();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={true} onOpenChange={(o) => { if (!o) onClose(); }} title="Create Custom Role">
+      <form onSubmit={handleCreate} className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold">Create Custom Role</h2>
+          <p className="text-caption text-muted-foreground">
+            Create a custom role with a base role (for tier and default permissions).
+            You can fine-tune permissions after creation.
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Role Key *</Label>
+          <Input
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="e.g. SALES_LEAD"
+          />
+          <p className="text-caption text-muted-foreground">
+            Stored as CUSTOM_{key.trim().toUpperCase().replace(/\s+/g, "_") || "…"}
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Display Label *</Label>
+          <Input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="e.g. Sales Lead"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Description</Label>
+          <Input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Optional description"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Base Role (inherits tier + permissions)</Label>
+          <Select value={baseRole} onChange={(e) => setBaseRole(e.target.value)}>
+            {baseRoles.map((r) => (
+              <option key={r.key} value={r.key}>
+                {r.label} (Tier {r.tier})
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button type="submit" size="sm" disabled={saving || !key.trim() || !label.trim()}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Role"}
           </Button>
         </div>
       </form>

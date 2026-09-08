@@ -68,7 +68,7 @@ export function ExpenseFormDialog({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [submitOnSave, setSubmitOnSave] = useState(false);
+  const [submitOnSave, setSubmitOnSave] = useState(true);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [form, setForm] = useState({
     projectId: "",

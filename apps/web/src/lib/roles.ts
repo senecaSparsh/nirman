@@ -116,6 +116,22 @@ export function assignableRoles(actorRole: string | undefined | null): Role[] {
   return ALL_ROLES.filter((r) => canAssignRole(actorRole, r));
 }
 
+/**
+ * Can the actor assign a custom role? Custom roles are assignable if the
+ * actor can assign the custom role's base role (i.e., the actor is at a
+ * higher tier than the custom role's tier).
+ */
+export function canAssignCustomRole(
+  actorRole: string | undefined | null,
+  customRoleTier: number,
+): boolean {
+  const actorTier = roleTier(actorRole);
+  // Tier 5 can't assign anyone.
+  if (actorTier >= 5) return false;
+  // Actor must be at a higher tier (lower number) than the custom role.
+  return actorTier < customRoleTier;
+}
+
 export interface RoleDef {
   key: Role;
   label: string;
@@ -674,10 +690,22 @@ export const ROLES_BY_CATEGORY: Record<RoleDef["category"], RoleDef[]> = {
  * Normalize an arbitrary string to a valid Role.
  * Falls back to the LEAST-privileged role (SUPERVISOR),
  * so a corrupted role string never grants broad access.
+ *
+ * For custom roles (key starts with "CUSTOM_"), the caller should
+ * resolve the base role via `resolveCustomRoleBase()` and pass the
+ * custom role's permissions as overrides to `hasPermission`.
  */
 export function normalizeRole(raw: string | undefined | null): Role {
   if (raw && raw in ROLES) return raw as Role;
+  // Custom roles are not in the ROLES map — fall back to SUPERVISOR.
+  // The actual permission resolution happens in getUserPermissions()
+  // which looks up the custom role's base role + permissions from the DB.
   return "SUPERVISOR";
+}
+
+/** Check if a role string is a custom role (starts with "CUSTOM_"). */
+export function isCustomRole(role: string | undefined | null): boolean {
+  return !!role && role.startsWith("CUSTOM_");
 }
 
 /**

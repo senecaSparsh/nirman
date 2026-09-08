@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
-import { PERM, ALL_ROLES, canAssignRole, type Role } from "@/lib/roles";
+import { PERM, ALL_ROLES, canAssignRole, isCustomRole, canAssignCustomRole, type Role } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 import { normalizePhone } from "@/lib/phone-otp";
 
@@ -75,11 +75,31 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!normalizedEmail && !phone?.trim()) {
     return json({ error: "Either an email or a phone number is required for login." }, { status: 400 });
   }
-  if (!role || !ALL_ROLES.includes(role as Role)) {
+  // Validate role — either a built-in role or a custom role in this company
+  const roleIsCustom = isCustomRole(role);
+  if (!role) {
+    return json({ error: "Role is required" }, { status: 400 });
+  }
+  if (!roleIsCustom && !ALL_ROLES.includes(role as Role)) {
     return json({ error: `Role must be one of: ${ALL_ROLES.join(", ")}` }, { status: 400 });
   }
   // Enforce hierarchical RBAC: actor must be able to assign this role
-  if (!canAssignRole(actorRole, role)) {
+  if (roleIsCustom) {
+    // Look up the custom role's tier
+    const customRole = await prisma.customRole.findFirst({
+      where: { companyId: company.id, key: role },
+      select: { tier: true },
+    }).catch(() => null);
+    if (!customRole) {
+      return json({ error: "Custom role not found in this company" }, { status: 400 });
+    }
+    if (!canAssignCustomRole(actorRole, customRole.tier)) {
+      return json(
+        { error: `You cannot assign the ${role} role — it is at or above your tier.` },
+        { status: 403 },
+      );
+    }
+  } else if (!canAssignRole(actorRole, role)) {
     return json(
       { error: `You cannot assign the ${role} role — it is at or above your tier.` },
       { status: 403 },

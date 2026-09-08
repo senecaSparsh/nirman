@@ -110,10 +110,10 @@ const PROCUREMENT_FLOW: FlowDef = {
   next: [
     {
       when: "DRAFT",
-      label: "Submit for approval",
-      reason: "A draft PO isn't sent to the supplier until an approver signs off.",
+      label: "Awaiting approval",
+      reason: "This PO is in the approval queue. An approver will review and approve it before it can be ordered.",
       action: { type: "anchor", hash: "#approve" },
-      perm: "PROCUREMENT_MANAGE",
+      perm: "PO_APPROVE",
       tone: "signal",
     },
     {

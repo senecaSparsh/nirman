@@ -63,6 +63,18 @@ export type EmployeeProfileData = {
   contractStatus: "DRAFT" | "ISSUED" | "CONFIRMED" | "EXPIRED" | "TERMINATED" | null;
   contractIssuedAt: string | null;
   contractConfirmedAt: string | null;
+  // ── Offer / appointment / ID card tracking ──
+  offerLetterStatus: "DRAFT" | "ISSUED" | "CONFIRMED" | "EXPIRED" | "TERMINATED" | null;
+  offerLetterIssuedAt: string | null;
+  appointmentLetterStatus: "DRAFT" | "ISSUED" | "CONFIRMED" | "EXPIRED" | "TERMINATED" | null;
+  appointmentLetterIssuedAt: string | null;
+  idCardStatus: "DRAFT" | "ISSUED" | "CONFIRMED" | "EXPIRED" | "TERMINATED" | null;
+  idCardIssuedAt: string | null;
+  // ── Onboarding checklist ──
+  documentsSubmitted: boolean | null;
+  backgroundVerified: boolean | null;
+  // ── Salary structure (for onboarding step) ──
+  hasSalaryComponents: boolean;
   // ── Auto-deposit ──
   autoDepositEnabled: boolean | null;
   autoDepositSetupAt: string | null;
@@ -2240,7 +2252,8 @@ function SetupDepositDialog({
 
 // ───────────────────────────────────────────────────────────────
 //  Onboarding Checklist — pipeline status for the employee
-//  Shows 6 steps: Profile → Employment Terms → Login → Agreement → Confirm → Deposit
+//  12 canonical steps — MUST match /m/hr/onboarding queue + MobileOnboardingTab
+//  so "complete" means the same thing on desktop, mobile queue, and mobile detail.
 // ───────────────────────────────────────────────────────────────
 
 function OnboardingChecklist({
@@ -2251,59 +2264,38 @@ function OnboardingChecklist({
   canManage: boolean;
   canManagePayroll: boolean;
 }) {
-  // Step 1: Profile complete (has name, phone, trade/designation, wage)
   const hasProfile = !!(employee.name && (employee.phone || employee.user?.phone) && (employee.designation || employee.trade));
   const hasWage = employee.wageType === "DAILY" ? employee.dailyRate > 0 : (employee.monthlySalary ?? 0) > 0;
-
-  // Step 2: Employment terms filled (dossier: employmentType, notice period, contract dates)
   const hasEmploymentTerms = !!(
     employee.employmentType &&
     employee.noticePeriodDays != null &&
     (employee.employmentType !== "CONTRACT" || employee.contractStartDate) &&
     (employee.employmentType !== "PROBATION" || employee.contractStartDate)
   );
-
-  // Step 3: Login account created
+  const hasSalaryStructure = employee.hasSalaryComponents;
+  const documentsSubmitted = employee.documentsSubmitted === true;
+  const backgroundVerified = employee.backgroundVerified === true;
   const hasAccount = !!employee.userId;
-
-  // Step 4: Agreement generated
-  const agreementIssued = employee.contractStatus === "ISSUED" || employee.contractStatus === "CONFIRMED" || employee.contractStatus === "EXPIRED";
-  const agreementConfirmed = employee.contractStatus === "CONFIRMED" || employee.contractStatus === "EXPIRED";
-
-  // Step 5: Auto-deposit set up
+  const offerLetterIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.offerLetterStatus ?? "");
+  const agreementIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.contractStatus ?? "");
+  const agreementConfirmed = ["CONFIRMED", "EXPIRED"].includes(employee.contractStatus ?? "");
+  const appointmentLetterIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.appointmentLetterStatus ?? "");
+  const idCardIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.idCardStatus ?? "");
   const hasAutoDeposit = employee.autoDepositEnabled === true;
 
   const steps = [
-    {
-      label: "Profile & Wage",
-      done: hasProfile && hasWage,
-      hint: !hasProfile ? "Missing name, phone, or designation" : !hasWage ? "Wage not set" : undefined,
-    },
-    {
-      label: "Employment Terms",
-      done: hasEmploymentTerms,
-      hint: !hasEmploymentTerms ? "Fill dossier: employment type, notice period" : undefined,
-    },
-    {
-      label: "Login Account",
-      done: hasAccount,
-      hint: !hasAccount ? "Create a login account for app access" : undefined,
-    },
-    {
-      label: "Agreement Issued",
-      done: agreementIssued,
-      hint: !agreementIssued ? "Generate the employment agreement" : undefined,
-    },
-    {
-      label: "Agreement Confirmed",
-      done: agreementConfirmed,
-      hint: agreementIssued && !agreementConfirmed ? "Confirm the signed agreement" : !agreementIssued ? "Issue agreement first" : undefined,
-    },
-    {
-      label: "Auto-Deposit",
-      done: hasAutoDeposit,
-      hint: !hasAutoDeposit ? agreementConfirmed ? "Set up bank details for salary credit" : "Confirm agreement first" : undefined,
-    },
+    { label: "Profile & Wage", done: hasProfile && hasWage, hint: !hasProfile ? "Missing name, phone, or designation" : !hasWage ? "Wage not set" : undefined },
+    { label: "Employment Terms", done: hasEmploymentTerms, hint: !hasEmploymentTerms ? "Fill: employment type, notice period" : undefined },
+    { label: "Salary Structure", done: hasSalaryStructure, hint: !hasSalaryStructure ? "Add CTC components (Basic, HRA, etc.)" : undefined },
+    { label: "Documents", done: documentsSubmitted, hint: !documentsSubmitted ? "Collect PAN, Aadhaar, bank proof, education certs" : undefined },
+    { label: "BG Verification", done: backgroundVerified, hint: !backgroundVerified ? "Complete background verification" : undefined },
+    { label: "Login Account", done: hasAccount, hint: !hasAccount ? "Create a login account for app access" : undefined },
+    { label: "Offer Letter", done: offerLetterIssued, hint: !offerLetterIssued ? "Generate the offer letter" : undefined },
+    { label: "Agreement Issued", done: agreementIssued, hint: !agreementIssued ? "Generate the employment agreement" : undefined },
+    { label: "Agreement Confirmed", done: agreementConfirmed, hint: agreementIssued && !agreementConfirmed ? "Confirm the signed agreement" : !agreementIssued ? "Issue agreement first" : undefined },
+    { label: "Appointment Letter", done: appointmentLetterIssued, hint: !appointmentLetterIssued ? "Generate the appointment letter" : undefined },
+    { label: "ID Card", done: idCardIssued, hint: !idCardIssued ? "Generate the employee ID card" : undefined },
+    { label: "Auto-Deposit", done: hasAutoDeposit, hint: !hasAutoDeposit ? (agreementConfirmed ? "Set up bank details for salary credit" : "Confirm agreement first") : undefined },
   ];
 
   const completedCount = steps.filter((s) => s.done).length;

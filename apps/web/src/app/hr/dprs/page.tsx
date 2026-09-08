@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { listWorkTypes } from "@nirman/services";
-import { getCompany, toNum, getUserRole, getUserScope } from "@/lib/server";
+import { getCompany, getCurrentUser, toNum, getUserRole, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
@@ -34,6 +34,8 @@ async function DprsContent() {
     canAdminApprove: hasPermission(role, PERM.DPR_APPROVE_ADMIN),
   };
 
+  const currentUser = await getCurrentUser();
+
   // Hierarchical RBAC: a PROJECT-scoped user (Sub-Sub-Admin) only sees DPRs +
   // project options for their assigned sites.
   const scope = await getUserScope();
@@ -53,7 +55,7 @@ async function DprsContent() {
       take: 100,
       include: {
         project: { select: { id: true, name: true, totalProjectCost: true, costPerSqft: true, totalBudget: true, totalSellableArea: true } },
-        submittedBy: { select: { name: true } },
+        submittedBy: { select: { id: true, name: true } },
         subAdminApprovedBy: { select: { name: true } },
         adminApprovedBy: { select: { name: true } },
         _count: { select: { materialLines: true, laborLines: true } },
@@ -91,6 +93,7 @@ async function DprsContent() {
     progressPct: toNum(d.progressPct),
     blockers: d.blockers,
     tomorrowPlan: d.tomorrowPlan,
+    submittedById: d.submittedById,
     submittedByName: d.submittedBy?.name ?? null,
     approvalStatus: d.approvalStatus,
     subAdminApprovedByName: d.subAdminApprovedBy?.name ?? null,
@@ -120,6 +123,7 @@ async function DprsContent() {
         employees={employees.map((e) => ({ id: e.id, name: e.name }))}
         workTypes={workTypes}
         permissions={perms}
+        currentUserId={currentUser?.id ?? ""}
       />
     </>
   );

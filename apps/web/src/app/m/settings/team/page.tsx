@@ -41,7 +41,7 @@ async function TeamContent() {
   const canManage = hasPermission(role, PERM.USERS_MANAGE);
 
   // Get all users in this company with their membership info
-  const [memberships, projects, departments] = await Promise.all([
+  const [memberships, projects, departments, customRoles] = await Promise.all([
     prisma.userCompany.findMany({
       where: { companyId: company.id, user: { isHidden: { not: true } } },
       orderBy: { createdAt: "asc" },
@@ -59,6 +59,10 @@ async function TeamContent() {
       where: { companyId: company.id, deletedAt: null },
       select: { id: true, code: true, name: true, active: true },
       orderBy: { name: "asc" },
+    }),
+    prisma.customRole.findMany({
+      where: { companyId: company.id },
+      orderBy: { createdAt: "asc" },
     }),
   ]);
 
@@ -85,7 +89,16 @@ async function TeamContent() {
   }
 
   const assignableRoles = canManage
-    ? getAssignableRoles(role).map((r) => ({ key: r, label: ROLES[r].label }))
+    ? [
+        ...getAssignableRoles(role).map((r) => ({ key: r, label: ROLES[r].label })),
+        // Include custom roles the actor can assign (based on tier)
+        ...customRoles
+          .filter((cr) => {
+            const actorTier = ROLES[migrateRole(role) ?? "SUPERVISOR"]?.tier ?? 5;
+            return actorTier < cr.tier;
+          })
+          .map((cr) => ({ key: cr.key, label: cr.label })),
+      ]
     : [];
 
   const activeCount = team.filter((m) => m.active).length;
@@ -107,6 +120,7 @@ async function TeamContent() {
       currentRole={role}
       roleCounts={roleCounts}
       assignableRoles={assignableRoles}
+      customRoles={customRoles.map((cr) => ({ id: cr.id, key: cr.key, label: cr.label, description: cr.description, baseRole: cr.baseRole, tier: cr.tier, permissions: cr.permissions }))}
       projects={projects.map((p) => ({ id: p.id, name: p.name }))}
       departments={departments.map((d) => ({ id: d.id, code: d.code, name: d.name, active: d.active }))}
       exportTitle="Team"

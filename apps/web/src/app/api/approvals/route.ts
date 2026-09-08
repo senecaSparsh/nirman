@@ -31,7 +31,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
 
   const [purchaseOrders, requisitions, gatePasses] = await Promise.all([
     prisma.purchaseOrder.findMany({
-      where: { companyId: company.id, status: "DRAFT" },
+      where: { companyId: company.id, status: "DRAFT", createdById: { not: user.id } },
       orderBy: { createdAt: "desc" },
       take: 100,
       include: {
@@ -42,7 +42,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       },
     }),
     prisma.materialRequisition.findMany({
-      where: { project: { companyId: company.id }, status: "SUBMITTED" },
+      where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: user.id } },
       orderBy: { createdAt: "desc" },
       take: 100,
       include: {
@@ -58,7 +58,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     }),
     canApproveGatePass
       ? prisma.gatePass.findMany({
-          where: { companyId: company.id, status: "PENDING" },
+          where: { companyId: company.id, status: "PENDING", createdById: { not: user.id } },
           orderBy: { createdAt: "desc" },
           take: 100,
           include: {

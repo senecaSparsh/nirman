@@ -169,7 +169,9 @@ export function MobileOnboardingTab({
 }) {
   const [subTab, setSubTab] = useTabParam(ONBOARDING_TABS, "profile", { param: "onboard" });
 
-  // ── Onboarding progress (9 steps) ──
+  // ── Onboarding progress (12 canonical steps) ──
+  // MUST match /m/hr/onboarding queue page exactly so "complete" means the
+  // same thing on both pages.
   const hasProfile = !!(employee.name && (employee.phone || employee.user?.phone) && (employee.designation || employee.trade));
   const hasWage = employee.wageType === "DAILY" ? (employee.dailyRate ?? 0) > 0 : (employee.monthlySalary ?? 0) > 0;
   const hasEmploymentTerms = !!(
@@ -179,18 +181,22 @@ export function MobileOnboardingTab({
     (employee.employmentType !== "PROBATION" || employee.contractStartDate)
   );
   const hasSalaryStructure = (employee.salaryComponents ?? []).length > 0;
+  const documentsSubmitted = employee.documentsSubmitted === true;
+  const backgroundVerified = employee.backgroundVerified === true;
   const hasAccount = !!employee.userId;
   const offerLetterIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.offerLetterStatus ?? "");
   const agreementIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.contractStatus ?? "");
   const agreementConfirmed = ["CONFIRMED", "EXPIRED"].includes(employee.contractStatus ?? "");
-  const idCardIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.idCardStatus ?? "");
   const appointmentLetterIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.appointmentLetterStatus ?? "");
+  const idCardIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.idCardStatus ?? "");
   const hasAutoDeposit = employee.autoDepositEnabled === true;
 
   const steps = [
     { label: "Profile & Wage", done: hasProfile && hasWage },
     { label: "Employment Terms", done: hasEmploymentTerms },
     { label: "Salary Structure", done: hasSalaryStructure },
+    { label: "Documents", done: documentsSubmitted },
+    { label: "BG Verification", done: backgroundVerified },
     { label: "Login Account", done: hasAccount },
     { label: "Offer Letter", done: offerLetterIssued },
     { label: "Agreement Issued", done: agreementIssued },

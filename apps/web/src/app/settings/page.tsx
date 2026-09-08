@@ -41,7 +41,7 @@ export async function SettingsContent() {
   const isSuperuser = role === "OWNER" || role === "ADMIN";
   const isDevBypass = user?.id === "dev";
 
-  const [users, locations, projects, subcontractors, employees, companies, departments, memberships] = await Promise.all([
+  const [users, locations, projects, subcontractors, employees, companies, departments, memberships, customRoles] = await Promise.all([
     prisma.user.findMany({
       take: 200,
       where: { memberships: { some: { companyId: company.id } } },
@@ -109,6 +109,10 @@ export async function SettingsContent() {
         user: { select: { name: true, email: true } },
       },
       orderBy: { user: { name: "asc" } },
+    }),
+    prisma.customRole.findMany({
+      where: { companyId: company.id },
+      orderBy: { createdAt: "asc" },
     }),
   ]);
 
@@ -191,6 +195,7 @@ export async function SettingsContent() {
       actorRole={role}
       departments={departmentRows}
       managers={memberships.map((m) => ({ membershipId: m.id, userId: m.userId, name: m.user.name, role: m.role }))}
+      customRoles={customRoles.map((cr) => ({ id: cr.id, key: cr.key, label: cr.label, description: cr.description, baseRole: cr.baseRole, tier: cr.tier, permissions: cr.permissions }))}
     />
       {hasPermission(role, PERM.FINANCE_MANAGE) && (
         <div className="mt-6">

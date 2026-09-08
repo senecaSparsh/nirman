@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@nirman/db";
-import { getUserPermissions, toNum } from "@/lib/server";
+import { getCurrentUser, getUserPermissions, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber, formatDate, formatCurrency } from "@/lib/utils";
 import { FileText } from "lucide-react";
@@ -72,7 +72,7 @@ export default function MobileRequisitionDetailPage({
           );
         }
 
-        const canApprove = hasPermission(role, PERM.REQUISITION_APPROVE);
+        const canApprove = hasPermission(role, PERM.REQUISITION_APPROVE) && req.requestedById !== (await getCurrentUser())?.id;
 
         const [suppliers, locations] = await Promise.all([
           prisma.supplier.findMany({

@@ -166,7 +166,11 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(result.error ?? "Failed to create indent");
-      toast.success(`Indent ${result.reqNumber ?? "created"} submitted`);
+      toast.success(
+        result.submitted
+          ? `Indent ${result.reqNumber ?? "created"} submitted for approval`
+          : `Indent ${result.reqNumber ?? "created"} saved as draft`,
+      );
       clearDraft();
       if (onCreated) {
         onCreated(result.id);

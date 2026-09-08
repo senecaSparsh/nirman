@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import {
   normalizeRole,
   effectivePermissions,
+  isCustomRole,
   APPROVER_ROLES,
   type Role,
 } from "@/lib/roles";
@@ -1141,6 +1142,10 @@ export const requisitionSchema = z.object({
   neededByDate: z.string().optional().nullable().refine((v) => !v || !isNaN(new Date(v).getTime()), "Invalid date"),
   notes: z.string().optional().nullable(),
   lines: z.array(requisitionLineSchema).min(1, "At least one line is required"),
+  /** When true (default), the indent is auto-submitted for approval right
+   *  after creation — eliminates the useless manual "Submit for Approval"
+   *  step. Set to false to save as a draft instead. */
+  autoSubmit: z.boolean().optional().default(true),
 });
 
 // ── Subcontractor ──
@@ -1374,7 +1379,7 @@ export const workflowScheduleSchema = z.object({
 
 // ── User role management ──
 export const userRoleSchema = z.object({
-  role: z.enum(["OWNER","ADMIN","DEVELOPER","PROJECT_DIRECTOR","FINANCE_HEAD","PROJECT_MANAGER","PROCUREMENT_MANAGER","HR_MANAGER","SITE_ENGINEER","STORE_KEEPER","ACCOUNTANT","SALES_MANAGER","SUPERVISOR","QAQC_ENGINEER"]).optional(),
+  role: z.string().optional(),
   active: z.boolean().optional(),
   name: z.string().min(1).max(100).optional(),
   phone: z.string().max(20).nullable().optional(),
@@ -1639,6 +1644,41 @@ export async function getUserPermissions(): Promise<string[]> {
   const user = await getCurrentUser();
   if (!user) return [];
   const company = await getCompany();
+
+  // ── If the user has a custom role, resolve it from the DB ──
+  // Custom roles store a baseRole (for tier + default permissions) and
+  // an additional permissions array. We resolve the base role's
+  // permissions + the custom role's permissions + any RolePermission
+  // overrides + UserPermission overrides.
+  if (isCustomRole(user.role)) {
+    const customRole = await prisma.customRole.findFirst({
+      where: { companyId: company.id, key: user.role },
+    }).catch(() => null);
+
+    if (customRole) {
+      const baseRole = customRole.baseRole;
+      const [roleOverrides, userMembership] = await Promise.all([
+        prisma.rolePermission
+          .findMany({ where: { role: user.role }, select: { permission: true } })
+          .then((rows) => rows.map((r) => r.permission))
+          .catch(() => [] as string[]),
+        prisma.userCompany
+          .findUnique({
+            where: { userId_companyId: { userId: user.id, companyId: company.id } },
+            include: { userPermissions: { select: { permission: true } } },
+          })
+          .catch(() => null),
+      ]);
+      const userOverrides = userMembership?.userPermissions.map((p) => p.permission) ?? [];
+      // Start with the base role's permissions, add custom role permissions,
+      // add RolePermission overrides, add UserPermission overrides.
+      return effectivePermissions(baseRole, [...customRole.permissions, ...roleOverrides, ...userOverrides]);
+    }
+    // Custom role not found in DB — fall back to SUPERVISOR permissions
+    return effectivePermissions("SUPERVISOR", []);
+  }
+
+  // ── Standard built-in role ──
   // Fetch role-level and user-level overrides in parallel
   const [roleOverrides, userMembership] = await Promise.all([
     prisma.rolePermission

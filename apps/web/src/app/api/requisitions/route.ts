@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { RequisitionStatus } from "@nirman/db";
-import { createRequisition, ServiceError } from "@nirman/services";
+import { createRequisition, submitRequisition, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission, requisitionSchema, toNum } from "@/lib/server";
 
@@ -54,7 +54,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const { phaseId, neededByDate, ...rest } = parsed.data;
+  const { phaseId, neededByDate, autoSubmit, ...rest } = parsed.data;
   const company = await getCompany();
   try {
     const req = await createRequisition({
@@ -71,9 +71,25 @@ export const POST = apiHandler(async (req: NextRequest) => {
         preferredSupplierId: l.preferredSupplierId ?? undefined,
       })),
     });
+
+    // Auto-submit by default — eliminates the useless manual "Submit for
+    // Approval" step. The indent goes straight to the approval queue.
+    let submitted = false;
+    if (autoSubmit !== false) {
+      try {
+        await submitRequisition(req.id, user.id);
+        submitted = true;
+      } catch (err) {
+        // If auto-submit fails (e.g. transition not allowed), still return
+        // success — the indent was created as DRAFT and can be submitted
+        // manually. Log the error for debugging.
+        console.error("[requisitions] Auto-submit failed for", req.id, err);
+      }
+    }
+
     revalidatePath("/requisitions");
     revalidatePath("/m/procurement");
-    return json({ ok: true, id: req.id, reqNumber: req.reqNumber }, { status: 201 });
+    return json({ ok: true, id: req.id, reqNumber: req.reqNumber, submitted }, { status: 201 });
   } catch (err: unknown) {
     if (err instanceof ServiceError) {
       return json({ error: err.message }, { status: err.status ?? 400 });

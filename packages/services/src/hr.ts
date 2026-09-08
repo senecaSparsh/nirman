@@ -1679,6 +1679,10 @@ export async function subAdminApproveDpr(dprId: string, approverId: string, note
     if (dpr.approvalStatus !== "SUBMITTED") {
       throw new HrError(`DPR must be in SUBMITTED status to approve (current: ${dpr.approvalStatus})`, 409);
     }
+    // Prevent self-approval — the submitter cannot approve their own DPR.
+    if (dpr.submittedById === approverId) {
+      throw new HrError("You cannot approve your own DPR. Ask another approver to review it.", 403);
+    }
     const updated = await tx.dailyProgressReport.update({
       where: { id: dprId },
       data: {
@@ -1716,6 +1720,10 @@ export async function adminApproveDpr(dprId: string, approverId: string, notes?:
     if (!dpr) throw new HrError("DPR not found", 404);
     if (dpr.approvalStatus !== "SUB_ADMIN_APPROVED") {
       throw new HrError(`DPR must be Sub-Admin approved first (current: ${dpr.approvalStatus})`, 409);
+    }
+    // Prevent self-approval — the submitter cannot approve their own DPR.
+    if (dpr.submittedById === approverId) {
+      throw new HrError("You cannot approve your own DPR. Ask another admin to review it.", 403);
     }
     const updated = await tx.dailyProgressReport.update({
       where: { id: dprId },

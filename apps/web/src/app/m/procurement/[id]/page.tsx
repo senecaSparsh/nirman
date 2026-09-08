@@ -4,7 +4,7 @@ import {
   ScanLine, Truck,
   Building2, IndianRupee, ClipboardList, Printer,
 } from "lucide-react";
-import { getCompanyGroupIds, getUserPermissions, toNum } from "@/lib/server";
+import { getCompanyGroupIds, getCurrentUser, getUserPermissions, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import {
@@ -91,7 +91,7 @@ export default function MobilePoDetailPage({
           );
         }
 
-        const canApprove = hasPermission(role, PERM.PO_APPROVE);
+        const canApprove = hasPermission(role, PERM.PO_APPROVE) && po.createdById !== (await getCurrentUser())?.id;
         const canManagePayments = hasPermission(role, PERM.FINANCE_MANAGE);
         const canReceive = hasPermission(role, PERM.PROCUREMENT_VIEW);
         const isReceivable = po.status === "ORDERED" || po.status === "PARTIAL";

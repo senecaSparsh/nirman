@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getCurrentUser, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
@@ -46,7 +46,7 @@ async function PoDetailContent({
     return <NoAccess what="purchase orders" />;
   }
 
-  const canApprove = hasPermission(role, PERM.PO_APPROVE);
+  const currentUser = await getCurrentUser();
   const { id } = await params;
 
   const po = await prisma.purchaseOrder.findFirst({
@@ -70,6 +70,8 @@ async function PoDetailContent({
   });
 
   if (!po) notFound();
+
+  const canApprove = hasPermission(role, PERM.PO_APPROVE) && po.createdById !== currentUser?.id;
 
   // Fetch the source requisition (if this PO was converted from one)
   const sourceRequisition = await prisma.materialRequisition.findFirst({

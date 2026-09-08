@@ -415,6 +415,16 @@ export function MobileEmployeeDetailClient({
             Generate agreement →
           </Link>
         )}
+        {employee.contractStatus && (
+          <a
+            href={`/print/employment-agreement/${employee.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-m-caption text-primary text-center pt-1"
+          >
+            View / Print agreement →
+          </a>
+        )}
       </div>
 
       {/* ── Attendance ── */}

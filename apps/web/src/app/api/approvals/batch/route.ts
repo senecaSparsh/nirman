@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { approvePurchaseOrder } from "@nirman/services";
+import { approvePurchaseOrder, approveGatePass } from "@nirman/services";
 import { apiHandler, getCompany, getUserPermissions, json, requireUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
@@ -55,19 +55,19 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const [validPos, validReqs, validGps] = await Promise.all([
     canApprovePo && poIds.length > 0
       ? prisma.purchaseOrder.findMany({
-          where: { id: { in: poIds }, companyId: company.id, status: "DRAFT" },
+          where: { id: { in: poIds }, companyId: company.id, status: "DRAFT", createdById: { not: user.id } },
           select: { id: true },
         })
       : Promise.resolve([]),
     canApproveReq && reqIds.length > 0
       ? prisma.materialRequisition.findMany({
-          where: { id: { in: reqIds }, project: { companyId: company.id }, status: "SUBMITTED" },
+          where: { id: { in: reqIds }, project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: user.id } },
           select: { id: true },
         })
       : Promise.resolve([]),
     canApproveGp && gpIds.length > 0
       ? prisma.gatePass.findMany({
-          where: { id: { in: gpIds }, companyId: company.id, status: "PENDING" },
+          where: { id: { in: gpIds }, companyId: company.id, status: "PENDING", createdById: { not: user.id } },
           select: { id: true },
         })
       : Promise.resolve([]),
@@ -93,10 +93,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
           continue;
         }
         if (!validPoIds.has(item.id)) {
-          results.push({ type: item.type, id: item.id, success: false, error: "PO not found or not in DRAFT status" });
+          results.push({ type: item.type, id: item.id, success: false, error: "PO not found, not in DRAFT status, or you cannot approve your own PO" });
           continue;
         }
-        await approvePurchaseOrder(item.id, user.id);
+        await approvePurchaseOrder(item.id, user.role, user.id);
         results.push({ type: item.type, id: item.id, success: true });
       } else if (item.type === "requisition") {
         if (!canApproveReq) {
@@ -104,7 +104,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
           continue;
         }
         if (!validReqIds.has(item.id)) {
-          results.push({ type: item.type, id: item.id, success: false, error: "Indent not found or not in SUBMITTED status" });
+          results.push({ type: item.type, id: item.id, success: false, error: "Indent not found, not submitted, or you cannot approve your own indent" });
           continue;
         }
         await prisma.materialRequisition.update({
@@ -122,17 +122,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
           continue;
         }
         if (!validGpIds.has(item.id)) {
-          results.push({ type: item.type, id: item.id, success: false, error: "Gate pass not found or not in PENDING status" });
+          results.push({ type: item.type, id: item.id, success: false, error: "Gate pass not found, not pending, or you cannot approve your own gate pass" });
           continue;
         }
-        await prisma.gatePass.update({
-          where: { id: item.id },
-          data: {
-            status: "APPROVED",
-            approvedById: user.id,
-            approvedAt: new Date(),
-          },
-        });
+        await approveGatePass(item.id, user.id);
         results.push({ type: item.type, id: item.id, success: true });
       }
     } catch (err) {

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { apiHandler, requirePermission, getCompany, json, userRoleSchema } from "@/lib/server";
-import { canAssignRole, PERM } from "@/lib/roles";
+import { canAssignRole, isCustomRole, canAssignCustomRole, PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
 /**
@@ -49,13 +49,42 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   //   1. actor must be above the target's CURRENT role
   //   2. actor must be above the NEW role being assigned
   if (parsed.data.role !== undefined && parsed.data.role !== existing.role) {
-    if (!canAssignRole(actorRole, existing.role)) {
+    // Check if the target's current role is a custom role
+    const existingIsCustom = isCustomRole(existing.role);
+    const newIsCustom = isCustomRole(parsed.data.role);
+
+    // For custom roles, we need to look up their tier from the DB
+    let existingTierOk = false;
+    if (existingIsCustom) {
+      const existingCustomRole = await prisma.customRole.findFirst({
+        where: { companyId: company.id, key: existing.role },
+        select: { tier: true },
+      }).catch(() => null);
+      existingTierOk = existingCustomRole ? canAssignCustomRole(actorRole, existingCustomRole.tier) : false;
+    } else {
+      existingTierOk = canAssignRole(actorRole, existing.role);
+    }
+
+    if (!existingTierOk) {
       return json(
         { error: `You cannot manage a ${existing.role} — they are at or above your tier.` },
         { status: 403 },
       );
     }
-    if (!canAssignRole(actorRole, parsed.data.role)) {
+
+    // Check the new role
+    let newTierOk = false;
+    if (newIsCustom) {
+      const newCustomRole = await prisma.customRole.findFirst({
+        where: { companyId: company.id, key: parsed.data.role },
+        select: { tier: true },
+      }).catch(() => null);
+      newTierOk = newCustomRole ? canAssignCustomRole(actorRole, newCustomRole.tier) : false;
+    } else {
+      newTierOk = canAssignRole(actorRole, parsed.data.role);
+    }
+
+    if (!newTierOk) {
       return json(
         { error: `Your role (${actorRole}) cannot assign the ${parsed.data.role} role.` },
         { status: 403 },

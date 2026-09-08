@@ -104,6 +104,7 @@ async function EmployeeProfileContent({
       benefits: {
         orderBy: { createdAt: "desc" },
       },
+      salaryComponents: { where: { active: true }, select: { id: true } },
     },
   });
 
@@ -251,6 +252,18 @@ async function EmployeeProfileContent({
     contractStatus: employee.contractStatus,
     contractIssuedAt: employee.contractIssuedAt?.toISOString() ?? null,
     contractConfirmedAt: employee.contractConfirmedAt?.toISOString() ?? null,
+    // ── Offer / appointment / ID card tracking ──
+    offerLetterStatus: employee.offerLetterStatus,
+    offerLetterIssuedAt: employee.offerLetterIssuedAt?.toISOString() ?? null,
+    appointmentLetterStatus: employee.appointmentLetterStatus,
+    appointmentLetterIssuedAt: employee.appointmentLetterIssuedAt?.toISOString() ?? null,
+    idCardStatus: employee.idCardStatus,
+    idCardIssuedAt: employee.idCardIssuedAt?.toISOString() ?? null,
+    // ── Onboarding checklist ──
+    documentsSubmitted: employee.documentsSubmitted,
+    backgroundVerified: employee.backgroundVerified,
+    // ── Salary structure (for onboarding step) ──
+    hasSalaryComponents: employee.salaryComponents.length > 0,
     // ── Auto-deposit ──
     autoDepositEnabled: employee.autoDepositEnabled,
     autoDepositSetupAt: employee.autoDepositSetupAt?.toISOString() ?? null,

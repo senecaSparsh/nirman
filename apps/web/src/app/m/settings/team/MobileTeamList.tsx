@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Shield,
+  ShieldPlus,
   Phone,
   ChevronDown,
   Check,
@@ -55,7 +56,7 @@ interface TeamMember {
 }
 
 interface AssignableRole {
-  key: Role;
+  key: string;
   label: string;
 }
 
@@ -130,6 +131,7 @@ export function MobileTeamList({
   currentRole: _currentRole,
   roleCounts,
   assignableRoles,
+  customRoles,
   projects,
   departments,
   exportTitle,
@@ -143,6 +145,7 @@ export function MobileTeamList({
   currentRole: string;
   roleCounts: Record<string, number>;
   assignableRoles: AssignableRole[];
+  customRoles?: { id: string; key: string; label: string; description: string; baseRole: string; tier: number; permissions: string[] }[];
   projects: { id: string; name: string }[];
   departments: { id: string; code: string; name: string; active: boolean }[];
   exportTitle?: string;
@@ -154,6 +157,7 @@ export function MobileTeamList({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const fab = useFabModal();
+  const [showCreateRole, setShowCreateRole] = useState(false);
 
   const filtered = search.trim()
     ? team.filter((m) => {
@@ -211,18 +215,22 @@ export function MobileTeamList({
         {/* Role distribution pills */}
         <div className="flex flex-wrap gap-1.5">
           {Object.entries(roleCounts).map(([roleKey, count]) => {
+            const isCustom = roleKey.startsWith("CUSTOM_");
             const meta = ROLE_META[roleKey as Role];
-            if (!meta || count === 0) return null;
+            if (!meta && !isCustom) return null;
+            if (meta && count === 0) return null;
+            const color = isCustom ? "var(--color-ink-600)" : meta?.color ?? "var(--color-ink-600)";
+            const label = isCustom ? roleKey.replace(/^CUSTOM_/, "").replace(/_/g, " ") : meta?.label ?? roleKey;
             return (
               <span
                 key={roleKey}
                 className="flex items-center gap-1 h-5 px-1.5 rounded-full text-m-caption font-bold"
                 style={{
-                  color: meta.color,
-                  backgroundColor: `color-mix(in srgb, ${meta.color} 8%, transparent)`,
+                  color,
+                  backgroundColor: `color-mix(in srgb, ${color} 8%, transparent)`,
                 }}
               >
-                {meta.label}
+                {label}
                 <span className="tabular-nums" style={{ opacity: 0.6 }}>
                   {count}
                 </span>
@@ -245,6 +253,39 @@ export function MobileTeamList({
           You have read-only access. Only owners and admins can change roles or
           deactivate members.
         </div>
+      )}
+
+      {/* ── Create custom role button (managers only) ── */}
+      {canManage && (
+        <button
+          onClick={() => setShowCreateRole(true)}
+          className="w-full rounded-[0.5rem] border p-2.5 mb-3 flex items-center gap-2 press"
+          style={{
+            borderColor: "var(--color-line)",
+            backgroundColor: "var(--color-paper)",
+          }}
+        >
+          <ShieldPlus className="size-4" style={{ color: "var(--color-ink-600)" }} />
+          <span className="text-m-label font-semibold" style={{ color: "var(--color-ink-950)" }}>
+            Create Custom Role
+          </span>
+          {customRoles && customRoles.length > 0 && (
+            <span className="ml-auto text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+              {customRoles.length} custom
+            </span>
+          )}
+        </button>
+      )}
+
+      {/* ── Create custom role dialog ── */}
+      {showCreateRole && (
+        <CreateCustomRoleDialog
+          onClose={() => setShowCreateRole(false)}
+          onCreated={() => {
+            setShowCreateRole(false);
+            router.refresh();
+          }}
+        />
       )}
 
       {/* ── Add member FAB (managers only) ── */}
@@ -411,10 +452,14 @@ function MemberCard({
   const [showPerms, setShowPerms] = useState(false);
   const [showResetPwd, setShowResetPwd] = useState(false);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
-  const meta = ROLE_META[member.role];
+  const meta = ROLE_META[member.role] ?? {
+    color: "var(--color-ink-600)",
+    label: member.role.replace(/^CUSTOM_/, "").replace(/_/g, " "),
+    icon: Shield,
+  };
   const Icon = meta.icon;
 
-  async function changeRole(newRole: Role) {
+  async function changeRole(newRole: Role | string) {
     if (newRole === member.role) return;
     setChanging(true);
     try {
@@ -425,7 +470,10 @@ function MemberCard({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to update role");
-      toast.success(`${member.name} is now ${ROLES[newRole].label}`);
+      const label = newRole.startsWith("CUSTOM_")
+        ? newRole.replace(/^CUSTOM_/, "").replace(/_/g, " ")
+        : ROLES[newRole as Role]?.label ?? newRole;
+      toast.success(`${member.name} is now ${label}`);
       onChanged();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "An error occurred");
@@ -678,19 +726,26 @@ function MemberCard({
               </p>
               <div className="flex flex-wrap gap-1 mb-3">
                 {assignableRoles.map((r) => {
-                  const rMeta = ROLE_META[r.key];
+                  const isCustom = r.key.startsWith("CUSTOM_");
+                  const rMeta = ROLE_META[r.key as Role];
                   const isCurrent = r.key === member.role;
                   return (
                     <button
                       key={r.key}
-                      onClick={() => changeRole(r.key)}
+                      onClick={() => changeRole(r.key as Role)}
                       disabled={changing || isCurrent}
                       className="flex items-center gap-1 h-6 px-2 rounded-[0.25rem] text-m-caption font-semibold text-m-body press disabled:opacity-40"
                       style={{
-                        color: isCurrent ? "var(--color-paper)" : rMeta.color,
+                        color: isCurrent
+                          ? "var(--color-paper)"
+                          : isCustom
+                            ? "var(--color-ink-600)"
+                            : rMeta?.color ?? "var(--color-ink-600)",
                         backgroundColor: isCurrent
-                          ? rMeta.color
-                          : `color-mix(in srgb, ${rMeta.color} 8%, transparent)`,
+                          ? isCustom
+                            ? "var(--color-ink-600)"
+                            : rMeta?.color ?? "var(--color-ink-600)"
+                          : `color-mix(in srgb, ${isCustom ? "var(--color-ink-600)" : rMeta?.color ?? "var(--color-ink-600)"} 8%, transparent)`,
                       }}
                     >
                       {isCurrent && <Check className="size-2.5" />}
@@ -821,7 +876,7 @@ function AddMemberForm({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<Role>(
+  const [role, setRole] = useState<string>(
     assignableRoles[0]?.key ?? "PROJECT_MANAGER",
   );
   const [password, setPassword] = useState("");
@@ -1047,7 +1102,8 @@ function AddMemberForm({
           {Object.entries(
             assignableRoles.reduce(
               (acc, r) => {
-                const cat = ROLES[r.key].category;
+                const isCustom = r.key.startsWith("CUSTOM_");
+                const cat = isCustom ? "Custom" : ROLES[r.key as Role]?.category ?? "Other";
                 if (!acc[cat]) acc[cat] = [];
                 acc[cat].push(r);
                 return acc;
@@ -1064,25 +1120,27 @@ function AddMemberForm({
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {roles.map((r) => {
-                  const meta = ROLE_META[r.key];
+                  const isCustom = r.key.startsWith("CUSTOM_");
+                  const meta = ROLE_META[r.key as Role];
+                  const color = isCustom ? "var(--color-ink-600)" : meta?.color ?? "var(--color-ink-600)";
                   const isCurrent = r.key === role;
                   return (
                     <button
                       key={r.key}
                       type="button"
                       onClick={() => {
-                        setRole(r.key);
+                        setRole(r.key as Role);
                         haptic(10);
                       }}
                       className="flex items-center gap-1 h-8 px-2.5 rounded-[0.375rem] text-m-caption font-semibold text-m-body press"
                       style={{
-                        color: isCurrent ? "var(--color-paper)" : meta.color,
+                        color: isCurrent ? "var(--color-paper)" : color,
                         backgroundColor: isCurrent
-                          ? meta.color
-                          : `color-mix(in srgb, ${meta.color} 8%, transparent)`,
+                          ? color
+                          : `color-mix(in srgb, ${color} 8%, transparent)`,
                         border: isCurrent
                           ? "none"
-                          : `1px solid color-mix(in srgb, ${meta.color} 20%, transparent)`,
+                          : `1px solid color-mix(in srgb, ${color} 20%, transparent)`,
                       }}
                     >
                       {isCurrent && <Check className="size-3" />}
@@ -1401,6 +1459,140 @@ function EditMemberDialog({
             </div>
           </div>
         </form>
+    </MobileDialog>
+  );
+}
+
+/* ─── Create Custom Role Dialog ─── */
+function CreateCustomRoleDialog({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [key, setKey] = useState("");
+  const [label, setLabel] = useState("");
+  const [description, setDescription] = useState("");
+  const [baseRole, setBaseRole] = useState<Role>("SITE_ENGINEER");
+  const [saving, setSaving] = useState(false);
+
+  const baseRoles = (Object.keys(ROLES) as Role[]).filter((r) => r !== "OWNER" && r !== "DEVELOPER");
+
+  async function handleCreate() {
+    if (!key.trim() || !label.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/custom-roles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: key.trim().toUpperCase().replace(/\s+/g, "_"),
+          label: label.trim(),
+          description: description.trim(),
+          baseRole,
+          permissions: [],
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to create role");
+      haptic([10, 40, 80]);
+      toast.success(data.message ?? "Custom role created");
+      onCreated();
+    } catch (err: unknown) {
+      haptic([50, 20, 50]);
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <MobileDialog open={true} onClose={onClose} title="Create Custom Role">
+      <div className="space-y-3">
+        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+          Create a custom role with a base role (for tier and default permissions).
+          You can fine-tune permissions after creation.
+        </p>
+
+        <div className="space-y-1">
+          <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-400)" }}>
+            Role Key *
+          </label>
+          <input
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="e.g. SALES_LEAD"
+            className="w-full rounded-[0.5rem] border p-2.5 text-m-label"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          />
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+            Stored as CUSTOM_{key.trim().toUpperCase().replace(/\s+/g, "_") || "…"}
+          </p>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-400)" }}>
+            Display Label *
+          </label>
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="e.g. Sales Lead"
+            className="w-full rounded-[0.5rem] border p-2.5 text-m-label"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-400)" }}>
+            Description
+          </label>
+          <input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Optional description"
+            className="w-full rounded-[0.5rem] border p-2.5 text-m-label"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-400)" }}>
+            Base Role (inherits tier + permissions)
+          </label>
+          <select
+            value={baseRole}
+            onChange={(e) => setBaseRole(e.target.value as Role)}
+            className="w-full rounded-[0.5rem] border p-2.5 text-m-label"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
+            {baseRoles.map((r) => (
+              <option key={r} value={r}>
+                {ROLES[r].label} (Tier {roleTier(r)})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-[0.5rem] border p-2.5 text-m-label font-semibold press"
+            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleCreate}
+            disabled={saving || !key.trim() || !label.trim()}
+            className="flex-1 rounded-[0.5rem] p-2.5 text-m-label font-semibold press disabled:opacity-50"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+          >
+            {saving ? <Loader2 className="size-4 animate-spin mx-auto" /> : "Create Role"}
+          </button>
+        </div>
+      </div>
     </MobileDialog>
   );
 }

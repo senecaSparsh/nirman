@@ -335,7 +335,7 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
         <p className="text-m-caption mb-4" style={{ color: "var(--color-ink-700)" }}>
           {isQueued
             ? "Will be submitted as DRAFT when back online."
-            : "Purchase Order is in DRAFT. Submit for approval from the Purchase Order detail page."}
+            : "Purchase Order is awaiting approval. An approver will review it next."}
         </p>
         <div className="flex flex-col gap-3">
           {!isQueued && success.poId ? (

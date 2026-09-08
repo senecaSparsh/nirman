@@ -141,6 +141,7 @@ model Company {
   telephonyProviderConfigs TelephonyProviderConfig[]
   consentPolicies        ConsentPolicy[]
   backups                BackupRecord[]
+  customRoles            CustomRole[]
 
   @@index([parentCompanyId])
 }
@@ -243,6 +244,31 @@ model UserPermission {
 
   @@unique([userCompanyId, permission])
   @@index([userCompanyId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  CUSTOM ROLES — company-specific role definitions.
+//  Allows OWNER/ADMIN/HR_MANAGER to create custom roles with a
+//  base role (for tier + default permissions) and additional
+//  permissions (additive). The custom role key is stored in
+//  UserCompany.role (prefixed with "CUSTOM_").
+// ───────────────────────────────────────────────────────────
+model CustomRole {
+  id          String   @id @default(cuid())
+  companyId   String
+  key         String   // e.g. "CUSTOM_SALES_LEAD" — stored in UserCompany.role
+  label       String   // display label, e.g. "Sales Lead"
+  description String   @default("")
+  baseRole    String   // built-in role to inherit tier + base permissions from
+  tier        Int      // hierarchy tier (1-5), same as baseRole by default
+  permissions String[] // additive permissions on top of baseRole
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, key])
+  @@index([companyId])
 }
 
 // ───────────────────────────────────────────────────────────

@@ -62,8 +62,12 @@ export function PurchaseOrderDetailView({
           description: "The supplier has been sent the order. Receive goods when they arrive.",
           action: { label: "Receive Goods", onClick: () => setRecvOpen(true) },
         });
-      } else {
-        toast.success(`PO ${action}d`);
+      } else if (action === "approve") {
+        toast.success(`PO ${detail.poNumber} approved`, {
+          description: "It's ready to be ordered from the supplier.",
+        });
+      } else if (action === "cancel") {
+        toast.success(`PO ${detail.poNumber} cancelled`);
       }
       setApprovalNotes("");
       setShowApproveField(false);

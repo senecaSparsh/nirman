@@ -96,10 +96,13 @@ async function MobileOnboardingQueueContent() {
       userId: true,
       user: { select: { id: true, active: true, role: true } },
       activeProject: { select: { name: true } },
+      salaryComponents: { where: { active: true }, select: { id: true } },
     },
   });
 
   // ── Compute onboarding progress for each employee ──
+  // 12 canonical steps — MUST match MobileOnboardingTab exactly so "complete"
+  // means the same thing on the queue and the detail page.
   const items: QueueItem[] = employees.map((e) => {
     const hasProfile = !!(e.name && (e.phone || e.user) && (e.designation || e.trade));
     const hasWage = e.wageType === "DAILY" ? (e.dailyRate?.toNumber() ?? 0) > 0 : (e.monthlySalary?.toNumber() ?? 0) > 0;
@@ -109,19 +112,21 @@ async function MobileOnboardingQueueContent() {
       (e.employmentType !== "CONTRACT" || e.contractStartDate) &&
       (e.employmentType !== "PROBATION" || e.contractStartDate)
     );
-    const hasAccount = !!e.userId;
+    const hasSalaryStructure = e.salaryComponents.length > 0;
     const documentsSubmitted = e.documentsSubmitted === true;
     const backgroundVerified = e.backgroundVerified === true;
-    const offerLetterIssued = ["ISSUED", "CONFIRMED"].includes(e.offerLetterStatus ?? "");
-    const appointmentLetterIssued = ["ISSUED", "CONFIRMED"].includes(e.appointmentLetterStatus ?? "");
-    const idCardIssued = ["ISSUED"].includes(e.idCardStatus ?? "");
+    const hasAccount = !!e.userId;
+    const offerLetterIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(e.offerLetterStatus ?? "");
     const agreementIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(e.contractStatus ?? "");
     const agreementConfirmed = ["CONFIRMED", "EXPIRED"].includes(e.contractStatus ?? "");
+    const appointmentLetterIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(e.appointmentLetterStatus ?? "");
+    const idCardIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(e.idCardStatus ?? "");
     const hasAutoDeposit = e.autoDepositEnabled === true;
 
     const steps = [
       { label: "Profile & Wage", done: hasProfile && hasWage },
       { label: "Employment Terms", done: hasEmploymentTerms },
+      { label: "Salary Structure", done: hasSalaryStructure },
       { label: "Documents", done: documentsSubmitted },
       { label: "BG Verification", done: backgroundVerified },
       { label: "Login Account", done: hasAccount },
