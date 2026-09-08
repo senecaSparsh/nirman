@@ -1240,7 +1240,7 @@ function SalarySubTab({
               <p className="text-m-caption font-bold mb-1" style={{ color: "var(--color-ink-700)" }}>
                 EARNINGS
               </p>
-              {displayEarnings.map((c, idx) => (
+              {displayEarnings.map((c) => (
                 <div key={c.id} className="flex justify-between items-center py-1 border-b" style={{ borderColor: "var(--color-line)" }}>
                   <span className="text-m-body flex-1" style={{ color: "var(--color-ink-950)" }}>
                     {SALARY_COMPONENT_LABELS[c.type] ?? c.type}
@@ -1410,7 +1410,7 @@ function SalarySubTab({
                 onClick={handleSave}
                 disabled={saving}
                 className="flex-1 h-9 rounded-[0.5rem] text-m-body font-semibold press flex items-center justify-center gap-1.5"
-                style={{ backgroundColor: "var(--color-accent, #2563eb)", color: "white" }}
+                style={{ backgroundColor: "var(--color-accent, #2563eb)", color: "var(--color-accent-foreground)" }}
               >
                 {saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
                 Save

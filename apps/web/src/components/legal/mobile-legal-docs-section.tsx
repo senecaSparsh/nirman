@@ -864,7 +864,7 @@ function MobileLegalDocForm({
             onClick={handleSubmit}
             disabled={saving}
             className="flex-1 rounded-[0.5rem] py-2.5 text-m-section font-semibold flex items-center justify-center gap-1"
-            style={{ backgroundColor: "var(--color-brand)", color: "white" }}
+            style={{ backgroundColor: "var(--color-brand)", color: "var(--color-brand-foreground)" }}
           >
             {saving ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}
             {saving ? "Saving…" : editing ? "Update" : "Add"}

@@ -221,7 +221,7 @@ export function MobileSelfCheckIn({
         className="w-full rounded-xl py-3 px-4 flex items-center justify-center gap-2 font-semibold text-m-section transition-all active:scale-[0.98] disabled:opacity-50"
         style={{
           backgroundColor: "var(--color-primary)",
-          color: "white",
+          color: "var(--color-primary-foreground)",
           minHeight: 56,
         }}
       >
