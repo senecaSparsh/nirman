@@ -99,7 +99,9 @@ describe("HsnSacSearch", () => {
     );
     // Wait for the debounced suggest call (600ms)
     await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining("suggest=Portland+Cement"));
+      const suggestCall = fetchSpy.mock.calls.find((c) => String(c[0]).includes("suggest="));
+      expect(suggestCall).toBeDefined();
+      expect(String(suggestCall![0])).toContain("suggest=Portland+Cement");
     }, { timeout: 2000 });
     // The auto-fill happens after the response
     await waitFor(() => {

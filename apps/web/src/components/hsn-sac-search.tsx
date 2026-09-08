@@ -64,11 +64,21 @@ export function HsnSacSearch({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suggestRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Ref to read current value inside async closures without stale captures
+  const valueRef = useRef(value);
+  useEffect(() => { valueRef.current = value; }, [value]);
 
   // Sync external value changes (but don't reset manual flag)
   useEffect(() => {
     setQuery(value);
   }, [value]);
+
+  // Reset manuallySet when materialName changes — a new material should
+  // re-trigger auto-suggest even if the user previously overrode the HSN
+  // for a different material.
+  useEffect(() => {
+    setManuallySet(false);
+  }, [materialName]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -85,29 +95,32 @@ export function HsnSacSearch({
   // Only auto-fills when the user hasn't manually set the HSN code.
   useEffect(() => {
     if (!materialName || materialName.trim().length < 3 || manuallySet) return;
+    const controller = new AbortController();
     if (suggestRef.current) clearTimeout(suggestRef.current);
     suggestRef.current = setTimeout(async () => {
       try {
         const params = new URLSearchParams({ suggest: materialName.trim() });
         if (categoryName) params.set("category", categoryName);
-        const res = await fetch(`/api/hsn-gst?${params}`);
+        const res = await fetch(`/api/hsn-gst?${params}`, { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
             const top = data[0]!;
-            // Only auto-fill if the current value is empty or was a previous
-            // auto-suggestion (not manually typed).
-            if (!value || !manuallySet) {
+            // Read from ref to avoid stale closure — only auto-fill if
+            // the user hasn't manually typed something in the meantime.
+            if (!valueRef.current && !manuallySet) {
               onCodeChange(top.hsnCode);
               if (onGstRateChange) onGstRateChange(top.gstRate);
             }
           }
         }
-      } catch {
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         // silent fail
       }
     }, 600);
     return () => {
+      controller.abort();
       if (suggestRef.current) clearTimeout(suggestRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -116,18 +129,23 @@ export function HsnSacSearch({
   // ── GST auto-lookup when HSN code changes (debounced) ──
   useEffect(() => {
     if (!value.trim() || value.trim().length < 4) return;
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/hsn-gst?hsn=${encodeURIComponent(value.trim())}`);
+        const res = await fetch(`/api/hsn-gst?hsn=${encodeURIComponent(value.trim())}`, { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
           if (onGstRateChange) onGstRateChange(data.gstRate);
         }
-      } catch {
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         // silent fail — user can set GST manually
       }
     }, 400);
-    return () => clearTimeout(timer);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 

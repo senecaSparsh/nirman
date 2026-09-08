@@ -13,6 +13,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { SupplierFormDialog } from "@/components/procurement/supplier-form-dialog";
 import { SupplierPaymentFormDialog } from "@/components/procurement/supplier-payment-form-dialog";
+import { HsnSacSearch } from "@/components/hsn-sac-search";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import type { SupplierRow } from "@/lib/types";
 
@@ -649,6 +650,7 @@ function SupplierInvoiceFormDialog({
     subtotal: "",
     gstAmount: "",
     totalAmount: "",
+    hsnCode: "",
   });
   // Invoice lines for three-way matching — auto-filled from PO when selected
   type InvLine = { materialId: string; materialName: string; unit: string; quantity: string; unitPrice: string; gstRate: string };
@@ -668,6 +670,7 @@ function SupplierInvoiceFormDialog({
         subtotal: "",
         gstAmount: "",
         totalAmount: "",
+        hsnCode: "",
       });
       setInvLines([]);
       setDocFile(null);
@@ -763,6 +766,7 @@ function SupplierInvoiceFormDialog({
       if (form.purchaseOrderId) payload.purchaseOrderId = form.purchaseOrderId;
       if (form.dueDate) payload.dueDate = form.dueDate;
       if (form.gstAmount) payload.gstAmount = Number(form.gstAmount);
+      if (form.hsnCode.trim()) payload.hsnCode = form.hsnCode.trim();
       if (docFile) {
         payload.invoiceDocumentUrl = docFile.url;
         payload.invoiceDocumentName = docFile.name;
@@ -862,6 +866,19 @@ function SupplierInvoiceFormDialog({
           {form.supplierId && filteredPos.length === 0 && (
             <p className="text-micro text-muted-foreground">No purchase orders for this supplier.</p>
           )}
+        </div>
+
+        {/* HSN/SAC code — for service invoices or header-level classification */}
+        <div className="space-y-1.5">
+          <Label htmlFor="si-hsn">HSN/SAC Code</Label>
+          <HsnSacSearch
+            value={form.hsnCode}
+            onCodeChange={(code) => set("hsnCode", code)}
+            placeholder="Search or type HSN/SAC code…"
+          />
+          <p className="text-micro text-muted-foreground">
+            Optional — used for service invoices or header-level GST classification.
+          </p>
         </div>
 
         {/* Invoice lines — auto-filled from PO, editable for three-way matching */}

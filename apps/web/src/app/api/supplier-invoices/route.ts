@@ -14,6 +14,7 @@ const invoiceSchema = z.object({
   subtotal: z.union([z.number(), z.string()]),
   gstAmount: z.union([z.number(), z.string()]).optional(),
   totalAmount: z.union([z.number(), z.string()]),
+  hsnCode: z.string().optional(),
   invoiceDocumentUrl: z.string().optional(),
   invoiceDocumentName: z.string().optional(),
   lines: z.array(z.object({
@@ -96,6 +97,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       subtotal: data.subtotal,
       gstAmount: data.gstAmount,
       totalAmount: data.totalAmount,
+      hsnCode: data.hsnCode,
       invoiceDocumentUrl: data.invoiceDocumentUrl,
       invoiceDocumentName: data.invoiceDocumentName,
       lines: data.lines,

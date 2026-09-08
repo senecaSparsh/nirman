@@ -421,9 +421,179 @@ export async function lookupGstByHsn(hsnCode: string): Promise<{
 }
 
 /**
+ * Construction-industry synonym map — maps trade names and abbreviations
+ * to the canonical terms used in HSN descriptions. This dramatically
+ * improves auto-detection for common Indian construction jargon.
+ *
+ * Example: "TMT" → "steel bars", "wooden" → "wood", "copper wire" → "insulated wire"
+ */
+const MATERIAL_SYNONYMS: Record<string, string[]> = {
+  tmt: ["steel", "bars", "rods"],
+  rebar: ["steel", "bars", "rods"],
+  reinforcement: ["steel", "bars"],
+  wooden: ["wood"],
+  timber: ["wood"],
+  plywood: ["plywood", "wood"],
+  "copper wire": ["insulated wire", "cable"],
+  "copper cable": ["insulated cable", "wire"],
+  opc: ["portland cement"],
+  ppc: ["portland cement"],
+  cement: ["portland cement"],
+  concrete: ["cement", "concrete"],
+  "red brick": ["bricks", "ceramic"],
+  "fly ash": ["fly ash", "bricks"],
+  aac: ["autoclaved aerated concrete"],
+  block: ["blocks", "bricks"],
+  "pvc pipe": ["pvc", "tubes", "pipes"],
+  "cpvc pipe": ["cpvc", "tubes", "pipes"],
+  conduit: ["tubes", "pipes"],
+  paint: ["paints", "varnishes"],
+  enamel: ["paints", "varnishes"],
+  putty: ["putty", "plaster"],
+  marble: ["marble", "stone"],
+  granite: ["granite", "stone"],
+  tile: ["tiles", "ceramic"],
+  "marble tile": ["marble", "tiles"],
+  "granite tile": ["granite", "tiles"],
+  "wall paint": ["paints", "varnishes"],
+  waterproofing: ["waterproofing", "bituminous"],
+  "water proofing": ["waterproofing", "bituminous"],
+  adhesive: ["adhesives", "glues"],
+  "tile adhesive": ["adhesives", "glues"],
+  glue: ["glues", "adhesives"],
+  shuttering: ["plywood", "wood"],
+  centering: ["plywood", "wood"],
+  scaffolding: ["scaffolding", "structures"],
+  "expansion joint": ["sealants", "mastics"],
+  aggregate: ["gravel", "crushed stone", "pebbles"],
+  "crusher dust": ["powder", "stone"],
+  "m-sand": ["sand"],
+  "manufactured sand": ["sand"],
+  "river sand": ["sand"],
+  "steel rod": ["steel", "bars", "rods"],
+  "steel bar": ["steel", "bars", "rods"],
+  "steel plate": ["steel", "plates", "flat-rolled"],
+  "steel sheet": ["steel", "sheets", "flat-rolled"],
+  "ms pipe": ["tubes", "pipes", "iron", "steel"],
+  "gi pipe": ["tubes", "pipes", "iron", "steel"],
+  "steel pipe": ["tubes", "pipes", "iron", "steel"],
+  "iron pipe": ["tubes", "pipes", "iron", "steel"],
+  nail: ["nails", "fasteners"],
+  bolt: ["bolts", "screws", "fasteners"],
+  screw: ["screws", "fasteners"],
+  nut: ["nuts", "fasteners"],
+  washer: ["washers", "fasteners"],
+  rivet: ["rivets", "fasteners"],
+  hinge: ["hinges", "fittings", "mountings"],
+  lock: ["locks", "padlocks"],
+  "safety helmet": ["headgear", "helmets"],
+  "safety boots": ["footwear", "boots"],
+  "safety vest": ["vests", "knitted"],
+  diesel: ["diesel", "oils"],
+  petrol: ["motor spirit", "petrol"],
+  "welding rod": ["welding", "wire", "electrodes"],
+  electrode: ["electrodes", "welding"],
+  "sand paper": ["abrasive", "sandpaper"],
+  sandpaper: ["abrasive", "sandpaper"],
+  glass: ["glass", "float"],
+  "window glass": ["glass", "float"],
+  "door frame": ["doors", "frames", "joinery"],
+  "window frame": ["windows", "frames", "joinery"],
+  "steel door": ["doors", "frames", "iron", "steel"],
+  "steel window": ["windows", "frames", "iron", "steel"],
+  "wooden door": ["doors", "frames", "wood", "joinery"],
+  "wooden window": ["windows", "frames", "wood", "joinery"],
+  "sanitary ware": ["sanitary", "sinks", "basins"],
+  "wc pan": ["toilet", "sanitary", "ceramic"],
+  "wash basin": ["basins", "sinks", "sanitary"],
+  "water tank": ["tanks", "casks", "drums"],
+  "solar panel": ["solar", "photovoltaic"],
+  inverter: ["static converters", "rectifiers"],
+  "circuit breaker": ["switching", "protecting", "circuits"],
+  switch: ["switching", "electrical"],
+  socket: ["plugs", "sockets"],
+  "led light": ["lamps", "lighting"],
+  "street light": ["lamps", "lighting"],
+  "led bulb": ["lamps", "lighting"],
+  pump: ["pumps", "liquids"],
+  "centrifugal pump": ["pumps", "centrifugal"],
+  "diesel pump": ["pumps", "liquids"],
+  crane: ["lifting", "cranes", "hoists"],
+  hoist: ["lifting", "hoists"],
+  "concrete mixer": ["mixing", "machinery"],
+  vibrator: ["vibrating", "machinery"],
+  excavator: ["excavators", "shovels"],
+  "jcb": ["excavators", "shovels"],
+  "dumper": ["dumpers", "bulldozers"],
+  "bitumen": ["bituminous", "asphalt"],
+  "tar": ["bituminous", "asphalt"],
+  "gypsum board": ["plaster", "gypsum"],
+  "pop": ["plaster", "gypsum"],
+  "plaster of paris": ["plaster", "gypsum"],
+  "false ceiling": ["plaster", "gypsum", "ceiling"],
+  insulation: ["insulation", "mineral wool", "slag wool"],
+  "thermocol": ["plastics", "cellular", "sheets"],
+  "geotextile": ["textile", "fabrics", "coated"],
+  tarpaulin: ["tarpaulins", "awnings", "tents"],
+  "barbed wire": ["wire", "barbed"],
+  "chain link": ["chain", "fencing"],
+  fence: ["fencing", "railing"],
+  "rcc": ["cement", "concrete", "reinforcement"],
+  "rcc pipe": ["tubes", "pipes", "cement", "concrete"],
+  "hume pipe": ["tubes", "pipes", "cement", "concrete"],
+  "manhole cover": ["covers", "frames", "iron", "steel"],
+  "drain cover": ["covers", "frames", "iron", "steel"],
+};
+
+/**
+ * Expand a material name with synonyms. Returns the original words plus
+ * any synonym expansions, deduplicated.
+ */
+function expandWithSynonyms(name: string): string[] {
+  const lower = name.toLowerCase().trim();
+  const words = lower.split(/\s+/).filter((w) => w.length >= 2);
+  const expanded = new Set<string>();
+
+  for (const w of words) {
+    if (w.length >= 3) expanded.add(w);
+  }
+
+  // Check multi-word synonyms (e.g., "copper wire", "pvc pipe")
+  for (let i = 0; i < words.length; i++) {
+    for (let j = i + 1; j <= Math.min(i + 3, words.length); j++) {
+      const phrase = words.slice(i, j).join(" ");
+      const syns = MATERIAL_SYNONYMS[phrase];
+      if (syns) {
+        for (const s of syns) {
+          for (const sw of s.split(/\s+/)) {
+            if (sw.length >= 3) expanded.add(sw);
+          }
+        }
+      }
+    }
+  }
+
+  // Check single-word synonyms
+  for (const w of words) {
+    const syns = MATERIAL_SYNONYMS[w];
+    if (syns) {
+      for (const s of syns) {
+        for (const sw of s.split(/\s+/)) {
+          if (sw.length >= 3) expanded.add(sw);
+        }
+      }
+    }
+  }
+
+  return Array.from(expanded);
+}
+
+/**
  * Suggest HSN codes by matching against the material name and category.
- * Returns the top N matches sorted by relevance (exact prefix match first,
- * then description contains match).
+ * Uses synonym expansion for construction-industry trade names and
+ * category-aware scoring to improve match accuracy.
+ *
+ * Returns the top N matches sorted by relevance.
  */
 export async function suggestHsnByMaterial(
   materialName: string,
@@ -438,9 +608,9 @@ export async function suggestHsnByMaterial(
   const query = materialName.trim().toLowerCase();
   if (!query) return [];
 
-  // Try to find entries where the description contains keywords from the
-  // material name. We split the material name into words and match any.
-  const words = query.split(/\s+/).filter((w) => w.length >= 3);
+  // Expand with synonyms — this handles trade names like "TMT", "OPC",
+  // "wooden door", "copper wire", etc.
+  const words = expandWithSynonyms(materialName);
   if (words.length === 0) return [];
 
   // Build OR conditions for each word against the description field.
@@ -449,8 +619,9 @@ export async function suggestHsnByMaterial(
   }));
 
   // Also match against category name if provided.
+  let catWords: string[] = [];
   if (categoryName) {
-    const catWords = categoryName.trim().toLowerCase().split(/\s+/).filter((w) => w.length >= 3);
+    catWords = categoryName.trim().toLowerCase().split(/\s+/).filter((w) => w.length >= 3);
     for (const cw of catWords) {
       orConditions.push({
         description: { contains: cw, mode: "insensitive" as const },
@@ -460,19 +631,43 @@ export async function suggestHsnByMaterial(
 
   const entries = await prisma.hsnGstRate.findMany({
     where: { OR: orConditions },
-    take: limit * 3, // over-fetch for client-side ranking
+    take: limit * 5, // over-fetch for client-side ranking
     orderBy: { hsnCode: "asc" },
   });
 
-  // Rank: exact word match in description scores higher.
+  // Rank with category-aware scoring:
+  //   +10 for each material-name word in description
+  //   +5  if description starts with that word
+  //   +8  for each category word in description (boosts category-relevant matches)
+  //   +3  bonus if both material word AND category word match (synergy)
   const ranked = entries
     .map((e) => {
       const desc = e.description.toLowerCase();
       let score = 0;
+      let materialMatches = 0;
+      let categoryMatches = 0;
+
       for (const w of words) {
-        if (desc.includes(w)) score += 10;
+        if (desc.includes(w)) {
+          score += 10;
+          materialMatches++;
+        }
         if (desc.startsWith(w)) score += 5;
       }
+
+      for (const cw of catWords) {
+        if (desc.includes(cw)) {
+          score += 8;
+          categoryMatches++;
+        }
+      }
+
+      // Synergy bonus — when both material and category words match,
+      // this entry is likely more relevant
+      if (materialMatches > 0 && categoryMatches > 0) {
+        score += 3 * Math.min(materialMatches, categoryMatches);
+      }
+
       return { entry: e, score };
     })
     .sort((a, b) => b.score - a.score)
