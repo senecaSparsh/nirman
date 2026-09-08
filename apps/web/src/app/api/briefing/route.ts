@@ -144,7 +144,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     }));
   }
 
-  // ── 5. My tasks (for field workers) ──
+  // ── 5. My tasks (for ALL users, not just field workers) ──
   const myEmployee = await prisma.employee.findFirst({
     where: { userId: user.id, companyId: company.id, deletedAt: null, active: true },
     select: { id: true, name: true, activeProjectId: true },
@@ -153,6 +153,24 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   let myTasks: Array<{ id: string; title: string; projectName: string | null; dueDate: string | null; priority: string }> = [];
   let myDpr: { submitted: boolean; date: string | null } = { submitted: false, date: null };
   let myAttendance: { checkedIn: boolean; status: string | null } = { checkedIn: false, status: null };
+
+  // Tasks assigned to me — loaded for ALL users (managers get tasks too,
+  // e.g. "Review PO #123", "Approve leave for Ravi", etc.)
+  const tasks = await prisma.task.findMany({
+    where: {
+      assignedToId: user.id,
+      status: { in: ["PENDING", "IN_PROGRESS", "BLOCKED"] },
+    },
+    orderBy: [{ dueDate: "asc" }, { priority: "desc" }],
+    take: 8,
+  });
+  myTasks = tasks.map((t) => ({
+    id: t.id,
+    title: t.title,
+    projectName: null,
+    dueDate: t.dueDate?.toISOString() ?? null,
+    priority: t.priority,
+  }));
 
   if (myEmployee) {
     // Today's attendance
@@ -182,23 +200,6 @@ export const GET = apiHandler(async (_req: NextRequest) => {
         date: dpr?.date.toISOString() ?? null,
       };
     }
-
-    // Tasks assigned to me
-    const tasks = await prisma.task.findMany({
-      where: {
-        assignedToId: user.id,
-        status: { in: ["PENDING", "IN_PROGRESS"] },
-      },
-      orderBy: [{ dueDate: "asc" }, { priority: "desc" }],
-      take: 5,
-    });
-    myTasks = tasks.map((t) => ({
-      id: t.id,
-      title: t.title,
-      projectName: null,
-      dueDate: t.dueDate?.toISOString() ?? null,
-      priority: t.priority,
-    }));
   }
 
   // ── 6. Summary counts ──

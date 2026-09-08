@@ -187,16 +187,44 @@ const PERSONA_CONFIGS: Record<Persona, PersonaConfig> = {
 };
 
 // ── Briefing data shape (mirrors /api/briefing response) ──
+interface BriefingTask {
+  id: string;
+  title: string;
+  projectName: string | null;
+  dueDate: string | null;
+  priority: string;
+}
+interface BriefingDelivery {
+  poNumber: string;
+  supplierName: string;
+  projectName: string | null;
+  total: number;
+}
+interface BriefingLowStock {
+  materialId: string;
+  materialName: string;
+  materialCode: string;
+  qty: number;
+  unit: string;
+  reorderPoint: number | null;
+}
+interface BriefingPayment {
+  description: string;
+  amount: number;
+  dueDate: string;
+  type: string;
+}
+
 interface BriefingData {
   approvals: {
     poCount: number; reqCount: number; gpCount: number; dprCount: number;
     total: number;
     canApprovePo: boolean; canApproveReq: boolean; canApproveGp: boolean; canApproveDpr: boolean;
   };
-  lowStock: unknown[];
-  deliveriesToday: unknown[];
-  paymentsDue: unknown[];
-  myTasks: unknown[];
+  lowStock: BriefingLowStock[];
+  deliveriesToday: BriefingDelivery[];
+  paymentsDue: BriefingPayment[];
+  myTasks: BriefingTask[];
   myDpr: { submitted: boolean; date: string } | null;
   myAttendance: { checkedIn: boolean; status: string } | null;
 }
