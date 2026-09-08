@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { toast } from "sonner";
 import {
   Camera,
@@ -51,6 +52,7 @@ interface FeedbackDialogProps {
 }
 
 export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
+  const pathname = usePathname();
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState<string>("OTHER");
   const [screenshotDataUrl, setScreenshotDataUrl] = useState<string | null>(null);
@@ -439,7 +441,7 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
 
           {/* ── Context info ──────────────────────────────── */}
           <div className="rounded-md bg-muted/40 px-3 py-2 text-caption text-muted-foreground">
-            <span className="font-medium">Page:</span> {typeof window !== "undefined" ? window.location.pathname : "/"}
+            <span className="font-medium">Page:</span> {pathname ?? "/"}
           </div>
         </div>
       </Dialog>

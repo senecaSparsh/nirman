@@ -31,12 +31,14 @@ const sans = Inter({
   variable: "--font-inter",
   display: "swap",
   axes: ["opsz"],
+  preload: false,
 });
 
 const mono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-jetbrains-mono",
   display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 /**
@@ -35,7 +35,8 @@ export function EmployeeName({
   title?: string | null;
 }) {
   const router = useRouter();
-  const isMobile = typeof window !== "undefined" && window.location.pathname.startsWith("/m");
+  const pathname = usePathname();
+  const isMobile = pathname?.startsWith("/m") ?? false;
   const href = isMobile ? `/m/hr/employees/${id}` : `/hr/employees/${id}`;
 
   const baseClass = cn(

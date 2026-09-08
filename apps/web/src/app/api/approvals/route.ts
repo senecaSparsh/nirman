@@ -19,7 +19,13 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   const canApproveReq = perms.includes(PERM.REQUISITION_APPROVE);
   const canApproveGatePass = perms.includes(PERM.GATE_PASS_APPROVE);
   if (!canApprovePo && !canApproveReq && !canApproveGatePass) {
-    return json({ error: "Forbidden — your role does not have permission for this action" }, { status: 403 });
+    // Return an empty result instead of 403 — this endpoint is also used
+    // as a badge endpoint by the nav system, which fetches it for all
+    // users with the "Pending List" nav link. A 403 would show as a
+    // console error for users who can see the link but lack approval
+    // permissions. An empty array is the correct semantic: "nothing
+    // pending for you to approve."
+    return json({ purchaseOrders: [], requisitions: [], gatePasses: [] });
   }
   const company = await getCompany();
 

@@ -29,6 +29,7 @@ import {
 import { useRecentItems } from "@/lib/use-recent-items";
 import { formatDate, formatCurrencyCompact } from "@/lib/utils";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
+import { useMounted } from "@/lib/use-mounted";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    HOME TREE — file-system tree for the mobile home page
@@ -99,6 +100,7 @@ export function HomeTree({ userName }: { userName: string | null }) {
   const { items: recentItems } = useRecentItems();
   const [briefing, setBriefing] = React.useState<BriefingData | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const mounted = useMounted();
   const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState(false);
 
@@ -296,7 +298,7 @@ export function HomeTree({ userName }: { userName: string | null }) {
                       iconBg="var(--color-paper-2)"
                       iconFg="var(--color-ink-500)"
                       name={item.label}
-                      sub={item.sublabel ?? timeAgo(item.ts)}
+                      sub={item.sublabel ?? (mounted ? timeAgo(item.ts) : "")}
                       href={item.href}
                       isLast={i === Math.min(recentItems.length, 10) - 1}
                     />

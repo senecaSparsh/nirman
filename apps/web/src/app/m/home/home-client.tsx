@@ -8,6 +8,7 @@ import {
   TrendingUp, Clock, Sun, type LucideIcon,
 } from "lucide-react";
 import { OrbitNavigator } from "@/components/mobile/v2/orbit-navigator";
+import { useMounted } from "@/lib/use-mounted";
 import { useRecentItems, type RecentItem } from "@/lib/use-recent-items";
 import { useAutoScroll } from "@/lib/use-auto-scroll";
 import { formatDate } from "@/lib/utils";
@@ -188,6 +189,7 @@ function RecentItemsCarousel({
   onSelect: (href: string) => void;
 }) {
   const scrollerRef = useAutoScroll<HTMLDivElement>([items.length]);
+  const mounted = useMounted();
 
   return (
     <div className="min-w-0">
@@ -230,7 +232,7 @@ function RecentItemsCarousel({
                   className="text-m-caption font-medium uppercase tracking-wide"
                   style={{ color: "var(--color-ink-400)" }}
                 >
-                  {timeAgo(item.ts)}
+                  {mounted ? timeAgo(item.ts) : ""}
                 </span>
               </div>
               <div

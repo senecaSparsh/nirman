@@ -8,6 +8,8 @@ import { Section } from "@/components/page";
 import { MyTasksPanel } from "@/components/tasks/my-tasks-panel";
 import { cn } from "@/lib/utils";
 import { useDashboardPolling } from "@/lib/use-dashboard-polling";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
+import { useMounted } from "@/lib/use-mounted";
 import { EmptyState } from "@/components/empty-state";
 import {
   OverviewCharts,
@@ -38,7 +40,9 @@ export function CommandCenter(props: ProfileTabsProps) {
   const [profileTab, setProfileTab] = useState<string | null>(null);
   const polledCounts = useDashboardPolling();
 
-  const greeting = getGreeting();
+  const hydratedDate = useHydratedDate();
+  const mounted = useMounted();
+  const greeting = mounted && hydratedDate ? getGreeting(hydratedDate) : "Hello";
   const firstName = props.name.split(" ")[0] ?? props.name;
 
   // ── Merge polled counts over server-fetched props ──────────────
@@ -410,8 +414,8 @@ function KpiStrip(props: ProfileTabsProps) {
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function getGreeting(): string {
-  const h = new Date().getHours();
+function getGreeting(d: Date): string {
+  const h = d.getHours();
   if (h < 12) return "Good morning";
   if (h < 17) return "Good afternoon";
   return "Good evening";
