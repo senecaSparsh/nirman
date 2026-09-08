@@ -53,9 +53,9 @@ export default async function EmployeeIdCardPage({
   const employeeDesignation = employee.user?.designation ?? employee.designation ?? "Employee";
   const employeeCode = employee.user?.employeeCode ?? `EMP-${employee.id.slice(-6).toUpperCase()}`;
   const employeePhone = employee.user?.phone ?? employee.phone ?? "—";
-  const employeeEmail = employee.user?.email ?? employee.email ?? "—";
   const bloodGroup = "—"; // not in schema; placeholder for future
   const issueDate = employee.idCardIssuedAt ?? new Date();
+  // eslint-disable-next-line react-hooks/purity
   const validThru = employee.contractEndDate ?? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
 
   return (

@@ -15,8 +15,6 @@ import {
 } from "@/components/mobile/v2/primitives";
 import {
   DetailHeroCard,
-  DetailAlertBanner,
-  DetailStatGrid,
 } from "@/components/mobile/v2/detail-primitives";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { MobileDialog } from "@/components/mobile/v2/dialog";

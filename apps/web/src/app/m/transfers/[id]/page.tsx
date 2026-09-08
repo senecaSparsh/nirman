@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum, getUserPermissions } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { notFound } from "next/navigation";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";

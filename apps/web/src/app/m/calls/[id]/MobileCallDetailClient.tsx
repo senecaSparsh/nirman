@@ -29,7 +29,6 @@ import {
   MobileEmptyState,
   MobileStatCard,
 } from "@/components/mobile/v2/primitives";
-import { DetailStatGrid, DetailAlertBanner } from "@/components/mobile/v2/detail-primitives";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 

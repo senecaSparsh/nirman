@@ -17,7 +17,7 @@ import {formatDate, formatRelativeTime} from "@/lib/utils";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { useMobileBack } from "@/components/mobile/v2/mobile-back-button";
-import { DetailHeroCard, DetailKeyValueCard } from "@/components/mobile/v2/detail-primitives";
+import { DetailKeyValueCard } from "@/components/mobile/v2/detail-primitives";
 
 export type WorkflowDetail = {
   id: string;

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, FolderOpen, ChevronRight, ChevronLeft, Check, FileText, IdCard, Building2, Shield, Home, Heart, Plus, Trash2, IndianRupee } from "lucide-react";
+import { Loader2, FolderOpen, ChevronRight, ChevronLeft, Check, Building2, Shield, Heart, Plus, Trash2, IndianRupee } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
@@ -161,12 +161,6 @@ function SalaryComponentAdder({ onAdd }: { onAdd: (comp: SalaryComponentEntry) =
     setIsPercentage(false);
     setPercentageOfBasic("");
   }
-
-  const inputStyle = {
-    borderColor: "var(--color-line)",
-    backgroundColor: "transparent",
-    color: "var(--color-ink-950)",
-  };
 
   return (
     <div className="mt-2 pt-2 border-t" style={{ borderColor: "var(--color-line)" }}>

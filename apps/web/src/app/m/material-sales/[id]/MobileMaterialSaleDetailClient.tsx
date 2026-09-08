@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Phone, Printer, XCircle, Banknote,
-  TrendingUp, Loader2, IndianRupee, ShieldCheck,
+  Loader2, IndianRupee, ShieldCheck,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import { toast } from "sonner";
@@ -15,7 +15,7 @@ import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { AttachmentList } from "@/components/attachments/attachment-list";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
-import { DetailStatGrid, DetailKeyValueCard } from "@/components/mobile/v2/detail-primitives";
+import { DetailStatGrid } from "@/components/mobile/v2/detail-primitives";
 
 type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
 type PaymentStatus = "PENDING" | "PARTIAL" | "PAID";

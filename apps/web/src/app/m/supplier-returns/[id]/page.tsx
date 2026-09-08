@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import Link from "next/link";
 import { Undo2 } from "lucide-react";

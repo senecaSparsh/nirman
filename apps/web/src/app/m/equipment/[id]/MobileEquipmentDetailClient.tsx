@@ -4,9 +4,9 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Wrench, MapPin, Calendar, Settings, IndianRupee,
+  Wrench, MapPin, Settings, IndianRupee,
   CheckCircle2, Archive, Loader2, X, Search, ChevronRight,
-  TrendingDown, FileText, Package, Send, Check, Pencil, Trash2,
+  TrendingDown, Package, Send, Check, Pencil, Trash2,
 } from "lucide-react";
 import {formatCurrencyCompact, formatDate} from "@/lib/utils";
 import { toast } from "sonner";

@@ -23,13 +23,6 @@ import {
   DetailHeroCard,
   DetailProgress,
   DetailKeyValue,
-  DetailKeyValueCard,
-  DetailAlertBanner,
-  DetailStatGrid,
-  DetailTimeline,
-  DetailLinkRow,
-  DetailPrintButton,
-  type TimelineStepData,
 } from "@/components/mobile/v2/detail-primitives";
 
 import { MobileEditProjectButton } from "./MobileEditProjectButton";

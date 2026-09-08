@@ -12,14 +12,7 @@ import {
 import {
   DetailHeroCard,
   DetailProgress,
-  DetailKeyValue,
   DetailKeyValueCard,
-  DetailAlertBanner,
-  DetailStatGrid,
-  DetailTimeline,
-  DetailLinkRow,
-  DetailPrintButton,
-  type TimelineStepData,
 } from "@/components/mobile/v2/detail-primitives";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";

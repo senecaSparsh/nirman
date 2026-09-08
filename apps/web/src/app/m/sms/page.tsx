@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileSmsIngest } from "./MobileSmsIngest";
 import { formatCurrencyCompact, formatDate } from "@/lib/utils";
