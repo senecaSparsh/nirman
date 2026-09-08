@@ -91,6 +91,9 @@ export interface OrgPersonNode {
   role: string;
   roleLabel: string;
   tier: number;
+  /** Custom hierarchy level (H1-H6) from Employee.hierarchyLevel.
+   *  Null = unassigned. When present, this drives tree depth + badge. */
+  hierarchyLevel: number | null;
   designation: string | null;
   employeeCode: string | null;
   active: boolean;
@@ -542,6 +545,7 @@ function PersonNode({
         nameBold={person.tier <= 2}
         badge={person.isSelf ? "You" : undefined}
         roleTag={person.roleLabel}
+        hierarchyTag={person.hierarchyLevel != null ? `H${person.hierarchyLevel}` : undefined}
         sub={sub}
         right={rightContent}
         callHref={person.phone ? `tel:${person.phone}` : undefined}
@@ -1027,6 +1031,7 @@ function TreeRow({
   nameBold,
   badge,
   roleTag,
+  hierarchyTag,
   sub,
   right,
   callHref,
@@ -1047,6 +1052,8 @@ function TreeRow({
   badge?: string;
   /** Role label tag rendered right after the name (e.g. "OWNER", "ADMIN"). */
   roleTag?: string;
+  /** Hierarchy level tag (e.g. "H1", "H2") — rendered after the role tag. */
+  hierarchyTag?: string;
   sub?: string;
   right?: React.ReactNode;
   /** If set, renders a phone call button at the rightmost end of the row. */
@@ -1158,6 +1165,20 @@ function TreeRow({
               {roleTag}
             </span>
           ) : null}
+          {hierarchyTag ? (
+            <span
+              className="ml-0.5 inline-block rounded text-[0.45rem] font-bold uppercase whitespace-nowrap shrink-0 align-top"
+              style={{
+                backgroundColor: "rgba(59, 130, 246, 0.12)",
+                color: "#2563eb",
+                padding: "0 2px",
+                lineHeight: 1.1,
+                verticalAlign: "top",
+              }}
+            >
+              {hierarchyTag}
+            </span>
+          ) : null}
           {badge ? (
             <span
               className="ml-0.5 inline-block rounded text-[0.45rem] font-bold uppercase whitespace-nowrap shrink-0 align-top"
@@ -1193,6 +1214,20 @@ function TreeRow({
               }}
             >
               {roleTag}
+            </span>
+          ) : null}
+          {hierarchyTag ? (
+            <span
+              className="ml-0.5 inline-block rounded text-[0.45rem] font-bold uppercase whitespace-nowrap shrink-0 align-top"
+              style={{
+                backgroundColor: "rgba(59, 130, 246, 0.12)",
+                color: "#2563eb",
+                padding: "0 2px",
+                lineHeight: 1.1,
+                verticalAlign: "top",
+              }}
+            >
+              {hierarchyTag}
             </span>
           ) : null}
           {badge ? (

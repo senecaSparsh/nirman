@@ -417,6 +417,7 @@ function PersonNodeD({
         nameBold={person.tier <= 2}
         roleTag={person.roleLabel}
         roleTagClass={tierBadgeClass(person.tier)}
+        hierarchyTag={person.hierarchyLevel != null ? `H${person.hierarchyLevel}` : undefined}
         badge={
           <span className="flex items-center gap-1.5">
             {person.isSelf ? <Badge variant="brand" size="sm">You</Badge> : null}
@@ -793,6 +794,7 @@ function TreeRowD({
   badge,
   roleTag,
   roleTagClass,
+  hierarchyTag,
   sub,
   right,
   callHref,
@@ -812,6 +814,8 @@ function TreeRowD({
   badge?: React.ReactNode;
   roleTag?: string;
   roleTagClass?: string;
+  /** Hierarchy level tag (e.g. "H1", "H2") — rendered after the role tag. */
+  hierarchyTag?: string;
   sub?: string;
   right?: React.ReactNode;
   callHref?: string;
@@ -899,6 +903,15 @@ function TreeRowD({
               {roleTag}
             </Badge>
           ) : null}
+          {hierarchyTag ? (
+            <Badge
+              variant="outline"
+              size="sm"
+              className="ml-1.5 uppercase align-middle border-blue-300 bg-blue-50 text-blue-600"
+            >
+              {hierarchyTag}
+            </Badge>
+          ) : null}
         </Link>
       ) : (
         <button
@@ -917,6 +930,15 @@ function TreeRowD({
               className={cn("ml-1.5 uppercase align-middle", roleTagClass)}
             >
               {roleTag}
+            </Badge>
+          ) : null}
+          {hierarchyTag ? (
+            <Badge
+              variant="outline"
+              size="sm"
+              className="ml-1.5 uppercase align-middle border-blue-300 bg-blue-50 text-blue-600"
+            >
+              {hierarchyTag}
             </Badge>
           ) : null}
         </button>

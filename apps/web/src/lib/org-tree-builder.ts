@@ -48,6 +48,7 @@ interface RawMembership {
   userId: string;
   role: string;
   reportsToUserCompanyId: string | null;
+  hierarchyLevel: number | null; // from Employee.hierarchyLevel (H1-H6)
   scopes: {
     scopeKind: string;
     projectId: string | null;
@@ -339,6 +340,7 @@ export function buildOrgTree(
       role: m.role,
       roleLabel: roleLabel(m.role),
       tier,
+      hierarchyLevel: m.hierarchyLevel ?? null,
       designation: m.user.designation,
       employeeCode: m.user.employeeCode,
       active: m.user.active,
@@ -391,9 +393,15 @@ export function buildOrgTree(
       }
     }
   } else {
-    // ── Infer hierarchy from role tiers ──
+    // ── Infer hierarchy from hierarchy levels (H1-H6) or role tiers ──
+    // When a node has hierarchyLevel (from Employee.hierarchyLevel), use it
+    // as the effective depth. Otherwise fall back to roleTier.
     // OWNER is always the single root. ADMIN reports to OWNER.
-    // Lower tiers report to the nearest tier above them.
+    // Lower levels report to the nearest level above them.
+
+    /** Effective depth: hierarchyLevel (H1-H6) if set, otherwise role tier. */
+    const effLevel = (n: OrgPersonNode): number =>
+      n.hierarchyLevel != null ? n.hierarchyLevel : n.tier;
 
     const owners = Array.from(nodeMap.values())
       .filter((n) => n.role === "OWNER")
@@ -403,7 +411,7 @@ export function buildOrgTree(
       .sort((a, b) => a.name.localeCompare(b.name));
     const others = Array.from(nodeMap.values())
       .filter((n) => n.role !== "OWNER" && n.role !== "ADMIN")
-      .sort((a, b) => a.tier - b.tier || a.name.localeCompare(b.name));
+      .sort((a, b) => effLevel(a) - effLevel(b) || a.name.localeCompare(b.name));
 
     // OWNER(s) are roots. If multiple owners, they're co-roots (partners).
     for (const o of owners) roots.push(o);
@@ -422,32 +430,33 @@ export function buildOrgTree(
       }
     }
 
-    // Group all non-OWNER/ADMIN by tier for hierarchical assignment.
-    const byTier = new Map<number, OrgPersonNode[]>();
+    // Group all non-OWNER/ADMIN by effective level for hierarchical assignment.
+    const byLevel = new Map<number, OrgPersonNode[]>();
     for (const n of others) {
-      const arr = byTier.get(n.tier) ?? [];
+      const lvl = effLevel(n);
+      const arr = byLevel.get(lvl) ?? [];
       arr.push(n);
-      byTier.set(n.tier, arr);
+      byLevel.set(lvl, arr);
     }
-    const tiersPresent = Array.from(byTier.keys()).sort((a, b) => a - b);
+    const levelsPresent = Array.from(byLevel.keys()).sort((a, b) => a - b);
 
-    // For each tier (ascending), assign each person to someone at the
-    // nearest tier above them. "Above" includes OWNER/ADMIN as tier 1.
-    for (const t of tiersPresent) {
-      const nodesAtTier = byTier.get(t) ?? [];
-      if (nodesAtTier.length === 0) continue;
+    // For each level (ascending), assign each person to someone at the
+    // nearest level above them. "Above" includes OWNER/ADMIN as level 1.
+    for (const t of levelsPresent) {
+      const nodesAtLevel = byLevel.get(t) ?? [];
+      if (nodesAtLevel.length === 0) continue;
 
-      // Find the nearest lower tier that has people (including owners/admins).
+      // Find the nearest lower level that has people (including owners/admins).
       let parents: OrgPersonNode[] = [];
-      // Check tier 1 (owners + admins already placed).
+      // Check level 1 (owners + admins already placed).
       if (t > 1) {
-        const tier1 = [...roots, ...roots.flatMap((r) => r.reports)];
-        if (tier1.length > 0) {
-          parents = tier1;
+        const level1 = [...roots, ...roots.flatMap((r) => r.reports)];
+        if (level1.length > 0) {
+          parents = level1;
         }
-        // Also check tiers between 1 and t.
+        // Also check levels between 1 and t.
         for (let pt = t - 1; pt >= 2; pt--) {
-          const candidates = byTier.get(pt) ?? [];
+          const candidates = byLevel.get(pt) ?? [];
           if (candidates.length > 0) {
             // Only use candidates that already have a parent (were placed).
             const placed = candidates.filter((c) =>
@@ -466,14 +475,14 @@ export function buildOrgTree(
 
       if (parents.length === 0) {
         // No parent found — become roots.
-        for (const n of nodesAtTier) roots.push(n);
+        for (const n of nodesAtLevel) roots.push(n);
       } else if (parents.length === 1) {
-        for (const n of nodesAtTier) parents[0]!.reports.push(n);
+        for (const n of nodesAtLevel) parents[0]!.reports.push(n);
       } else {
         // Distribute round-robin.
-        nodesAtTier.sort((a, b) => a.name.localeCompare(b.name));
-        for (let i = 0; i < nodesAtTier.length; i++) {
-          parents[i % parents.length]!.reports.push(nodesAtTier[i]!);
+        nodesAtLevel.sort((a, b) => a.name.localeCompare(b.name));
+        for (let i = 0; i < nodesAtLevel.length; i++) {
+          parents[i % parents.length]!.reports.push(nodesAtLevel[i]!);
         }
       }
     }
@@ -490,9 +499,10 @@ export function buildOrgTree(
     node.hasChildren = node.reports.length > 0 || node.teams.length > 0;
   }
 
-  // Sort reports by tier then name (recursive).
+  // Sort reports by effective level then name (recursive).
   function sortReports(node: OrgPersonNode) {
-    node.reports.sort((a, b) => a.tier - b.tier || a.name.localeCompare(b.name));
+    const eff = (n: OrgPersonNode) => n.hierarchyLevel ?? n.tier;
+    node.reports.sort((a, b) => eff(a) - eff(b) || a.name.localeCompare(b.name));
     for (const r of node.reports) sortReports(r);
   }
   roots.sort((a, b) => subTier(a.role) - subTier(b.role) || a.name.localeCompare(b.name));

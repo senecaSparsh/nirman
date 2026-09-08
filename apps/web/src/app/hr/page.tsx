@@ -249,6 +249,14 @@ async function loadOrgTree(
     orderBy: { user: { name: "asc" } },
   });
 
+  // ── Fetch hierarchy levels from Employee records (linked via userId) ──
+  const userIds = memberships.map((m) => m.userId);
+  const employees = await prisma.employee.findMany({
+    where: { companyId, userId: { in: userIds }, deletedAt: null },
+    select: { userId: true, hierarchyLevel: true },
+  });
+  const hierarchyByUserId = new Map(employees.map((e) => [e.userId, e.hierarchyLevel]));
+
   if (memberships.length === 0) {
     return {
       companyName,
@@ -262,8 +270,6 @@ async function loadOrgTree(
       labourCount: 0,
     };
   }
-
-  const userIds = memberships.map((m) => m.userId);
 
   const [tasks, allTasks, dprs, crews, unassignedEmployees, todayAttendanceRows, leaveRows] = await Promise.all([
     prisma.task.findMany({
@@ -340,8 +346,14 @@ async function loadOrgTree(
     return ROLES[r]?.label ?? r;
   };
 
+  // ── Inject hierarchyLevel into memberships (from Employee records) ──
+  const membershipsWithHierarchy = memberships.map((m) => ({
+    ...m,
+    hierarchyLevel: hierarchyByUserId.get(m.userId) ?? null,
+  }));
+
   const { roots, unassigned, projects, departments, labourByTrade, labourCount } = buildOrgTree(
-    memberships as unknown as Parameters<typeof buildOrgTree>[0],
+    membershipsWithHierarchy as unknown as Parameters<typeof buildOrgTree>[0],
     tasks as unknown as Parameters<typeof buildOrgTree>[1],
     dprs as unknown as Parameters<typeof buildOrgTree>[2],
     crews as unknown as Parameters<typeof buildOrgTree>[3],
