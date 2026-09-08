@@ -73,7 +73,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
 
   // Find the parcel, ensuring it belongs to the user's company via the land purchase
   const parcel = await prisma.landParcel.findFirst({
-    where: { id, landPurchase: { companyId: company.id } },
+    where: { id, landPurchase: { companyId: company.id }, deletedAt: null },
     include: {
       _count: { select: { children: true } },
     },

@@ -371,6 +371,8 @@ export default function MobileNewMaterialClient({
             placeholder="Search…"
             inputClassName={`${inputClass} font-mono`}
             inputStyle={inputStyle}
+            materialName={name}
+            categoryName={selectedCategory?.name}
           />
         </FormField>
         <FormField label="GST rate (%)">

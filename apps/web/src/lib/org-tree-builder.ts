@@ -498,6 +498,25 @@ export function buildOrgTree(
   roots.sort((a, b) => subTier(a.role) - subTier(b.role) || a.name.localeCompare(b.name));
   for (const r of roots) sortReports(r);
 
+  // ── Prune tree to the current user's subtree ──
+  // Show only the current user and people BELOW them in the hierarchy.
+  // OWNER/ADMIN see the full tree (they're at the top). Managers/supervisors
+  // see only their own subtree — not the chain above them.
+  if (currentUserId) {
+    const currentUserNodes = Array.from(nodeMap.values()).filter((n) => n.userId === currentUserId);
+    if (currentUserNodes.length > 0) {
+      const currentNode = currentUserNodes[0]!;
+      // Only prune if the current user is NOT a root (i.e., they have someone
+      // above them in the hierarchy). OWNER and ADMIN are typically roots.
+      const isRoot = roots.includes(currentNode);
+      if (!isRoot) {
+        // Replace roots with just the current user's subtree
+        roots.length = 0;
+        roots.push(currentNode);
+      }
+    }
+  }
+
   // ── Assemble assignment tree ──
   const projectMap = new Map<string, OrgAssignmentGroup>();
   const deptMap = new Map<string, OrgAssignmentGroup>();

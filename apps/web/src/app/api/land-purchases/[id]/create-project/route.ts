@@ -33,7 +33,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
 
   // Verify the land purchase belongs to this company
   const landPurchase = await prisma.landPurchase.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, deletedAt: null },
     include: { parcels: { where: { deletedAt: null } } },
   });
 

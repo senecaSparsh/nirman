@@ -8,6 +8,7 @@ import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileCategorySelect } from "@/components/mobile/selectors";
+import { HsnSacSearch } from "@/components/hsn-sac-search";
 
 interface MaterialEditData {
   id: string;
@@ -203,7 +204,15 @@ function EditMaterialModal({
           </div>
           <div className="grid grid-cols-2 gap-2">
             <Field label="HSN Code">
-              <input value={hsnCode} onChange={(e) => setHsnCode(e.target.value)} className={inputCls} />
+              <HsnSacSearch
+                value={hsnCode}
+                onCodeChange={setHsnCode}
+                onGstRateChange={(rate) => setGstRate(String(rate))}
+                placeholder="Search…"
+                inputClassName={inputCls}
+                materialName={name}
+                categoryName={categories.find((c) => c.id === categoryId)?.name}
+              />
             </Field>
             <Field label="GST Rate %">
               <input type="number" step="0.01" value={gstRate} onChange={(e) => setGstRate(e.target.value)} className={inputCls} />

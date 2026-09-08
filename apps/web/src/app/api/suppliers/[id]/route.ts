@@ -66,7 +66,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   const company = await getCompany();
   const { id } = await ctx.params;
   // Verify company ownership before soft-deleting
-  const existing = await prisma.supplier.findFirst({ where: { id, companyId: company.id } });
+  const existing = await prisma.supplier.findFirst({ where: { id, companyId: company.id, deletedAt: null } });
   if (!existing) return json({ error: "Supplier not found" }, { status: 404 });
   try {
     await softDelete("Supplier", id);

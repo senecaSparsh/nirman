@@ -546,36 +546,7 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
 
   // ── recordPayment GL routing ──
 
-  it("recordPayment posts to Customer Deposits for pre-completion sale", async () => {
-    const { company, user } = await setup();
-    const customer = await createCustomer(company.id);
-    const unit = await createBuiltUnit("test-project");
-
-    const { sellAsset, recordPayment } = await import("../sale");
-    const sale = await sellAsset({
-      assetType: "BUILT_UNIT",
-      builtUnitId: unit.id,
-      companyId: company.id,
-      customerId: customer.id,
-      salePrice: new Decimal(5000000),
-      userId: user.id,
-    });
-
-    await recordPayment({
-      assetSaleId: sale.id,
-      amount: new Decimal(500000),
-      mode: "BANK_TRANSFER",
-      userId: user.id,
-    });
-
-    const entries = await getSaleJournalEntries(sale.id);
-    const deposit = sumAccount(entries, ACCT.CUSTOMER_DEPOSIT);
-    const ar = sumAccount(entries, ACCT.AR);
-    expect(deposit.credit.toNumber()).toBe(500000);
-    expect(ar.debit.toNumber()).toBe(0); // no AR pre-completion
-  });
-
-  it("recordPayment auto-upgrades PENDING sale to DEPOSIT_RECEIVED", async () => {
+  it("recordPayment rejects on pre-completion (PENDING) sale — use recordDeposit instead", async () => {
     const { company, user } = await setup();
     const customer = await createCustomer(company.id);
     const unit = await createBuiltUnit("test-project");
@@ -592,28 +563,22 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
 
     expect(sale.saleStage).toBe("PENDING");
 
-    await recordPayment({
-      assetSaleId: sale.id,
-      amount: new Decimal(500000),
-      mode: "BANK_TRANSFER",
-      userId: user.id,
-    });
-
-    const updatedSale = await prisma.assetSale.findUnique({ where: { id: sale.id } });
-    expect(updatedSale!.saleStage).toBe("DEPOSIT_RECEIVED");
-    expect(updatedSale!.paymentStatus).toBe("PARTIAL");
-
-    // Unit should be RESERVED
-    const updatedUnit = await prisma.builtUnit.findUnique({ where: { id: unit.id } });
-    expect(updatedUnit!.status).toBe("RESERVED");
+    await expect(
+      recordPayment({
+        assetSaleId: sale.id,
+        amount: new Decimal(500000),
+        mode: "BANK_TRANSFER",
+        userId: user.id,
+      }),
+    ).rejects.toThrow(/completed sales/);
   });
 
-  it("recordPayment rejects overpayment beyond sale price + GST", async () => {
+  it("recordPayment rejects on DEPOSIT_RECEIVED sale — use completeSale for final payment", async () => {
     const { company, user } = await setup();
     const customer = await createCustomer(company.id);
     const unit = await createBuiltUnit("test-project");
 
-    const { sellAsset, recordPayment } = await import("../sale");
+    const { sellAsset, recordDeposit, recordPayment } = await import("../sale");
     const sale = await sellAsset({
       assetType: "BUILT_UNIT",
       builtUnitId: unit.id,
@@ -623,10 +588,57 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
       userId: user.id,
     });
 
+    await recordDeposit({
+      saleId: sale.id,
+      depositAmount: new Decimal(1000000),
+      paymentMode: "BANK_TRANSFER",
+      userId: user.id,
+    });
+
     await expect(
       recordPayment({
         assetSaleId: sale.id,
-        amount: new Decimal(6000000),
+        amount: new Decimal(500000),
+        mode: "BANK_TRANSFER",
+        userId: user.id,
+      }),
+    ).rejects.toThrow(/completed sales/);
+  });
+
+  it("recordPayment rejects overpayment beyond sale price + GST on completed sale", async () => {
+    const { company, user } = await setup();
+    const customer = await createCustomer(company.id);
+    const unit = await createBuiltUnit("test-project");
+
+    const { sellAsset, recordPayment } = await import("../sale");
+    // Create sale with full initial payment → DEPOSIT_RECEIVED
+    const sale = await sellAsset({
+      assetType: "BUILT_UNIT",
+      builtUnitId: unit.id,
+      companyId: company.id,
+      customerId: customer.id,
+      salePrice: new Decimal(5000000),
+      initialPayment: new Decimal(5000000),
+      userId: user.id,
+    });
+
+    // Upload ATS doc and complete the sale
+    await prisma.assetSale.update({
+      where: { id: sale.id },
+      data: { atsDocumentUrl: "https://example.com/ats.pdf" },
+    });
+    const { completeSale } = await import("../sale");
+    await completeSale({
+      saleId: sale.id,
+      registryDocumentUrl: "https://example.com/registry.pdf",
+      userId: user.id,
+    });
+
+    // Now try to record an additional payment that exceeds total
+    await expect(
+      recordPayment({
+        assetSaleId: sale.id,
+        amount: new Decimal(1000000),
         mode: "BANK_TRANSFER",
         userId: user.id,
       }),

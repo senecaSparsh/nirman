@@ -98,6 +98,13 @@ export async function createSupplierPayment(input: {
       if (po.companyId !== input.companyId) {
         throw new ServiceError("Purchase order does not belong to this company");
       }
+      // PO must be at least ORDERED before a payment can be recorded.
+      // Blocks paying against DRAFT, APPROVED (not yet ordered), or CANCELLED POs.
+      if (!["ORDERED", "PARTIAL", "RECEIVED"].includes(po.status)) {
+        throw new ServiceError(
+          `Cannot pay against a PO in ${po.status} status. PO must be ordered first.`,
+        );
+      }
       // Check for overpayment: sum existing payments + new amount should not exceed PO total
       const existingPayments = await tx.supplierPayment.aggregate({
         where: { purchaseOrderId: input.purchaseOrderId },

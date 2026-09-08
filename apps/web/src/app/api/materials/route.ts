@@ -99,7 +99,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // Format: {CATEGORY_PREFIX}-{GRADE}-{SEQ} (e.g. STL-Fe500D-001)
   let code = parsed.data.code;
   if (!code || code.trim() === "AUTO") {
-    const category = await prisma.materialCategory.findUnique({ where: { id: parsed.data.categoryId } });
+    const category = await prisma.materialCategory.findUnique({ where: { id: parsed.data.categoryId, deletedAt: null } });
     if (!category) return json({ error: "Category not found" }, { status: 400 });
     code = await generateMaterialCode(category.name, parsed.data.grade ?? null);
   }
@@ -118,7 +118,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   // If neither HSN nor GST is provided, try to suggest from material name + category
   if (!hsnCode && toNum(gstRate) === 0) {
-    const category = await prisma.materialCategory.findUnique({ where: { id: parsed.data.categoryId } });
+    const category = await prisma.materialCategory.findUnique({ where: { id: parsed.data.categoryId, deletedAt: null } });
     const suggestions = await suggestHsnByMaterial(parsed.data.name, category?.name);
     if (suggestions.length > 0) {
       hsnCode = suggestions[0]!.hsnCode;
@@ -152,7 +152,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   try {
     const created = await withSerializableTransaction(async (tx) => {
       // Validate category exists
-      const category = await tx.materialCategory.findUnique({ where: { id: parsed.data.categoryId } });
+      const category = await tx.materialCategory.findUnique({ where: { id: parsed.data.categoryId, deletedAt: null } });
       if (!category) throw new Error("Category not found");
 
       const mat = await tx.material.create({

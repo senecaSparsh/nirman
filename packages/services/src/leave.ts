@@ -1,4 +1,4 @@
-import { prisma, type Prisma, type LeaveType, type LeaveStatus } from "@nirman/db";
+import { prisma, type LeaveType } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
@@ -110,10 +110,15 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
   return withSerializableTransaction(async (tx) => {
     const leave = await tx.leaveRequest.findFirst({
       where: { id: input.leaveId, companyId: input.companyId },
+      include: { employee: { select: { userId: true } } },
     });
     if (!leave) throw new ServiceError("Leave request not found", 404);
     if (leave.status !== "PENDING") {
       throw new ServiceError(`Cannot ${input.approve ? "approve" : "reject"} a leave in status ${leave.status}`);
+    }
+    // Self-approval guard: prevent users from approving their own leave requests
+    if (input.approve && leave.employee.userId && leave.employee.userId === input.approvedById) {
+      throw new ServiceError("You cannot approve your own leave request");
     }
 
     // Only validate balance + overlap when approving (not when rejecting).

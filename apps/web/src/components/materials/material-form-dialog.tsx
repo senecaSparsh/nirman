@@ -317,6 +317,8 @@ export function MaterialFormDialog({
               onCodeChange={(code) => set("hsnCode", code)}
               onGstRateChange={(rate) => set("gstRate", String(rate))}
               placeholder="Search or type HSN/SAC code…"
+              materialName={form.name}
+              categoryName={localCategories.find((c) => c.id === form.categoryId)?.name}
             />
           </Field>
           <Field label="GST Rate (%)">

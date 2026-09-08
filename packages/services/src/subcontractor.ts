@@ -1,7 +1,7 @@
 import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
-import { postProjectCost, postRaBillApproval, postJournalEntry, ACCT } from "./gl-posting";
+import { postRaBillApproval, postJournalEntry, ACCT } from "./gl-posting";
 import { reallocateProjectCosts } from "./valuation";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
@@ -252,8 +252,8 @@ export async function completeWorkOrder(id: string, userId?: string) {
   return withSerializableTransaction(async (tx) => {
     const wo = await tx.subcontractorWorkOrder.findUnique({ where: { id } });
     if (!wo) throw new ServiceError("Work order not found", 404);
-    if (wo.status !== "ACTIVE" && wo.status !== "ISSUED") {
-      throw new ServiceError(`Cannot complete work order in status ${wo.status} (must be ACTIVE or ISSUED)`, 400);
+    if (wo.status !== "ACTIVE") {
+      throw new ServiceError(`Cannot complete work order in status ${wo.status} (must be ACTIVE — issue the work order and start work first)`, 400);
     }
 
     // Check for pending RA bills (non-terminal states)
@@ -564,7 +564,7 @@ export async function approveRaBill(id: string, approvedById: string) {
 
     // Post to GL: Dr Contractor Expense (project cost), Cr Cash (net), Cr TDS Payable, Cr Retention Payable
     // We use ProjectCost to record the contractor expense, and a GL entry for the payable side
-    const projectCost = await tx.projectCost.create({
+    await tx.projectCost.create({
       data: {
         projectId: wo.projectId,
         costType: "CONTRACTOR",

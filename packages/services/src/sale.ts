@@ -837,6 +837,14 @@ export async function completeSale(input: CompleteSaleInput) {
     if (!sale) throw new ServiceError("Sale not found", 404);
     if (sale.status === "CANCELLED") throw new ServiceError("Cannot complete a cancelled sale");
     if (sale.saleStage === "COMPLETED") throw new ServiceError("Sale is already completed");
+    // Sale must have a deposit recorded (DEPOSIT_RECEIVED stage) before it can
+    // be completed. This enforces the PENDING → DEPOSIT_RECEIVED → COMPLETED
+    // lifecycle. A full-cash sale still goes through recordDeposit first.
+    if (sale.saleStage !== "DEPOSIT_RECEIVED") {
+      throw new ServiceError(
+        "Sale must have a deposit recorded before it can be completed. Record the deposit first.",
+      );
+    }
 
     // ── Document gating ──
     // Sale completion requires the document trail per the owner's lifecycle:
@@ -860,7 +868,6 @@ export async function completeSale(input: CompleteSaleInput) {
     const salePrice = new Decimal(sale.salePrice);
     const gstAmount = new Decimal(sale.gstAmount);
     const costBasis = new Decimal(sale.costBasis);
-    const depositAmount = sale.depositAmount ? new Decimal(sale.depositAmount) : new Decimal(0);
     const totalPaidSoFar = sale.payments.reduce(
       (sum, p) => sum.plus(new Decimal(p.amount)),
       new Decimal(0),
@@ -1043,6 +1050,7 @@ export async function recordPayment(input: RecordPaymentInput) {
     });
     if (!sale) throw new ServiceError("Sale not found", 404);
     if (sale.status === "CANCELLED") throw new ServiceError("Cannot record payment against a cancelled sale");
+    if (sale.saleStage !== "COMPLETED") throw new ServiceError("Post-completion payments are only allowed on completed sales. Use recordDeposit for pre-completion payments.");
 
     const amount = new Decimal(input.amount);
     if (!amount.gt(0)) throw new ServiceError("Payment amount must be > 0");
@@ -1084,26 +1092,10 @@ export async function recordPayment(input: RecordPaymentInput) {
       paymentStatus = "PAID";
     }
 
-    // ── Status sync: if the sale is still PENDING (no deposit recorded yet),
-    //    receiving any payment means the asset is no longer available — mark
-    //    it RESERVED and upgrade the sale stage to DEPOSIT_RECEIVED. This
-    //    prevents the inconsistent state where an asset shows "Available" but
-    //    has payments/sale recorded against it. ──
-    let stageUpgrade: { saleStage: "DEPOSIT_RECEIVED"; depositAmount: Decimal; depositDate: Date } | null = null;
-    if (sale.saleStage === "PENDING") {
-      await markAssetStatus(tx, sale.assetType, sale.landParcelId, sale.builtUnitId, "RESERVED", sale.projectId);
-      stageUpgrade = {
-        saleStage: "DEPOSIT_RECEIVED",
-        depositAmount: cumulative,
-        depositDate: sale.depositDate ?? new Date(),
-      };
-    }
-
     await tx.assetSale.update({
       where: { id: input.assetSaleId },
       data: {
         paymentStatus,
-        ...(stageUpgrade ? { saleStage: stageUpgrade.saleStage, depositAmount: stageUpgrade.depositAmount, depositDate: stageUpgrade.depositDate } : {}),
       },
     });
 
@@ -1375,8 +1367,6 @@ export async function cancelSale(saleId: string, userId?: string) {
     if (sale.saleStage === "COMPLETED") {
       throw new ServiceError("Cannot cancel a completed sale — process a refund instead");
     }
-
-    const depositAmount = sale.depositAmount ? new Decimal(sale.depositAmount) : new Decimal(0);
 
     // Revert asset status to AVAILABLE + unlock
     await markAssetStatus(tx, sale.assetType, sale.landParcelId, sale.builtUnitId, "AVAILABLE", sale.projectId);
