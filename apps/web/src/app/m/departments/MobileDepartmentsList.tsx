@@ -166,12 +166,13 @@ export function MobileDepartmentsList({
       )}
 
       {canManage ? (
-        <MobileFab onClick={fab.toggle} label="Add department" isOpen={fab.isOpen} />
+        <>
+          <MobileFab onClick={fab.toggle} label="Add department" isOpen={fab.isOpen} />
+          <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="Add Department">
+            <DepartmentFormDialog onClose={fab.close} />
+          </MobileFabModal>
+        </>
       ) : null}
-
-      <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="Add Department">
-        <DepartmentFormDialog onClose={fab.close} />
-      </MobileFabModal>
     </div>
   );
 }

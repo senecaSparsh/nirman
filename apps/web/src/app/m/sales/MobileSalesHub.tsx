@@ -83,6 +83,7 @@ export function MobileSalesHub({
           <MobileSalesCollection
             items={sales}
             stats={stats}
+            canCreate={canManage}
             exportTitle="Sales"
             exportRows={sales as unknown as Record<string, unknown>[]}
             exportColumns={csvColumns}

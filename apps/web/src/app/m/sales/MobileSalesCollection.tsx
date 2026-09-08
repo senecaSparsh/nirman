@@ -52,6 +52,7 @@ const STATUS_META: Record<string, { color: string; label: string }> = {
 export function MobileSalesCollection({
   items,
   stats,
+  canCreate = false,
   exportTitle,
   exportRows,
   exportColumns,
@@ -59,6 +60,7 @@ export function MobileSalesCollection({
 }: {
   items: SaleItem[];
   stats: CollectionStats;
+  canCreate?: boolean;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
@@ -150,7 +152,9 @@ export function MobileSalesCollection({
       </div>
 
       {/* ── New sale FAB ── */}
-      <MobileFab href="/m/sales/new" label="New sale" />
+      {canCreate && (
+        <MobileFab href="/m/sales/new" label="New sale" />
+      )}
 
       {/* ── Search + filter + export ── */}
       <MobileSearchHeader
