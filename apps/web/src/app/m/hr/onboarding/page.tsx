@@ -87,6 +87,11 @@ async function MobileOnboardingQueueContent() {
       confirmationDate: true,
       contractStatus: true,
       autoDepositEnabled: true,
+      documentsSubmitted: true,
+      backgroundVerified: true,
+      appointmentLetterStatus: true,
+      offerLetterStatus: true,
+      idCardStatus: true,
       payDay: true,
       userId: true,
       user: { select: { id: true, active: true, role: true } },
@@ -105,6 +110,11 @@ async function MobileOnboardingQueueContent() {
       (e.employmentType !== "PROBATION" || e.contractStartDate)
     );
     const hasAccount = !!e.userId;
+    const documentsSubmitted = e.documentsSubmitted === true;
+    const backgroundVerified = e.backgroundVerified === true;
+    const offerLetterIssued = ["ISSUED", "CONFIRMED"].includes(e.offerLetterStatus ?? "");
+    const appointmentLetterIssued = ["ISSUED", "CONFIRMED"].includes(e.appointmentLetterStatus ?? "");
+    const idCardIssued = ["ISSUED"].includes(e.idCardStatus ?? "");
     const agreementIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(e.contractStatus ?? "");
     const agreementConfirmed = ["CONFIRMED", "EXPIRED"].includes(e.contractStatus ?? "");
     const hasAutoDeposit = e.autoDepositEnabled === true;
@@ -112,9 +122,14 @@ async function MobileOnboardingQueueContent() {
     const steps = [
       { label: "Profile & Wage", done: hasProfile && hasWage },
       { label: "Employment Terms", done: hasEmploymentTerms },
+      { label: "Documents", done: documentsSubmitted },
+      { label: "BG Verification", done: backgroundVerified },
       { label: "Login Account", done: hasAccount },
+      { label: "Offer Letter", done: offerLetterIssued },
       { label: "Agreement Issued", done: agreementIssued },
       { label: "Agreement Confirmed", done: agreementConfirmed },
+      { label: "Appointment Letter", done: appointmentLetterIssued },
+      { label: "ID Card", done: idCardIssued },
       { label: "Auto-Deposit", done: hasAutoDeposit },
     ];
     const completedCount = steps.filter((s) => s.done).length;

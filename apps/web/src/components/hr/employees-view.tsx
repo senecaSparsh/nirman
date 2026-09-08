@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, Users, UsersRound, Phone, Briefcase, SearchX, MapPin, Eye, UserCircle, AlertCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, UsersRound, Phone, Briefcase, SearchX, MapPin, Eye, UserCircle, AlertCircle, Landmark, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
@@ -42,6 +42,29 @@ export type EmployeeRow = {
   noticePeriodDays: number | null;
   contractStartDate: string | null;
   contractEndDate: string | null;
+  // Bank & payroll
+  payDay: number | null;
+  bankAccountHolder: string | null;
+  bankAccountNumber: string | null;
+  bankIfsc: string | null;
+  bankName: string | null;
+  bankBranch: string | null;
+  // Statutory IDs
+  panNumber: string | null;
+  aadhaarNumber: string | null;
+  pfNumber: string | null;
+  esiNumber: string | null;
+  uan: string | null;
+  // Emergency contact
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  emergencyContactRelation: string | null;
+  // Address
+  permanentAddress: string | null;
+  currentAddress: string | null;
+  // Personal / identity
+  dateOfBirth: string | null;
+  bloodGroup: string | null;
   // Login account status
   userId: string | null;
 };
@@ -474,6 +497,29 @@ function EmployeeFormDialog({
     noticePeriodDays: employee?.noticePeriodDays?.toString() ?? "",
     contractStartDate: employee?.contractStartDate ? employee.contractStartDate.split("T")[0] : "",
     contractEndDate: employee?.contractEndDate ? employee.contractEndDate.split("T")[0] : "",
+    // Personal / identity
+    dateOfBirth: employee?.dateOfBirth ? employee.dateOfBirth.split("T")[0] : "",
+    bloodGroup: employee?.bloodGroup ?? "",
+    // Bank & payroll
+    payDay: employee?.payDay?.toString() ?? "",
+    bankAccountHolder: employee?.bankAccountHolder ?? "",
+    bankAccountNumber: employee?.bankAccountNumber ?? "",
+    bankIfsc: employee?.bankIfsc ?? "",
+    bankName: employee?.bankName ?? "",
+    bankBranch: employee?.bankBranch ?? "",
+    // Statutory IDs
+    panNumber: employee?.panNumber ?? "",
+    aadhaarNumber: employee?.aadhaarNumber ?? "",
+    pfNumber: employee?.pfNumber ?? "",
+    esiNumber: employee?.esiNumber ?? "",
+    uan: employee?.uan ?? "",
+    // Emergency contact
+    emergencyContactName: employee?.emergencyContactName ?? "",
+    emergencyContactPhone: employee?.emergencyContactPhone ?? "",
+    emergencyContactRelation: employee?.emergencyContactRelation ?? "",
+    // Address
+    permanentAddress: employee?.permanentAddress ?? "",
+    currentAddress: employee?.currentAddress ?? "",
   });
 
   const set = (k: keyof typeof form, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }));
@@ -502,6 +548,29 @@ function EmployeeFormDialog({
       noticePeriodDays: form.noticePeriodDays ? Number(form.noticePeriodDays) : null,
       contractStartDate: form.contractStartDate || null,
       contractEndDate: form.contractEndDate || null,
+      // Personal / identity
+      dateOfBirth: form.dateOfBirth || null,
+      bloodGroup: form.bloodGroup || null,
+      // Bank & payroll
+      payDay: form.payDay ? Number(form.payDay) : null,
+      bankAccountHolder: form.bankAccountHolder || null,
+      bankAccountNumber: form.bankAccountNumber || null,
+      bankIfsc: form.bankIfsc || null,
+      bankName: form.bankName || null,
+      bankBranch: form.bankBranch || null,
+      // Statutory IDs
+      panNumber: form.panNumber || null,
+      aadhaarNumber: form.aadhaarNumber || null,
+      pfNumber: form.pfNumber || null,
+      esiNumber: form.esiNumber || null,
+      uan: form.uan || null,
+      // Emergency contact
+      emergencyContactName: form.emergencyContactName || null,
+      emergencyContactPhone: form.emergencyContactPhone || null,
+      emergencyContactRelation: form.emergencyContactRelation || null,
+      // Address
+      permanentAddress: form.permanentAddress || null,
+      currentAddress: form.currentAddress || null,
     };
     try {
       const res = isEdit
@@ -595,6 +664,24 @@ function EmployeeFormDialog({
                 <option value="4">H4 — Supervisor</option>
                 <option value="5">H5 — Skilled Labor</option>
                 <option value="6">H6 — Labor</option>
+              </Select>
+            </div>
+            <div>
+              <Label>Date of Birth</Label>
+              <Input type="date" value={form.dateOfBirth} onChange={(e) => set("dateOfBirth", e.target.value)} />
+            </div>
+            <div>
+              <Label>Blood Group</Label>
+              <Select value={form.bloodGroup} onChange={(e) => set("bloodGroup", e.target.value)}>
+                <option value="">— Select —</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
               </Select>
             </div>
           </div>
@@ -711,6 +798,118 @@ function EmployeeFormDialog({
               <option value="">None — manual attendance</option>
               {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </Select>
+          </div>
+        </div>
+
+        {/* ── Bank & Payroll section ── */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-1.5 border-b border-border pb-1.5">
+            <Landmark className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-label text-muted-foreground/75">BANK & PAYROLL</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label>Account Holder Name</Label>
+              <Input value={form.bankAccountHolder} onChange={(e) => set("bankAccountHolder", e.target.value)} placeholder="As per bank record" />
+            </div>
+            <div>
+              <Label>Account Number</Label>
+              <Input value={form.bankAccountNumber} onChange={(e) => set("bankAccountNumber", e.target.value)} />
+            </div>
+            <div>
+              <Label>IFSC Code</Label>
+              <Input value={form.bankIfsc} onChange={(e) => set("bankIfsc", e.target.value.toUpperCase())} placeholder="HDFC0001234" />
+            </div>
+            <div>
+              <Label>Bank Name</Label>
+              <Input value={form.bankName} onChange={(e) => set("bankName", e.target.value)} placeholder="HDFC, SBI, etc." />
+            </div>
+            <div>
+              <Label>Branch</Label>
+              <Input value={form.bankBranch} onChange={(e) => set("bankBranch", e.target.value)} />
+            </div>
+            <div>
+              <Label>Pay Day (1–31)</Label>
+              <Input type="number" min={1} max={31} value={form.payDay} onChange={(e) => set("payDay", e.target.value)} placeholder="7" />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Statutory IDs section ── */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-1.5 border-b border-border pb-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-label text-muted-foreground/75">STATUTORY IDs</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label>PAN Number</Label>
+              <Input value={form.panNumber} onChange={(e) => set("panNumber", e.target.value.toUpperCase())} placeholder="ABCDE1234F" />
+            </div>
+            <div>
+              <Label>Aadhaar Number</Label>
+              <Input value={form.aadhaarNumber} onChange={(e) => set("aadhaarNumber", e.target.value)} placeholder="1234 5678 9012" />
+            </div>
+            <div>
+              <Label>PF Number</Label>
+              <Input value={form.pfNumber} onChange={(e) => set("pfNumber", e.target.value)} />
+            </div>
+            <div>
+              <Label>ESI Number</Label>
+              <Input value={form.esiNumber} onChange={(e) => set("esiNumber", e.target.value)} />
+            </div>
+            <div>
+              <Label>UAN</Label>
+              <Input value={form.uan} onChange={(e) => set("uan", e.target.value)} />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Emergency Contact section ── */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-1.5 border-b border-border pb-1.5">
+            <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-label text-muted-foreground/75">EMERGENCY CONTACT</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <Label>Contact Name</Label>
+              <Input value={form.emergencyContactName} onChange={(e) => set("emergencyContactName", e.target.value)} />
+            </div>
+            <div>
+              <Label>Contact Phone</Label>
+              <Input value={form.emergencyContactPhone} onChange={(e) => set("emergencyContactPhone", e.target.value)} placeholder="+91..." />
+            </div>
+            <div>
+              <Label>Relation</Label>
+              <Input value={form.emergencyContactRelation} onChange={(e) => set("emergencyContactRelation", e.target.value)} placeholder="Spouse, Parent, etc." />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Address section ── */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-1.5 border-b border-border pb-1.5">
+            <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-label text-muted-foreground/75">ADDRESS</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label>Permanent Address</Label>
+              <textarea
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-body min-h-[60px]"
+                value={form.permanentAddress}
+                onChange={(e) => set("permanentAddress", e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Current Address</Label>
+              <textarea
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-body min-h-[60px]"
+                value={form.currentAddress}
+                onChange={(e) => set("currentAddress", e.target.value)}
+              />
+            </div>
           </div>
         </div>
 

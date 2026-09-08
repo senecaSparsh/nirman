@@ -398,6 +398,17 @@ model Employee {
   // ── Address ──
   permanentAddress  String?         // permanent/home address
   currentAddress    String?         // current/stay address (may differ for migrant workers)
+  // ── Identity / personal (for ID card & compliance) ──
+  dateOfBirth      DateTime?       // for ID card, compliance, age verification
+  bloodGroup       String?         // "A+", "B+", "O+", "AB+", etc. — for ID card & emergency
+  photoUrl         String?         // employee photo URL (stored in uploads volume)
+  // ── Onboarding checklist ──
+  documentsSubmitted Boolean?       // null=pending, true=submitted, false=missing
+  backgroundVerified Boolean?       // null=pending, true=cleared, false=failed
+  // ── Appointment letter tracking ──
+  appointmentLetterStatus   ContractStatus? // DRAFT → ISSUED → CONFIRMED
+  appointmentLetterIssuedAt DateTime?
+  appointmentLetterAttachmentId String?
   companyId String
   userId    String?  // link to auth User — lets site workers log in (self-service attendance, DPR, tasks)
   company   Company  @relation(fields: [companyId], references: [id])
@@ -418,6 +429,8 @@ model Employee {
   leaveRequests   LeaveRequest[]
   benefits        EmployeeBenefit[]
   salaryComponents SalaryComponent[] @relation("EmployeeSalaryComponents")
+  salaryHistory   SalaryHistory[]   @relation("EmployeeSalaryHistory")
+  exitRecord      EmployeeExit?     @relation("EmployeeExit")
 
   @@index([companyId])
   @@index([deletedAt])
@@ -428,6 +441,70 @@ model Employee {
   @@index([contractStatus])
   @@index([offerLetterStatus])
   @@index([idCardStatus])
+  @@index([appointmentLetterStatus])
+}
+
+// ───────────────────────────────────────────────────────────────
+//  SalaryHistory — immutable audit trail of every salary change.
+//  Every time setSalaryComponents() is called, a snapshot of the
+//  new salary structure is recorded here with the actor + timestamp.
+// ───────────────────────────────────────────────────────────────
+model SalaryHistory {
+  id          String   @id @default(cuid())
+  employeeId  String
+  companyId   String
+  changedBy   String   // userId of who made the change
+  changeReason String? // "Annual review", "Promotion", "Joining", etc.
+  // Snapshot of the salary structure at this point in time
+  components Json     // [{ type, amount, frequency, effectiveFrom }]
+  totalCtc   Decimal? @db.Decimal(14, 2) // total annual CTC at this point
+  effectiveFrom DateTime // when this salary structure takes effect
+  createdAt  DateTime @default(now())
+
+  employee Employee @relation("EmployeeSalaryHistory", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([companyId])
+  @@index([effectiveFrom])
+}
+
+// ───────────────────────────────────────────────────────────────
+//  EmployeeExit — offboarding record for terminated employees.
+//  Tracks final settlement, asset return, exit interview, and
+//  statutory exit filings. Created when an employee is terminated.
+// ───────────────────────────────────────────────────────────────
+model EmployeeExit {
+  id          String   @id @default(cuid())
+  employeeId  String   @unique // one exit record per employee
+  companyId   String
+  // ── Final settlement ──
+  finalSettlementAmount Decimal? @db.Decimal(14, 2) // total dues paid
+  finalSettlementDate   DateTime?
+  finalSettlementStatus String?  // PENDING / PROCESSING / COMPLETED
+  // ── Leave settlement ──
+  leaveEncashmentDays   Int?     // unused leaves encashed
+  leaveEncashmentAmount Decimal? @db.Decimal(14, 2)
+  // ── Asset return checklist ──
+  assetsReturned        Boolean? // null=pending, true=all returned, false=pending items
+  assetsReturnNotes      String? // details of pending/returned items
+  // ── Exit interview ──
+  exitInterviewConducted Boolean?
+  exitInterviewNotes     String?
+  exitInterviewDate      DateTime?
+  // ── Statutory filings ──
+  pfExitFiled            Boolean? // PF withdrawal/transfer filed
+  esiExitFiled           Boolean? // ESI exit filed
+  // ── Termination details ──
+  terminationReason      String?
+  terminationDate        DateTime
+  terminatedBy           String   // userId
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  employee Employee @relation("EmployeeExit", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([terminationDate])
 }
 
 // ───────────────────────────────────────────────────────────────

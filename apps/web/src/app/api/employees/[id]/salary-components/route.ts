@@ -82,7 +82,9 @@ export const PUT = apiHandler(async (req: NextRequest, { params }: { params: Pro
   }
 
   try {
-    const result = await setSalaryComponents(id, company.id, session.id, components);
+    const result = await setSalaryComponents(id, company.id, session.id, components, {
+      changedBy: session.id,
+    });
     return json({ ok: true, count: result.length });
   } catch (err: unknown) {
     if (err instanceof HrError) {

@@ -155,6 +155,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
     emergencyContactRelation: parsed.data.emergencyContactRelation ?? undefined,
     permanentAddress: parsed.data.permanentAddress ?? undefined,
     currentAddress: parsed.data.currentAddress ?? undefined,
+    // Identity / personal (for ID card & compliance)
+    dateOfBirth: parsed.data.dateOfBirth ? new Date(parsed.data.dateOfBirth) : undefined,
+    bloodGroup: parsed.data.bloodGroup ?? undefined,
+    photoUrl: parsed.data.photoUrl ?? undefined,
   });
 
   // ── Save salary components BEFORE auto-generating documents ──
@@ -175,6 +179,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
           isPercentage: c.isPercentage ?? false,
           percentageOfBasic: c.percentageOfBasic ?? null,
         })),
+        { changedBy: user.id, changeReason: "Joining" },
       );
     } catch { /* non-fatal — documents will still generate without CTC table */ }
   }

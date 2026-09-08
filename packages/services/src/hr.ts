@@ -615,6 +615,10 @@ export interface CreateEmployeeInput {
   emergencyContactRelation?: string;
   permanentAddress?: string;
   currentAddress?: string;
+  // Identity / personal (for ID card & compliance)
+  dateOfBirth?: Date;
+  bloodGroup?: string;
+  photoUrl?: string;
 }
 
 export async function createEmployee(input: CreateEmployeeInput) {
@@ -670,6 +674,10 @@ export async function createEmployee(input: CreateEmployeeInput) {
         emergencyContactRelation: input.emergencyContactRelation ?? null,
         permanentAddress: input.permanentAddress ?? null,
         currentAddress: input.currentAddress ?? null,
+        // Identity / personal (for ID card & compliance)
+        dateOfBirth: input.dateOfBirth ?? null,
+        bloodGroup: input.bloodGroup ?? null,
+        photoUrl: input.photoUrl ?? null,
       },
     });
     await logAction(tx, {
@@ -701,6 +709,9 @@ export interface UpdateEmployeeInput {
   reportingLocationId?: string | null;
   hierarchyLevel?: number | null;
   userId?: string;
+  // Identity / personal (for ID card & compliance)
+  dateOfBirth?: Date | null;
+  bloodGroup?: string | null;
 }
 
 export async function updateEmployee(input: UpdateEmployeeInput) {
@@ -738,6 +749,8 @@ export async function updateEmployee(input: UpdateEmployeeInput) {
     if (input.reportingLocationId !== undefined) data.reportingLocation = input.reportingLocationId ? { connect: { id: input.reportingLocationId } } : { disconnect: true };
     if (input.hierarchyLevel !== undefined) data.hierarchyLevel = input.hierarchyLevel;
     if (input.active !== undefined) data.active = input.active;
+    if (input.dateOfBirth !== undefined) data.dateOfBirth = input.dateOfBirth;
+    if (input.bloodGroup !== undefined) data.bloodGroup = input.bloodGroup;
 
     const updated = await tx.employee.update({ where: { id: input.employeeId }, data });
 

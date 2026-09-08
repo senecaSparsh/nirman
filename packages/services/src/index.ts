@@ -814,6 +814,7 @@ export {
   generateEmploymentAgreement,
   confirmEmploymentAgreement,
   generateOfferLetter,
+  generateAppointmentLetter,
   generateEmployeeIdCard,
   setupAutoDeposit,
   disableAutoDeposit,

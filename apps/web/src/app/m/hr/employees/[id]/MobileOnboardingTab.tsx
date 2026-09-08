@@ -83,6 +83,16 @@ export type OnboardingEmployeeData = {
   // ID card
   idCardStatus: string | null;
   idCardIssuedAt: string | null;
+  // Appointment letter
+  appointmentLetterStatus: string | null;
+  appointmentLetterIssuedAt: string | null;
+  // Onboarding checklist
+  documentsSubmitted: boolean | null;
+  backgroundVerified: boolean | null;
+  // Personal / identity
+  dateOfBirth: string | null;
+  bloodGroup: string | null;
+  photoUrl: string | null;
   employmentType: string | null;
   probationEndDate: string | null;
   confirmationDate: string | null;
@@ -136,7 +146,7 @@ export type OnboardingEmployeeData = {
   } | null;
 };
 
-const ONBOARDING_TABS = ["profile", "account", "salary", "offer", "agreement", "idcard", "deposit", "dossier", "offboard"] as const;
+const ONBOARDING_TABS = ["profile", "account", "salary", "offer", "agreement", "appointment", "idcard", "deposit", "dossier", "offboard"] as const;
 
 const HIERARCHY_LABELS = ["Management", "Manager", "Engineer", "Supervisor", "Skilled", "Labor"];
 
@@ -174,6 +184,7 @@ export function MobileOnboardingTab({
   const agreementIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.contractStatus ?? "");
   const agreementConfirmed = ["CONFIRMED", "EXPIRED"].includes(employee.contractStatus ?? "");
   const idCardIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.idCardStatus ?? "");
+  const appointmentLetterIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.appointmentLetterStatus ?? "");
   const hasAutoDeposit = employee.autoDepositEnabled === true;
 
   const steps = [
@@ -184,6 +195,7 @@ export function MobileOnboardingTab({
     { label: "Offer Letter", done: offerLetterIssued },
     { label: "Agreement Issued", done: agreementIssued },
     { label: "Agreement Confirmed", done: agreementConfirmed },
+    { label: "Appointment Letter", done: appointmentLetterIssued },
     { label: "ID Card", done: idCardIssued },
     { label: "Auto-Deposit", done: hasAutoDeposit },
   ];
@@ -203,6 +215,7 @@ export function MobileOnboardingTab({
           { value: "salary", label: "Salary" },
           { value: "offer", label: "Offer" },
           { value: "agreement", label: "Agreement" },
+          { value: "appointment", label: "Appointment" },
           { value: "idcard", label: "ID Card" },
           { value: "deposit", label: "Deposit" },
           { value: "dossier", label: "Dossier" },
@@ -248,6 +261,13 @@ export function MobileOnboardingTab({
 
       {subTab === "agreement" && (
         <AgreementSubTab
+          employee={employee}
+          canManage={canManage}
+        />
+      )}
+
+      {subTab === "appointment" && (
+        <AppointmentLetterSubTab
           employee={employee}
           canManage={canManage}
         />
@@ -1885,6 +1905,122 @@ function AgreementSubTab({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   APPOINTMENT LETTER SUB-TAB — generate, view/print, regenerate
+   Uses: POST /api/employees/[id]/generate-appointment-letter
+   Print page: /print/appointment-letter/[id]
+   ═══════════════════════════════════════════════════════════════════════════ */
+function AppointmentLetterSubTab({
+  employee,
+  canManage,
+}: {
+  employee: OnboardingEmployeeData;
+  canManage: boolean;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  const status = employee.appointmentLetterStatus;
+  const issued = ["ISSUED", "CONFIRMED", "EXPIRED", "TERMINATED"].includes(status ?? "");
+
+  async function generate() {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/employees/${employee.id}/generate-appointment-letter`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to generate appointment letter");
+      haptic([10, 40, 80]);
+      toast.success(data.message ?? "Appointment letter generated");
+      router.refresh();
+    } catch (err: unknown) {
+      haptic([50, 20, 50]);
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const statusLabel: Record<string, string> = {
+    DRAFT: "Draft",
+    ISSUED: "Issued",
+    CONFIRMED: "Confirmed",
+    EXPIRED: "Expired",
+    TERMINATED: "Terminated",
+  };
+
+  return (
+    <div className="space-y-3">
+      <div
+        className="rounded-[0.75rem] overflow-hidden"
+        style={{ backgroundColor: "var(--color-paper)", border: "1px solid var(--color-line)" }}
+      >
+        <div className="px-3 pt-3 pb-1 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText className="size-4" style={{ color: "var(--color-ink-500)" }} />
+            <span className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
+              Appointment Letter
+            </span>
+          </div>
+          <span
+            className="text-m-caption font-semibold px-2 py-0.5 rounded-full"
+            style={{
+              backgroundColor: issued ? "var(--color-success-bg, #dcfce7)" : "var(--color-ink-100)",
+              color: issued ? "var(--color-success-text, #166534)" : "var(--color-ink-500)",
+            }}
+          >
+            {statusLabel[status ?? "DRAFT"] ?? "Draft"}
+          </span>
+        </div>
+
+        <div className="px-3 pb-3 space-y-2">
+          {employee.appointmentLetterIssuedAt && (
+            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+              Issued: {formatDate(employee.appointmentLetterIssuedAt)}
+            </p>
+          )}
+
+          <p className="text-m-body" style={{ color: "var(--color-ink-700)" }}>
+            The appointment letter is a formal letter confirming the employee
+            appointment to the position, with joining date, employment type, and
+            key terms. It complements the detailed employment agreement.
+          </p>
+
+          {canManage && (
+            <button
+              onClick={generate}
+              disabled={busy}
+              className="w-full h-10 rounded-[0.5rem] text-m-section font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
+              style={{
+                backgroundColor: "var(--color-ink-950)",
+                color: "var(--color-paper)",
+              }}
+            >
+              {busy ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
+              {issued ? "Regenerate" : "Generate"} Appointment Letter
+            </button>
+          )}
+
+          {issued && (
+            <a
+              href={`/print/appointment-letter/${employee.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full h-10 rounded-[0.5rem] text-m-section font-semibold press flex items-center justify-center gap-1.5"
+              style={{
+                backgroundColor: "var(--color-ink-100)",
+                color: "var(--color-ink-700)",
+              }}
+            >
+              <FileText className="size-4" />
+              View / Print
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    DEPOSIT SUB-TAB — auto-deposit status + bank details + setup/edit/disable
    Uses the existing API endpoint:
      · POST /api/employees/[id]/setup-deposit
@@ -2801,8 +2937,62 @@ function BenefitEditor({
   );
 }
 
+/* ── Checklist row — onboarding checklist toggle ── */
+function ChecklistRow({
+  label,
+  done,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  done: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="w-full flex items-center gap-2.5 py-2 text-left"
+    >
+      <span
+        className="h-5 w-5 rounded-full flex items-center justify-center text-m-label font-bold"
+        style={{
+          backgroundColor: done ? "var(--color-success-bg, #dcfce7)" : "transparent",
+          border: done ? "none" : "1.5px solid var(--color-ink-300, #cbd5e1)",
+          color: done ? "#16a34a" : "var(--color-ink-400)",
+        }}
+      >
+        {done ? "✓" : ""}
+      </span>
+      <span className="text-m-body" style={{ color: "var(--color-ink-700)" }}>
+        {label}
+      </span>
+    </button>
+  );
+}
+
 /* ── Documents card — uses AttachmentList ── */
 function DocumentsCard({ employee }: { employee: OnboardingEmployeeData }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  const toggleChecklist = async (field: "documentsSubmitted" | "backgroundVerified") => {
+    setBusy(true);
+    try {
+      const current = employee[field];
+      const newVal = current === true ? null : true;
+      await fetch(`/api/employees/${employee.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: newVal }),
+      });
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div
       className="rounded-[0.75rem] overflow-hidden"
@@ -2810,7 +3000,26 @@ function DocumentsCard({ employee }: { employee: OnboardingEmployeeData }) {
     >
       <div className="px-3 pt-3 pb-1">
         <p className="text-m-label font-semibold uppercase tracking-wider" style={{ color: "var(--color-ink-400)" }}>
-          Documents
+          Onboarding Checklist
+        </p>
+      </div>
+      <div className="px-3 pb-1">
+        <ChecklistRow
+          label="Documents submitted (PAN, Aadhaar, bank proof, education certs)"
+          done={employee.documentsSubmitted === true}
+          onClick={() => toggleChecklist("documentsSubmitted")}
+          disabled={busy}
+        />
+        <ChecklistRow
+          label="Background verification completed"
+          done={employee.backgroundVerified === true}
+          onClick={() => toggleChecklist("backgroundVerified")}
+          disabled={busy}
+        />
+      </div>
+      <div className="px-3 pt-2 pb-1 border-t" style={{ borderColor: "var(--color-line)" }}>
+        <p className="text-m-label font-semibold uppercase tracking-wider" style={{ color: "var(--color-ink-400)" }}>
+          Uploaded Documents
         </p>
       </div>
       <div className="px-3 pb-3">

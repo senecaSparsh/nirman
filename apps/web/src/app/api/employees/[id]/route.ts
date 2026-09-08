@@ -56,6 +56,9 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     reportingLocationId: parsed.data.reportingLocationId,
     hierarchyLevel: parsed.data.hierarchyLevel ?? undefined,
     userId: user.id,
+    // Identity / personal (for ID card & compliance)
+    dateOfBirth: parsed.data.dateOfBirth !== undefined ? (parsed.data.dateOfBirth ? new Date(parsed.data.dateOfBirth) : null) : undefined,
+    bloodGroup: parsed.data.bloodGroup,
   });
 
   // ── Dossier fields (employment terms, bank, tax, emergency, address) ──
@@ -67,6 +70,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     "panNumber", "aadhaarNumber", "pfNumber", "esiNumber", "uan",
     "emergencyContactName", "emergencyContactPhone", "emergencyContactRelation",
     "permanentAddress", "currentAddress",
+    "dateOfBirth", "bloodGroup", "photoUrl",
+    "documentsSubmitted", "backgroundVerified",
   ];
   let hasDossier = false;
   for (const key of dossierKeys) {

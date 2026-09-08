@@ -33,6 +33,13 @@ export type EmployeeDossierInput = {
   emergencyContactRelation?: string | null;
   permanentAddress?: string | null;
   currentAddress?: string | null;
+  // Identity / personal (for ID card & compliance)
+  dateOfBirth?: string | null;
+  bloodGroup?: string | null;
+  photoUrl?: string | null;
+  // Onboarding checklist
+  documentsSubmitted?: boolean | null;
+  backgroundVerified?: boolean | null;
 };
 
 /** Update the dossier fields on an Employee record. */
@@ -67,6 +74,11 @@ export async function updateEmployeeDossier(
     if (input.emergencyContactRelation !== undefined) data.emergencyContactRelation = input.emergencyContactRelation ?? null;
     if (input.permanentAddress !== undefined) data.permanentAddress = input.permanentAddress ?? null;
     if (input.currentAddress !== undefined) data.currentAddress = input.currentAddress ?? null;
+    if (input.dateOfBirth !== undefined) data.dateOfBirth = input.dateOfBirth ? new Date(input.dateOfBirth) : null;
+    if (input.bloodGroup !== undefined) data.bloodGroup = input.bloodGroup ?? null;
+    if (input.photoUrl !== undefined) data.photoUrl = input.photoUrl ?? null;
+    if (input.documentsSubmitted !== undefined) data.documentsSubmitted = input.documentsSubmitted ?? null;
+    if (input.backgroundVerified !== undefined) data.backgroundVerified = input.backgroundVerified ?? null;
 
     const employee = await tx.employee.update({ where: { id: employeeId }, data });
 
@@ -328,12 +340,19 @@ export async function deleteSalaryComponent(
  * Batch-set salary components for an employee — replaces all existing
  * components with the provided list. Used by the hiring form to set
  * the full salary structure in one call.
+ *
+ * After persisting the new components, an immutable `SalaryHistory` record
+ * is created that snapshots the new salary structure as JSON and records
+ * the actor (`changedBy`), an optional `changeReason`, and the
+ * `effectiveFrom` date. This gives a full audit trail of every salary
+ * change over time.
  */
 export async function setSalaryComponents(
   employeeId: string,
   companyId: string,
   userId: string,
   components: CreateSalaryComponentInput[],
+  options?: { changedBy?: string; changeReason?: string; effectiveFrom?: Date },
 ) {
   return prisma.$transaction(async (tx) => {
     const employee = await tx.employee.findFirst({
@@ -370,6 +389,40 @@ export async function setSalaryComponents(
       entityType: "Employee",
       entityId: employeeId,
       after: { count: created.length } as Record<string, unknown>,
+    });
+
+    // ── Salary history log ──
+    // Snapshot the new salary structure as JSON and compute the total
+    // annual CTC so we have an immutable audit trail of every change.
+    const changedBy = options?.changedBy ?? userId;
+    const effectiveFrom = options?.effectiveFrom ?? new Date();
+
+    const componentSnapshot = components.map((c) => ({
+      type: c.type,
+      amount: Number(c.amount),
+      frequency: c.frequency ?? "MONTHLY",
+    }));
+
+    // totalCtc = sum(monthly × 12) + sum(yearly) + sum(one-time)
+    const totalCtc = components.reduce((sum, c) => {
+      const amt = Number(c.amount);
+      const freq = c.frequency ?? "MONTHLY";
+      if (freq === "MONTHLY") return sum + amt * 12;
+      if (freq === "YEARLY") return sum + amt;
+      if (freq === "ONE_TIME") return sum + amt;
+      return sum;
+    }, 0);
+
+    await tx.salaryHistory.create({
+      data: {
+        employeeId,
+        companyId,
+        changedBy,
+        changeReason: options?.changeReason ?? null,
+        components: componentSnapshot as unknown as Prisma.InputJsonValue,
+        totalCtc: new Prisma.Decimal(totalCtc),
+        effectiveFrom,
+      },
     });
 
     return created;

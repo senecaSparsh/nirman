@@ -53,10 +53,15 @@ export default async function EmployeeIdCardPage({
   const employeeDesignation = employee.user?.designation ?? employee.designation ?? "Employee";
   const employeeCode = employee.user?.employeeCode ?? `EMP-${employee.id.slice(-6).toUpperCase()}`;
   const employeePhone = employee.user?.phone ?? employee.phone ?? "—";
-  const bloodGroup = "—"; // not in schema; placeholder for future
+  const bloodGroup = employee.bloodGroup ?? "—";
   const issueDate = employee.idCardIssuedAt ?? new Date();
   // eslint-disable-next-line react-hooks/purity
   const validThru = employee.contractEndDate ?? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+
+  // Format DOB as DD/MM/YYYY for the ID card.
+  const dobFormatted = employee.dateOfBirth
+    ? `${String(employee.dateOfBirth.getDate()).padStart(2, "0")}/${String(employee.dateOfBirth.getMonth() + 1).padStart(2, "0")}/${employee.dateOfBirth.getFullYear()}`
+    : "—";
 
   return (
     <>
@@ -93,9 +98,9 @@ export default async function EmployeeIdCardPage({
 
             {/* ── Body ── */}
             <div className="flex gap-2 px-2 py-1.5">
-              {/* Photo placeholder */}
+              {/* Photo — real photo if available, else initial-based placeholder */}
               <div
-                className="flex shrink-0 items-center justify-center rounded border"
+                className="flex shrink-0 items-center justify-center overflow-hidden rounded border"
                 style={{
                   width: "20mm",
                   height: "26mm",
@@ -103,21 +108,30 @@ export default async function EmployeeIdCardPage({
                   backgroundColor: "#f1f5f9",
                 }}
               >
-                <div className="text-center">
-                  <div
-                    className="mx-auto mb-0.5 flex items-center justify-center rounded-full"
-                    style={{
-                      width: "10mm",
-                      height: "10mm",
-                      backgroundColor: "#94a3b8",
-                    }}
-                  >
-                    <span className="text-[8px] font-bold text-white">
-                      {employeeName.charAt(0).toUpperCase()}
-                    </span>
+                {employee.photoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={employee.photoUrl}
+                    alt={employeeName}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="text-center">
+                    <div
+                      className="mx-auto mb-0.5 flex items-center justify-center rounded-full"
+                      style={{
+                        width: "10mm",
+                        height: "10mm",
+                        backgroundColor: "#94a3b8",
+                      }}
+                    >
+                      <span className="text-[8px] font-bold text-white">
+                        {employeeName.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <p className="text-[5px] text-gray-400">PHOTO</p>
                   </div>
-                  <p className="text-[5px] text-gray-400">PHOTO</p>
-                </div>
+                )}
               </div>
 
               {/* Details */}
@@ -216,27 +230,31 @@ export default async function EmployeeIdCardPage({
               </div>
             </div>
 
-            {/* ── Statutory IDs ── */}
+            {/* ── Personal & emergency info (statutory IDs redacted) ── */}
             <div className="border-t border-gray-200 px-2 py-1">
               <p className="mb-0.5 text-[6px] font-bold uppercase tracking-wider text-gray-500">
-                Statutory IDs
+                Personal & Emergency
               </p>
               <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[6px] leading-tight">
+                {/* Sensitive statutory IDs (PAN, PF, ESI, UAN) are intentionally
+                    NOT printed on the ID card — only masked indicators are shown
+                    so the holder can confirm enrollment without exposing the
+                    numbers. */}
                 <div className="flex gap-1">
                   <span className="font-semibold text-gray-500">PAN:</span>
-                  <span className="text-gray-800">{employee.panNumber ?? "—"}</span>
-                </div>
-                <div className="flex gap-1">
-                  <span className="font-semibold text-gray-500">UAN:</span>
-                  <span className="text-gray-800">{employee.uan ?? "—"}</span>
+                  <span className="text-gray-800">{employee.panNumber ? "****" : "—"}</span>
                 </div>
                 <div className="flex gap-1">
                   <span className="font-semibold text-gray-500">PF:</span>
-                  <span className="text-gray-800">{employee.pfNumber ?? "—"}</span>
+                  <span className="text-gray-800">{employee.pfNumber ? "****" : "—"}</span>
                 </div>
                 <div className="flex gap-1">
                   <span className="font-semibold text-gray-500">ESI:</span>
-                  <span className="text-gray-800">{employee.esiNumber ?? "—"}</span>
+                  <span className="text-gray-800">{employee.esiNumber ? "****" : "—"}</span>
+                </div>
+                <div className="flex gap-1">
+                  <span className="font-semibold text-gray-500">UAN:</span>
+                  <span className="text-gray-800">{employee.uan ? "****" : "—"}</span>
                 </div>
                 <div className="flex gap-1">
                   <span className="font-semibold text-gray-500">Blood:</span>
@@ -244,7 +262,43 @@ export default async function EmployeeIdCardPage({
                 </div>
                 <div className="flex gap-1">
                   <span className="font-semibold text-gray-500">DOB:</span>
-                  <span className="text-gray-800">—</span>
+                  <span className="text-gray-800">{dobFormatted}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ── QR code placeholder (for verification) ── */}
+            <div className="border-t border-gray-200 px-2 py-1">
+              <div className="flex items-center gap-2">
+                <div
+                  className="flex shrink-0 items-center justify-center rounded border"
+                  style={{
+                    width: "12mm",
+                    height: "12mm",
+                    borderColor: "#cbd5e1",
+                    backgroundColor: "#f8fafc",
+                  }}
+                >
+                  {/* Simple QR-code placeholder grid — replace with a real
+                      generated QR (e.g. linking to the employee profile) later. */}
+                  <div
+                    className="grid grid-cols-5 gap-px"
+                    style={{ width: "9mm", height: "9mm" }}
+                  >
+                    {Array.from({ length: 25 }).map((_, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          backgroundColor: (i * 7 + 3) % 3 === 0 ? "#0f172a" : "transparent",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="text-[5px] leading-tight text-gray-500">
+                  <p className="font-semibold">Scan to verify</p>
+                  <p>Employee ID & status</p>
+                  <p className="font-mono text-gray-700">{employeeCode}</p>
                 </div>
               </div>
             </div>

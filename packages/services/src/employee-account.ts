@@ -1241,6 +1241,136 @@ export async function generateOfferLetter(
 }
 
 // ───────────────────────────────────────────────────────────────
+//  Appointment Letter — manual generation
+//
+//  A formal letter of appointment issued after the employee joins. Unlike
+//  the offer letter (pre-joining) and the employment agreement (the full
+//  contract), the appointment letter is a concise, formal letter that
+//  confirms the appointment — position, joining date, employment type,
+//  compensation summary, probation, and notice period. Detailed terms
+//  remain in the employment agreement.
+//
+//  The print page is at /print/appointment-letter/[id].
+// ───────────────────────────────────────────────────────────────
+
+/**
+ * Generate (or regenerate) the appointment letter for an employee.
+ * Sets appointmentLetterStatus = ISSUED, appointmentLetterIssuedAt = now,
+ * and creates an EntityAttachment linking the appointment letter to the
+ * employee profile.
+ */
+export async function generateAppointmentLetter(
+  employeeId: string,
+  companyId: string,
+  actorUserId: string,
+): Promise<{
+  employeeId: string;
+  appointmentLetterUrl: string;
+  appointmentLetterStatus: string;
+  issuedAt: string;
+}> {
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, companyId, deletedAt: null },
+    select: {
+      id: true,
+      appointmentLetterStatus: true,
+      appointmentLetterAttachmentId: true,
+      name: true,
+      designation: true,
+      joinDate: true,
+      employmentType: true,
+    },
+  });
+  if (!employee) throw new HrError("Employee not found", 404);
+
+  // ── Validate minimum prerequisites ──
+  if (!employee.name) {
+    throw new HrError("Employee name is not set. Fill the employee details first.", 400);
+  }
+  if (!employee.designation) {
+    throw new HrError(
+      "Designation is not set. Fill the employment terms before generating the appointment letter.",
+      400,
+    );
+  }
+  if (!employee.joinDate) {
+    throw new HrError(
+      "Join date is not set. Fill the employment terms before generating the appointment letter.",
+      400,
+    );
+  }
+  if (!employee.employmentType) {
+    throw new HrError(
+      "Employment type is not set. Fill the employment terms before generating the appointment letter.",
+      400,
+    );
+  }
+
+  const appointmentLetterUrl = `/print/appointment-letter/${employeeId}`;
+
+  return prisma.$transaction(async (tx) => {
+    let attachmentId = employee.appointmentLetterAttachmentId;
+
+    if (attachmentId) {
+      await tx.entityAttachment.update({
+        where: { id: attachmentId },
+        data: { label: `Appointment Letter — ${new Date().toLocaleDateString()}` },
+      });
+    } else {
+      const upload = await tx.upload.create({
+        data: {
+          storedName: `appointment-letter-${employeeId}.pdf`,
+          originalName: `Appointment-Letter-${employeeId.slice(-8)}.pdf`,
+          mimeType: "application/pdf",
+          size: 0,
+          url: appointmentLetterUrl,
+          companyId,
+          uploadedById: actorUserId,
+        },
+      });
+      const attachment = await tx.entityAttachment.create({
+        data: {
+          companyId,
+          uploadId: upload.id,
+          entityType: "Employee",
+          entityId: employeeId,
+          category: "appointment-letter",
+          label: `Appointment Letter — ${new Date().toLocaleDateString()}`,
+          createdById: actorUserId,
+        },
+      });
+      attachmentId = attachment.id;
+    }
+
+    const updated = await tx.employee.update({
+      where: { id: employeeId },
+      data: {
+        appointmentLetterStatus: "ISSUED",
+        appointmentLetterIssuedAt: new Date(),
+        appointmentLetterAttachmentId: attachmentId,
+      },
+      select: { appointmentLetterStatus: true, appointmentLetterIssuedAt: true },
+    });
+
+    await logAction(tx, {
+      userId: actorUserId,
+      companyId,
+      action: "APPOINTMENT_LETTER_GENERATE",
+      entityType: "Employee",
+      entityId: employeeId,
+      after: { appointmentLetterStatus: updated.appointmentLetterStatus, appointmentLetterUrl },
+    });
+
+    return {
+      employeeId,
+      appointmentLetterUrl,
+      appointmentLetterStatus: updated.appointmentLetterStatus ?? "ISSUED",
+      issuedAt: updated.appointmentLetterIssuedAt?.toISOString() ?? new Date().toISOString(),
+    };
+  });
+}
+
+// ───────────────────────────────────────────────────────────────
 //  Employee ID Card — auto-generation
 //
 //  A printable ID card with employee name, photo placeholder, designation,
@@ -1369,13 +1499,18 @@ export async function setupAutoDeposit(
   });
   if (!employee) throw new HrError("Employee not found", 404);
 
-  // Bank details are just stored data — they can be collected at any point
-  // in the onboarding flow. We don't hard-block on agreement confirmation
-  // because HR may want to collect bank details while waiting for the
-  // employee to sign the agreement. The actual salary payment is gated by
-  // the payroll process, not by this flag.
+  // Bank details can be collected at any point, but auto-deposit
+  // (automatic salary credit) should only be enabled after the
+  // employment agreement is confirmed. This prevents salary payments
+  // to employees who haven't signed their contract.
   if (!employee.active) {
     throw new HrError("Cannot set up auto-deposit for an inactive employee.", 400);
+  }
+  if (employee.contractStatus !== "CONFIRMED") {
+    throw new HrError(
+      "Cannot enable auto-deposit before the employment agreement is confirmed. Generate and confirm the agreement first.",
+      400,
+    );
   }
 
   // Validate

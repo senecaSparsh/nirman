@@ -1191,6 +1191,13 @@ export const employeeSchema = z.object({
   emergencyContactRelation: z.string().optional().nullable(),
   permanentAddress: z.string().optional().nullable(),
   currentAddress: z.string().optional().nullable(),
+  // Identity / personal (for ID card & compliance)
+  dateOfBirth: z.string().optional().nullable().refine((v) => !v || !isNaN(new Date(v).getTime()), "Invalid date of birth"),
+  bloodGroup: z.string().optional().nullable(),
+  photoUrl: z.string().optional().nullable(),
+  // Onboarding checklist
+  documentsSubmitted: z.boolean().optional().nullable(),
+  backgroundVerified: z.boolean().optional().nullable(),
   // Salary components (CTC breakdown) — saved before auto-generating documents
   salaryComponents: z.array(z.object({
     type: z.string(),
