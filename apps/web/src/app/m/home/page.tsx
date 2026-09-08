@@ -5,6 +5,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, getCurrentUser } from "@/lib/server";
 import { PERM, hasPermission, roleTier } from "@/lib/roles";
 import { getUserRole } from "@/lib/server";
+import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import { type CompanyCardData } from "./home-client";
 import { AdaptiveHomeContent, type HomeData } from "./adaptive-home";
@@ -172,6 +173,8 @@ async function HomeContent() {
     companies,
     canCreateCompany,
     userName: user?.name ?? null,
+    role,
+    persona: roleToPersona(role) as Persona,
     myEmployee: myEmployee ? { id: myEmployee.id, name: myEmployee.name } : null,
     myAttendance: myAttendance
       ? {

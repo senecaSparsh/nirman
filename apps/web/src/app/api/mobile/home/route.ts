@@ -2,6 +2,7 @@ import { prisma } from "@nirman/db";
 import { apiHandler, json, getCurrentUser, getCompany } from "@/lib/server";
 import { PERM, hasPermission, roleTier } from "@/lib/roles";
 import { getUserRole } from "@/lib/server";
+import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
 
 /**
  * GET /api/mobile/home — returns everything the mobile home page needs
@@ -137,6 +138,8 @@ export const GET = apiHandler(async () => {
     companies,
     canCreateCompany,
     userName: user?.name ?? null,
+    role,
+    persona: roleToPersona(role) as Persona,
     myEmployee: myEmployee
       ? { id: myEmployee.id, name: myEmployee.name }
       : null,

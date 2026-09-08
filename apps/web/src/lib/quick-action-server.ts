@@ -19,11 +19,12 @@ export interface ExtraActionDef {
 }
 
 /** Map module ids from the quick-action namespace to route-manifest module ids. */
-const MODULE_MAP: Record<"inventory" | "hr" | "accounts" | "site", ModuleId> = {
+const MODULE_MAP: Record<"inventory" | "hr" | "accounts" | "site" | "sales", ModuleId> = {
   inventory: "inventory",
   hr: "hr",
   accounts: "accounts",
   site: "home",
+  sales: "home",
 };
 
 /** Kinds that should not appear as quick actions (detail/create/edit/redirect). */
@@ -35,7 +36,7 @@ const EXCLUDED_KINDS = new Set(["detail", "create", "edit", "redirect"]);
  * in the curated quick-action catalog. Returns a serializable list.
  */
 function accessibleExtraActions(
-  module: "inventory" | "hr" | "accounts" | "site",
+  module: "inventory" | "hr" | "accounts" | "site" | "sales",
   permissions: string[],
   catalogHrefs: Set<string>,
 ): ExtraActionDef[] {
@@ -82,7 +83,7 @@ function accessibleExtraActions(
  * `getCurrentUser`/`getCompany`/`getUserPermissions` memoized helpers.
  */
 export async function loadQuickActionContext(
-  module: "inventory" | "hr" | "accounts" | "site",
+  module: "inventory" | "hr" | "accounts" | "site" | "sales",
 ): Promise<{
   persona: Persona;
   savedLayouts: Record<string, string[]>;
@@ -138,7 +139,7 @@ export async function loadQuickActionContext(
 /** Build a set of base paths (without query params) from the curated catalog
  *  so we can exclude them from the extra-actions list. */
 async function buildCatalogHrefSet(
-  module: "inventory" | "hr" | "accounts" | "site",
+  module: "inventory" | "hr" | "accounts" | "site" | "sales",
 ): Promise<Set<string>> {
   const { QUICK_ACTION_CATALOGS } = await import("@/lib/quick-action-catalogs");
   const hrefs = new Set<string>();

@@ -6,6 +6,8 @@ import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import { MobileSelfCheckIn } from "@/components/mobile/mobile-self-check-in";
 import { HomeTree } from "./home-tree";
 import { MobileHomeClient, type CompanyCardData } from "./home-client";
+import { PersonaHomeDashboard } from "./persona-dashboard";
+import type { Persona } from "@/lib/mobile-nav-v2";
 
 /**
  * HomeData — the shape returned by /api/mobile/home and used by the SSR path.
@@ -21,6 +23,8 @@ export interface HomeData {
   companies: CompanyCardData[];
   canCreateCompany: boolean;
   userName: string | null;
+  role: string;
+  persona: Persona;
   myEmployee: { id: string; name: string } | null;
   myAttendance: {
     checkIn: string | null;   // ISO string
@@ -58,6 +62,7 @@ export function AdaptiveHomeContent({
 function HomeContent({ data }: { data: HomeData }) {
   const checkInDate = data.myAttendance?.checkIn ? new Date(data.myAttendance.checkIn) : null;
   const checkOutDate = data.myAttendance?.checkOut ? new Date(data.myAttendance.checkOut) : null;
+  const isExecutive = data.persona === "executive";
 
   return (
     <>
@@ -79,11 +84,21 @@ function HomeContent({ data }: { data: HomeData }) {
         </div>
       )}
 
-      <MobileHomeClient
-        currentCompany={data.currentCompany}
-        companies={data.companies}
-        canCreateCompany={data.canCreateCompany}
-      />
+      {/* ── Executive: orbit navigator (enterprise wheel) ── */}
+      {/* ── Other personas: persona-specific dashboard ── */}
+      {isExecutive ? (
+        <MobileHomeClient
+          currentCompany={data.currentCompany}
+          companies={data.companies}
+          canCreateCompany={data.canCreateCompany}
+        />
+      ) : (
+        <PersonaHomeDashboard
+          persona={data.persona}
+          role={data.role}
+          currentCompany={data.currentCompany}
+        />
+      )}
     </>
   );
 }

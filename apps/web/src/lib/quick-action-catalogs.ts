@@ -29,6 +29,9 @@ import {
   Calculator,
   Layers,
   Recycle,
+  Target,
+  Globe,
+  KeyRound,
 } from "lucide-react";
 import type { Persona } from "@/lib/mobile-nav-v2";
 import type { QuickActionTab } from "@/components/mobile/v2/quick-actions-bar";
@@ -176,16 +179,48 @@ export const SITE_QUICK_ACTIONS: QuickActionTab[] = [
   },
 ];
 
+export const SALES_QUICK_ACTIONS: QuickActionTab[] = [
+  {
+    id: "pipeline",
+    label: "Pipeline",
+    icon: "🎯",
+    actions: [
+      { key: "leads", href: "/m/leads", icon: Target, label: "Leads", personas: ["sales", "executive"] },
+      { key: "customers", href: "/m/customers", icon: Users, label: "Customers", personas: ["sales", "executive"] },
+      { key: "sales", href: "/m/sales?tab=collections", icon: ShoppingCart, label: "Sales", personas: ["sales", "executive", "finance"] },
+      { key: "material-sales", href: "/m/material-sales", icon: TrendingUp, label: "Material Sales", personas: ["sales", "executive", "finance"] },
+      { key: "portal-listings", href: "/m/portal-listings", icon: Globe, label: "Portal Listings", personas: ["sales", "executive"] },
+      { key: "rentals", href: "/m/rentals", icon: Home, label: "Rentals", personas: ["sales", "executive"] },
+      { key: "units", href: "/m/units", icon: Package, label: "Units", personas: ["sales", "executive", "ops"] },
+      { key: "brokers", href: "/m/brokers", icon: Users, label: "Brokers", personas: ["sales", "executive"] },
+    ],
+  },
+  {
+    id: "deals",
+    label: "Deals",
+    icon: "🤝",
+    actions: [
+      { key: "projects", href: "/m/projects", icon: Building2, label: "Projects", personas: ["sales", "executive", "ops", "field"] },
+      { key: "land", href: "/m/land", icon: LandPlot, label: "Land", personas: ["executive", "sales", "ops"] },
+      { key: "tasks", href: "/m/tasks", icon: ListChecks, label: "Tasks", personas: ["sales", "ops", "field", "hr", "executive"] },
+      { key: "bookings", href: "/m/sales?tab=bookings", icon: KeyRound, label: "Bookings", personas: ["sales", "executive"] },
+      { key: "payments", href: "/m/sales?tab=collections", icon: Wallet, label: "Collections", personas: ["sales", "finance", "executive"] },
+      { key: "reports", href: "/m/reports/sales", icon: TrendingUp, label: "Sales Reports", personas: ["sales", "executive", "finance"] },
+    ],
+  },
+];
+
 /** All catalogs keyed by module id — used by the server pages. */
-export const QUICK_ACTION_CATALOGS: Record<"inventory" | "hr" | "accounts" | "site", QuickActionTab[]> = {
+export const QUICK_ACTION_CATALOGS: Record<"inventory" | "hr" | "accounts" | "site" | "sales", QuickActionTab[]> = {
   inventory: INVENTORY_QUICK_ACTIONS,
   hr: HR_QUICK_ACTIONS,
   accounts: ACCOUNTS_QUICK_ACTIONS,
   site: SITE_QUICK_ACTIONS,
+  sales: SALES_QUICK_ACTIONS,
 };
 
 /** Helper for server pages: load saved layouts for all tabs of a module. */
-export function quickActionKeysFor(module: "inventory" | "hr" | "accounts" | "site"): string[] {
+export function quickActionKeysFor(module: "inventory" | "hr" | "accounts" | "site" | "sales"): string[] {
   return QUICK_ACTION_CATALOGS[module].map((t) => `quick-actions:${module}:${t.id}`);
 }
 
