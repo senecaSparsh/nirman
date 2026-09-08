@@ -95,7 +95,7 @@ export function UserActivityDialog({
     if (diffMin < 60) return `${diffMin}m ago`;
     if (diffHr < 24) return `${diffHr}h ago`;
     if (diffDay < 7) return `${diffDay}d ago`;
-    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
   }
 
   function summarizeChange(entry: AuditEntry): string {

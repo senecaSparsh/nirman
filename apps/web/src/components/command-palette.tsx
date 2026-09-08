@@ -444,7 +444,7 @@ export function CommandPalette({ userRole = "PROJECT_MANAGER" }: { userRole?: st
               result.kind === "page" ? result.item.hint :
               result.kind === "action" ? result.action.hint :
               result.kind === "entity" ? result.entity.sublabel :
-              new Date(result.item.ts).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+              new Date(result.item.ts).toLocaleDateString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
             const tag =
               result.kind === "page" ? WORLD_BY_KEY[result.item.world].label :
               result.kind === "action" ? "Action" :

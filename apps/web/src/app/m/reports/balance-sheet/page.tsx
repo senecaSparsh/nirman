@@ -95,7 +95,7 @@ async function MobileBalanceSheetContent() {
         title="Balance Sheet"
         subtitle="Assets = Liabilities + Equity"
         icon={Scale}
-        period={asOf.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+        period={asOf.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}
       />
 
       <MobileReportSummary

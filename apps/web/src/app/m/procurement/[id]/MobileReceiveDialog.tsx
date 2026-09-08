@@ -8,6 +8,7 @@ import {
   ScanLine, CheckCircle2, X, Truck, Calendar, XCircle, Scale, Plus, AlertCircle, Printer, FileText,
 } from "lucide-react";
 import { formatNumber, formatCurrency } from "@/lib/utils";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
@@ -80,6 +81,7 @@ export function MobileReceiveDialog({
   deliveryTermsType?: string;
 }) {
   const router = useRouter();
+  const now = useHydratedDate();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"receive" | "reject">("receive");
   const [receipts, setReceipts] = useState<Record<string, string>>({});
@@ -805,7 +807,7 @@ export function MobileReceiveDialog({
           <div className="flex items-center gap-1.5">
             <Calendar className="size-3 shrink-0" style={{ color: "var(--color-steel)" }} />
             <span className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-steel)" }}>
-              {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} · {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+              {now ? `${now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })} · ${now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })}` : "—"}
             </span>
           </div>
           <div className="flex items-center gap-1.5 flex-1 min-w-0">

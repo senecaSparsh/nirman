@@ -36,7 +36,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   }
 
   const fmtDate = (d: Date) =>
-    d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
 
   const fmtCurrency = (n: number) => formatCurrencyDetailed(n);
 

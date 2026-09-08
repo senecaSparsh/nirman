@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Users, Flame } from "lucide-react";
 import { MobileCustomersList, type CustomerListItem } from "./MobileCustomersList";
 import { MobileLeadsList, type LeadListItem } from "../leads/MobileLeadsList";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
@@ -41,6 +42,7 @@ export function MobileCustomersLeadsTabs({
   customerInitialCursor?: string | null;
 }) {
   const [tab, setTab] = useState<"customers" | "leads">("customers");
+  const now = useHydratedDate();
 
   return (
     <div>
@@ -120,7 +122,7 @@ export function MobileCustomersLeadsTabs({
           items={leads}
           hotCount={leads.filter((l) => l.priority === "HIGH").length}
           bookedCount={leads.filter((l) => l.stage === "BOOKED").length}
-          followUpsDue={leads.filter((l) => l.nextFollowUpAt && new Date(l.nextFollowUpAt) <= new Date()).length}
+          followUpsDue={leads.filter((l) => l.nextFollowUpAt && now !== null && new Date(l.nextFollowUpAt) <= now).length}
           canCreate={canCreate}
           exportTitle="Leads"
           exportRows={leads as unknown as Record<string, unknown>[]}

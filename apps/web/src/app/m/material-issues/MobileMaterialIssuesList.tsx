@@ -62,7 +62,7 @@ export function MobileMaterialIssuesList({
           const meta = `${new Date(issue.date).toLocaleDateString("en-IN", {
             day: "2-digit",
             month: "short",
-          })} · ${issue.lineCount} item${issue.lineCount === 1 ? "" : "s"} · ${formatCurrency(issue.totalValue)}`;
+           timeZone: "Asia/Kolkata" })} · ${issue.lineCount} item${issue.lineCount === 1 ? "" : "s"} · ${formatCurrency(issue.totalValue)}`;
           return (
             <MobileRow
               key={issue.id}

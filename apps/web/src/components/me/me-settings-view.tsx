@@ -429,7 +429,7 @@ function PasskeysSection() {
                 <p className="text-micro text-muted-foreground">
                   {new Date(pk.createdAt).toLocaleDateString(undefined, {
                     year: "numeric", month: "short", day: "numeric",
-                  })}
+                   timeZone: "Asia/Kolkata" })}
                   {pk.backedUp && " · Synced"}
                 </p>
               </div>

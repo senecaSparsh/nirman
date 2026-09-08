@@ -355,7 +355,7 @@ export function MaterialFormDialog({
                       if (data.unitCost > 0) {
                         set("standardCost", String(data.unitCost));
                         const srcLabel = data.source === "receipt"
-                          ? `last PO ${data.poNumber ?? ""} (${new Date(data.date).toLocaleDateString()})`
+                          ? `last PO ${data.poNumber ?? ""} (${new Date(data.date).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })})`
                           : data.source === "standard"
                             ? "existing standard cost"
                             : "";

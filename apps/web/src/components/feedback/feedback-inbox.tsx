@@ -211,7 +211,7 @@ export function FeedbackInbox() {
                     <div className="mt-1.5 flex items-center gap-2 text-caption text-faint">
                       <span className="font-medium text-muted-foreground">{item.user.name}</span>
                       <span>·</span>
-                      <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+                      <span>{new Date(item.createdAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}</span>
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">

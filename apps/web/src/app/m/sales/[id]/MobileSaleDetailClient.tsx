@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Phone, Printer, XCircle, Banknote,
-  TrendingUp, Loader2, IndianRupee,
+  Loader2, IndianRupee,
   CheckCircle2, ExternalLink, MessageCircle, Pencil, Check,
   HandCoins, CalendarClock,
 } from "lucide-react";
@@ -18,7 +18,7 @@ import { AttachmentList } from "@/components/attachments/attachment-list";
 import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
-import { DetailKeyValueCard, DetailAlertBanner } from "@/components/mobile/v2/detail-primitives";
+import { DetailKeyValueCard } from "@/components/mobile/v2/detail-primitives";
 
 type AssetType = "LAND" | "BUILT_UNIT" | "PROJECT";
 type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
@@ -999,7 +999,7 @@ export function MobileSaleDetailClient({
                   </div>
                   <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                     {it.percentage > 0 ? `${it.percentage}% · ` : ""}{formatCurrency(it.amount)}
-                    {it.dueDate ? ` · Due ${new Date(it.dueDate).toLocaleDateString("en-IN")}` : ""}
+                    {it.dueDate ? ` · Due ${new Date(it.dueDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}` : ""}
                   </div>
                   {it.paidAmount > 0 && (
                     <div className="text-m-caption font-bold" style={{ color: it.status === "PAID" ? "var(--color-go)" : "var(--color-amber)" }}>
@@ -2283,7 +2283,7 @@ function ScheduleEditorModal({
               </div>
               <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 {it.percentage > 0 ? `${it.percentage}% · ` : ""}
-                {it.dueDate ? `Due ${new Date(it.dueDate).toLocaleDateString("en-IN")}` : "No due date"}
+                {it.dueDate ? `Due ${new Date(it.dueDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}` : "No due date"}
                 {it.paidAmount > 0 && ` · Paid ${formatCurrency(it.paidAmount)}`}
               </div>
             </div>

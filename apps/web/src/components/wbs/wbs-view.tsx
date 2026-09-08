@@ -10,6 +10,7 @@ import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
 import { cn, formatDate, formatCurrency, formatNumber } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 import {
   ListChecks,
   Plus,
@@ -89,10 +90,9 @@ function formatDuration(days: number | null): string {
 
 // ── Status computation ──
 type Status = "not-started" | "in-progress" | "completed" | "overdue" | "no-schedule";
-function getStatus(n: WbsNode): Status {
+function getStatus(n: WbsNode, now: number): Status {
   if (!n.plannedStart || !n.plannedEnd) return "no-schedule";
   if (n.progressPct >= 100) return "completed";
-  const now = Date.now();
   const end = parseDate(n.plannedEnd)!;
   if (now > end && n.progressPct < 100) return "overdue";
   const start = parseDate(n.plannedStart)!;
@@ -209,8 +209,8 @@ function generateMonthMarkers(range: { start: number; end: number }): { label: s
     if (pos >= 0 && pos <= 1) {
       const isJan = cur.getMonth() === 0;
       const label = isJan
-        ? cur.toLocaleDateString("en-IN", { year: "numeric" })
-        : cur.toLocaleDateString("en-IN", { month: "short" });
+        ? cur.toLocaleDateString("en-IN", { year: "numeric", timeZone: "Asia/Kolkata" })
+        : cur.toLocaleDateString("en-IN", { month: "short", timeZone: "Asia/Kolkata" });
       markers.push({
         label,
         pos: pos * 100,
@@ -239,6 +239,8 @@ export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: b
   const [confirm, confirmDialog] = useConfirm();
   const [calcSchedule, setCalcSchedule] = useState(false);
   const [scheduleInfo, setScheduleInfo] = useState<{ projectDuration: number; criticalPath: string[] } | null>(null);
+  const now = useHydratedDate();
+  const nowMs = now?.getTime() ?? 0;
 
   const fetchTree = useCallback(() => {
     if (!projectId) return;
@@ -410,7 +412,7 @@ export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: b
         else activities++;
         if (n.isCritical) critical++;
         if (n.progressPct >= 100) completed++;
-        if (getStatus(n) === "overdue") overdue++;
+        if (getStatus(n, nowMs) === "overdue") overdue++;
         progressSum += n.progressPct;
         if (n.boqItem?.estimatedAmount != null) { budgetSum += n.boqItem.estimatedAmount; hasBudget = true; }
         walk(n.children);
@@ -427,17 +429,16 @@ export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: b
       avgProgress: total > 0 ? Math.round(progressSum / total) : 0,
       budget: hasBudget ? budgetSum : null,
     };
-  }, [tree]);
+  }, [tree, nowMs]);
 
   const dateRange = useMemo(() => computeDateRange(tree), [tree]);
   const monthMarkers = useMemo(() => (dateRange ? generateMonthMarkers(dateRange) : []), [dateRange]);
-  const [now] = useState(() => Date.now());
   const todayPct = useMemo(() => {
     if (!dateRange) return null;
     const span = dateRange.end - dateRange.start;
-    const pct = ((now - dateRange.start) / span) * 100;
+    const pct = ((nowMs - dateRange.start) / span) * 100;
     return pct >= 0 && pct <= 100 ? pct : null;
-  }, [dateRange, now]);
+  }, [dateRange, nowMs]);
 
   // ── Search filter: keep matching nodes + their ancestors ──
   const filteredTree = useMemo(() => {
@@ -728,6 +729,8 @@ function WbsTree({
   todayPct: number | null;
   monthMarkers: { label: string; pos: number; major: boolean }[];
 }) {
+  const now = useHydratedDate();
+  const nowMs = now?.getTime() ?? 0;
   return (
     <>
       {nodes.map((node) => {
@@ -735,7 +738,7 @@ function WbsTree({
         const hasChildren = node.children.length > 0;
         const isMilestone = node.type === "MILESTONE";
         const isSummary = hasChildren || node.type === "PROJECT_NODE" || node.type === "PHASE_NODE";
-        const status = getStatus(node);
+        const status = getStatus(node, nowMs);
         const statusCfg = STATUS_CONFIG[status];
         const dur = isMilestone ? 0 : daysBetween(node.plannedStart, node.plannedEnd);
         const r = rollup(node);
@@ -1318,6 +1321,8 @@ type MbEntry = {
 };
 
 function WbsDetailDialog({ node, onClose, canEdit, allNodes, onReload, projectId }: { node: WbsNode | null; onClose: () => void; canEdit: boolean; allNodes: WbsNode[]; onReload: () => void; projectId: string }) {
+  const now = useHydratedDate();
+  const nowMs = now?.getTime() ?? 0;
   const [entries, setEntries] = useState<MbEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [deps, setDeps] = useState<{ id: string; type: string; lagDays: number; predecessor: { id: string; code: string; name: string }; successor: { id: string; code: string; name: string }; direction: string }[]>([]);
@@ -1375,7 +1380,7 @@ function WbsDetailDialog({ node, onClose, canEdit, allNodes, onReload, projectId
   const hasBoq = !!node.boqItem;
   const r = rollup(node);
   const displayProgress = node.children.length > 0 ? r.progress : node.progressPct;
-  const status = getStatus(node);
+  const status = getStatus(node, nowMs);
   const statusCfg = STATUS_CONFIG[status];
 
   return (
@@ -1716,7 +1721,7 @@ function WbsDetailDialog({ node, onClose, canEdit, allNodes, onReload, projectId
             </div>
             <div className="space-y-1">
               {node.children.map((c) => {
-                const cStatus = getStatus(c);
+                const cStatus = getStatus(c, nowMs);
                 const cCfg = STATUS_CONFIG[cStatus];
                 return (
                   <div key={c.id} className="flex items-center gap-2 text-sm">

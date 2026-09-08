@@ -901,7 +901,7 @@ function ActivityTab({ detail }: { detail: TaskDetail }) {
                   </span>
                   <p className="text-body text-foreground/90">{a.message}</p>
                   <p className="text-micro text-muted-foreground/60">
-                    {a.user?.name ?? "System"} · {new Date(a.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                    {a.user?.name ?? "System"} · {new Date(a.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" })}
                   </p>
                 </div>
               );
@@ -1096,7 +1096,7 @@ function TimeTab({ detail, estimateMins, totalLogged }: {
                   <p className="text-body font-medium">{log.user.name}</p>
                   <p className="text-micro text-muted-foreground">
                     {new Date(log.startedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                    {log.endedAt && ` → ${new Date(log.endedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`}
+                    {log.endedAt && ` → ${new Date(log.endedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" })}`}
                   </p>
                   {log.note && <p className="mt-0.5 text-caption text-muted-foreground">{log.note}</p>}
                 </div>

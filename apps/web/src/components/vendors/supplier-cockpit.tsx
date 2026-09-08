@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/page-header";
 import { StatusPill } from "@/components/page";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 
 // ───────────────────────────────────────────────────────────
 //  Types
@@ -194,6 +195,7 @@ function CountBadge({ n }: { n: number }) {
 
 function OverviewTab({ data }: { data: SupplierCockpitData }) {
   const { stats } = data;
+  const now = useHydratedDate();
   const fulfilmentPct = stats.totalOrdered > 0 ? (stats.totalReceived / stats.totalOrdered) * 100 : 0;
 
   return (
@@ -270,7 +272,7 @@ function OverviewTab({ data }: { data: SupplierCockpitData }) {
         {data.invoices.length > 0 && (() => {
           const outstanding = data.invoices.filter((i) => i.balanceDue > 0);
           const totalOutstanding = outstanding.reduce((s, i) => s + i.balanceDue, 0);
-          const overdue = outstanding.filter((i) => i.dueDate && new Date(i.dueDate) < new Date());
+          const overdue = outstanding.filter((i) => i.dueDate && now !== null && new Date(i.dueDate) < now);
           return (
             <div className="rounded-lg border border-border bg-card p-4">
               <h2 className="mb-3 text-label text-muted-foreground">Invoice Summary</h2>

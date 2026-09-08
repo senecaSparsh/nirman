@@ -34,6 +34,7 @@ import { Section, MetricGrid, Metric } from "@/components/page";
 import { MyTasksPanel } from "@/components/tasks/my-tasks-panel";
 import { BarSeries, PieSeries } from "@/components/reports/charts";
 import { cn } from "@/lib/utils";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { EmptyState } from "@/components/empty-state";
 
 /**
@@ -159,6 +160,7 @@ export type ProfileTabsProps = {
 
 export function ProfileTabs(props: ProfileTabsProps) {
   const [tab, setTab] = useState("overview");
+  const now = useHydratedDate();
 
   return (
     <Tabs value={tab} onValueChange={setTab}>
@@ -404,7 +406,7 @@ export function ProfileTabs(props: ProfileTabsProps) {
                       {log.entityType}
                     </span>
                     <span className="shrink-0 text-micro tnum text-muted-foreground/70">
-                      {timeAgo(new Date(log.timestamp))}
+                      {timeAgo(new Date(log.timestamp), now)}
                     </span>
                   </div>
                 ))}
@@ -759,8 +761,9 @@ export function formatActionLabel(action: string): string {
   return `${moduleName} ${verbLabel}`;
 }
 
-function timeAgo(date: Date): string {
-  const diff = Date.now() - date.getTime();
+function timeAgo(date: Date, now: Date | null): string {
+  if (now === null) return "";
+  const diff = now.getTime() - date.getTime();
   const m = Math.floor(diff / 60000);
   const h = Math.floor(diff / 3600000);
   const d = Math.floor(diff / 86400000);

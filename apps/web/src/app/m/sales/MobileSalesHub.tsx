@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import {CalendarClock, ContactRound, Flame, Phone, UserRoundCheck} from "lucide-react";
 import {type MobileColumnSpec} from "@/components/mobile/v2/export-share-bar";
 import { formatCurrencyCompact, formatDate } from "@/lib/utils";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { LeadDetailDialog } from "@/components/sales/lead-detail-dialog";
 import { MobileNewLeadClient } from "@/app/m/leads/new/MobileNewLeadClient";
 import type { LeadRow, LeadStage } from "@/lib/types";
@@ -113,7 +114,8 @@ function MobileLeadPipeline({
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<LeadRow | null>(null);
   const fab = useFabModal();
-  const [now] = useState(() => Date.now());
+  const now = useHydratedDate();
+  const nowMs = now?.getTime() ?? 0;
 
   const filtered = useMemo(() => {
     const openStages: LeadStage[] = ["NEW", "CONTACTED", "SITE_VISIT", "NEGOTIATION"];
@@ -131,7 +133,7 @@ function MobileLeadPipeline({
   }, [leads, query, stage]);
 
   const openLeads = leads.filter((lead) => !["BOOKED", "LOST"].includes(lead.stage));
-  const dueCount = openLeads.filter((lead) => lead.nextFollowUpAt && new Date(lead.nextFollowUpAt).getTime() < now).length;
+  const dueCount = openLeads.filter((lead) => lead.nextFollowUpAt && new Date(lead.nextFollowUpAt).getTime() < nowMs).length;
   const hotCount = openLeads.filter((lead) => lead.priority === "HOT" || lead.score >= 70).length;
   const bookedCount = leads.filter((lead) => lead.stage === "BOOKED").length;
 
@@ -192,7 +194,7 @@ function MobileLeadPipeline({
       )}
       <div className="flex flex-col gap-2">
         {filtered.map((lead) => {
-          const overdue = Boolean(lead.nextFollowUpAt && new Date(lead.nextFollowUpAt).getTime() < now && !["BOOKED", "LOST"].includes(lead.stage));
+          const overdue = Boolean(lead.nextFollowUpAt && new Date(lead.nextFollowUpAt).getTime() < nowMs && !["BOOKED", "LOST"].includes(lead.stage));
           return (
             <button
               key={lead.id}

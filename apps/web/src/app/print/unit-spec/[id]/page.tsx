@@ -180,7 +180,7 @@ export default async function UnitSpecSheetPage({
       </div>
 
       <div className="mt-4 text-center text-xs text-gray-400">
-        Generated on {new Date().toLocaleDateString("en-IN")}
+        Generated on {new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}
       </div>
 
     </div>

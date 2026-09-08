@@ -95,7 +95,7 @@ function formatDate(s: string): string {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  });
+   timeZone: "Asia/Kolkata" });
 }
 
 /** Get nested value from object by dotted path. */

@@ -209,7 +209,7 @@ export function GatePassesView({
       key: "createdAt",
       label: "Created",
       sortable: true,
-      render: (r) => <span className="tnum text-caption text-muted-foreground">{new Date(r.createdAt).toLocaleDateString()}</span>,
+      render: (r) => <span className="tnum text-caption text-muted-foreground">{new Date(r.createdAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}</span>,
     },
   ];
 

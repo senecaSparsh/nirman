@@ -860,7 +860,7 @@ function PersonDetail({ person, depth, ancestorLast }: { person: OrgPersonNode; 
               <UserCheck className="size-2" />
               {att.status.replace(/_/g, " ").toLowerCase()}
               {att.checkIn
-                ? ` · ${new Date(att.checkIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`
+                ? ` · ${new Date(att.checkIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })}`
                 : ""}
             </span>
           ) : null}
@@ -952,7 +952,7 @@ function PersonDetail({ person, depth, ancestorLast }: { person: OrgPersonNode; 
                 {d.projectName}
               </span>
               <span className="text-m-caption shrink-0" style={{ color: "var(--color-ink-400)" }}>
-                {new Date(d.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                {new Date(d.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}
               </span>
             </Link>
           ))}

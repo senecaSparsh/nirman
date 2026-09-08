@@ -21,7 +21,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 /**
  * ═══════════════════════════════════════════════════════════════════
@@ -1088,7 +1088,7 @@ export function DataTable<T>({
                           <Bookmark className="size-3.5 shrink-0 text-muted-foreground" />
                           <span className="flex-1 truncate">{v.name}</span>
                           <span className="shrink-0 text-[10px] text-faint">
-                            {new Date(v.savedAt).toLocaleDateString()}
+                            {formatDate(v.savedAt)}
                           </span>
                         </button>
                         <button

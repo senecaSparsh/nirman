@@ -25,6 +25,7 @@ import { DirectPurchaseFormDialog } from "./direct-purchase-form-dialog";
 import { RequisitionsView } from "@/components/requisitions/requisitions-view";
 import { SupplierReturnsView } from "@/components/supplier-returns/supplier-returns-view";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { downloadCSV, downloadExcel } from "@/lib/export";
 import type {
   SupplierRow, PurchaseOrderRow, MaterialRow, StockLocationRow,
@@ -142,9 +143,11 @@ export function ProcurementView({
 //  Purchase Orders tab
 // ───────────────────────────────────────────────────────────
 
-/** Column definitions for the PO DataTable. Defined outside the
- *  component so they're stable across renders. */
-const poColumns: Column<PurchaseOrderRow>[] = [
+/** Column definitions for the PO DataTable. Defined as a function
+ *  so the `now` value (from useHydratedDate) can be injected for
+ *  hydration-safe overdue/days-open calculations. */
+function poColumnsFor(now: Date | null): Column<PurchaseOrderRow>[] {
+  return [
   {
     key: "poNumber",
     label: "PO Number",
@@ -214,7 +217,8 @@ const poColumns: Column<PurchaseOrderRow>[] = [
     render: (po) => {
       if (!po.expectedDate) return <span className="text-muted-foreground">—</span>;
       const isOverdue =
-        new Date(po.expectedDate) < new Date() &&
+        now !== null &&
+        new Date(po.expectedDate) < now &&
         po.status !== "RECEIVED" &&
         po.status !== "CANCELLED";
       return (
@@ -231,10 +235,11 @@ const poColumns: Column<PurchaseOrderRow>[] = [
     sortable: true,
     sortValue: (po) => new Date(po.createdAt),
     render: (po) => {
-      const daysOpen = Math.floor((Date.now() - new Date(po.orderDate).getTime()) / 86400000);
+      const daysOpen = now ? Math.floor((now.getTime() - new Date(po.orderDate).getTime()) / 86400000) : 0;
       const isOverdue =
         po.expectedDate &&
-        new Date(po.expectedDate) < new Date() &&
+        now !== null &&
+        new Date(po.expectedDate) < now &&
         po.status !== "RECEIVED" &&
         po.status !== "CANCELLED";
       return (
@@ -249,6 +254,7 @@ const poColumns: Column<PurchaseOrderRow>[] = [
     },
   },
 ];
+}
 
 /** Column definitions for the Direct Purchases DataTable. */
 const directPurchaseColumns: Column<DirectPurchaseRow>[] = [
@@ -349,6 +355,8 @@ function PurchaseOrdersTab({
   const [selected, setSelected] = useState<PurchaseOrderRow | null>(null);
   const [view, setView] = useState<"list" | "board">("list");
   const searchParams = useSearchParams();
+  const now = useHydratedDate();
+  const poColumns = useMemo(() => poColumnsFor(now), [now]);
 
   // Auto-open PO detail when navigated with ?po=<id> (e.g. from requisition "View PO")
   useEffect(() => {
@@ -544,8 +552,8 @@ function PurchaseOrdersTab({
                 )}
                 {col.items.map((po) => {
                   const orderDate = new Date(po.orderDate);
-                  const daysOpen = Math.floor((Date.now() - orderDate.getTime()) / 86400000);
-                  const isOverdue = po.expectedDate && new Date(po.expectedDate) < new Date() && po.status !== "RECEIVED" && po.status !== "CANCELLED";
+                  const daysOpen = now ? Math.floor((now.getTime() - orderDate.getTime()) / 86400000) : 0;
+                  const isOverdue = po.expectedDate && now !== null && new Date(po.expectedDate) < now && po.status !== "RECEIVED" && po.status !== "CANCELLED";
                   return (
                     <button
                       key={po.id}
@@ -980,6 +988,7 @@ function QuotationsTab({
   requests: QuotationRequestRow[];
   reportIds?: Set<string>;
 }) {
+  const now = useHydratedDate();
   if (requests.length === 0) {
     return (
       <EmptyState
@@ -1000,7 +1009,7 @@ function QuotationsTab({
     { key: "projectName", label: "Project", render: (r) => <span className="text-muted-foreground">{r.projectName ?? "—"}</span>, sortValue: (r) => r.projectName ?? "" },
     { key: "workActivity", label: "Work Activity", render: (r) => <span className="text-muted-foreground text-xs">{r.workActivity ?? "—"}</span>, sortValue: (r) => r.workActivity ?? "" },
     { key: "requiredByDate", label: "Required By", render: (r) => r.requiredByDate ? (
-      <span className={new Date(r.requiredByDate) < new Date() ? "text-danger font-medium" : ""}>{formatDate(r.requiredByDate)}</span>
+      <span className={now !== null && new Date(r.requiredByDate) < now ? "text-danger font-medium" : ""}>{formatDate(r.requiredByDate)}</span>
     ) : <span className="text-muted-foreground">—</span>, sortValue: (r) => r.requiredByDate ?? "" },
     { key: "submittedByName", label: "Submitted by", render: (r) => <span className="text-muted-foreground">{r.submittedByName ?? "—"}</span>, sortValue: (r) => r.submittedByName ?? "" },
     { key: "quoteCount", label: "Quotes", render: (r) => {

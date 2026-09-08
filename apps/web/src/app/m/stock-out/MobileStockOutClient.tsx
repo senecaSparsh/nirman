@@ -1263,7 +1263,7 @@ export function MobileStockOutClient({
                   ? (lotsCache[lines[modal.lineIndex ?? 0]?.materialId ?? ""] ?? []).map((l) => ({
                       id: l.lotNumber,
                       label: l.lotNumber,
-                      sub: `${l.currentQty} ${materials.find((m) => m.id === lines[modal.lineIndex ?? 0]?.materialId)?.unit ?? ""} avail${l.expiryDate ? ` · exp ${new Date(l.expiryDate).toLocaleDateString()}` : ""}`,
+                      sub: `${l.currentQty} ${materials.find((m) => m.id === lines[modal.lineIndex ?? 0]?.materialId)?.unit ?? ""} avail${l.expiryDate ? ` · exp ${new Date(l.expiryDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}` : ""}`,
                     }))
                   : materials.map((m) => ({ id: m.id, label: m.name, sub: `${m.code} · ${m.unit}` }))
           }

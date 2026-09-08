@@ -345,5 +345,5 @@ function sameDay(a: Date, b: Date): boolean {
 
 function formatTime(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
 }

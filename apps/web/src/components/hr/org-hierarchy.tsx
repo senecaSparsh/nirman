@@ -667,7 +667,7 @@ function PersonDetailD({ person, depth, ancestorLast }: { person: OrgPersonNode;
               <UserCheck className="size-3" />
               {att.status.replace(/_/g, " ").toLowerCase()}
               {att.checkIn
-                ? ` · ${new Date(att.checkIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`
+                ? ` · ${new Date(att.checkIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })}`
                 : ""}
             </Badge>
           ) : null}
@@ -739,7 +739,7 @@ function PersonDetailD({ person, depth, ancestorLast }: { person: OrgPersonNode;
               <FileText className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="truncate flex-1 text-muted-foreground">{d.projectName}</span>
               <span className="text-meta text-muted-foreground shrink-0">
-                {new Date(d.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                {new Date(d.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}
               </span>
             </Link>
           ))}

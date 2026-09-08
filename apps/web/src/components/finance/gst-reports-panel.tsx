@@ -90,7 +90,7 @@ export function GstReportsPanel() {
     if (gstr1) {
       let csv = "Date,Source,Memo,Taxable Value,GST Amount,GST Rate,CGST,SGST,IGST\n";
       for (const e of gstr1.entries) {
-        csv += `${new Date(e.date).toLocaleDateString("en-IN")},${e.sourceType},"${e.memo}",${e.taxableValue},${e.gstAmount},${e.gstRate.toFixed(2)}%,${e.cgst},${e.sgst},${e.igst}\n`;
+        csv += `${new Date(e.date).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })},${e.sourceType},"${e.memo}",${e.taxableValue},${e.gstAmount},${e.gstRate.toFixed(2)}%,${e.cgst},${e.sgst},${e.igst}\n`;
       }
       downloads.push({ name: `gstr-1-${from}-to-${to}.csv`, content: csv });
     }
@@ -200,7 +200,7 @@ export function GstReportsPanel() {
                   ) : (
                     gstr1.entries.map((e, i) => (
                       <tr key={i} className="border-t">
-                        <td className="p-2">{new Date(e.date).toLocaleDateString("en-IN")}</td>
+                        <td className="p-2">{new Date(e.date).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}</td>
                         <td className="p-2">{e.sourceType}</td>
                         <td className="p-2 text-right font-mono">{formatCurrency(e.taxableValue)}</td>
                         <td className="p-2 text-right font-mono">{formatCurrency(e.gstAmount)}</td>

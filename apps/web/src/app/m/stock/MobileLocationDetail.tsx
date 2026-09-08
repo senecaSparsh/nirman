@@ -14,6 +14,7 @@ import { MobileFab } from "@/components/mobile/v2/scaffold";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { DetailStatGrid } from "@/components/mobile/v2/detail-primitives";
 import { useFabModal } from "@/lib/use-fab-modal";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { MobileNewMaterialDialog } from "../materials/MobileNewMaterialDialog";
 
 export type DetailStockItem = {
@@ -86,7 +87,7 @@ const movementColor = (type: string) =>
   IN_TYPES.includes(type) ? "var(--color-go)" : OUT_TYPES.includes(type) ? "var(--color-stop)" : "var(--color-steel)";
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  return new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
 }
 
 function sameDay(a: Date, b: Date): boolean {
@@ -122,6 +123,7 @@ export function MobileLocationDetail({
   categories?: { id: string; name: string; unit: string }[];
 }) {
   const router = useRouter();
+  const now = useHydratedDate();
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<"inventory" | "activity" | "transit">("inventory");
   const fab = useFabModal();
@@ -150,17 +152,18 @@ export function MobileLocationDetail({
 
   // Date-group movements
   const groupedMovements = useMemo(() => {
-    const today = new Date();
-    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    const today = now;
+    const yesterday = now ? new Date(now) : null;
+    if (yesterday) yesterday.setDate(yesterday.getDate() - 1);
     const map = new Map<string, DetailMovement[]>();
     for (const m of filteredMovements) {
       const mDate = new Date(m.timestamp);
-      const label = sameDay(mDate, today) ? "Today" : sameDay(mDate, yesterday) ? "Yesterday" : formatDate(m.timestamp);
+      const label = (today && sameDay(mDate, today)) ? "Today" : (yesterday && sameDay(mDate, yesterday)) ? "Yesterday" : formatDate(m.timestamp);
       if (!map.has(label)) map.set(label, []);
       map.get(label)!.push(m);
     }
     return Array.from(map.entries()).map(([label, items]) => ({ label, items }));
-  }, [filteredMovements]);
+  }, [filteredMovements, now]);
 
   const totalQty = items.reduce((s, i) => s + i.qty, 0);
 

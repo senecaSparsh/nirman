@@ -19,6 +19,7 @@ import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { IdentityCell, MoneyCell, QtyCell } from "@/components/ui/cells";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 
 type ListingStatus = "DRAFT" | "LISTED" | "DELISTED" | "SYNC_FAILED";
 
@@ -84,10 +85,10 @@ function pricePerSqft(price: number, area: number): number | null {
   return price / area;
 }
 
-function timeAgo(iso: string | null): string | null {
-  if (!iso) return null;
+function timeAgo(iso: string | null, now: Date | null): string | null {
+  if (!iso || now === null) return null;
   const d = new Date(iso);
-  const diff = Date.now() - d.getTime();
+  const diff = now.getTime() - d.getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
@@ -120,6 +121,7 @@ export function PortalListingsView({
   permissions?: { canManage?: boolean };
 }) {
   const canManage = permissions?.canManage ?? false;
+  const now = useHydratedDate();
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ListingRow | null>(null);
   const [detailTarget, setDetailTarget] = useState<ListingRow | null>(null);
@@ -275,7 +277,7 @@ export function PortalListingsView({
       sortValue: (l) => l.lastSyncedAt ?? "",
       render: (l) => {
         if (l.syncError) return <span className="text-danger text-meta">{l.syncError.slice(0, 40)}</span>;
-        if (l.lastSyncedAt) return <span className="text-muted-foreground">{timeAgo(l.lastSyncedAt)}</span>;
+        if (l.lastSyncedAt) return <span className="text-muted-foreground">{timeAgo(l.lastSyncedAt, now)}</span>;
         return <span className="text-faint">—</span>;
       },
       exportValue: (l) => l.lastSyncedAt ?? "",

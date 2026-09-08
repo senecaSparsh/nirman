@@ -94,7 +94,7 @@ async function BalanceSheetContent() {
     <>
       <PageHeader
         title="Balance Sheet"
-        description={`As of ${asOf.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} — assets, liabilities, and equity at a glance.`}
+        description={`As of ${asOf.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })} — assets, liabilities, and equity at a glance.`}
         stats={[
           { label: "Total Assets", value: formatCurrency(totalAssets) },
           { label: "Total Liabilities", value: formatCurrency(totalLiabilities) },

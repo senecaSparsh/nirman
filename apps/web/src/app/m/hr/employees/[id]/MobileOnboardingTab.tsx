@@ -35,6 +35,7 @@ import { AttachmentList } from "@/components/attachments/attachment-list";
 import { MobileCreateAccountDialog } from "@/app/m/hr/employees/MobileCreateAccountDialog";
 import { haptic } from "@/lib/haptic";
 import { useTodayDateState } from "@/lib/use-today-date";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MobileOnboardingTab — the full hiring → account → agreement → deposit →
@@ -2853,12 +2854,8 @@ function OffboardSubTab({
   const isActive = employee.active;
   const noticeDays = employee.noticePeriodDays;
   // Compare dates only after mount to avoid SSR/client timezone mismatch.
-  const [contractEnded, setContractEnded] = useState(false);
-  useEffect(() => {
-    if (employee.contractEndDate) {
-      setContractEnded(new Date(employee.contractEndDate) < new Date());
-    }
-  }, [employee.contractEndDate]);
+  const now = useHydratedDate();
+  const contractEnded = employee.contractEndDate ? now !== null && new Date(employee.contractEndDate) < now : false;
 
   // Pre-exit checklist items — computed from employee data
   const checklist = [

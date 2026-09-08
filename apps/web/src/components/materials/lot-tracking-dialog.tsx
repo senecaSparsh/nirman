@@ -8,6 +8,7 @@ import {Input, Select} from "@/components/ui/input";
 import { Field } from "@/components/field";
 import {Plus, AlertTriangle, Package} from "lucide-react";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 import type { MaterialRow } from "@/lib/types";
 
 type LotRow = {
@@ -126,16 +127,17 @@ export function LotTrackingDialog({
     }
   }
 
-  const [now] = useState(() => Date.now());
+  const now = useHydratedDate();
+  const nowMs = now?.getTime() ?? 0;
   const { expiredLots, expiringSoon } = useMemo(() => {
-    const expired = lots.filter((l) => l.expiryDate && new Date(l.expiryDate).getTime() < now && l.currentQty > 0);
+    const expired = lots.filter((l) => l.expiryDate && new Date(l.expiryDate).getTime() < nowMs && l.currentQty > 0);
     const soon = lots.filter((l) => {
       if (!l.expiryDate || l.currentQty <= 0) return false;
-      const days = Math.ceil((new Date(l.expiryDate).getTime() - now) / (1000 * 60 * 60 * 24));
+      const days = Math.ceil((new Date(l.expiryDate).getTime() - nowMs) / (1000 * 60 * 60 * 24));
       return days >= 0 && days <= 30;
     });
     return { expiredLots: expired, expiringSoon: soon };
-  }, [lots, now]);
+  }, [lots, nowMs]);
 
   if (!material) return null;
 
@@ -237,9 +239,9 @@ export function LotTrackingDialog({
               </thead>
               <tbody className="divide-y divide-border">
                 {lots.map((lot) => {
-                  const isExpired = lot.expiryDate && new Date(lot.expiryDate).getTime() < now && lot.currentQty > 0;
+                  const isExpired = lot.expiryDate && new Date(lot.expiryDate).getTime() < nowMs && lot.currentQty > 0;
                   const isExpiringSoon = lot.expiryDate && !isExpired && lot.currentQty > 0 &&
-                    Math.ceil((new Date(lot.expiryDate).getTime() - now) / (1000 * 60 * 60 * 24)) <= 30;
+                    Math.ceil((new Date(lot.expiryDate).getTime() - nowMs) / (1000 * 60 * 60 * 24)) <= 30;
                   return (
                     <tr key={lot.id} className="hover:bg-muted/30">
                       <td className="px-3 py-2 font-mono text-caption font-medium">

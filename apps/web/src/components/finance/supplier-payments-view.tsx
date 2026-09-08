@@ -77,7 +77,7 @@ export function SupplierPaymentsView({
       label: "Date",
       render: (p) => (
         <span className="text-sm text-muted-foreground">
-          {new Date(p.paymentDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+          {new Date(p.paymentDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}
         </span>
       ),
     },

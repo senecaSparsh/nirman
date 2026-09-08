@@ -24,6 +24,7 @@ import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { CreateAccountDialog } from "@/components/hr/create-account-dialog";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { useTabParam } from "@/lib/use-tab-param";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { AttachmentList } from "@/components/attachments/attachment-list";
 
 // ───────────────────────────────────────────────────────────────
@@ -1141,12 +1142,12 @@ function AttendanceTab({ employee }: { employee: EmployeeProfileData }) {
     },
     {
       key: "checkIn", label: "Check In", width: "100px",
-      render: (r) => r.checkIn ? <span className="tnum text-body">{new Date(r.checkIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span> : <span className="text-muted-foreground">—</span>,
+      render: (r) => r.checkIn ? <span className="tnum text-body">{new Date(r.checkIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })}</span> : <span className="text-muted-foreground">—</span>,
       exportValue: (r) => r.checkIn ?? "",
     },
     {
       key: "checkOut", label: "Check Out", width: "100px",
-      render: (r) => r.checkOut ? <span className="tnum text-body">{new Date(r.checkOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span> : <span className="text-muted-foreground">—</span>,
+      render: (r) => r.checkOut ? <span className="tnum text-body">{new Date(r.checkOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })}</span> : <span className="text-muted-foreground">—</span>,
       exportValue: (r) => r.checkOut ?? "",
     },
     {
@@ -1312,9 +1313,10 @@ function PayrollTab({ employee, canManagePayroll }: { employee: EmployeeProfileD
 
 function TasksTab({ employee, canAssignTasks }: { employee: EmployeeProfileData; canAssignTasks: boolean }) {
   const tasks = employee.tasks;
+  const now = useHydratedDate();
   const open = tasks.filter((t) => t.status === "PENDING" || t.status === "IN_PROGRESS").length;
   const completed = tasks.filter((t) => t.status === "COMPLETED").length;
-  const overdue = tasks.filter((t) => t.dueDate && t.status !== "COMPLETED" && new Date(t.dueDate) < new Date()).length;
+  const overdue = tasks.filter((t) => t.dueDate && t.status !== "COMPLETED" && now !== null && new Date(t.dueDate) < now).length;
 
   const columns: Column<(typeof tasks)[number]>[] = [
     {
@@ -1347,7 +1349,7 @@ function TasksTab({ employee, canAssignTasks }: { employee: EmployeeProfileData;
       key: "dueDate", label: "Due Date", sortable: true, width: "130px",
       render: (t) => {
         if (!t.dueDate) return <span className="text-muted-foreground">—</span>;
-        const isOverdue = t.status !== "COMPLETED" && new Date(t.dueDate) < new Date();
+        const isOverdue = t.status !== "COMPLETED" && now !== null && new Date(t.dueDate) < now;
         return <span className={cn("text-body", isOverdue ? "text-danger font-medium" : "text-foreground")}>{formatDate(t.dueDate)}</span>;
       },
       sortValue: (t) => t.dueDate ?? "",

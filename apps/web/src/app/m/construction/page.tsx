@@ -669,7 +669,7 @@ async function ConstructionWbsTab({ projectId }: { projectId?: string }) {
           <p className="text-m-body font-medium" style={{ color: "var(--color-ink-900)" }}>{node.name}</p>
           {node.plannedStart && node.plannedEnd && (
             <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-              {new Date(node.plannedStart).toLocaleDateString()} → {new Date(node.plannedEnd).toLocaleDateString()}
+              {new Date(node.plannedStart).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })} → {new Date(node.plannedEnd).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}
             </p>
           )}
         </div>
@@ -798,7 +798,7 @@ async function ConstructionMbTab({ projectId }: { projectId?: string }) {
                     {e.boqSerialNo} · {e.boqDescription}
                   </p>
                   <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-                    {new Date(e.measureDate).toLocaleDateString()} · {e.measuredByName}
+                    {new Date(e.measureDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })} · {e.measuredByName}
                   </p>
                 </div>
                 <div className="text-right">

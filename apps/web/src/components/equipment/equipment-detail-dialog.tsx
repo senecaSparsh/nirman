@@ -11,6 +11,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { StatusPill } from "@/components/page";
 import { PipelineStepper, type PipelineStep } from "@/components/ui/pipeline-stepper";
 import { AssignDialog } from "./assign-dialog";
@@ -219,12 +220,12 @@ export function EquipmentDetailDialog({
   }
 
   // Smart maintenance alert: if last maintenance was >90 days ago (or never), suggest scheduling
-  const [now] = useState(() => Date.now());
+  const now = useHydratedDate();
   const daysSinceMaint = useMemo(() => {
     const completedMaint = detail?.maintenance.filter((m) => m.endDate) ?? [];
     if (completedMaint.length === 0) return null;
     const lastMaintDate = new Date(completedMaint[completedMaint.length - 1]!.endDate!);
-    return Math.floor((now - lastMaintDate.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.floor(((now?.getTime() ?? 0) - lastMaintDate.getTime()) / (1000 * 60 * 60 * 24));
   }, [detail, now]);
 
   if (!equipment) return null;

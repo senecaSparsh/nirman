@@ -46,7 +46,7 @@ function fmtCurrency(n: number) {
 }
 
 function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
 }
 
 const STAGE_LABELS: Record<string, string> = {

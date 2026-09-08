@@ -21,6 +21,7 @@ import { EditScheduleDialog } from "./edit-schedule-dialog";
 import { EditSaleDialog } from "./edit-sale-dialog";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
 import { useApiAction } from "@/lib/use-api-action";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 import type { AssetSaleDetail, AssetSaleRow } from "@/lib/types";
 
 export function SaleDetailDialog({
@@ -49,6 +50,7 @@ export function SaleDetailDialog({
   const [collectItem, setCollectItem] = useState<{ id: string; installmentNo: number; description: string; amount: number; paidAmount: number } | null>(null);
   const { mutate: mutateAction } = useApiAction();
   const trackRecent = useTrackRecent();
+  const now = useHydratedDate();
 
   async function uploadDocument(documentType: "ATS" | "BBA" | "REGISTRY" | "ALLOTMENT", photos: { url: string; fileName?: string }[]) {
     if (!sale || photos.length === 0) return;
@@ -703,13 +705,12 @@ export function SaleDetailDialog({
                     schedule item so the sales manager doesn't have to scan the
                     full table to find what's due next. */}
                 {(() => {
-                  const now = new Date();
                   const nextDue = sale.paymentSchedule!.items
                     .filter((item) => item.status !== "PAID" && item.dueDate)
                     .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())[0];
                   if (!nextDue) return null;
                   const dueDate = new Date(nextDue.dueDate!);
-                  const isOverdue = dueDate < now;
+                  const isOverdue = now !== null && dueDate < now;
                   return (
                     <div className={`flex items-center gap-3 rounded-lg border p-2.5 ${isOverdue ? "border-danger/30 bg-danger-soft/20" : "border-info/30 bg-info-soft/20"}`}>
                       {isOverdue ? <AlertCircle className="h-4 w-4 shrink-0 text-danger" /> : <CalendarClock className="h-4 w-4 shrink-0 text-info" />}
@@ -719,7 +720,7 @@ export function SaleDetailDialog({
                         </p>
                         <p className="text-caption text-muted-foreground">
                           {formatCurrency(nextDue.amount)} · due {formatDate(nextDue.dueDate!)}
-                          {isOverdue && ` · ${Math.ceil((now.getTime() - dueDate.getTime()) / 86400000)} day(s) late`}
+                          {isOverdue && now && ` · ${Math.ceil((now.getTime() - dueDate.getTime()) / 86400000)} day(s) late`}
                         </p>
                       </div>
                       {canManage && !isCancelled && (

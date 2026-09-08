@@ -315,7 +315,7 @@ export function ConvertToPoDialog({
                         <div className="font-mono text-caption text-muted-foreground">{l.materialCode}</div>
                         {l.lastRate && l.lastRate > 0 && (
                           <div className="text-caption text-muted-foreground">
-                            Last: {formatCurrency(l.lastRate)}{l.lastRateDate ? ` · ${new Date(l.lastRateDate).toLocaleDateString()}` : ""}
+                            Last: {formatCurrency(l.lastRate)}{l.lastRateDate ? ` · ${new Date(l.lastRateDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}` : ""}
                           </div>
                         )}
                       </TD>

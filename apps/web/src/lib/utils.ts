@@ -191,6 +191,45 @@ export function formatDate(value: Date | string | null | undefined) {
     day: "2-digit",
     month: "short",
     year: "numeric",
+    timeZone: "Asia/Kolkata",
+  }).format(new Date(value));
+}
+
+/** Short date format: "15 Jan" — no year. Timezone-fixed for SSR safety. */
+export function formatDateShort(value: Date | string | null | undefined): string {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    timeZone: "Asia/Kolkata",
+  }).format(new Date(value));
+}
+
+/** Date + time format: "15 Jan 2024 · 14:30" — timezone-fixed for SSR safety. */
+export function formatDateTime(value: Date | string | null | undefined): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  const date = new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Kolkata",
+  }).format(d);
+  const time = new Intl.DateTimeFormat("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata",
+  }).format(d);
+  return `${date} · ${time}`;
+}
+
+/** Time-only format: "14:30" — timezone-fixed for SSR safety. */
+export function formatTime(value: Date | string | null | undefined): string {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata",
   }).format(new Date(value));
 }
 

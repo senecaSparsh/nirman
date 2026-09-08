@@ -267,7 +267,7 @@ export function AttendanceView({
       sortable: true,
       render: (r) => r.checkIn ? (
         <span className="flex items-center gap-1 text-caption tnum text-muted-foreground">
-          {new Date(r.checkIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+          {new Date(r.checkIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })}
           {r.checkInLat != null && r.checkInLng != null && (
             <MapPin className="h-3 w-3 text-success" aria-label="GPS verified" />
           )}
@@ -282,7 +282,7 @@ export function AttendanceView({
       sortable: true,
       render: (r) => r.checkOut ? (
         <span className="flex items-center gap-1 text-caption tnum text-muted-foreground">
-          {new Date(r.checkOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+          {new Date(r.checkOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })}
           {r.checkOutLat != null && r.checkOutLng != null && (
             <MapPin className="h-3 w-3 text-success" aria-label="GPS verified" />
           )}

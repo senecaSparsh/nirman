@@ -6,6 +6,7 @@ import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { CheckCircle2, ShoppingCart, Send, Check, X, Eye, Copy, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { haptic } from "@/lib/haptic";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { PageLead, NextActionCard } from "@/components/mobile/v2/guidance";
@@ -228,6 +229,7 @@ export function MobileRequisitionsList({
    ═══════════════════════════════════════════════════════════════════════════ */
 function ReqCard({ req, onAction }: { req: RequisitionListItem; onAction?: () => void }) {
   const router = useRouter();
+  const now = useHydratedDate();
   const [menuOpen, setMenuOpen] = useState(false);
   const { bind: longPressBind } = useLongPress(() => setMenuOpen(true));
   const style = STATUS_STYLE[req.status] ?? STATUS_STYLE.DRAFT!;
@@ -332,12 +334,12 @@ function ReqCard({ req, onAction }: { req: RequisitionListItem; onAction?: () =>
   ];
 
   // Needed-by date context
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = now ? new Date(now) : null;
+  if (today) today.setHours(0, 0, 0, 0);
   let neededText = "";
   let neededColor = "var(--color-ink-500)";
   let neededUrgent = false;
-  if (req.neededByDate) {
+  if (req.neededByDate && today) {
     const needed = new Date(req.neededByDate);
     needed.setHours(0, 0, 0, 0);
     const diffDays = Math.round(

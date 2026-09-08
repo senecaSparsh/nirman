@@ -1703,12 +1703,12 @@ function TimelineStep({
               {new Date(timestamp).toLocaleDateString("en-IN", {
                 day: "2-digit",
                 month: "short",
-              })}{" "}
+               timeZone: "Asia/Kolkata" })}{" "}
               ·{" "}
               {new Date(timestamp).toLocaleTimeString("en-IN", {
                 hour: "2-digit",
                 minute: "2-digit",
-              })}
+               timeZone: "Asia/Kolkata" })}
             </span>
           ) : (
             <span

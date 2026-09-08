@@ -684,7 +684,7 @@ function ConsentTab({ policy, company, canManage }: { policy: ConsentPolicy | nu
             <div className="flex items-center gap-2 mb-2">
               <Badge tone="steel">v{policy.version}</Badge>
               <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                {new Date(policy.effectiveAt).toLocaleDateString("en-IN")}
+                {new Date(policy.effectiveAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}
               </span>
               <span className="inline-flex items-center gap-1 text-m-caption" style={{ color: "var(--color-go)" }}>
                 <CheckCircle2 className="size-3" />

@@ -17,6 +17,7 @@ import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { CustomerFormDialog } from "@/components/sales/customer-form-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { AttachmentList } from "@/components/attachments/attachment-list";
 
 /** Column definitions for the rental payment history DataTable. */
@@ -148,6 +149,7 @@ export function RentalsView({
   const [confirmTerminateOpen, setConfirmTerminateOpen] = useState(false);
   const [terminateTarget, setTerminateTarget] = useState<TenancyRow | null>(null);
   const [editTarget, setEditTarget] = useState<TenancyRow | null>(null);
+  const now = useHydratedDate();
 
   // Edit form state
   const [eTenantName, setETenantName] = useState("");
@@ -635,7 +637,7 @@ export function RentalsView({
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setPayTarget(t); setPAmount(String(t.monthlyRent)); setPDate(""); setPRef(""); setPTds(""); setPTdsCert(""); }} title="Record payment">
               <Banknote className="h-3.5 w-3.5" />
             </Button>
-            {t.escalationPercent != null && t.nextEscalationDate && new Date(t.nextEscalationDate) <= new Date() && (
+            {t.escalationPercent != null && t.nextEscalationDate && now !== null && new Date(t.nextEscalationDate) <= now && (
               <Button variant="ghost" size="icon" className="h-7 w-7 text-warning" onClick={(e) => { e.stopPropagation(); requestEscalate(t); }} disabled={submitting} title="Apply rent escalation">
                 <TrendingUp className="h-3.5 w-3.5" />
               </Button>
@@ -1151,9 +1153,11 @@ function TenancyDetailDialog({
   canTerminate: boolean;
   submitting: boolean;
 }) {
+  const now = useHydratedDate();
   const escalationDue = tenancy.escalationPercent != null
     && tenancy.nextEscalationDate
-    && new Date(tenancy.nextEscalationDate) <= new Date()
+    && now !== null
+    && new Date(tenancy.nextEscalationDate) <= now
     && tenancy.status === "ACTIVE";
   return (
     <Dialog

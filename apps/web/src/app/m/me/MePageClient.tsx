@@ -579,7 +579,7 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
                         {pk.name || "Passkey"}
                       </p>
                       <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
-                        {new Date(pk.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+                        {new Date(pk.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "Asia/Kolkata" })}
                         {pk.backedUp && " · Synced"}
                       </p>
                     </div>

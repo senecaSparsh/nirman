@@ -53,7 +53,7 @@ function formatDuration(sec: number): string {
 }
 
 function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+  return new Date(date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: "Asia/Kolkata" });
 }
 
 export function CallAnalyticsView({

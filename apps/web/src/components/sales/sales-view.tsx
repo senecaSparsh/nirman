@@ -19,6 +19,7 @@ import { CustomerFormDialog } from "./customer-form-dialog";
 import { SmsView, type SmsRow } from "@/components/sms/sms-view";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { downloadCSV, downloadExcel } from "@/lib/export";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 import type { AssetSaleRow, CustomerRow, LeadRow } from "@/lib/types";
 
 export function SalesView({
@@ -153,7 +154,8 @@ export function SalesView({
 /** Column definitions for the Sales DataTable — mirrors the visual
  *  language of the Procurement Orders table (mono numbers, StatusPill,
  *  inline progress bars) so the two hub pages read as one product. */
-const saleColumns: Column<AssetSaleRow>[] = [
+function buildSaleColumns(now: Date | null): Column<AssetSaleRow>[] {
+  return [
   {
     key: "saleNumber",
     label: "Sale No.",
@@ -201,10 +203,11 @@ const saleColumns: Column<AssetSaleRow>[] = [
     sortable: true,
     render: (s) => {
       // Count overdue installments from the payment schedule
-      const now = new Date();
-      const overdueCount = s.paymentSchedule?.items?.filter(
-        (item) => item.status !== "PAID" && item.dueDate && new Date(item.dueDate) < now,
-      ).length ?? 0;
+      const overdueCount = now !== null
+        ? s.paymentSchedule?.items?.filter(
+            (item) => item.status !== "PAID" && item.dueDate && new Date(item.dueDate) < now,
+          ).length ?? 0
+        : 0;
       return (
         <div className="flex items-center gap-1.5">
           <StatusPill status={s.paymentStatus} />
@@ -306,7 +309,8 @@ const saleColumns: Column<AssetSaleRow>[] = [
     sortValue: (s) => new Date(s.saleDate),
     render: (s) => <span className="text-muted-foreground">{formatDate(s.saleDate)}</span>,
   },
-];
+  ];
+}
 
 function SalesTab({
   sales,
@@ -338,6 +342,8 @@ function SalesTab({
   const [dateTo, setDateTo] = useState("");
   const [formOpen, setFormOpen] = useState(Boolean(autoOpenNewSale));
   const [selected, setSelected] = useState<AssetSaleRow | null>(null);
+  const now = useHydratedDate();
+  const columns = useMemo(() => buildSaleColumns(now), [now]);
 
   // Auto-open sale detail when navigated with ?sale={id}
   useEffect(() => {
@@ -532,7 +538,7 @@ function SalesTab({
             data={filtered}
             onRowClick={(s) => setSelected(s)}
             initialSort={{ key: "saleDate", direction: "desc" }}
-            columns={saleColumns}
+            columns={columns}
             searchable
             searchPlaceholder="Search by sale no, customer, project…"
             showTotals

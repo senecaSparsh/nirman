@@ -28,6 +28,7 @@ import { AttachmentList } from "@/components/attachments/attachment-list";
 import { ProjectCostFormDialog } from "@/components/finance/project-cost-form-dialog";
 import { useTabParam } from "@/lib/use-tab-param";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 import type {
   PurchaseOrderRow, TransferRow, BuiltUnitRow, LandParcelRow,
   StockMovementRow, ProjectCostRow, MaterialIssueListRow,
@@ -196,11 +197,11 @@ export function ProjectHub({
   const router = useRouter();
   const [possessionSubmitting, setPossessionSubmitting] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [now] = useState(() => Date.now());
+  const now = useHydratedDate();
 
   const reraDays = useMemo(() => {
     if (!project.reraValidityDate) return null;
-    return Math.ceil((new Date(project.reraValidityDate).getTime() - now) / (1000 * 60 * 60 * 24));
+    return Math.ceil((new Date(project.reraValidityDate).getTime() - (now?.getTime() ?? 0)) / (1000 * 60 * 60 * 24));
   }, [project.reraValidityDate, now]);
 
   async function handleTogglePossession() {

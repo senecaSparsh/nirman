@@ -607,7 +607,7 @@ function MessageBubble({
   const time = new Date(message.timestamp).toLocaleTimeString("en-IN", {
     hour: "2-digit",
     minute: "2-digit",
-  });
+   timeZone: "Asia/Kolkata" });
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>

@@ -17,6 +17,7 @@ import { AssignTaskDialog } from "@/components/tasks/assign-task-dialog";
 import { TaskDetailDrawer } from "@/components/tasks/task-detail-drawer";
 import { downloadCSV } from "@/lib/export";
 import { cn, formatDate } from "@/lib/utils";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { } from "@/components/employee-name";
 
 interface TaskUser {
@@ -63,10 +64,9 @@ function initials(name: string): string {
   return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase() || "?";
 }
 
-function relativeTime(dueDateRaw: string | null, status: string): { text: string; tone: "overdue" | "soon" | "normal" | "none" } {
-  if (!dueDateRaw || status === "COMPLETED" || status === "CANCELLED") return { text: "", tone: "none" };
+function relativeTime(dueDateRaw: string | null, status: string, now: Date | null): { text: string; tone: "overdue" | "soon" | "normal" | "none" } {
+  if (!dueDateRaw || status === "COMPLETED" || status === "CANCELLED" || now === null) return { text: "", tone: "none" };
   const due = new Date(dueDateRaw);
-  const now = new Date();
   const diffMs = due.getTime() - now.getTime();
   const diffDays = Math.round(diffMs / 86400000);
   if (diffDays < 0) {
@@ -469,7 +469,8 @@ function TaskCard({
   onReassign: (t: TaskRow) => void;
   onDelete: (t: TaskRow) => void;
 }) {
-  const time = relativeTime(task.dueDateRaw, task.status);
+  const now = useHydratedDate();
+  const time = relativeTime(task.dueDateRaw, task.status, now);
   const isDone = task.status === "COMPLETED";
   const isCancelled = task.status === "CANCELLED";
   const isInProgress = task.status === "IN_PROGRESS";
@@ -576,10 +577,11 @@ function TaskList({
   onReassign: (t: TaskRow) => void;
   onDelete: (t: TaskRow) => void;
 }) {
+  const now = useHydratedDate();
   return (
     <div className="divide-y divide-border rounded-lg border border-border">
       {tasks.map((t) => {
-        const time = relativeTime(t.dueDateRaw, t.status);
+        const time = relativeTime(t.dueDateRaw, t.status, now);
         const isDone = t.status === "COMPLETED";
         const isCancelled = t.status === "CANCELLED";
         const isUrgent = t.priority === "urgent";

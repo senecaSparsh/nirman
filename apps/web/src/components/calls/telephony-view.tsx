@@ -788,7 +788,7 @@ function ConsentTab({ policy, company, canManage }: { policy: ConsentPolicy | nu
               <div className="flex items-center gap-2">
                 <Badge variant="default">v{policy.version}</Badge>
                 <span className="text-caption text-muted-foreground">
-                  {new Date(policy.effectiveAt).toLocaleDateString("en-IN")}
+                  {new Date(policy.effectiveAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}
                 </span>
                 <Badge variant="success" dot>
                   {policy._count.acceptances} accepted

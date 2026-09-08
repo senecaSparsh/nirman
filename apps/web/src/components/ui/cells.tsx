@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 
 /**
  * ═══════════════════════════════════════════════════════════════════
@@ -216,12 +219,13 @@ export function DateCell({
   formatted: string;
   className?: string;
 }) {
+  const now = useHydratedDate();
   if (!date) return <span className="text-faint">—</span>;
   const d = typeof date === "string" ? new Date(date) : date;
-  // eslint-disable-next-line react-hooks/purity -- server component; relative date is non-critical
-  const days = Math.round((d.getTime() - Date.now()) / 86_400_000);
-  const relative =
-    days === 0
+  const days = now ? Math.round((d.getTime() - now.getTime()) / 86_400_000) : 0;
+  const relative = now === null
+    ? ""
+    : days === 0
       ? "today"
       : days === 1
         ? "tomorrow"

@@ -71,7 +71,7 @@ function formatRelative(iso: string, now: Date | null): string {
   if (diffMin < 60) return `${diffMin}m ago`;
   if (diffHr < 24) return `${diffHr}h ago`;
   if (diffDay < 7) return `${diffDay}d ago`;
-  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: "Asia/Kolkata" });
 }
 
 function statusTone(status: CallStatus): "go" | "stop" | "signal" | "neutral" {

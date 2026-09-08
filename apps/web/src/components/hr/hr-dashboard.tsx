@@ -107,7 +107,7 @@ function AttendanceTrend({ days }: { days: AttendanceDay[] }) {
         const presentH = total > 0 ? (d.present / maxVal) * 100 : 0;
         const absentH = total > 0 ? (d.absent / maxVal) * 100 : 0;
         const otherH = total > 0 ? ((d.leave + d.halfDay) / maxVal) * 100 : 0;
-        const dayLabel = new Date(d.date).toLocaleDateString("en-IN", { weekday: "short" });
+        const dayLabel = new Date(d.date).toLocaleDateString("en-IN", { weekday: "short", timeZone: "Asia/Kolkata" });
         return (
           <div key={i} className="group flex flex-1 flex-col items-center gap-1">
             <div className="flex w-full flex-col justify-end" style={{ height: 60 }}>
