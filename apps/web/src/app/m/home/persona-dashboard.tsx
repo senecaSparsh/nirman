@@ -4,9 +4,11 @@ import * as React from "react";
 import Link from "next/link";
 import {
   Boxes, Users, BookOpen, HardHat, Truck,
-  ClipboardList, TrendingUp, Wallet, CalendarCheck,
-  FileText, ShoppingCart, Package, AlertTriangle,
-  ArrowRight, type LucideIcon,
+  ClipboardList, TrendingUp, ShoppingCart,
+  FileText, Package,
+  ArrowRight, ShieldAlert, GitBranch, ListTree,
+  Wrench, Wallet,
+  type LucideIcon,
 } from "lucide-react";
 import type { Persona } from "@/lib/mobile-nav-v2";
 import { QuickActionsBar, type QuickActionTab, type ExtraActionDef } from "@/components/mobile/v2/quick-actions-bar";
@@ -22,11 +24,19 @@ import {
    PERSONA HOME DASHBOARD
 
    Shown on /m/home for non-executive personas instead of the OrbitNavigator.
-   Each persona gets:
-     1. A persona-specific header with the most relevant stat cards
-     2. Quick actions (using the shared QuickActionsBar with their module)
-     3. Pending items from the briefing API
-     4. Quick links to their module pages
+
+   The home page already shows:
+     • HomeTree — greeting + briefing (approvals, low stock, deliveries,
+       payments overdue) + recent items
+     • Self-check-in widget (for field staff with Employee records)
+
+   This dashboard adds what the HomeTree does NOT cover:
+     1. A persona header with company + role context
+     2. Quick actions — one-tap access to the most common actions for
+        this persona's primary module (editable, drag-to-reorder)
+     3. Cross-module links — navigation to destinations NOT already in
+        the quick action catalog, specific to what this role needs
+        beyond their primary module
 
    Executive persona (OWNER, ADMIN, etc.) sees the OrbitNavigator instead.
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -37,18 +47,7 @@ interface PersonaHomeDashboardProps {
   currentCompany: { id: string; name: string; businessType: string | null; currency: string };
 }
 
-// ── Persona config: title, icon, module for quick actions, stat cards, links ──
-
-interface StatCardDef {
-  label: string;
-  icon: LucideIcon;
-  href: string;
-  // Which briefing field to pull the count from
-  briefingKey?: "approvals.poCount" | "approvals.reqCount" | "approvals.gpCount" | "approvals.dprCount" | "approvals.total" | "lowStock" | "deliveriesToday" | "paymentsDue" | "myTasks";
-  // Or a static fetch from a different source
-  fetchEndpoint?: string;
-  fetchPath?: string;
-}
+// ── Persona config ──
 
 interface PersonaConfig {
   title: string;
@@ -56,7 +55,7 @@ interface PersonaConfig {
   icon: LucideIcon;
   quickActionModule: "inventory" | "hr" | "accounts" | "site" | "sales";
   quickActionTabs: QuickActionTab[];
-  stats: StatCardDef[];
+  /** Cross-module links — destinations NOT in the quick action catalog. */
   links: { label: string; href: string; icon: LucideIcon }[];
 }
 
@@ -67,203 +66,139 @@ const PERSONA_CONFIGS: Record<Persona, PersonaConfig> = {
     icon: Boxes,
     quickActionModule: "inventory",
     quickActionTabs: INVENTORY_QUICK_ACTIONS as QuickActionTab[],
-    stats: [],
     links: [],
   },
+
+  // ── Ops / Project Manager ──
+  // Quick actions: site catalog (Daily + Site Ops) covers DPR, attendance,
+  // tasks, safety, receive, stock-out, scrap, site stock, field, projects,
+  // work orders, MB, all DPRs.
+  // Cross-module links: things a PM needs beyond site operations.
   ops: {
     title: "Operations",
     subtitle: "Project execution & site ops",
     icon: HardHat,
     quickActionModule: "site",
     quickActionTabs: SITE_QUICK_ACTIONS as QuickActionTab[],
-    stats: [
-      { label: "Tasks", icon: ClipboardList, href: "/m/tasks", briefingKey: "myTasks" },
-      { label: "DPRs", icon: FileText, href: "/m/dprs", briefingKey: "approvals.dprCount" },
-      { label: "Deliveries", icon: Truck, href: "/m/procurement", briefingKey: "deliveriesToday" },
-      { label: "Approvals", icon: AlertTriangle, href: "/m/hr/pending", briefingKey: "approvals.total" },
-    ],
     links: [
-      { label: "Projects", href: "/m/projects", icon: HardHat },
+      { label: "Change Orders", href: "/m/change-orders", icon: GitBranch },
+      { label: "WBS", href: "/m/wbs", icon: ListTree },
+      { label: "Quality Control", href: "/m/quality-control", icon: ShieldAlert },
       { label: "Inventory", href: "/m/inventory", icon: Boxes },
-      { label: "HR", href: "/m/hr", icon: Users },
-      { label: "Site", href: "/m/site", icon: ClipboardList },
     ],
   },
+
+  // ── Procurement Manager / Store Keeper ──
+  // Quick actions: inventory catalog (Raw Material + Real Estate) covers
+  // indents, quotations, POs, receive, stock-out, materials, stock,
+  // material sales, sales, projects, units, land, customers, rentals,
+  // work orders, portal listings.
+  // Cross-module links: procurement-adjacent destinations not in the catalog.
   procurement: {
     title: "Procurement",
     subtitle: "Orders, receipts & stock",
     icon: ShoppingCart,
     quickActionModule: "inventory",
     quickActionTabs: INVENTORY_QUICK_ACTIONS as QuickActionTab[],
-    stats: [
-      { label: "POs", icon: FileText, href: "/m/procurement", briefingKey: "approvals.poCount" },
-      { label: "Requisitions", icon: ShoppingCart, href: "/m/requisitions", briefingKey: "approvals.reqCount" },
-      { label: "Low Stock", icon: AlertTriangle, href: "/m/inventory", briefingKey: "lowStock" },
-      { label: "Deliveries", icon: Truck, href: "/m/procurement", briefingKey: "deliveriesToday" },
-    ],
     links: [
-      { label: "Inventory", href: "/m/inventory", icon: Boxes },
-      { label: "POs", href: "/m/procurement", icon: FileText },
       { label: "Suppliers", href: "/m/suppliers", icon: Truck },
-      { label: "Materials", href: "/m/materials", icon: Package },
+      { label: "Rate Contracts", href: "/m/rate-contracts", icon: FileText },
+      { label: "Gate Pass", href: "/m/gate-pass", icon: Package },
+      { label: "Equipment", href: "/m/equipment", icon: Wrench },
     ],
   },
+
+  // ── Field Engineer / Supervisor / QAQC ──
+  // Quick actions: site catalog (same as ops) covers daily site actions.
+  // Check-in widget already handles attendance.
+  // Cross-module links: things field staff need beyond the site.
   field: {
     title: "Site",
     subtitle: "Field operations & reporting",
     icon: ClipboardList,
     quickActionModule: "site",
     quickActionTabs: SITE_QUICK_ACTIONS as QuickActionTab[],
-    stats: [
-      { label: "Tasks", icon: ClipboardList, href: "/m/tasks", briefingKey: "myTasks" },
-      { label: "DPRs", icon: FileText, href: "/m/dprs", briefingKey: "approvals.dprCount" },
-      { label: "Gate Pass", icon: AlertTriangle, href: "/m/gate-pass", briefingKey: "approvals.gpCount" },
-      { label: "Approvals", icon: AlertTriangle, href: "/m/hr/pending", briefingKey: "approvals.total" },
-    ],
     links: [
-      { label: "Site Home", href: "/m/site", icon: ClipboardList },
-      { label: "Attendance", href: "/m/attendance", icon: CalendarCheck },
-      { label: "Inventory", href: "/m/inventory", icon: Boxes },
-      { label: "HR", href: "/m/hr", icon: Users },
+      { label: "Gate Pass", href: "/m/gate-pass", icon: Package },
+      { label: "HR / Leaves", href: "/m/hr/leaves", icon: Users },
+      { label: "Procurement", href: "/m/procurement", icon: ShoppingCart },
+      { label: "Expenses", href: "/m/accounts?tab=expenses", icon: Wallet },
     ],
   },
+
+  // ── Sales Manager ──
+  // Quick actions: sales catalog (Pipeline + Deals) covers leads,
+  // customers, sales, material sales, portal listings, rentals, units,
+  // brokers, projects, land, tasks, bookings, collections, sales reports.
+  // Cross-module links: cross-functional destinations that support sales.
   sales: {
     title: "Sales",
     subtitle: "Leads, customers & deals",
     icon: TrendingUp,
     quickActionModule: "sales",
     quickActionTabs: SALES_QUICK_ACTIONS as QuickActionTab[],
-    stats: [
-      { label: "Tasks", icon: ClipboardList, href: "/m/tasks", briefingKey: "myTasks" },
-      { label: "Approvals", icon: AlertTriangle, href: "/m/hr/pending", briefingKey: "approvals.total" },
-      { label: "Deliveries", icon: Truck, href: "/m/procurement", briefingKey: "deliveriesToday" },
-      { label: "Payments", icon: Wallet, href: "/m/accounts", briefingKey: "paymentsDue" },
-    ],
     links: [
-      { label: "Leads", href: "/m/leads", icon: TrendingUp },
-      { label: "Customers", href: "/m/customers", icon: Users },
-      { label: "Sales", href: "/m/sales", icon: TrendingUp },
-      { label: "Listings", href: "/m/portal-listings", icon: FileText },
+      { label: "Inventory", href: "/m/inventory", icon: Boxes },
+      { label: "Accounts", href: "/m/accounts", icon: BookOpen },
+      { label: "Procurement", href: "/m/procurement", icon: ShoppingCart },
+      { label: "HR", href: "/m/hr", icon: Users },
     ],
   },
+
+  // ── Finance / Accountant ──
+  // Quick actions: accounts catalog (Cash + Books) covers receipts,
+  // payments, expenses, payroll, dues, cash flow, spend, project cost,
+  // ledger, tally sync, GST, TDS, P&L, job cost, compare, reports.
+  // Cross-module links: finance needs visibility into other modules.
   finance: {
     title: "Finance",
     subtitle: "Expenses, claims & payments",
     icon: BookOpen,
     quickActionModule: "accounts",
     quickActionTabs: ACCOUNTS_QUICK_ACTIONS as QuickActionTab[],
-    stats: [
-      { label: "Payments Due", icon: Wallet, href: "/m/accounts", briefingKey: "paymentsDue" },
-      { label: "Approvals", icon: AlertTriangle, href: "/m/hr/pending", briefingKey: "approvals.total" },
-      { label: "POs", icon: FileText, href: "/m/procurement", briefingKey: "approvals.poCount" },
-      { label: "Tasks", icon: ClipboardList, href: "/m/tasks", briefingKey: "myTasks" },
-    ],
     links: [
-      { label: "Accounts", href: "/m/accounts", icon: BookOpen },
-      { label: "Expenses", href: "/m/expenses", icon: Wallet },
-      { label: "Claims", href: "/m/expense-claims", icon: FileText },
-      { label: "Petty Cash", href: "/m/petty-cash", icon: Wallet },
+      { label: "Procurement", href: "/m/procurement", icon: ShoppingCart },
+      { label: "Suppliers", href: "/m/suppliers", icon: Truck },
+      { label: "Projects", href: "/m/projects", icon: HardHat },
+      { label: "HR", href: "/m/hr", icon: Users },
     ],
   },
+
+  // ── HR Manager ──
+  // Quick actions: hr catalog (Field + People) covers DPRs, attendance,
+  // add DPR, tasks, safety, field, site, progress, employees, leaves,
+  // payroll, labour cost, crews, approvals.
+  // Cross-module links: HR-adjacent destinations not in the HR catalog.
   hr: {
     title: "HR",
     subtitle: "People, attendance & payroll",
     icon: Users,
     quickActionModule: "hr",
     quickActionTabs: HR_QUICK_ACTIONS as QuickActionTab[],
-    stats: [
-      { label: "DPRs", icon: FileText, href: "/m/dprs", briefingKey: "approvals.dprCount" },
-      { label: "Gate Pass", icon: AlertTriangle, href: "/m/gate-pass", briefingKey: "approvals.gpCount" },
-      { label: "Approvals", icon: AlertTriangle, href: "/m/hr/pending", briefingKey: "approvals.total" },
-      { label: "Tasks", icon: ClipboardList, href: "/m/tasks", briefingKey: "myTasks" },
-    ],
     links: [
-      { label: "HR Hub", href: "/m/hr", icon: Users },
-      { label: "Attendance", href: "/m/attendance", icon: CalendarCheck },
-      { label: "DPRs", href: "/m/dprs", icon: ClipboardList },
-      { label: "Employees", href: "/m/hr/employees", icon: Users },
+      { label: "Departments", href: "/m/departments", icon: Boxes },
+      { label: "Quality Control", href: "/m/quality-control", icon: ShieldAlert },
+      { label: "Equipment", href: "/m/equipment", icon: Wrench },
+      { label: "Accounts", href: "/m/accounts", icon: BookOpen },
     ],
   },
 };
 
-// ── Briefing data shape (mirrors /api/briefing response) ──
-interface BriefingTask {
-  id: string;
-  title: string;
-  projectName: string | null;
-  dueDate: string | null;
-  priority: string;
-}
-interface BriefingDelivery {
-  poNumber: string;
-  supplierName: string;
-  projectName: string | null;
-  total: number;
-}
-interface BriefingLowStock {
-  materialId: string;
-  materialName: string;
-  materialCode: string;
-  qty: number;
-  unit: string;
-  reorderPoint: number | null;
-}
-interface BriefingPayment {
-  description: string;
-  amount: number;
-  dueDate: string;
-  type: string;
-}
-
-interface BriefingData {
-  approvals: {
-    poCount: number; reqCount: number; gpCount: number; dprCount: number;
-    total: number;
-    canApprovePo: boolean; canApproveReq: boolean; canApproveGp: boolean; canApproveDpr: boolean;
-  };
-  lowStock: BriefingLowStock[];
-  deliveriesToday: BriefingDelivery[];
-  paymentsDue: BriefingPayment[];
-  myTasks: BriefingTask[];
-  myDpr: { submitted: boolean; date: string } | null;
-  myAttendance: { checkedIn: boolean; status: string } | null;
-}
-
-function getBriefingValue(briefing: BriefingData | null, key: StatCardDef["briefingKey"]): number {
-  if (!briefing || !key) return 0;
-  switch (key) {
-    case "approvals.poCount": return briefing.approvals.poCount;
-    case "approvals.reqCount": return briefing.approvals.reqCount;
-    case "approvals.gpCount": return briefing.approvals.gpCount;
-    case "approvals.dprCount": return briefing.approvals.dprCount;
-    case "approvals.total": return briefing.approvals.total;
-    case "lowStock": return briefing.lowStock.length;
-    case "deliveriesToday": return briefing.deliveriesToday.length;
-    case "paymentsDue": return briefing.paymentsDue.length;
-    case "myTasks": return briefing.myTasks.length;
-    default: return 0;
-  }
-}
-
 export function PersonaHomeDashboard({ persona, role: _role, currentCompany }: PersonaHomeDashboardProps) {
   const config = PERSONA_CONFIGS[persona] ?? PERSONA_CONFIGS.executive;
-  const [briefing, setBriefing] = React.useState<BriefingData | null>(null);
   const [qaData, setQaData] = React.useState<{ persona: string; savedLayouts: Record<string, string[]>; extraActions: ExtraActionDef[] } | null>(null);
   const [qaLoading, setQaLoading] = React.useState(true);
 
-  // Fetch briefing + quick-action context in parallel
+  // Fetch quick-action context (saved layouts + extra actions for this module)
   React.useEffect(() => {
     setQaLoading(true);
-    Promise.all([
-      fetch("/api/briefing", { cache: "no-store" }).then((r) => r.ok ? r.json() : null).catch(() => null),
-      fetch("/api/me/quick-actions-context?module=" + config.quickActionModule)
-        .then((r) => r.ok ? r.json() : null)
-        .catch(() => null),
-    ]).then(([b, qa]) => {
-      if (b) setBriefing(b);
-      if (qa) setQaData(qa);
-      setQaLoading(false);
-    });
+    fetch("/api/me/quick-actions-context?module=" + config.quickActionModule)
+      .then((r) => r.ok ? r.json() : null)
+      .catch(() => null)
+      .then((qa) => {
+        if (qa) setQaData(qa);
+        setQaLoading(false);
+      });
   }, [config.quickActionModule]);
 
   const Icon = config.icon;
@@ -291,46 +226,6 @@ export function PersonaHomeDashboard({ persona, role: _role, currentCompany }: P
         </div>
       </div>
 
-      {/* ── Stat cards (2x2 grid) ── */}
-      {config.stats.length > 0 && (
-        <div className="grid grid-cols-2 gap-2">
-          {config.stats.map((stat) => {
-            const count = getBriefingValue(briefing, stat.briefingKey);
-            const StatIcon = stat.icon;
-            const isAlert = count > 0 && (stat.briefingKey === "lowStock" || stat.briefingKey === "approvals.total" || stat.briefingKey === "paymentsDue");
-            return (
-              <Link
-                key={stat.label}
-                href={stat.href}
-                className="flex items-center gap-2 rounded-[0.5rem] border p-2.5 press"
-                style={{
-                  borderColor: isAlert && count > 0 ? "var(--color-signal)" : "var(--color-line)",
-                  backgroundColor: "var(--color-paper)",
-                }}
-              >
-                <div
-                  className="grid place-items-center w-7 h-7 rounded-[0.375rem] shrink-0"
-                  style={{ backgroundColor: isAlert && count > 0 ? "var(--color-signal-bg, rgba(245,158,11,0.1))" : "var(--color-concrete)" }}
-                >
-                  <StatIcon
-                    className="size-3.5"
-                    style={{ color: isAlert && count > 0 ? "var(--color-signal)" : "var(--color-ink-500)" }}
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-m-caption font-semibold leading-tight truncate" style={{ color: "var(--color-ink-500)" }}>
-                    {stat.label}
-                  </p>
-                  <p className="text-m-body font-bold tabular-nums leading-tight" style={{ color: "var(--color-ink-950)" }}>
-                    {briefing ? count : "—"}
-                  </p>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
-
       {/* ── Quick actions (shared QuickActionsBar) ── */}
       {qaLoading ? (
         <div
@@ -349,10 +244,11 @@ export function PersonaHomeDashboard({ persona, role: _role, currentCompany }: P
           tabs={config.quickActionTabs}
           savedLayouts={qaData.savedLayouts}
           extraActions={qaData.extraActions}
+          syncUrl={false}
         />
       ) : null}
 
-      {/* ── Quick links to module pages ── */}
+      {/* ── Cross-module links (destinations NOT in the quick action catalog) ── */}
       {config.links.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
           {config.links.map((link) => {

@@ -100,7 +100,7 @@ interface QuickActionsBarProps {
   /** The full tab + action catalog for this module. */
   tabs: QuickActionTab[];
   /** Saved layouts from the server (key → ordered action keys). Optional;
-   *  when omitted the component fetches its own state on mount. */
+   *  when omitted the component fetches its state on mount. */
   savedLayouts?: Record<string, string[]>;
   /** Extra permission-filtered routes for this module (from the server).
    *  These are routes the user can access but aren't in the curated catalog.
@@ -109,6 +109,11 @@ interface QuickActionsBarProps {
   extraActions?: ExtraActionDef[];
   /** Show the "Quick actions" label above the toggle. Default true. */
   showLabel?: boolean;
+  /** Sync tab state to the URL (shareable, back-button friendly). Default
+   *  true. Set false when the bar is used on a page that doesn't correspond
+   *  to the module (e.g., the persona home dashboard uses the "site" module
+   *  catalog but lives at /m/home — URL-syncing would redirect to /m/site). */
+  syncUrl?: boolean;
 }
 
 export function QuickActionsBar({
@@ -118,17 +123,19 @@ export function QuickActionsBar({
   savedLayouts: initialSaved,
   extraActions = [],
   showLabel = true,
+  syncUrl = true,
 }: QuickActionsBarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // ── Tab state (URL-synced, same pattern as the old *-interactive files) ──
+  // ── Tab state (URL-synced when syncUrl is true, local-only otherwise) ──
   const paramTab = searchParams.get("tab");
   const defaultTabId = tabs[0]?.id ?? "";
-  const initialTab = tabs.some((t) => t.id === paramTab) ? paramTab! : defaultTabId;
+  const initialTab = syncUrl && tabs.some((t) => t.id === paramTab) ? paramTab! : defaultTabId;
   const [activeTabId, setActiveTabId] = React.useState(initialTab);
 
   React.useEffect(() => {
+    if (!syncUrl) return;
     const t = searchParams.get("tab");
     setActiveTabId(tabs.some((tab) => tab.id === t) ? t! : defaultTabId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -136,6 +143,7 @@ export function QuickActionsBar({
 
   function selectTab(id: string) {
     setActiveTabId(id);
+    if (!syncUrl) return;
     const params = new URLSearchParams(searchParams.toString());
     if (id === defaultTabId) params.delete("tab");
     else params.set("tab", id);
