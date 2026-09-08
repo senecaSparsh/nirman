@@ -125,13 +125,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <SurfaceAdapter />
               <EmployeeNavListener />
               <AppShell isDev={process.env.NODE_ENV !== "production"} hasSession={!!nav}>{children}</AppShell>
-              {/* Surface selection is now one-time only: the middleware
-                  redirects "/" → "/m" for mobile UAs (entry landing), and
-                  the sign-in page routes to the correct surface after login.
-                  There is NO client-side surface swapping — once you're on
-                  a surface (desktop "/" or mobile "/m"), you stay there
-                  regardless of resize or navigation. This prevents the
-                  disruptive desktop↔mobile redirects. */}
+              {/* Surface selection — two layers:
+                  1. Server-side (middleware): redirects mobile UA from
+                     desktop routes to /m equivalents (landing + deep routes).
+                  2. Client-side (SurfaceAdapter): watches viewport width
+                     and redirects between surfaces on resize/orientation
+                     change. This handles cases the middleware can't (e.g.,
+                     desktop UA on a narrow window). */}
               {/* Instant feedback — floating button on every page.
                   Auto-captures a screenshot, lets users record voice +
                   write feedback, routes it to the developer only.

@@ -154,12 +154,36 @@ export function middleware(req: NextRequest) {
     return res;
   }
 
-  // ── Server-side mobile landing redirect (eliminates flash) ────
-  // ONE-TIME landing only: a mobile UA hitting the bare desktop home "/"
-  // is sent to "/m" so they never see a flash of desktop content. This is
-  // NOT a surface swap — it only fires at the entry point "/". Once on
-  // "/m" (or any deep route), the user stays there regardless of UA or
-  // viewport. There is no reverse redirect and no cross-surface redirect.
+  // ── Server-side mobile redirect (eliminates flash + handles deep routes) ──
+  // Mobile UA users are redirected from desktop routes to their mobile
+  // equivalents. This covers BOTH the landing page ("/") AND deep routes
+  // (e.g., "/hr/employees" → "/m/hr/employees"). The client-side
+  // <SurfaceAdapter> handles viewport-size-based redirects (e.g., resize,
+  // orientation change), but this server-side redirect is the reliable
+  // fallback that doesn't depend on JavaScript hydration.
+  //
+  // Skip: /m routes (already mobile), /print (print pages), /portal
+  // (customer portal), /api, public routes, and the nirman-desktop cookie
+  // escape hatch.
+  if (
+    !hasDesktopCookie(req) &&
+    isMobileRequest(req) &&
+    !pathname.startsWith("/m") &&
+    !pathname.startsWith("/print") &&
+    !pathname.startsWith("/portal") &&
+    !pathname.startsWith("/api") &&
+    !isPublicRoute(pathname) &&
+    pathname !== "/"
+  ) {
+    const mobileUrl = new URL("/m" + pathname, req.url);
+    // Preserve search params
+    searchParams.forEach((value, key) => {
+      mobileUrl.searchParams.set(key, value);
+    });
+    return NextResponse.redirect(mobileUrl);
+  }
+
+  // Landing page redirect (kept separate for the /m → /m/home redirect)
   if (
     pathname === "/" &&
     !hasDesktopCookie(req) &&
