@@ -837,10 +837,11 @@ export async function completeSale(input: CompleteSaleInput) {
     if (!sale) throw new ServiceError("Sale not found", 404);
     if (sale.status === "CANCELLED") throw new ServiceError("Cannot complete a cancelled sale");
     if (sale.saleStage === "COMPLETED") throw new ServiceError("Sale is already completed");
-    // Sale must have a deposit recorded (DEPOSIT_RECEIVED stage) before it can
-    // be completed. This enforces the PENDING → DEPOSIT_RECEIVED → COMPLETED
-    // lifecycle. A full-cash sale still goes through recordDeposit first.
-    if (sale.saleStage !== "DEPOSIT_RECEIVED") {
+    // Sale must have a deposit recorded (DEPOSIT_RECEIVED or REGISTRY_PENDING
+    // stage) before it can be completed. This enforces the lifecycle:
+    //   PENDING → DEPOSIT_RECEIVED → REGISTRY_PENDING (optional) → COMPLETED
+    // A full-cash sale still goes through recordDeposit first.
+    if (sale.saleStage !== "DEPOSIT_RECEIVED" && sale.saleStage !== "REGISTRY_PENDING") {
       throw new ServiceError(
         "Sale must have a deposit recorded before it can be completed. Record the deposit first.",
       );
@@ -1023,6 +1024,70 @@ export async function completeSale(input: CompleteSaleInput) {
   })();
 
   return result;
+}
+
+// ───────────────────────────────────────────────────────────
+//  Mark Registry Done — transition sale to REGISTRY_PENDING stage
+//  This is an explicit intermediate step between DEPOSIT_RECEIVED
+//  and COMPLETED. The sale deed / registry document is uploaded,
+//  saleDeedNo is captured, but the sale is not yet "completed"
+//  (final payment may still be pending, or completion is a separate
+//  administrative step).
+// ───────────────────────────────────────────────────────────
+
+export interface MarkRegistryDoneInput {
+  saleId: string;
+  saleDeedNo?: string;
+  registryDocumentUrl?: string;
+  registryDocumentName?: string;
+  registryDate?: string; // ISO date
+  userId?: string;
+}
+
+export async function markRegistryDone(input: MarkRegistryDoneInput) {
+  return withSerializableTransaction(async (tx) => {
+    const sale = await tx.assetSale.findUnique({
+      where: { id: input.saleId },
+      select: { id: true, saleStage: true, status: true, paymentStatus: true, companyId: true, saleDeedNo: true },
+    });
+    if (!sale) throw new ServiceError("Sale not found", 404);
+    if (sale.status === "CANCELLED") throw new ServiceError("Cannot mark registry on a cancelled sale");
+    if (sale.saleStage === "COMPLETED") throw new ServiceError("Sale is already completed");
+    if (sale.saleStage !== "DEPOSIT_RECEIVED") {
+      throw new ServiceError(
+        "Sale must have a deposit recorded before registry can be marked done.",
+        409,
+      );
+    }
+
+    // If the sale is fully paid AND registry is done, the sale can be
+    // auto-completed. Otherwise, it moves to REGISTRY_PENDING (waiting
+    // for final payment or explicit completion).
+    const newStage = sale.paymentStatus === "PAID" ? "COMPLETED" : "REGISTRY_PENDING";
+
+    const updated = await tx.assetSale.update({
+      where: { id: input.saleId },
+      data: {
+        saleStage: newStage,
+        saleDeedNo: input.saleDeedNo ?? sale.saleDeedNo ?? null,
+        registryDocumentUrl: input.registryDocumentUrl ?? undefined,
+        registryDocumentName: input.registryDocumentName ?? undefined,
+        finalSaleDate: newStage === "COMPLETED" ? new Date() : undefined,
+      },
+    });
+
+    await logAction(tx, {
+      userId: input.userId,
+      companyId: sale.companyId,
+      action: "SALE_REGISTRY_DONE",
+      entityType: "AssetSale",
+      entityId: input.saleId,
+      before: { saleStage: sale.saleStage },
+      after: { saleStage: newStage, saleDeedNo: input.saleDeedNo ?? sale.saleDeedNo },
+    });
+
+    return { saleStage: newStage as "REGISTRY_PENDING" | "COMPLETED", updated };
+  });
 }
 
 // ───────────────────────────────────────────────────────────

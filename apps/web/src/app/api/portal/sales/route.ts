@@ -81,6 +81,7 @@ export const GET = async (_req: NextRequest) => {
                   dueDate: item.dueDate?.toISOString() ?? null,
                   status: item.status,
                   paidAmount: toNum(item.paidAmount),
+                  wbsNodeId: item.wbsNodeId,
                 })),
               }
             : null,

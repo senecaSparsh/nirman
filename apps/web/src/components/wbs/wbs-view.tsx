@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { PageLoading } from "@/components/page-loading";
+import { StatusPill } from "@/components/page";
 import { EmptyState } from "@/components/empty-state";
 import { cn, formatDate, formatCurrency, formatNumber } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
@@ -1556,15 +1557,7 @@ function WbsDetailDialog({ node, onClose, canEdit, allNodes, onReload, projectId
                       <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">{formatNumber(e.cumulativeQty, 3)}</td>
                       <td className="px-2 py-1.5 tabular-nums text-muted-foreground">{formatDate(e.measureDate)}</td>
                       <td className="px-2 py-1.5">
-                        <span className={cn(
-                          "text-[10px] px-1.5 py-0.5 rounded-full",
-                          e.status === "APPROVED" && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-                          e.status === "VERIFIED" && "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-                          e.status === "DRAFT" && "bg-muted text-muted-foreground",
-                          e.status === "REJECTED" && "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-                        )}>
-                          {e.status}
-                        </span>
+                        <StatusPill status={e.status} />
                       </td>
                     </tr>
                   ))}

@@ -52,11 +52,11 @@ export default async function DirectPurchaseVoucherPage({
   const supplierName = purchase.supplier?.name ?? purchase.supplierName;
 
   return (<>
-          <PrintToolbar title="Direct Purchase Voucher" />
+          <PrintToolbar title="Cash Purchase Voucher" />
     <div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
       <PrintHeader
         company={company}
-        title="Direct Purchase Voucher"
+        title="Cash Purchase Voucher"
         docNumber={purchase.billNumber}
         date={purchase.billDate}
       />

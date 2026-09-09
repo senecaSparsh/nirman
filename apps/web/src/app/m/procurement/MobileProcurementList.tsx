@@ -220,7 +220,7 @@ function MobileProcurementListInner({
           <MobileEmptyState
             icon={ShoppingCart}
             title="No cash purchases"
-            hint="Direct cash purchases from the local market will appear here"
+            hint="Cash purchases from the local market will appear here"
           />
         ) : filteredDirectPurchases.length === 0 ? (
           <MobileNoResults

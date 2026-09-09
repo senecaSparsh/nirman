@@ -50,6 +50,7 @@ const STATUS_CATEGORY: Record<string, StatusCategory> = {
   IN_TRANSIT: "progress",
   UNDER_CONSTRUCTION: "progress",
   INSPECTING: "progress",
+  REGISTRY_PENDING: "progress",
 
   // ── Complete / Success (success green) ──
   RECEIVED: "success",

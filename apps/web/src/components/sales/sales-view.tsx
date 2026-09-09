@@ -17,6 +17,7 @@ import { SaleDetailDialog } from "./sale-detail-dialog";
 import { BbaPipelineBoard } from "./bba-pipeline-board";
 import { CustomerFormDialog } from "./customer-form-dialog";
 import { SmsView, type SmsRow } from "@/components/sms/sms-view";
+import { WorkflowStrip } from "@/components/workflow-strip";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { downloadCSV, downloadExcel } from "@/lib/export";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
@@ -68,6 +69,17 @@ export function SalesView({
 
   return (
     <div className="space-y-5">
+      <WorkflowStrip
+        steps={[
+          { label: "Lead", tab: "pipeline" },
+          { label: "Customer", tab: "customers" },
+          { label: "Sale", tab: "sales" },
+          { label: "Collection" },
+          { label: "Registry" },
+        ]}
+        activeTab={tab}
+        onTabChange={setTab}
+      />
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="pipeline">

@@ -798,7 +798,7 @@ export type AssetSaleRow = {
   profit: number;
   saleDate: string;
   status: SaleStatus;
-  saleStage: string; // PENDING | DEPOSIT_RECEIVED | COMPLETED | CANCELLED
+  saleStage: string; // PENDING | DEPOSIT_RECEIVED | REGISTRY_PENDING | COMPLETED | CANCELLED
   depositAmount: number | null;
   depositDate: string | null;
   finalSaleDate: string | null;
@@ -864,6 +864,7 @@ export type AssetSaleRow = {
       dueDate: string | null;
       status: string;
       paidAmount: number;
+      wbsNodeId: string | null;
     }[];
   } | null;
   paymentStatus: PaymentStatus;

@@ -310,7 +310,7 @@ export const WORLDS: World[] = [
         label: "Procure",
         items: [
           {
-            label: "Purchase Orders",
+            label: "Procurement",
             href: "/procurement",
             icon: Truck,
             hint: "Indents, quotations, purchase orders, cash purchases, returns, and supplier directory — all in one place",
@@ -319,7 +319,7 @@ export const WORLDS: World[] = [
             keywords: ["po", "order", "buy", "procure", "procurement", "purchase order", "indent", "requisition", "request", "demand", "material request", "quote", "quotation", "vendor quote", "comparative", "rate", "price", "tender", "bid", "hsn", "gst", "landed cost", "per piece", "return", "debit note", "credit note", "defective", "reject", "send back", "purchase return"],
           },
           {
-            label: "GRN / Receive",
+            label: "Receive Goods",
             href: "/field",
             icon: ScanLine,
             hint: "Make a goods receipt note (GRN) by scanning the delivery from your phone — works with no signal",
@@ -1070,9 +1070,9 @@ export function linkForPath(pathname: string): (NavLink & { world: WorldKey }) |
  */
 export function homeWorldFor(role: string): World {
   const map: Record<string, WorldKey> = {
-    SUPERVISOR: "hr",
-    QAQC_ENGINEER: "hr",
-    SITE_ENGINEER: "hr",
+    SUPERVISOR: "build",
+    QAQC_ENGINEER: "build",
+    SITE_ENGINEER: "build",
     STORE_KEEPER: "build",
     SALES_MANAGER: "build",
     ACCOUNTANT: "finance",

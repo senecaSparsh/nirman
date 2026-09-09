@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { cancelSale, completeSale, recordDeposit, recordPayment, sendNotification, updateSale } from "@nirman/services";
+import { cancelSale, completeSale, markRegistryDone, recordDeposit, recordPayment, sendNotification, updateSale } from "@nirman/services";
 import { apiHandler, getCompany, json, toNum, paymentSchema, depositSchema, completeSaleSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
@@ -145,6 +145,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
             dueDate: item.dueDate ? item.dueDate.toISOString() : null,
             status: item.status,
             paidAmount: toNum(item.paidAmount),
+            wbsNodeId: item.wbsNodeId,
           })),
         }
       : null,
@@ -352,6 +353,27 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       return json({ ok: true, saleStage: result.saleStage, paymentStatus: result.paymentStatus }, { status: 201 });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Complete failed") }, { status: 400 });
+    }
+  }
+
+  // ── Mark registry done (sale deed registered, intermediate stage) ──
+  if (action === "markRegistry") {
+    try {
+      const result = await markRegistryDone({
+        saleId: id,
+        saleDeedNo: body.saleDeedNo,
+        registryDocumentUrl: body.registryDocumentUrl,
+        registryDocumentName: body.registryDocumentName,
+        registryDate: body.registryDate,
+        userId: user.id,
+      });
+      revalidatePath("/sales");
+      revalidatePath("/m/sales");
+      revalidatePath(`/sales/${id}`);
+      revalidatePath(`/m/sales/${id}`);
+      return json({ ok: true, saleStage: result.saleStage }, { status: 200 });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Registry mark failed") }, { status: 400 });
     }
   }
 

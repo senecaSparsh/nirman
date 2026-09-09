@@ -173,8 +173,8 @@ export function DirectPurchaseFormDialog({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to create direct purchase");
-      toast.success(`Direct purchase ${data.billNumber} created`);
+      if (!res.ok) throw new Error(data.error ?? "Failed to create cash purchase");
+      toast.success(`Cash purchase ${data.billNumber} created`);
       onOpenChange(false);
       setSupplierId(""); setSupplierName(""); setLocationId(""); setBillDate(""); setNotes("");
       setVehicle({ vehicleNumber: "", vehicleType: "" });

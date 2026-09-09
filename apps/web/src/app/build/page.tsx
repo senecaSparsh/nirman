@@ -128,7 +128,7 @@ async function BuildContent() {
   const procureItems: StageItemData[] = [];
   if (hasPermission(role, PERM.PROCUREMENT_VIEW)) {
     procureItems.push({
-      label: "Material Indents",
+      label: "Indents",
       href: "/requisitions",
       hint: "Site raises an indent for material. Approve it, then convert it to a purchase order",
       count: openRequisitions,
@@ -141,12 +141,12 @@ async function BuildContent() {
       count: openPOs,
     });
     procureItems.push({
-      label: "GRN / Receive",
+      label: "Receive Goods",
       href: "/field",
       hint: "Make a goods receipt note (GRN) by scanning the delivery from your phone",
     });
     procureItems.push({
-      label: "Purchase Returns",
+      label: "Returns",
       href: "/supplier-returns",
       hint: "Send defective or excess stock back to a supplier and track the debit note",
       count: pendingReturns,

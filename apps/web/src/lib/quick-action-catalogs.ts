@@ -58,7 +58,7 @@ export const INVENTORY_QUICK_ACTIONS: QuickActionTab[] = [
     actions: [
       { key: "indents", href: "/m/procurement?tab=indents", icon: ShoppingCart, label: "Indents", personas: ["procurement", "ops", "field", "executive"] },
       { key: "quotations", href: "/m/procurement?tab=quotations", icon: FileText, label: "Quotations", personas: ["procurement", "ops", "executive"] },
-      { key: "purchase-orders", href: "/m/procurement", icon: Truck, label: "Purchase Orders", personas: ["procurement", "ops", "executive"] },
+      { key: "purchase-orders", href: "/m/procurement", icon: Truck, label: "Procurement", personas: ["procurement", "ops", "executive"] },
       { key: "receive", href: "/m/site/receive", icon: ScanLine, label: "Receive", personas: ["procurement", "field", "ops"] },
       { key: "stock-out", href: "/m/stock-out", icon: Send, label: "Stock Out", personas: ["procurement", "field", "ops"] },
       { key: "materials", href: "/m/materials", icon: PackagePlus, label: "Materials", personas: ["procurement", "ops", "executive"] },

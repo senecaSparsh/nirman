@@ -1,5 +1,6 @@
 import { prisma } from "@nirman/db";
 import { getCompanyGroupIds, toNum } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
@@ -29,7 +30,7 @@ import {
  */
 export default function InventoryHomePage() {
   return (
-    <MobileHubPage>
+    <MobileHubPage perm={PERM.INVENTORY_VIEW} what="inventory" permission="inventory.view">
       {async ({ company }) => {
         const [draftPOs, pendingReqs, recentRequisitions, materials, inventoryTree, qaCtx] =
     await Promise.all([

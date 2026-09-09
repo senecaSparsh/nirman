@@ -3719,7 +3719,7 @@ model AssetSale {
   // Real estate sales are staged: PENDING → DEPOSIT_RECEIVED → COMPLETED (or CANCELLED).
   // A customer deposit is recorded as a liability (Customer Deposit account) —
   // revenue + COGS are NOT recognised until the sale completes (final payment + title transfer).
-  saleStage       String      @default("PENDING") // PENDING | DEPOSIT_RECEIVED | COMPLETED | CANCELLED
+  saleStage       String      @default("PENDING") // PENDING | DEPOSIT_RECEIVED | REGISTRY_PENDING | COMPLETED | CANCELLED
   depositAmount   Decimal?    @db.Decimal(14, 2)   // initial customer deposit
   depositDate     DateTime?                          // when deposit was received
   finalSaleDate   DateTime?                          // when final payment + title transfer happened

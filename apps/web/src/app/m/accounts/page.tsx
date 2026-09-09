@@ -48,7 +48,7 @@ export default function AccountsHomePage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   return (
-    <MobileHubPage>
+    <MobileHubPage perm={PERM.FINANCE_VIEW} what="accounts" permission="finance.view">
       {async ({ company, role }) => {
         const { tab } = await searchParams;
 

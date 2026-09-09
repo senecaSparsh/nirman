@@ -306,6 +306,7 @@ export {
   sellAsset,
   recordDeposit,
   completeSale,
+  markRegistryDone,
   recordPayment,
   cancelSale,
   updateSale,

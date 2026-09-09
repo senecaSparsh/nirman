@@ -77,8 +77,8 @@ const ACTIONS: ActionItem[] = [
    */
   { label: "Customers", hint: "Inside Sales", icon: Users, href: "/sales?tab=customers", keywords: ["customer", "buyer", "client", "party", "contact", "purchaser"] },
   { label: "Crews & gangs", hint: "Inside Employees", icon: Users, href: "/hr/employees?tab=crews", keywords: ["crew", "gang", "team", "group", "mazdoor gang", "labour group", "contractor"] },
-  { label: "Suppliers ledger", hint: "Inside Purchase Orders", icon: Truck, href: "/procurement?tab=suppliers", keywords: ["supplier", "vendor", "payable", "ledger", "outstanding"] },
-  { label: "Cash purchases", hint: "Inside Purchase Orders", icon: Wallet, href: "/procurement?tab=direct-purchases", keywords: ["cash purchase", "direct purchase", "petty", "over the counter", "spot buy"] },
+  { label: "Suppliers ledger", hint: "Inside Procurement", icon: Truck, href: "/procurement?tab=suppliers", keywords: ["supplier", "vendor", "payable", "ledger", "outstanding"] },
+  { label: "Cash purchases", hint: "Inside Procurement", icon: Wallet, href: "/procurement?tab=direct-purchases", keywords: ["cash purchase", "direct purchase", "petty", "over the counter", "spot buy"] },
   { label: "Stock Inventory", hint: "Inside Stock", icon: ClipboardCheck, href: "/stock?tab=counts", keywords: ["stock inventory", "stock count", "physical verification", "cycle count", "audit", "reconcile", "variance"] },
   { label: "Scrap generation", hint: "Inside Stock", icon: Recycle, href: "/stock?tab=scrap", keywords: ["scrap", "by-product", "waste", "generate scrap", "surplus"] },
   { label: "Stock movements", hint: "Inside Stock", icon: ScrollText, href: "/stock?tab=movements", keywords: ["movement", "ledger", "history", "audit trail", "stock register"] },

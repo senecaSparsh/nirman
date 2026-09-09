@@ -164,7 +164,7 @@ const PROCUREMENT_FLOW: FlowDef = {
 const REQUISITION_FLOW: FlowDef = {
   id: "requisition",
   listHref: "/m/procurement?tab=indents",
-  listLead: "Material requests raised by site. Approved requisitions become purchase orders.",
+  listLead: "Material requests raised by site. Approved indents become purchase orders.",
   nodes: [
     { status: "DRAFT", label: "Draft", detailHref: "/m/requisitions/{id}" },
     { status: "SUBMITTED", label: "Submitted", detailHref: "/m/requisitions/{id}" },
@@ -207,7 +207,7 @@ const REQUISITION_FLOW: FlowDef = {
   ],
   listNext: {
     countStatuses: ["SUBMITTED"],
-    label: (n) => `${n} requisition${n !== 1 ? "s" : ""} awaiting approval`,
+    label: (n) => `${n} indent${n !== 1 ? "s" : ""} awaiting approval`,
     reason: "Approve submitted requests so procurement can collect quotes.",
     filterChip: "SUBMITTED",
     perm: "REQUISITION_APPROVE",

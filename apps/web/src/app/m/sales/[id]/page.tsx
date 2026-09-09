@@ -250,6 +250,7 @@ export default function MobileSaleDetailPage({
                     dueDate: it.dueDate ? it.dueDate.toISOString() : null,
                     paidAmount: toNum(it.paidAmount),
                     status: it.status,
+                    wbsNodeId: it.wbsNodeId,
                   })),
                 }
               : null}

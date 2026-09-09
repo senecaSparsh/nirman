@@ -162,6 +162,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
                 dueDate: item.dueDate ? item.dueDate.toISOString() : null,
                 status: item.status,
                 paidAmount: toNum(item.paidAmount),
+                wbsNodeId: item.wbsNodeId,
               })),
             }
           : null,

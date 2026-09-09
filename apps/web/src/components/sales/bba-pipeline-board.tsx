@@ -25,6 +25,8 @@ export type BbaStage =
 export function deriveBbaStage(s: AssetSaleRow): BbaStage {
   if (s.status === "CANCELLED" || s.saleStage === "CANCELLED") return "CANCELLED";
   if (s.saleStage === "COMPLETED" || s.saleDeedNo) return "COMPLETED";
+  // Use the explicit REGISTRY_PENDING saleStage if set, otherwise derive from payment status
+  if (s.saleStage === "REGISTRY_PENDING") return "REGISTRY_PENDING";
   if (s.paymentStatus === "PAID" && !s.saleDeedNo) return "REGISTRY_PENDING";
   if (s.paymentStatus === "PARTIAL" && s.bbaNo) return "PAYMENTS_PROGRESS";
   if (s.bbaNo) return "BBA_SIGNED";

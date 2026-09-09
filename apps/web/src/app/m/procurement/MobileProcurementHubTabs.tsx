@@ -186,7 +186,7 @@ export function MobileProcurementHubTabs({
 
   const TAB_META: { value: TabValue; label: string; icon: typeof ClipboardList; count: number }[] = [
     { value: "indents", label: "Indents", icon: ClipboardList, count: indentItems.length },
-    { value: "quotations", label: "Quotes", icon: FileText, count: quotationItems.length },
+    { value: "quotations", label: "Quotations", icon: FileText, count: quotationItems.length },
     { value: "pos", label: "POs", icon: Truck, count: poItems.length },
     { value: "returns", label: "Returns", icon: Undo2, count: returnItems.length },
   ];
@@ -210,7 +210,7 @@ export function MobileProcurementHubTabs({
             submittedCount={indentSubmittedCount}
             loadMoreUrl={indentLoadMoreUrl}
             nextCursor={indentNextCursor}
-            exportTitle="Material Indents"
+            exportTitle="Indents"
             exportRows={indentItems as unknown as Record<string, unknown>[]}
             exportColumns={indentExportColumns}
             exportSummary={`${indentItems.length} indents`}
@@ -227,7 +227,7 @@ export function MobileProcurementHubTabs({
             items={quotationItems}
             canCreate={quotationCanCreate}
             catalog={quotationCatalog}
-            exportTitle="Quotation Requests"
+            exportTitle="Quotations"
             exportRows={quotationItems as unknown as Record<string, unknown>[]}
             exportColumns={quotationExportColumns}
             exportSummary={`${quotationItems.length} requests`}
@@ -266,7 +266,7 @@ export function MobileProcurementHubTabs({
             items={returnItems}
             totalValue={returnTotalValue}
             pendingCount={returnPendingCount}
-            exportTitle="Supplier Returns"
+            exportTitle="Returns"
             exportRows={returnItems as unknown as Record<string, unknown>[]}
             exportColumns={returnExportColumns}
             exportSummary={`${returnItems.length} returns · ${formatCurrency(returnTotalValue)}`}

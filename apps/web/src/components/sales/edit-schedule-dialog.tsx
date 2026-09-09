@@ -37,6 +37,7 @@ export function EditScheduleDialog({
       percentage: String(item.percentage),
       amount: String(item.amount),
       dueDate: item.dueDate ? item.dueDate.split("T")[0]! : "",
+      wbsNodeId: item.wbsNodeId ?? "",
     })) ?? [],
   );
 
@@ -68,6 +69,7 @@ export function EditScheduleDialog({
             percentage: Number(item.percentage),
             amount: Number(item.amount),
             dueDate: item.dueDate || null,
+            wbsNodeId: item.wbsNodeId || null,
           })),
         }),
       });
@@ -102,6 +104,7 @@ export function EditScheduleDialog({
           gstAmount={sale.gstAmount ?? 0}
           advanceAmount={sale.depositAmount ?? 0}
           dealMaturityMonths={sale.dealMaturityMonths ?? 0}
+          projectId={sale.projectId ?? undefined}
         />
         <div className="flex justify-end gap-2 pt-2 border-t">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>

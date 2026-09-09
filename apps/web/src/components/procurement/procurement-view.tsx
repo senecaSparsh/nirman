@@ -24,6 +24,7 @@ import { SupplierPaymentFormDialog } from "./supplier-payment-form-dialog";
 import { DirectPurchaseFormDialog } from "./direct-purchase-form-dialog";
 import { RequisitionsView } from "@/components/requisitions/requisitions-view";
 import { SupplierReturnsView } from "@/components/supplier-returns/supplier-returns-view";
+import { WorkflowStrip } from "@/components/workflow-strip";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { downloadCSV, downloadExcel } from "@/lib/export";
@@ -74,6 +75,18 @@ export function ProcurementView({
 
   return (
     <div className="space-y-5">
+      <WorkflowStrip
+        steps={[
+          { label: "Indent", tab: "indents" },
+          { label: "Quotations", tab: "quotations" },
+          { label: "Purchase Order", tab: "purchase-orders" },
+          { label: "Receive" },
+          { label: "Returns", tab: "returns" },
+        ]}
+        activeTab={tab}
+        onTabChange={setTab}
+        shortcut={{ label: "Cash Purchase", tab: "direct-purchases" }}
+      />
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="purchase-orders">
@@ -310,9 +323,7 @@ const directPurchaseColumns: Column<DirectPurchaseRow>[] = [
     key: "status",
     label: "Status",
     sortable: true,
-    render: (p) => p.status === "CANCELLED"
-      ? <span className="text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap bg-red-100 dark:bg-red-900/30 text-red-600">Cancelled</span>
-      : <span className="text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600">Completed</span>,
+    render: (p) => <StatusPill status={p.status} />,
     filterValue: (p) => p.status,
     exportValue: (p) => p.status,
   },
@@ -852,7 +863,7 @@ function DirectPurchasesTab({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to cancel");
-      toast.success("Direct purchase cancelled");
+      toast.success("Cash purchase cancelled");
       setCancellingId(null);
       router.refresh();
     } catch (err: unknown) {
@@ -964,7 +975,7 @@ function DirectPurchasesTab({
         <Dialog
           open={true}
           onOpenChange={(o) => { if (!o) setCancellingId(null); }}
-          title="Cancel Direct Purchase?"
+          title="Cancel Cash Purchase?"
           description="This will reverse the stock receipt and mark the purchase as cancelled. The bill number is preserved for audit."
         >
           <div className="flex justify-end gap-2 pt-2">
@@ -1031,7 +1042,7 @@ function QuotationsTab({
     ) : <span className="text-muted-foreground">—</span>, sortValue: (r) => r.cheapestLandedTotal ?? 0 },
     { key: "status", label: "Status", render: (r) => (
       <div className="flex items-center gap-1.5">
-        <QuotationStatusBadge status={r.status} />
+        <StatusPill status={r.status} />
         {reportIds?.has(r.submittedByUserCompanyId ?? "") ? (
           <span className="text-xs font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">Your approval</span>
         ) : null}
@@ -1051,27 +1062,5 @@ function QuotationsTab({
       </div>
       <DataTable data={requests} columns={columns} />
     </div>
-  );
-}
-
-function QuotationStatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    OPEN: "bg-gray-100 text-gray-700",
-    QUOTES_COLLECTED: "bg-blue-100 text-blue-700",
-    APPROVED: "bg-green-100 text-green-700",
-    CLOSED: "bg-gray-100 text-gray-500",
-    CANCELLED: "bg-red-100 text-red-700",
-  };
-  const labels: Record<string, string> = {
-    OPEN: "Open",
-    QUOTES_COLLECTED: "Quotes In",
-    APPROVED: "Approved",
-    CLOSED: "Closed",
-    CANCELLED: "Cancelled",
-  };
-  return (
-    <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded ${styles[status] ?? styles.OPEN}`}>
-      {labels[status] ?? status}
-    </span>
   );
 }

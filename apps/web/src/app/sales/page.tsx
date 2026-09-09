@@ -222,6 +222,7 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
               dueDate: item.dueDate ? item.dueDate.toISOString() : null,
               status: item.status,
               paidAmount: toNum(item.paidAmount),
+              wbsNodeId: item.wbsNodeId,
             })),
           }
         : null,

@@ -386,6 +386,7 @@ export function SellAssetDialog({
                 percentage: Number(item.percentage),
                 amount: Number(item.amount),
                 dueDate: item.dueDate || null,
+                wbsNodeId: item.wbsNodeId || null,
               })),
             }
           : null,
@@ -682,6 +683,7 @@ export function SellAssetDialog({
               gstAmount={gstAmountNum}
               advanceAmount={initialPaymentNum}
               dealMaturityMonths={dealMaturityNum}
+              projectId={form.assetType === "PROJECT" ? form.projectId : selectedAsset?.projectId ?? undefined}
             />
           </div>
           <NextSectionButton current="payment" onToggle={toggleSection} />

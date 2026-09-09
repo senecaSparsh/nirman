@@ -8,6 +8,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { EmptyState } from "@/components/empty-state";
 import { PageLoading } from "@/components/page-loading";
+import { StatusPill } from "@/components/page";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { cn, formatCurrency, formatDate, formatNumber } from "@/lib/utils";
@@ -92,14 +93,6 @@ const STATUS_CONFIG: Record<WorkOrder["status"], { label: string; color: string;
   COMPLETED: { label: "Completed", color: "text-indigo-600",        dot: "bg-indigo-500" },
   CLOSED:    { label: "Closed",    color: "text-slate-600",         dot: "bg-slate-500" },
   CANCELLED: { label: "Cancelled", color: "text-red-600",           dot: "bg-red-500" },
-};
-
-const RA_STATUS_CONFIG: Record<RaBill["status"], { label: string; color: string; bg: string }> = {
-  DRAFT:     { label: "Draft",     color: "text-muted-foreground",  bg: "bg-muted" },
-  SUBMITTED: { label: "Submitted", color: "text-blue-600",          bg: "bg-blue-100 dark:bg-blue-900/30" },
-  APPROVED:  { label: "Approved",  color: "text-emerald-600",       bg: "bg-emerald-100 dark:bg-emerald-900/30" },
-  PAID:      { label: "Paid",      color: "text-indigo-600",        bg: "bg-indigo-100 dark:bg-indigo-900/30" },
-  REJECTED:  { label: "Rejected",  color: "text-red-600",           bg: "bg-red-100 dark:bg-red-900/30" },
 };
 
 const _STATUS_FILTERS: Array<{ key: WorkOrder["status"] | "ALL"; label: string }> = [
@@ -805,7 +798,6 @@ function WorkOrderDetailDialog({
                     </thead>
                     <tbody>
                       {detail.raBills.map((rb) => {
-                        const rCfg = RA_STATUS_CONFIG[rb.status];
                         return (
                           <tr key={rb.id} className="border-t border-border/40 hover:bg-muted/20 cursor-pointer" onClick={() => setRaBillDetail({ id: rb.id, number: rb.raBillNumber })}>
                             <td className="px-3 py-2 font-mono text-[11px] whitespace-nowrap">{rb.raBillNumber}</td>
@@ -813,7 +805,7 @@ function WorkOrderDetailDialog({
                             <td className="px-3 py-2 text-right tabular-nums text-xs whitespace-nowrap">{formatCurrency(rb.grossAmount)}</td>
                             <td className="px-3 py-2 text-right tabular-nums text-xs font-semibold whitespace-nowrap">{formatCurrency(rb.netPayable)}</td>
                             <td className="px-3 py-2">
-                              <span className={cn("text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap", rCfg.bg, rCfg.color)}>{rCfg.label}</span>
+                              <StatusPill status={rb.status} />
                             </td>
                             <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-0.5">
@@ -1411,8 +1403,6 @@ function RaBillDetailDialog({
       .finally(() => setLoading(false));
   }, [raBillId]);
 
-  const rCfg = detail ? RA_STATUS_CONFIG[detail.status] : null;
-
   return (
     <Dialog
       open={!!raBillId}
@@ -1430,7 +1420,7 @@ function RaBillDetailDialog({
             <div>
               <div className="text-[9px] uppercase text-muted-foreground tracking-wide">Status</div>
               <div className="mt-0.5">
-                <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full", rCfg!.bg, rCfg!.color)}>{rCfg!.label}</span>
+                <StatusPill status={detail.status} />
               </div>
             </div>
             <div>

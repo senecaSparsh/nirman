@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { prisma } from "@nirman/db";
 import { getCurrentUser, toNum } from "@/lib/server";
-import { migrateRole, ROLES } from "@/lib/roles";
+import { migrateRole, ROLES, PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import {
@@ -37,7 +37,7 @@ import { buildOrgTree } from "@/lib/org-tree-builder";
  */
 export default function HrHomePage() {
   return (
-    <MobileHubPage>
+    <MobileHubPage perm={PERM.HR_VIEW} what="HR" permission="hr.view">
       {async ({ company }) => {
         const currentUser = await getCurrentUser();
 
