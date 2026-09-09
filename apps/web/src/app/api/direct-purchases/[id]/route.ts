@@ -41,6 +41,9 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const action = body?.action as string;
 
   if (action === "cancel") {
+    const company = await getCompany();
+    const existing = await prisma.directPurchase.findFirst({ where: { id, companyId: company.id }, select: { id: true } });
+    if (!existing) return json({ error: "Direct purchase not found" }, { status: 404 });
     try {
       const result = await cancelDirectPurchase(id, user.id);
       revalidatePath("/procurement");

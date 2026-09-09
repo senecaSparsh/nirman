@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { receiveGoods, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, receiveGoodsSchema, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, receiveGoodsSchema, requirePermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -21,6 +21,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     where: {
       companyId: company.id,
       ...(receivableOnly ? { status: { in: ["ORDERED", "PARTIAL"] } } : {}),
+      ...await scopeWhere("PurchaseOrder"),
     },
     orderBy: { createdAt: "desc" },
     include: {
@@ -95,7 +96,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!locationId) return json({ error: "locationId is required" }, { status: 400 });
   // Validate the PO belongs to the user's company
   const po = await prisma.purchaseOrder.findFirst({
-    where: { id: purchaseOrderId, companyId: company.id },
+    where: { id: purchaseOrderId, companyId: company.id, ...await scopeWhere("PurchaseOrder") },
     select: { id: true },
   });
   if (!po) return json({ error: "Purchase order not found in this company" }, { status: 404 });
