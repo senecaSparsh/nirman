@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { logAction } from "@nirman/services";
 import { z } from "zod";
@@ -37,9 +37,9 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
 
-  // Load the line + verify it belongs to this company via the period
+  // Load the line + verify it belongs to this company via the period + scope
   const line = await prisma.payrollLine.findFirst({
-    where: { id: lineId, payrollPeriodId: periodId },
+    where: { id: lineId, payrollPeriodId: periodId, ...await scopeWhere("PayrollLine") },
     include: {
       payrollPeriod: { select: { id: true, companyId: true, status: true, month: true, year: true } },
       employee: { select: { id: true, name: true } },
@@ -80,7 +80,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
 
   // Auto-mark the period as PAID when ALL lines have a paymentDate
   const allLines = await prisma.payrollLine.findMany({
-    where: { payrollPeriodId: periodId },
+    where: { payrollPeriodId: periodId, ...await scopeWhere("PayrollLine") },
     select: { paymentDate: true },
   });
   const allPaid = allLines.length > 0 && allLines.every((l) => l.paymentDate !== null);

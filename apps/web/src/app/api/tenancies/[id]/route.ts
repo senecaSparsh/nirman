@@ -5,8 +5,9 @@ import {
   applyRentEscalation, changeTenant, generateRentSchedule,
   uploadRentAgreement, uploadDraft,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, editTenancySchema, changeTenantSchema, rentScheduleSchema, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, editTenancySchema, changeTenantSchema, rentScheduleSchema, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { prisma } from "@nirman/db";
 
 // POST /api/tenancies/[id] — action dispatcher for tenancy lifecycle
 //   body: { action: "activate" | "terminate" | "escalate" | "changeTenant" | "generateSchedule" | "uploadAgreement", ...payload }
@@ -14,6 +15,13 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   const user = await requirePermission(PERM.SALES_MANAGE);
   const company = await getCompany();
   const { id } = await params;
+
+  // Scoped pre-fetch
+  const existing = await prisma.tenancy.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("Tenancy") },
+  });
+  if (!existing) return json({ error: "Tenancy not found or out of scope" }, { status: 404 });
+
   const body = await req.json();
   const action = body?.action;
   try {

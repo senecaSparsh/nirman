@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { linkEmployeeToUser, HrError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, assertCanManageEmployee } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -18,6 +18,13 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   const session = await requirePermission(PERM.HR_MANAGE);
   const company = await getCompany();
   const { id } = await params;
+
+  // Hierarchy + scope check
+  try {
+    await assertCanManageEmployee(id, company.id);
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Hierarchy violation" }, { status: 403 });
+  }
 
   const body = await req.json();
   const { userId } = body as { userId?: string };

@@ -107,6 +107,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (d.action === "submit") {
     const user = await requirePermission(PERM.EXPENSE_CREATE);
     const company = await getCompany();
+    // Scoped pre-fetch
+    const existing = await prisma.expense.findFirst({
+      where: { id, companyId: company.id, ...await scopeWhere("Expense") },
+    });
+    if (!existing) return json({ error: "Expense not found or out of scope" }, { status: 404 });
     try {
       await submitExpense(id, company.id, user.id);
     } catch (err) {
@@ -122,6 +127,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (d.action === "approve") {
     const user = await requirePermission(PERM.EXPENSE_APPROVE);
     const company = await getCompany();
+    const existing = await prisma.expense.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("Expense") } });
+    if (!existing) return json({ error: "Expense not found or out of scope" }, { status: 404 });
     try {
       await approveExpense(id, company.id, user.id, { allowBudgetOverrun: d.allowBudgetOverrun === true });
     } catch (err) {
@@ -139,6 +146,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (d.action === "reject") {
     const user = await requirePermission(PERM.EXPENSE_APPROVE);
     const company = await getCompany();
+    const existing = await prisma.expense.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("Expense") } });
+    if (!existing) return json({ error: "Expense not found or out of scope" }, { status: 404 });
     if (!d.rejectionReason?.trim()) {
       return json({ error: "A rejection reason is required" }, { status: 400 });
     }
@@ -158,6 +167,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   // ── Field update (DRAFT / REJECTED only) ──
   const user = await requirePermission(PERM.EXPENSE_CREATE);
   const company = await getCompany();
+
+  // Scoped pre-fetch for update
+  const existing = await prisma.expense.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("Expense") } });
+  if (!existing) return json({ error: "Expense not found or out of scope" }, { status: 404 });
 
   try {
     await assertScopeAllows({
@@ -229,6 +242,9 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const user = await requirePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
   const { id } = await params;
+  // Scoped pre-fetch
+  const existing = await prisma.expense.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("Expense") } });
+  if (!existing) return json({ error: "Expense not found or out of scope" }, { status: 404 });
   try {
     await deleteExpense(id, company.id, user.id);
   } catch (err) {

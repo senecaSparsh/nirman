@@ -15,8 +15,14 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
 
+  // Scope through the employee relation — EmployeeResource itself has no
+  // department/project fields, so we filter via the parent employee.
   const resources = await prisma.employeeResource.findMany({
-    where: { employeeId: id, companyId: company.id, ...await scopeWhere("Employee") },
+    where: {
+      employeeId: id,
+      companyId: company.id,
+      employee: { deletedAt: null, ...await scopeWhere("Employee") },
+    },
     orderBy: [{ returnedAt: "desc" }, { issuedAt: "desc" }],
     include: {
       issuedByUser: { select: { id: true, name: true } },
@@ -61,9 +67,9 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
 
-  // Verify employee exists in this company
+  // Verify employee exists in this company and is in scope
   const employee = await prisma.employee.findFirst({
-    where: { id, companyId: company.id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
     select: { id: true, name: true },
   });
   if (!employee) return json({ error: "Employee not found" }, { status: 404 });

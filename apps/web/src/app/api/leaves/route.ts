@@ -56,6 +56,15 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+
+  // Verify the target employee is in scope and manageable
+  const { prisma } = await import("@nirman/db");
+  const employee = await prisma.employee.findFirst({
+    where: { id: parsed.data.employeeId, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
+    select: { id: true },
+  });
+  if (!employee) return json({ error: "Employee not found or out of scope" }, { status: 404 });
+
   try {
     const leave = await createLeaveRequest({
       companyId: company.id,

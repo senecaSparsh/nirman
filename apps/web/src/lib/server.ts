@@ -103,8 +103,15 @@ export async function getCompany() {
   }
 
   if (user?.companyId) {
+    // Verify the user still has an ACTIVE membership in this company.
+    // A terminated employee (deactivated UserCompany) should not resolve
+    // to a company they no longer have access to.
     const assigned = await prisma.company.findFirst({
-      where: { id: user.companyId, deletedAt: null },
+      where: {
+        id: user.companyId,
+        deletedAt: null,
+        userMemberships: { some: { userId: user.id, active: true } },
+      },
     });
     if (assigned) return assigned;
   }
@@ -1588,6 +1595,16 @@ export async function getAssignedProjectIds(): Promise<string[] | null> {
   if (hierarchical && hierarchical.scopeType === "PROJECT" && hierarchical.projectIds.length > 0) {
     return hierarchical.projectIds;
   }
+  // DEPARTMENT scope: infer project IDs from employees in those departments
+  if (hierarchical && hierarchical.scopeType === "DEPARTMENT" && hierarchical.departmentIds.length > 0) {
+    const employeesInDept = await prisma.employee.findMany({
+      where: { companyId: company.id, deletedAt: null, departmentId: { in: hierarchical.departmentIds }, activeProjectId: { not: null } },
+      select: { activeProjectId: true },
+      distinct: ["activeProjectId"],
+    });
+    const projectIds = employeesInDept.map((e) => e.activeProjectId).filter(Boolean) as string[];
+    return projectIds.length > 0 ? projectIds : []; // empty = no projects visible
+  }
   const assignments = await prisma.projectAssignment.findMany({
     where: { userId: user.id },
     select: { projectId: true },
@@ -1686,11 +1703,12 @@ export async function scopeWhere(
     GoodsReceipt:         { project: "projectId" },
     MaterialReconciliation: { project: "projectId" },
     // Projects / Construction
-    Task:                 { project: "projectId" },
+    // Task has no projectId — it's assigned to a User, not scopeable by project
     Crew:                 { project: "projectId" },
     DailyProgressReport:  { project: "projectId" },
     DailyReport:          { project: "projectId" },
-    Quotation:            { project: "projectId" },
+    QuotationRequest:     { project: "projectId" },
+    Quotation:            { project: "projectId" }, // alias for backward compat
     ChangeOrder:          { project: "projectId" },
     WorkOrder:            { project: "projectId" },
     SubcontractorWorkOrder: { project: "projectId" },
@@ -1704,6 +1722,8 @@ export async function scopeWhere(
     ProjectAssignment:    { project: "projectId" },
     BuiltUnit:            { project: "projectId" },
     Tenancy:              { project: "projectId" },
+    // Procurement
+    PurchaseOrder:        { project: "projectId" },
     // Finance
     Expense:              { project: "projectId" },
     ExpenseBudget:        { project: "projectId" },
@@ -2155,11 +2175,13 @@ export async function assertCanManageEmployee(employeeId: string, companyId: str
   const currentUser = await getCurrentUser();
   if (!currentUser) return; // dev-bypass
   const { prisma } = await import("@nirman/db");
+  // Apply scopeWhere so department/project-scoped viewers cannot manage
+  // employees outside their scope — even if hierarchy would allow it.
   const employee = await prisma.employee.findFirst({
-    where: { id: employeeId, companyId, deletedAt: null },
+    where: { id: employeeId, companyId, deletedAt: null, ...await scopeWhere("Employee") },
     select: { userId: true, hierarchyLevel: true, user: { select: { role: true } } },
   });
-  if (!employee) throw new Error("Employee not found");
+  if (!employee) throw new Error("Employee not found or out of scope");
   const canEdit = await canManageSpecificEmployee(
     { userId: employee.userId, user: employee.user ? { role: employee.user.role } : null, hierarchyLevel: employee.hierarchyLevel },
     currentUser.id,

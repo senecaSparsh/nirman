@@ -81,9 +81,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   await requireUser();
   const company = await getCompany();
   const { id } = await params;
-  const existing = await prisma.dailyProgressReport.findUnique({ where: { id } });
-  if (!existing) return json({ error: "DPR not found" }, { status: 404 });
-  if (existing.companyId !== company.id) return json({ error: "DPR not found" }, { status: 404 });
+  const existing = await prisma.dailyProgressReport.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("DailyProgressReport") },
+  });
+  if (!existing) return json({ error: "DPR not found or out of scope" }, { status: 404 });
 
   const body = await req.json();
 
@@ -94,8 +95,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       await subAdminApproveDpr(id, user.id, body.notes);
       // Notify the DPR submitter that their DPR was sub-admin approved
       try {
-        const dpr = await prisma.dailyProgressReport.findUnique({
-          where: { id },
+        const dpr = await prisma.dailyProgressReport.findFirst({
+          where: { id, companyId: company.id, ...await scopeWhere("DailyProgressReport") },
           include: {
             submittedBy: { select: { phone: true, name: true } },
             project: { select: { name: true } },
@@ -125,8 +126,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       await adminApproveDpr(id, user.id, body.notes);
       // Notify the DPR submitter that their DPR was fully approved
       try {
-        const dpr = await prisma.dailyProgressReport.findUnique({
-          where: { id },
+        const dpr = await prisma.dailyProgressReport.findFirst({
+          where: { id, companyId: company.id, ...await scopeWhere("DailyProgressReport") },
           include: {
             submittedBy: { select: { phone: true, name: true } },
             project: { select: { name: true } },

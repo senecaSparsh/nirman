@@ -76,6 +76,12 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const d = parsed.data;
   const company = await getCompany();
 
+  // Scoped pre-fetch
+  const existing = await prisma.expenseClaim.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("ExpenseClaim") },
+  });
+  if (!existing) return json({ error: "Expense claim not found or out of scope" }, { status: 404 });
+
   try {
     if (d.action === "submit") {
       const user = await requirePermission(PERM.EXPENSE_CREATE);

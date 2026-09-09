@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { cancelMaterialSale } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { prisma } from "@nirman/db";
 
 // PATCH for action-based operations (cancel). Consistent with all other
 // action endpoints (PO, requisition, DPR, etc.) which use PATCH + action body.
@@ -10,6 +11,13 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const user = await requirePermission(PERM.SALES_MANAGE);
   const company = await getCompany();
   const { id } = await params;
+
+  // Scoped pre-fetch
+  const existing = await prisma.materialSale.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("MaterialSale") },
+  });
+  if (!existing) return json({ error: "Material sale not found or out of scope" }, { status: 404 });
+
   const body = await req.json();
   if (body?.action !== "cancel") {
     return json({ error: "Unknown action. Use 'cancel'." }, { status: 400 });

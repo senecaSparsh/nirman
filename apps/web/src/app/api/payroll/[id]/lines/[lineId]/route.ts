@@ -1,12 +1,20 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { updatePayrollLine } from "@nirman/services";
-import { apiHandler, json, payrollLineUpdateSchema, requirePermission } from "@/lib/server";
+import { apiHandler, json, payrollLineUpdateSchema, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { prisma } from "@nirman/db";
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string; lineId: string }> }) => {
   const user = await requirePermission(PERM.PAYROLL_MANAGE);
   const { lineId } = await params;
+
+  // Scoped pre-fetch
+  const existing = await prisma.payrollLine.findFirst({
+    where: { id: lineId, ...await scopeWhere("PayrollLine") },
+  });
+  if (!existing) return json({ error: "Payroll line not found or out of scope" }, { status: 404 });
+
   const body = await req.json();
   const parsed = payrollLineUpdateSchema.safeParse(body);
   if (!parsed.success) {

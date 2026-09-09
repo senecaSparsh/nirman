@@ -1,13 +1,21 @@
 import { NextRequest } from "next/server";
 import { approveLeaveRequest, cancelLeaveRequest } from "@nirman/services";
-import { apiHandler, getCompany, json, leaveActionSchema, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, leaveActionSchema, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { prisma } from "@nirman/db";
 
 // POST /api/leaves/[id] — approve or reject a leave request
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.HR_MANAGE);
   const company = await getCompany();
   const { id } = await params;
+
+  // Scoped pre-fetch
+  const existing = await prisma.leaveRequest.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("LeaveRequest") },
+  });
+  if (!existing) return json({ error: "Leave request not found or out of scope" }, { status: 404 });
+
   const body = await req.json();
   const parsed = leaveActionSchema.safeParse(body);
   if (!parsed.success) {
@@ -32,6 +40,13 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const user = await requirePermission(PERM.HR_MANAGE);
   const company = await getCompany();
   const { id } = await params;
+
+  // Scoped pre-fetch
+  const existing = await prisma.leaveRequest.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("LeaveRequest") },
+  });
+  if (!existing) return json({ error: "Leave request not found or out of scope" }, { status: 404 });
+
   try {
     const leave = await cancelLeaveRequest(id, company.id, user.id);
     return json({ ok: true, id: leave.id, status: leave.status });

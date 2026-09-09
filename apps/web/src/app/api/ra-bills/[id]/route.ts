@@ -65,6 +65,13 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     action === "pay" ? PERM.RA_PAY :
     PERM.ASSETS_MANAGE; // fallback
   const user = await requirePermission(requiredPerm);
+  const company = await getCompany();
+
+  // Scoped pre-fetch
+  const existing = await prisma.raBill.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("RaBill") },
+  });
+  if (!existing) return json({ error: "RA bill not found or out of scope" }, { status: 404 });
 
   try {
     if (action === "submit") {

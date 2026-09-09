@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole, scopeWhere, getCurrentUser } from "@/lib/server";
+import { getCompany, toNum, getUserRole, scopeWhere, getCurrentUser, getActionPermissions } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
@@ -27,9 +27,10 @@ async function EmployeesContent() {
     );
   }
 
+  const actions = await getActionPermissions();
   const perms = {
-    canCreate: hasPermission(role, PERM.HR_MANAGE),
-    canEdit: hasPermission(role, PERM.HR_MANAGE),
+    canCreate: actions?.canCreateEmployee ?? hasPermission(role, PERM.HR_MANAGE),
+    canEdit: actions?.canCreateEmployee ?? hasPermission(role, PERM.HR_MANAGE),
     canManage: hasPermission(role, PERM.HR_MANAGE),
   };
 
