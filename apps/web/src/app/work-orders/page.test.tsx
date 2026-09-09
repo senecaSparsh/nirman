@@ -38,7 +38,7 @@ vi.mock("@/components/page-loading", () => ({
   PageLoading: () => <div data-testid="page-loading">Loading…</div>,
 }));
 
-import { WoContent } from "./page";
+import { WoContent } from "./content";
 
 describe("WorkOrdersPage (WoContent)", () => {
   beforeEach(() => {

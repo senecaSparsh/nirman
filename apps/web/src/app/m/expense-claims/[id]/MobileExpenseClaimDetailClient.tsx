@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -15,16 +15,20 @@ import {
   IndianRupee,
   FileText,
   ArrowLeft,
+  Plus,
+  Trash2,
+  Camera,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { AttachmentList } from "@/components/attachments/attachment-list";
 import { MobileEmptyState, ActionBar } from "@/components/mobile/v2/primitives";
-import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { EnumSelect, SectionCard, SelectorModal } from "@/components/mobile/v2/form-primitives";
 import {
   DetailHeroCard,
   DetailTimeline,
   type TimelineStepData,
 } from "@/components/mobile/v2/detail-primitives";
+import { useTodayDateState } from "@/lib/use-today-date";
 
 export type ClaimLine = {
   id: string;
@@ -57,6 +61,7 @@ type Props = {
   canManage: boolean;
   canCreate: boolean;
   createdAt: string;
+  categories: { id: string; name: string; isActive: boolean }[];
 };
 
 const STATUS_META: Record<string, { label: string; icon: typeof Clock; color: string }> = {
@@ -87,6 +92,7 @@ export function MobileExpenseClaimDetailClient({
   canManage,
   canCreate,
   createdAt,
+  categories,
 }: Props) {
   const router = useRouter();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -95,6 +101,31 @@ export function MobileExpenseClaimDetailClient({
   const [showPay, setShowPay] = useState(false);
   const [payMode, setPayMode] = useState("BANK_TRANSFER");
   const [payRef, setPayRef] = useState("");
+
+  // ── Inline line-item editing (DRAFT only) ──
+  const [today] = useTodayDateState();
+  const [showAddLine, setShowAddLine] = useState(false);
+  const [addingLine, setAddingLine] = useState(false);
+  const [deletingLineId, setDeletingLineId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [lineForm, setLineForm] = useState({
+    categoryId: "",
+    category: "",
+    amount: "",
+    gstRate: "",
+    date: "",
+    notes: "",
+  });
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [categoryModal, setCategoryModal] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Sync line form date with today when it becomes available
+  useEffect(() => {
+    if (today && !lineForm.date) {
+      setLineForm((f) => ({ ...f, date: today }));
+    }
+  }, [today, lineForm.date]);
 
   if (notFound) {
     return (
@@ -146,6 +177,78 @@ export function MobileExpenseClaimDetailClient({
       toast.error(err instanceof Error ? err.message : "Action failed");
     } finally {
       setActionLoading(null);
+    }
+  }
+
+  async function uploadReceipt(file: File): Promise<string | null> {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/uploads", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      return data.url ?? null;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function addLine() {
+    if (!lineForm.category.trim() || !lineForm.amount) {
+      toast.error("Category and amount are required");
+      return;
+    }
+    setAddingLine(true);
+    try {
+      let receiptUrl: string | null = null;
+      if (receiptFile) {
+        const uploaded = await uploadReceipt(receiptFile);
+        if (uploaded) receiptUrl = uploaded;
+      }
+      const res = await fetch(`/api/expense-claims/${id}/lines`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          categoryId: lineForm.categoryId || null,
+          category: lineForm.category.trim(),
+          amount: Number(lineForm.amount),
+          gstRate: lineForm.gstRate ? Number(lineForm.gstRate) : null,
+          date: lineForm.date || undefined,
+          receiptUrl,
+          notes: lineForm.notes.trim() || null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to add line");
+      toast.success("Line added");
+      setLineForm({ categoryId: "", category: "", amount: "", gstRate: "", date: today, notes: "" });
+      setReceiptFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      setShowAddLine(false);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Add failed");
+    } finally {
+      setAddingLine(false);
+    }
+  }
+
+  async function removeLine(lineId: string) {
+    setDeletingLineId(lineId);
+    try {
+      const res = await fetch(`/api/expense-claims/${id}/lines?lineId=${lineId}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to remove line");
+      toast.success("Line removed");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Remove failed");
+    } finally {
+      setDeletingLineId(null);
     }
   }
 
@@ -239,11 +342,35 @@ export function MobileExpenseClaimDetailClient({
       <DetailTimeline steps={timelineSteps} title="Workflow" />
 
       {/* Line items */}
-      {lines.length > 0 && (
-        <div className="mb-5">
-          <p className="text-m-caption font-bold uppercase tracking-wider mb-2" style={{ color: "var(--color-steel)" }}>
-            Line Items
+      <div className="mb-5">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-m-caption font-bold uppercase tracking-wider" style={{ color: "var(--color-steel)" }}>
+            Line Items {lines.length > 0 && `(${lines.length})`}
           </p>
+          {canSubmit && !showAddLine && (
+            <button
+              type="button"
+              onClick={() => setShowAddLine(true)}
+              className="flex items-center gap-1 text-m-caption font-bold press"
+              style={{ color: "var(--color-signal)" }}
+            >
+              <Plus className="size-3.5" /> Add line
+            </button>
+          )}
+        </div>
+
+        {lines.length === 0 && !showAddLine && (
+          <div
+            className="rounded-[0.625rem] border p-4 text-center"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
+            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+              {canSubmit ? "No expense lines yet — tap \"Add line\" to get started." : "No expense lines."}
+            </p>
+          </div>
+        )}
+
+        {lines.length > 0 && (
           <div
             className="rounded-[0.625rem] border overflow-hidden"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
@@ -275,22 +402,189 @@ export function MobileExpenseClaimDetailClient({
                       </a>
                     )}
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-m-body font-bold tnum" style={{ color: "var(--color-ink-950)" }}>
-                      {formatCurrency(l.amount)}
-                    </p>
-                    {l.gstAmount ? (
-                      <p className="text-m-caption tnum" style={{ color: "var(--color-ink-500)" }}>
-                        +{formatCurrency(l.gstAmount)} GST
+                  <div className="flex items-start gap-2 shrink-0">
+                    <div className="text-right">
+                      <p className="text-m-body font-bold tnum" style={{ color: "var(--color-ink-950)" }}>
+                        {formatCurrency(l.amount)}
                       </p>
-                    ) : null}
+                      {l.gstAmount ? (
+                        <p className="text-m-caption tnum" style={{ color: "var(--color-ink-500)" }}>
+                          +{formatCurrency(l.gstAmount)} GST
+                        </p>
+                      ) : null}
+                    </div>
+                    {canSubmit && (
+                      <button
+                        type="button"
+                        onClick={() => removeLine(l.id)}
+                        disabled={deletingLineId === l.id}
+                        className="rounded p-1 press"
+                        style={{ color: "var(--color-stop)" }}
+                        title="Remove line"
+                      >
+                        {deletingLineId === l.id ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Add line form (DRAFT only) */}
+        {canSubmit && showAddLine && (
+          <SectionCard title="Add Expense Line">
+            {/* Category */}
+            <div className="mb-2">
+              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                Category <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setCategoryModal(true)}
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors text-left press"
+                style={{
+                  borderColor: "var(--color-line)",
+                  backgroundColor: "transparent",
+                  color: lineForm.category ? "var(--color-ink-950)" : "var(--color-ink-500)",
+                }}
+              >
+                <span className="truncate block">{lineForm.category || "— Select —"}</span>
+              </button>
+            </div>
+
+            {/* Amount + Date */}
+            <div className="flex gap-3 mb-2">
+              <div className="flex-1">
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                  Amount <span style={{ color: "var(--color-stop)" }}>*</span>
+                </label>
+                <div className="flex items-center border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)" }}>
+                  <IndianRupee className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={lineForm.amount}
+                    onChange={(e) => setLineForm((f) => ({ ...f, amount: e.target.value }))}
+                    placeholder="0"
+                    className="w-full px-1 h-7 text-m-caption outline-none tabular-nums"
+                    style={{ backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                  />
+                </div>
+              </div>
+              <div className="flex-1">
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={lineForm.date}
+                  onChange={(e) => setLineForm((f) => ({ ...f, date: e.target.value }))}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                />
+              </div>
+            </div>
+
+            {/* GST + Notes */}
+            <div className="flex gap-3 mb-2">
+              <div className="w-20">
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                  GST %
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="28"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={lineForm.gstRate}
+                  onChange={(e) => setLineForm((f) => ({ ...f, gstRate: e.target.value }))}
+                  placeholder="0"
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors tabular-nums"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                  Notes
+                </label>
+                <input
+                  type="text"
+                  value={lineForm.notes}
+                  onChange={(e) => setLineForm((f) => ({ ...f, notes: e.target.value }))}
+                  placeholder="Optional"
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                />
+              </div>
+            </div>
+
+            {/* Receipt photo */}
+            <div className="flex items-center gap-2 mb-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,application/pdf"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => setReceiptFile(e.target.files?.[0] ?? null)}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-1 text-m-caption font-semibold press"
+                style={{ color: "var(--color-signal)" }}
+              >
+                <Camera className="size-3.5" />
+                {receiptFile ? "Receipt selected" : "Add receipt"}
+              </button>
+              {uploading && <Loader2 className="size-3 animate-spin" />}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setShowAddLine(false); setLineForm({ categoryId: "", category: "", amount: "", gstRate: "", date: today, notes: "" }); setReceiptFile(null); }}
+                className="flex-1 rounded-[0.5rem] py-2 text-m-caption font-bold border press"
+                style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={addLine}
+                disabled={addingLine || uploading}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-caption font-bold press disabled:opacity-50"
+                style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+              >
+                {addingLine ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
+                Add Line
+              </button>
+            </div>
+          </SectionCard>
+        )}
+
+        {/* Category selector modal */}
+        {categoryModal && (
+          <SelectorModal
+            title="Select Category"
+            items={categories.filter((c) => c.isActive).map((c) => ({ id: c.id, label: c.name }))}
+            selectedId={lineForm.categoryId}
+            onSelect={(catId) => {
+              const cat = categories.find((c) => c.id === catId);
+              setLineForm((f) => ({ ...f, categoryId: catId, category: cat?.name ?? f.category }));
+              setCategoryModal(false);
+            }}
+            onClose={() => setCategoryModal(false)}
+          />
+        )}
+      </div>
 
       {/* Reject dialog */}
       {showReject && (

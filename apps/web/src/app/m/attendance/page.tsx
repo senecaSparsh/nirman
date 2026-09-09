@@ -22,7 +22,7 @@ import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
  */
 export default function MobileAttendancePage() {
   return (
-    <MobileListPage>
+    <MobileListPage perm={PERM.HR_VIEW} what="attendance" permission="hr.view">
       {async ({ company, role }) => {
         const canManageAttendance = hasPermission(role, PERM.HR_MANAGE);
         // Fetch attendance with traffic-light tiers via the service rollup

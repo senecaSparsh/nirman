@@ -39,7 +39,7 @@ vi.mock("@/components/no-access", () => ({
   NoAccess: () => <div data-testid="no-access">No Access</div>,
 }));
 
-import { WorkflowsContent } from "./page";
+import { WorkflowsContent } from "./content";
 
 describe("WorkflowsPage (WorkflowsContent)", () => {
   beforeEach(() => {

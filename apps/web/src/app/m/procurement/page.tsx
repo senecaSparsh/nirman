@@ -14,7 +14,7 @@ import { MobileProcurementHubTabs } from "./MobileProcurementHubTabs";
 
 export default function MobileProcurementPage() {
   return (
-    <MobileHubPage skeleton={<MobileSkeletonList rows={8} />}>
+    <MobileHubPage skeleton={<MobileSkeletonList rows={8} />} perm={PERM.PROCUREMENT_VIEW} what="procurement" permission="procurement.view">
       {async ({ company, role }) => {
         const groupCompanyIds = await getCompanyGroupIds(company);
         const canCreate = hasPermission(role, PERM.PROCUREMENT_MANAGE);

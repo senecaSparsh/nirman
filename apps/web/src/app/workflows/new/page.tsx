@@ -1,10 +1,7 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 import { PageHeader } from "@/components/page-header";
-import { WorkflowBuilder } from "@/components/workflows/workflow-builder";
 import { PageLoading } from "@/components/page-loading";
-import { PermissionGate } from "@/components/permission-gate";
-import { PERM } from "@/lib/roles";
+import { NewWorkflowContent } from "./content";
 
 export const metadata = { title: "New Workflow · Nirman" };
 
@@ -19,14 +16,5 @@ export default function NewWorkflowPage() {
         <NewWorkflowContent />
       </Suspense>
     </div>
-  );
-}
-
-export async function NewWorkflowContent() {
-  await connection();
-  return (
-    <PermissionGate perm={PERM.CANVAS_VIEW}>
-      <WorkflowBuilder />
-    </PermissionGate>
   );
 }

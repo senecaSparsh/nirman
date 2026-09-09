@@ -1,35 +1,143 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Send, Plus, Trash2, IndianRupee, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { useLongPressNav } from "@/lib/use-long-press-nav";
+import { useSmartDefaults } from "@/lib/use-smart-defaults";
+import { useTodayDateState } from "@/lib/use-today-date";
+import { SmartDefaultsBadge } from "@/components/mobile/v2/smart-defaults-badge";
 import { SectionCard, SelectorModal } from "@/components/mobile/v2/form-primitives";
+import { formatCurrency } from "@/lib/utils";
 
 type Employee = { id: string; name: string };
 type Project = { id: string; name: string };
+type Category = { id: string; name: string; isActive: boolean };
+
+type ExpenseLine = {
+  categoryId: string;
+  category: string;
+  amount: string;
+  gstRate: string;
+  date: string;
+  notes: string;
+  receiptUrl: string | null;
+  receiptFile: File | null;
+};
+
+function emptyLine(defaultDate: string): ExpenseLine {
+  return {
+    categoryId: "",
+    category: "",
+    amount: "",
+    gstRate: "",
+    date: defaultDate,
+    notes: "",
+    receiptUrl: null,
+    receiptFile: null,
+  };
+}
 
 export function MobileNewExpenseClaimClient({
   employees,
   projects,
+  categories,
+  currentUserId,
   onCreated,
+  onClose: _onClose,
 }: {
   employees: Employee[];
   projects: Project[];
+  categories: Category[];
+  currentUserId: string | null;
   onClose?: () => void;
   onCreated?: (id: string) => void;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [claimantId, setClaimantId] = useState("");
   const [projectId, setProjectId] = useState("");
   const [description, setDescription] = useState("");
   const [modal, setModal] = useState<"claimant" | "project" | null>(null);
+  const [categoryModalLine, setCategoryModalLine] = useState<number | null>(null);
   const submitLongPress = useLongPressNav("/m/expense-claims", "Expense claims");
+  const { getDefault, recordDefaults } = useSmartDefaults("expense-claim");
+  const [defaultsApplied, setDefaultsApplied] = useState(false);
+  const [today] = useTodayDateState();
+  const [lines, setLines] = useState<ExpenseLine[]>([]);
+  const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // ── Default claimant to current user ──
+  useEffect(() => {
+    if (currentUserId && !claimantId) {
+      const me = employees.find((e) => e.id === currentUserId);
+      if (me) setClaimantId(currentUserId);
+    }
+  }, [currentUserId, employees, claimantId]);
+
+  // ── Smart defaults: pre-fill project from last-used ──
+  useEffect(() => {
+    if (defaultsApplied) return;
+    const defProject = getDefault("projectId");
+    if (defProject && projects.some((p) => p.id === defProject)) {
+      setProjectId(defProject);
+    }
+    setDefaultsApplied(true);
+  }, [defaultsApplied, getDefault, projects]);
+
+  // ── Auto-add first line when today's date is ready ──
+  useEffect(() => {
+    if (today && lines.length === 0) {
+      setLines([emptyLine(today)]);
+    }
+  }, [today, lines.length]);
 
   const selectedClaimant = employees.find((e) => e.id === claimantId);
   const selectedProject = projects.find((p) => p.id === projectId);
+
+  // ── Compute total from valid lines ──
+  const totalAmount = lines.reduce((sum, l) => {
+    const amt = parseFloat(l.amount);
+    if (!amt || amt <= 0) return sum;
+    const gst = l.gstRate ? (amt * parseFloat(l.gstRate)) / 100 : 0;
+    return sum + amt + gst;
+  }, 0);
+
+  function updateLine(idx: number, patch: Partial<ExpenseLine>) {
+    setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  }
+
+  function addLine() {
+    setLines((prev) => [...prev, emptyLine(today)]);
+  }
+
+  function removeLine(idx: number) {
+    setLines((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  async function uploadReceipt(file: File): Promise<string | null> {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/uploads", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      return data.url ?? null;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function handleFileSelect(idx: number, file: File | null) {
+    if (!file) return;
+    updateLine(idx, { receiptFile: file, receiptUrl: null });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,9 +145,19 @@ export function MobileNewExpenseClaimClient({
       toast.error("Claimant is required");
       return;
     }
+    // Validate lines — at least one valid line with amount > 0
+    const validLines = lines.filter((l) => l.category.trim() && parseFloat(l.amount) > 0);
+    if (validLines.length === 0) {
+      toast.error("Add at least one expense line with category and amount");
+      return;
+    }
     setSaving(true);
     try {
-      const res = await fetch("/api/expense-claims", {
+      // Record smart defaults
+      recordDefaults({ projectId });
+
+      // Step 1: Create claim shell
+      const createRes = await fetch("/api/expense-claims", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -48,15 +166,63 @@ export function MobileNewExpenseClaimClient({
           description: description.trim() || undefined,
         }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? "Failed to create claim");
-      toast.success("Expense claim created", {
-        description: "Add line items from the claim detail page.",
+      const createData = await createRes.json().catch(() => ({}));
+      if (!createRes.ok) throw new Error(createData.error ?? "Failed to create claim");
+      const claimId = createData.id;
+
+      // Step 2: Upload receipts + add lines
+      for (const line of validLines) {
+        let receiptUrl = line.receiptUrl;
+        if (line.receiptFile) {
+          const uploaded = await uploadReceipt(line.receiptFile);
+          if (uploaded) receiptUrl = uploaded;
+        }
+        const lineRes = await fetch(`/api/expense-claims/${claimId}/lines`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            categoryId: line.categoryId || null,
+            category: line.category.trim(),
+            amount: Number(line.amount),
+            gstRate: line.gstRate ? Number(line.gstRate) : null,
+            date: line.date || undefined,
+            receiptUrl: receiptUrl || null,
+            notes: line.notes.trim() || null,
+          }),
+        });
+        if (!lineRes.ok) {
+          const ld = await lineRes.json().catch(() => ({}));
+          throw new Error(ld.error ?? "Failed to add expense line");
+        }
+      }
+
+      // Step 3: Auto-submit the claim
+      const submitRes = await fetch(`/api/expense-claims/${claimId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "submit" }),
+      });
+      if (!submitRes.ok) {
+        // Claim created + lines added but submit failed — still usable
+        toast.success("Expense claim created", {
+          description: "Lines added. Submit the claim from the detail page.",
+        });
+        if (onCreated) {
+          onCreated(claimId);
+        } else {
+          router.push(`/m/expense-claims/${claimId}`);
+          router.refresh();
+        }
+        return;
+      }
+
+      toast.success("Expense claim submitted", {
+        description: `${validLines.length} line ${validLines.length === 1 ? "item" : "items"} · ${formatCurrency(totalAmount)}`,
       });
       if (onCreated) {
-        onCreated(data.id);
+        onCreated(claimId);
       } else {
-        router.push(`/m/expense-claims/${data.id}`);
+        router.push(`/m/expense-claims/${claimId}`);
         router.refresh();
       }
     } catch (err) {
@@ -72,10 +238,19 @@ export function MobileNewExpenseClaimClient({
     setModal(null);
   };
 
+  const handleCategorySelect = (catId: string, catName: string) => {
+    if (categoryModalLine !== null) {
+      updateLine(categoryModalLine, { categoryId: catId, category: catName });
+    }
+    setCategoryModalLine(null);
+  };
+
+  const activeCategories = categories.filter((c) => c.isActive);
+
   return (
     <div className="pb-32">
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        {/* ══════ SECTION: CLAIMANT ══════ */}
+        {/* ══════ SECTION: CLAIM DETAILS ══════ */}
         <SectionCard title="Claim Details">
           <SelectorCardInline
             label="Claimant"
@@ -89,6 +264,7 @@ export function MobileNewExpenseClaimClient({
             value={selectedProject?.name}
             onClick={() => setModal("project")}
           />
+          {selectedProject && <SmartDefaultsBadge />}
 
           <div>
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
@@ -104,6 +280,166 @@ export function MobileNewExpenseClaimClient({
             />
           </div>
         </SectionCard>
+
+        {/* ══════ SECTION: EXPENSE LINES ══════ */}
+        <SectionCard title={`Expense Lines (${lines.length})`}>
+          {lines.map((line, idx) => (
+            <div
+              key={idx}
+              className="rounded-[0.5rem] border p-3 mb-2"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+            >
+              {/* Category selector */}
+              <div className="mb-2">
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                  Category <span style={{ color: "var(--color-stop)" }}>*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setCategoryModalLine(idx)}
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors text-left press"
+                  style={{
+                    borderColor: "var(--color-line)",
+                    backgroundColor: "transparent",
+                    color: line.category ? "var(--color-ink-950)" : "var(--color-ink-500)",
+                  }}
+                >
+                  <span className="truncate block">{line.category || "— Select —"}</span>
+                </button>
+              </div>
+
+              {/* Amount + Date */}
+              <div className="flex gap-3 mb-2">
+                <div className="flex-1">
+                  <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                    Amount <span style={{ color: "var(--color-stop)" }}>*</span>
+                  </label>
+                  <div className="flex items-center border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)" }}>
+                    <IndianRupee className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={line.amount}
+                      onChange={(e) => updateLine(idx, { amount: e.target.value })}
+                      placeholder="0"
+                      className="w-full px-1 h-7 text-m-caption outline-none tabular-nums"
+                      style={{ backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                    />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    value={line.date}
+                    onChange={(e) => updateLine(idx, { date: e.target.value })}
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                  />
+                </div>
+              </div>
+
+              {/* GST + Notes */}
+              <div className="flex gap-3 mb-2">
+                <div className="w-20">
+                  <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                    GST %
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="28"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={line.gstRate}
+                    onChange={(e) => updateLine(idx, { gstRate: e.target.value })}
+                    placeholder="0"
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors tabular-nums"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                    Notes
+                  </label>
+                  <input
+                    type="text"
+                    value={line.notes}
+                    onChange={(e) => updateLine(idx, { notes: e.target.value })}
+                    placeholder="Optional"
+                    className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                  />
+                </div>
+              </div>
+
+              {/* Receipt photo */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={(el) => { fileInputRefs.current[idx] = el; }}
+                    type="file"
+                    accept="image/*,application/pdf"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => handleFileSelect(idx, e.target.files?.[0] ?? null)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRefs.current[idx]?.click()}
+                    disabled={uploading}
+                    className="flex items-center gap-1 text-m-caption font-semibold press"
+                    style={{ color: "var(--color-signal)" }}
+                  >
+                    <Camera className="size-3.5" />
+                    {line.receiptFile ? "Receipt selected" : "Add receipt"}
+                  </button>
+                  {uploading && <Loader2 className="size-3 animate-spin" />}
+                </div>
+                {lines.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeLine(idx)}
+                    className="flex items-center gap-1 text-m-caption font-semibold press"
+                    style={{ color: "var(--color-stop)" }}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* Add line button */}
+          <button
+            type="button"
+            onClick={addLine}
+            className="w-full flex items-center justify-center gap-1.5 py-2 text-m-caption font-bold press"
+            style={{ color: "var(--color-signal)" }}
+          >
+            <Plus className="size-3.5" />
+            Add another line
+          </button>
+
+          {/* Total */}
+          {totalAmount > 0 && (
+            <div
+              className="mt-2 flex items-center justify-between border-t pt-2"
+              style={{ borderColor: "var(--color-line)" }}
+            >
+              <span className="text-m-caption font-bold uppercase tracking-wider" style={{ color: "var(--color-steel)" }}>
+                Total
+              </span>
+              <span className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                {formatCurrency(totalAmount)}
+              </span>
+            </div>
+          )}
+        </SectionCard>
       </form>
 
       {/* ══════ STICKY BOTTOM BAR ══════ */}
@@ -115,7 +451,7 @@ export function MobileNewExpenseClaimClient({
           <button
             type="button"
             onClick={(e) => { if (submitLongPress.wasLongPress()) return; handleSubmit(e as unknown as React.FormEvent); }}
-            disabled={saving}
+            disabled={saving || uploading}
             {...submitLongPress.longPressProps}
             className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-body font-bold press disabled:opacity-50 select-none"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", touchAction: "none" }}
@@ -125,7 +461,7 @@ export function MobileNewExpenseClaimClient({
             ) : (
               <>
                 <Send className="size-3.5" />
-                <span>Create Claim</span>
+                <span>Create &amp; Submit</span>
               </>
             )}
           </button>
@@ -155,6 +491,19 @@ export function MobileNewExpenseClaimClient({
           onClose={() => setModal(null)}
         />
       ) : null}
+
+      {categoryModalLine !== null && (
+        <SelectorModal
+          title="Select Category"
+          items={activeCategories.map((c) => ({ id: c.id, label: c.name }))}
+          selectedId={lines[categoryModalLine]?.categoryId ?? ""}
+          onSelect={(id) => {
+            const cat = categories.find((c) => c.id === id);
+            handleCategorySelect(id, cat?.name ?? "");
+          }}
+          onClose={() => setCategoryModalLine(null)}
+        />
+      )}
     </div>
   );
 }

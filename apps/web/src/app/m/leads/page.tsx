@@ -11,7 +11,7 @@ import { MobileLeadsList, type LeadListItem } from "./MobileLeadsList";
  */
 export default function MobileLeadsPage() {
   return (
-    <MobileListPage managePerm={PERM.SALE_CREATE}>
+    <MobileListPage perm={PERM.SALES_VIEW} managePerm={PERM.SALE_CREATE} what="leads" permission="sales.view">
       {async ({ company, canManage }) => {
         const BATCH_SIZE = 40;
         const leads = await prisma.lead.findMany({

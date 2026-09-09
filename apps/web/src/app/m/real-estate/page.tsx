@@ -29,7 +29,7 @@ export default function MobileRealEstateHubPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   return (
-    <MobileHubPage>
+    <MobileHubPage perm={PERM.PROJECTS_VIEW} what="real estate" permission="projects.view">
       {async () => {
         const { tab } = await searchParams;
 

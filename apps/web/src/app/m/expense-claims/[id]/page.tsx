@@ -5,6 +5,8 @@ import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileExpenseClaimDetailClient } from "./MobileExpenseClaimDetailClient";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
+type CategoryRow = { id: string; name: string; isActive: boolean };
+
 /**
  * /m/expense-claims/[id] — mobile expense claim detail.
  * Shows claim header, line items, workflow timeline, and
@@ -35,6 +37,14 @@ export default function MobileExpenseClaimDetailPage({
         const canManage = hasPermission(role, PERM.FINANCE_MANAGE);
         const canCreate = hasPermission(role, PERM.EXPENSE_CREATE);
 
+        const categories: CategoryRow[] = canCreate
+          ? await prisma.expenseCategory.findMany({
+              where: { companyId: company.id, isActive: true },
+              orderBy: { name: "asc" },
+              select: { id: true, name: true, isActive: true },
+            })
+          : [];
+
         if (!claim) {
           return (
             <MobileExpenseClaimDetailClient
@@ -57,6 +67,7 @@ export default function MobileExpenseClaimDetailPage({
               canManage={false}
               canCreate={false}
               createdAt=""
+              categories={[]}
             />
           );
         }
@@ -97,6 +108,7 @@ export default function MobileExpenseClaimDetailPage({
             canManage={canManage}
             canCreate={canCreate}
             createdAt={claim.createdAt.toISOString()}
+            categories={categories}
           />
           </PageContextProvider>
         );

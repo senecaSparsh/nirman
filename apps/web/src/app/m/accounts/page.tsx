@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { prisma } from "@nirman/db";
 import { getTallySyncStats, getSupplierOutstanding } from "@nirman/services";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, getCurrentUser, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils";
@@ -62,7 +62,9 @@ export default function AccountsHomePage({
         // ── Fetch badge counts for the tab bar ──
         const needEmployees = canCreateClaim || canManagePettyCash;
         const needPayments = canManagePayments;
-        const [pendingClaimsCount, projects, subcontractors, employees, paymentForm] = await Promise.all([
+        const needCategories = canCreateClaim;
+        const currentUser = await getCurrentUser();
+        const [pendingClaimsCount, projects, subcontractors, employees, paymentForm, expenseCategories] = await Promise.all([
           prisma.expenseClaim.count({
             where: { companyId: company.id, status: "SUBMITTED" },
           }).catch(() => 0),
@@ -120,6 +122,13 @@ export default function AccountsHomePage({
                 };
               })()
             : { suppliers: [], purchaseOrders: [], invoices: [] },
+          needCategories
+            ? prisma.expenseCategory.findMany({
+                where: { companyId: company.id, isActive: true },
+                orderBy: { name: "asc" },
+                select: { id: true, name: true, isActive: true },
+              })
+            : [],
         ]);
 
         const counts = {
@@ -162,6 +171,8 @@ export default function AccountsHomePage({
             canCreateClaim={canCreateClaim}
             canManagePettyCash={canManagePettyCash}
             canManagePayments={canManagePayments}
+            expenseCategories={expenseCategories.map((c) => ({ id: c.id, name: c.name, isActive: c.isActive }))}
+            currentUserId={currentUser?.id ?? null}
           >
             {content}
           </MobileAccountsHubTabs>

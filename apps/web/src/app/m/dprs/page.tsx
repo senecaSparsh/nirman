@@ -8,7 +8,7 @@ import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export default function MobileDprsPage() {
   return (
-    <MobileListPage>
+    <MobileListPage perm={PERM.DPR_VIEW} what="DPRs" permission="dpr.view">
       {async ({ company, role }) => {
         const canSubmit = hasPermission(role, PERM.DPR_SUBMIT);
         const canApproveSubAdmin = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN);

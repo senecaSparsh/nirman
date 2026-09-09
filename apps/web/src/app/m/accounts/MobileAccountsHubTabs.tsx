@@ -94,6 +94,8 @@ export function MobileAccountsHubTabs({
   canCreateClaim = false,
   canManagePettyCash = false,
   canManagePayments = false,
+  expenseCategories = [],
+  currentUserId = null,
 }: {
   activeTab?: string;
   counts?: Partial<Record<TabValue, number>>;
@@ -109,6 +111,8 @@ export function MobileAccountsHubTabs({
   canCreateClaim?: boolean;
   canManagePettyCash?: boolean;
   canManagePayments?: boolean;
+  expenseCategories?: { id: string; name: string; isActive: boolean }[];
+  currentUserId?: string | null;
 }) {
   const [tab, setTab] = useTabParam(TABS, "overview");
   const claimFab = useFabModal();
@@ -151,6 +155,8 @@ export function MobileAccountsHubTabs({
             <MobileNewExpenseClaimClient
               employees={employees}
               projects={projects}
+              categories={expenseCategories}
+              currentUserId={currentUserId}
               onClose={claimFab.close}
               onCreated={() => { claimFab.close(); window.location.reload(); }}
             />
@@ -168,6 +174,7 @@ export function MobileAccountsHubTabs({
             <MobileNewPettyCashClient
               projects={projects}
               employees={employees}
+              currentUserId={currentUserId}
               onClose={pettyCashFab.close}
               onCreated={() => { pettyCashFab.close(); window.location.reload(); }}
             />

@@ -1,0 +1,65 @@
+import { connection } from "next/server";
+import { prisma } from "@nirman/db";
+import { getCompany, getUserRole } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
+import { NoAccess } from "@/components/no-access";
+import type { DepartmentRow } from "@/lib/types";
+import { PageHeader } from "@/components/page-header";
+import { DepartmentsView } from "@/components/departments/departments-view";
+
+export async function DepartmentsContent() {
+  await connection();
+  const role = await getUserRole();
+  const company = await getCompany();
+
+  if (!hasPermission(role, PERM.INVENTORY_VIEW)) {
+    return <NoAccess what="departments" />;
+  }
+
+  const departments = await prisma.department.findMany({
+    take: 500,
+    where: { companyId: company.id, deletedAt: null },
+    orderBy: { code: "asc" },
+    include: {
+      stockLocation: { select: { id: true, name: true } },
+      _count: { select: { materialIssues: { where: { department: { deletedAt: null } } } } },
+    },
+  });
+
+  const rows: DepartmentRow[] = departments.map((d) => ({
+    id: d.id,
+    code: d.code,
+    name: d.name,
+    description: d.description,
+    active: d.active,
+    stockLocationId: d.stockLocation?.id ?? null,
+    stockLocationName: d.stockLocation?.name ?? null,
+    issueCount: d._count.materialIssues,
+  }));
+
+  const perms = {
+    canCreate: hasPermission(role, PERM.INVENTORY_MANAGE),
+    canEdit: hasPermission(role, PERM.INVENTORY_MANAGE),
+    canDelete: hasPermission(role, PERM.INVENTORY_MANAGE),
+  };
+
+  return (
+    <>
+      <PageHeader
+        title="Departments"
+        description="Operational cost centers — manufacturing lines, workshop, lab. Materials issued to a department hit Operating Expenses (not WIP)."
+        stats={[
+          { label: "Departments", value: rows.length },
+          { label: "Active", value: rows.filter((d) => d.active).length },
+          { label: "With Stock Room", value: rows.filter((d) => d.stockLocationName).length },
+        ]}
+      />
+      <DepartmentsView
+        departments={rows}
+        canCreate={perms.canCreate}
+        canEdit={perms.canEdit}
+        canDelete={perms.canDelete}
+      />
+    </>
+  );
+}

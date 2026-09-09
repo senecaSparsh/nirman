@@ -57,7 +57,7 @@ vi.mock("@/components/page-loading", () => ({
 // server components. MaterialsContent is the async function that does the
 // data fetching + transformation + permission gating — calling it directly
 // and rendering its returned element tests the full logic.
-import { MaterialsContent } from "./page";
+import { MaterialsContent } from "./content";
 
 describe("MaterialsPage (MaterialsContent)", () => {
   beforeEach(() => {

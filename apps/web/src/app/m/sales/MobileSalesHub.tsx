@@ -33,6 +33,7 @@ export function MobileSalesHub({
   units,
   assignees,
   canManage,
+  currentUserId,
 }: {
   leads: LeadRow[];
   sales: SaleItem[];
@@ -41,6 +42,7 @@ export function MobileSalesHub({
   units: { id: string; projectId: string; projectName: string; label: string }[];
   assignees: { id: string; name: string }[];
   canManage: boolean;
+  currentUserId?: string | null;
 }) {
   const searchParams = useSearchParams();
   const initialView = searchParams.get("tab") === "collections" ? "collections" : "pipeline";
@@ -78,7 +80,7 @@ export function MobileSalesHub({
       </div>
 
       {view === "pipeline" ? (
-        <MobileLeadPipeline leads={leads} projects={projects} units={units} assignees={assignees} canManage={canManage} />
+        <MobileLeadPipeline leads={leads} projects={projects} units={units} assignees={assignees} canManage={canManage} currentUserId={currentUserId} />
       ) : (
         <>
           <MobileSalesCollection
@@ -102,12 +104,14 @@ function MobileLeadPipeline({
   units,
   assignees,
   canManage,
+  currentUserId,
 }: {
   leads: LeadRow[];
   projects: { id: string; name: string }[];
   units: { id: string; projectId: string; projectName: string; label: string }[];
   assignees: { id: string; name: string }[];
   canManage: boolean;
+  currentUserId?: string | null;
 }) {
   const router = useRouter();
   const [stage, setStage] = useState<"OPEN" | LeadStage>("OPEN");
@@ -250,6 +254,7 @@ function MobileLeadPipeline({
             projects={projects}
             units={units}
             assignees={assignees}
+            currentUserId={currentUserId}
             onClose={fab.close}
             onCreated={() => router.refresh()}
           />

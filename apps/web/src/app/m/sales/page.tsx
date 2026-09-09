@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, getCurrentUser } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import type { LeadRow } from "@/lib/types";
@@ -21,8 +21,9 @@ import { MobileSalesHub } from "./MobileSalesHub";
  */
 export default function MobileSalesPage() {
   return (
-    <MobileListPage>
+    <MobileListPage perm={PERM.SALES_VIEW} what="sales" permission="sales.view">
       {async ({ company, role }) => {
+        const currentUser = await getCurrentUser();
         const [sales, leads, projects, units, salesMembers] = await Promise.all([
           prisma.assetSale.findMany({
             where: { companyId: company.id, status: "ACTIVE" },
@@ -146,6 +147,7 @@ export default function MobileSalesPage() {
             }))}
             assignees={salesMembers.map((membership) => membership.user)}
             canManage={hasPermission(role, PERM.SALES_MANAGE)}
+            currentUserId={currentUser?.id ?? null}
           />
         );
       }}

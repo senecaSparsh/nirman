@@ -14,7 +14,7 @@ export default function MobileStockPage({
   searchParams: Promise<{ materialId?: string; locationId?: string; tab?: string }>;
 }) {
   return (
-    <MobileHubPage skeleton={<MobileSkeletonList rows={8} />}>
+    <MobileHubPage skeleton={<MobileSkeletonList rows={8} />} perm={PERM.INVENTORY_VIEW} what="stock" permission="inventory.view">
       {async ({ company, role }) => {
         const canManage = hasPermission(role, PERM.INVENTORY_MANAGE);
         const canTransfer = hasPermission(role, PERM.STOCK_TRANSFER);

@@ -35,7 +35,7 @@ vi.mock("@/components/page-loading", () => ({
   PageLoading: () => <div data-testid="page-loading">Loading…</div>,
 }));
 
-import { NewWorkflowContent } from "./page";
+import { NewWorkflowContent } from "./content";
 
 describe("NewWorkflowPage (NewWorkflowContent)", () => {
   beforeEach(() => {

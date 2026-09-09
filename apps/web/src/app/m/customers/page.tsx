@@ -16,7 +16,7 @@ import { MobileCustomersLeadsTabs } from "./MobileCustomersLeadsTabs";
  */
 export default function MobileCustomersPage() {
   return (
-    <MobileListPage managePerm={PERM.SALES_MANAGE} skeletonRows={8}>
+    <MobileListPage perm={PERM.SALES_VIEW} managePerm={PERM.SALES_MANAGE} skeletonRows={8} what="customers" permission="sales.view">
       {async ({ company, canManage }) => {
         // Fetch ALL customers for this company (not just those with asset sales)
         const BATCH_SIZE = 40;

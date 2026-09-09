@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@nirman/db";
 import { getCurrentUser } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatDate } from "@/lib/utils";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
@@ -13,7 +14,7 @@ import { SiteInteractive } from "./site-interactive";
  */
 export default function SitePage() {
   return (
-    <MobileHubPage>
+    <MobileHubPage perm={PERM.TASKS_VIEW} what="site" permission="tasks.view">
       {async ({ company }) => {
         const user = await getCurrentUser();
 

@@ -22,7 +22,13 @@ type MultiUserEntry = {
 };
 
 // Demo roles shown as one-click buttons (dev only).
-const DEMO_ROLES: Role[] = ["OWNER", "ADMIN", "DEVELOPER", "PROJECT_MANAGER", "SUPERVISOR", "SALES_MANAGER", "ACCOUNTANT"];
+const DEMO_ROLES: Role[] = [
+  "OWNER", "ADMIN", "DEVELOPER",
+  "PROJECT_DIRECTOR", "FINANCE_HEAD",
+  "PROJECT_MANAGER", "PROCUREMENT_MANAGER", "HR_MANAGER",
+  "SITE_ENGINEER", "STORE_KEEPER", "ACCOUNTANT", "SALES_MANAGER",
+  "SUPERVISOR", "QAQC_ENGINEER",
+];
 
 /**
  * SIGN IN — the first screen, so it sets the expectation for the rest.

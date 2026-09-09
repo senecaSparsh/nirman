@@ -36,12 +36,12 @@ import {
  * Maps a role to a persona. Personas group roles that share the same
  * mobile tab bar. The mapping follows the 5-tier delegation hierarchy:
  *
- *   Executive  — OWNER, ADMIN, PROJECT_DIRECTOR, FINANCE_HEAD
+ *   Executive  — OWNER, ADMIN, PROJECT_DIRECTOR
  *   Ops        — PROJECT_MANAGER
  *   Procurement— PROCUREMENT_MANAGER, STORE_KEEPER
  *   Field      — SITE_ENGINEER, SUPERVISOR, QAQC_ENGINEER
  *   Sales      — SALES_MANAGER
- *   Finance    — ACCOUNTANT
+ *   Finance    — ACCOUNTANT, FINANCE_HEAD
  *   HR         — HR_MANAGER
  */
 export type Persona =
@@ -58,7 +58,6 @@ export function roleToPersona(role: string): Persona {
     case "OWNER":
     case "ADMIN":
     case "PROJECT_DIRECTOR":
-    case "FINANCE_HEAD":
       return "executive";
     case "PROJECT_MANAGER":
       return "ops";
@@ -72,6 +71,7 @@ export function roleToPersona(role: string): Persona {
     case "SALES_MANAGER":
       return "sales";
     case "ACCOUNTANT":
+    case "FINANCE_HEAD":
       return "finance";
     case "HR_MANAGER":
       return "hr";

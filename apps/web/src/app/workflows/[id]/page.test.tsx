@@ -40,7 +40,7 @@ vi.mock("@/components/no-access", () => ({
   NoAccess: () => <div data-testid="no-access">No Access</div>,
 }));
 
-import { WorkflowLoader } from "./page";
+import { WorkflowLoader } from "./content";
 
 describe("WorkflowEditorPage (WorkflowLoader)", () => {
   beforeEach(() => {

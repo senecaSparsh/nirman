@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { getCompany } from "@/lib/server";
+import { getCompany, getCurrentUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import { MobileNewLeadClient } from "./MobileNewLeadClient";
@@ -14,6 +14,7 @@ export default function MobileNewLeadPage() {
     <MobileNewEntityPage perm={PERM.SALE_CREATE} what="create leads" permission="sale.create" fields={6}>
       {async () => {
         const company = await getCompany();
+        const currentUser = await getCurrentUser();
 
         const [projects, units, assignees] = await Promise.all([
           prisma.project.findMany({
@@ -51,6 +52,7 @@ export default function MobileNewLeadPage() {
               label: `${u.unitNumber} · ${u.unitType.replace(/_/g, " ")}`,
             }))}
             assignees={assignees.map((a) => ({ id: a.user.id, name: a.user.name }))}
+            currentUserId={currentUser?.id ?? null}
           />
         );
       }}

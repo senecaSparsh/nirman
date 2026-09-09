@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { getCompany } from "@/lib/server";
+import { getCompany, getCurrentUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import { MobileNewPettyCashClient } from "./MobileNewPettyCashClient";
@@ -14,6 +14,7 @@ export default function MobileNewPettyCashPage() {
     <MobileNewEntityPage perm={PERM.FINANCE_MANAGE} what="create petty cash floats" permission="finance.manage" fields={4}>
       {async () => {
         const company = await getCompany();
+        const currentUser = await getCurrentUser();
 
         const [projects, employees] = await Promise.all([
           prisma.project.findMany({
@@ -32,6 +33,7 @@ export default function MobileNewPettyCashPage() {
           <MobileNewPettyCashClient
             projects={projects.map((p) => ({ id: p.id, name: p.name }))}
             employees={employees.map((e) => ({ id: e.id, name: e.name }))}
+            currentUserId={currentUser?.id ?? null}
           />
         );
       }}

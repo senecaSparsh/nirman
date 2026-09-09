@@ -59,7 +59,7 @@ export default function MobileConstructionHubPage({
   searchParams: Promise<{ tab?: string; project?: string }>;
 }) {
   return (
-    <MobileHubPage>
+    <MobileHubPage perm={PERM.PROJECTS_VIEW} what="construction" permission="projects.view">
       {async () => {
         const { tab, project: projectId } = await searchParams;
 

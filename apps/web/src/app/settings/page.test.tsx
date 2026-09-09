@@ -40,7 +40,7 @@ vi.mock("@/components/page-loading", () => ({
   PageLoading: () => <div data-testid="page-loading">Loading…</div>,
 }));
 
-import { SettingsContent } from "./page";
+import { SettingsContent } from "./content";
 
 describe("SettingsPage (SettingsContent)", () => {
   beforeEach(() => {

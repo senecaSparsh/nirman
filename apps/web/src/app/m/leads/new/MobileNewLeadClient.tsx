@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, ContactRound, FolderOpen } from "lucide-react";
@@ -9,6 +9,10 @@ import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCrea
 import { MobileProjectSelect } from "@/components/mobile/selectors";
 import { SectionCard, UnderlineInput, EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { useMobileBack } from "@/components/mobile/v2/mobile-back-button";
+import { useSmartDefaults } from "@/lib/use-smart-defaults";
+import { useDrafts } from "@/lib/offline/use-drafts";
+import { DraftBanner } from "@/components/mobile/draft-banner";
+import { SmartDefaultsBadge } from "@/components/mobile/v2/smart-defaults-badge";
 
 const SOURCES = [
   ["PORTAL", "Property portal"],
@@ -48,12 +52,14 @@ export function MobileNewLeadClient({
   projects,
   units,
   assignees,
+  currentUserId,
   onClose,
   onCreated,
 }: {
   projects: ProjectItem[];
   units: UnitItem[];
   assignees: AssigneeItem[];
+  currentUserId?: string | null;
   /** When provided, the form closes this modal on success instead of navigating. */
   onClose?: () => void;
   /** Called with the newly created lead before closing (optional). */
@@ -62,6 +68,10 @@ export function MobileNewLeadClient({
   const router = useRouter();
   const goBack = useMobileBack("/m/leads");
   const [saving, setSaving] = useState(false);
+  const { getDefault, recordDefaults } = useSmartDefaults("lead");
+  const [defaultsApplied, setDefaultsApplied] = useState(false);
+  const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<typeof form>("lead", "lead-new");
+  const [draftRestored, setDraftRestored] = useState(false);
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -78,6 +88,38 @@ export function MobileNewLeadClient({
     notes: "",
   });
 
+  // ── Restore draft or apply smart defaults ──
+  useEffect(() => {
+    if (draftRestored || defaultsApplied) return;
+    if (hasDraft) return; // wait for user to restore or discard via banner
+    // Smart defaults: pre-fill project, source, and assignee from last-used
+    const defProject = getDefault("projectId");
+    const defSource = getDefault("source");
+    const defAssignee = getDefault("assignedToId");
+    setForm((f) => ({
+      ...f,
+      projectId: defProject && projects.some((p) => p.id === defProject) ? defProject : "",
+      source: defSource ?? "PORTAL",
+      assignedToId: defAssignee && assignees.some((a) => a.id === defAssignee)
+        ? defAssignee
+        : (currentUserId && assignees.some((a) => a.id === currentUserId) ? currentUserId : ""),
+    }));
+    setDefaultsApplied(true);
+  }, [hasDraft, draft, draftRestored, defaultsApplied, getDefault, projects, assignees, currentUserId]);
+
+  function restoreDraft() {
+    if (draft) setForm(draft);
+    setDraftRestored(true);
+  }
+
+  // ── Auto-save draft ──
+  useEffect(() => {
+    if (saving) return;
+    const hasContent = form.name || form.phone || form.projectId || form.notes;
+    if (!hasContent) return;
+    saveDraft(form);
+  }, [form, saving, saveDraft]);
+
   const filteredUnits = useMemo(
     () => form.projectId ? units.filter((u) => u.projectId === form.projectId) : units,
     [form.projectId, units],
@@ -93,6 +135,9 @@ export function MobileNewLeadClient({
     if (!form.phone.trim()) return toast.error("Phone is required");
     setSaving(true);
     try {
+      // Record smart defaults for next time
+      recordDefaults({ projectId: form.projectId, source: form.source, assignedToId: form.assignedToId });
+
       const res = await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -115,12 +160,13 @@ export function MobileNewLeadClient({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to add lead");
       haptic([10, 40, 80]);
+      clearDraft();
       toast.success("Lead added to the pipeline");
       if (onClose) {
         onCreated?.({ id: data.id });
         onClose();
       } else {
-        router.push("/m/real-estate?tab=customers");
+        router.push("/m/leads");
         router.refresh();
       }
     } catch (err: unknown) {
@@ -160,6 +206,15 @@ export function MobileNewLeadClient({
           Pipeline
         </span>
       </div>
+
+      {hasDraft && !draftRestored && (
+        <DraftBanner
+          formName="Lead"
+          updatedAt={draftUpdatedAt}
+          onRestore={restoreDraft}
+          onDiscard={() => { clearDraft(); setDraftRestored(true); }}
+        />
+      )}
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {/* Contact */}
@@ -220,6 +275,7 @@ export function MobileNewLeadClient({
             placeholder="Any project"
             icon={FolderOpen}
           />
+          {form.projectId && <SmartDefaultsBadge />}
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <MobileSelectWithCreate
               label="Interested unit"

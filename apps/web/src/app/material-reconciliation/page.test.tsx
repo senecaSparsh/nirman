@@ -42,7 +42,7 @@ vi.mock("@/components/page-loading", () => ({
   PageLoading: () => <div data-testid="page-loading">Loading…</div>,
 }));
 
-import { ReconContent } from "./page";
+import { ReconContent } from "./content";
 
 describe("MaterialReconciliationPage (ReconContent)", () => {
   beforeEach(() => {

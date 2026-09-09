@@ -22,8 +22,8 @@ describe("roleToPersona", () => {
     expect(roleToPersona("PROJECT_DIRECTOR")).toBe("executive");
   });
 
-  it("maps FINANCE_HEAD to executive", () => {
-    expect(roleToPersona("FINANCE_HEAD")).toBe("executive");
+  it("maps FINANCE_HEAD to finance", () => {
+    expect(roleToPersona("FINANCE_HEAD")).toBe("finance");
   });
 
   it("maps PROJECT_MANAGER to ops", () => {

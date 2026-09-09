@@ -31,28 +31,47 @@ import { withSerializableTransaction, ServiceError } from "@nirman/services";
  */
 const DEMO_PASSWORD = "nirman123";
 
-// Demo accounts for the 7 most common roles (shown as quick-login buttons).
-// The other 7 roles can be created via the Team management UI.
-const DEMO_ROLES: Role[] = ["OWNER", "ADMIN", "DEVELOPER", "PROJECT_MANAGER", "SUPERVISOR", "SALES_MANAGER", "ACCOUNTANT"];
+// Demo accounts for all 14 roles (shown as quick-login buttons).
+const DEMO_ROLES: Role[] = [
+  "OWNER", "ADMIN", "DEVELOPER",
+  "PROJECT_DIRECTOR", "FINANCE_HEAD",
+  "PROJECT_MANAGER", "PROCUREMENT_MANAGER", "HR_MANAGER",
+  "SITE_ENGINEER", "STORE_KEEPER", "ACCOUNTANT", "SALES_MANAGER",
+  "SUPERVISOR", "QAQC_ENGINEER",
+];
 
 const ROLE_NAMES: Partial<Record<Role, string>> = {
   OWNER: "Amit Patil",
   ADMIN: "Anita Rao",
   DEVELOPER: "Sparsh Agarwal",
+  PROJECT_DIRECTOR: "Vikram Shah",
+  FINANCE_HEAD: "Meera Joshi",
   PROJECT_MANAGER: "Sneha Kulkarni",
-  SUPERVISOR: "Ravi Deshmukh",
-  SALES_MANAGER: "Karan Mehta",
+  PROCUREMENT_MANAGER: "Arjun Reddy",
+  HR_MANAGER: "Deepa Iyer",
+  SITE_ENGINEER: "Suresh Kumar",
+  STORE_KEEPER: "Mahesh Yadav",
   ACCOUNTANT: "Priya Nair",
+  SALES_MANAGER: "Karan Mehta",
+  SUPERVISOR: "Ravi Deshmukh",
+  QAQC_ENGINEER: "Nisha Gupta",
 };
 
 const ROLE_EMAILS: Partial<Record<Role, string>> = {
   OWNER: "amit@nirman.in",
   ADMIN: "anita@nirman.in",
   DEVELOPER: "sparsh@nirman.in",
+  PROJECT_DIRECTOR: "vikram@nirman.in",
+  FINANCE_HEAD: "meera@nirman.in",
   PROJECT_MANAGER: "sneha@nirman.in",
-  SUPERVISOR: "ravi@nirman.in",
-  SALES_MANAGER: "karan@nirman.in",
+  PROCUREMENT_MANAGER: "arjun@nirman.in",
+  HR_MANAGER: "deepa@nirman.in",
+  SITE_ENGINEER: "suresh@nirman.in",
+  STORE_KEEPER: "mahesh@nirman.in",
   ACCOUNTANT: "priya@nirman.in",
+  SALES_MANAGER: "karan@nirman.in",
+  SUPERVISOR: "ravi@nirman.in",
+  QAQC_ENGINEER: "nisha@nirman.in",
 };
 
 export const POST = async (req: NextRequest) => {

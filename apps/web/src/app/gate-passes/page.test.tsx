@@ -38,7 +38,7 @@ vi.mock("@/components/page-loading", () => ({
   PageLoading: () => <div data-testid="page-loading">Loading…</div>,
 }));
 
-import { GatePassesContent } from "./page";
+import { GatePassesContent } from "./content";
 
 describe("GatePassesPage (GatePassesContent)", () => {
   beforeEach(() => {

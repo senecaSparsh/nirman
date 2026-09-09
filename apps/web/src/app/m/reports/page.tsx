@@ -1,6 +1,5 @@
 import { type ComponentType, type CSSProperties } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
-import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import {
   Package, Truck, ShoppingCart, Building2, Wallet,
@@ -9,7 +8,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -34,9 +33,8 @@ export default function MobileReportsHubPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   return (
-    <MobileHubPage skeleton={<MobileSkeletonList rows={6} />}>
-      {async ({ company, role }) => {
-        if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
+    <MobileHubPage skeleton={<MobileSkeletonList rows={6} />} perm={PERM.FINANCE_VIEW} what="reports" permission="finance.view">
+      {async ({ company }) => {
         const { tab } = await searchParams;
 
         const validTabs = ["overview", "financial", "purchasing", "inventory", "projects"];

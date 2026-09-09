@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { useLongPressNav } from "@/lib/use-long-press-nav";
+import { useSmartDefaults } from "@/lib/use-smart-defaults";
+import { SmartDefaultsBadge } from "@/components/mobile/v2/smart-defaults-badge";
 import { SectionCard, SelectorModal, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 
 type Project = { id: string; name: string };
@@ -14,29 +16,53 @@ type Employee = { id: string; name: string };
 export function MobileNewPettyCashClient({
   projects,
   employees,
+  currentUserId,
   onCreated,
 }: {
   projects: Project[];
   employees: Employee[];
+  currentUserId?: string | null;
   onClose?: () => void;
   onCreated?: () => void;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
+  const [nameTouched, setNameTouched] = useState(false);
   const [floatAmount, setFloatAmount] = useState("");
   const [projectId, setProjectId] = useState("");
   const [custodianId, setCustodianId] = useState("");
   const [modal, setModal] = useState<"project" | "custodian" | null>(null);
   const submitLongPress = useLongPressNav("/m/petty-cash", "Petty cash");
+  const { getDefault, recordDefaults } = useSmartDefaults("petty-cash");
+  const [defaultsApplied, setDefaultsApplied] = useState(false);
+
+  // ── Default custodian to current user + smart defaults for project ──
+  useEffect(() => {
+    if (defaultsApplied) return;
+    const defProject = getDefault("projectId");
+    if (defProject && projects.some((p) => p.id === defProject)) {
+      setProjectId(defProject);
+    }
+    if (currentUserId && employees.some((e) => e.id === currentUserId)) {
+      setCustodianId(currentUserId);
+    }
+    setDefaultsApplied(true);
+  }, [defaultsApplied, getDefault, projects, employees, currentUserId]);
 
   const selectedProject = projects.find((p) => p.id === projectId);
   const selectedCustodian = employees.find((e) => e.id === custodianId);
 
+  // ── Auto-generate float name from project/custodian when user hasn't typed one ──
+  const effectiveName = nameTouched
+    ? name
+    : [selectedProject?.name, selectedCustodian?.name].filter(Boolean).join(" · ") || "";
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) {
-      toast.error("Float name is required");
+    const finalName = (nameTouched ? name : effectiveName).trim();
+    if (!finalName) {
+      toast.error("Float name is required — select a project or custodian, or type a name");
       return;
     }
     if (!floatAmount || Number(floatAmount) < 0) {
@@ -45,11 +71,12 @@ export function MobileNewPettyCashClient({
     }
     setSaving(true);
     try {
+      recordDefaults({ projectId });
       const res = await fetch("/api/petty-cash", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: name.trim(),
+          name: finalName,
           floatAmount: Number(floatAmount),
           projectId: projectId || undefined,
           custodianId: custodianId || undefined,
@@ -57,7 +84,9 @@ export function MobileNewPettyCashClient({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Failed to create float");
-      toast.success("Petty cash float created");
+      toast.success("Petty cash float created", {
+        description: `${formatCurrency(Number(floatAmount))} · ${finalName}`,
+      });
       if (onCreated) {
         onCreated();
       } else {
@@ -85,9 +114,9 @@ export function MobileNewPettyCashClient({
           <UnderlineInput
             label="Float Name"
             required
-            value={name}
-            onChange={setName}
-            placeholder="e.g. Site cash — Tower A"
+            value={nameTouched ? name : effectiveName}
+            onChange={(v) => { setName(v); setNameTouched(true); }}
+            placeholder={effectiveName || "e.g. Site cash — Tower A"}
             autoFocus
           />
 
@@ -110,6 +139,7 @@ export function MobileNewPettyCashClient({
             value={selectedProject?.name}
             onClick={() => setModal("project")}
           />
+          {selectedProject && <SmartDefaultsBadge />}
 
           <SelectorCardInline
             label="Custodian"

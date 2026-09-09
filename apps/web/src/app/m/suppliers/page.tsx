@@ -12,7 +12,7 @@ import { MobileSuppliersList, type SupplierListItem } from "./MobileSuppliersLis
  */
 export default function MobileSuppliersPage() {
   return (
-    <MobileListPage managePerm={PERM.PROCUREMENT_MANAGE}>
+    <MobileListPage perm={PERM.PROCUREMENT_VIEW} managePerm={PERM.PROCUREMENT_MANAGE} what="suppliers" permission="procurement.view">
       {async ({ company, canManage }) => {
         const BATCH_SIZE = 40;
         const suppliers = await prisma.supplier.findMany({

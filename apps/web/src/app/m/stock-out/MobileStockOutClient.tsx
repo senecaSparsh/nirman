@@ -317,8 +317,7 @@ export function MobileStockOutClient({
 
   // ── Line management ──
   const handleAddLine = () => {
-    const defaultMatId = materials.length > 0 ? materials[0]!.id : "";
-    setLines([...lines, { materialId: defaultMatId, qty: "", lotNumber: "" }]);
+    setLines([...lines, { materialId: "", qty: "", lotNumber: "" }]);
   };
   const handleRemoveLine = (index: number) => {
     if (lines.length === 1) return;

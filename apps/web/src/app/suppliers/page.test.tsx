@@ -37,7 +37,7 @@ vi.mock("@/components/page-loading", () => ({
   PageLoading: () => <div data-testid="page-loading">Loading…</div>,
 }));
 
-import { VendorsContent } from "./page";
+import { VendorsContent } from "./content";
 
 describe("SuppliersPage (VendorsContent)", () => {
   beforeEach(() => {

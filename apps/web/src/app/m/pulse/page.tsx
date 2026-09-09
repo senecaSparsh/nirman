@@ -18,6 +18,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { toNum } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -45,7 +46,7 @@ import { MobileHubPage } from "@/components/mobile/v2/hub-page";
  */
 export default function PulsePage() {
   return (
-    <MobileHubPage>
+    <MobileHubPage perm={PERM.PROJECTS_VIEW} what="executive dashboard" permission="projects.view">
       {async ({ company }) => {
         // ── Lightweight summary queries ───────────────────────────────
         // The portfolio summary uses cached Project fields (kept fresh by

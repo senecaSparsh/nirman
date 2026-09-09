@@ -18,7 +18,7 @@ import { MobileHubPage } from "@/components/mobile/v2/hub-page";
  */
 export default function MobileCrmPage() {
   return (
-    <MobileHubPage>
+    <MobileHubPage perm={PERM.SALES_VIEW} what="CRM" permission="sales.view">
       {async ({ company, role }) => {
         const canSales =
           hasPermission(role, PERM.SALES_VIEW) || hasPermission(role, PERM.SALES_MANAGE);
