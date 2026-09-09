@@ -5,6 +5,7 @@ import {
   getPendingApprovalsForManager,
   seedHsnGstRates,
 } from "@nirman/services";
+import { prisma } from "@nirman/db";
 import { PERM } from "@/lib/roles";
 import {
   apiHandler,
@@ -15,6 +16,7 @@ import {
   requirePermission,
   quotationRequestSchema,
   assertScopeAllows,
+  scopeWhere,
 } from "@/lib/server";
 
 /**
@@ -67,8 +69,19 @@ export const GET = apiHandler(async (req: NextRequest) => {
   }
 
   const requests = await listQuotationRequests(groupCompanyIds, filters);
+  // Apply project scope filtering — the service doesn't do this
+  const qrScope = await scopeWhere("QuotationRequest");
+  const scopedRequests = Object.keys(qrScope).length > 0
+    ? (await prisma.quotationRequest.findMany({
+        where: { id: { in: requests.map((r) => r.id) }, ...qrScope },
+        select: { id: true },
+      })).map((r) => r.id)
+    : null;
+  const filteredRequests = scopedRequests
+    ? requests.filter((r) => scopedRequests.includes(r.id))
+    : requests;
   return json(
-    requests.map((r) => ({
+    filteredRequests.map((r) => ({
       id: r.id,
       requestNumber: r.requestNumber,
       title: r.title,

@@ -128,7 +128,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const { id } = await params;
   const company = await getCompany();
   const groupCompanyIds = await getCompanyGroupIds(company);
-  const existing = await prisma.purchaseOrder.findFirst({ where: { id, companyId: { in: groupCompanyIds } }, select: { id: true } });
+  const existing = await prisma.purchaseOrder.findFirst({ where: { id, companyId: { in: groupCompanyIds }, ...await scopeWhere("PurchaseOrder") }, select: { id: true } });
   if (!existing) return json({ error: "Purchase order not found" }, { status: 404 });
   const body = await req.json();
   const action = body?.action as string | undefined;

@@ -4,7 +4,7 @@ import { prisma } from "@nirman/db";
 import type { PurchaseOrderStatus } from "@nirman/db";
 import { createPurchaseOrder, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, getCompanyGroupIds, json, purchaseOrderSchema, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, getCompanyGroupIds, json, purchaseOrderSchema, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
 export const GET = apiHandler(async (req: NextRequest) => {
@@ -26,7 +26,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const usePagination = searchParams.has("cursor") || searchParams.has("take");
 
   const pos = await prisma.purchaseOrder.findMany({
-    where: { companyId: { in: groupCompanyIds }, supplier: { deletedAt: null }, ...statusFilter, ...(cursorToWhere(cursor) ?? {}) },
+    where: { companyId: { in: groupCompanyIds }, supplier: { deletedAt: null }, ...statusFilter, ...(cursorToWhere(cursor) ?? {}), ...await scopeWhere("PurchaseOrder") },
     orderBy: { createdAt: "desc" },
     take: usePagination ? take + 1 : 200,
     skip: usePagination ? skip : undefined,
@@ -99,6 +99,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: "Use PATCH /api/requisitions/[id] with action:\"convert\" to convert an indent to a PO" }, { status: 400 });
   }
   const { expectedDate, projectId, charges, ...rest } = parsed.data;
+  // Validate project scope
+  try {
+    await assertScopeAllows({ projectId: projectId ?? null, departmentId: null });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+  }
   try {
     const po = await createPurchaseOrder({
       ...rest,
