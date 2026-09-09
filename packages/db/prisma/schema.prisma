@@ -431,6 +431,7 @@ model Employee {
   // ── Onboarding checklist ──
   documentsSubmitted Boolean?       // null=pending, true=submitted, false=missing
   backgroundVerified Boolean?       // null=pending, true=cleared, false=failed
+  onboardingComplete Boolean?      // null=pending, true=completed, false=incomplete
   // ── Appointment letter tracking ──
   appointmentLetterStatus   ContractStatus? // DRAFT → ISSUED → CONFIRMED
   appointmentLetterIssuedAt DateTime?
@@ -1749,6 +1750,7 @@ enum ProcurementScope {
 enum PurchaseOrderStatus {
   DRAFT
   APPROVED
+  REJECTED
   ORDERED
   PARTIAL
   RECEIVED

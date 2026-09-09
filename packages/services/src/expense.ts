@@ -1,7 +1,7 @@
-import { type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { postExpense, reverseJournalEntry } from "./gl-posting";
+import { checkExpenseBudget } from "./expense-budget";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
 
@@ -48,16 +48,6 @@ export function gstTotalOf(cgst: Decimal, sgst: Decimal, igst: Decimal): Decimal
   return cgst.plus(sgst).plus(igst);
 }
 
-/** Resolve the GL expense account code for a category (defaults to 6000). */
-async function resolveExpenseAccount(
-  tx: Prisma.TransactionClient,
-  categoryId?: string | null,
-): Promise<string | undefined> {
-  if (!categoryId) return undefined;
-  const cat = await tx.expenseCategory.findUnique({ where: { id: categoryId } });
-  return cat?.glAccountCode ?? undefined;
-}
-
 export async function createExpense(input: CreateExpenseInput) {
   const amount = new Decimal(input.amount);
   if (!amount.gt(0)) throw new ServiceError("Expense amount must be > 0");
@@ -75,7 +65,6 @@ export async function createExpense(input: CreateExpenseInput) {
   }
 
   return withSerializableTransaction(async (tx) => {
-    const expenseAccountCode = await resolveExpenseAccount(tx, input.categoryId);
     const status = input.submitForApproval ? "PENDING" : "DRAFT";
     const expense = await tx.expense.create({
       data: {
@@ -221,7 +210,12 @@ export async function submitExpense(expenseId: string, companyId: string, userId
 }
 
 /** Approve a PENDING expense — this is where the GL entry is posted. */
-export async function approveExpense(expenseId: string, companyId: string, userId?: string) {
+export async function approveExpense(
+  expenseId: string,
+  companyId: string,
+  userId?: string,
+  options?: { allowBudgetOverrun?: boolean },
+) {
   return withSerializableTransaction(async (tx) => {
     const existing = await tx.expense.findFirst({ where: { id: expenseId, companyId } });
     if (!existing) throw new ServiceError("Expense not found in this company", 404);
@@ -231,6 +225,26 @@ export async function approveExpense(expenseId: string, companyId: string, userI
     // Prevent self-approval: the submitter cannot approve their own expense.
     if (userId && existing.submittedById && userId === existing.submittedById) {
       throw new ServiceError("You cannot approve an expense you submitted — ask another approver", 403);
+    }
+
+    // Budget enforcement: check if approving this expense would exceed the
+    // category/project budget for the period. Block unless explicitly authorized.
+    const budgetCheck = await checkExpenseBudget(tx, {
+      companyId,
+      projectId: existing.projectId,
+      categoryId: existing.categoryId,
+      category: existing.category,
+      amount: existing.amount,
+      date: existing.date,
+    });
+    if (budgetCheck?.wouldExceed && !options?.allowBudgetOverrun) {
+      throw new ServiceError(
+        `Approving this expense would exceed the budget for ${existing.category} ` +
+        `(budget ${budgetCheck.budgetAmount.toFixed(0)}, spent ${budgetCheck.actualAmount.toFixed(0)}, ` +
+        `remaining ${budgetCheck.remaining.toFixed(0)}, this expense ${Number(existing.amount).toFixed(0)}). ` +
+        `Approve with explicit budget overrun authorization if intentional.`,
+        409,
+      );
     }
 
     const subtotal = existing.subtotal ?? existing.amount;

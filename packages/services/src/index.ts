@@ -58,6 +58,7 @@ export {
   createPurchaseOrder,
   createPurchaseOrderTx,
   approvePurchaseOrder,
+  rejectPurchaseOrder,
   orderPurchaseOrder,
   cancelPurchaseOrder,
   addLineToPurchaseOrder,
@@ -473,6 +474,7 @@ export {
 export {
   setExpenseBudget,
   getExpenseBudgetVariance,
+  checkExpenseBudget,
   type SetBudgetInput,
   type ExpenseBudgetVariance,
 } from "./expense-budget";

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { updateEmployee, softDelete, updateEmployeeDossier, type EmployeeDossierInput } from "@nirman/services";
+import { updateEmployee, softDelete, updateEmployeeDossier, type EmployeeDossierInput, getReportingChain, wouldCreateCycle, logAction } from "@nirman/services";
 import { apiHandler, getCompany, json, employeeSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -38,6 +38,12 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return json({ error: "Invalid join date format" }, { status: 400 });
     }
   }
+  // Fetch the current employee to get userId for reportsTo update.
+  const existing = await prisma.employee.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
+    select: { id: true, userId: true },
+  });
+  if (!existing) return json({ error: "Employee not found" }, { status: 404 });
   const updated = await updateEmployee({
     employeeId: id,
     companyId: company.id,
@@ -82,6 +88,45 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   }
   if (hasDossier) {
     await updateEmployeeDossier(id, company.id, user.id, dossierFields);
+  }
+
+  // ── Reporting line update (reportsTo) ──
+  // The reporting line lives on UserCompany, not Employee. We accept a
+  // `reportsToMembershipId` (a UserCompany.id) and update the employee's
+  // linked membership. Only works when the employee has a userId.
+  if (parsed.data.reportsToMembershipId !== undefined && existing.userId) {
+    const membership = await prisma.userCompany.findUnique({
+      where: { userId_companyId: { userId: existing.userId, companyId: company.id } },
+    });
+    if (membership) {
+      const newReportsTo = parsed.data.reportsToMembershipId || null;
+      // If setting a new manager, validate: same company + no cycle.
+      if (newReportsTo) {
+        const target = await prisma.userCompany.findUnique({ where: { id: newReportsTo } });
+        if (!target || target.companyId !== company.id) {
+          return json({ error: "Invalid reporting line — manager not found in this company" }, { status: 400 });
+        }
+        if (target.id === membership.id) {
+          return json({ error: "Cannot report to yourself" }, { status: 400 });
+        }
+        const chain = await getReportingChain(membership.id);
+        if (wouldCreateCycle(newReportsTo, chain)) {
+          return json({ error: "That reporting line would create a cycle" }, { status: 400 });
+        }
+      }
+      await prisma.userCompany.update({
+        where: { id: membership.id },
+        data: { reportsToUserCompanyId: newReportsTo },
+      });
+      await logAction(prisma, {
+        userId: user.id,
+        action: "EMPLOYEE_REPORTS_TO_UPDATE",
+        entityType: "Employee",
+        entityId: id,
+        before: { reportsToUserCompanyId: membership.reportsToUserCompanyId },
+        after: { reportsToUserCompanyId: newReportsTo },
+      });
+    }
   }
 
   revalidatePath("/hr/employees");

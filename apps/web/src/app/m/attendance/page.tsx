@@ -7,17 +7,24 @@ import {
   MobileEmptyState,
   MobileCta,
 } from "@/components/mobile/v2/primitives";
+import { PERM, hasPermission } from "@/lib/roles";
 import { MobileAttendanceList } from "./MobileAttendanceList";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
  * /m/attendance — mobile attendance list. Replaces desktop `/hr/attendance`
  * leaks. Links to the existing mobile attendance form for today's check-in.
+ *
+ * The "Check in now" CTA links to /m/site/attendance which requires HR_MANAGE
+ * (manager logging attendance on behalf of workers). Field workers use the
+ * self-check-in widget on /m/home instead. So the CTA is only shown to users
+ * with HR_MANAGE permission — everyone else just sees their attendance history.
  */
 export default function MobileAttendancePage() {
   return (
     <MobileListPage>
-      {async ({ company }) => {
+      {async ({ company, role }) => {
+        const canManageAttendance = hasPermission(role, PERM.HR_MANAGE);
         // Fetch attendance with traffic-light tiers via the service rollup
         // (joins attendance → DPR approval status per project+date)
         const today = new Date();
@@ -60,11 +67,13 @@ export default function MobileAttendancePage() {
 
         return (
           <div>
-            <div className="mb-4">
-              <MobileCta href="/m/site/attendance" icon={CalendarCheck} variant="primary">
-                Check in now
-              </MobileCta>
-            </div>
+            {canManageAttendance && (
+              <div className="mb-4">
+                <MobileCta href="/m/site/attendance" icon={CalendarCheck} variant="primary">
+                  Check in now
+                </MobileCta>
+              </div>
+            )}
 
             <MobileAttendanceList
               items={serialized}

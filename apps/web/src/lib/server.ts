@@ -1174,6 +1174,9 @@ export const employeeSchema = z.object({
   active: z.boolean().optional(),
   reportingLocationId: z.string().optional().nullable(),
   hierarchyLevel: z.coerce.number().int().min(1).max(6).optional().nullable(),
+  // Reporting line — the UserCompany membership ID of the manager this person reports to.
+  // Only applies when the employee has a linked User account (and thus a UserCompany membership).
+  reportsToMembershipId: z.string().optional().nullable(),
   // Employment terms (dossier) — accepted at creation time
   employmentType: z.enum(["PERMANENT", "CONTRACT", "CASUAL", "PROBATION", "INTERN"]).optional().nullable(),
   noticePeriodDays: z.coerce.number().int().min(0).max(365).optional().nullable(),

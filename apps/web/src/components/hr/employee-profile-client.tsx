@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
+import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 import {
   ArrowLeft, Phone, Mail, Briefcase, Calendar, MapPin, Users, UsersRound,
   Wallet, Clock, ListChecks, FileText, CalendarOff, Pencil, Trash2,
   CheckCircle2, Circle, AlertCircle, Loader2, UserCircle,
   IdCard, Building2, Navigation, Activity, Paperclip, Gift,
-  UserPlus, Ban, RefreshCw,
+  UserPlus, Ban, RefreshCw, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -52,6 +53,10 @@ export type EmployeeProfileData = {
   reportingLocationId: string | null;
   reportingLocationName: string | null;
   userId: string | null;
+  // ── Reporting line (from UserCompany.reportsTo) ──
+  reportsTo: { membershipId: string; userId: string; name: string; role: string } | null;
+  directReports: { membershipId: string; userId: string; name: string; role: string }[];
+  reportsToMembershipId: string | null;
   // ── Dossier fields ──
   employmentType: "PERMANENT" | "CONTRACT" | "CASUAL" | "PROBATION" | "INTERN" | null;
   probationEndDate: string | null;
@@ -73,6 +78,7 @@ export type EmployeeProfileData = {
   // ── Onboarding checklist ──
   documentsSubmitted: boolean | null;
   backgroundVerified: boolean | null;
+  onboardingComplete: boolean | null;
   // ── Salary structure (for onboarding step) ──
   hasSalaryComponents: boolean;
   // ── Auto-deposit ──
@@ -245,10 +251,11 @@ export function EmployeeProfileClient({
   permissions: { canManage: boolean; canManagePayroll: boolean; canAssignTasks: boolean };
 }) {
   const [tab, setTab] = useTabParam(
-    ["overview", "attendance", "payroll", "tasks", "dprs", "leaves", "crew"] as const,
+    ["overview", "attendance", "payroll", "tasks", "dprs", "leaves", "crew", "reports", "dossier"] as const,
     "overview",
   );
   const router = useRouter();
+  const docViewer = useDocumentViewer();
   const [showDelete, setShowDelete] = useState(false);
   const [showCreateAccount, setShowCreateAccount] = useState(false);
   const [showTerminate, setShowTerminate] = useState(false);
@@ -347,6 +354,7 @@ export function EmployeeProfileClient({
               <TabsTrigger value="dprs" count={employee.dprs.history.length}>DPRs</TabsTrigger>
               <TabsTrigger value="leaves" count={employee.leaves.total}>Leave</TabsTrigger>
               <TabsTrigger value="crew" count={employee.supervisedCrews.length}>Crew</TabsTrigger>
+              <TabsTrigger value="reports">Reports</TabsTrigger>
               <TabsTrigger value="dossier" count={employee.attachments.length + employee.benefits.length}>Dossier</TabsTrigger>
             </TabsList>
 
@@ -431,6 +439,9 @@ export function EmployeeProfileClient({
           onClose={() => setShowSetupDeposit(false)}
         />
       )}
+
+      {/* ── In-page document viewer (FAB pop-up, no redirect) ── */}
+      <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </div>
   );
 }
@@ -698,6 +709,7 @@ function ProfileSidebar({
   onGenerateAndConfirm: () => void;
   onSetupDeposit: () => void;
 }) {
+  const docViewer = useDocumentViewer();
   const u = employee.user;
   const phone = employee.phone ?? u?.phone ?? null;
   const email = employee.email ?? u?.email ?? null;
@@ -730,7 +742,18 @@ function ProfileSidebar({
       <SidebarCard title="Assignment" icon={Building2}>
         <SidebarRow icon={MapPin} label="Project" value={employee.activeProjectName} />
         <SidebarRow icon={UsersRound} label="Crew" value={employee.crewName} hint={employee.crewProjectName ?? undefined} />
-        <SidebarRow icon={Navigation} label="Reporting" value={employee.reportingLocationName} hint="GPS geofence" />
+        <SidebarRow icon={Navigation} label="Attendance Site" value={employee.reportingLocationName} hint="GPS geofence" />
+        <SidebarRow
+          icon={UserCircle}
+          label="Reports To"
+          value={employee.reportsTo?.name ?? (employee.userId ? null : "Link a user account to set")}
+          hint={employee.reportsTo ? employee.reportsTo.role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : undefined}
+        />
+        <SidebarRow
+          icon={Users}
+          label="Direct Reports"
+          value={employee.directReports.length > 0 ? `${employee.directReports.length} person(s)` : null}
+        />
         <SidebarRow
           icon={Users}
           label="Supervises"
@@ -818,14 +841,12 @@ function ProfileSidebar({
             )}
             {canManage && employee.active && (
               <div className="py-2 space-y-1.5">
-                <a
-                  href={`/print/employment-agreement/${employee.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-caption font-medium text-foreground hover:bg-muted transition-colors"
+                <button
+                  onClick={() => docViewer.openDoc(`/print/employment-agreement/${employee.id}`, "Employment Agreement")}
+                  className="flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-caption font-medium text-foreground hover:bg-muted transition-colors w-full"
                 >
                   <FileText className="h-3.5 w-3.5" /> View / Print Agreement
-                </a>
+                </button>
                 {employee.contractStatus === "ISSUED" && (
                   <Button
                     variant="outline"
@@ -2264,6 +2285,8 @@ function OnboardingChecklist({
   canManage: boolean;
   canManagePayroll: boolean;
 }) {
+  const router = useRouter();
+  const [completing, setCompleting] = useState(false);
   const hasProfile = !!(employee.name && (employee.phone || employee.user?.phone) && (employee.designation || employee.trade));
   const hasWage = employee.wageType === "DAILY" ? employee.dailyRate > 0 : (employee.monthlySalary ?? 0) > 0;
   const hasEmploymentTerms = !!(
@@ -2301,6 +2324,21 @@ function OnboardingChecklist({
   const completedCount = steps.filter((s) => s.done).length;
   const isComplete = completedCount === steps.length;
 
+  async function completeOnboarding() {
+    setCompleting(true);
+    try {
+      const res = await fetch(`/api/employees/${employee.id}/complete-onboarding`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      toast.success(data.message ?? "Onboarding complete");
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setCompleting(false);
+    }
+  }
+
   return (
     <div className="py-2 space-y-1.5">
       {isComplete && (
@@ -2330,6 +2368,12 @@ function OnboardingChecklist({
         <div className="pt-1.5 text-meta text-muted-foreground">
           {completedCount}/{steps.length} steps complete
         </div>
+      )}
+      {canManage && !employee.onboardingComplete && isComplete && (
+        <Button onClick={completeOnboarding} disabled={completing} className="w-full mt-2" size="sm">
+          {completing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          Done — Complete Onboarding
+        </Button>
       )}
     </div>
   );

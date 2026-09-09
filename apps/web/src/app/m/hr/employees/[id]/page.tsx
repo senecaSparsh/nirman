@@ -116,7 +116,7 @@ async function MobileEmployeeDetailContent({
   if (!employee) {
     return (
       <>
-        <MobileEmployeeDetailClient notFound canManage={canManage} actorRole={role} projects={projects} stockLocations={stockLocations} />
+        <MobileEmployeeDetailClient notFound canManage={canManage} actorRole={role} projects={projects} stockLocations={stockLocations} potentialManagers={[]} />
       </>
     );
   }
@@ -133,6 +133,56 @@ async function MobileEmployeeDetailContent({
       data: { contractStatus: "EXPIRED" },
     });
     employee.contractStatus = "EXPIRED";
+  }
+
+  // ── Reporting line (UserCompany.reportsTo) ──
+  let reportsTo: { membershipId: string; userId: string; name: string; role: string } | null = null;
+  let directReports: { membershipId: string; userId: string; name: string; role: string }[] = [];
+  let reportsToMembershipId: string | null = null;
+  let potentialManagers: { membershipId: string; userId: string; name: string; role: string }[] = [];
+  if (employee.userId) {
+    const [membership, otherMembers] = await Promise.all([
+      prisma.userCompany.findUnique({
+        where: { userId_companyId: { userId: employee.userId, companyId: company.id } },
+        include: {
+          reportsTo: { include: { user: { select: { id: true, name: true } } } },
+          directReports: { include: { user: { select: { id: true, name: true } } } },
+        },
+      }),
+      prisma.userCompany.findMany({
+        where: { companyId: company.id, userId: { not: employee.userId } },
+        orderBy: { user: { name: "asc" } },
+        select: {
+          id: true, role: true,
+          user: { select: { id: true, name: true, active: true } },
+        },
+      }),
+    ]);
+    if (membership) {
+      reportsToMembershipId = membership.reportsToUserCompanyId;
+      if (membership.reportsTo) {
+        reportsTo = {
+          membershipId: membership.reportsTo.id,
+          userId: membership.reportsTo.user.id,
+          name: membership.reportsTo.user.name,
+          role: membership.reportsTo.role,
+        };
+      }
+      directReports = membership.directReports.map((r) => ({
+        membershipId: r.id,
+        userId: r.userId,
+        name: r.user.name,
+        role: r.role,
+      }));
+    }
+    potentialManagers = otherMembers
+      .filter((m) => m.user.active)
+      .map((m) => ({
+        membershipId: m.id,
+        userId: m.user.id,
+        name: m.user.name,
+        role: m.role,
+      }));
   }
 
   // Tasks are assigned to the linked User.
@@ -220,6 +270,8 @@ async function MobileEmployeeDetailContent({
     reportingLocationId: employee.reportingLocationId,
     userId: employee.userId,
     contractStatus: employee.contractStatus,
+    contractIssuedAt: employee.contractIssuedAt ? employee.contractIssuedAt.toISOString() : null,
+    contractConfirmedAt: employee.contractConfirmedAt ? employee.contractConfirmedAt.toISOString() : null,
     offerLetterStatus: employee.offerLetterStatus,
     offerLetterIssuedAt: employee.offerLetterIssuedAt ? employee.offerLetterIssuedAt.toISOString() : null,
     idCardStatus: employee.idCardStatus,
@@ -228,6 +280,7 @@ async function MobileEmployeeDetailContent({
     appointmentLetterIssuedAt: employee.appointmentLetterIssuedAt ? employee.appointmentLetterIssuedAt.toISOString() : null,
     documentsSubmitted: employee.documentsSubmitted,
     backgroundVerified: employee.backgroundVerified,
+    onboardingComplete: employee.onboardingComplete,
     dateOfBirth: employee.dateOfBirth ? employee.dateOfBirth.toISOString() : null,
     bloodGroup: employee.bloodGroup,
     photoUrl: employee.photoUrl,
@@ -298,6 +351,9 @@ async function MobileEmployeeDetailContent({
       approved: leaveHistory.filter((l) => l.status === "APPROVED").length,
       total: leaveHistory.length,
     },
+    reportsTo,
+    directReports,
+    reportsToMembershipId,
   };
 
   return (
@@ -315,6 +371,7 @@ async function MobileEmployeeDetailContent({
         actorRole={role}
         projects={projects}
         stockLocations={stockLocations}
+        potentialManagers={potentialManagers}
       />
     </>
     </PageContextProvider>

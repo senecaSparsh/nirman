@@ -152,6 +152,7 @@ async function MobileOnboardingDetailContent({
     appointmentLetterIssuedAt: employee.appointmentLetterIssuedAt ? employee.appointmentLetterIssuedAt.toISOString() : null,
     documentsSubmitted: employee.documentsSubmitted,
     backgroundVerified: employee.backgroundVerified,
+    onboardingComplete: employee.onboardingComplete,
     dateOfBirth: employee.dateOfBirth ? employee.dateOfBirth.toISOString() : null,
     bloodGroup: employee.bloodGroup,
     photoUrl: employee.photoUrl,

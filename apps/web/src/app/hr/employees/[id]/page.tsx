@@ -139,6 +139,39 @@ async function EmployeeProfileContent({
     employee.contractStatus = "EXPIRED";
   }
 
+  // ── Reporting line (UserCompany.reportsTo) ──
+  // The reporting line lives on UserCompany, not Employee. Fetch it for
+  // display when the employee has a linked User account.
+  let reportsTo: { membershipId: string; userId: string; name: string; role: string } | null = null;
+  let directReports: { membershipId: string; userId: string; name: string; role: string }[] = [];
+  let reportsToMembershipId: string | null = null;
+  if (employee.userId) {
+    const membership = await prisma.userCompany.findUnique({
+      where: { userId_companyId: { userId: employee.userId, companyId: company.id } },
+      include: {
+        reportsTo: { include: { user: { select: { id: true, name: true } } } },
+        directReports: { include: { user: { select: { id: true, name: true } } } },
+      },
+    });
+    if (membership) {
+      reportsToMembershipId = membership.reportsToUserCompanyId;
+      if (membership.reportsTo) {
+        reportsTo = {
+          membershipId: membership.reportsTo.id,
+          userId: membership.reportsTo.user.id,
+          name: membership.reportsTo.user.name,
+          role: membership.reportsTo.role,
+        };
+      }
+      directReports = membership.directReports.map((r) => ({
+        membershipId: r.id,
+        userId: r.userId,
+        name: r.user.name,
+        role: r.role,
+      }));
+    }
+  }
+
   // Tasks are assigned to the linked User, not the Employee record directly.
   let tasks: Array<{
     id: string; title: string; status: string; priority: string;
@@ -262,6 +295,7 @@ async function EmployeeProfileContent({
     // ── Onboarding checklist ──
     documentsSubmitted: employee.documentsSubmitted,
     backgroundVerified: employee.backgroundVerified,
+    onboardingComplete: employee.onboardingComplete,
     // ── Salary structure (for onboarding step) ──
     hasSalaryComponents: employee.salaryComponents.length > 0,
     // ── Auto-deposit ──
@@ -376,6 +410,10 @@ async function EmployeeProfileContent({
         size: a.upload.size,
       },
     })),
+    // ── Reporting line ──
+    reportsTo,
+    directReports,
+    reportsToMembershipId,
   };
 
   return (

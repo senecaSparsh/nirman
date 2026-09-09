@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma, type AttendanceStatus } from "@nirman/db";
 import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
+import { hasPermission, PERM } from "@/lib/roles";
 
 /**
  * POST /api/attendance/self-check-out
@@ -12,8 +13,8 @@ import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
  * time and GPS coordinates. Computes hoursWorked from check-in/out.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  const _user = await requireUser();
-  const _company = await getCompany();
+  const user = await requireUser();
+  const company = await getCompany();
 
   const schema = z.object({
     employeeId: z.string().min(1, "Employee is required"),
@@ -35,6 +36,28 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   const dateOnly = new Date(attendanceDate);
   dateOnly.setUTCHours(0, 0, 0, 0);
+
+  // Verify the employee belongs to this company
+  const employee = await prisma.employee.findFirst({
+    where: {
+      id: parsed.data.employeeId,
+      companyId: company.id,
+      deletedAt: null,
+      active: true,
+    },
+    select: { id: true, userId: true },
+  });
+
+  if (!employee) {
+    return json({ error: "Employee not found" }, { status: 404 });
+  }
+
+  // Verify the user is linked to this employee (or is a manager/admin)
+  const isSelf = employee.userId === user.id;
+  const isManager = hasPermission(user.role, PERM.HR_MANAGE);
+  if (!isSelf && !isManager) {
+    return json({ error: "You can only check out your own attendance" }, { status: 403 });
+  }
 
   // Find today's attendance record
   const existing = await prisma.workerAttendance.findUnique({

@@ -303,8 +303,9 @@ function POApprovalRow({ po }: { po: ApprovalPORow }) {
   const router = useRouter();
   const [acting, setActing] = useState(false);
   const [done, setDone] = useState(false);
+  const [rejected, setRejected] = useState(false);
 
-  async function act(action: "approve") {
+  async function act(action: "approve" | "reject") {
     setActing(true);
     try {
       const res = await fetch(`/api/purchase-orders/${po.id}`, {
@@ -316,14 +317,19 @@ function POApprovalRow({ po }: { po: ApprovalPORow }) {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.error ?? `Failed to ${action} PO`);
       }
-      toast.success(`PO ${po.poNumber} approved`, {
-        description: "It's ready to be ordered from the supplier.",
-        action: {
-          label: "Order from Supplier",
-          onClick: () => router.push(`/procurement?po=${po.id}`),
-        },
-      });
-      setDone(true);
+      if (action === "approve") {
+        toast.success(`PO ${po.poNumber} approved`, {
+          description: "It's ready to be ordered from the supplier.",
+          action: {
+            label: "Order from Supplier",
+            onClick: () => router.push(`/procurement?po=${po.id}`),
+          },
+        });
+        setDone(true);
+      } else {
+        toast.success(`PO ${po.poNumber} rejected`);
+        setRejected(true);
+      }
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
@@ -332,17 +338,29 @@ function POApprovalRow({ po }: { po: ApprovalPORow }) {
     }
   }
 
-  if (done) {
+  if (done || rejected) {
     return (
       <div className="flex items-center justify-between gap-4 p-4 bg-subtle/50">
         <div className="flex items-center gap-2 text-body text-muted-foreground">
-          <Check className="h-4 w-4 text-success" />
-          <span className="font-medium text-foreground">{po.poNumber}</span>
-          approved
+          {done ? (
+            <>
+              <Check className="h-4 w-4 text-success" />
+              <span className="font-medium text-foreground">{po.poNumber}</span>
+              approved
+            </>
+          ) : (
+            <>
+              <X className="h-4 w-4 text-danger" />
+              <span className="font-medium text-foreground">{po.poNumber}</span>
+              rejected
+            </>
+          )}
         </div>
-        <Link href={`/procurement?po=${po.id}`} className="text-caption text-brand hover:underline inline-flex items-center gap-1">
-          Order from Supplier <ArrowRight className="h-3 w-3" />
-        </Link>
+        {done && (
+          <Link href={`/procurement?po=${po.id}`} className="text-caption text-brand hover:underline inline-flex items-center gap-1">
+            Order from Supplier <ArrowRight className="h-3 w-3" />
+          </Link>
+        )}
       </div>
     );
   }
@@ -391,6 +409,9 @@ function POApprovalRow({ po }: { po: ApprovalPORow }) {
         )}
         {po.canApprove && (
           <div className="flex gap-2">
+            <Button size="sm" variant="outline" disabled={acting} onClick={() => act("reject")}>
+              {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />} Reject
+            </Button>
             <Button size="sm" disabled={acting} onClick={() => act("approve")}>
               {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve
             </Button>

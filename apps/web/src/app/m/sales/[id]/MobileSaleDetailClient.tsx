@@ -245,6 +245,10 @@ export function MobileSaleDetailClient({
   const [compLoanAmount, setCompLoanAmount] = useState("");
   const [compLoanSanctionNo, setCompLoanSanctionNo] = useState("");
   const [compLoanSanctionDate, setCompLoanSanctionDate] = useState("");
+  // Cheque fields for final payment (when paymentMode is CHEQUE)
+  const [compChequeNo, setCompChequeNo] = useState("");
+  const [compChequeDate, setCompChequeDate] = useState("");
+  const [compChequeBank, setCompChequeBank] = useState("");
 
   if (notFound) {
     return (
@@ -367,6 +371,10 @@ export function MobileSaleDetailClient({
           homeLoanAmount: compLoanAmount ? Number(compLoanAmount) : undefined,
           homeLoanSanctionNo: compLoanSanctionNo || undefined,
           homeLoanSanctionDate: compLoanSanctionDate || undefined,
+          // Cheque details (when final payment is by cheque)
+          chequeNo: compPayMode === "CHEQUE" ? compChequeNo.trim() || undefined : undefined,
+          chequeDate: compPayMode === "CHEQUE" ? compChequeDate || undefined : undefined,
+          chequeBank: compPayMode === "CHEQUE" ? compChequeBank.trim() || undefined : undefined,
           // Document URLs
           registryDocumentUrl: compRegistryDocUrl || undefined,
           registryDocumentName: compRegistryDocName || undefined,
@@ -1541,6 +1549,49 @@ export function MobileSaleDetailClient({
                   style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
                 />
               </div>
+
+              {compPayMode === "CHEQUE" && (
+                <>
+                  <div>
+                    <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                      Cheque No.
+                    </label>
+                    <input
+                      type="text"
+                      value={compChequeNo}
+                      onChange={(e) => setCompChequeNo(e.target.value)}
+                      placeholder="Cheque number"
+                      className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                      style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                      Cheque Date
+                    </label>
+                    <input
+                      type="date"
+                      value={compChequeDate}
+                      onChange={(e) => setCompChequeDate(e.target.value)}
+                      className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                      style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                      Cheque Bank
+                    </label>
+                    <input
+                      type="text"
+                      value={compChequeBank}
+                      onChange={(e) => setCompChequeBank(e.target.value)}
+                      placeholder="Bank name"
+                      className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                      style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Additional attachments — generic polymorphic document store */}

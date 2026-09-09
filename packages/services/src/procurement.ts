@@ -2,7 +2,6 @@ import { prisma, type Prisma, type ProcurementScope, type PurchaseOrderStatus } 
 import Decimal from "decimal.js";
 import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
 import { withSerializableTransaction } from "./transaction";
-import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
 import { postPurchaseReceipt } from "./gl-posting";
 import { getApprovalRouting } from "./procurement-advanced";
@@ -384,6 +383,67 @@ export async function orderPurchaseOrder(poId: string, userId?: string) {
   return result.updated;
 }
 
+export async function rejectPurchaseOrder(
+  poId: string,
+  rejectorRole: string,
+  rejectedById?: string,
+  rejectionReason?: string,
+) {
+  const result = await withSerializableTransaction(async (tx) => {
+    const po = await tx.purchaseOrder.findUnique({ where: { id: poId } });
+    if (!po) throw new ServiceError("PO not found", 404);
+    if (po.status !== "DRAFT") throw new ServiceError(`Cannot reject PO in status ${po.status}`);
+
+    // Enforce the same value-based approval routing as approvePurchaseOrder —
+    // rejecting is an approval decision, so the rejector must be authorized.
+    if (rejectorRole !== "OWNER" && rejectorRole !== "ADMIN") {
+      const routing = await getApprovalRouting(po.total, po.companyId);
+      const rejectorRank = ROLE_RANK[rejectorRole] ?? 0;
+      const requiredRank = ROLE_RANK[routing.requiredRole] ?? 0;
+      if (rejectorRank < requiredRank) {
+        throw new ServiceError(
+          `Rejecting this PO (${new Decimal(po.total).toFixed(0)}) requires ${routing.requiredRole} authority. ${routing.reason}`,
+          403,
+        );
+      }
+    }
+
+    const updated = await tx.purchaseOrder.update({
+      where: { id: poId },
+      data: {
+        status: "REJECTED",
+        rejectedById,
+        rejectedAt: new Date(),
+        rejectionReason,
+      },
+    });
+    await logAction(tx, {
+      userId: rejectedById,
+      companyId: po.companyId,
+      action: "PURCHASE_ORDER_REJECT",
+      entityType: "PurchaseOrder",
+      entityId: poId,
+      before: { status: po.status },
+      after: { status: "REJECTED", rejectedAt: updated.rejectedAt },
+    });
+    return { updated, po };
+  });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.PO_APPROVED,
+    companyId: result.po.companyId,
+    entityType: "PurchaseOrder",
+    entityId: poId,
+    variables: {
+      poNumber: result.updated.poNumber ?? poId,
+      total: new Decimal(result.updated.total).toFixed(2),
+    },
+    timestamp: new Date(),
+  });
+
+  return result.updated;
+}
+
 export async function cancelPurchaseOrder(poId: string, userId?: string) {
   return withSerializableTransaction(async (tx) => {
     const po = await tx.purchaseOrder.findUnique({
@@ -471,7 +531,6 @@ export async function addLineToPurchaseOrder(input: {
 
     const gstRate = new Decimal(material.gstRate ?? 0);
     const lineTotal = qty.times(cost);
-    const lineGstTotal = lineTotal.times(gstRate).div(100);
 
     const line = await tx.purchaseOrderLine.create({
       data: {

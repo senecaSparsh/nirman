@@ -1,6 +1,6 @@
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, getCompanyGroupIds } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { MobileLocationDetail } from "./MobileLocationDetail";
@@ -25,6 +25,9 @@ export default function MobileStockPage({
         // SECURITY: All queries must be scoped to the current company to prevent
         // cross-tenant data exposure when a user guesses another company's locationId.
         if (locationId && !materialId) {
+          // Company group includes parent + siblings + children — needed because
+          // inter-company transfers cross company boundaries but stay in the group.
+          const companyGroupIds = await getCompanyGroupIds(company);
           const [location, locationItems, movements, inTransitIncoming, inTransitOutgoing, categories] = await Promise.all([
             prisma.stockLocation.findUnique({
               where: { id: locationId, companyId: company.id, deletedAt: null },
@@ -50,18 +53,18 @@ export default function MobileStockPage({
                 toLocation: { select: { id: true, name: true } },
               },
             }),
-            // In-transit transfers incoming to this location
+            // In-transit transfers incoming to this location (cross-company within group)
             prisma.stockTransfer.findMany({
-              where: { toLocationId: locationId, status: "IN_TRANSIT", fromLocation: { companyId: company.id } },
+              where: { toLocationId: locationId, status: "IN_TRANSIT", fromLocation: { companyId: { in: companyGroupIds } } },
               include: {
                 fromLocation: { select: { name: true } },
                 lines: { include: { material: { select: { name: true, unit: true } } } },
               },
               orderBy: { dispatchedAt: "desc" },
             }),
-            // In-transit transfers outgoing from this location
+            // In-transit transfers outgoing from this location (cross-company within group)
             prisma.stockTransfer.findMany({
-              where: { fromLocationId: locationId, status: "IN_TRANSIT", toLocation: { companyId: company.id } },
+              where: { fromLocationId: locationId, status: "IN_TRANSIT", toLocation: { companyId: { in: companyGroupIds } } },
               include: {
                 toLocation: { select: { name: true } },
                 lines: { include: { material: { select: { name: true, unit: true } } } },

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getCompanyGroupIds, getCurrentUserMembership, toNum, getUserRole } from "@/lib/server";
+import { getCompany, getCompanyGroupIds, getCurrentUser, getCurrentUserMembership, toNum, getUserRole } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
@@ -47,6 +47,7 @@ async function ProcurementContent() {
   // the group, matching the parent/child company hierarchy.
   const groupCompanyIds = await getCompanyGroupIds(company);
   const membership = await getCurrentUserMembership();
+  const currentUser = await getCurrentUser();
 
   const [pos, suppliers, materials, locations, projects, directPurchases, categories, requisitions, phases, supplierReturns, quotationRequests, directReports] = await Promise.all([
     prisma.purchaseOrder.findMany({
@@ -323,6 +324,7 @@ async function ProcurementContent() {
     convertedPoId: r.convertedPoId,
     lineCount: r.lines.length,
     totalQty: r.lines.reduce((s, l) => s + toNum(l.qtyRequested), 0),
+    requestedById: r.requestedById,
     quoteCount: r.vendorQuotes.length,
     minQuotesRequired: r.minQuotesRequired,
     quotesWaived: r.quotesWaived,
@@ -413,6 +415,7 @@ async function ProcurementContent() {
         quotationRequests={quotationRequestRows}
         reportIds={reportIds}
         permissions={perms}
+        currentUserId={currentUser?.id ?? ""}
       />
     </>
   );

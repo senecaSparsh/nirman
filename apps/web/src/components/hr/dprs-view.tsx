@@ -508,7 +508,7 @@ export function DprsView({
                     size="sm"
                     variant="outline"
                     disabled={bulkApproving}
-                    onClick={() => bulkAction(selected.filter((d) => d.approvalStatus === "SUBMITTED"), "subAdminApprove")}
+                    onClick={() => bulkAction(selected.filter((d) => d.approvalStatus === "SUBMITTED" && d.submittedById !== currentUserId), "subAdminApprove")}
                   >
                     {bulkApproving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
                     Sub-Admin Approve
@@ -518,7 +518,7 @@ export function DprsView({
                   <Button
                     size="sm"
                     disabled={bulkApproving}
-                    onClick={() => bulkAction(selected.filter((d) => d.approvalStatus === "SUB_ADMIN_APPROVED"), "adminApprove")}
+                    onClick={() => bulkAction(selected.filter((d) => d.approvalStatus === "SUB_ADMIN_APPROVED" && d.submittedById !== currentUserId), "adminApprove")}
                   >
                     {bulkApproving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                     Admin Approve
@@ -530,7 +530,7 @@ export function DprsView({
                     variant="ghost"
                     className="text-danger"
                     disabled={bulkApproving}
-                    onClick={() => bulkAction(selected.filter((d) => d.approvalStatus === "SUBMITTED" || d.approvalStatus === "SUB_ADMIN_APPROVED"), "reject")}
+                    onClick={() => bulkAction(selected.filter((d) => (d.approvalStatus === "SUBMITTED" || d.approvalStatus === "SUB_ADMIN_APPROVED") && d.submittedById !== currentUserId), "reject")}
                   >
                     {bulkApproving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
                     Reject

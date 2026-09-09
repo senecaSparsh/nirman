@@ -10,6 +10,7 @@ import {
   CalendarOff, UsersRound, MapPin, UserCircle, MessageSquare,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   IdCard, Building2, Activity, FolderOpen,
+  CheckCircle2, Circle, Sparkles,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
@@ -25,6 +26,7 @@ import { DetailStatGrid } from "@/components/mobile/v2/detail-primitives";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { toast } from "sonner";
+import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 import { CreateAccountDialog } from "@/components/hr/create-account-dialog";
 
 type WageType = "DAILY" | "MONTHLY" | "FIXED";
@@ -96,11 +98,21 @@ interface EmployeeData {
   reportingLocationName: string | null;
   reportingLocationId: string | null;
   userId: string | null;
+  reportsTo: { membershipId: string; userId: string; name: string; role: string } | null;
+  directReports: { membershipId: string; userId: string; name: string; role: string }[];
+  reportsToMembershipId: string | null;
   contractStatus: string | null;
+  contractIssuedAt: string | null;
+  contractConfirmedAt: string | null;
   offerLetterStatus: string | null;
   offerLetterIssuedAt: string | null;
   idCardStatus: string | null;
   idCardIssuedAt: string | null;
+  appointmentLetterStatus: string | null;
+  appointmentLetterIssuedAt: string | null;
+  documentsSubmitted: boolean | null;
+  backgroundVerified: boolean | null;
+  onboardingComplete: boolean | null;
   autoDepositEnabled: boolean | null;
   payDay: number | null;
   bankName: string | null;
@@ -138,6 +150,8 @@ interface EmployeeData {
 interface ProjectOption { id: string; name: string; }
 interface StockLocationOption { id: string; name: string; }
 
+interface PotentialManager { membershipId: string; userId: string; name: string; role: string; }
+
 export function MobileEmployeeDetailClient({
   employee,
   canManage,
@@ -145,6 +159,7 @@ export function MobileEmployeeDetailClient({
   notFound,
   projects,
   stockLocations,
+  potentialManagers,
 }: {
   employee?: EmployeeData;
   canManage: boolean;
@@ -152,12 +167,15 @@ export function MobileEmployeeDetailClient({
   notFound?: boolean;
   projects: ProjectOption[];
   stockLocations: StockLocationOption[];
+  potentialManagers: PotentialManager[];
 }) {
   const router = useRouter();
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showCreateAccount, setShowCreateAccount] = useState(false);
+  const [completingOnboarding, setCompletingOnboarding] = useState(false);
+  const docViewer = useDocumentViewer();
   const [availableNumbers, setAvailableNumbers] = useState<
     { id: string; phoneNumber: string; label: string | null; department: string | null; status: string; monthlyCost: number | null; provider: string | null }[]
   >([]);
@@ -343,7 +361,8 @@ export function MobileEmployeeDetailClient({
           <div className="grid grid-cols-2 gap-x-3 gap-y-2">
             <InfoField icon={<Building2 className="size-3" />} label="Project" value={employee.activeProjectName} />
             <InfoField icon={<UsersRound className="size-3" />} label="Crew" value={employee.crewName} sub={employee.crewProjectName ?? undefined} />
-            <InfoField icon={<MapPin className="size-3" />} label="Reporting" value={employee.reportingLocationName} />
+            <InfoField icon={<MapPin className="size-3" />} label="Attendance Site" value={employee.reportingLocationName} />
+            <InfoField icon={<UserCircle className="size-3" />} label="Reports To" value={employee.reportsTo?.name ?? (employee.userId ? "—" : "No account")} />
             <InfoField icon={<IndianRupee className="size-3" />} label="Wage" value={wageValue} />
             <InfoField icon={<Briefcase className="size-3" />} label="Trade" value={employee.trade} />
             <InfoField icon={<Calendar className="size-3" />} label="Joined" value={employee.joinDate ? formatDate(employee.joinDate) : null} />
@@ -373,6 +392,158 @@ export function MobileEmployeeDetailClient({
           )}
         </div>
       </div>
+
+      {/* ── Direct Reports ── */}
+      {employee.directReports.length > 0 && (
+        <div
+          className="rounded-[0.625rem] border mb-3 overflow-hidden"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <div className="p-3">
+            <p className="text-m-section font-extrabold tracking-tight mb-2" style={{ color: "var(--color-ink-950)" }}>
+              Direct Reports ({employee.directReports.length})
+            </p>
+            <div className="space-y-1.5">
+              {employee.directReports.map((r) => (
+                <div key={r.membershipId} className="flex items-center justify-between">
+                  <span className="text-m-body" style={{ color: "var(--color-ink-950)" }}>{r.name}</span>
+                  <span className="text-m-caption" style={{ color: "var(--color-ink-700)" }}>
+                    {r.role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Onboarding Progress ── */}
+      {!employee.onboardingComplete && canManage && (() => {
+        // 12 canonical steps — MUST match /m/hr/onboarding queue + MobileOnboardingTab
+        const hasProfile = !!(employee.name && (employee.phone || employee.user?.phone) && (employee.designation || employee.trade));
+        const hasWage = employee.wageType === "DAILY" ? (employee.dailyRate ?? 0) > 0 : (employee.monthlySalary ?? 0) > 0;
+        const hasEmploymentTerms = !!(
+          employee.employmentType &&
+          employee.noticePeriodDays != null &&
+          (employee.employmentType !== "CONTRACT" || employee.contractStartDate) &&
+          (employee.employmentType !== "PROBATION" || employee.contractStartDate)
+        );
+        const hasSalaryStructure = (employee.salaryComponents ?? []).length > 0;
+        const steps = [
+          { label: "Profile & Wage", done: hasProfile && hasWage },
+          { label: "Employment Terms", done: hasEmploymentTerms },
+          { label: "Salary Structure", done: hasSalaryStructure },
+          { label: "Documents", done: employee.documentsSubmitted === true },
+          { label: "BG Verification", done: employee.backgroundVerified === true },
+          { label: "Login Account", done: !!employee.userId },
+          { label: "Offer Letter", done: ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.offerLetterStatus ?? "") },
+          { label: "Agreement Issued", done: ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.contractStatus ?? "") },
+          { label: "Agreement Confirmed", done: ["CONFIRMED", "EXPIRED"].includes(employee.contractStatus ?? "") },
+          { label: "Appointment Letter", done: ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.appointmentLetterStatus ?? "") },
+          { label: "ID Card", done: ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.idCardStatus ?? "") },
+          { label: "Auto-Deposit", done: employee.autoDepositEnabled === true },
+        ];
+        const completedCount = steps.filter((s) => s.done).length;
+        const pct = Math.round((completedCount / steps.length) * 100);
+
+        async function completeOnboarding() {
+          setCompletingOnboarding(true);
+          try {
+            const res = await fetch(`/api/employees/${employeeId}/complete-onboarding`, { method: "POST" });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error ?? "Failed");
+            toast.success(data.message ?? "Onboarding complete");
+            router.refresh();
+          } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : "Failed");
+          } finally {
+            setCompletingOnboarding(false);
+          }
+        }
+
+        return (
+          <>
+            <MobileSectionTitle>Onboarding Progress</MobileSectionTitle>
+            <div
+              className="rounded-[0.75rem] overflow-hidden mb-3"
+              style={{ backgroundColor: "var(--color-paper)", border: "1px solid var(--color-line)" }}
+            >
+              <div className="px-3 pt-3 pb-2 flex items-center justify-between">
+                <p className="text-m-label font-semibold uppercase tracking-wider" style={{ color: "var(--color-ink-400)" }}>
+                  {completedCount}/{steps.length} Steps
+                </p>
+                <span
+                  className="text-m-caption font-bold px-2 py-0.5 rounded-full"
+                  style={{
+                    color: pct === 100 ? "var(--color-go)" : "var(--color-signal)",
+                    backgroundColor: `color-mix(in srgb, ${pct === 100 ? "var(--color-go)" : "var(--color-signal)"} 8%, transparent)`,
+                  }}
+                >
+                  {pct}%
+                </span>
+              </div>
+              {/* Progress bar */}
+              <div className="px-3 pb-2">
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "var(--color-concrete)" }}>
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${pct}%`,
+                      backgroundColor: pct === 100 ? "var(--color-go)" : "var(--color-signal)",
+                    }}
+                  />
+                </div>
+              </div>
+              {/* Steps grid */}
+              <div className="px-3 pb-2 grid grid-cols-2 gap-x-3 gap-y-1">
+                {steps.map((s) => (
+                  <div key={s.label} className="flex items-center gap-1.5 py-0.5">
+                    {s.done ? (
+                      <CheckCircle2 className="size-3.5 shrink-0" style={{ color: "var(--color-go)" }} />
+                    ) : (
+                      <Circle className="size-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />
+                    )}
+                    <span
+                      className="text-m-caption truncate"
+                      style={{ color: s.done ? "var(--color-ink-700)" : "var(--color-ink-400)" }}
+                    >
+                      {s.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {/* Continue / Done button */}
+              <div className="px-3 pb-3 pt-1">
+                <Link
+                  href={`/m/hr/onboarding/${employee.id}`}
+                  className="block w-full rounded-[0.5rem] p-2.5 text-m-label font-semibold text-center press mb-2"
+                  style={{
+                    backgroundColor: "var(--color-concrete)",
+                    color: "var(--color-ink-700)",
+                  }}
+                >
+                  Continue Onboarding →
+                </Link>
+                {completedCount === steps.length && (
+                  <button
+                    onClick={completeOnboarding}
+                    disabled={completingOnboarding}
+                    className="w-full rounded-[0.5rem] p-2.5 text-m-label font-semibold flex items-center justify-center gap-2 press disabled:opacity-50"
+                    style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
+                  >
+                    {completingOnboarding ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="size-4" />
+                    )}
+                    Done — Complete Onboarding
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       {/* ── Agreement & Auto-Deposit ── */}
       <MobileSectionTitle>Agreement & Deposit</MobileSectionTitle>
@@ -416,14 +587,12 @@ export function MobileEmployeeDetailClient({
           </Link>
         )}
         {employee.contractStatus && (
-          <a
-            href={`/print/employment-agreement/${employee.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block text-m-caption text-primary text-center pt-1"
+          <button
+            onClick={() => docViewer.openDoc(`/print/employment-agreement/${employee.id}`, "Employment Agreement")}
+            className="block text-m-caption text-primary text-center pt-1 w-full"
           >
             View / Print agreement →
-          </a>
+          </button>
         )}
       </div>
 
@@ -681,6 +850,7 @@ export function MobileEmployeeDetailClient({
           employee={employee}
           projects={projects}
           stockLocations={stockLocations}
+          potentialManagers={potentialManagers}
           onClose={() => setShowEdit(false)}
           onSaved={() => {
             setShowEdit(false);
@@ -733,6 +903,9 @@ export function MobileEmployeeDetailClient({
           onClose={() => setShowCreateAccount(false)}
         />
       )}
+
+      {/* ── In-page document viewer (FAB pop-up, no redirect) ── */}
+      <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </div>
   );
 }
@@ -770,12 +943,14 @@ function EmployeeEditSheet({
   employee,
   projects,
   stockLocations,
+  potentialManagers,
   onClose,
   onSaved,
 }: {
   employee: EmployeeData;
   projects: ProjectOption[];
   stockLocations: StockLocationOption[];
+  potentialManagers: PotentialManager[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -791,6 +966,7 @@ function EmployeeEditSheet({
   const [activeProjectId, setActiveProjectId] = useState(employee.activeProjectId ?? "");
   const [hierarchyLevel, setHierarchyLevel] = useState(employee.hierarchyLevel != null ? String(employee.hierarchyLevel) : "");
   const [reportingLocationId, setReportingLocationId] = useState(employee.reportingLocationId ?? "");
+  const [reportsToMembershipId, setReportsToMembershipId] = useState(employee.reportsToMembershipId ?? "");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [employmentType, setEmploymentType] = useState(employee.employmentType ?? "");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -955,13 +1131,28 @@ function EmployeeEditSheet({
 
             <div>
               <MobileSelectWithCreate
-                label="Reporting Location"
+                label="Attendance Site"
                 value={reportingLocationId}
                 onChange={setReportingLocationId}
                 options={stockLocations.map((l) => ({ value: l.id, label: l.name }))}
                 placeholder="— None —"
               />
             </div>
+
+            {employee.userId && (
+              <div>
+                <MobileSelectWithCreate
+                  label="Reports To"
+                  value={reportsToMembershipId}
+                  onChange={setReportsToMembershipId}
+                  options={potentialManagers.map((m) => ({
+                    value: m.membershipId,
+                    label: `${m.name} · ${m.role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}`,
+                  }))}
+                  placeholder="— None — top of chain"
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-2 pt-1">

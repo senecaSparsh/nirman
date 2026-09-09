@@ -369,7 +369,11 @@ export function MobileNewEmployeeForm({
         onCreated({ id: data.id, name: data.name });
       }
       onClose();
-      if (!onCreated) router.refresh();
+      if (!onCreated) {
+        // Send the user straight to the onboarding workflow so they know
+        // exactly what to do next instead of landing back on the roster.
+        router.push(`/m/hr/onboarding/${data.id}`);
+      }
     } catch (err) {
       haptic([50, 20, 50]);
       toast.error(err instanceof Error ? err.message : "Something went wrong");

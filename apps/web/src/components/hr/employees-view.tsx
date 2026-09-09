@@ -67,6 +67,8 @@ export type EmployeeRow = {
   bloodGroup: string | null;
   // Login account status
   userId: string | null;
+  // Reporting line (UserCompany.reportsTo) — only set when userId is linked
+  reportsToMembershipId: string | null;
 };
 
 const WAGE_TYPES = ["DAILY", "MONTHLY", "FIXED"] as const;
@@ -300,6 +302,7 @@ export function EmployeesView({
   crewEmployees,
   projects,
   locations,
+  potentialManagers,
   permissions,
 }: {
   employees: EmployeeRow[];
@@ -308,6 +311,7 @@ export function EmployeesView({
   crewEmployees: { id: string; name: string; trade: string | null }[];
   projects: { id: string; name: string }[];
   locations?: { id: string; name: string }[];
+  potentialManagers?: { membershipId: string; name: string; role: string }[];
   permissions?: { canCreate?: boolean; canEdit?: boolean; canManage?: boolean };
 }) {
   const router = useRouter();
@@ -438,6 +442,8 @@ export function EmployeesView({
           crews={crews}
           projects={projects}
           locations={locations ?? []}
+          potentialManagers={potentialManagers ?? []}
+          currentReportsToMembershipId={editTarget?.reportsToMembershipId ?? null}
           onClose={() => setFormOpen(false)}
           onSaved={() => { setFormOpen(false); router.refresh(); }}
         />
@@ -463,6 +469,8 @@ function EmployeeFormDialog({
   crews,
   projects,
   locations,
+  potentialManagers,
+  currentReportsToMembershipId,
   onClose,
   onSaved,
 }: {
@@ -470,12 +478,15 @@ function EmployeeFormDialog({
   crews: { id: string; name: string }[];
   projects: { id: string; name: string }[];
   locations: { id: string; name: string }[];
+  potentialManagers: { membershipId: string; name: string; role: string }[];
+  currentReportsToMembershipId: string | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const isEdit = !!employee;
   const [saving, setSaving] = useState(false);
   const [dedupSuggestion, setDedupSuggestion] = useState<{ userId: string; userName: string; userEmail: string } | null>(null);
+  const [createdEmployeeId, setCreatedEmployeeId] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
   const [form, setForm] = useState({
     name: employee?.name ?? "",
@@ -492,6 +503,7 @@ function EmployeeFormDialog({
     active: employee?.active ?? true,
     hierarchyLevel: employee?.hierarchyLevel?.toString() ?? "",
     reportingLocationId: employee?.reportingLocationId ?? "",
+    reportsToMembershipId: currentReportsToMembershipId ?? "",
     // Employment terms (dossier)
     employmentType: employee?.employmentType ?? "",
     noticePeriodDays: employee?.noticePeriodDays?.toString() ?? "",
@@ -543,6 +555,7 @@ function EmployeeFormDialog({
       active: form.active,
       hierarchyLevel: form.hierarchyLevel ? Number(form.hierarchyLevel) : null,
       reportingLocationId: form.reportingLocationId || null,
+      reportsToMembershipId: form.reportsToMembershipId || null,
       // Employment terms (dossier) — sent alongside basic fields
       employmentType: form.employmentType || null,
       noticePeriodDays: form.noticePeriodDays ? Number(form.noticePeriodDays) : null,
@@ -581,6 +594,7 @@ function EmployeeFormDialog({
         if (!isEdit && data.dedupSuggestion) {
           // Employee was created, but a matching user exists — show the suggestion
           setDedupSuggestion(data.dedupSuggestion);
+          setCreatedEmployeeId(data.id ?? null);
           toast.success("Employee added — but a matching user was found. Link them?");
         } else {
           toast.success(isEdit ? "Employee updated" : "Employee added");
@@ -595,16 +609,23 @@ function EmployeeFormDialog({
   };
 
   const handleLinkUser = async () => {
-    if (!dedupSuggestion) return;
+    if (!dedupSuggestion || !createdEmployeeId) return;
     setLinking(true);
     try {
-      // The employee was just created — we need its ID. We can get it from the
-      // last created employee or pass it through. For now, we'll use the
-      // link-account API with the dedup suggestion's userId.
-      // Note: This requires knowing the employee ID. Since we just created it,
-      // we'll close the dialog and let HR link from the profile.
-      toast.info(`Go to the employee profile to link ${dedupSuggestion.userName}`);
-      onSaved();
+      const res = await fetch(`/api/employees/${createdEmployeeId}/link-account`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: dedupSuggestion.userId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast.success(`Linked ${dedupSuggestion.userName} to this employee`);
+        setDedupSuggestion(null);
+        setCreatedEmployeeId(null);
+        onSaved();
+      } else {
+        toast.error(data.error ?? "Failed to link user");
+      }
     } finally {
       setLinking(false);
     }
@@ -793,12 +814,28 @@ function EmployeeFormDialog({
             </div>
           </div>
           <div>
-            <Label>Reporting Location (GPS Attendance)</Label>
+            <Label>Attendance Site (GPS)</Label>
             <Select value={form.reportingLocationId} onChange={(e) => set("reportingLocationId", e.target.value)}>
               <option value="">None — manual attendance</option>
               {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </Select>
           </div>
+          {employee?.userId && (
+            <div>
+              <Label>Reports To</Label>
+              <Select value={form.reportsToMembershipId} onChange={(e) => set("reportsToMembershipId", e.target.value)}>
+                <option value="">None — top of chain</option>
+                {potentialManagers.map((m) => (
+                  <option key={m.membershipId} value={m.membershipId}>
+                    {m.name} · {m.role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </option>
+                ))}
+              </Select>
+              <p className="text-caption text-muted-foreground mt-1">
+                Reporting line is set on the linked user account.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* ── Bank & Payroll section ── */}

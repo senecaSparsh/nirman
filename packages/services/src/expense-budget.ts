@@ -132,3 +132,62 @@ export async function getExpenseBudgetVariance(companyId: string): Promise<Expen
   }
   return result;
 }
+
+/**
+ * Check whether approving a given expense would exceed its budget.
+ * Returns `{ wouldExceed, budget, actual, remaining, utilizationPct }`
+ * or `null` when no matching budget exists (no enforcement).
+ *
+ * Call this inside approveExpense (within the transaction) to decide
+ * whether to block the approval or warn.
+ */
+export async function checkExpenseBudget(
+  tx: Prisma.TransactionClient,
+  expense: {
+    companyId: string;
+    projectId: string | null;
+    categoryId: string | null;
+    category: string;
+    amount: Decimal;
+    date: Date;
+  },
+): Promise<{
+  wouldExceed: boolean;
+  budgetAmount: number;
+  actualAmount: number;
+  remaining: number;
+  utilizationPct: number;
+} | null> {
+  // Find a matching budget for this expense's period + category + project.
+  const budget = await tx.expenseBudget.findFirst({
+    where: {
+      companyId: expense.companyId,
+      periodStart: { lte: expense.date },
+      periodEnd: { gte: expense.date },
+      ...(expense.projectId ? { projectId: expense.projectId } : { projectId: null }),
+      ...(expense.categoryId ? { categoryId: expense.categoryId } : { categoryId: null, category: expense.category }),
+    },
+  });
+  if (!budget) return null;
+
+  const where = {
+    companyId: expense.companyId,
+    status: "APPROVED" as const,
+    date: { gte: budget.periodStart, lte: budget.periodEnd },
+    ...(budget.projectId ? { projectId: budget.projectId } : {}),
+    ...(budget.categoryId ? { categoryId: budget.categoryId } : { category: budget.category }),
+  };
+  const agg = await tx.expense.aggregate({ where, _sum: { amount: true } });
+  const actual = agg._sum.amount ? Number(agg._sum.amount) : 0;
+  const budgetAmt = Number(budget.amount);
+  const projected = actual + Number(expense.amount);
+  const remaining = budgetAmt - actual;
+  const utilizationPct = budgetAmt > 0 ? Math.round((projected / budgetAmt) * 1000) / 10 : 0;
+  return {
+    wouldExceed: projected > budgetAmt,
+    budgetAmount: budgetAmt,
+    actualAmount: actual,
+    remaining,
+    utilizationPct,
+  };
+}

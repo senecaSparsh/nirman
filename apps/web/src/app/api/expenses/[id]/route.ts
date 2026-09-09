@@ -37,6 +37,7 @@ const expenseUpdateSchema = z.object({
   // Workflow actions (mutually exclusive with field updates)
   action: z.enum(["submit", "approve", "reject"]).optional(),
   rejectionReason: z.string().optional(),
+  allowBudgetOverrun: z.boolean().optional(),
 });
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -122,7 +123,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     const user = await requirePermission(PERM.EXPENSE_APPROVE);
     const company = await getCompany();
     try {
-      await approveExpense(id, company.id, user.id);
+      await approveExpense(id, company.id, user.id, { allowBudgetOverrun: d.allowBudgetOverrun === true });
     } catch (err) {
       if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });
       throw err;

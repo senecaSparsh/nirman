@@ -30,6 +30,7 @@ type PoStatus =
   | "ALL"
   | "DRAFT"
   | "APPROVED"
+  | "REJECTED"
   | "ORDERED"
   | "PARTIAL"
   | "RECEIVED"
@@ -65,6 +66,7 @@ const FILTER_CHIPS: { label: string; value: PoStatus }[] = [
   { label: "All", value: "ALL" },
   { label: "Draft", value: "DRAFT" },
   { label: "Approved", value: "APPROVED" },
+  { label: "Rejected", value: "REJECTED" },
   { label: "Ordered", value: "ORDERED" },
   { label: "Partial", value: "PARTIAL" },
   { label: "Received", value: "RECEIVED" },

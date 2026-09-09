@@ -33,7 +33,7 @@ async function EmployeesContent() {
     canManage: hasPermission(role, PERM.HR_MANAGE),
   };
 
-  const [employees, crews, crewRows, projects, locations] = await Promise.all([
+  const [employees, crews, crewRows, projects, locations, memberships] = await Promise.all([
     prisma.employee.findMany({
       take: 500,
       where: { companyId: company.id, deletedAt: null },
@@ -76,7 +76,25 @@ async function EmployeesContent() {
       select: { id: true, name: true, type: true },
       orderBy: { name: "asc" },
     }),
+    // All company memberships — used to populate the Reports To selector and
+    // to resolve each employee's current reportsToUserCompanyId.
+    prisma.userCompany.findMany({
+      where: { companyId: company.id },
+      select: {
+        id: true,
+        userId: true,
+        role: true,
+        reportsToUserCompanyId: true,
+        user: { select: { id: true, name: true, active: true } },
+      },
+    }),
   ]);
+
+  // Map userId → membershipId + reportsToUserCompanyId for quick lookup.
+  const membershipByUserId = new Map(memberships.map((m) => [m.userId, m]));
+  const potentialManagers = memberships
+    .filter((m) => m.user.active)
+    .map((m) => ({ membershipId: m.id, name: m.user.name, role: m.role }));
 
   const rows = employees.map((e) => ({
     id: e.id,
@@ -120,6 +138,7 @@ async function EmployeesContent() {
     dateOfBirth: e.dateOfBirth?.toISOString() ?? null,
     bloodGroup: e.bloodGroup,
     userId: e.userId,
+    reportsToMembershipId: e.userId ? (membershipByUserId.get(e.userId)?.reportsToUserCompanyId ?? null) : null,
   }));
 
   const crewRowsMapped = crewRows.map((c) => ({
@@ -158,6 +177,7 @@ async function EmployeesContent() {
         crewEmployees={employees.map((e) => ({ id: e.id, name: e.name, trade: e.trade }))}
         projects={projects.map((p) => ({ id: p.id, name: p.name }))}
         locations={locations.map((l) => ({ id: l.id, name: l.name }))}
+        potentialManagers={potentialManagers}
         permissions={perms}
       />
     </>

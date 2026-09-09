@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@nirman/db";
 import { recordAttendance } from "@nirman/services";
 import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
+import { hasPermission, PERM } from "@/lib/roles";
 
 /**
  * POST /api/attendance/self-check-in
@@ -59,16 +60,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: "Employee not found" }, { status: 404 });
   }
 
-  // Verify the user is linked to this employee (or is an admin/manager)
-  if (employee.userId && employee.userId !== user.id) {
-    // Allow managers/admins to check in on behalf of workers
-    const userEmployee = await prisma.employee.findFirst({
-      where: { userId: user.id, companyId: company.id, deletedAt: null },
-      select: { id: true },
-    });
-    if (!userEmployee) {
-      return json({ error: "You can only check in your own attendance" }, { status: 403 });
-    }
+  // Verify the user is linked to this employee (or is a manager/admin)
+  const isSelf = employee.userId === user.id;
+  const isManager = hasPermission(user.role, PERM.HR_MANAGE);
+  if (!isSelf && !isManager) {
+    return json({ error: "You can only check in your own attendance" }, { status: 403 });
   }
 
   // Geo-fence validation

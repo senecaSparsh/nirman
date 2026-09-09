@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 import {
   CheckCircle2,
   Circle,
@@ -22,6 +23,7 @@ import {
   Plus,
   Trash2,
   IndianRupee,
+  Sparkles,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { RegisterTabs } from "@/components/mobile/v2/register-tabs";
@@ -89,6 +91,7 @@ export type OnboardingEmployeeData = {
   // Onboarding checklist
   documentsSubmitted: boolean | null;
   backgroundVerified: boolean | null;
+  onboardingComplete: boolean | null;
   // Personal / identity
   dateOfBirth: string | null;
   bloodGroup: string | null;
@@ -168,6 +171,7 @@ export function MobileOnboardingTab({
   onEdit: () => void;
 }) {
   const [subTab, setSubTab] = useTabParam(ONBOARDING_TABS, "profile", { param: "onboard" });
+  const docViewer = useDocumentViewer();
 
   // ── Onboarding progress (12 canonical steps) ──
   // MUST match /m/hr/onboarding queue page exactly so "complete" means the
@@ -211,7 +215,14 @@ export function MobileOnboardingTab({
   return (
     <div className="px-4 space-y-3">
       {/* ── Onboarding progress bar ── */}
-      <OnboardingProgress steps={steps} completedCount={completedCount} isComplete={isComplete} canManage={canManage} />
+      <OnboardingProgress
+        steps={steps}
+        completedCount={completedCount}
+        isComplete={isComplete}
+        canManage={canManage}
+        employeeId={employee.id}
+        onboardingComplete={employee.onboardingComplete === true}
+      />
 
       {/* ── Sub-tab toggle (same RegisterTabs look as stock hub) ── */}
       <RegisterTabs
@@ -262,6 +273,7 @@ export function MobileOnboardingTab({
         <OfferLetterSubTab
           employee={employee}
           canManage={canManage}
+          openDoc={docViewer.openDoc}
         />
       )}
 
@@ -269,6 +281,7 @@ export function MobileOnboardingTab({
         <AgreementSubTab
           employee={employee}
           canManage={canManage}
+          openDoc={docViewer.openDoc}
         />
       )}
 
@@ -276,6 +289,7 @@ export function MobileOnboardingTab({
         <AppointmentLetterSubTab
           employee={employee}
           canManage={canManage}
+          openDoc={docViewer.openDoc}
         />
       )}
 
@@ -283,6 +297,7 @@ export function MobileOnboardingTab({
         <IdCardSubTab
           employee={employee}
           canManage={canManage}
+          openDoc={docViewer.openDoc}
         />
       )}
 
@@ -306,6 +321,9 @@ export function MobileOnboardingTab({
           canManage={canManage}
         />
       )}
+
+      {/* ── In-page document viewer (FAB pop-up, no redirect) ── */}
+      <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </div>
   );
 }
@@ -317,14 +335,37 @@ function OnboardingProgress({
   steps,
   completedCount,
   isComplete,
-  canManage: _canManage,
+  canManage,
+  employeeId,
+  onboardingComplete,
 }: {
   steps: { label: string; done: boolean }[];
   completedCount: number;
   isComplete: boolean;
   canManage: boolean;
+  employeeId: string;
+  onboardingComplete: boolean;
 }) {
+  const router = useRouter();
+  const [completing, setCompleting] = useState(false);
   const pct = Math.round((completedCount / steps.length) * 100);
+
+  async function completeOnboarding() {
+    setCompleting(true);
+    try {
+      const res = await fetch(`/api/employees/${employeeId}/complete-onboarding`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      haptic([10, 40, 80]);
+      toast.success(data.message ?? "Onboarding complete");
+      router.refresh();
+    } catch (err: unknown) {
+      haptic([50, 20, 50]);
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setCompleting(false);
+    }
+  }
 
   return (
     <div
@@ -377,7 +418,7 @@ function OnboardingProgress({
         ))}
       </div>
 
-      {isComplete && (
+      {isComplete && onboardingComplete && (
         <div
           className="flex items-center gap-1.5 rounded-[0.375rem] px-2 py-1.5 mt-2 text-m-caption"
           style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)", color: "var(--color-go)" }}
@@ -385,6 +426,22 @@ function OnboardingProgress({
           <CheckCircle2 className="size-3.5" />
           <span className="font-semibold">Onboarding complete</span>
         </div>
+      )}
+
+      {canManage && isComplete && !onboardingComplete && (
+        <button
+          onClick={completeOnboarding}
+          disabled={completing}
+          className="w-full rounded-[0.5rem] p-2.5 text-m-label font-semibold flex items-center justify-center gap-2 press disabled:opacity-50 mt-2"
+          style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
+        >
+          {completing ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Sparkles className="size-4" />
+          )}
+          Done — Complete Onboarding
+        </button>
       )}
     </div>
   );
@@ -1458,9 +1515,11 @@ function SalarySubTab({
 function OfferLetterSubTab({
   employee,
   canManage,
+  openDoc,
 }: {
   employee: OnboardingEmployeeData;
   canManage: boolean;
+  openDoc: (url: string, title?: string) => void;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -1546,10 +1605,8 @@ function OfferLetterSubTab({
           )}
 
           {issued && (
-            <a
-              href={`/print/offer-letter/${employee.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => openDoc(`/print/offer-letter/${employee.id}`, "Offer Letter")}
               className="block w-full h-10 rounded-[0.5rem] text-m-section font-semibold press flex items-center justify-center gap-1.5"
               style={{
                 backgroundColor: "var(--color-ink-100)",
@@ -1558,7 +1615,7 @@ function OfferLetterSubTab({
             >
               <FileText className="size-4" />
               View / Print
-            </a>
+            </button>
           )}
         </div>
       </div>
@@ -1574,9 +1631,11 @@ function OfferLetterSubTab({
 function IdCardSubTab({
   employee,
   canManage,
+  openDoc,
 }: {
   employee: OnboardingEmployeeData;
   canManage: boolean;
+  openDoc: (url: string, title?: string) => void;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -1659,10 +1718,8 @@ function IdCardSubTab({
           )}
 
           {issued && (
-            <a
-              href={`/print/employee-id-card/${employee.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => openDoc(`/print/employee-id-card/${employee.id}`, "ID Card")}
               className="block w-full h-10 rounded-[0.5rem] text-m-section font-semibold press flex items-center justify-center gap-1.5"
               style={{
                 backgroundColor: "var(--color-ink-100)",
@@ -1671,7 +1728,7 @@ function IdCardSubTab({
             >
               <IdCard className="size-4" />
               View / Print
-            </a>
+            </button>
           )}
         </div>
       </div>
@@ -1689,9 +1746,11 @@ function IdCardSubTab({
 function AgreementSubTab({
   employee,
   canManage,
+  openDoc,
 }: {
   employee: OnboardingEmployeeData;
   canManage: boolean;
+  openDoc: (url: string, title?: string) => void;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -1801,10 +1860,8 @@ function AgreementSubTab({
         <div className="space-y-2">
           {/* View / Print — always available once issued */}
           {issued && (
-            <a
-              href={`/print/employment-agreement/${employee.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => openDoc(`/print/employment-agreement/${employee.id}`, "Employment Agreement")}
               className="w-full rounded-[0.75rem] p-3 flex items-center gap-3 press text-left"
               style={{ backgroundColor: "var(--color-paper)", border: "1px solid var(--color-line)" }}
             >
@@ -1816,9 +1873,9 @@ function AgreementSubTab({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-950)" }}>View / Print Agreement</p>
-                <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>Opens print-friendly page</p>
+                <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>Opens in-page viewer</p>
               </div>
-            </a>
+            </button>
           )}
 
           {/* Confirm — only when ISSUED */}
@@ -1918,9 +1975,11 @@ function AgreementSubTab({
 function AppointmentLetterSubTab({
   employee,
   canManage,
+  openDoc,
 }: {
   employee: OnboardingEmployeeData;
   canManage: boolean;
+  openDoc: (url: string, title?: string) => void;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -2006,10 +2065,8 @@ function AppointmentLetterSubTab({
           )}
 
           {issued && (
-            <a
-              href={`/print/appointment-letter/${employee.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => openDoc(`/print/appointment-letter/${employee.id}`, "Appointment Letter")}
               className="block w-full h-10 rounded-[0.5rem] text-m-section font-semibold press flex items-center justify-center gap-1.5"
               style={{
                 backgroundColor: "var(--color-ink-100)",
@@ -2018,7 +2075,7 @@ function AppointmentLetterSubTab({
             >
               <FileText className="size-4" />
               View / Print
-            </a>
+            </button>
           )}
         </div>
       </div>

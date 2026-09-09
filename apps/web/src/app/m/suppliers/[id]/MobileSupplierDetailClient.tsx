@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";
 
-type PoStatus = "DRAFT" | "APPROVED" | "ORDERED" | "PARTIAL" | "RECEIVED" | "CANCELLED";
+type PoStatus = "DRAFT" | "APPROVED" | "REJECTED" | "ORDERED" | "PARTIAL" | "RECEIVED" | "CANCELLED";
 
 type PoItem = {
   id: string;
@@ -37,6 +37,7 @@ type PaymentItem = {
 const STATUS_LABELS: Record<PoStatus, string> = {
   DRAFT: "Draft",
   APPROVED: "Approved",
+  REJECTED: "Rejected",
   ORDERED: "Ordered",
   PARTIAL: "Partial",
   RECEIVED: "Received",

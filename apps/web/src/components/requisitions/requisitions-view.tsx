@@ -116,6 +116,7 @@ export function RequisitionsView({
   locations,
   categories,
   permissions,
+  currentUserId,
 }: {
   requisitions: RequisitionRow[];
   projects: ProjectOption[];
@@ -125,6 +126,7 @@ export function RequisitionsView({
   locations: LocationOption[];
   categories: CategoryOption[];
   permissions?: { canCreate?: boolean; canApprove?: boolean };
+  currentUserId?: string;
 }) {
   const canCreate = permissions?.canCreate ?? false;
   const canApprove = permissions?.canApprove ?? false;
@@ -335,7 +337,7 @@ export function RequisitionsView({
                       <Button
                         size="sm"
                         disabled={bulkApproving}
-                        onClick={() => bulkAction(selected.filter((r) => r.status === "SUBMITTED"), "approve")}
+                        onClick={() => bulkAction(selected.filter((r) => r.status === "SUBMITTED" && r.requestedById !== currentUserId), "approve")}
                       >
                         {bulkApproving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                         Approve
@@ -347,7 +349,7 @@ export function RequisitionsView({
                         variant="ghost"
                         className="text-danger"
                         disabled={bulkApproving}
-                        onClick={() => bulkAction(selected.filter((r) => r.status === "SUBMITTED"), "reject")}
+                        onClick={() => bulkAction(selected.filter((r) => r.status === "SUBMITTED" && r.requestedById !== currentUserId), "reject")}
                       >
                         {bulkApproving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
                         Reject
@@ -490,13 +492,13 @@ export function RequisitionsView({
                                 </Button>
                               </>
                             )}
-                            {r.status === "SUBMITTED" && canApprove && (
+                            {r.status === "SUBMITTED" && canApprove && r.requestedById !== currentUserId && (
                               <>
                                 <Button size="sm" variant="outline" className="h-7 flex-1" onClick={() => action(r.id, "approve")}><Check className="h-3.5 w-3.5" /> Approve</Button>
                                 <Button size="sm" variant="outline" className="h-7 flex-1" onClick={() => { setRejectTarget(r); setRejectReason(""); }}><X className="h-3.5 w-3.5" /> Reject</Button>
                               </>
                             )}
-                            {r.status === "SUBMITTED" && !canApprove && (
+                            {r.status === "SUBMITTED" && (!canApprove || r.requestedById === currentUserId) && (
                               <span className="text-micro text-muted-foreground">Awaiting approval</span>
                             )}
                             {r.status === "APPROVED" && (

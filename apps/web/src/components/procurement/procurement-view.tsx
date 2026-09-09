@@ -35,7 +35,7 @@ import type {
 
 export function ProcurementView({
   suppliers, purchaseOrders, materials, locations, projects, directPurchases, categories,
-  requisitions, phases, supplierReturns, quotationRequests, reportIds, permissions,
+  requisitions, phases, supplierReturns, quotationRequests, reportIds, permissions, currentUserId,
 }: {
   suppliers: SupplierRow[];
   purchaseOrders: PurchaseOrderRow[];
@@ -50,6 +50,7 @@ export function ProcurementView({
   quotationRequests?: QuotationRequestRow[];
   reportIds?: Set<string>;
   permissions?: { canCreate?: boolean; canApprove?: boolean; canManagePayments?: boolean; canApproveRequisitions?: boolean };
+  currentUserId?: string;
 }) {
   const [tab, setTab] = useTabParam(
     ["purchase-orders", "indents", "quotations", "suppliers", "direct-purchases", "returns"] as const,
@@ -109,6 +110,7 @@ export function ProcurementView({
               locations={locationOptions.map((l) => ({ id: l.id, name: l.name, type: l.type }))}
               categories={categories.map((c) => ({ id: c.id, name: c.name, unit: c.unit }))}
               permissions={{ canCreate, canApprove: canApproveRequisitions }}
+              currentUserId={currentUserId}
             />
           ) : null}
         </TabsContent>

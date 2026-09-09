@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import {
   approvePurchaseOrder,
+  rejectPurchaseOrder,
   cancelPurchaseOrder,
   orderPurchaseOrder,
   addLineToPurchaseOrder,
@@ -131,8 +132,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (!existing) return json({ error: "Purchase order not found" }, { status: 404 });
   const body = await req.json();
   const action = body?.action as string | undefined;
-  if (!action || !["approve", "order", "cancel", "addLine"].includes(action)) {
-    return json({ error: "Invalid action. Use approve, order, cancel, or addLine." }, { status: 400 });
+  if (!action || !["approve", "reject", "order", "cancel", "addLine"].includes(action)) {
+    return json({ error: "Invalid action. Use approve, reject, order, cancel, or addLine." }, { status: 400 });
   }
   if (action === "approve") {
     const user = await requirePermission(PERM.PO_APPROVE);
@@ -145,6 +146,22 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return json({ error: "You cannot approve your own purchase order. Ask another approver to review it." }, { status: 403 });
     }
     await approvePurchaseOrder(id, user.role, user.id, body?.approvalNotes);
+  } else if (action === "reject") {
+    const user = await requirePermission(PERM.PO_APPROVE);
+    // Prevent self-rejection — the creator cannot reject their own PO.
+    const po = await prisma.purchaseOrder.findFirst({
+      where: { id, companyId: { in: groupCompanyIds } },
+      select: { createdById: true },
+    });
+    if (po?.createdById === user.id) {
+      return json({ error: "You cannot reject your own purchase order. Ask another approver to review it." }, { status: 403 });
+    }
+    try {
+      await rejectPurchaseOrder(id, user.role, user.id, body?.rejectionReason);
+    } catch (err) {
+      if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });
+      throw err;
+    }
   } else if (action === "order") {
     const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
     await orderPurchaseOrder(id, user.id);

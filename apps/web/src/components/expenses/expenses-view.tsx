@@ -123,7 +123,19 @@ export function ExpensesView({
       toast.success(action === "submit" ? "Expense submitted for approval" : "Expense approved — GL posted");
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Action failed");
+      const msg = err instanceof Error ? err.message : "Action failed";
+      // If the error is a budget overrun, offer to approve with explicit override.
+      if (action === "approve" && msg.includes("exceed the budget")) {
+        toast.error(msg, {
+          duration: 8000,
+          action: {
+            label: "Override & Approve",
+            onClick: () => doAction(e, "approve", { ...body, allowBudgetOverrun: true }),
+          },
+        });
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setActionLoading(null);
     }
