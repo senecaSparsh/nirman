@@ -74,8 +74,8 @@ export default function MobileEquipmentPage() {
                 retired: retired.length,
                 totalValue,
               }}
-              canCreate={canManage}
-              canEdit={canManage}
+              canCreate={actions.canCreateEquipment ?? canManage}
+              canEdit={actions.canCreateEquipment ?? canManage}
               exportTitle="Equipment"
               exportRows={serialized as unknown as Record<string, unknown>[]}
               exportColumns={

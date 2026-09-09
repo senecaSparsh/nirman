@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { updateCapa, startCapa, completeCorrectiveAction, completePreventiveAction, verifyCapa, closeCapa } from "@nirman/services";
-import { apiHandler, json, requirePermission } from "@/lib/server";
+import { prisma } from "@nirman/db";
+import { apiHandler, json, requirePermission, getCompany } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -25,6 +26,11 @@ const actionSchema = z.object({
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.WO_MANAGE);
   const { id } = await ctx.params;
+
+  const company = await getCompany();
+  const existing = await prisma.capa.findFirst({ where: { id, companyId: company.id }, select: { id: true } });
+  if (!existing) return json({ error: "Not found" }, { status: 404 });
+
   const body = await req.json();
 
   if (body.action && typeof body.action === "string") {

@@ -33,6 +33,7 @@ export function MobileSalesHub({
   units,
   assignees,
   canManage,
+  canCreate,
   currentUserId,
 }: {
   leads: LeadRow[];
@@ -42,6 +43,7 @@ export function MobileSalesHub({
   units: { id: string; projectId: string; projectName: string; label: string }[];
   assignees: { id: string; name: string }[];
   canManage: boolean;
+  canCreate?: boolean;
   currentUserId?: string | null;
 }) {
   const searchParams = useSearchParams();
@@ -86,7 +88,7 @@ export function MobileSalesHub({
           <MobileSalesCollection
             items={sales}
             stats={stats}
-            canCreate={canManage}
+            canCreate={canCreate ?? canManage}
             exportTitle="Sales"
             exportRows={sales as unknown as Record<string, unknown>[]}
             exportColumns={csvColumns}

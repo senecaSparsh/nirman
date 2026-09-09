@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserRole, projectScopeFilter } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
@@ -65,7 +65,7 @@ async function EquipmentContent() {
     }),
     prisma.project.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null },
+      where: { companyId: company.id, deletedAt: null, ...await projectScopeFilter() ?? {} },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },
     }),

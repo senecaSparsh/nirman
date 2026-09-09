@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
+import { getCompany, getUserRole, toNum, scopeWhere, projectScopeFilter } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
@@ -73,7 +73,7 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
     }),
     prisma.project.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+      where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] }, ...await projectScopeFilter() ?? {} },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),

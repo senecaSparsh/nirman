@@ -73,7 +73,7 @@ async function HrDashboardContent() {
     prisma.leaveRequest.count({ where: { companyId: company.id, status: "PENDING" } }),
     prisma.employee.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null, active: true },
+      where: { companyId: company.id, deletedAt: null, active: true, ...await scopeWhere("Employee") },
       select: { trade: true, dailyRate: true, wageType: true, monthlySalary: true },
     }),
     prisma.workerAttendance.findMany({

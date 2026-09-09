@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCurrentUser, getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCurrentUser, getCompany, getUserRole, toNum, projectScopeFilter } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { SettingsView } from "@/components/settings/settings-view";
 import { NotificationsPanel } from "@/components/notifications/notifications-panel";
@@ -42,7 +42,7 @@ export async function SettingsContent() {
     }),
     prisma.project.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null },
+      where: { companyId: company.id, deletedAt: null, ...await projectScopeFilter() ?? {} },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),

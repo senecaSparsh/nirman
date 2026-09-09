@@ -6,7 +6,8 @@ import {
   reopenFeedback,
   resolveFeedback,
 } from "@nirman/services";
-import { apiHandler, json, requireUser } from "@/lib/server";
+import { prisma } from "@nirman/db";
+import { apiHandler, json, requireUser, getCompany } from "@/lib/server";
 
 /**
  * GET /api/feedback/[id] — get a single feedback entry (DEVELOPER only).
@@ -21,6 +22,11 @@ export const GET = apiHandler(async (
     return json({ error: "Forbidden — only the developer can view feedback." }, { status: 403 });
   }
   const { id } = await params;
+
+  const company = await getCompany();
+  const existing = await prisma.feedback.findFirst({ where: { id, companyId: company.id }, select: { id: true } });
+  if (!existing) return json({ error: "Not found" }, { status: 404 });
+
   const feedback = await getFeedback(id);
   // Auto-mark as READ when first opened.
   if (feedback.status === "NEW") {
@@ -46,6 +52,10 @@ export const PATCH = apiHandler(async (
     return json({ error: "Forbidden — only the developer can manage feedback." }, { status: 403 });
   }
   const { id } = await params;
+
+  const company = await getCompany();
+  const existing = await prisma.feedback.findFirst({ where: { id, companyId: company.id }, select: { id: true } });
+  if (!existing) return json({ error: "Not found" }, { status: 404 });
 
   let body: { action?: string; resolutionNote?: string };
   try {

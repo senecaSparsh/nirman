@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, scopeWhere } from "@/lib/server";
+import { getCompany, getUserRole, scopeWhere, projectScopeFilter } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
@@ -30,7 +30,7 @@ async function SafetyContent() {
   const [projects, incidents, hazards, inspections] = await Promise.all([
     prisma.project.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+      where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] }, ...await projectScopeFilter() ?? {} },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },
     }),

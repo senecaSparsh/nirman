@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { getBoqTree } from "@nirman/services";
 import {FileText, ListTree, Package} from "lucide-react";
-import { toNum } from "@/lib/server";
+import { toNum, getActionPermissions } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
@@ -60,9 +60,11 @@ export default function MobileBoqPage({
         }
 
         // Fetch the BOQ tree for the selected project.
+        const actions = await getActionPermissions();
+        const canCreateBoq = actions?.canCreateBoq ?? hasPermission(role, PERM.BOQ_MANAGE);
         const [boqResult, materials, canManage] = await Promise.all([
           getBoqTree(projectId),
-          hasPermission(role, PERM.BOQ_MANAGE)
+          canCreateBoq
             ? prisma.material.findMany({
                 where: { deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
                 orderBy: { name: "asc" },
@@ -127,7 +129,7 @@ export default function MobileBoqPage({
             )}
 
             {/* ── FAB for adding BOQ items ── */}
-            {canManage && (
+            {canCreateBoq && (
               <MobileBoqFab
                 projectId={projectId}
                 parentItems={parentItems}

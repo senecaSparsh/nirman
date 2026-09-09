@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole } from "@/lib/server";
+import { getCompany, getUserRole, projectScopeFilter } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { ProjectAssignmentsView } from "@/components/settings/project-assignments-view";
 import { NoAccess } from "@/components/no-access";
@@ -42,7 +42,7 @@ export async function ProjectAssignmentsContent() {
     }),
     prisma.project.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null },
+      where: { companyId: company.id, deletedAt: null, ...await projectScopeFilter() ?? {} },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { recordLandPurchasePayment } from "@nirman/services";
-import { apiHandler, json, requirePermission } from "@/lib/server";
+import { prisma } from "@nirman/db";
+import { apiHandler, json, requirePermission, getCompany } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -23,6 +24,11 @@ const paymentSchema = z.object({
 export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.ASSETS_MANAGE);
   const { id } = await ctx.params;
+
+  const company = await getCompany();
+  const existing = await prisma.landPurchase.findFirst({ where: { id, companyId: company.id }, select: { id: true } });
+  if (!existing) return json({ error: "Not found" }, { status: 404 });
+
   const body = await req.json();
 
   const parsed = paymentSchema.safeParse(body);

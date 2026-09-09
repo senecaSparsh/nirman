@@ -89,7 +89,7 @@ export default function MobileMaterialSalesPage() {
               totalProfit={totalProfit}
               pendingCount={pendingPayment.length}
               pendingSaleCount={pendingSaleCount}
-              canCreate={canManage}
+              canCreate={actions.canCreateMaterialSale ?? canManage}
               loadMoreUrl="/api/mobile/list/sales"
               nextCursor={nextCursor}
               exportTitle="Material Sales"

@@ -1,12 +1,18 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { addRenovationCost, ServiceError } from "@nirman/services";
-import { apiHandler, json, renovationCostSchema, requirePermission } from "@/lib/server";
+import { prisma } from "@nirman/db";
+import { apiHandler, json, renovationCostSchema, requirePermission, getCompany } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.ASSETS_MANAGE);
   const { id } = await params;
+
+  const company = await getCompany();
+  const existing = await prisma.renovationProject.findFirst({ where: { id, companyId: company.id }, select: { id: true } });
+  if (!existing) return json({ error: "Not found" }, { status: 404 });
+
   const body = await req.json();
   const parsed = renovationCostSchema.safeParse({ ...body, renovationProjectId: id });
   if (!parsed.success) {

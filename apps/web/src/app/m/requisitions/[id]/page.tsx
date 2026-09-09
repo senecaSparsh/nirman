@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@nirman/db";
-import { getCurrentUser, getUserPermissions, toNum, scopeWhere } from "@/lib/server";
+import { getCurrentUser, getUserPermissions, toNum, scopeWhere, getActionPermissions } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber, formatDate, formatCurrency } from "@/lib/utils";
 import { FileText } from "lucide-react";
@@ -31,6 +31,8 @@ export default function MobileRequisitionDetailPage({
     <MobileDetailPage params={params} managePerm={PERM.PROCUREMENT_MANAGE} skeletonSections={6}>
       {async ({ id, company, role, canManage }) => {
         const overrides = await getUserPermissions();
+        const actions = await getActionPermissions();
+        const canCreatePo = actions?.canCreatePo ?? canManage;
 
         const req = await prisma.materialRequisition.findFirst({
           where: {...await scopeWhere("MaterialRequisition"),  id, project: { companyId: company.id } },
@@ -359,7 +361,7 @@ export default function MobileRequisitionDetailPage({
                 }))}
                 suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
                 canApprove={canApprove}
-                canCreate={canManage}
+                canCreate={canCreatePo}
               />
             ) : null}
 

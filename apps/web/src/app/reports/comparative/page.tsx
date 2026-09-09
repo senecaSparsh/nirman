@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { dprAnalysis, workforceProductivity, projectPnl } from "@nirman/services";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum, projectScopeFilter } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
@@ -36,7 +36,7 @@ async function ComparativeContent() {
 
   const projects = await prisma.project.findMany({
     take: 200,
-    where: { companyId: company.id, deletedAt: null },
+    where: { companyId: company.id, deletedAt: null, ...await projectScopeFilter() ?? {} },
     select: { id: true, name: true, status: true },
     orderBy: { name: "asc" },
   });
