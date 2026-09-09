@@ -523,6 +523,68 @@ model SalaryHistory {
 }
 
 // ───────────────────────────────────────────────────────────────
+//  EmployeeResource — tracks anything the company gives to an employee.
+//  Laptops, phones, vehicles, tools, uniforms, keys, access cards,
+//  documents, SIM cards, equipment — anything with issue/return tracking.
+//  Integrates with offboarding: pending resources show during termination.
+// ───────────────────────────────────────────────────────────────
+model EmployeeResource {
+  id          String   @id @default(cuid())
+  employeeId  String
+  companyId   String
+
+  // ── What was issued ──
+  name        String   // e.g. "Dell Latitude Laptop", "Company SIM Card", "Hard Hat"
+  category    EmployeeResourceCategory
+  assetTag    String?  // physical tag/QR if linked to Equipment
+  serialNumber String? // serial number for tracking
+  quantity    Int      @default(1)
+
+  // ── When ──
+  issuedAt    DateTime @default(now())
+  expectedReturnAt DateTime? // null = no fixed return date (permanent assignment)
+  returnedAt  DateTime? // null = still with employee
+
+  // ── Condition tracking ──
+  conditionAtIssue   String?  // NEW, GOOD, FAIR, DAMAGED
+  conditionAtReturn  String?
+
+  // ── Financial ──
+  depositAmount      Decimal? @db.Decimal(14, 2) // security deposit collected
+  depositRefunded    Boolean  @default(false)
+
+  // ── Audit ──
+  issuedBy   String?  // userId who issued
+  returnedTo String?  // userId who received the return
+  notes      String?
+
+  // ── Relations ──
+  employee   Employee @relation("EmployeeResources", fields: [employeeId], references: [id], onDelete: Cascade)
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  issuedByUser  User?  @relation("EmployeeResourceIssuedBy", fields: [issuedBy], references: [id], onDelete: SetNull)
+  returnedToUser User? @relation("EmployeeResourceReturnedTo", fields: [returnedTo], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([companyId])
+  @@index([category])
+  @@index([returnedAt]) // null = active assignment
+}
+
+enum EmployeeResourceCategory {
+  ELECTRONICS    // laptop, phone, tablet, camera, monitor
+  VEHICLE        // car, bike, scooter
+  TOOL           // power tool, hand tool, specialized equipment
+  UNIFORM        // uniform, safety gear (hard hat, boots, vest)
+  ACCESS         // keys, access card, ID card, parking pass
+  DOCUMENT       // company documents, reference materials
+  SIM_CARD       // company SIM card
+  OTHER          // anything else
+}
+
+// ───────────────────────────────────────────────────────────────
 //  EmployeeExit — offboarding record for terminated employees.
 //  Tracks final settlement, asset return, exit interview, and
 //  statutory exit filings. Created when an employee is terminated.
@@ -744,6 +806,8 @@ model User {
   recordedAttendances  WorkerAttendance[]
   processedPayrolls    PayrollPeriod[]
   employees            Employee[]
+  issuedResources      EmployeeResource[] @relation("EmployeeResourceIssuedBy")
+  returnedResources    EmployeeResource[] @relation("EmployeeResourceReturnedTo")
   approvedLeaves       LeaveRequest[]    @relation("LeaveApprover")
   submittedDailyReports DailyReport[]
   createdTenancies     Tenancy[]

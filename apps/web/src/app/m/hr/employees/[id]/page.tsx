@@ -424,6 +424,23 @@ async function MobileEmployeeDetailContent({
         })).map((e) => ({ employeeId: e.id, companyId: e.companyId, companyName: e.company.name, active: e.active }))
       : [],
     availableCompanies,
+    resources: (await prisma.employeeResource.findMany({
+      where: { employeeId: employee.id, companyId: company.id },
+      orderBy: [{ returnedAt: "desc" }, { issuedAt: "desc" }],
+      include: {
+        issuedByUser: { select: { id: true, name: true } },
+        returnedToUser: { select: { id: true, name: true } },
+      },
+    })).map((r) => ({
+      id: r.id, name: r.name, category: r.category, assetTag: r.assetTag, serialNumber: r.serialNumber,
+      quantity: r.quantity, issuedAt: r.issuedAt.toISOString(),
+      expectedReturnAt: r.expectedReturnAt?.toISOString() ?? null,
+      returnedAt: r.returnedAt?.toISOString() ?? null,
+      conditionAtIssue: r.conditionAtIssue, conditionAtReturn: r.conditionAtReturn,
+      depositAmount: r.depositAmount ? Number(r.depositAmount) : null,
+      depositRefunded: r.depositRefunded,
+      issuedByUser: r.issuedByUser, returnedToUser: r.returnedToUser, notes: r.notes,
+    })),
     attendances: employee.attendances.map((a) => ({
       id: a.id,
       date: a.date.toISOString(),

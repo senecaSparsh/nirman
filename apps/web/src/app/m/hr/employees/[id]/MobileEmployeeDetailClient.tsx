@@ -12,6 +12,7 @@ import {
   IdCard, Building2, Activity, FolderOpen,
   CheckCircle2, ChevronRight, ArrowUp, ArrowDown, Check, Plus,
   AlertCircle, ShieldCheck, XCircle, KeyRound, Shield, Paperclip,
+  Package,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
@@ -161,6 +162,16 @@ interface EmployeeData {
   companyMemberships?: { employeeId: string; companyId: string; companyName: string; active: boolean }[];
   // Multi-company: companies available to add the employee to
   availableCompanies?: { id: string; name: string; parentCompanyId: string | null }[];
+  // Company resources issued to this employee
+  resources?: {
+    id: string; name: string; category: string; assetTag: string | null; serialNumber: string | null;
+    quantity: number; issuedAt: string; expectedReturnAt: string | null; returnedAt: string | null;
+    conditionAtIssue: string | null; conditionAtReturn: string | null;
+    depositAmount: number | null; depositRefunded: boolean;
+    issuedByUser: { id: string; name: string } | null;
+    returnedToUser: { id: string; name: string } | null;
+    notes: string | null;
+  }[];
   attendances: AttendanceItem[];
   attendanceStats: { presentDays: number; halfDays: number; lateDays: number; absentDays: number; total: number };
   payrollHistory: PayrollItem[];
@@ -221,6 +232,7 @@ export function MobileEmployeeDetailClient({
   const [showDprModal, setShowDprModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showCrewsModal, setShowCrewsModal] = useState(false);
+  const [showResourcesModal, setShowResourcesModal] = useState(false);
   const [editingReportsTo, setEditingReportsTo] = useState(false);
   const [savingReportsTo, setSavingReportsTo] = useState(false);
   const [reportsToDraft, setReportsToDraft] = useState(employee?.reportsToEmployeeId ?? "");
@@ -1171,6 +1183,30 @@ export function MobileEmployeeDetailClient({
             </p>
           </button>
         )}
+
+        {/* Company Resources */}
+        {employee.resources && employee.resources.length > 0 && (
+          <button
+            onClick={() => setShowResourcesModal(true)}
+            className="rounded-[0.5rem] p-2 text-left press"
+            style={{ backgroundColor: "var(--color-paper)", border: "1px solid var(--color-line)" }}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <div
+                className="grid place-items-center size-6 rounded-full shrink-0"
+                style={{ backgroundColor: "color-mix(in srgb, var(--color-brand-strong) 15%, transparent)" }}
+              >
+                <Package className="size-3" style={{ color: "var(--color-brand-strong)" }} />
+              </div>
+              <ChevronRight className="size-3 shrink-0" style={{ color: "var(--color-ink-300)" }} />
+            </div>
+            <p className="text-m-label font-bold truncate" style={{ color: "var(--color-ink-950)" }}>Resources</p>
+            <p className="text-m-caption truncate" style={{ color: "var(--color-ink-400)" }}>
+              {employee.resources.filter((r) => !r.returnedAt).length} active
+              {employee.resources.some((r) => r.returnedAt) && ` · ${employee.resources.filter((r) => r.returnedAt).length} returned`}
+            </p>
+          </button>
+        )}
       </div>
 
       {/* ── Activity detail popups ── */}
@@ -1488,6 +1524,65 @@ export function MobileEmployeeDetailClient({
                 <MobileStatusBadge status={c.active ? "ACTIVE" : "INACTIVE"} label={c.active ? "Active" : "Inactive"} />
               </div>
             ))}
+          </div>
+        </MobileDialog>
+      )}
+
+      {/* ── Resources modal ── */}
+      {showResourcesModal && employee.resources && employee.resources.length > 0 && (
+        <MobileDialog open={showResourcesModal} onClose={() => setShowResourcesModal(false)} title="Company Resources">
+          <div className="flex flex-col gap-2">
+            {(() => {
+              const active = employee.resources!.filter((r) => !r.returnedAt);
+              const returned = employee.resources!.filter((r) => r.returnedAt);
+              return (
+                <>
+                  {active.length > 0 && (
+                    <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-400)" }}>
+                      Active ({active.length})
+                    </p>
+                  )}
+                  {active.map((r) => {
+                    const overdue = r.expectedReturnAt && new Date(r.expectedReturnAt) < new Date();
+                    return (
+                      <div key={r.id} className="rounded-[0.5rem] p-2.5" style={{ backgroundColor: "var(--color-paper)" }}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-m-body font-semibold truncate" style={{ color: "var(--color-ink-950)" }}>{r.name}</p>
+                            <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
+                              {r.category.replace("_", " ").toLowerCase()} · {r.quantity > 1 ? `${r.quantity} units · ` : ""}issued {new Date(r.issuedAt).toLocaleDateString()}
+                            </p>
+                            {r.assetTag && <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>Tag: {r.assetTag}</p>}
+                            {r.serialNumber && <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>S/N: {r.serialNumber}</p>}
+                            {r.expectedReturnAt && (
+                              <p className="text-m-caption" style={{ color: overdue ? "var(--color-stop)" : "var(--color-ink-400)" }}>
+                                {overdue ? "Overdue · " : ""}Expected: {new Date(r.expectedReturnAt).toLocaleDateString()}
+                              </p>
+                            )}
+                            {r.depositAmount != null && <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>Deposit: ₹{r.depositAmount}</p>}
+                            {r.notes && <p className="text-m-caption italic mt-0.5" style={{ color: "var(--color-ink-400)" }}>{r.notes}</p>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {returned.length > 0 && (
+                    <p className="text-m-caption font-semibold uppercase tracking-wide pt-2" style={{ color: "var(--color-ink-400)" }}>
+                      Returned ({returned.length})
+                    </p>
+                  )}
+                  {returned.map((r) => (
+                    <div key={r.id} className="rounded-[0.5rem] p-2.5 opacity-60" style={{ backgroundColor: "var(--color-paper)" }}>
+                      <p className="text-m-body font-semibold truncate line-through" style={{ color: "var(--color-ink-950)" }}>{r.name}</p>
+                      <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
+                        {r.category.replace("_", " ").toLowerCase()} · returned {r.returnedAt ? new Date(r.returnedAt).toLocaleDateString() : "—"}
+                      </p>
+                      {r.conditionAtReturn && <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>Return condition: {r.conditionAtReturn}</p>}
+                    </div>
+                  ))}
+                </>
+              );
+            })()}
           </div>
         </MobileDialog>
       )}

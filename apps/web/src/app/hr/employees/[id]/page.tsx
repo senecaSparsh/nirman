@@ -473,6 +473,24 @@ async function EmployeeProfileContent({
       : [],
     // ── Available companies to add the employee to (group minus current + existing) ──
     availableCompanies,
+    // ── Company resources issued to this employee ──
+    resources: (await prisma.employeeResource.findMany({
+      where: { employeeId: employee.id, companyId: company.id },
+      orderBy: [{ returnedAt: "desc" }, { issuedAt: "desc" }],
+      include: {
+        issuedByUser: { select: { id: true, name: true } },
+        returnedToUser: { select: { id: true, name: true } },
+      },
+    })).map((r) => ({
+      id: r.id, name: r.name, category: r.category, assetTag: r.assetTag, serialNumber: r.serialNumber,
+      quantity: r.quantity, issuedAt: r.issuedAt.toISOString(),
+      expectedReturnAt: r.expectedReturnAt?.toISOString() ?? null,
+      returnedAt: r.returnedAt?.toISOString() ?? null,
+      conditionAtIssue: r.conditionAtIssue, conditionAtReturn: r.conditionAtReturn,
+      depositAmount: r.depositAmount ? Number(r.depositAmount) : null,
+      depositRefunded: r.depositRefunded,
+      issuedByUser: r.issuedByUser, returnedToUser: r.returnedToUser, notes: r.notes,
+    })),
   };
 
   return (

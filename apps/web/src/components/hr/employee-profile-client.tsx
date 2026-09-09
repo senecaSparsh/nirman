@@ -12,6 +12,8 @@ import {
   CheckCircle2, Circle, AlertCircle, Loader2, UserCircle,
   IdCard, Building2, Navigation, Activity, Paperclip, Gift,
   UserPlus, Ban, RefreshCw, Sparkles, Check, Plus,
+  Laptop, Car, Wrench, Shirt, KeyRound, CreditCard, Package, Undo,
+  type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -159,6 +161,16 @@ export type EmployeeProfileData = {
   companyMemberships: { companyId: string; companyName: string; employeeId: string; active: boolean }[];
   // ── Multi-company: companies available to add the employee to ──
   availableCompanies: { id: string; name: string; parentCompanyId: string | null }[];
+  // ── Company resources issued to this employee ──
+  resources: {
+    id: string; name: string; category: string; assetTag: string | null; serialNumber: string | null;
+    quantity: number; issuedAt: string; expectedReturnAt: string | null; returnedAt: string | null;
+    conditionAtIssue: string | null; conditionAtReturn: string | null;
+    depositAmount: number | null; depositRefunded: boolean;
+    issuedByUser: { id: string; name: string } | null;
+    returnedToUser: { id: string; name: string } | null;
+    notes: string | null;
+  }[];
 };
 
 // ───────────────────────────────────────────────────────────────
@@ -363,6 +375,7 @@ export function EmployeeProfileClient({
               <TabsTrigger value="crew" count={employee.supervisedCrews.length}>Crew</TabsTrigger>
               <TabsTrigger value="reports">Reports</TabsTrigger>
               <TabsTrigger value="dossier" count={employee.attachments.length + employee.benefits.length}>Dossier</TabsTrigger>
+              <TabsTrigger value="resources" count={employee.resources.filter((r) => !r.returnedAt).length}>Resources</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview">
@@ -388,6 +401,9 @@ export function EmployeeProfileClient({
             </TabsContent>
             <TabsContent value="dossier">
               <DossierTab employee={employee} canManage={permissions.canManage} departments={employee.departments} />
+            </TabsContent>
+            <TabsContent value="resources">
+              <ResourcesTab employee={employee} canManage={permissions.canManage} />
             </TabsContent>
           </Tabs>
         </div>
@@ -1715,6 +1731,303 @@ function SectionCard({ title, icon: Icon, action, children }: { title: string; i
 }
 
 // ───────────────────────────────────────────────────────────────
+//  Resources tab — company resources issued to the employee
+// ───────────────────────────────────────────────────────────────
+
+const RESOURCE_CATEGORIES: Record<string, { label: string; icon: LucideIcon }> = {
+  ELECTRONICS: { label: "Electronics", icon: Laptop },
+  VEHICLE: { label: "Vehicle", icon: Car },
+  TOOL: { label: "Tool", icon: Wrench },
+  UNIFORM: { label: "Uniform / Safety", icon: Shirt },
+  ACCESS: { label: "Access / Keys", icon: KeyRound },
+  DOCUMENT: { label: "Document", icon: FileText },
+  SIM_CARD: { label: "SIM Card", icon: CreditCard },
+  OTHER: { label: "Other", icon: Package },
+};
+
+function ResourcesTab({ employee, canManage }: { employee: EmployeeProfileData; canManage: boolean }) {
+  const router = useRouter();
+  const [showIssue, setShowIssue] = useState(false);
+  const [returning, setReturning] = useState<string | null>(null);
+  const [returnCondition, setReturnCondition] = useState("");
+  const [returnNotes, setReturnNotes] = useState("");
+  const [depositRefunded, setDepositRefunded] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const active = employee.resources.filter((r) => !r.returnedAt);
+  const returned = employee.resources.filter((r) => r.returnedAt);
+
+  async function handleReturn(resourceId: string) {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/employees/${employee.id}/resources/${resourceId}/return`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conditionAtReturn: returnCondition || null,
+          depositRefunded,
+          notes: returnNotes || null,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to mark return");
+      }
+      toast.success("Resource marked as returned");
+      setReturning(null);
+      setReturnCondition("");
+      setReturnNotes("");
+      setDepositRefunded(false);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Active resources */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-title font-bold">Active Resources ({active.length})</h3>
+          {canManage && (
+            <Button size="sm" onClick={() => setShowIssue(true)}>
+              <Plus className="h-3.5 w-3.5" /> Issue Resource
+            </Button>
+          )}
+        </div>
+        {active.length === 0 ? (
+          <p className="text-body text-muted-foreground py-4 text-center">No active resources. Click &ldquo;Issue Resource&rdquo; to assign one.</p>
+        ) : (
+          <div className="space-y-2">
+            {active.map((r) => {
+              const cat = RESOURCE_CATEGORIES[r.category] ?? RESOURCE_CATEGORIES.OTHER!;
+              const Icon = cat.icon;
+              const overdue = r.expectedReturnAt && new Date(r.expectedReturnAt) < new Date();
+              return (
+                <div key={r.id} className="flex items-start gap-3 p-3 rounded-[0.375rem] border" style={{ borderColor: "var(--border)" }}>
+                  <div className="shrink-0 mt-0.5 p-1.5 rounded-[0.25rem]" style={{ backgroundColor: "var(--muted)" }}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-body font-medium">{r.name}</span>
+                      <span className="text-meta px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "var(--muted)" }}>{cat.label}</span>
+                      {r.quantity > 1 && <span className="text-meta text-muted-foreground">×{r.quantity}</span>}
+                      {overdue && (
+                        <span className="text-meta px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--stop) 12%, transparent)", color: "var(--stop)" }}>
+                          Overdue
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-meta text-muted-foreground mt-0.5">
+                      Issued {new Date(r.issuedAt).toLocaleDateString()} by {r.issuedByUser?.name ?? "—"}
+                      {r.assetTag && ` · Tag: ${r.assetTag}`}
+                      {r.serialNumber && ` · S/N: ${r.serialNumber}`}
+                      {r.expectedReturnAt && ` · Expected return: ${new Date(r.expectedReturnAt).toLocaleDateString()}`}
+                      {r.conditionAtIssue && ` · Condition: ${r.conditionAtIssue}`}
+                      {r.depositAmount != null && ` · Deposit: ₹${r.depositAmount}`}
+                    </div>
+                    {r.notes && <div className="text-meta text-muted-foreground mt-1 italic">{r.notes}</div>}
+                  </div>
+                  {canManage && (
+                    <Button size="sm" variant="outline" onClick={() => setReturning(r.id)}>
+                      <Undo className="h-3.5 w-3.5" /> Return
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Returned resources (history) */}
+      {returned.length > 0 && (
+        <div>
+          <h3 className="text-title font-bold mb-2">Returned ({returned.length})</h3>
+          <div className="space-y-2">
+            {returned.map((r) => {
+              const cat = RESOURCE_CATEGORIES[r.category] ?? RESOURCE_CATEGORIES.OTHER!;
+              const Icon = cat.icon;
+              return (
+                <div key={r.id} className="flex items-start gap-3 p-3 rounded-[0.375rem] border opacity-70" style={{ borderColor: "var(--border)" }}>
+                  <div className="shrink-0 mt-0.5 p-1.5 rounded-[0.25rem]" style={{ backgroundColor: "var(--muted)" }}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-body font-medium line-through">{r.name}</span>
+                      <span className="text-meta px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "var(--muted)" }}>{cat.label}</span>
+                    </div>
+                    <div className="text-meta text-muted-foreground mt-0.5">
+                      Issued {new Date(r.issuedAt).toLocaleDateString()} · Returned {r.returnedAt ? new Date(r.returnedAt).toLocaleDateString() : "—"}
+                      {r.conditionAtReturn && ` · Return condition: ${r.conditionAtReturn}`}
+                      {r.depositAmount != null && ` · Deposit: ${r.depositRefunded ? "Refunded" : "Pending refund"}`}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Issue dialog */}
+      {showIssue && <IssueResourceDialog employeeId={employee.id} onClose={() => setShowIssue(false)} onIssued={() => { setShowIssue(false); router.refresh(); }} />}
+
+      {/* Return dialog */}
+      {returning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !submitting && setReturning(null)}>
+          <div className="bg-card rounded-lg shadow-lg max-w-sm w-full p-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-title font-bold mb-3">Return Resource</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-meta text-muted-foreground">Condition at return</label>
+                <select className="w-full mt-1 h-9 rounded-[0.375rem] border px-2 text-body" style={{ borderColor: "var(--border)" }} value={returnCondition} onChange={(e) => setReturnCondition(e.target.value)}>
+                  <option value="">— Select —</option>
+                  <option value="NEW">New</option>
+                  <option value="GOOD">Good</option>
+                  <option value="FAIR">Fair</option>
+                  <option value="DAMAGED">Damaged</option>
+                  <option value="LOST">Lost</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-meta text-muted-foreground">Return notes</label>
+                <textarea className="w-full mt-1 rounded-[0.375rem] border p-2 text-body" rows={2} style={{ borderColor: "var(--border)" }} value={returnNotes} onChange={(e) => setReturnNotes(e.target.value)} />
+              </div>
+              <label className="flex items-center gap-2 text-body">
+                <input type="checkbox" checked={depositRefunded} onChange={(e) => setDepositRefunded(e.target.checked)} className="accent-brand-strong" />
+                Security deposit refunded
+              </label>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setReturning(null)} disabled={submitting} className="flex-1">Cancel</Button>
+                <Button size="sm" onClick={() => handleReturn(returning)} disabled={submitting} className="flex-1">
+                  {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Confirm Return
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IssueResourceDialog({ employeeId, onClose, onIssued }: { employeeId: string; onClose: () => void; onIssued: () => void }) {
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState("ELECTRONICS");
+  const [assetTag, setAssetTag] = useState("");
+  const [serialNumber, setSerialNumber] = useState("");
+  const [quantity, setQuantity] = useState(1);
+  const [expectedReturnAt, setExpectedReturnAt] = useState("");
+  const [conditionAtIssue, setConditionAtIssue] = useState("");
+  const [depositAmount, setDepositAmount] = useState("");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit() {
+    if (!name.trim()) { toast.error("Resource name is required"); return; }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/employees/${employeeId}/resources`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          category,
+          assetTag: assetTag || null,
+          serialNumber: serialNumber || null,
+          quantity,
+          expectedReturnAt: expectedReturnAt || null,
+          conditionAtIssue: conditionAtIssue || null,
+          depositAmount: depositAmount ? Number(depositAmount) : null,
+          notes: notes || null,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to issue resource");
+      }
+      toast.success("Resource issued successfully");
+      onIssued();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !submitting && onClose()}>
+      <div className="bg-card rounded-lg shadow-lg max-w-md w-full p-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-title font-bold mb-3">Issue Resource</h3>
+        <div className="space-y-3">
+          <div>
+            <label className="text-meta text-muted-foreground">Resource name *</label>
+            <input className="w-full mt-1 h-9 rounded-[0.375rem] border px-2 text-body" style={{ borderColor: "var(--border)" }} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Dell Latitude Laptop" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-meta text-muted-foreground">Category</label>
+              <select className="w-full mt-1 h-9 rounded-[0.375rem] border px-2 text-body" style={{ borderColor: "var(--border)" }} value={category} onChange={(e) => setCategory(e.target.value)}>
+                {Object.entries(RESOURCE_CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-meta text-muted-foreground">Quantity</label>
+              <input type="number" min={1} className="w-full mt-1 h-9 rounded-[0.375rem] border px-2 text-body" style={{ borderColor: "var(--border)" }} value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-meta text-muted-foreground">Asset tag</label>
+              <input className="w-full mt-1 h-9 rounded-[0.375rem] border px-2 text-body" style={{ borderColor: "var(--border)" }} value={assetTag} onChange={(e) => setAssetTag(e.target.value)} placeholder="QR / tag" />
+            </div>
+            <div>
+              <label className="text-meta text-muted-foreground">Serial number</label>
+              <input className="w-full mt-1 h-9 rounded-[0.375rem] border px-2 text-body" style={{ borderColor: "var(--border)" }} value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-meta text-muted-foreground">Expected return</label>
+              <input type="date" className="w-full mt-1 h-9 rounded-[0.375rem] border px-2 text-body" style={{ borderColor: "var(--border)" }} value={expectedReturnAt} onChange={(e) => setExpectedReturnAt(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-meta text-muted-foreground">Condition at issue</label>
+              <select className="w-full mt-1 h-9 rounded-[0.375rem] border px-2 text-body" style={{ borderColor: "var(--border)" }} value={conditionAtIssue} onChange={(e) => setConditionAtIssue(e.target.value)}>
+                <option value="">—</option>
+                <option value="NEW">New</option>
+                <option value="GOOD">Good</option>
+                <option value="FAIR">Fair</option>
+                <option value="DAMAGED">Damaged</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-meta text-muted-foreground">Security deposit (₹)</label>
+            <input type="number" min={0} className="w-full mt-1 h-9 rounded-[0.375rem] border px-2 text-body" style={{ borderColor: "var(--border)" }} value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder="0" />
+          </div>
+          <div>
+            <label className="text-meta text-muted-foreground">Notes</label>
+            <textarea className="w-full mt-1 rounded-[0.375rem] border p-2 text-body" rows={2} style={{ borderColor: "var(--border)" }} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any additional notes" />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <Button variant="outline" size="sm" onClick={onClose} disabled={submitting} className="flex-1">Cancel</Button>
+            <Button size="sm" onClick={handleSubmit} disabled={submitting} className="flex-1">
+              {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Issue
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 //  Add-to-company button + dialog
 // ───────────────────────────────────────────────────────────────
 

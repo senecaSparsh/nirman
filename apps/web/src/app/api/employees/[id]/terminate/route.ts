@@ -107,10 +107,19 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       ? " Their phone number has been recycled and is available for re-assignment."
       : "";
 
+    // Check for pending resources (not yet returned)
+    const pendingResources = await prisma.employeeResource.findMany({
+      where: { employeeId: id, companyId: company.id, returnedAt: null },
+      select: { id: true, name: true, category: true, quantity: true, depositAmount: true },
+    });
+    const pendingDepositTotal = pendingResources.reduce((sum, r) => sum + (r.depositAmount ? Number(r.depositAmount) : 0), 0);
+
     return json({
       ok: true,
       ...result,
-      message: `Employee terminated. All history is preserved.${phoneMsg}`,
+      pendingResources: pendingResources.length > 0 ? pendingResources : undefined,
+      pendingDepositTotal: pendingDepositTotal > 0 ? pendingDepositTotal : undefined,
+      message: `Employee terminated. All history is preserved.${phoneMsg}${pendingResources.length > 0 ? ` WARNING: ${pendingResources.length} resource(s) still pending return${pendingDepositTotal > 0 ? ` (deposit total: ₹${pendingDepositTotal})` : ""}.` : ""}`,
     });
   } catch (err: unknown) {
     if (err instanceof HrError) {
