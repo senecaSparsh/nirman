@@ -9,7 +9,7 @@ import {
   getExpenseBudgetVariance,
   type ExpenseBudgetVariance,
 } from "@nirman/services";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
@@ -62,13 +62,13 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
     }),
     prisma.projectCost.findMany({
       take: 500,
-      where: { project: { companyId: company.id } },
+      where: {...await scopeWhere("ProjectCost"),  project: { companyId: company.id } },
       orderBy: { date: "desc" },
       include: { project: { select: { name: true } }, subcontractor: { select: { name: true } } },
     }),
     prisma.expense.findMany({
       take: 500,
-      where: { companyId: company.id },
+      where: {...await scopeWhere("Expense"),  companyId: company.id },
       orderBy: { date: "desc" },
       include: { project: { select: { name: true } } },
     }),
@@ -118,7 +118,7 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
   // Total revenue from sales
   const sales = await prisma.assetSale.findMany({
     take: 200,
-    where: { companyId: company.id, status: "ACTIVE" },
+    where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE" },
     select: { salePrice: true, payments: { select: { amount: true } } },
   });
   const totalRevenue = sales.reduce((s, sale) => s + toNum(sale.salePrice), 0);
@@ -206,7 +206,7 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
 
   // Fetch expense tab data conditionally
   const expenseData = needExpenses ? await prisma.expense.findMany({
-    take: 500, where: { companyId: company.id }, orderBy: { date: "desc" },
+    take: 500, where: {...await scopeWhere("Expense"),  companyId: company.id }, orderBy: { date: "desc" },
     include: { project: { select: { id: true, name: true } }, categoryMaster: { select: { id: true, name: true, glAccountCode: true } }, supplier: { select: { id: true, name: true } }, approvedBy: { select: { id: true, name: true } }, submittedBy: { select: { id: true, name: true } }, createdBy: { select: { id: true, name: true } } },
   }) : [];
 
@@ -228,26 +228,26 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
 
   // Fetch claims tab data conditionally
   const claimsData = needClaims ? await prisma.expenseClaim.findMany({
-    take: 200, where: { companyId: company.id }, orderBy: { createdAt: "desc" },
+    take: 200, where: {...await scopeWhere("ExpenseClaim"),  companyId: company.id }, orderBy: { createdAt: "desc" },
     include: { claimant: { select: { id: true, name: true } }, project: { select: { id: true, name: true } }, lines: { select: { id: true, amount: true } } },
   }) : [];
 
   // Fetch petty cash tab data conditionally
   const pettyCashData = needPettyCash ? await prisma.pettyCashFloat.findMany({
-    take: 200, where: { companyId: company.id }, orderBy: { name: "asc" },
+    take: 200, where: {...await scopeWhere("PettyCashFloat"),  companyId: company.id }, orderBy: { name: "asc" },
     include: { project: { select: { id: true, name: true } }, custodian: { select: { id: true, name: true } }, topUps: { orderBy: { date: "desc" }, take: 20, include: { createdBy: { select: { name: true } } } } },
   }) : [];
 
   // Fetch recurring expenses tab data conditionally
   const recurringData = needRecurring ? await prisma.recurringExpense.findMany({
-    take: 200, where: { companyId: company.id }, orderBy: { nextRunDate: "asc" },
+    take: 200, where: {...await scopeWhere("RecurringExpense"),  companyId: company.id }, orderBy: { nextRunDate: "asc" },
     include: { project: { select: { id: true, name: true } }, categoryMaster: { select: { id: true, name: true } }, supplier: { select: { id: true, name: true } } },
   }) : [];
 
   // Fetch expense budgets tab data conditionally
   const budgetResult = needBudgets ? await Promise.all([
     prisma.expenseBudget.findMany({
-      take: 200, where: { companyId: company.id }, orderBy: { periodStart: "desc" },
+      take: 200, where: {...await scopeWhere("ExpenseBudget"),  companyId: company.id }, orderBy: { periodStart: "desc" },
       include: { project: { select: { id: true, name: true } }, categoryMaster: { select: { id: true, name: true } } },
     }),
     getExpenseBudgetVariance(company.id),

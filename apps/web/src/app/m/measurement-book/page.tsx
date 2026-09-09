@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@nirman/db";
 import { BookOpen, Plus } from "lucide-react";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import {
@@ -48,7 +48,7 @@ export default function MobileMeasurementBookPage({
 
         const [entries, boqItems, wbsNodes, canCreate] = await Promise.all([
           prisma.measurementBookEntry.findMany({
-            where: { projectId },
+            where: {...await scopeWhere("MeasurementBookEntry"),  projectId },
             orderBy: { measureDate: "desc" },
             take: 50,
             include: {
@@ -57,12 +57,12 @@ export default function MobileMeasurementBookPage({
             },
           }),
           prisma.boqItem.findMany({
-            where: { projectId, type: "LINE_ITEM" },
+            where: {...await scopeWhere("BoqItem"),  projectId, type: "LINE_ITEM" },
             orderBy: { serialNo: "asc" },
             select: { id: true, serialNo: true, description: true, unit: true, rate: true },
           }),
           prisma.wbsNode.findMany({
-            where: { projectId },
+            where: {...await scopeWhere("WbsNode"),  projectId },
             orderBy: { code: "asc" },
             select: { id: true, code: true, name: true, boqItemId: true },
           }),

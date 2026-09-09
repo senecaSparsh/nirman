@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { updateCrew, deleteCrew, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, crewSchema, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, crewSchema, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -10,7 +10,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
   const crew = await prisma.crew.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, ...await scopeWhere("Crew") },
     include: {
       project: { select: { id: true, name: true } },
       supervisor: { select: { id: true, name: true } },
@@ -35,6 +35,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const parsed = crewSchema.partial().safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  try {
+    await assertScopeAllows({ projectId: parsed.data.projectId ?? null, departmentId: null });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
   }
   const crew = await updateCrew({
     crewId: id,

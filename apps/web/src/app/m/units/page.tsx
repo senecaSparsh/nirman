@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { Home } from "lucide-react";
 import { formatNumber, formatCurrencyCompact } from "@/lib/utils";
@@ -38,7 +38,7 @@ export default function MobileUnitsPage({
           : null;
 
         const units = await prisma.builtUnit.findMany({
-          where: {
+          where: {...await scopeWhere("BuiltUnit"), 
             deletedAt: null,
             project: { companyId: company.id, deletedAt: null },
             ...(projectId ? { projectId } : {}),

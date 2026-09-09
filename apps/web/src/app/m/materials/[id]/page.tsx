@@ -3,7 +3,7 @@ import { prisma } from "@nirman/db";
 import {
   Package, ArrowLeftRight,
 } from "lucide-react";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
 import {
@@ -58,7 +58,7 @@ export default function MobileMaterialDetailPage({
             orderBy: { location: { name: "asc" } },
           }),
           prisma.stockMovement.findMany({
-            where: {
+            where: {...await scopeWhere("StockMovement"), 
               materialId: id,
               OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }],
             },

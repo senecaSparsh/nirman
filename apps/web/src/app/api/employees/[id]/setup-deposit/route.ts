@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
-import { setupAutoDeposit, disableAutoDeposit, HrError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { setupAutoDeposit, disableAutoDeposit, autoCompleteOnboarding, HrError } from "@nirman/services";
+import { apiHandler, getCompany, json, requirePermission, assertCanManageEmployee } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -27,14 +27,24 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
 
+  try {
+    await assertCanManageEmployee(id, company.id);
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Hierarchy violation" }, { status: 403 });
+  }
+
   const body = await req.json();
 
   // Disable mode
   if (body.disable === true) {
     try {
       const result = await disableAutoDeposit(id, company.id, session.id);
+      // Re-check onboarding — disabling auto-deposit may uncomplete it
+      await autoCompleteOnboarding(id, company.id).catch(() => {});
       revalidatePath(`/hr/employees/${id}`);
       revalidatePath(`/m/hr/employees/${id}`);
+      revalidatePath(`/m/hr/onboarding/${id}`);
+      revalidatePath("/m/hr/onboarding");
       return json({ ok: true, ...result, message: "Auto-deposit disabled." });
     } catch (err: unknown) {
       if (err instanceof HrError) return json({ error: err.message }, { status: err.status });
@@ -77,8 +87,13 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       payDay,
     });
 
+    // Auto-complete onboarding if all steps are now done
+    await autoCompleteOnboarding(id, company.id).catch(() => {});
+
     revalidatePath(`/hr/employees/${id}`);
     revalidatePath(`/m/hr/employees/${id}`);
+    revalidatePath(`/m/hr/onboarding/${id}`);
+    revalidatePath("/m/hr/onboarding");
 
     return json({
       ok: true,

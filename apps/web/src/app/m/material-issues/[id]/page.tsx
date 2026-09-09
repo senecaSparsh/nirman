@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum, getUserPermissions } from "@/lib/server";
+import { toNum, getUserPermissions, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
@@ -20,7 +20,7 @@ export default function MobileMaterialIssueDetailPage({
         const canIssue = hasPermission(role, PERM.STOCK_ISSUE);
 
         const issue = await prisma.materialIssue.findFirst({
-          where: {
+          where: {...await scopeWhere("MaterialIssue"), 
             id,
             OR: [
               { project: { companyId: company.id } },

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, requirePermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrencyDetailed } from "@/lib/utils";
 
@@ -10,7 +10,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const { id } = await params;
 
   const dpr = await prisma.dailyProgressReport.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, ...await scopeWhere("DailyProgressReport", {}) },
     include: {
       project: { select: { id: true, name: true } },
       submittedBy: { select: { id: true, name: true } },

@@ -17,7 +17,7 @@ import {
   Plus,
   Wallet,
 } from "lucide-react";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import {
@@ -96,7 +96,7 @@ export default function PulsePage() {
           }),
           leaseExpiryAlerts(company.id).catch(() => []),
           prisma.assetSale.findMany({
-            where: { companyId: company.id, status: "ACTIVE" },
+            where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE" },
             orderBy: { createdAt: "desc" },
             take: 3,
             include: { customer: { select: { name: true } } },

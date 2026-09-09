@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileExpenseClaimsList, type ExpenseClaimListItem } from "./MobileExpenseClaimsList";
@@ -18,7 +18,7 @@ export default function MobileExpenseClaimsPage() {
 
         const BATCH_SIZE = 40;
         const claims = await prisma.expenseClaim.findMany({
-          where: { companyId: company.id },
+          where: {...await scopeWhere("ExpenseClaim"),  companyId: company.id },
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           take: BATCH_SIZE + 1,
           include: {

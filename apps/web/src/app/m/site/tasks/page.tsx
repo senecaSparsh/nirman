@@ -3,7 +3,7 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { CheckSquare, Plus } from "lucide-react";
-import { getCurrentUser, getCompany, getUserRole } from "@/lib/server";
+import { getCurrentUser, getCompany, getUserRole, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission, ROLES } from "@/lib/roles";
 import { MobileStatCard, MobileEmptyState, MobileCta } from "@/components/mobile/v2/primitives";
 import { MobileTaskList } from "@/components/mobile/mobile-task-list";
@@ -27,7 +27,7 @@ async function SiteTasksContent() {
 
   const [tasks, teamMembers] = await Promise.all([
     prisma.task.findMany({
-      where: { assignedToId: user?.id ?? "none", status: { in: ["PENDING", "IN_PROGRESS", "BLOCKED"] } },
+      where: {...await scopeWhere("Task"),  assignedToId: user?.id ?? "none", status: { in: ["PENDING", "IN_PROGRESS", "BLOCKED"] } },
       orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
       take: 30,
       select: {
@@ -78,7 +78,7 @@ async function SiteTasksContent() {
           icon={CheckSquare}
           title="No team members"
           hint="Add team members first, then assign tasks to them"
-          action={<MobileCta href="/m/settings/team" icon={Plus} variant="primary">Go to Team</MobileCta>}
+          action={<MobileCta href="/m/hr/employees" icon={Plus} variant="primary">Go to Employees</MobileCta>}
         />
       )}
 

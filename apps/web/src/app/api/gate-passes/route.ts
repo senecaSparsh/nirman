@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createGatePass } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { prisma } from "@nirman/db";
 import { z } from "zod";
@@ -18,7 +18,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const category = searchParams.get("category");
   const locationId = searchParams.get("locationId");
 
-  const where: Record<string, unknown> = { companyId: company.id };
+  const where: Record<string, unknown> = { companyId: company.id, ...await scopeWhere("GatePass", {}) };
   if (status) where.status = status;
   if (category) where.category = category;
   if (locationId) where.locationId = locationId;
@@ -86,6 +86,18 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+
+  try {
+    await assertScopeAllows({
+      projectId: parsed.data.projectId ?? null,
+      departmentId: null,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Scope violation" },
+      { status: 403 },
+    );
   }
 
   const gp = await createGatePass({

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getCurrentUser, getUserRole, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
@@ -75,7 +75,7 @@ async function PoDetailContent({
 
   // Fetch the source requisition (if this PO was converted from one)
   const sourceRequisition = await prisma.materialRequisition.findFirst({
-    where: { convertedPoId: po.id },
+    where: {...await scopeWhere("MaterialRequisition"),  convertedPoId: po.id },
     select: { id: true, reqNumber: true },
   });
 

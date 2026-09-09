@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import {Percent, TrendingDown, TrendingUp} from "lucide-react";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
@@ -107,7 +107,7 @@ async function MobileGstContent() {
       take: 50,
     }),
     prisma.assetSale.findMany({
-      where: { companyId: company.id, saleDate: { gte: fromDate, lte: toDate } },
+      where: {...await scopeWhere("AssetSale"),  companyId: company.id, saleDate: { gte: fromDate, lte: toDate } },
       select: { saleNumber: true, salePrice: true, gstRate: true, gstAmount: true, saleDate: true, status: true, customerId: true },
       orderBy: { saleDate: "desc" },
       take: 50,

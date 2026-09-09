@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole } from "@/lib/server";
+import { getCompany, getUserRole, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import {
@@ -38,7 +38,7 @@ async function MobileProjectAssignmentsContent() {
 
   const [assignments, users, projects] = await Promise.all([
     prisma.projectAssignment.findMany({
-      where: { project: { companyId: company.id } },
+      where: {...await scopeWhere("ProjectAssignment"),  project: { companyId: company.id } },
       include: {
         user: { select: { id: true, name: true, email: true, role: true } },
         project: { select: { id: true, name: true } },

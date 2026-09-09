@@ -44,6 +44,7 @@ export default async function AppointmentLetterPage({
         },
         activeProject: { select: { name: true } },
         reportingLocation: { select: { name: true, address: true } },
+        salaryComponents: { where: { active: true }, select: { amount: true, frequency: true, isDeduction: true } },
       },
     }),
     prisma.company.findFirst({
@@ -67,12 +68,22 @@ export default async function AppointmentLetterPage({
   };
   const typeLabel = employmentTypeLabel[employee.employmentType ?? "PERMANENT"] ?? "Employment";
 
+  // ── Compute monthly earnings from salary components ──
+  const monthlyEarnings = employee.salaryComponents
+    .filter((c) => !c.isDeduction && c.frequency === "MONTHLY")
+    .reduce((sum, c) => sum + toNum(c.amount), 0);
+
+  // Use Employee.wage fields if set, otherwise compute from salary components
+  const computedMonthly = monthlyEarnings > 0 ? monthlyEarnings : null;
+  const effectiveMonthly = toNum(employee.monthlySalary) > 0 ? toNum(employee.monthlySalary) : computedMonthly;
+  const effectiveDaily = toNum(employee.dailyRate) > 0 ? toNum(employee.dailyRate) : (computedMonthly ? Math.round(computedMonthly / 30) : 0);
+
   const wageText =
     employee.wageType === "DAILY"
-      ? `a daily wage of ${formatCurrency(toNum(employee.dailyRate))} per working day`
+      ? `a daily wage of ${formatCurrency(effectiveDaily)} per working day`
       : employee.wageType === "MONTHLY"
-        ? `a monthly salary of ${formatCurrency(toNum(employee.monthlySalary))} per month`
-        : `a fixed contract amount of ${formatCurrency(toNum(employee.monthlySalary))}`;
+        ? `a monthly salary of ${formatCurrency(effectiveMonthly ?? 0)} per month`
+        : `a fixed contract amount of ${formatCurrency(effectiveMonthly ?? 0)}`;
 
   const startDateText = employee.joinDate
     ? formatDate(employee.joinDate)

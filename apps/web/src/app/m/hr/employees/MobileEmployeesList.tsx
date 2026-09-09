@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Users, HardHat } from "lucide-react";
+import Link from "next/link";
+import { Users, HardHat, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
-  MobileStatusBadge,
   MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
 import {
@@ -28,6 +28,9 @@ export type EmployeeListItem = {
   monthlySalary: string | null;
   wageType: string;
   activeProjectName: string | null;
+  onboardingComplete?: boolean;
+  employeeCode?: string | null;
+  active?: boolean;
 };
 
 const FILTER_CHIPS: { label: string; value: WageTypeFilter }[] = [
@@ -49,12 +52,17 @@ const FILTER_CHIPS: { label: string; value: WageTypeFilter }[] = [
  */
 export function MobileEmployeesList({
   items,
+  viewerHierarchyLevel: _viewerHierarchyLevel,
   exportTitle,
   exportRows,
   exportColumns,
   exportSummary,
 }: {
   items: EmployeeListItem[];
+  // TODO: use viewerHierarchyLevel for per-row action gating (e.g. edit/delete
+  // buttons when added). Currently the mobile list only navigates to the
+  // employee detail page, so no per-row action gating is needed yet.
+  viewerHierarchyLevel?: number | null;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
@@ -84,6 +92,11 @@ export function MobileEmployeesList({
   }, [items, query, wageFilter]);
 
   const isFiltering = query.trim() !== "" || wageFilter !== "ALL";
+
+  // Onboarding status counts
+  const pendingCount = items.filter((e) => e.active !== false && e.onboardingComplete === false).length;
+  const onboardedCount = items.filter((e) => e.active !== false && e.onboardingComplete === true).length;
+  const inactiveCount = items.filter((e) => e.active === false).length;
 
   if (items.length === 0) {
     return (
@@ -123,6 +136,46 @@ export function MobileEmployeesList({
         onClear={() => { setQuery(""); setWageFilter("ALL"); }}
       />
 
+      {/* ── Onboarding status summary ── */}
+      {(pendingCount > 0 || inactiveCount > 0) && (
+        <div className="flex items-center gap-2 px-4 pb-2">
+          {pendingCount > 0 && (
+            <Link
+              href="/m/hr/onboarding"
+              className="flex items-center gap-1.5 px-2 py-1 rounded-full text-m-caption font-bold press"
+              style={{
+                backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)",
+                color: "var(--color-signal-dark)",
+              }}
+            >
+              <Clock className="size-3" />
+              {pendingCount} pending onboarding
+            </Link>
+          )}
+          {inactiveCount > 0 && (
+            <span
+              className="flex items-center gap-1.5 px-2 py-1 rounded-full text-m-caption font-bold"
+              style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-500)" }}
+            >
+              <AlertCircle className="size-3" />
+              {inactiveCount} inactive
+            </span>
+          )}
+          {onboardedCount > 0 && (
+            <span
+              className="flex items-center gap-1.5 px-2 py-1 rounded-full text-m-caption font-bold"
+              style={{
+                backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)",
+                color: "var(--color-go)",
+              }}
+            >
+              <CheckCircle2 className="size-3" />
+              {onboardedCount} onboarded
+            </span>
+          )}
+        </div>
+      )}
+
       {isFiltering ? (
         <FlatList items={filtered} />
       ) : (
@@ -155,9 +208,12 @@ function FlatList({ items }: { items: EmployeeListItem[] }) {
 
 /* ----------------------------------------------------------------
  * Grouped list — the default trade-sectioned view.
+ * Employees without a trade are shown in an "Other" group so nobody
+ * is hidden just because they don't have a trade assigned.
  * ---------------------------------------------------------------- */
 function GroupedList({ items }: { items: EmployeeListItem[] }) {
   const trades = [...new Set(items.map((e) => e.trade).filter(Boolean))] as string[];
+  const ungrouped = items.filter((e) => !e.trade);
 
   return (
     <div>
@@ -180,6 +236,21 @@ function GroupedList({ items }: { items: EmployeeListItem[] }) {
           </div>
         );
       })}
+      {ungrouped.length > 0 && (
+        <div>
+          <div
+            className="pb-1 pt-2 text-m-caption font-bold uppercase tracking-wide"
+            style={{ color: "var(--color-ink-500)" }}
+          >
+            Other ({ungrouped.length})
+          </div>
+          <div className="flex flex-col gap-2.5">
+            {ungrouped.map((e) => (
+              <EmployeeRow key={e.id} e={e} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -190,15 +261,62 @@ function EmployeeRow({ e }: { e: EmployeeListItem }) {
     e.wageType === "DAILY"
       ? `${formatCurrency(e.dailyRate)}/day`
       : formatCurrency(e.monthlySalary);
+  const subtitleParts = [
+    e.employeeCode ?? null,
+    e.designation ?? null,
+    e.activeProjectName ?? null,
+    e.phone ?? null,
+  ].filter(Boolean);
+
+  // Status badge: Onboarding Pending (amber) | Onboarded (green) | Inactive (grey)
+  let badge: React.ReactNode;
+  if (e.active === false) {
+    badge = (
+      <span
+        className="text-micro font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1"
+        style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-500)" }}
+      >
+        <AlertCircle className="size-2.5" />
+        Inactive
+      </span>
+    );
+  } else if (e.onboardingComplete === false) {
+    badge = (
+      <span
+        className="text-micro font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1"
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)",
+          color: "var(--color-signal-dark)",
+        }}
+      >
+        <Clock className="size-2.5" />
+        Onboarding Pending
+      </span>
+    );
+  } else {
+    badge = (
+      <span
+        className="text-micro font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1"
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)",
+          color: "var(--color-go)",
+        }}
+      >
+        <CheckCircle2 className="size-2.5" />
+        Onboarded
+      </span>
+    );
+  }
+
   return (
     <MobileRow
       href={`/m/hr/employees/${e.id}`}
       icon={Users}
       title={e.name}
       empId={e.id}
-      subtitle={`${e.designation ?? "—"} · ${e.activeProjectName ?? "No project"}${e.phone ? ` · ${e.phone}` : ""}`}
+      subtitle={subtitleParts.join(" · ") || "—"}
       meta={wage}
-      badge={<MobileStatusBadge status={e.wageType} />}
+      badge={badge}
     />
   );
 }

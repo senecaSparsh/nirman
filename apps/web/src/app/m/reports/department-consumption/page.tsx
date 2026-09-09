@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import {Building2, Package, PieChart} from "lucide-react";
-import { getCompany, toNum, getUserRole, getUserScope } from "@/lib/server";
+import { getCompany, toNum, getUserRole, getUserScope, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
@@ -51,7 +51,7 @@ async function MobileDepartmentConsumptionContent() {
       : {};
 
   const issues = await prisma.materialIssue.findMany({
-    where: {
+    where: {...await scopeWhere("MaterialIssue"), 
       department: { companyId: company.id, deletedAt: null },
       departmentId: { not: null },
       issueDate: { gte: fromDate, lte: toDate },

@@ -8,7 +8,7 @@ import {
   payExpenseClaim,
   ServiceError,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -24,7 +24,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
   const c = await prisma.expenseClaim.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, ...await scopeWhere("ExpenseClaim", {}) },
     include: {
       claimant: { select: { id: true, name: true } },
       project: { select: { id: true, name: true } },

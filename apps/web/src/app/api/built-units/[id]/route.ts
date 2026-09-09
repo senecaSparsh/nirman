@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { softDelete, updateUnitStatus, updateUnitValuation, updateBuiltUnit } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum, builtUnitStatusSchema, builtUnitValuationSchema, builtUnitEditSchema } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, builtUnitStatusSchema, builtUnitValuationSchema, builtUnitEditSchema, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -10,7 +10,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
   const unit = await prisma.builtUnit.findFirst({
-    where: { id, project: { companyId: company.id }, deletedAt: null },
+    where: { id, project: { companyId: company.id }, deletedAt: null, ...await scopeWhere("BuiltUnit", {}) },
     include: {
       project: { select: { id: true, name: true } },
       phase: { select: { id: true, name: true } },
@@ -48,7 +48,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const user = await requirePermission(PERM.ASSETS_MANAGE);
   const company = await getCompany();
   const { id } = await params;
-  const existing = await prisma.builtUnit.findFirst({ where: { id, project: { companyId: company.id }, deletedAt: null }, select: { id: true } });
+  const existing = await prisma.builtUnit.findFirst({ where: { id, project: { companyId: company.id }, deletedAt: null, ...await scopeWhere("BuiltUnit", {}) }, select: { id: true } });
   if (!existing) return json({ error: "Unit not found" }, { status: 404 });
   const body = await req.json();
   const action = body?.action as string | undefined;
@@ -157,7 +157,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const { id } = await params;
   // Verify company ownership before soft-deleting
   const existing = await prisma.builtUnit.findFirst({
-    where: { id, project: { companyId: company.id } },
+    where: { id, project: { companyId: company.id }, ...await scopeWhere("BuiltUnit", {}) },
     select: { id: true },
   });
   if (!existing) return json({ error: "Unit not found" }, { status: 404 });

@@ -29,7 +29,7 @@ export const GET = apiHandler(async () => {
       deletedAt: null,
       ...(isSuperuser
         ? {}
-        : { userMemberships: { some: { userId: user.id } } }),
+        : { userMemberships: { some: { userId: user.id, active: true } } }),
     },
     orderBy: { name: "asc" },
     include: {

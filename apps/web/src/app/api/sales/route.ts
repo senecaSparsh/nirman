@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { SaleStatus } from "@nirman/db";
 import { sellAsset } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, sellAssetSchema, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, sellAssetSchema, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
@@ -23,6 +23,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       companyId: company.id,
       ...(status ? { status: status as SaleStatus } : {}),
       ...(cursorToWhere(cursor, "saleDate") ?? {}),
+      ...await scopeWhere("AssetSale", {}),
     },
     orderBy: { saleDate: "desc" },
     take: usePagination ? take + 1 : undefined,
@@ -201,6 +202,17 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const parsed = sellAssetSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  try {
+    await assertScopeAllows({
+      projectId: parsed.data.projectId ?? null,
+      departmentId: null,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Scope violation" },
+      { status: 403 },
+    );
   }
   try {
     const company = await getCompany();

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { cancelSale, completeSale, markRegistryDone, recordDeposit, recordPayment, sendNotification, updateSale } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, paymentSchema, depositSchema, completeSaleSchema, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, paymentSchema, depositSchema, completeSaleSchema, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 
@@ -14,7 +14,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
   const s = await prisma.assetSale.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, ...await scopeWhere("AssetSale", {}) },
     include: {
       customer: { select: { id: true, name: true, phone: true } },
       project: { select: { id: true, name: true } },
@@ -188,7 +188,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const user = await requirePermission(PERM.SALES_MANAGE);
   const { id } = await params;
   const company = await getCompany();
-  const existing = await prisma.assetSale.findFirst({ where: { id, companyId: company.id }, select: { id: true } });
+  const existing = await prisma.assetSale.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("AssetSale", {}) }, select: { id: true } });
   if (!existing) return json({ error: "Sale not found" }, { status: 404 });
   const body = await req.json();
   const action = body?.action as string;
@@ -233,7 +233,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   const user = await requirePermission(PERM.SALES_MANAGE);
   const company = await getCompany();
   const { id } = await params;
-  const saleExists = await prisma.assetSale.findFirst({ where: { id, companyId: company.id }, select: { id: true } });
+  const saleExists = await prisma.assetSale.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("AssetSale", {}) }, select: { id: true } });
   if (!saleExists) return json({ error: "Sale not found" }, { status: 404 });
   const body = await req.json();
   const action = body?.action as string;

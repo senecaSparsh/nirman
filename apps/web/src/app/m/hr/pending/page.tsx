@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate, formatCurrencyCompact } from "@/lib/utils";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
@@ -56,7 +56,7 @@ async function MobilePendingListContent() {
     pendingTasks,
   ] = await Promise.all([
     prisma.dailyProgressReport.findMany({
-      where: { companyId: company.id, approvalStatus: "SUBMITTED" },
+      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: "SUBMITTED" },
       orderBy: { date: "desc" },
       take: 15,
       include: {
@@ -65,7 +65,7 @@ async function MobilePendingListContent() {
       },
     }),
     prisma.leaveRequest.findMany({
-      where: { companyId: company.id, status: "PENDING" },
+      where: {...await scopeWhere("LeaveRequest"),  companyId: company.id, status: "PENDING" },
       orderBy: { createdAt: "desc" },
       take: 15,
       include: { employee: { select: { name: true } } },
@@ -86,7 +86,7 @@ async function MobilePendingListContent() {
       },
     }),
     prisma.materialRequisition.findMany({
-      where: { project: { companyId: company.id }, status: "SUBMITTED" },
+      where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED" },
       orderBy: { createdAt: "desc" },
       take: 15,
       include: {
@@ -95,7 +95,7 @@ async function MobilePendingListContent() {
       },
     }),
     prisma.task.findMany({
-      where: {
+      where: {...await scopeWhere("Task"), 
         assignedTo: { memberships: { some: { companyId: company.id } } },
         status: { in: ["PENDING", "IN_PROGRESS"] },
         dueDate: { lt: new Date() },
@@ -105,7 +105,7 @@ async function MobilePendingListContent() {
       include: { assignedTo: { select: { name: true } } },
     }),
     prisma.task.findMany({
-      where: {
+      where: {...await scopeWhere("Task"), 
         assignedTo: { memberships: { some: { companyId: company.id } } },
         status: "PENDING",
         dueDate: { gte: new Date() },

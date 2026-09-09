@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -70,6 +70,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         saleId: null,
         landPurchase: { companyId: company.id },
         ...(projectId ? { projectId } : {}),
+        ...await scopeWhere("LandParcel", {}),
       },
       include: {
         project: { select: { id: true, name: true, reraNumber: true } },
@@ -100,6 +101,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         saleId: null,
         project: { companyId: company.id },
         ...(projectId ? { projectId } : {}),
+        ...await scopeWhere("BuiltUnit", {}),
       },
       include: {
         project: { select: { id: true, name: true, reraNumber: true } },

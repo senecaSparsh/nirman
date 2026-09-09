@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { submitRaBill, approveRaBill, rejectRaBill, payRaBill, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, requireUser, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -10,7 +10,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
   const bill = await prisma.raBill.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, ...await scopeWhere("RaBill") },
     include: {
       workOrder: {
         select: {

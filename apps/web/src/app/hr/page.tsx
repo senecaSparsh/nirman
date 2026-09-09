@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser, toNum, getUserRole } from "@/lib/server";
+import { getCompany, getCurrentUser, toNum, getUserRole, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission, migrateRole, ROLES } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { RefreshButton } from "@/components/refresh-button";
@@ -63,7 +63,7 @@ async function HrDashboardContent() {
       include: { _count: { select: { lines: true } } },
     }),
     prisma.dailyProgressReport.findMany({
-      where: { companyId: company.id, date: { gte: weekAgo } },
+      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, date: { gte: weekAgo } },
       orderBy: { date: "desc" },
       take: 8,
       include: { project: { select: { name: true } }, submittedBy: { select: { name: true } } },
@@ -78,12 +78,12 @@ async function HrDashboardContent() {
     }),
     prisma.workerAttendance.findMany({
       take: 200,
-      where: { companyId: company.id, date: { gte: weekAgo } },
+      where: {...await scopeWhere("WorkerAttendance"),  companyId: company.id, date: { gte: weekAgo } },
       select: { date: true, status: true },
     }),
     prisma.workerAttendance.findMany({
       take: 500,
-      where: { companyId: company.id, date: todayDateOnly, status: { in: ["PRESENT", "OVERTIME"] } },
+      where: {...await scopeWhere("WorkerAttendance"),  companyId: company.id, date: todayDateOnly, status: { in: ["PRESENT", "OVERTIME"] } },
       include: { project: { select: { name: true } } },
     }),
     loadOrgTree(company.id, company.name, currentUser?.id ?? null),
@@ -273,24 +273,24 @@ async function loadOrgTree(
 
   const [tasks, allTasks, dprs, crews, unassignedEmployees, todayAttendanceRows, leaveRows] = await Promise.all([
     prisma.task.findMany({
-      where: { assignedToId: { in: userIds }, status: { in: ["PENDING", "IN_PROGRESS"] } },
+      where: {...await scopeWhere("Task"),  assignedToId: { in: userIds }, status: { in: ["PENDING", "IN_PROGRESS"] } },
       select: { id: true, title: true, status: true, priority: true, dueDate: true, assignedToId: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.task.findMany({
-      where: { assignedToId: { in: userIds } },
+      where: {...await scopeWhere("Task"),  assignedToId: { in: userIds } },
       select: { id: true, title: true, status: true, priority: true, dueDate: true, assignedToId: true },
       orderBy: { createdAt: "desc" },
       take: 500,
     }),
     prisma.dailyProgressReport.findMany({
-      where: { submittedById: { in: userIds } },
+      where: {...await scopeWhere("DailyProgressReport"),  submittedById: { in: userIds } },
       orderBy: { date: "desc" },
       take: userIds.length * 5,
       select: { id: true, date: true, approvalStatus: true, submittedById: true, project: { select: { name: true } } },
     }),
     prisma.crew.findMany({
-      where: { companyId, active: true },
+      where: {...await scopeWhere("Crew"),  companyId, active: true },
       include: {
         supervisor: { select: { userId: true } },
         project: { select: { name: true } },
@@ -305,7 +305,7 @@ async function loadOrgTree(
       },
     }),
     prisma.employee.findMany({
-      where: { companyId, deletedAt: null, crewId: null },
+      where: { companyId, deletedAt: null, crewId: null, userId: { notIn: userIds } },
       select: {
         id: true, name: true, trade: true, designation: true, wageType: true,
         dailyRate: true, monthlySalary: true, active: true, crewId: true,
@@ -313,7 +313,7 @@ async function loadOrgTree(
       },
     }),
     prisma.workerAttendance.findMany({
-      where: {
+      where: {...await scopeWhere("WorkerAttendance"), 
         company: { id: companyId },
         date: todayDateOnly,
         employee: { userId: { in: userIds } },
@@ -325,7 +325,7 @@ async function loadOrgTree(
       },
     }).catch(() => []),
     prisma.leaveRequest.findMany({
-      where: {
+      where: {...await scopeWhere("LeaveRequest"), 
         company: { id: companyId },
         employee: { userId: { in: userIds } },
         status: { in: ["PENDING", "APPROVED"] },

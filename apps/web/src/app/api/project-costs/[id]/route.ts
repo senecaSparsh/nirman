@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { deleteProjectCost, reverseJournalEntry, postProjectCost, reallocateProjectCosts, logAction } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, projectCostSchema, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, projectCostSchema, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -11,7 +11,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
   const cost = await prisma.projectCost.findFirst({
-    where: { id, project: { companyId: company.id } },
+    where: { id, project: { companyId: company.id }, ...await scopeWhere("ProjectCost") },
     include: {
       project: { select: { id: true, name: true } },
       subcontractor: { select: { id: true, name: true } },
@@ -42,6 +42,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+  try {
+    await assertScopeAllows({ projectId: parsed.data.projectId ?? null, departmentId: null });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+  }
   // Validate date before entering the transaction
   let costDate: Date | null | undefined;
   if (parsed.data.date !== undefined) {
@@ -54,7 +59,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   }
   const updated = await withSerializableTransaction(async (tx) => {
     const existing = await tx.projectCost.findFirst({
-      where: { id, project: { companyId: company.id } },
+      where: { id, project: { companyId: company.id }, ...await scopeWhere("ProjectCost") },
     });
     if (!existing) throw new Error("Project cost not found in this company");
 

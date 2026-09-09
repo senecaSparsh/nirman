@@ -18,7 +18,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       deletedAt: null,
       ...(isSuperuser || isDevBypass
         ? {}
-        : { userMemberships: { some: { userId: user.id } } }),
+        : { userMemberships: { some: { userId: user.id, active: true } } }),
     },
     orderBy: { name: "asc" },
     select: {

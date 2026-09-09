@@ -21,14 +21,30 @@ type MultiUserEntry = {
   companies: { id: string; name: string; role: string }[];
 };
 
-// Demo roles shown as one-click buttons (dev only).
+// The 7 SRG REALCON team members shown as one-click buttons (dev only).
+// Each button logs in as a specific team member — the name shown is the
+// real person, not a generic role label. Matches the accounts created by
+// scripts/local-reset-srg.mjs and scripts/create-srg-users.mjs.
 const DEMO_ROLES: Role[] = [
-  "OWNER", "ADMIN", "DEVELOPER",
-  "PROJECT_DIRECTOR", "FINANCE_HEAD",
-  "PROJECT_MANAGER", "PROCUREMENT_MANAGER", "HR_MANAGER",
-  "SITE_ENGINEER", "STORE_KEEPER", "ACCOUNTANT", "SALES_MANAGER",
-  "SUPERVISOR", "QAQC_ENGINEER",
+  "OWNER",
+  "ADMIN",
+  "PROJECT_DIRECTOR",
+  "FINANCE_HEAD",
+  "PROCUREMENT_MANAGER",
+  "SALES_MANAGER",
+  "SITE_ENGINEER",
 ];
+
+// Real team member names for the quick-login buttons.
+const DEMO_NAMES: Partial<Record<Role, string>> = {
+  OWNER: "Vardaan Kumar",
+  ADMIN: "Sanjeev Kumar",
+  PROJECT_DIRECTOR: "Anurag Garg",
+  FINANCE_HEAD: "Manish Kumar",
+  PROCUREMENT_MANAGER: "Raviraj Singh",
+  SALES_MANAGER: "Mani Singh",
+  SITE_ENGINEER: "Yash Saxena",
+};
 
 /**
  * SIGN IN — the first screen, so it sets the expectation for the rest.
@@ -240,6 +256,12 @@ function SignInForm() {
     setOneClickRole(role);
     setError("");
     try {
+      // ── Sign out any existing session first ──
+      // If the user is already logged in (e.g. as Vardaan) and clicks
+      // quick-login for another account, Better Auth won't replace the
+      // active session — it keeps the old one. We must explicitly sign
+      // out before signing in as the new user.
+      await authClient.signOut().catch(() => {});
       const res = await fetch("/api/auth/demo-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1054,7 +1076,7 @@ function SignInForm() {
                   onClick={() => handleOneClick(role)}
                 >
                   {oneClickRole === role && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  <span className="truncate">{ROLES[role].label}</span>
+                  <span className="truncate">{DEMO_NAMES[role] ?? ROLES[role].label}</span>
                 </Button>
               ))}
             </div>

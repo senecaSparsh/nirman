@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
@@ -15,6 +15,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       ...(projectId ? { projectId } : {}),
       ...(userId ? { userId } : {}),
       project: { companyId: company.id },
+      ...await scopeWhere("ProjectAssignment"),
     },
     include: {
       user: { select: { id: true, name: true, email: true, role: true } },
@@ -45,6 +46,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const { userId, projectId, scopedRole } = body;
   if (!userId || !projectId) {
     return json({ error: "userId and projectId are required" }, { status: 400 });
+  }
+  try {
+    await assertScopeAllows({ projectId, departmentId: null });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
   }
   // Validate project belongs to company
   const project = await prisma.project.findFirst({

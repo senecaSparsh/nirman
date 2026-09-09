@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma, type StockMovementType } from "@nirman/db";
 import {PackageOpen, MapPin, Boxes, Package} from "lucide-react";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
@@ -52,7 +52,7 @@ async function MobileStockMovementSummaryContent() {
 
   const [inBefore, outBefore, inPeriod, outPeriod, locationItems] = await Promise.all([
     prisma.stockMovement.findMany({
-      where: {
+      where: {...await scopeWhere("StockMovement"), 
         movementType: { in: IN_TYPES },
         toLocation: { companyId: company.id, deletedAt: null },
         timestamp: { lt: fromDate },
@@ -60,7 +60,7 @@ async function MobileStockMovementSummaryContent() {
       select: { qty: true, unitCost: true },
     }),
     prisma.stockMovement.findMany({
-      where: {
+      where: {...await scopeWhere("StockMovement"), 
         movementType: { in: OUT_TYPES },
         fromLocation: { companyId: company.id, deletedAt: null },
         timestamp: { lt: fromDate },
@@ -68,7 +68,7 @@ async function MobileStockMovementSummaryContent() {
       select: { qty: true, unitCost: true },
     }),
     prisma.stockMovement.findMany({
-      where: {
+      where: {...await scopeWhere("StockMovement"), 
         movementType: { in: IN_TYPES },
         toLocation: { companyId: company.id, deletedAt: null },
         timestamp: { gte: fromDate, lte: toDate },
@@ -82,7 +82,7 @@ async function MobileStockMovementSummaryContent() {
       orderBy: { timestamp: "asc" },
     }),
     prisma.stockMovement.findMany({
-      where: {
+      where: {...await scopeWhere("StockMovement"), 
         movementType: { in: OUT_TYPES },
         fromLocation: { companyId: company.id, deletedAt: null },
         timestamp: { gte: fromDate, lte: toDate },

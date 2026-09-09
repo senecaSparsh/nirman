@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
@@ -25,7 +25,7 @@ export default function MobileLeadDetailPage({
         const canManage = hasPermission(role, PERM.SALES_MANAGE);
 
         const lead = await prisma.lead.findFirst({
-          where: { id, companyId: company.id, deletedAt: null },
+          where: {...await scopeWhere("Lead"),  id, companyId: company.id, deletedAt: null },
           include: {
             project: { select: { id: true, name: true } },
             interestedUnit: { select: { id: true, unitNumber: true } },

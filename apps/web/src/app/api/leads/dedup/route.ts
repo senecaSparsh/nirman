@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -19,7 +19,7 @@ export const GET = apiHandler(async () => {
 
   // Find all non-deleted leads, group by (name, phone)
   const leads = await prisma.lead.findMany({
-    where: { companyId: company.id, deletedAt: null },
+    where: { companyId: company.id, deletedAt: null, ...await scopeWhere("Lead", {}) },
     select: {
       id: true,
       name: true,
@@ -89,7 +89,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // Verify all leads belong to this company
   const allIds = [keepId, ...deleteIds];
   const leads = await prisma.lead.findMany({
-    where: { id: { in: allIds }, companyId: company.id, deletedAt: null },
+    where: { id: { in: allIds }, companyId: company.id, deletedAt: null, ...await scopeWhere("Lead", {}) },
     select: { id: true, activities: { select: { id: true } } },
   });
 

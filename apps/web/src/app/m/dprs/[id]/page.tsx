@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@nirman/db";
 import { Cloud, Hammer, Users, CheckCircle2, XCircle } from "lucide-react";
-import { getUserPermissions, toNum } from "@/lib/server";
+import { getUserPermissions, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
 import { AttachmentList } from "@/components/attachments/attachment-list";
@@ -27,7 +27,7 @@ export default function MobileDprDetailPage({
         const overrides = await getUserPermissions();
 
         const dpr = await prisma.dailyProgressReport.findFirst({
-          where: { id, project: { companyId: company.id } },
+          where: {...await scopeWhere("DailyProgressReport"),  id, project: { companyId: company.id } },
           include: {
             project: { select: { id: true, name: true } },
             submittedBy: { select: { id: true, name: true } },

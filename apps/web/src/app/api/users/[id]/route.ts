@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, requirePermission, getCompany, json, userRoleSchema } from "@/lib/server";
+import { apiHandler, requirePermission, getCompany, json, userRoleSchema, scopeWhere } from "@/lib/server";
 import { canAssignRole, isCustomRole, canAssignCustomRole, PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
@@ -366,6 +367,16 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       after: { active: parsed.data.active },
     });
   }
+
+  // Revalidate the employee profile and list if this user is linked to an employee
+  const linkedEmployee = await prisma.employee.findFirst({
+    where: { userId, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
+    select: { id: true },
+  });
+  if (linkedEmployee) {
+    revalidatePath(`/m/hr/employees/${linkedEmployee.id}`);
+  }
+  revalidatePath("/m/hr/employees");
 
   return json({ ok: true, user: updated });
 });

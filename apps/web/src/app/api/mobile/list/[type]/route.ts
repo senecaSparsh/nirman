@@ -8,6 +8,7 @@ import {
   toNum,
   requirePermission,
   requireUser,
+  scopeWhere,
 } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -33,6 +34,16 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
   const company = await getCompany();
   const groupCompanyIds = await getCompanyGroupIds(company);
   const BATCH_SIZE = 40;
+
+  // Pre-compute scope filters for scoped models
+  const dprScope = await scopeWhere("DailyProgressReport", {});
+  const msScope = await scopeWhere("MaterialSale", {});
+  const reqScope = await scopeWhere("MaterialRequisition", {});
+  const expScope = await scopeWhere("Expense", {});
+  const ecScope = await scopeWhere("ExpenseClaim", {});
+  const leadScope = await scopeWhere("Lead", {});
+  const miScope = await scopeWhere("MaterialIssue", {});
+  const gpScope = await scopeWhere("GatePass", {});
 
   // Parse cursor: "createdAt|id"
   let cursorCreatedAt: Date | null = null;
@@ -128,6 +139,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
         where: {
           project: { companyId: { in: groupCompanyIds } },
           ...dprCursorFilter,
+          ...dprScope,
         },
         orderBy: [{ date: "desc" }, { id: "desc" }],
         take: BATCH_SIZE + 1,
@@ -206,7 +218,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
     case "sales": {
       await requirePermission(PERM.SALES_VIEW);
       const sales = await prisma.materialSale.findMany({
-        where: { companyId: { in: groupCompanyIds }, ...cursorFilter },
+        where: { companyId: { in: groupCompanyIds }, ...cursorFilter, ...msScope },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: BATCH_SIZE + 1,
         select: {
@@ -251,7 +263,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
     case "requisitions": {
       await requirePermission(PERM.PROCUREMENT_VIEW);
       const reqs = await prisma.materialRequisition.findMany({
-        where: { project: { companyId: { in: groupCompanyIds } }, ...cursorFilter },
+        where: { project: { companyId: { in: groupCompanyIds } }, ...cursorFilter, ...reqScope },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: BATCH_SIZE + 1,
         include: {
@@ -327,6 +339,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
         where: {
           companyId: { in: groupCompanyIds },
           ...cursorFilter,
+          ...expScope,
         },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: BATCH_SIZE + 1,
@@ -363,6 +376,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
         where: {
           companyId: { in: groupCompanyIds },
           ...cursorFilter,
+          ...ecScope,
         },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: BATCH_SIZE + 1,
@@ -454,6 +468,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
           companyId: { in: groupCompanyIds },
           deletedAt: null,
           ...cursorFilter,
+          ...leadScope,
         },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: BATCH_SIZE + 1,
@@ -501,6 +516,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
         where: {
           fromLocation: { companyId: { in: groupCompanyIds }, deletedAt: null },
           ...cursorFilter,
+          ...miScope,
         },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: BATCH_SIZE + 1,
@@ -538,6 +554,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
         where: {
           companyId: { in: groupCompanyIds },
           ...cursorFilter,
+          ...gpScope,
         },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: BATCH_SIZE + 1,

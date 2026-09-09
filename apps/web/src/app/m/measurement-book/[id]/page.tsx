@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import {formatCurrencyCompact, formatDate, formatNumber} from "@/lib/utils";
 import {
@@ -35,7 +35,7 @@ export default function MobileMbDetailPage({
     >
       {async ({ id, company, role }) => {
         const entry = await prisma.measurementBookEntry.findFirst({
-          where: { id, project: { companyId: company.id } },
+          where: {...await scopeWhere("MeasurementBookEntry"),  id, project: { companyId: company.id } },
           include: {
             project: { select: { id: true, name: true } },
             phase: { select: { id: true, name: true } },

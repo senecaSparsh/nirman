@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum, getCurrentUser } from "@/lib/server";
+import { toNum, getCurrentUser, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import type { LeadRow } from "@/lib/types";
@@ -26,7 +26,7 @@ export default function MobileSalesPage() {
         const currentUser = await getCurrentUser();
         const [sales, leads, projects, units, salesMembers] = await Promise.all([
           prisma.assetSale.findMany({
-            where: { companyId: company.id, status: "ACTIVE" },
+            where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE" },
             orderBy: { saleDate: "desc" },
             take: 50,
             include: {
@@ -37,7 +37,7 @@ export default function MobileSalesPage() {
             },
           }),
           prisma.lead.findMany({
-            where: { companyId: company.id, deletedAt: null },
+            where: {...await scopeWhere("Lead"),  companyId: company.id, deletedAt: null },
             orderBy: [{ nextFollowUpAt: "asc" }, { createdAt: "desc" }],
             include: {
               project: { select: { id: true, name: true } },
@@ -53,7 +53,7 @@ export default function MobileSalesPage() {
             select: { id: true, name: true },
           }),
           prisma.builtUnit.findMany({
-            where: { deletedAt: null, status: { in: ["AVAILABLE", "HOLD"] }, project: { companyId: company.id, deletedAt: null } },
+            where: {...await scopeWhere("BuiltUnit"),  deletedAt: null, status: { in: ["AVAILABLE", "HOLD"] }, project: { companyId: company.id, deletedAt: null } },
             orderBy: [{ project: { name: "asc" } }, { unitNumber: "asc" }],
             select: { id: true, unitNumber: true, unitType: true, projectId: true, project: { select: { name: true } } },
           }),

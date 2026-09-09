@@ -304,6 +304,7 @@ export function EmployeesView({
   locations,
   potentialManagers,
   permissions,
+  viewerHierarchyLevel,
 }: {
   employees: EmployeeRow[];
   crews: { id: string; name: string }[];
@@ -313,6 +314,7 @@ export function EmployeesView({
   locations?: { id: string; name: string }[];
   potentialManagers?: { membershipId: string; name: string; role: string }[];
   permissions?: { canCreate?: boolean; canEdit?: boolean; canManage?: boolean };
+  viewerHierarchyLevel?: number | null;
 }) {
   const router = useRouter();
   const canCreate = permissions?.canCreate ?? false;
@@ -324,6 +326,15 @@ export function EmployeesView({
   const [delTarget, setDelTarget] = useState<EmployeeRow | null>(null);
 
   function rowActions(e: EmployeeRow) {
+    // Per-row hierarchy gating: viewer can only manage employees at a
+    // strictly higher hierarchyLevel number (lower authority). If either
+    // level is null, fall back to the coarse canEdit flag (the server-side
+    // assertCanManageEmployee check is the real enforcement).
+    const canManageRow =
+      canEdit &&
+      (viewerHierarchyLevel == null ||
+        e.hierarchyLevel == null ||
+        e.hierarchyLevel > viewerHierarchyLevel);
     return (
       <>
         <button
@@ -333,7 +344,7 @@ export function EmployeesView({
         >
           <Eye className="h-3.5 w-3.5" />
         </button>
-        {canEdit && (
+        {canManageRow && (
           <>
             <button
               onClick={(ev) => { ev.stopPropagation(); setEditTarget(e); setFormOpen(true); }}

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma, type NcrStatus, type NcrSeverity } from "@nirman/db";
 import {createNcr} from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -31,7 +31,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const severity = req.nextUrl.searchParams.get("severity") as NcrSeverity | null;
 
   const ncrs = await prisma.nonConformanceReport.findMany({
-    where: { companyId: company.id, ...(projectId ? { projectId } : {}), ...(status ? { status } : {}), ...(severity ? { severity } : {}) },
+    where: { companyId: company.id, ...(projectId ? { projectId } : {}), ...(status ? { status } : {}), ...(severity ? { severity } : {}), ...await scopeWhere("NonConformanceReport", {}) },
     orderBy: { createdAt: "desc" },
     include: {
       project: { select: { id: true, name: true } },
@@ -50,6 +50,17 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  try {
+    await assertScopeAllows({
+      projectId: parsed.data.projectId ?? null,
+      departmentId: null,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Scope violation" },
+      { status: 403 },
+    );
   }
   try {
     const ncr = await createNcr({

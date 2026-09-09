@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact } from "@/lib/utils";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
@@ -16,6 +16,8 @@ export default function MobileEquipmentPage() {
   return (
     <MobileListPage managePerm={PERM.ASSETS_MANAGE}>
       {async ({ company, canManage }) => {
+        // Scope-aware action permissions (for FAB gating)
+        const actions = await getActionPermissions();
         const equipment = await prisma.equipment.findMany({
           where: { companyId: company.id, deletedAt: null },
           orderBy: [{ status: "asc" }, { name: "asc" }],
@@ -88,7 +90,7 @@ export default function MobileEquipmentPage() {
               }
               exportSummary={`${equipment.length} items · ${formatCurrencyCompact(totalValue)} total value`}
             />
-            {canManage && <MobileEquipmentFab />}
+            {actions.canCreateEquipment && <MobileEquipmentFab />}
           </div>
         );
       }}

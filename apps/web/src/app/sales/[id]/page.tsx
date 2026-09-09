@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
@@ -50,7 +50,7 @@ async function SaleDetailContent({
   const { id } = await params;
 
   const sale = await prisma.assetSale.findFirst({
-    where: { id, companyId: company.id },
+    where: {...await scopeWhere("AssetSale"),  id, companyId: company.id },
     include: {
       customer: { select: { id: true, name: true, phone: true } },
       project: { select: { id: true, name: true } },
@@ -69,13 +69,13 @@ async function SaleDetailContent({
   const [parcel, unit] = await Promise.all([
     sale.landParcelId
       ? prisma.landParcel.findFirst({
-          where: { id: sale.landParcelId, deletedAt: null },
+          where: {...await scopeWhere("LandParcel"),  id: sale.landParcelId, deletedAt: null },
           select: { id: true, number: true, area: true, areaUnit: true },
         })
       : null,
     sale.builtUnitId
       ? prisma.builtUnit.findFirst({
-          where: { id: sale.builtUnitId, deletedAt: null },
+          where: {...await scopeWhere("BuiltUnit"),  id: sale.builtUnitId, deletedAt: null },
           select: { id: true, unitNumber: true, unitType: true, area: true, areaUnit: true },
         })
       : null,

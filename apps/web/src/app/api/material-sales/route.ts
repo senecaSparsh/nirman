@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { SaleStatus } from "@nirman/db";
 import { createMaterialSale, createMaterialSaleRequest, executeMaterialSale, recordVehicleTrip, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, materialSaleSchema, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, materialSaleSchema, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
@@ -16,6 +16,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     where: {
       companyId: company.id,
       ...(status ? { status: status as SaleStatus } : {}),
+      ...await scopeWhere("MaterialSale", {}),
     },
     orderBy: { createdAt: "desc" },
     take: 200,
@@ -86,6 +87,18 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   const requireGatePass = parsed.data.requireGatePass === true;
+
+  try {
+    await assertScopeAllows({
+      projectId: parsed.data.projectId ?? null,
+      departmentId: null,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Scope violation" },
+      { status: 403 },
+    );
+  }
 
   try {
     const saleInput = {
@@ -165,7 +178,7 @@ export const PATCH = apiHandler(async (req: NextRequest) => {
   if (body?.action === "execute" && body?.saleId) {
     try {
       const sale = await prisma.materialSale.findFirst({
-        where: { id: body.saleId, companyId: company.id },
+        where: { id: body.saleId, companyId: company.id, ...await scopeWhere("MaterialSale", {}) },
         select: { id: true, status: true },
       });
       if (!sale) return json({ error: "Material sale not found" }, { status: 404 });

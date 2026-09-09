@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getUserRole, getCompany } from "@/lib/server";
+import { toNum, getUserRole, getCompany, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -24,7 +24,7 @@ export default async function DemandSlipPage({ params }: { params: Promise<{ id:
   const company = await getCompany();
 
   const req = await prisma.materialRequisition.findFirst({
-    where: { id, project: { companyId: company.id } },
+    where: {...await scopeWhere("MaterialRequisition"),  id, project: { companyId: company.id } },
     include: {
       project: { select: { name: true } },
       phase: { select: { name: true } },

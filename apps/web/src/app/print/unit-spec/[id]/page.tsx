@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getUserRole, getCompany } from "@/lib/server";
+import { toNum, getUserRole, getCompany, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -29,7 +29,7 @@ export default async function UnitSpecSheetPage({
   const company = await getCompany();
 
   const unit = await prisma.builtUnit.findFirst({
-    where: { id, deletedAt: null, project: { companyId: company.id } },
+    where: {...await scopeWhere("BuiltUnit"),  id, deletedAt: null, project: { companyId: company.id } },
     include: {
       project: { select: { id: true, name: true, address: true, totalBudget: true } },
       phase: { select: { name: true } },

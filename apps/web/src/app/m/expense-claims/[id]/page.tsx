@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileExpenseClaimDetailClient } from "./MobileExpenseClaimDetailClient";
@@ -21,7 +21,7 @@ export default function MobileExpenseClaimDetailPage({
     <MobileDetailPage params={params} skeletonSections={4}>
       {async ({ id, company, role }) => {
         const claim = await prisma.expenseClaim.findFirst({
-          where: { id, companyId: company.id },
+          where: {...await scopeWhere("ExpenseClaim"),  id, companyId: company.id },
           include: {
             claimant: { select: { id: true, name: true } },
             project: { select: { id: true, name: true } },

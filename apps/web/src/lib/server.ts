@@ -96,7 +96,7 @@ export async function getCompany() {
       where: {
         id: selectedId,
         deletedAt: null,
-        userMemberships: { some: { userId: user.id } },
+        userMemberships: { some: { userId: user.id, active: true } },
       },
     });
     if (selected) return selected;
@@ -123,7 +123,7 @@ export async function getCompany() {
     const member = await prisma.company.findFirst({
       where: {
         deletedAt: null,
-        userMemberships: { some: { userId: user.id } },
+        userMemberships: { some: { userId: user.id, active: true } },
       },
       orderBy: { createdAt: "asc" },
     });
@@ -1164,19 +1164,23 @@ export const employeeSchema = z.object({
   trade: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
   email: z.string().email("Invalid email").optional().nullable(),
+  // Multi-company onboarding: create the same employee in multiple companies
+  // (parent + children). If omitted, the active company is used.
+  companyIds: z.array(z.string()).optional(),
   dailyRate: z.coerce.number().finite().nonnegative("Daily rate must be >= 0").optional().nullable(),
   wageType: z.enum(["DAILY", "MONTHLY", "FIXED"]).optional(),
   monthlySalary: z.coerce.number().finite().nonnegative().optional().nullable(),
   designation: z.string().optional().nullable(),
+  departmentId: z.string().optional().nullable(),
   joinDate: z.string().optional().nullable(),
   crewId: z.string().optional().nullable(),
   activeProjectId: z.string().optional().nullable(),
   active: z.boolean().optional(),
   reportingLocationId: z.string().optional().nullable(),
   hierarchyLevel: z.coerce.number().int().min(1).max(6).optional().nullable(),
-  // Reporting line — the UserCompany membership ID of the manager this person reports to.
-  // Only applies when the employee has a linked User account (and thus a UserCompany membership).
-  reportsToMembershipId: z.string().optional().nullable(),
+  // Reporting line — the Employee ID of the manager this person reports to.
+  // Works for all employees, including those without login accounts.
+  reportsToEmployeeId: z.string().optional().nullable(),
   // Employment terms (dossier) — accepted at creation time
   employmentType: z.enum(["PERMANENT", "CONTRACT", "CASUAL", "PROBATION", "INTERN"]).optional().nullable(),
   noticePeriodDays: z.coerce.number().int().min(0).max(365).optional().nullable(),
@@ -1636,6 +1640,536 @@ export async function projectScopeFilter(): Promise<{ id: { in: string[] } } | u
 }
 
 /**
+ * ───────────────────────────────────────────────────────────────
+ *  GLOBAL SCOPE SYSTEM
+ * ───────────────────────────────────────────────────────────────
+ * A single, server-side scope resolver that works for ALL models.
+ * Instead of writing scope filters in every page/API one by one,
+ * call `scopeWhere("Employee", baseWhere)` and the correct filter is
+ * applied automatically based on the viewer's scope type.
+ *
+ * How it works:
+ *   COMPANY scope  → no filter (sees everything)
+ *   DEPARTMENT scope → filters by departmentId (or equivalent FK)
+ *   PROJECT scope  → filters by projectId / activeProjectId
+ *
+ * The filter is applied in the Prisma `where` clause — the server
+ * never queries rows the viewer shouldn't see. This is NOT client-
+ * side filtering; the data never leaves the database.
+ *
+ * Usage:
+ *   const where = await scopeWhere("Employee", { companyId, deletedAt: null });
+ *   const employees = await prisma.employee.findMany({ where });
+ *
+ *   const where = await scopeWhere("MaterialIssue", { companyId });
+ *   const issues = await prisma.materialIssue.findMany({ where });
+ */
+export async function scopeWhere(
+  model: string,
+  baseWhere: Record<string, unknown> = {},
+): Promise<Record<string, unknown>> {
+  const scope = await getUserScope();
+  // COMPANY scope = unscoped = sees everything
+  if (scope.scopeType === "COMPANY") return baseWhere;
+
+  // Map each model to its scope-relevant foreign key
+  const SCOPE_FIELDS: Record<string, { department?: string; project?: string }> = {
+    // HR
+    Employee:             { department: "departmentId", project: "activeProjectId" },
+    WorkerAttendance:     { project: "projectId" },
+    LeaveRequest:        { project: "projectId" },
+    PayrollLine:          { department: "employee.departmentId", project: "employee.activeProjectId" },
+    // Inventory
+    MaterialIssue:        { project: "projectId", department: "departmentId" },
+    MaterialRequisition:  { project: "projectId", department: "departmentId" },
+    StockMovement:        { project: "projectId" },
+    GoodsReceipt:         { project: "projectId" },
+    MaterialReconciliation: { project: "projectId" },
+    // Projects / Construction
+    Task:                 { project: "projectId" },
+    Crew:                 { project: "projectId" },
+    DailyProgressReport:  { project: "projectId" },
+    DailyReport:          { project: "projectId" },
+    Quotation:            { project: "projectId" },
+    ChangeOrder:          { project: "projectId" },
+    WorkOrder:            { project: "projectId" },
+    SubcontractorWorkOrder: { project: "projectId" },
+    MeasurementBook:      { project: "projectId" },
+    MeasurementBookEntry: { project: "projectId" },
+    RaBill:               { project: "projectId" },
+    BoqItem:              { project: "projectId" },
+    WbsNode:              { project: "projectId" },
+    ProjectPhase:         { project: "projectId" },
+    ProjectCost:          { project: "projectId" },
+    ProjectAssignment:    { project: "projectId" },
+    BuiltUnit:            { project: "projectId" },
+    Tenancy:              { project: "projectId" },
+    // Finance
+    Expense:              { project: "projectId" },
+    ExpenseBudget:        { project: "projectId" },
+    ExpenseClaim:         { project: "projectId" },
+    RecurringExpense:     { project: "projectId" },
+    PettyCashFloat:       { project: "projectId" },
+    AssetSale:            { project: "projectId" },
+    MaterialSale:         { project: "projectId" },
+    // Land
+    LandPurchase:         { project: "projectId" },
+    LandParcel:           { project: "projectId" },
+    // Safety
+    NonConformanceReport: { project: "projectId" },
+    SafetyHazard:         { project: "projectId" },
+    SafetyIncident:       { project: "projectId" },
+    SafetyInspection:     { project: "projectId" },
+    Capa:                 { project: "projectId" },
+    // Sales / CRM
+    Lead:                 { project: "projectId" },
+    // Gate
+    GatePass:             { project: "projectId" },
+    // Equipment
+    EquipmentAssignment:  { project: "projectId" },
+    // Models without project/department FKs are not scopeable
+  };
+
+  const fields = SCOPE_FIELDS[model];
+  if (!fields) return baseWhere;
+
+  const filter: Record<string, unknown> = {};
+
+  if (scope.scopeType === "DEPARTMENT" && scope.departmentIds.length > 0 && fields.department) {
+    const deptField = fields.department;
+    if (deptField.includes(".")) {
+      // Nested relation filter (e.g. "employee.departmentId")
+      const parts = deptField.split(".");
+      const rel = parts[0]!;
+      const key = parts[1]!;
+      filter[rel] = { [key]: { in: scope.departmentIds } };
+    } else {
+      filter[deptField] = { in: scope.departmentIds };
+    }
+  } else if (scope.scopeType === "PROJECT" && scope.projectIds.length > 0 && fields.project) {
+    const projField = fields.project;
+    if (projField.includes(".")) {
+      const parts = projField.split(".");
+      const rel = parts[0]!;
+      const key = parts[1]!;
+      filter[rel] = { [key]: { in: scope.projectIds } };
+    } else {
+      filter[projField] = { in: scope.projectIds };
+    }
+  }
+
+  // Merge scope filter with the base where clause
+  return { ...baseWhere, ...filter };
+}
+
+/**
+ * Check if the current viewer can access a specific entity.
+ * Uses the same scope logic as scopeWhere but for a single record.
+ * Returns true if the viewer's scope includes the entity.
+ */
+export async function canAccessEntity(
+  model: string,
+  entity: { departmentId?: string | null; projectId?: string | null; activeProjectId?: string | null },
+): Promise<boolean> {
+  const scope = await getUserScope();
+  if (scope.scopeType === "COMPANY") return true;
+
+  if (scope.scopeType === "DEPARTMENT" && scope.departmentIds.length > 0) {
+    const deptId = entity.departmentId;
+    if (!deptId) return false; // no department = not visible to dept-scoped users
+    return scope.departmentIds.includes(deptId);
+  }
+
+  if (scope.scopeType === "PROJECT" && scope.projectIds.length > 0) {
+    const projId = entity.projectId ?? entity.activeProjectId;
+    if (!projId) return false;
+    return scope.projectIds.includes(projId);
+  }
+
+  return true;
+}
+
+/**
+ * Employee access scope — determines what the current viewer can see
+ * and manage in the employee directory. This is the ROOT-LEVEL filter:
+ * the server uses this to decide which employees to query, which fields
+ * to include, and which actions to allow. The client never receives data
+ * it shouldn't see.
+ *
+ * Returns:
+ *   - employeeFilter: Prisma where-clause for the Employee query
+ *   - canSeeBankDetails: bank account fields
+ *   - canSeePayroll: payroll history + salary components
+ *   - canSeePersonalDocs: PAN, Aadhaar, PF, ESI, UAN
+ *   - canSeeAccessInfo: user role, phone verification status
+ *   - canManageEmployee: can edit profile, onboarding, documents
+ *   - canManageAccess: can assign roles, permissions, scope
+ *   - canManagePayroll: can mark as paid, edit salary
+ */
+export async function getEmployeeAccessScope() {
+  const role = await getUserRole();
+  const scope = await getUserScope();
+  const perms = await getUserPermissions();
+
+  const hasPerm = (p: string) => perms.includes(p);
+
+  // ── Visibility filter: which employees can the viewer see? ──
+  // Uses the global scopeWhere helper — same logic for all models.
+  const employeeFilter = await scopeWhere("Employee", {});
+
+  // ── Field visibility: which fields can the viewer see? ──
+  // Bank details, payroll, salary → only PAYROLL_MANAGE or HR_MANAGE
+  const canSeeBankDetails = hasPerm("payroll.manage") || hasPerm("hr.manage");
+  const canSeePayroll = hasPerm("payroll.manage") || hasPerm("hr.manage");
+  const canSeePersonalDocs = hasPerm("hr.manage") || hasPerm("payroll.manage");
+  // Access info (role, phone verification) → only USERS_MANAGE or HR_MANAGE
+  const canSeeAccessInfo = hasPerm("users.manage") || hasPerm("hr.manage");
+
+  // ── Management: what can the viewer do? ──
+  const canManageEmployee = hasPerm("hr.manage");
+  const canManageAccess = hasPerm("users.manage");
+  const canManagePayroll = hasPerm("payroll.manage");
+  const canManageOnboarding = hasPerm("hr.manage");
+
+  return {
+    role,
+    employeeFilter,
+    canSeeBankDetails,
+    canSeePayroll,
+    canSeePersonalDocs,
+    canSeeAccessInfo,
+    canManageEmployee,
+    canManageAccess,
+    canManagePayroll,
+    canManageOnboarding,
+    scopeType: scope.scopeType,
+    departmentIds: scope.departmentIds,
+  };
+}
+
+/**
+ * ───────────────────────────────────────────────────────────────
+ *  ACTION PERMISSIONS — scope-aware action gating
+ * ───────────────────────────────────────────────────────────────
+ * Combines permission + scope + hierarchy into a single object
+ * that pages use to gate FABs, buttons, action menus, and forms.
+ *
+ * The server computes this once, passes it to the client as flags.
+ * The client never decides on its own whether an action is allowed —
+ * it only renders what the server says it can.
+ *
+ * For create actions (FABs):
+ *   canCreateEmployee = hasPerm(HR_MANAGE) AND scope allows creation
+ *   (COMPANY scope → yes; DEPARTMENT scope → yes, but form restricts
+ *   dept to their depts; PROJECT scope → yes, but form restricts
+ *   project to their projects)
+ *
+ * For form options:
+ *   allowedDepartmentIds = [] (COMPANY) or scope.departmentIds (DEPARTMENT)
+ *   allowedProjectIds = [] (COMPANY) or scope.projectIds (PROJECT)
+ *   The form uses these to filter its dropdowns.
+ *
+ * For entity-specific actions (edit, delete, mark-paid):
+ *   Use canManageSpecificEmployee() which already checks hierarchy.
+ *   Scope is already enforced by the query filter — if the viewer
+ *   can't see the employee, they can't even get to the detail page.
+ */
+export async function getActionPermissions() {
+  const role = await getUserRole();
+  const scope = await getUserScope();
+  const perms = await getUserPermissions();
+  const hasPerm = (p: string) => perms.includes(p);
+
+  // ── Create permissions (FABs) ──
+  // A viewer can create if they have the permission AND their scope
+  // allows it. COMPANY scope = unrestricted. DEPARTMENT/PROJECT scope
+  // = can create, but the form must restrict the target to their scope.
+  const canCreateEmployee = hasPerm("hr.manage");
+  const canRecordLeave = hasPerm("hr.manage");
+  const canCreateMaterial = hasPerm("inventory.manage");
+  const canCreateWorkOrder = hasPerm("sales.manage") || hasPerm("projects.manage");
+  const canCreateProject = hasPerm("projects.manage") && scope.scopeType === "COMPANY";
+  const canCreateCompany = hasPerm("company.manage") && scope.scopeType === "COMPANY";
+  const canCreateDepartment = hasPerm("company.manage");
+  const canCreateCustomer = hasPerm("sales.manage");
+  const canCreateLead = hasPerm("sales.manage");
+  const canCreateSupplier = hasPerm("inventory.manage");
+  const canCreateEquipment = hasPerm("inventory.manage");
+  const canCreateMaterialSale = hasPerm("inventory.manage");
+  const canCreateRental = hasPerm("inventory.manage");
+  const canCreateGatePass = hasPerm("inventory.manage");
+  const canCreateChangeOrder = hasPerm("projects.manage");
+  const canCreateBoq = hasPerm("projects.manage");
+  const canCreateWbs = hasPerm("projects.manage");
+  const canCreateNcr = hasPerm("projects.manage") || hasPerm("inventory.manage");
+  const canCreateLand = hasPerm("projects.manage");
+  const canCreatePortalListing = hasPerm("sales.manage");
+  const canCreatePayroll = hasPerm("payroll.manage") || hasPerm("hr.manage");
+  const canCreateTeamMember = hasPerm("company.manage");
+  const canCreateBuiltUnit = hasPerm("projects.manage");
+  const canCreateSms = hasPerm("inventory.manage") || hasPerm("hr.manage");
+
+  // ── Form option restrictions ──
+  // When scope is DEPARTMENT, the department dropdown in any create/edit
+  // form should only show the viewer's departments. Same for PROJECT scope.
+  const restrictDepartments = scope.scopeType === "DEPARTMENT" && scope.departmentIds.length > 0;
+  const restrictProjects = scope.scopeType === "PROJECT" && scope.projectIds.length > 0;
+  const allowedDepartmentIds = restrictDepartments ? scope.departmentIds : null; // null = no restriction
+  const allowedProjectIds = restrictProjects ? scope.projectIds : null;
+
+  return {
+    role,
+    scopeType: scope.scopeType,
+    canCreateEmployee,
+    canRecordLeave,
+    canCreateMaterial,
+    canCreateWorkOrder,
+    canCreateProject,
+    canCreateCompany,
+    canCreateDepartment,
+    canCreateCustomer,
+    canCreateLead,
+    canCreateSupplier,
+    canCreateEquipment,
+    canCreateMaterialSale,
+    canCreateRental,
+    canCreateGatePass,
+    canCreateChangeOrder,
+    canCreateBoq,
+    canCreateWbs,
+    canCreateNcr,
+    canCreateLand,
+    canCreatePortalListing,
+    canCreatePayroll,
+    canCreateTeamMember,
+    canCreateBuiltUnit,
+    canCreateSms,
+    allowedDepartmentIds,
+    allowedProjectIds,
+  };
+}
+
+/** Type returned by getActionPermissions() — used by client components
+ *  that receive the serialized actions object as a prop. */
+export type ActionPermissions = Awaited<ReturnType<typeof getActionPermissions>>;
+
+/**
+ * Validate that a target department/project is within the current
+ * viewer's scope. Throws a 403-style error if not. Used by create/update
+ * APIs to prevent scope-escape via direct API calls.
+ */
+export async function assertScopeAllows(
+  target: { departmentId?: string | null; projectId?: string | null },
+): Promise<void> {
+  const scope = await getUserScope();
+  if (scope.scopeType === "COMPANY") return;
+
+  if (scope.scopeType === "DEPARTMENT" && scope.departmentIds.length > 0) {
+    if (target.departmentId && !scope.departmentIds.includes(target.departmentId)) {
+      throw new Error("You can only create/edit within your department");
+    }
+  }
+
+  if (scope.scopeType === "PROJECT" && scope.projectIds.length > 0) {
+    const projId = target.projectId;
+    if (projId && !scope.projectIds.includes(projId)) {
+      throw new Error("You can only create/edit within your project");
+    }
+  }
+}
+
+/**
+ * Filter an array of options (departments/projects) to only those
+ * within the viewer's scope. Used by pages to pass restricted option
+ * lists to create/edit forms.
+ */
+export function filterOptionsByScope<T extends { id: string }>(
+  options: T[],
+  allowedIds: string[] | null,
+): T[] {
+  if (allowedIds === null) return options; // null = no restriction
+  return options.filter((o) => allowedIds.includes(o.id));
+}
+
+/**
+ * Get scoped form options for a page — departments, projects, and crews
+ * filtered by the viewer's scope. This is the systemic fix for Layer C:
+ * instead of filtering dropdowns in 136+ client components, filter at the
+ * server level before serialization. The client never receives out-of-scope
+ * options.
+ *
+ * Usage in a page loader:
+ *   const opts = await getScopedFormOptions();
+ *   // opts.departments, opts.projects, opts.crews — all pre-filtered
+ *
+ * For COMPANY scope, returns all options (no filtering).
+ * For DEPARTMENT scope, returns only the viewer's departments + projects
+ *   in those departments.
+ * For PROJECT scope, returns only the viewer's projects + departments that
+ *   contain those projects.
+ */
+export async function getScopedFormOptions(): Promise<{
+  departments: { id: string; name: string }[];
+  projects: { id: string; name: string }[];
+  crews: { id: string; name: string }[];
+  suppliers: { id: string; name: string }[];
+  customers: { id: string; name: string }[];
+}> {
+  const company = await getCompany();
+  const scope = await getUserScope();
+
+  // COMPANY scope = no filtering
+  if (scope.scopeType === "COMPANY") {
+    const [departments, projects, crews, suppliers, customers] = await Promise.all([
+      prisma.department.findMany({ where: { companyId: company.id, deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+      prisma.project.findMany({ where: { companyId: company.id, deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+      prisma.crew.findMany({ where: { companyId: company.id, active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+      prisma.supplier.findMany({ where: { companyId: company.id, deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+      prisma.customer.findMany({ where: { companyId: company.id, deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    ]);
+    return { departments, projects, crews, suppliers, customers };
+  }
+
+  // DEPARTMENT scope: filter departments to viewer's, projects to those depts.
+  // Projects don't have a direct departmentId — find projects where employees
+  // in the viewer's departments are assigned (via Employee.activeProjectId).
+  if (scope.scopeType === "DEPARTMENT" && scope.departmentIds.length > 0) {
+    const departments = await prisma.department.findMany({
+      where: { id: { in: scope.departmentIds }, companyId: company.id, deletedAt: null },
+      select: { id: true, name: true }, orderBy: { name: "asc" },
+    });
+    // Find project IDs from employees in the viewer's departments
+    const employeesInDept = await prisma.employee.findMany({
+      where: { companyId: company.id, deletedAt: null, departmentId: { in: scope.departmentIds }, activeProjectId: { not: null } },
+      select: { activeProjectId: true }, distinct: ["activeProjectId"],
+    });
+    const projectIds = employeesInDept.map((e) => e.activeProjectId).filter(Boolean) as string[];
+    const projects = projectIds.length > 0
+      ? await prisma.project.findMany({ where: { id: { in: projectIds }, companyId: company.id, deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } })
+      : [];
+    const crews = await prisma.crew.findMany({
+      where: { companyId: company.id, active: true, projectId: { in: projectIds.length > 0 ? projectIds : ["__none__"] } },
+      select: { id: true, name: true }, orderBy: { name: "asc" },
+    });
+    // Suppliers and customers are company-level, not department-scoped
+    const [suppliers, customers] = await Promise.all([
+      prisma.supplier.findMany({ where: { companyId: company.id, deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+      prisma.customer.findMany({ where: { companyId: company.id, deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    ]);
+    return { departments, projects, crews, suppliers, customers };
+  }
+
+  // PROJECT scope: filter projects to viewer's, departments from employees in those projects
+  if (scope.scopeType === "PROJECT" && scope.projectIds.length > 0) {
+    const projects = await prisma.project.findMany({
+      where: { id: { in: scope.projectIds }, companyId: company.id, deletedAt: null },
+      select: { id: true, name: true }, orderBy: { name: "asc" },
+    });
+    // Find department IDs from employees in the viewer's projects
+    const employeesInProj = await prisma.employee.findMany({
+      where: { companyId: company.id, deletedAt: null, activeProjectId: { in: scope.projectIds }, departmentId: { not: null } },
+      select: { departmentId: true }, distinct: ["departmentId"],
+    });
+    const deptIds = [...new Set(employeesInProj.map((e) => e.departmentId).filter(Boolean))] as string[];
+    const departments = deptIds.length > 0
+      ? await prisma.department.findMany({ where: { id: { in: deptIds }, companyId: company.id, deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } })
+      : [];
+    const crews = await prisma.crew.findMany({
+      where: { companyId: company.id, active: true, projectId: { in: scope.projectIds } },
+      select: { id: true, name: true }, orderBy: { name: "asc" },
+    });
+    const [suppliers, customers] = await Promise.all([
+      prisma.supplier.findMany({ where: { companyId: company.id, deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+      prisma.customer.findMany({ where: { companyId: company.id, deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    ]);
+    return { departments, projects, crews, suppliers, customers };
+  }
+
+  // Fallback (shouldn't happen)
+  return { departments: [], projects: [], crews: [], suppliers: [], customers: [] };
+}
+
+/**
+ * Check if the current viewer can manage a specific employee.
+ * Combines the access scope with a hierarchy check: the viewer must
+ * be at a higher tier (lower number) than the employee's linked user.
+ * Returns false for self-management (can't edit your own profile via
+ * the employee page) and for employees at or above the viewer's tier.
+ */
+export async function canManageSpecificEmployee(
+  employee: { userId: string | null; user?: { role: string | null } | null; hierarchyLevel?: number | null },
+  viewerUserId: string,
+): Promise<boolean> {
+  const scope = await getEmployeeAccessScope();
+  if (!scope.canManageEmployee) return false;
+
+  // Self-edit blocked
+  if (employee.userId && employee.userId === viewerUserId) return false;
+
+  // No linked user → can manage (field worker without login)
+  if (!employee.userId || !employee.user?.role) return true;
+
+  // ── Hierarchy level check (H1-H6) ──
+  // Lower number = higher authority. A viewer can only manage employees
+  // with a STRICTLY higher hierarchyLevel number (lower authority).
+  // e.g. H3 can manage H4, H5, H6 but NOT H1, H2, or other H3s.
+  // If either the viewer or target has no hierarchyLevel set, fall back to
+  // the RBAC role tier check only.
+  const company = await getCompany();
+  const { prisma } = await import("@nirman/db");
+  const viewerEmployee = await prisma.employee.findFirst({
+    where: { userId: viewerUserId, companyId: company.id, deletedAt: null },
+    select: { hierarchyLevel: true },
+  }).catch(() => null);
+
+  if (
+    viewerEmployee?.hierarchyLevel != null &&
+    employee.hierarchyLevel != null
+  ) {
+    // Viewer must be at a strictly lower number (higher authority)
+    if (viewerEmployee.hierarchyLevel >= employee.hierarchyLevel) return false;
+  }
+
+  // Hierarchy check: viewer must be above the employee's role
+  const { canAssignRole, isCustomRole, roleTier } = await import("@/lib/roles");
+  const employeeRole = employee.user.role;
+  if (isCustomRole(employeeRole)) {
+    // Custom role — look up tier from DB
+    const customRole = await prisma.customRole.findFirst({
+      where: { companyId: company.id, key: employeeRole },
+      select: { tier: true },
+    }).catch(() => null);
+    if (!customRole) return false;
+    return canAssignRole(scope.role, employeeRole) || customRole.tier > roleTier(scope.role);
+  }
+  return canAssignRole(scope.role, employeeRole);
+}
+
+/**
+ * Assert that the current viewer can manage a specific employee (by ID).
+ * Fetches the employee, checks hierarchy + role tier, and throws 403 if not.
+ * Use this at the top of any employee mutation route (salary, phone, contract,
+ * onboarding, etc.) to enforce hierarchy at the API level.
+ */
+export async function assertCanManageEmployee(employeeId: string, companyId: string): Promise<void> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) return; // dev-bypass
+  const { prisma } = await import("@nirman/db");
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, companyId, deletedAt: null },
+    select: { userId: true, hierarchyLevel: true, user: { select: { role: true } } },
+  });
+  if (!employee) throw new Error("Employee not found");
+  const canEdit = await canManageSpecificEmployee(
+    { userId: employee.userId, user: employee.user ? { role: employee.user.role } : null, hierarchyLevel: employee.hierarchyLevel },
+    currentUser.id,
+  );
+  if (!canEdit) {
+    throw new Error("You cannot manage this employee (hierarchy or role restriction)");
+  }
+}
+
+/**
  * Get the current user's effective permission list (role matrix +
  * any additive RolePermission overrides from the DB + per-user
  * UserPermission overrides). Memoized per request via AsyncLocalStorage
@@ -1895,7 +2429,7 @@ export async function getCurrentUserMembership(): Promise<{
   // The synthetic "dev" user has no real UserCompany row.
   if (user.id === "dev") return null;
   return prisma.userCompany.findFirst({
-    where: { userId: user.id, companyId: user.companyId },
+    where: { userId: user.id, companyId: user.companyId, active: true },
     select: { id: true, role: true, scopeType: true, reportsToUserCompanyId: true },
   });
 }

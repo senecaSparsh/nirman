@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { Package, Truck, ShoppingCart, Building2, Wallet, ClipboardCheck, TrendingUp } from "lucide-react";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
@@ -41,7 +41,7 @@ async function MobileReportsContent() {
       select: { qty: true, movingAvgCost: true },
     }),
     prisma.assetSale.findMany({
-      where: { companyId: company.id, status: "ACTIVE" },
+      where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE" },
       select: { salePrice: true, payments: { where: { status: "RECEIVED" }, select: { amount: true } } },
     }),
     prisma.purchaseOrder.findMany({
@@ -53,11 +53,11 @@ async function MobileReportsContent() {
       select: { amount: true },
     }),
     prisma.projectCost.findMany({
-      where: { project: { companyId: company.id } },
+      where: {...await scopeWhere("ProjectCost"),  project: { companyId: company.id } },
       select: { amount: true },
     }),
     prisma.expense.findMany({
-      where: { companyId: company.id },
+      where: {...await scopeWhere("Expense"),  companyId: company.id },
       select: { amount: true },
     }),
   ]);

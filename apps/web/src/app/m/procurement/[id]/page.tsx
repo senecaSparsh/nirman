@@ -4,7 +4,7 @@ import {
   ScanLine, Truck,
   Building2, IndianRupee, ClipboardList, Printer,
 } from "lucide-react";
-import { getCompanyGroupIds, getCurrentUser, getUserPermissions, toNum } from "@/lib/server";
+import { getCompanyGroupIds, getCurrentUser, getUserPermissions, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import {
@@ -77,7 +77,7 @@ export default function MobilePoDetailPage({
 
         // Look up the source requisition (if this PO was converted from one)
         const sourceRequisition = po ? await prisma.materialRequisition.findFirst({
-          where: { convertedPoId: po.id },
+          where: {...await scopeWhere("MaterialRequisition"),  convertedPoId: po.id },
           select: { id: true, reqNumber: true },
         }) : null;
 

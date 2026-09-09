@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getUserRole, getCompany } from "@/lib/server";
+import { toNum, getUserRole, getCompany, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { amountInWords } from "@nirman/services";
 import {formatCurrency, formatNumber} from "@/lib/utils";
@@ -28,7 +28,7 @@ export default async function MaterialSaleInvoicePage({
   const company = await getCompany();
 
   const sale = await prisma.materialSale.findFirst({
-    where: { id, companyId: company.id },
+    where: {...await scopeWhere("MaterialSale"),  id, companyId: company.id },
     include: {
       customer: { select: { name: true, phone: true, address: true, gstin: true } },
       project: { select: { name: true } },

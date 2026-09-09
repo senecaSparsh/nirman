@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
@@ -39,7 +39,7 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
   const [sales, customers, leads, projects, units, salesMembers, unitStats] = await Promise.all([
     prisma.assetSale.findMany({
       take: 500,
-      where: { companyId: company.id },
+      where: {...await scopeWhere("AssetSale"),  companyId: company.id },
       orderBy: { createdAt: "desc" },
       include: {
         customer: { select: { id: true, name: true, phone: true } },
@@ -61,7 +61,7 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
     }),
     prisma.lead.findMany({
       take: 500,
-      where: { companyId: company.id, deletedAt: null },
+      where: {...await scopeWhere("Lead"),  companyId: company.id, deletedAt: null },
       orderBy: [{ nextFollowUpAt: "asc" }, { createdAt: "desc" }],
       include: {
         project: { select: { id: true, name: true } },
@@ -79,7 +79,7 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
     }),
     prisma.builtUnit.findMany({
       take: 200,
-      where: {
+      where: {...await scopeWhere("BuiltUnit"), 
         deletedAt: null,
         status: { in: ["AVAILABLE", "HOLD"] },
         project: { companyId: company.id, deletedAt: null },
@@ -112,14 +112,14 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
     landParcelIds.length > 0
       ? prisma.landParcel.findMany({
           take: 200,
-          where: { id: { in: landParcelIds }, landPurchase: { companyId: company.id } },
+          where: {...await scopeWhere("LandParcel"),  id: { in: landParcelIds }, landPurchase: { companyId: company.id } },
           select: { id: true, number: true, area: true, areaUnit: true },
         })
       : [],
     builtUnitIds.length > 0
       ? prisma.builtUnit.findMany({
           take: 200,
-          where: { id: { in: builtUnitIds }, project: { companyId: company.id } },
+          where: {...await scopeWhere("BuiltUnit"),  id: { in: builtUnitIds }, project: { companyId: company.id } },
           select: { id: true, unitNumber: true, unitType: true, area: true, areaUnit: true },
         })
       : [],

@@ -7,8 +7,8 @@ import {
   Circle,
 } from "lucide-react";
 import { prisma } from "@nirman/db";
-import { getCurrentUser, toNum } from "@/lib/server";
-import { migrateRole, ROLES, PERM } from "@/lib/roles";
+import { getCurrentUser, getUserRole, toNum, scopeWhere } from "@/lib/server";
+import { migrateRole, ROLES, PERM, hasPermission } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import {
@@ -40,6 +40,8 @@ export default function HrHomePage() {
     <MobileHubPage perm={PERM.HR_VIEW} what="HR" permission="hr.view">
       {async ({ company }) => {
         const currentUser = await getCurrentUser();
+        const role = await getUserRole();
+        const canManageTeam = hasPermission(role, PERM.USERS_VIEW);
 
         const today = new Date();
         const todayDateOnly = new Date(
@@ -263,6 +265,27 @@ export default function HrHomePage() {
             <SectionHead title="Organization" />
             <OrgHierarchy tree={orgTree} />
 
+            {/* ── Team & Permissions shortcut (now merged into Employees) ── */}
+            {canManageTeam && (
+              <Link
+                href="/m/hr/employees"
+                className="flex items-center gap-2.5 px-3 py-2.5 rounded-[0.5rem] mb-4 press"
+                style={{
+                  backgroundColor: "var(--color-paper)",
+                  border: "1px solid var(--color-line)",
+                }}
+              >
+                <Users className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+                <span className="flex-1 text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                  Employees & Access
+                </span>
+                <span className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
+                  Manage roles & access
+                </span>
+                <ArrowRight className="size-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />
+              </Link>
+            )}
+
             {/* ── 4. Today — compact 3-line summary with status flags ──
                 Replaces the old traffic-light cards, workforce breakdown bars,
                 pending approvals queue, and recent DPRs list. One scannable
@@ -451,26 +474,26 @@ async function loadOrgTree(
   //    + today's attendance + leave requests ──
   const [tasks, allTasks, dprs, crews, unassignedEmployees, todayAttendanceRows, leaveRows] = await Promise.all([
     prisma.task.findMany({
-      where: { assignedToId: { in: userIds }, status: { in: ["PENDING", "IN_PROGRESS"] } },
+      where: {...await scopeWhere("Task"),  assignedToId: { in: userIds }, status: { in: ["PENDING", "IN_PROGRESS"] } },
       select: { id: true, title: true, status: true, priority: true, dueDate: true, assignedToId: true },
       orderBy: { createdAt: "desc" },
     }),
     // ALL tasks (including COMPLETED) for the task summary breakdown
     prisma.task.findMany({
-      where: { assignedToId: { in: userIds } },
+      where: {...await scopeWhere("Task"),  assignedToId: { in: userIds } },
       select: { id: true, title: true, status: true, priority: true, dueDate: true, assignedToId: true },
       orderBy: { createdAt: "desc" },
       take: 500, // cap to avoid huge payloads
     }),
     prisma.dailyProgressReport.findMany({
-      where: { submittedById: { in: userIds } },
+      where: {...await scopeWhere("DailyProgressReport"),  submittedById: { in: userIds } },
       orderBy: { date: "desc" },
       take: userIds.length * 5,
       select: { id: true, date: true, approvalStatus: true, submittedById: true, project: { select: { name: true } } },
     }),
     // Crews with their supervisor (→ Employee → userId) and members
     prisma.crew.findMany({
-      where: { companyId, active: true },
+      where: {...await scopeWhere("Crew"),  companyId, active: true },
       include: {
         supervisor: { select: { userId: true } },
         project: { select: { name: true } },
@@ -492,9 +515,13 @@ async function loadOrgTree(
         },
       },
     }),
-    // Employees not in any crew (field labour without a formal team)
+    // Employees not in any crew (field labour without a formal team).
+    // Exclude employees who already have a linked user account in the
+    // membership hierarchy — those people appear in the reporting-line tree,
+    // not under "Field Labour". Only true field workers (no login, or login
+    // but not in the org hierarchy) show up here.
     prisma.employee.findMany({
-      where: { companyId, deletedAt: null, crewId: null },
+      where: { companyId, deletedAt: null, crewId: null, userId: { notIn: userIds } },
       select: {
         id: true,
         name: true,
@@ -511,7 +538,7 @@ async function loadOrgTree(
     }),
     // Today's attendance for employees linked to these users
     prisma.workerAttendance.findMany({
-      where: {
+      where: {...await scopeWhere("WorkerAttendance"), 
         company: { id: companyId },
         date: todayDateOnly,
         employee: { userId: { in: userIds } },
@@ -527,7 +554,7 @@ async function loadOrgTree(
     }).catch(() => []),
     // Leave requests for employees linked to these users (pending + approved-today)
     prisma.leaveRequest.findMany({
-      where: {
+      where: {...await scopeWhere("LeaveRequest"), 
         company: { id: companyId },
         employee: { userId: { in: userIds } },
         status: { in: ["PENDING", "APPROVED"] },

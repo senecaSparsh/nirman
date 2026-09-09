@@ -1,9 +1,10 @@
 import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
+import { redirect } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { CalendarDays, Plus } from "lucide-react";
-import { getCompany, getUserRole } from "@/lib/server";
+import { getCompany, getUserRole, getActionPermissions, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import {
   MobileEmptyState,
@@ -32,18 +33,23 @@ async function MobileLeavesContent() {
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
+  if (!hasPermission(role, PERM.HR_VIEW)) {
+    redirect("/m");
+  }
   const canManage = hasPermission(role, PERM.HR_MANAGE);
+  // Scope-aware action permissions
+  const actions = await getActionPermissions();
 
   const [leaves, employees] = await Promise.all([
     prisma.leaveRequest.findMany({
-      where: { companyId: company.id },
+      where: { companyId: company.id, ...await scopeWhere("LeaveRequest", {}) },
       orderBy: { startDate: "desc" },
       take: 50,
       include: {
         employee: { select: { id: true, name: true, trade: true } },
       },
     }),
-    canManage
+    actions.canRecordLeave
       ? prisma.employee.findMany({
           where: { companyId: company.id, active: true, deletedAt: null },
           orderBy: { name: "asc" },
@@ -119,7 +125,7 @@ async function MobileLeavesContent() {
         />
       )}
 
-      {canManage && employees.length > 0 && (
+      {actions.canRecordLeave && employees.length > 0 && (
         <MobileLeavesFab employees={employees.map((e) => ({ id: e.id, name: e.name, trade: e.trade }))} />
       )}
     </div>

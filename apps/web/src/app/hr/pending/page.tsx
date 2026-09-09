@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
@@ -65,7 +65,7 @@ async function PendingListContent() {
   ] = await Promise.all([
     // DPRs awaiting approval
     prisma.dailyProgressReport.findMany({
-      where: { companyId: company.id, approvalStatus: "SUBMITTED" },
+      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: "SUBMITTED" },
       orderBy: { date: "desc" },
       take: 20,
       include: {
@@ -75,7 +75,7 @@ async function PendingListContent() {
     }),
     // Leave requests pending
     prisma.leaveRequest.findMany({
-      where: { companyId: company.id, status: "PENDING" },
+      where: {...await scopeWhere("LeaveRequest"),  companyId: company.id, status: "PENDING" },
       orderBy: { createdAt: "desc" },
       take: 20,
       include: { employee: { select: { id: true, name: true } } },
@@ -99,7 +99,7 @@ async function PendingListContent() {
     }),
     // Requisitions pending approval
     prisma.materialRequisition.findMany({
-      where: { project: { companyId: company.id }, status: "SUBMITTED" },
+      where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED" },
       orderBy: { createdAt: "desc" },
       take: 20,
       include: {
@@ -109,7 +109,7 @@ async function PendingListContent() {
     }),
     // Overdue tasks (due date passed, not completed)
     prisma.task.findMany({
-      where: {
+      where: {...await scopeWhere("Task"), 
         status: { in: ["PENDING", "IN_PROGRESS"] },
         dueDate: { lt: new Date() },
       },
@@ -122,7 +122,7 @@ async function PendingListContent() {
     }),
     // Pending tasks (not started, due in the future)
     prisma.task.findMany({
-      where: {
+      where: {...await scopeWhere("Task"), 
         status: "PENDING",
         dueDate: { gte: new Date() },
       },

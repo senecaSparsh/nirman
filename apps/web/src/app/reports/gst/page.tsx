@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
@@ -112,7 +112,7 @@ async function GstReportContent({
       take: 50,
     }),
     prisma.assetSale.findMany({
-      where: { companyId: company.id, saleDate: { gte: fromDate, lte: toDate } },
+      where: {...await scopeWhere("AssetSale"),  companyId: company.id, saleDate: { gte: fromDate, lte: toDate } },
       select: { saleNumber: true, salePrice: true, gstRate: true, gstAmount: true, saleDate: true, status: true, customerId: true },
       orderBy: { saleDate: "desc" },
       take: 50,

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, FileText } from "lucide-react";
 import { prisma } from "@nirman/db";
 import { getPortalCustomer } from "@/lib/portal-auth";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { EmptyState } from "@/components/empty-state";
 
 export const metadata = { title: "My Sales" };
@@ -52,7 +52,7 @@ export default async function PortalSalesPage() {
   }
 
   const sales = await prisma.assetSale.findMany({
-    where: { customerId: customer.id, status: "ACTIVE" },
+    where: {...await scopeWhere("AssetSale"),  customerId: customer.id, status: "ACTIVE" },
     include: {
       project: { select: { id: true, name: true } },
       landParcel: { select: { id: true, number: true, area: true, areaUnit: true } },

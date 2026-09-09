@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { prisma } from "@nirman/db";
 import { trialBalance, projectPnl, materialInventoryValue } from "@nirman/services";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
-import { getCompany, toNum, getUserRole, getCurrentUser } from "@/lib/server";
+import { getCompany, toNum, getUserRole, getCurrentUser, scopeWhere } from "@/lib/server";
 import {
   PERM,
   ROLES,
@@ -100,7 +100,7 @@ async function CommandCenterContent() {
     }),
     isDevBypass ? [] : prisma.projectAssignment.findMany({
       take: 500,
-      where: { userId },
+      where: {...await scopeWhere("ProjectAssignment"),  userId },
       include: { project: { select: { id: true, name: true, status: true } } },
       orderBy: { assignedAt: "desc" },
     }),
@@ -116,7 +116,7 @@ async function CommandCenterContent() {
       include: { supplier: { select: { name: true } } },
     }),
     prisma.materialRequisition.findMany({
-      where: { project: { companyId: company.id }, status: "SUBMITTED" },
+      where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED" },
       orderBy: { createdAt: "desc" }, take: 5,
       include: { project: { select: { name: true } }, lines: { select: { qtyRequested: true } } },
     }),
@@ -126,7 +126,7 @@ async function CommandCenterContent() {
       include: { supplier: { select: { name: true } } },
     }),
     prisma.assetSale.findMany({
-      where: { companyId: company.id, status: "ACTIVE" },
+      where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE" },
       orderBy: { createdAt: "desc" }, take: 10,
       include: { customer: { select: { name: true } }, payments: { select: { amount: true } } },
     }),
@@ -136,12 +136,12 @@ async function CommandCenterContent() {
       include: { location: { select: { name: true } } },
     }),
     prisma.builtUnit.findMany({
-      where: { project: { companyId: company.id }, deletedAt: null, status: "AVAILABLE" },
+      where: {...await scopeWhere("BuiltUnit"),  project: { companyId: company.id }, deletedAt: null, status: "AVAILABLE" },
       orderBy: { updatedAt: "desc" }, take: 5,
       include: { project: { select: { name: true } } },
     }),
     prisma.materialRequisition.findMany({
-      where: { project: { companyId: company.id }, status: "APPROVED" },
+      where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "APPROVED" },
       orderBy: { approvedAt: "asc" as const }, take: 5,
       include: { project: { select: { name: true } } },
     }),

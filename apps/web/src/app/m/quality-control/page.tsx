@@ -1,4 +1,5 @@
 import { prisma } from "@nirman/db";
+import { scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {
@@ -23,7 +24,7 @@ export default function MobileQualityControlPage() {
       {async ({ company, canManage }) => {
         const [ncrs, projects, subcontractors] = await Promise.all([
           prisma.nonConformanceReport.findMany({
-            where: { companyId: company.id },
+            where: {...await scopeWhere("NonConformanceReport"),  companyId: company.id },
             orderBy: { createdAt: "desc" },
             take: 50,
             include: {

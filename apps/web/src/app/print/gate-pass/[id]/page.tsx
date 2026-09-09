@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getUserRole, getCompany } from "@/lib/server";
+import { toNum, getUserRole, getCompany, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import {formatNumber} from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -30,7 +30,7 @@ export default async function GatePassPrintPage({ params }: { params: Promise<{ 
   const company = await getCompany();
 
   const gp = await prisma.gatePass.findFirst({
-    where: { id, companyId: company.id },
+    where: {...await scopeWhere("GatePass"),  id, companyId: company.id },
     include: {
       lines: true,
       location: { select: { name: true, type: true } },

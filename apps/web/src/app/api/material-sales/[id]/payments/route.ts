@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { createMaterialSalePayment, getMaterialSalePayments } from "@nirman/services";
 import { prisma } from "@nirman/db";
 import { PERM } from "@/lib/roles";
-import { apiHandler, ForbiddenError, getCompany, getUserPermissions, json, requireUser } from "@/lib/server";
+import { apiHandler, ForbiddenError, getCompany, getUserPermissions, json, requireUser, scopeWhere } from "@/lib/server";
 
 /**
  * GET /api/material-sales/[id]/payments
@@ -21,7 +21,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
   // Verify the sale belongs to the current company before returning payments
   const sale = await prisma.materialSale.findFirst({
-    where: { id: saleId, companyId: company.id },
+    where: { id: saleId, companyId: company.id, ...await scopeWhere("MaterialSale", {}) },
     select: { id: true, totalAmount: true, paymentStatus: true },
   });
   if (!sale) return json({ error: "Material sale not found" }, { status: 404 });

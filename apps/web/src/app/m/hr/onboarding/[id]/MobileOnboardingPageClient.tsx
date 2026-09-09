@@ -15,6 +15,7 @@ export function MobileOnboardingPageClient({
   actorRole,
   projects,
   stockLocations,
+  departments,
 }: {
   employee: OnboardingEmployeeData;
   canManage: boolean;
@@ -22,6 +23,7 @@ export function MobileOnboardingPageClient({
   actorRole: string;
   projects: { id: string; name: string }[];
   stockLocations: { id: string; name: string }[];
+  departments: { id: string; name: string; active: boolean }[];
 }) {
   return (
     <div className="pb-20">
@@ -68,6 +70,7 @@ export function MobileOnboardingPageClient({
           actorRole={actorRole}
           projects={projects}
           stockLocations={stockLocations}
+          departments={departments}
           onEdit={() => {
             // Navigate to the employee detail page's edit sheet
             window.location.href = `/m/hr/employees/${employee.id}`;

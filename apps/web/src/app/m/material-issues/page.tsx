@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { Package } from "lucide-react";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
@@ -22,7 +22,7 @@ export default function MobileMaterialIssuesPage() {
       {async ({ company }) => {
         const BATCH_SIZE = 40;
         const issues = await prisma.materialIssue.findMany({
-          where: {
+          where: {...await scopeWhere("MaterialIssue"), 
             fromLocation: { companyId: company.id, deletedAt: null },
           },
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],

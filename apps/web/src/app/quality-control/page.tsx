@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole } from "@/lib/server";
+import { getCompany, getUserRole, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
@@ -35,7 +35,7 @@ async function QcContent() {
       select: { id: true, name: true, type: true, status: true },
     }),
     prisma.nonConformanceReport.findMany({
-      where: { companyId: company.id },
+      where: {...await scopeWhere("NonConformanceReport"),  companyId: company.id },
       orderBy: { createdAt: "desc" },
       take: 100,
       include: {

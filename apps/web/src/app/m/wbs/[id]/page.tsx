@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import {
@@ -35,7 +35,7 @@ export default function MobileWbsDetailPage({
     >
       {async ({ id, company, canManage }) => {
         const node = await prisma.wbsNode.findFirst({
-          where: { id, project: { companyId: company.id } },
+          where: {...await scopeWhere("WbsNode"),  id, project: { companyId: company.id } },
           include: {
             project: { select: { id: true, name: true } },
             phase: { select: { id: true, name: true } },

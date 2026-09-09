@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { UnitsHub } from "@/components/built-units/units-hub";
@@ -41,7 +41,7 @@ async function BuiltUnitsContent() {
   const [builtUnits, projects, phases, customers, portalListings, portalBuiltUnits, portalProj] = await Promise.all([
     prisma.builtUnit.findMany({
       take: 500,
-      where: { deletedAt: null, project: { companyId: company.id } },
+      where: {...await scopeWhere("BuiltUnit"),  deletedAt: null, project: { companyId: company.id } },
       orderBy: [{ projectId: "asc" }, { unitNumber: "asc" }],
       include: {
         project: { select: { id: true, name: true } },
@@ -65,7 +65,7 @@ async function BuiltUnitsContent() {
     }),
     prisma.projectPhase.findMany({
       take: 200,
-      where: { project: { companyId: company.id, deletedAt: null } },
+      where: {...await scopeWhere("ProjectPhase"),  project: { companyId: company.id, deletedAt: null } },
       orderBy: [{ projectId: "asc" }, { sortOrder: "asc" }],
       select: { id: true, name: true, status: true, projectId: true },
     }),
@@ -106,7 +106,7 @@ async function BuiltUnitsContent() {
       : Promise.resolve([]),
     canViewPortals
       ? prisma.builtUnit.findMany({
-          where: {
+          where: {...await scopeWhere("BuiltUnit"), 
             deletedAt: null,
             status: { in: ["AVAILABLE", "UNDER_CONSTRUCTION"] },
             project: { companyId: company.id, deletedAt: null },
@@ -266,13 +266,13 @@ async function BuiltUnitsContent() {
     }),
     prisma.builtUnit.findMany({
       take: 200,
-      where: { project: { companyId: company.id }, deletedAt: null, status: { in: ["AVAILABLE", "HOLD", "UNDER_CONSTRUCTION", "RENTED"] } },
+      where: {...await scopeWhere("BuiltUnit"),  project: { companyId: company.id }, deletedAt: null, status: { in: ["AVAILABLE", "HOLD", "UNDER_CONSTRUCTION", "RENTED"] } },
       select: { id: true, unitNumber: true, unitType: true, projectId: true, currentValuation: true },
       orderBy: { unitNumber: "asc" },
     }),
     prisma.landParcel.findMany({
       take: 200,
-      where: { deletedAt: null, status: { in: ["AVAILABLE", "HOLD", "RENTED"] }, landPurchase: { companyId: company.id } },
+      where: {...await scopeWhere("LandParcel"),  deletedAt: null, status: { in: ["AVAILABLE", "HOLD", "RENTED"] }, landPurchase: { companyId: company.id } },
       select: { id: true, number: true, currentValuation: true },
       orderBy: { number: "asc" },
     }),

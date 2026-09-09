@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -32,6 +32,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       department: { companyId: company.id, deletedAt: null },
       departmentId: { not: null },
       ...dateFilter,
+      ...await scopeWhere("MaterialIssue", {}),
     },
     include: {
       department: { select: { id: true, code: true, name: true } },

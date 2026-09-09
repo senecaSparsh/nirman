@@ -374,6 +374,7 @@ function AssignmentTree({
                 depth={2}
                 ancestorLast={[false, i === groups.length - 1 && !hasUnassigned]}
                 defaultOpen={false}
+                useHierarchyDepth={false}
               />
             ))}
           </GroupNode>
@@ -398,6 +399,7 @@ function AssignmentTree({
                 depth={2}
                 ancestorLast={[false, true]}
                 defaultOpen={false}
+                useHierarchyDepth={false}
               />
             ))}
           </GroupNode>
@@ -476,12 +478,18 @@ function PersonNode({
   depth,
   ancestorLast,
   defaultOpen,
+  useHierarchyDepth = true,
 }: {
   person: OrgPersonNode;
   isLast: boolean;
   depth: number;
   ancestorLast: boolean[];
   defaultOpen: boolean;
+  /** When true (default), the visual indentation depth is driven by
+   *  `person.hierarchyLevel` (H1→0, H2→1, H3→2, H4→3) instead of the
+   *  parent-child tree depth. Set to false in the assignment tree where
+   *  depth is fixed by the group nesting level. */
+  useHierarchyDepth?: boolean;
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
   const hasReports = (person.reports?.length ?? 0) > 0;
@@ -512,6 +520,23 @@ function PersonNode({
   ].filter(Boolean);
   const sub = subParts.length > 0 ? subParts.join(" · ") : undefined;
 
+  // ── Visual depth: use hierarchyLevel (H1→0, H2→1, …) when available
+  //    so the indentation matches the H-level badge. Fall back to the
+  //    tree-structural depth when hierarchyLevel is not set or when
+  //    we're in the assignment tree (useHierarchyDepth=false). ──
+  const visualDepth = useHierarchyDepth && person.hierarchyLevel != null
+    ? person.hierarchyLevel - 1
+    : depth;
+
+  // ── Pad ancestorLast to match visualDepth. When there's a hierarchy
+  //    gap (e.g. parent H1 → child H3, skipping H2), the intermediate
+  //    connector levels inherit the parent's isLast so the vertical
+  //    lines continue correctly through the gap. ──
+  const lastAncestor = ancestorLast.length > 0 ? ancestorLast[ancestorLast.length - 1] : false;
+  const paddedAncestorLast = ancestorLast.length < visualDepth
+    ? [...ancestorLast, ...Array(visualDepth - ancestorLast.length).fill(lastAncestor)]
+    : ancestorLast.slice(0, visualDepth);
+
   // Right-side content: descendant count for folders, task count for leaves
   const rightContent = isFolder ? (
     <span
@@ -533,14 +558,14 @@ function PersonNode({
   return (
     <div>
       <TreeRow
-        depth={depth}
+        depth={visualDepth}
         isLast={isLast}
-        ancestorLast={ancestorLast}
+        ancestorLast={paddedAncestorLast}
         chevron={expandable}
         chevronOpen={open}
         onChevronClick={() => expandable && setOpen((o) => !o)}
         name={person.name}
-        nameHref={`/m/settings/team`}
+        nameHref={`/m/hr/employees`}
         nameOnClick={expandable ? () => setOpen((o) => !o) : undefined}
         nameBold={person.tier <= 2}
         badge={person.isSelf ? "You" : undefined}
@@ -552,7 +577,7 @@ function PersonNode({
       />
 
       {open && expandable ? (
-        <PersonDetail person={person} depth={depth + 1} ancestorLast={[...ancestorLast, isLast]} />
+        <PersonDetail person={person} depth={visualDepth + 1} ancestorLast={[...paddedAncestorLast, isLast]} />
       ) : null}
 
       {/* Teams (crews) led by this person */}
@@ -563,8 +588,8 @@ function PersonNode({
               key={team.id}
               team={team}
               isLast={i === person.teams.length - 1 && !hasReports}
-              depth={depth + 1}
-              ancestorLast={[...ancestorLast, isLast]}
+              depth={visualDepth + 1}
+              ancestorLast={[...paddedAncestorLast, isLast]}
             />
           ))}
         </div>
@@ -572,16 +597,32 @@ function PersonNode({
 
       {open && hasReports ? (
         <div>
-          {person.reports.map((report, i) => (
-            <PersonNode
-              key={report.id}
-              person={report}
-              isLast={i === person.reports.length - 1}
-              depth={depth + 1}
-              ancestorLast={[...ancestorLast, isLast]}
-              defaultOpen={false}
-            />
-          ))}
+          {person.reports.map((report, i) => {
+            // ── Compute child's visual depth from its hierarchyLevel ──
+            const childVisualDepth = useHierarchyDepth && report.hierarchyLevel != null
+              ? report.hierarchyLevel - 1
+              : visualDepth + 1;
+            // ── Pad ancestorLast for the hierarchy gap between this
+            //    node's visualDepth and the child's visualDepth. Each
+            //    intermediate level inherits this node's isLast so
+            //    vertical connector lines continue through the gap. ──
+            const gap = Math.max(0, childVisualDepth - visualDepth);
+            const childAncestorLast = [
+              ...paddedAncestorLast,
+              ...Array(gap).fill(isLast),
+            ];
+            return (
+              <PersonNode
+                key={report.id}
+                person={report}
+                isLast={i === person.reports.length - 1}
+                depth={childVisualDepth}
+                ancestorLast={childAncestorLast}
+                defaultOpen={false}
+                useHierarchyDepth={useHierarchyDepth}
+              />
+            );
+          })}
         </div>
       ) : null}
     </div>

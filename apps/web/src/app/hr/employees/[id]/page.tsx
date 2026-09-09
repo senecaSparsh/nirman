@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole, getUserScope } from "@/lib/server";
+import { getCompany, toNum, getUserRole, getEmployeeAccessScope, canManageSpecificEmployee, getCurrentUser, getCompanyGroupIds } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
@@ -39,19 +39,17 @@ async function EmployeeProfileContent({
   const canAssignTasks = hasPermission(role, PERM.TASKS_ASSIGN);
   const { id } = await params;
 
-  // Hierarchical RBAC: a PROJECT-scoped user only sees employees on their sites.
-  const scope = await getUserScope();
-  const employeeProjectFilter =
-    scope.scopeType === "PROJECT" && scope.projectIds.length > 0
-      ? { activeProjectId: { in: scope.projectIds } }
-      : {};
+  // Root-level access scope: department + field gating
+  const accessScope = await getEmployeeAccessScope();
+  const currentUser = await getCurrentUser();
 
   const employee = await prisma.employee.findFirst({
-    where: { id, companyId: company.id, deletedAt: null, ...employeeProjectFilter },
+    where: { id, companyId: company.id, deletedAt: null, ...accessScope.employeeFilter },
     include: {
       crew: { select: { id: true, name: true, projectId: true, project: { select: { id: true, name: true } } } },
       activeProject: { select: { id: true, name: true } },
       reportingLocation: { select: { id: true, name: true } },
+      department: { select: { id: true, name: true } },
       user: {
         select: {
           id: true, name: true, email: true, role: true, phone: true,
@@ -120,6 +118,14 @@ async function EmployeeProfileContent({
   if (!employee) {
     return <NoAccess what="employee" />;
   }
+
+  // ── Hierarchy check: can the viewer edit THIS employee? ──
+  const canEditEmployee = await canManageSpecificEmployee(
+    { userId: employee.userId, user: employee.user ? { role: employee.user.role } : null, hierarchyLevel: employee.hierarchyLevel },
+    currentUser?.id ?? "",
+  );
+  const effectiveCanManage = canManage && canEditEmployee;
+  const effectiveCanManagePayroll = canManagePayroll && canEditEmployee;
 
   // ── Lazy contract expiry check ──
   // If the employee has a contractEndDate that has passed and the contract
@@ -261,6 +267,27 @@ async function EmployeeProfileContent({
   }));
   const totalDprHours = dprHistory.reduce((s, d) => s + d.hoursWorked, 0);
 
+  // ── Compute available companies before building the data object ──
+  let availableCompanies: { id: string; name: string; parentCompanyId: string | null }[] = [];
+  if (effectiveCanManage && employee.userId) {
+    const groupIds = await getCompanyGroupIds();
+    const existingCompanyIds = new Set([
+      company.id,
+      ...((await prisma.employee.findMany({
+        where: { userId: employee.userId, deletedAt: null },
+        select: { companyId: true },
+      })).map((e) => e.companyId)),
+    ]);
+    const available = groupIds.filter((id) => !existingCompanyIds.has(id));
+    if (available.length > 0) {
+      availableCompanies = await prisma.company.findMany({
+        where: { id: { in: available }, deletedAt: null },
+        select: { id: true, name: true, parentCompanyId: true },
+        orderBy: { name: "asc" },
+      });
+    }
+  }
+
   const data: EmployeeProfileData = {
     id: employee.id,
     name: employee.name,
@@ -302,16 +329,17 @@ async function EmployeeProfileContent({
     autoDepositEnabled: employee.autoDepositEnabled,
     autoDepositSetupAt: employee.autoDepositSetupAt?.toISOString() ?? null,
     payDay: employee.payDay,
-    bankAccountHolder: employee.bankAccountHolder,
-    bankAccountNumber: employee.bankAccountNumber,
-    bankIfsc: employee.bankIfsc,
-    bankName: employee.bankName,
-    bankBranch: employee.bankBranch,
-    panNumber: employee.panNumber,
-    aadhaarNumber: employee.aadhaarNumber,
-    pfNumber: employee.pfNumber,
-    esiNumber: employee.esiNumber,
-    uan: employee.uan,
+    // Sensitive bank + personal docs — only sent if viewer has payroll/hr permission
+    bankAccountHolder: accessScope.canSeeBankDetails ? employee.bankAccountHolder : null,
+    bankAccountNumber: accessScope.canSeeBankDetails ? employee.bankAccountNumber : null,
+    bankIfsc: accessScope.canSeeBankDetails ? employee.bankIfsc : null,
+    bankName: accessScope.canSeeBankDetails ? employee.bankName : null,
+    bankBranch: accessScope.canSeeBankDetails ? employee.bankBranch : null,
+    panNumber: accessScope.canSeePersonalDocs ? employee.panNumber : null,
+    aadhaarNumber: accessScope.canSeePersonalDocs ? employee.aadhaarNumber : null,
+    pfNumber: accessScope.canSeePersonalDocs ? employee.pfNumber : null,
+    esiNumber: accessScope.canSeePersonalDocs ? employee.esiNumber : null,
+    uan: accessScope.canSeePersonalDocs ? employee.uan : null,
     emergencyContactName: employee.emergencyContactName,
     emergencyContactPhone: employee.emergencyContactPhone,
     emergencyContactRelation: employee.emergencyContactRelation,
@@ -324,6 +352,8 @@ async function EmployeeProfileContent({
     activeProjectName: employee.activeProject?.name ?? null,
     reportingLocationId: employee.reportingLocationId,
     reportingLocationName: employee.reportingLocation?.name ?? null,
+    departmentId: employee.departmentId,
+    departmentName: employee.department?.name ?? null,
     userId: employee.userId,
     user: employee.user
       ? {
@@ -414,6 +444,35 @@ async function EmployeeProfileContent({
     reportsTo,
     directReports,
     reportsToMembershipId,
+    // ── Departments (for the department selector) ──
+    departments: (await prisma.department.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      select: { id: true, name: true, active: true },
+      orderBy: { name: "asc" },
+    })),
+    // ── Multi-company: other Employee records for the same person (linked via userId) ──
+    companyMemberships: employee.userId
+      ? (await prisma.employee.findMany({
+          where: {
+            userId: employee.userId,
+            deletedAt: null,
+            id: { not: employee.id },
+          },
+          select: {
+            id: true,
+            companyId: true,
+            active: true,
+            company: { select: { name: true } },
+          },
+        })).map((e) => ({
+          employeeId: e.id,
+          companyId: e.companyId,
+          companyName: e.company.name,
+          active: e.active,
+        }))
+      : [],
+    // ── Available companies to add the employee to (group minus current + existing) ──
+    availableCompanies,
   };
 
   return (
@@ -421,8 +480,8 @@ async function EmployeeProfileContent({
       employee={data}
       actorRole={role}
       permissions={{
-        canManage,
-        canManagePayroll,
+        canManage: effectiveCanManage,
+        canManagePayroll: effectiveCanManagePayroll,
         canAssignTasks,
       }}
     />

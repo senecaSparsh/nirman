@@ -11,6 +11,8 @@ import {
   Pin,
   ArrowRight,
   Zap,
+  LogOut,
+  UserCircle,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -29,6 +31,7 @@ import {
   type NavContext,
 } from "@/lib/route-manifest";
 import { GlassSurface } from "@/components/ui/glass-surface";
+import { signOut as authSignOut } from "@/lib/auth-client";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    NAV PANEL — 3-dot overflow side panel (compact, accordion + pinning)
@@ -89,9 +92,13 @@ interface NavSheetProps {
   persona: Persona;
   /** Effective permissions from /api/me — used to gate which routes appear. */
   permissions: string[];
+  /** Current user's display name — shown in the profile section at the bottom. */
+  userName?: string;
+  /** Current company name — shown under the user's name in the profile section. */
+  companyName?: string;
 }
 
-export function NavSheet({ open, onClose, moduleId, persona, permissions }: NavSheetProps) {
+export function NavSheet({ open, onClose, moduleId, persona, permissions, userName, companyName }: NavSheetProps) {
   const pathname = usePathname();
   const [mounted, setMounted] = React.useState(open);
   const [exiting, setExiting] = React.useState(false);
@@ -117,6 +124,20 @@ export function NavSheet({ open, onClose, moduleId, persona, permissions }: NavS
   // ── Personalization: pinned pages + recent pages ──
   const { pinned, togglePin, isPinned } = usePinnedPages();
   const { recent } = useRecentPages();
+
+  // ── Sign-out handler ──
+  const [signingOut, setSigningOut] = React.useState(false);
+  const handleSignOut = React.useCallback(async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await authSignOut();
+    } catch {
+      // Even if the server call fails, clear the client and redirect.
+    }
+    // Hard redirect — drops all client state/cache, ensures a clean session.
+    window.location.href = "/sign-in";
+  }, [signingOut]);
 
   // ── Adaptive: page context from detail pages (must be before early return) ──
   const pageCtx = usePageContext();
@@ -292,7 +313,7 @@ export function NavSheet({ open, onClose, moduleId, persona, permissions }: NavS
         </div>
 
         {/* Scrollable link list — tight spacing */}
-        <div className="overflow-y-auto flex-1 px-1.5 py-2 pb-safe">
+        <div className="overflow-y-auto flex-1 px-1.5 py-2">
           {/* ── Recent pages (frecency-sorted horizontal chips) ── */}
           {/* Replaces the TabSwitcher's recent-tabs function. Up to 4
               chips, stable left-edge location (spatial memory supportive). */}
@@ -480,23 +501,80 @@ export function NavSheet({ open, onClose, moduleId, persona, permissions }: NavS
               );
             })}
           </NavSection>
+        </div>
 
-          {/* Settings & Help */}
-          <NavSection title="Settings" isDarkMode={isDarkMode}>
+        {/* ── Profile + Settings + Sign out (pinned to bottom) ── */}
+        <div
+          className="shrink-0 border-t pt-2 px-1.5 pb-safe"
+          style={{ borderColor: "var(--color-line)" }}
+        >
+          {/* Profile row — avatar + name + company, links to /m/me */}
+          <Link
+            href="/m/me"
+            onClick={onClose}
+            className="flex items-center gap-2 rounded-[0.375rem] px-1.5 py-1.5 press mb-1"
+          >
+            <span
+              className="grid place-items-center size-7 shrink-0 rounded-full"
+              style={{ backgroundColor: "var(--color-ink-950)" }}
+            >
+              <UserCircle className="size-4" style={{ color: "var(--color-paper)" }} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <div
+                className="text-m-label font-semibold leading-tight truncate"
+                style={{ color: "var(--color-ink-950)" }}
+              >
+                {userName ?? "User"}
+              </div>
+              {companyName ? (
+                <div
+                  className="text-m-caption leading-tight truncate"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  {companyName}
+                </div>
+              ) : null}
+            </div>
+          </Link>
+
+          {/* Settings + Sign out row */}
+          <div className="flex items-center gap-1">
             <Link
-              href="/m/me"
+              href="/m/settings"
               onClick={onClose}
-              className="flex items-center gap-2 rounded-[0.375rem] px-2 py-1.5 text-m-label press"
+              className="flex items-center gap-1.5 flex-1 rounded-[0.375rem] px-2 py-1.5 text-m-label press"
+              style={{
+                backgroundColor: "var(--color-concrete)",
+              }}
             >
               <Settings className="size-3 shrink-0" style={{ color: "var(--color-ink-950)" }} />
               <span
                 className="text-m-label font-medium leading-tight"
                 style={{ color: "var(--color-ink-900)" }}
               >
-                Settings & Help
+                Settings
               </span>
             </Link>
-          </NavSection>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="flex items-center gap-1.5 rounded-[0.375rem] px-2 py-1.5 text-m-label press disabled:opacity-50"
+              style={{
+                backgroundColor: "var(--color-stop-wash)",
+              }}
+              aria-label="Sign out"
+            >
+              <LogOut className="size-3 shrink-0" style={{ color: "var(--color-stop)" }} />
+              <span
+                className="text-m-label font-medium leading-tight"
+                style={{ color: "var(--color-stop)" }}
+              >
+                {signingOut ? "…" : "Sign out"}
+              </span>
+            </button>
+          </div>
         </div>
       </GlassSurface>
     </div>

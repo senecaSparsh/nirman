@@ -586,6 +586,7 @@ export interface CreateEmployeeInput {
   wageType?: "DAILY" | "MONTHLY" | "FIXED";
   monthlySalary?: Decimal | number | string | null;
   designation?: string;
+  departmentId?: string | null;
   joinDate?: Date;
   crewId?: string;
   activeProjectId?: string;
@@ -645,6 +646,7 @@ export async function createEmployee(input: CreateEmployeeInput) {
         wageType: input.wageType ?? "DAILY",
         monthlySalary: input.monthlySalary ?? null,
         designation: input.designation ?? null,
+        departmentId: input.departmentId || null,
         joinDate: input.joinDate ?? null,
         crewId: input.crewId || null,
         activeProjectId: input.activeProjectId || null,
@@ -702,12 +704,14 @@ export interface UpdateEmployeeInput {
   wageType?: "DAILY" | "MONTHLY" | "FIXED";
   monthlySalary?: Decimal | number | string | null;
   designation?: string | null;
+  departmentId?: string | null;
   joinDate?: Date | null;
   crewId?: string | null;
   activeProjectId?: string | null;
   active?: boolean;
   reportingLocationId?: string | null;
   hierarchyLevel?: number | null;
+  reportsToEmployeeId?: string | null;
   userId?: string;
   // Identity / personal (for ID card & compliance)
   dateOfBirth?: Date | null;
@@ -743,11 +747,13 @@ export async function updateEmployee(input: UpdateEmployeeInput) {
     if (input.wageType !== undefined) data.wageType = input.wageType;
     if (input.monthlySalary !== undefined) data.monthlySalary = input.monthlySalary ?? null;
     if (input.designation !== undefined) data.designation = input.designation ?? null;
+    if (input.departmentId !== undefined) data.department = input.departmentId ? { connect: { id: input.departmentId } } : { disconnect: true };
     if (input.joinDate !== undefined) data.joinDate = input.joinDate;
     if (input.crewId !== undefined) data.crew = input.crewId ? { connect: { id: input.crewId } } : { disconnect: true };
     if (input.activeProjectId !== undefined) data.activeProject = input.activeProjectId ? { connect: { id: input.activeProjectId } } : { disconnect: true };
     if (input.reportingLocationId !== undefined) data.reportingLocation = input.reportingLocationId ? { connect: { id: input.reportingLocationId } } : { disconnect: true };
     if (input.hierarchyLevel !== undefined) data.hierarchyLevel = input.hierarchyLevel;
+    if (input.reportsToEmployeeId !== undefined) data.reportsTo = input.reportsToEmployeeId ? { connect: { id: input.reportsToEmployeeId } } : { disconnect: true };
     if (input.active !== undefined) data.active = input.active;
     if (input.dateOfBirth !== undefined) data.dateOfBirth = input.dateOfBirth;
     if (input.bloodGroup !== undefined) data.bloodGroup = input.bloodGroup;
@@ -755,9 +761,10 @@ export async function updateEmployee(input: UpdateEmployeeInput) {
     const updated = await tx.employee.update({ where: { id: input.employeeId }, data });
 
     // ── Bidirectional sync: if the Employee has a linked User, mirror
-    //    name/phone/email/designation/joinDate changes to the User record so they
-    //    stay in sync (editing from either side updates both). ──
-    if (existing.userId && (data.name || data.phone !== undefined || data.email !== undefined || data.designation !== undefined || data.joinDate !== undefined)) {
+    //    name/phone/email/designation/joinDate/department changes to the User
+    //    record so they stay in sync (editing from either side updates both).
+    //    Department is synced from Employee.departmentId → User.department (name).
+    if (existing.userId && (data.name || data.phone !== undefined || data.email !== undefined || data.designation !== undefined || data.joinDate !== undefined || data.department !== undefined)) {
       const userData: Prisma.UserUpdateInput = {};
       if (data.name) userData.name = data.name;
       if (input.phone !== undefined) {
@@ -771,6 +778,15 @@ export async function updateEmployee(input: UpdateEmployeeInput) {
       if (input.email !== undefined && input.email !== null) userData.email = input.email;
       if (input.designation !== undefined) userData.designation = input.designation ?? null;
       if (data.joinDate !== undefined) userData.joiningDate = data.joinDate;
+      // Sync department name from the linked Department record
+      if (input.departmentId !== undefined) {
+        if (input.departmentId) {
+          const dept = await tx.department.findUnique({ where: { id: input.departmentId }, select: { name: true } });
+          userData.department = dept?.name ?? null;
+        } else {
+          userData.department = null;
+        }
+      }
       if (Object.keys(userData).length > 0) {
         await tx.user.update({ where: { id: existing.userId }, data: userData });
       }

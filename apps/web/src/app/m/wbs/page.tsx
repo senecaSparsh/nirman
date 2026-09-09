@@ -3,7 +3,7 @@ import Link from "next/link";
 import { prisma } from "@nirman/db";
 import { getWbsTree } from "@nirman/services";
 import { ListTree, ChevronRight, Calendar } from "lucide-react";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere, getActionPermissions } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate, formatNumber } from "@/lib/utils";
 import {
@@ -70,18 +70,19 @@ export default function MobileWbsPage({
         ).length;
 
         const canManage = hasPermission(role, PERM.WBS_MANAGE);
+        const actions = await getActionPermissions();
 
         // Fetch BOQ line items + all WBS nodes (for parent selection) when user can manage
         const [boqItems, parentNodes] =
           selectedProject && canManage
             ? await Promise.all([
                 prisma.boqItem.findMany({
-                  where: { projectId: selectedProject.id, type: "LINE_ITEM" },
+                  where: {...await scopeWhere("BoqItem"),  projectId: selectedProject.id, type: "LINE_ITEM" },
                   orderBy: { serialNo: "asc" },
                   select: { id: true, serialNo: true, description: true },
                 }),
                 prisma.wbsNode.findMany({
-                  where: { projectId: selectedProject.id },
+                  where: {...await scopeWhere("WbsNode"),  projectId: selectedProject.id },
                   orderBy: { code: "asc" },
                   select: { id: true, code: true, name: true, type: true },
                 }),
@@ -145,7 +146,7 @@ export default function MobileWbsPage({
             )}
 
             {/* FAB for adding WBS nodes */}
-            {selectedProject && canManage && (
+            {selectedProject && (actions?.canCreateWbs ?? canManage) && (
               <MobileWbsFab
                 projectId={selectedProject.id}
                 parentNodes={parentNodes.map((n) => ({

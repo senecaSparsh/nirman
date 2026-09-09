@@ -14,6 +14,7 @@ import {
   json,
   requirePermission,
   quotationRequestSchema,
+  assertScopeAllows,
 } from "@/lib/server";
 
 /**
@@ -104,6 +105,18 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const membership = await getCurrentUserMembership();
   if (!membership) {
     return json({ error: "No company membership found for the current user" }, { status: 403 });
+  }
+
+  try {
+    await assertScopeAllows({
+      projectId: parsed.data.projectId ?? null,
+      departmentId: null,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Scope violation" },
+      { status: 403 },
+    );
   }
 
   if (parsed.data.requiredByDate) {

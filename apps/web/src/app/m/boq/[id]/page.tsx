@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import {
@@ -32,7 +32,7 @@ export default function MobileBoqDetailPage({
     >
       {async ({ id, company, canManage }) => {
         const item = await prisma.boqItem.findFirst({
-    where: { id, project: { companyId: company.id } },
+    where: {...await scopeWhere("BoqItem"),  id, project: { companyId: company.id } },
     include: {
       project: { select: { id: true, name: true } },
       phase: { select: { id: true, name: true } },

@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import {Wallet, Building2} from "lucide-react";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import {formatCurrencyCompact} from "@/lib/utils";
 import {MobileEmptyState, MobileStatCard} from "@/components/mobile/v2/primitives";
@@ -34,13 +34,13 @@ async function MobileFinanceContent() {
 
   const [expenses, projectCosts, projects, subcontractors, supplierInvoices] = await Promise.all([
     prisma.expense.findMany({
-      where: { companyId: company.id },
+      where: {...await scopeWhere("Expense"),  companyId: company.id },
       orderBy: { date: "desc" },
       take: 30,
       include: { project: { select: { name: true } } },
     }),
     prisma.projectCost.findMany({
-      where: { project: { companyId: company.id } },
+      where: {...await scopeWhere("ProjectCost"),  project: { companyId: company.id } },
       orderBy: { date: "desc" },
       take: 30,
       include: { project: { select: { name: true } } },

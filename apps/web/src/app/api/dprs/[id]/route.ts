@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { submitDPR, deleteDpr, subAdminApproveDpr, adminApproveDpr, rejectDpr, resubmitDpr, sendNotification, markDprCostPosted, generateMaterialIssueFromDPR } from "@nirman/services";
-import { apiHandler, getCompany, json, dprSchema, requirePermission, requireUser, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, dprSchema, requirePermission, requireUser, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -10,7 +10,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
   const dpr = await prisma.dailyProgressReport.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, ...await scopeWhere("DailyProgressReport") },
     include: {
       project: { select: { id: true, name: true, totalProjectCost: true, costPerSqft: true, totalBudget: true, totalSellableArea: true } },
       submittedBy: { select: { id: true, name: true } },
@@ -213,6 +213,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     return json({ error: "Invalid date format" }, { status: 400 });
   }
   try {
+    await assertScopeAllows({ projectId: parsed.data.projectId ?? null, departmentId: null });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+  }
+  try {
     const dpr = await submitDPR({
       companyId: company.id,
       projectId: parsed.data.projectId,
@@ -254,7 +259,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const { id } = await params;
   // Verify the DPR belongs to the user's company before deleting
   const dpr = await prisma.dailyProgressReport.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, ...await scopeWhere("DailyProgressReport") },
     select: { id: true },
   });
   if (!dpr) return json({ error: "DPR not found" }, { status: 404 });

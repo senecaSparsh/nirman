@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { projectPnl } from "@nirman/services";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
@@ -46,7 +46,7 @@ async function ProjectProgressContent() {
   // Latest DPR progress % per project
   const latestDprs = await prisma.dailyProgressReport.findMany({
     take: 200,
-    where: { companyId: company.id },
+    where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id },
     orderBy: { date: "desc" },
     distinct: ["projectId"],
     select: { projectId: true, progressPct: true, date: true },

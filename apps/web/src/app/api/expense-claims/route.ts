@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createExpenseClaim, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -16,7 +16,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   await requirePermission(PERM.FINANCE_VIEW);
   const company = await getCompany();
   const claims = await prisma.expenseClaim.findMany({
-    where: { companyId: company.id },
+    where: { companyId: company.id, ...await scopeWhere("ExpenseClaim", {}) },
     orderBy: { createdAt: "desc" },
     take: 200,
     include: {
@@ -51,6 +51,17 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const parsed = claimSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  try {
+    await assertScopeAllows({
+      projectId: parsed.data.projectId ?? null,
+      departmentId: null,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Scope violation" },
+      { status: 403 },
+    );
   }
   try {
     const claim = await createExpenseClaim({

@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere, getActionPermissions, filterOptionsByScope } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { Wrench } from "lucide-react";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
@@ -19,9 +19,11 @@ export default function MobileWorkOrdersPage() {
   return (
     <MobileListPage managePerm={PERM.ASSETS_MANAGE}>
       {async ({ company, canManage }) => {
+        // Scope-aware action permissions (for FAB gating)
+        const actions = await getActionPermissions();
         const [workOrders, projects, subcontractors] = await Promise.all([
           prisma.subcontractorWorkOrder.findMany({
-            where: { companyId: company.id },
+            where: {...await scopeWhere("SubcontractorWorkOrder"),  companyId: company.id },
             orderBy: { createdAt: "desc" },
             take: 50,
             include: {
@@ -30,14 +32,17 @@ export default function MobileWorkOrdersPage() {
               _count: { select: { raBills: true, lines: true } },
             },
           }),
-          canManage
-            ? prisma.project.findMany({
-                where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
-                orderBy: { name: "asc" },
-                select: { id: true, name: true },
-              })
+          actions.canCreateWorkOrder
+            ? filterOptionsByScope(
+                await prisma.project.findMany({
+                  where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+                  orderBy: { name: "asc" },
+                  select: { id: true, name: true },
+                }),
+                actions.allowedProjectIds,
+              )
             : [],
-          canManage
+          actions.canCreateWorkOrder
             ? prisma.subcontractor.findMany({
                 where: { companyId: company.id, deletedAt: null },
                 orderBy: { name: "asc" },
@@ -97,7 +102,7 @@ export default function MobileWorkOrdersPage() {
               />
             )}
 
-            {canManage && projects.length > 0 && subcontractors.length > 0 && (
+            {actions.canCreateWorkOrder && projects.length > 0 && subcontractors.length > 0 && (
               <MobileWorkOrdersFab projects={projects} subcontractors={subcontractors} />
             )}
           </div>

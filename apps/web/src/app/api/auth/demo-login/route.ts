@@ -31,47 +31,41 @@ import { withSerializableTransaction, ServiceError } from "@nirman/services";
  */
 const DEMO_PASSWORD = "nirman123";
 
-// Demo accounts for all 14 roles (shown as quick-login buttons).
+// The 7 SRG REALCON team members (shown as quick-login buttons).
+// These match the accounts created by scripts/local-reset-srg.mjs and
+// scripts/create-srg-users.mjs. Each user has a phone-based login with
+// phoneNormalized; the email is a placeholder (phone+91…@nirman.internal).
+// The demo-login endpoint finds the user by role, resets their credential
+// account password to the shared dev password, and returns the email so
+// the sign-in page can run the real signIn.email flow.
 const DEMO_ROLES: Role[] = [
-  "OWNER", "ADMIN", "DEVELOPER",
-  "PROJECT_DIRECTOR", "FINANCE_HEAD",
-  "PROJECT_MANAGER", "PROCUREMENT_MANAGER", "HR_MANAGER",
-  "SITE_ENGINEER", "STORE_KEEPER", "ACCOUNTANT", "SALES_MANAGER",
-  "SUPERVISOR", "QAQC_ENGINEER",
+  "OWNER",
+  "ADMIN",
+  "PROJECT_DIRECTOR",
+  "FINANCE_HEAD",
+  "PROCUREMENT_MANAGER",
+  "SALES_MANAGER",
+  "SITE_ENGINEER",
 ];
 
 const ROLE_NAMES: Partial<Record<Role, string>> = {
-  OWNER: "Amit Patil",
-  ADMIN: "Anita Rao",
-  DEVELOPER: "Sparsh Agarwal",
-  PROJECT_DIRECTOR: "Vikram Shah",
-  FINANCE_HEAD: "Meera Joshi",
-  PROJECT_MANAGER: "Sneha Kulkarni",
-  PROCUREMENT_MANAGER: "Arjun Reddy",
-  HR_MANAGER: "Deepa Iyer",
-  SITE_ENGINEER: "Suresh Kumar",
-  STORE_KEEPER: "Mahesh Yadav",
-  ACCOUNTANT: "Priya Nair",
-  SALES_MANAGER: "Karan Mehta",
-  SUPERVISOR: "Ravi Deshmukh",
-  QAQC_ENGINEER: "Nisha Gupta",
+  OWNER: "Vardaan Kumar",
+  ADMIN: "Sanjeev Kumar",
+  PROJECT_DIRECTOR: "Anurag Garg",
+  FINANCE_HEAD: "Manish Kumar",
+  PROCUREMENT_MANAGER: "Raviraj Singh",
+  SALES_MANAGER: "Mani Singh",
+  SITE_ENGINEER: "Yash Saxena",
 };
 
 const ROLE_EMAILS: Partial<Record<Role, string>> = {
-  OWNER: "amit@nirman.in",
-  ADMIN: "anita@nirman.in",
-  DEVELOPER: "sparsh@nirman.in",
-  PROJECT_DIRECTOR: "vikram@nirman.in",
-  FINANCE_HEAD: "meera@nirman.in",
-  PROJECT_MANAGER: "sneha@nirman.in",
-  PROCUREMENT_MANAGER: "arjun@nirman.in",
-  HR_MANAGER: "deepa@nirman.in",
-  SITE_ENGINEER: "suresh@nirman.in",
-  STORE_KEEPER: "mahesh@nirman.in",
-  ACCOUNTANT: "priya@nirman.in",
-  SALES_MANAGER: "karan@nirman.in",
-  SUPERVISOR: "ravi@nirman.in",
-  QAQC_ENGINEER: "nisha@nirman.in",
+  OWNER: "phone+917017988293@nirman.internal",
+  ADMIN: "phone+919412230391@nirman.internal",
+  PROJECT_DIRECTOR: "phone+917302920202@nirman.internal",
+  FINANCE_HEAD: "phone+917302920201@nirman.internal",
+  PROCUREMENT_MANAGER: "phone+919520002752@nirman.internal",
+  SALES_MANAGER: "phone+917302920203@nirman.internal",
+  SITE_ENGINEER: "phone+917302920205@nirman.internal",
 };
 
 export const POST = async (req: NextRequest) => {

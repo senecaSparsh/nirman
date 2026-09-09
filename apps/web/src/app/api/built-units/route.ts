@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { BuiltUnitStatus, BuiltUnitType } from "@nirman/db";
 import { createBuiltUnits } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum, builtUnitSchema } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, builtUnitSchema, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
@@ -21,6 +21,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       ...(projectId ? { projectId } : {}),
       ...(status ? { status: { in: status.split(",") as BuiltUnitStatus[] } } : {}),
       ...(unitType ? { unitType: unitType as BuiltUnitType } : {}),
+      ...await scopeWhere("BuiltUnit", {}),
     },
     orderBy: [{ projectId: "asc" }, { unitNumber: "asc" }],
     include: {
@@ -80,6 +81,17 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
   if (!valid.every((u) => u!.projectId === projectId)) {
     return json({ error: "All units in a batch must belong to the same project" }, { status: 400 });
+  }
+  try {
+    await assertScopeAllows({
+      projectId: projectId ?? null,
+      departmentId: null,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Scope violation" },
+      { status: 403 },
+    );
   }
   try {
     const created = await createBuiltUnits({

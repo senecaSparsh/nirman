@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { submitDPR } from "@nirman/services";
-import { apiHandler, getCompany, json, dprSchema, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, dprSchema, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
@@ -27,6 +27,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       ...(startDate && endDate ? { date: { gte: new Date(startDate), lte: new Date(endDate) } } : {}),
       ...(approvalStatus ? { approvalStatus: approvalStatus as "SUBMITTED" | "SUB_ADMIN_APPROVED" | "APPROVED" | "REJECTED" } : {}),
       ...(cursorToWhere(cursor, "date") ?? {}),
+      ...await scopeWhere("DailyProgressReport"),
     },
     orderBy: { date: "desc" },
     take: usePagination ? take + 1 : 500,
@@ -84,6 +85,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const dprDate = new Date(parsed.data.date);
   if (isNaN(dprDate.getTime())) {
     return json({ error: "Invalid date format" }, { status: 400 });
+  }
+  try {
+    await assertScopeAllows({ projectId: parsed.data.projectId ?? null, departmentId: null });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
   }
   try {
     const dpr = await submitDPR({

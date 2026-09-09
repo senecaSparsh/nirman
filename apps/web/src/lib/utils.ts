@@ -187,7 +187,7 @@ export function formatNumber(value: number | string | null | undefined, digits =
 
 export function formatDate(value: Date | string | null | undefined) {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("en-IN", {
+  return new Intl.DateTimeFormat("en", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -198,7 +198,7 @@ export function formatDate(value: Date | string | null | undefined) {
 /** Short date format: "15 Jan" — no year. Timezone-fixed for SSR safety. */
 export function formatDateShort(value: Date | string | null | undefined): string {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("en-IN", {
+  return new Intl.DateTimeFormat("en", {
     day: "2-digit",
     month: "short",
     timeZone: "Asia/Kolkata",
@@ -209,13 +209,13 @@ export function formatDateShort(value: Date | string | null | undefined): string
 export function formatDateTime(value: Date | string | null | undefined): string {
   if (!value) return "—";
   const d = new Date(value);
-  const date = new Intl.DateTimeFormat("en-IN", {
+  const date = new Intl.DateTimeFormat("en", {
     day: "2-digit",
     month: "short",
     year: "numeric",
     timeZone: "Asia/Kolkata",
   }).format(d);
-  const time = new Intl.DateTimeFormat("en-IN", {
+  const time = new Intl.DateTimeFormat("en", {
     hour: "2-digit",
     minute: "2-digit",
     timeZone: "Asia/Kolkata",
@@ -226,7 +226,7 @@ export function formatDateTime(value: Date | string | null | undefined): string 
 /** Time-only format: "14:30" — timezone-fixed for SSR safety. */
 export function formatTime(value: Date | string | null | undefined): string {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("en-IN", {
+  return new Intl.DateTimeFormat("en", {
     hour: "2-digit",
     minute: "2-digit",
     timeZone: "Asia/Kolkata",

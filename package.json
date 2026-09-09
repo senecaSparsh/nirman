@@ -16,6 +16,7 @@
     "db:push:force": "pnpm --filter @nirman/db push:force",
     "db:migrate": "pnpm --filter @nirman/db migrate",
     "db:studio": "pnpm --filter @nirman/db studio",
+    "db:reset:srg": "node apps/web/scripts/local-reset-srg.mjs",
     "postinstall": "pnpm --filter @nirman/db generate",
     "prepare": "husky"
   },

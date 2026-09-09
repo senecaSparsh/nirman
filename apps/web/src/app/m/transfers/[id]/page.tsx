@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum, getUserPermissions } from "@/lib/server";
+import { toNum, getUserPermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { notFound } from "next/navigation";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
@@ -58,7 +58,7 @@ export default function MobileTransferDetailPage({
         // Fetch linked gate pass (if any) for the dispatch gate-pass context
         const gatePass = transfer.status === "DRAFT"
           ? await prisma.gatePass.findFirst({
-              where: { refType: "StockTransfer", refId: transfer.id },
+              where: {...await scopeWhere("GatePass"),  refType: "StockTransfer", refId: transfer.id },
               select: { id: true, gatePassNumber: true, status: true },
             })
           : null;

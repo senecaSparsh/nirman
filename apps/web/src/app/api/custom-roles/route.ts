@@ -101,8 +101,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
     after: { key: fullKey, label, baseRole: normalizedBase, tier: resolvedTier, permissions },
   });
 
-  revalidatePath("/settings/team");
-  revalidatePath("/m/settings/team");
+  revalidatePath("/hr/employees");
+  revalidatePath("/m/hr/employees");
 
   return json({ ok: true, role, message: `Custom role "${label}" created` });
 });

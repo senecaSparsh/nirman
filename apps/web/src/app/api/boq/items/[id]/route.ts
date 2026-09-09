@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { updateBoqItem, deleteBoqItem, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -23,7 +23,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const { id } = await params;
   // Verify the BOQ item's project belongs to the user's company
   const existing = await prisma.boqItem.findFirst({
-    where: { id, project: { companyId: company.id } },
+    where: { id, project: { companyId: company.id }, ...await scopeWhere("BoqItem") },
     select: { id: true },
   });
   if (!existing) return json({ error: "BOQ item not found" }, { status: 404 });
@@ -56,7 +56,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const { id } = await params;
   // Verify the BOQ item's project belongs to the user's company
   const existing = await prisma.boqItem.findFirst({
-    where: { id, project: { companyId: company.id } },
+    where: { id, project: { companyId: company.id }, ...await scopeWhere("BoqItem") },
     select: { id: true },
   });
   if (!existing) return json({ error: "BOQ item not found" }, { status: 404 });

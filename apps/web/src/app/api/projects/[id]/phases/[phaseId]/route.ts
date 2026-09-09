@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, projectPhaseSchema, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, projectPhaseSchema, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const PATCH = apiHandler(
@@ -14,7 +14,7 @@ export const PATCH = apiHandler(
       return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
     }
     const existing = await prisma.projectPhase.findFirst({
-      where: { id: phaseId, project: { companyId: company.id } },
+      where: { id: phaseId, project: { companyId: company.id }, ...await scopeWhere("ProjectPhase") },
     });
     if (!existing) return json({ error: "Phase not found" }, { status: 404 });
     const { startDate, endDate, budget, ...rest } = parsed.data;
@@ -37,7 +37,7 @@ export const DELETE = apiHandler(
     const company = await getCompany();
     const { phaseId } = await ctx.params;
     const phase = await prisma.projectPhase.findFirst({
-      where: { id: phaseId, project: { companyId: company.id } },
+      where: { id: phaseId, project: { companyId: company.id }, ...await scopeWhere("ProjectPhase") },
       include: {
         _count: {
           select: { stockLocations: true, builtUnits: true, materialIssues: true },

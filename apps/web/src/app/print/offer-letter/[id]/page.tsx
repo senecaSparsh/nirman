@@ -71,24 +71,6 @@ export default async function OfferLetterPage({
   };
   const typeLabel = employmentTypeLabel[employee.employmentType ?? "PERMANENT"] ?? "Employment";
 
-  const wageText =
-    employee.wageType === "DAILY"
-      ? `Daily wage of ${formatCurrency(toNum(employee.dailyRate))} per working day`
-      : employee.wageType === "MONTHLY"
-        ? `Monthly salary of ${formatCurrency(toNum(employee.monthlySalary))} per month`
-        : `Fixed contract amount of ${formatCurrency(toNum(employee.monthlySalary))}`;
-
-  const startDateText = employee.joinDate
-    ? formatDate(employee.joinDate)
-    : employee.contractStartDate
-      ? formatDate(employee.contractStartDate)
-      : "a mutually agreed date";
-
-  const employeeName = employee.user?.name ?? employee.name;
-  const employeeDesignation = employee.user?.designation ?? employee.designation ?? "Employee";
-  const employeePhone = employee.user?.phone ?? employee.phone ?? "—";
-  const employeeEmail = employee.user?.email ?? employee.email ?? "—";
-
   // ── Salary components ──
   const components = employee.salaryComponents;
   const earnings = components.filter((c) => !c.isDeduction);
@@ -110,6 +92,32 @@ export default async function OfferLetterPage({
     if (c.frequency === "ONE_TIME") return sum + amt;
     return sum;
   }, 0);
+
+  // ── Wage text ──
+  // Use the Employee.wage fields if set, otherwise compute from salary components.
+  // This prevents showing "₹0" when salary was added via the Salary Structure tab
+  // but the monthlySalary/dailyRate fields weren't synced.
+  const computedMonthly = monthlyEarnings > 0 ? monthlyEarnings : null;
+  const effectiveMonthly = toNum(employee.monthlySalary) > 0 ? toNum(employee.monthlySalary) : computedMonthly;
+  const effectiveDaily = toNum(employee.dailyRate) > 0 ? toNum(employee.dailyRate) : (computedMonthly ? Math.round(computedMonthly / 30) : 0);
+
+  const wageText =
+    employee.wageType === "DAILY"
+      ? `Daily wage of ${formatCurrency(effectiveDaily)} per working day`
+      : employee.wageType === "MONTHLY"
+        ? `Monthly salary of ${formatCurrency(effectiveMonthly ?? 0)} per month`
+        : `Fixed contract amount of ${formatCurrency(effectiveMonthly ?? 0)}`;
+
+  const startDateText = employee.joinDate
+    ? formatDate(employee.joinDate)
+    : employee.contractStartDate
+      ? formatDate(employee.contractStartDate)
+      : "a mutually agreed date";
+
+  const employeeName = employee.user?.name ?? employee.name;
+  const employeeDesignation = employee.user?.designation ?? employee.designation ?? "Employee";
+  const employeePhone = employee.user?.phone ?? employee.phone ?? "—";
+  const employeeEmail = employee.user?.email ?? employee.email ?? "—";
 
   const componentLabel: Record<string, string> = {
     BASIC: "Basic Salary",
@@ -444,6 +452,16 @@ export default async function OfferLetterPage({
               The company is committed to fair and timely resolution of all grievances.
             </p>
           </section>
+
+          {/* ════════ CUSTOM TERMS (if HR provided custom T&Cs) ════════ */}
+          {employee.offerLetterTerms && (
+            <section>
+              <h4 className="font-bold text-gray-900">Additional Terms & Conditions</h4>
+              <div className="mt-1 p-3 rounded border border-gray-200 bg-gray-50">
+                <p className="text-xs text-gray-700 whitespace-pre-wrap">{employee.offerLetterTerms}</p>
+              </div>
+            </section>
+          )}
 
           {/* ════════ 15. ACCEPTANCE ════════ */}
           <section>

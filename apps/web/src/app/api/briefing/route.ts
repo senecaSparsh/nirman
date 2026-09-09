@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum } from "@/lib/server";
+import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -35,6 +35,11 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   const startOfToday = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
   const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
 
+  // Pre-compute scope filters for scoped models
+  const reqScope = await scopeWhere("MaterialRequisition", {});
+  const gpScope = await scopeWhere("GatePass", {});
+  const dprScope = await scopeWhere("DailyProgressReport", {});
+
   // ── 1. Approvals waiting on YOU ──
   const [poCount, reqCount, gpCount, dprCount] = await Promise.all([
     canApprovePo
@@ -42,17 +47,18 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       : 0,
     canApproveReq
       ? prisma.materialRequisition.count({
-          where: { project: { companyId: company.id }, status: "SUBMITTED" },
+          where: { project: { companyId: company.id }, status: "SUBMITTED", ...reqScope },
         })
       : 0,
     canApproveGp
-      ? prisma.gatePass.count({ where: { companyId: company.id, status: "PENDING" } })
+      ? prisma.gatePass.count({ where: { companyId: company.id, status: "PENDING", ...gpScope } })
       : 0,
     canApproveDpr
       ? prisma.dailyProgressReport.count({
           where: {
             project: { companyId: company.id },
             approvalStatus: "SUBMITTED",
+            ...dprScope,
           },
         })
       : 0,
@@ -210,6 +216,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       where: {
         project: { companyId: company.id },
         approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] },
+        ...dprScope,
       },
     }),
   ]);

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import type { LeaveStatus } from "@nirman/db";
 import { createLeaveRequest } from "@nirman/services";
-import { apiHandler, getCompany, json, leaveRequestSchema, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, leaveRequestSchema, requirePermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
@@ -17,6 +17,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       companyId: company.id,
       ...(status ? { status: status as LeaveStatus } : {}),
       ...(employeeId ? { employeeId } : {}),
+      ...await scopeWhere("LeaveRequest", {}),
     },
     orderBy: { createdAt: "desc" },
     include: {

@@ -17,7 +17,7 @@ import {
   getCompanyPortfolioSummary,
   trialBalance,
 } from "@nirman/services";
-import {apiHandler, json, requireUser, getCompany, toNum} from "@/lib/server";
+import {apiHandler, json, requireUser, getCompany, toNum, scopeWhere} from "@/lib/server";
 import { parseIntent, type Intent } from "@/lib/assistant/nlu";
 import { processConversation, type ConversationContext } from "@/lib/assistant/conversation";
 import { hasPermission, PERM, ROLES, type Role } from "@/lib/roles";
@@ -1077,7 +1077,7 @@ async function attendanceResponse(companyId: string): Promise<AssistantResponse>
   const today = new Date(todayStr + "T00:00:00");
 
   const records = await prisma.workerAttendance.findMany({
-    where: { companyId, date: today },
+    where: { companyId, date: today, ...await scopeWhere("WorkerAttendance") },
     include: { employee: true },
     take: 20,
   });
@@ -1146,7 +1146,7 @@ function autoReqResponse(): AssistantResponse {
 
 async function dprListResponse(companyId: string): Promise<AssistantResponse> {
   const dprs = await prisma.dailyProgressReport.findMany({
-    where: { companyId },
+    where: { companyId, ...await scopeWhere("DailyProgressReport") },
     orderBy: { createdAt: "desc" },
     take: 10,
     include: { project: true, submittedBy: true },
@@ -1287,7 +1287,7 @@ async function taskResponse(_companyId: string): Promise<AssistantResponse> {
 
 async function workerListResponse(companyId: string): Promise<AssistantResponse> {
   const workers = await prisma.employee.findMany({
-    where: { companyId, active: true },
+    where: { companyId, active: true, ...await scopeWhere("Employee") },
     orderBy: { name: "asc" },
     take: 10,
     select: { id: true, name: true, trade: true, phone: true },
@@ -1331,6 +1331,7 @@ function unknownResponse(rawText: string): AssistantResponse {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function attentionResponse(companyId: string): Promise<AssistantResponse> {
+  const dprScope = await scopeWhere("DailyProgressReport", {});
   const [draftPOs, pendingReqs, overduePOs, lowStock, pendingDPRs] = await Promise.all([
     prisma.purchaseOrder.count({ where: { companyId, status: "DRAFT" } }),
     prisma.materialRequisition.count({ where: { project: { companyId }, status: "SUBMITTED" } }),
@@ -1338,7 +1339,7 @@ async function attentionResponse(companyId: string): Promise<AssistantResponse> 
       where: { companyId, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() } },
     }),
     lowStockAlerts(companyId).catch(() => []),
-    prisma.dailyProgressReport.count({ where: { companyId, approvalStatus: "SUBMITTED" } }),
+    prisma.dailyProgressReport.count({ where: { companyId, approvalStatus: "SUBMITTED", ...dprScope } }),
   ]);
 
   const items: string[] = [];
@@ -1374,6 +1375,7 @@ async function attentionResponse(companyId: string): Promise<AssistantResponse> 
 async function monthlySummaryResponse(companyId: string): Promise<AssistantResponse> {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const attendanceScope = await scopeWhere("WorkerAttendance", {});
 
   const [sales, expenses, poCount, poTotal, newReqs, attendanceDays] = await Promise.all([
     prisma.materialSale.findMany({
@@ -1394,7 +1396,7 @@ async function monthlySummaryResponse(companyId: string): Promise<AssistantRespo
       where: { project: { companyId }, createdAt: { gte: monthStart } },
     }),
     prisma.workerAttendance.count({
-      where: { companyId, date: { gte: monthStart } },
+      where: { companyId, date: { gte: monthStart }, ...attendanceScope },
     }),
   ]);
 
@@ -1670,7 +1672,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const attendanceToday = await prisma.workerAttendance.count({
-      where: { companyId, date: { gte: todayStart } },
+      where: { companyId, date: { gte: todayStart }, ...await scopeWhere("WorkerAttendance") },
     });
     if (attendanceToday > 0) {
       items.push(`Aaj ${attendanceToday} attendance records`);

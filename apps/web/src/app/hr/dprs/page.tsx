@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { listWorkTypes } from "@nirman/services";
-import { getCompany, getCurrentUser, toNum, getUserRole, getUserScope } from "@/lib/server";
+import { getCompany, getCurrentUser, toNum, getUserRole, getUserScope, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
@@ -50,7 +50,7 @@ async function DprsContent() {
 
   const [dprs, projects, materials, employees, workTypes] = await Promise.all([
     prisma.dailyProgressReport.findMany({
-      where: { companyId: company.id, ...projectFilter },
+      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, ...projectFilter },
       orderBy: { date: "desc" },
       take: 100,
       include: {

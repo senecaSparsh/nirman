@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@nirman/db";
 import { convertLeadToCustomer, deleteLead, updateLeadStage } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 const stageSchema = z.object({
@@ -17,7 +17,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
   const lead = await prisma.lead.findFirst({
-    where: { id, companyId: company.id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("Lead", {}) },
     include: {
       project: { select: { id: true, name: true } },
       interestedUnit: { select: { id: true, unitNumber: true, unitType: true } },

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@nirman/db";
-import { getCurrentUser } from "@/lib/server";
+import { getCurrentUser, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatDate } from "@/lib/utils";
@@ -24,17 +24,17 @@ export default function SitePage() {
 
         const [myTasks, myDprToday, recentIssues, inTransitPOs, projects, qaCtx] = await Promise.all([
           prisma.task.findMany({
-            where: { assignedToId: user?.id ?? "none", status: { in: ["PENDING", "IN_PROGRESS", "BLOCKED"] } },
+            where: {...await scopeWhere("Task"),  assignedToId: user?.id ?? "none", status: { in: ["PENDING", "IN_PROGRESS", "BLOCKED"] } },
             orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
             take: 6,
             select: { id: true, title: true, status: true, priority: true, dueDate: true },
           }),
           prisma.dailyProgressReport.findFirst({
-            where: { project: { companyId: company.id }, date: { gte: startOfToday, lt: endOfToday }, submittedById: user?.id },
+            where: {...await scopeWhere("DailyProgressReport"),  project: { companyId: company.id }, date: { gte: startOfToday, lt: endOfToday }, submittedById: user?.id },
             select: { id: true, date: true },
           }),
           prisma.materialIssue.findMany({
-            where: { project: { companyId: company.id } },
+            where: {...await scopeWhere("MaterialIssue"),  project: { companyId: company.id } },
             orderBy: { createdAt: "desc" },
             take: 5,
             include: {

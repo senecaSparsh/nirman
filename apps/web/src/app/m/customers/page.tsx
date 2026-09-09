@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {type CustomerListItem} from "./MobileCustomersList";
@@ -47,7 +47,7 @@ export default function MobileCustomersPage() {
           }),
           // Fetch leads so they show inside the customers section (client request)
           prisma.lead.findMany({
-            where: { companyId: company.id, deletedAt: null, stage: { not: "LOST" } },
+            where: {...await scopeWhere("Lead"),  companyId: company.id, deletedAt: null, stage: { not: "LOST" } },
             orderBy: { createdAt: "desc" },
             take: 100,
             select: {

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, getUserScope, toNum } from "@/lib/server";
+import { getCompany, getUserRole, getUserScope, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
@@ -41,7 +41,7 @@ async function CoContent() {
       select: { id: true, name: true, type: true, status: true },
     }),
     prisma.changeOrder.findMany({
-      where: { companyId: company.id },
+      where: {...await scopeWhere("ChangeOrder"),  companyId: company.id },
       orderBy: { createdAt: "desc" },
       take: 100,
       include: {

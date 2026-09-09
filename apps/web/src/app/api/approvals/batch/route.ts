@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { approvePurchaseOrder, approveGatePass } from "@nirman/services";
-import { apiHandler, getCompany, getUserPermissions, json, requireUser } from "@/lib/server";
+import { apiHandler, getCompany, getUserPermissions, json, requireUser, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -52,6 +52,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   // ── Bulk-fetch valid candidates (one query per type, not N+1) ─────
+  const reqScope = await scopeWhere("MaterialRequisition", {});
+  const gpScope = await scopeWhere("GatePass", {});
   const [validPos, validReqs, validGps] = await Promise.all([
     canApprovePo && poIds.length > 0
       ? prisma.purchaseOrder.findMany({
@@ -61,13 +63,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
       : Promise.resolve([]),
     canApproveReq && reqIds.length > 0
       ? prisma.materialRequisition.findMany({
-          where: { id: { in: reqIds }, project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: user.id } },
+          where: { id: { in: reqIds }, project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: user.id }, ...reqScope },
           select: { id: true },
         })
       : Promise.resolve([]),
     canApproveGp && gpIds.length > 0
       ? prisma.gatePass.findMany({
-          where: { id: { in: gpIds }, companyId: company.id, status: "PENDING", createdById: { not: user.id } },
+          where: { id: { in: gpIds }, companyId: company.id, status: "PENDING", createdById: { not: user.id }, ...gpScope },
           select: { id: true },
         })
       : Promise.resolve([]),

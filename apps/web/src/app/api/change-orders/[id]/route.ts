@@ -11,7 +11,7 @@ import {
   implementChangeOrder,
   deleteChangeOrder,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -47,7 +47,13 @@ const actionSchema = z.object({
 // GET /api/change-orders/[id]
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.ASSETS_VIEW);
+  const company = await getCompany();
   const { id } = await ctx.params;
+  const existing = await prisma.changeOrder.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("ChangeOrder", {}) },
+    select: { id: true },
+  });
+  if (!existing) return json({ error: "Change order not found" }, { status: 404 });
   const co = await getChangeOrder(id);
   if (!co) return json({ error: "Change order not found" }, { status: 404 });
   return json(co);
@@ -60,15 +66,12 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   const { id } = await ctx.params;
   const body = await req.json();
 
-  // Verify ownership
-  const existing = await prisma.changeOrder.findUnique({
-    where: { id },
-    select: { companyId: true, status: true },
+  // Verify ownership and scope
+  const existing = await prisma.changeOrder.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("ChangeOrder", {}) },
+    select: { companyId: true, status: true, projectId: true },
   });
   if (!existing) return json({ error: "Change order not found" }, { status: 404 });
-  if (existing.companyId !== company.id) {
-    return json({ error: "Change order does not belong to your company" }, { status: 403 });
-  }
 
   // Check if this is a workflow action
   if (body.action && typeof body.action === "string") {
@@ -149,14 +152,11 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   const company = await getCompany();
   const { id } = await ctx.params;
 
-  const existing = await prisma.changeOrder.findUnique({
-    where: { id },
-    select: { companyId: true },
+  const existing = await prisma.changeOrder.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("ChangeOrder", {}) },
+    select: { id: true },
   });
   if (!existing) return json({ error: "Change order not found" }, { status: 404 });
-  if (existing.companyId !== company.id) {
-    return json({ error: "Change order does not belong to your company" }, { status: 403 });
-  }
 
   try {
     await deleteChangeOrder(id, user.id);

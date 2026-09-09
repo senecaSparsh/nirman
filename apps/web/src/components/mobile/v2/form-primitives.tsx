@@ -256,6 +256,7 @@ export function UnderlineInput({
   pattern,
   maxLength,
   enterKeyHint,
+  id,
 }: {
   label: string;
   value: string;
@@ -272,9 +273,10 @@ export function UnderlineInput({
   pattern?: string;
   maxLength?: number;
   enterKeyHint?: "enter" | "done" | "go" | "next" | "previous" | "search" | "send";
+  id?: string;
 }) {
   return (
-    <div>
+    <div id={id}>
       <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
         {label} {required ? <span style={{ color: "var(--color-stop)" }}>*</span> : null}
       </label>
@@ -317,6 +319,7 @@ export function EnumSelect({
   align = "left",
   onCreate,
   createLabel,
+  id,
 }: {
   label: string;
   value: string;
@@ -333,6 +336,8 @@ export function EnumSelect({
   onCreate?: () => void;
   /** Label for the create button. Defaults to "Create new". */
   createLabel?: string;
+  /** DOM id for the wrapper element (for scroll-to-field on error). */
+  id?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -351,6 +356,7 @@ export function EnumSelect({
     return (
       <>
         <div
+          id={id}
           className="flex items-center justify-between gap-1 pb-0.5 border-b focus-within:border-b-2 transition-colors cursor-pointer press"
           style={{ borderColor: "var(--color-line)" }}
           onClick={() => { haptic(10); setOpen(true); }}
@@ -386,14 +392,16 @@ export function EnumSelect({
 
   return (
     <>
-      <SelectorCard
-        onClick={() => { haptic(10); setOpen(true); }}
-        label={label}
-        placeholder={placeholder}
-        value={selected?.label}
-        required={required}
-        stacked
-      />
+      <div id={id}>
+        <SelectorCard
+          onClick={() => { haptic(10); setOpen(true); }}
+          label={label}
+          placeholder={placeholder}
+          value={selected?.label}
+          required={required}
+          stacked
+        />
+      </div>
 
       {open ? (
         <SelectorModal

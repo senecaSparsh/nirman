@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import Link from "next/link";
@@ -32,7 +32,7 @@ export default function MobileWorkOrderDetailPage({
     <MobileDetailPage params={params} perm={PERM.WO_MANAGE} what="work order details" permission={PERM.WO_MANAGE} managePerm={PERM.WO_MANAGE} skeletonSections={5}>
       {async ({ id, company, role, canManage }) => {
         const wo = await prisma.subcontractorWorkOrder.findFirst({
-          where: { id, companyId: company.id },
+          where: {...await scopeWhere("SubcontractorWorkOrder"),  id, companyId: company.id },
           include: {
             subcontractor: { select: { id: true, name: true, trade: true, phone: true } },
             project: { select: { id: true, name: true } },

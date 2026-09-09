@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { ClipboardList } from "lucide-react";
 import { MobileDprForm } from "@/components/mobile/mobile-dpr-form";
@@ -53,7 +53,7 @@ async function MobileDprContent() {
   // Also fetch yesterday's DPRs for the "Repeat yesterday" feature.
   const [todayDprs, yesterdayDprs] = await Promise.all([
     prisma.dailyProgressReport.findMany({
-      where: {
+      where: {...await scopeWhere("DailyProgressReport"), 
         companyId: company.id,
         date: { gte: startOfToday, lt: endOfToday },
       },
@@ -63,7 +63,7 @@ async function MobileDprContent() {
       },
     }),
     prisma.dailyProgressReport.findMany({
-      where: {
+      where: {...await scopeWhere("DailyProgressReport"), 
         companyId: company.id,
         date: { gte: startOfYesterday, lt: startOfToday },
       },
@@ -155,7 +155,7 @@ async function MobileDprContent() {
       orderBy: { name: "asc" },
     }),
     prisma.crew.findMany({
-      where: { companyId: company.id },
+      where: {...await scopeWhere("Crew"),  companyId: company.id },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

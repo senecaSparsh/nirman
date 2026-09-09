@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum, getUserPermissions } from "@/lib/server";
+import { toNum, getUserPermissions, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
@@ -18,7 +18,7 @@ export default function MobileMaterialSaleDetailPage({
         const overrides = await getUserPermissions();
 
         const sale = await prisma.materialSale.findFirst({
-          where: { id, companyId: company.id },
+          where: {...await scopeWhere("MaterialSale"),  id, companyId: company.id },
           include: {
             customer: { select: { id: true, name: true, phone: true } },
             project: { select: { id: true, name: true } },
@@ -76,7 +76,7 @@ export default function MobileMaterialSaleDetailPage({
         // Fetch linked gate pass for PENDING sales
         const gatePass = sale.status === "PENDING"
           ? await prisma.gatePass.findFirst({
-              where: { refType: "MaterialSale", refId: sale.id },
+              where: {...await scopeWhere("GatePass"),  refType: "MaterialSale", refId: sale.id },
               select: { id: true, gatePassNumber: true, status: true },
             })
           : null;

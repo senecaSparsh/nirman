@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { issueMaterialsToProject, issueMaterialsToDepartment, createMaterialIssueRequest, executeMaterialIssue, recordVehicleTrip, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, issueMaterialsSchema, toNum, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, issueMaterialsSchema, toNum, requirePermission, assertScopeAllows, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const POST = apiHandler(async (req: NextRequest) => {
@@ -12,6 +12,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const parsed = issueMaterialsSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  try {
+    await assertScopeAllows({ projectId: parsed.data.projectId ?? null, departmentId: parsed.data.departmentId ?? null });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
   }
   const location = await prisma.stockLocation.findFirst({
     where: { id: parsed.data.fromLocationId, companyId: company.id, deletedAt: null },
@@ -107,7 +112,7 @@ export const PATCH = apiHandler(async (req: NextRequest) => {
     try {
       // Verify the issue belongs to this company
       const issue = await prisma.materialIssue.findFirst({
-        where: { id: body.issueId, project: { companyId: company.id } },
+        where: { id: body.issueId, project: { companyId: company.id }, ...await scopeWhere("MaterialIssue") },
         select: { id: true, status: true },
       });
       if (!issue) return json({ error: "Material issue not found" }, { status: 404 });

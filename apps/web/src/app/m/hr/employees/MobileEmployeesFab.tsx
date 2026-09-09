@@ -17,9 +17,13 @@ import { MobileNewEmployeeForm } from "./MobileNewEmployeeDialog";
 export function MobileEmployeesFab({
   projects,
   stockLocations,
+  departments,
+  companyGroup,
 }: {
   projects: { id: string; name: string }[];
   stockLocations: { id: string; name: string; type: string }[];
+  departments: { id: string; name: string; active: boolean }[];
+  companyGroup: { id: string; name: string; parentCompanyId: string | null }[];
 }) {
   const fab = useFabModal();
 
@@ -36,6 +40,8 @@ export function MobileEmployeesFab({
           onClose={fab.close}
           projects={projects}
           stockLocations={stockLocations}
+          departments={departments}
+          companyGroup={companyGroup}
         />
       </MobileFabModal>
     </>

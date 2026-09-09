@@ -70,12 +70,22 @@ export default async function EmploymentAgreementPage({
   };
   const typeLabel = employmentTypeLabel[employee.employmentType ?? "PERMANENT"] ?? "Employment";
 
+  // ── Compute monthly earnings from salary components ──
+  const monthlyEarnings = employee.salaryComponents
+    .filter((c) => !c.isDeduction && c.frequency === "MONTHLY")
+    .reduce((sum, c) => sum + toNum(c.amount), 0);
+
+  // Use Employee.wage fields if set, otherwise compute from salary components
+  const computedMonthly = monthlyEarnings > 0 ? monthlyEarnings : null;
+  const effectiveMonthly = toNum(employee.monthlySalary) > 0 ? toNum(employee.monthlySalary) : computedMonthly;
+  const effectiveDaily = toNum(employee.dailyRate) > 0 ? toNum(employee.dailyRate) : (computedMonthly ? Math.round(computedMonthly / 30) : 0);
+
   const wageText =
     employee.wageType === "DAILY"
-      ? `Daily wage of ${formatCurrency(toNum(employee.dailyRate))} per working day`
+      ? `Daily wage of ${formatCurrency(effectiveDaily)} per working day`
       : employee.wageType === "MONTHLY"
-        ? `Monthly salary of ${formatCurrency(toNum(employee.monthlySalary))} per month`
-        : `Fixed contract amount of ${formatCurrency(toNum(employee.monthlySalary))}`;
+        ? `Monthly salary of ${formatCurrency(effectiveMonthly ?? 0)} per month`
+        : `Fixed contract amount of ${formatCurrency(effectiveMonthly ?? 0)}`;
 
   const benefitsText = employee.benefits.length > 0
     ? employee.benefits.map((b) => {
@@ -307,6 +317,16 @@ export default async function EmploymentAgreementPage({
               to the Employer is accurate and complete.
             </p>
           </section>
+
+          {/* Custom Terms (if HR provided custom T&Cs) */}
+          {employee.contractTerms && (
+            <section>
+              <h4 className="font-bold text-gray-900">Additional Terms & Conditions</h4>
+              <div className="mt-1 p-3 rounded border border-gray-200 bg-gray-50">
+                <p className="text-xs text-gray-700 whitespace-pre-wrap">{employee.contractTerms}</p>
+              </div>
+            </section>
+          )}
         </div>
 
         {/* ── Signatures ── */}

@@ -30,6 +30,11 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     return json({ error: `Cannot delete: ${usersWithRole} user(s) are still assigned to this role. Reassign them first.` }, { status: 409 });
   }
 
+  // Clean up any RolePermission overrides for this custom role key
+  await prisma.rolePermission.deleteMany({
+    where: { role: role.key },
+  }).catch(() => {});
+
   await prisma.customRole.delete({ where: { id } });
 
   await logAction(prisma, {
@@ -41,8 +46,8 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     before: { key: role.key, label: role.label },
   });
 
-  revalidatePath("/settings/team");
-  revalidatePath("/m/settings/team");
+  revalidatePath("/hr/employees");
+  revalidatePath("/m/hr/employees");
 
   return json({ ok: true, message: `Custom role "${role.label}" deleted` });
 });
@@ -104,8 +109,8 @@ export const PUT = apiHandler(async (req: NextRequest, { params }: { params: Pro
     after: updates,
   });
 
-  revalidatePath("/settings/team");
-  revalidatePath("/m/settings/team");
+  revalidatePath("/hr/employees");
+  revalidatePath("/m/hr/employees");
 
   return json({ ok: true, role: updated, message: `Custom role updated` });
 });

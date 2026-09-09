@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact } from "@/lib/utils";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
@@ -24,7 +24,7 @@ export default function MobileRentalsPage() {
       {async ({ company, canManage }) => {
         const [tenancies, units, parcels, customers] = await Promise.all([
           prisma.tenancy.findMany({
-            where: { companyId: company.id, status: { in: ["ACTIVE", "PENDING"] } },
+            where: {...await scopeWhere("Tenancy"),  companyId: company.id, status: { in: ["ACTIVE", "PENDING"] } },
             orderBy: [{ status: "asc" }, { endDate: "asc" }],
             include: {
               payments: {
@@ -34,11 +34,11 @@ export default function MobileRentalsPage() {
             },
           }),
           prisma.builtUnit.findMany({
-            where: { project: { companyId: company.id }, deletedAt: null, status: { in: ["AVAILABLE", "UNDER_CONSTRUCTION"] } },
+            where: {...await scopeWhere("BuiltUnit"),  project: { companyId: company.id }, deletedAt: null, status: { in: ["AVAILABLE", "UNDER_CONSTRUCTION"] } },
             select: { id: true, unitNumber: true, project: { select: { name: true } } },
           }),
           prisma.landParcel.findMany({
-            where: { deletedAt: null, landPurchase: { companyId: company.id }, status: "AVAILABLE" },
+            where: {...await scopeWhere("LandParcel"),  deletedAt: null, landPurchase: { companyId: company.id }, status: "AVAILABLE" },
             select: { id: true, number: true, landPurchase: { select: { sellerName: true, location: true } } },
           }),
           prisma.customer.findMany({

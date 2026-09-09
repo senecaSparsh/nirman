@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma, type AttendanceStatus } from "@nirman/db";
-import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
+import { apiHandler, getCompany, json, requireUser, scopeWhere } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 
 /**
@@ -44,6 +44,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       companyId: company.id,
       deletedAt: null,
       active: true,
+      ...await scopeWhere("Employee", {}),
     },
     select: { id: true, userId: true },
   });

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma, type SafetyInspectionStatus } from "@nirman/db";
 import { createInspection } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -19,7 +19,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const status = req.nextUrl.searchParams.get("status") as SafetyInspectionStatus | undefined;
 
   const inspections = await prisma.safetyInspection.findMany({
-    where: { companyId: company.id, ...(projectId ? { projectId } : {}), ...(status ? { status } : {}) },
+    where: { companyId: company.id, ...(projectId ? { projectId } : {}), ...(status ? { status } : {}), ...await scopeWhere("SafetyInspection", {}) },
     orderBy: { scheduledDate: "desc" },
     include: { project: { select: { id: true, name: true } } },
     take: 100,
@@ -32,6 +32,17 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  try {
+    await assertScopeAllows({
+      projectId: parsed.data.projectId ?? null,
+      departmentId: null,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Scope violation" },
+      { status: 403 },
+    );
+  }
   try {
     const inspection = await createInspection({
       projectId: parsed.data.projectId,

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { getHazard, updateHazard, startMitigation, resolveHazard, deleteHazard } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, validateAttachments } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, validateAttachments, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -28,9 +28,11 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
   const company = await getCompany();
   const { id } = await ctx.params;
   // Verify company ownership before returning (prevent cross-tenant IDOR)
-  const existing = await prisma.safetyHazard.findUnique({ where: { id }, select: { companyId: true } });
+  const existing = await prisma.safetyHazard.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("SafetyHazard", {}) },
+    select: { id: true },
+  });
   if (!existing) return json({ error: "Hazard not found" }, { status: 404 });
-  if (existing.companyId !== company.id) return json({ error: "Hazard not found" }, { status: 404 });
   const hazard = await getHazard(id);
   if (!hazard) return json({ error: "Hazard not found" }, { status: 404 });
   return json(hazard);
@@ -42,9 +44,11 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   const { id } = await ctx.params;
   const body = await req.json();
 
-  const existing = await prisma.safetyHazard.findUnique({ where: { id }, select: { companyId: true } });
+  const existing = await prisma.safetyHazard.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("SafetyHazard", {}) },
+    select: { id: true },
+  });
   if (!existing) return json({ error: "Hazard not found" }, { status: 404 });
-  if (existing.companyId !== company.id) return json({ error: "Hazard does not belong to your company" }, { status: 403 });
 
   if (body.action && typeof body.action === "string") {
     const parsed = actionSchema.safeParse(body);
@@ -83,9 +87,11 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   const user = await requirePermission(PERM.SAFETY_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
-  const existing = await prisma.safetyHazard.findUnique({ where: { id }, select: { companyId: true } });
+  const existing = await prisma.safetyHazard.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("SafetyHazard", {}) },
+    select: { id: true },
+  });
   if (!existing) return json({ error: "Hazard not found" }, { status: 404 });
-  if (existing.companyId !== company.id) return json({ error: "Hazard does not belong to your company" }, { status: 403 });
   try {
     await deleteHazard(id, user.id);
     return json({ ok: true });

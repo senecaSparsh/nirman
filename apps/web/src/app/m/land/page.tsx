@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileLandList } from "./MobileLandList";
@@ -15,8 +15,9 @@ export default function MobileLandPage() {
   return (
     <MobileListPage perm={PERM.ASSETS_VIEW} what="land parcels" permission="assets.view" managePerm={PERM.ASSETS_MANAGE}>
       {async ({ company, canManage }) => {
+        const actions = await getActionPermissions();
         const purchases = await prisma.landPurchase.findMany({
-          where: { companyId: company.id, deletedAt: null },
+          where: {...await scopeWhere("LandPurchase"),  companyId: company.id, deletedAt: null },
           orderBy: { createdAt: "desc" },
           include: {
             project: { select: { id: true, name: true } },
@@ -149,6 +150,7 @@ export default function MobileLandPage() {
                 costBasis,
               }}
               canManage={canManage}
+              actions={actions}
               projects={projects}
               sellers={sellers.map((s) => ({ id: s.id, name: s.name, phone: s.phone }))}
               company={{ id: company.id, name: company.name }}

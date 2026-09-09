@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma, type WorkOrderStatus } from "@nirman/db";
 import { createWorkOrder, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -31,6 +31,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const body = await req.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid" }, { status: 400 });
+  try {
+    await assertScopeAllows({ projectId: parsed.data.projectId ?? null, departmentId: null });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+  }
   try {
     const d = parsed.data;
     const wo = await createWorkOrder({
@@ -74,6 +79,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       companyId: company.id,
       ...(projectId ? { projectId } : {}),
       ...(status ? { status: status as WorkOrderStatus } : {}),
+      ...await scopeWhere("SubcontractorWorkOrder"),
     },
     orderBy: { createdAt: "desc" },
     include: {

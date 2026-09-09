@@ -23,25 +23,29 @@ import {
   Plus,
   Trash2,
   IndianRupee,
-  Sparkles,
+  ChevronRight,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { RegisterTabs } from "@/components/mobile/v2/register-tabs";
+import { fieldError } from "@/lib/field-error";
+import { OnboardingNav, type OnboardingSubTab } from "./OnboardingNav";
+import { TermsEditor } from "./TermsEditor";
+import { EmployeeDocuments } from "./EmployeeDocuments";
 import { useTabParam } from "@/lib/use-tab-param";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import {
   UnderlineInput,
   EnumSelect,
 } from "@/components/mobile/v2/form-primitives";
-import { AttachmentList } from "@/components/attachments/attachment-list";
 import { MobileCreateAccountDialog } from "@/app/m/hr/employees/MobileCreateAccountDialog";
+import { OnboardingProgress } from "@/components/mobile/v2/onboarding-progress";
+import { buildOnboardingSteps } from "@/lib/onboarding-steps";
 import { haptic } from "@/lib/haptic";
 import { useTodayDateState } from "@/lib/use-today-date";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MobileOnboardingTab — the full hiring → account → agreement → deposit →
-   dossier → offboarding workflow, grouped behind a RegisterTabs toggle
+   dossier → offboarding workflow, grouped behind a 2-level OnboardingNav
    (same look as the stock hub).
 
    Reuses existing components:
@@ -60,6 +64,8 @@ export type OnboardingEmployeeData = {
   name: string;
   trade: string | null;
   designation: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
   phone: string | null;
   email: string | null;
   wageType: "DAILY" | "MONTHLY" | "FIXED";
@@ -79,9 +85,14 @@ export type OnboardingEmployeeData = {
   contractStatus: string | null;
   contractIssuedAt: string | null;
   contractConfirmedAt: string | null;
+  contractTerms: string | null;
+  contractToken: string | null;
   // Offer letter
   offerLetterStatus: string | null;
   offerLetterIssuedAt: string | null;
+  offerLetterTerms: string | null;
+  offerLetterAcceptedAt: string | null;
+  offerToken: string | null;
   // ID card
   idCardStatus: string | null;
   idCardIssuedAt: string | null;
@@ -146,7 +157,12 @@ export type OnboardingEmployeeData = {
     email: string; role: string; phone: string | null; image: string | null;
     employeeCode: string | null; department: string | null;
     joiningDate: string | null; active: boolean; lastLoginAt: string | null;
+    phoneVerified: boolean | null;
+    phoneVerifiedAt: string | null;
+    phoneSyncedAt: string | null;
   } | null;
+  // Multi-company: other companies this employee works in
+  companyMemberships: { employeeId: string; companyId: string; companyName: string; active: boolean }[];
 };
 
 const ONBOARDING_TABS = ["profile", "account", "salary", "offer", "agreement", "appointment", "idcard", "deposit", "dossier", "offboard"] as const;
@@ -160,6 +176,7 @@ export function MobileOnboardingTab({
   actorRole,
   projects,
   stockLocations,
+  departments,
   onEdit, // opens the existing EmployeeEditSheet from the parent
 }: {
   employee: OnboardingEmployeeData;
@@ -168,53 +185,77 @@ export function MobileOnboardingTab({
   actorRole: string;
   projects: { id: string; name: string }[];
   stockLocations: { id: string; name: string }[];
+  departments: { id: string; name: string; active: boolean }[];
   onEdit: () => void;
 }) {
   const [subTab, setSubTab] = useTabParam(ONBOARDING_TABS, "profile", { param: "onboard" });
   const docViewer = useDocumentViewer();
 
   // ── Onboarding progress (12 canonical steps) ──
-  // MUST match /m/hr/onboarding queue page exactly so "complete" means the
-  // same thing on both pages.
-  const hasProfile = !!(employee.name && (employee.phone || employee.user?.phone) && (employee.designation || employee.trade));
-  const hasWage = employee.wageType === "DAILY" ? (employee.dailyRate ?? 0) > 0 : (employee.monthlySalary ?? 0) > 0;
-  const hasEmploymentTerms = !!(
-    employee.employmentType &&
-    employee.noticePeriodDays != null &&
-    (employee.employmentType !== "CONTRACT" || employee.contractStartDate) &&
-    (employee.employmentType !== "PROBATION" || employee.contractStartDate)
-  );
-  const hasSalaryStructure = (employee.salaryComponents ?? []).length > 0;
-  const documentsSubmitted = employee.documentsSubmitted === true;
-  const backgroundVerified = employee.backgroundVerified === true;
-  const hasAccount = !!employee.userId;
-  const offerLetterIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.offerLetterStatus ?? "");
-  const agreementIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.contractStatus ?? "");
-  const agreementConfirmed = ["CONFIRMED", "EXPIRED"].includes(employee.contractStatus ?? "");
-  const appointmentLetterIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.appointmentLetterStatus ?? "");
-  const idCardIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.idCardStatus ?? "");
-  const hasAutoDeposit = employee.autoDepositEnabled === true;
+  // Uses the shared buildOnboardingSteps so "complete" means the same
+  // thing on the queue page, the detail tab, and the profile page.
+  // The DB field (employee.onboardingComplete) is the single source of truth
+  // for isComplete — buildOnboardingSteps is only for showing step progress.
+  const { steps, completedCount } = buildOnboardingSteps({
+    hasProfile: !!(employee.name && (employee.phone || employee.user?.phone) && (employee.designation || employee.trade)),
+    hasWage: employee.wageType === "DAILY" ? (employee.dailyRate ?? 0) > 0 : (employee.monthlySalary ?? 0) > 0,
+    hasEmploymentTerms: !!(
+      employee.employmentType &&
+      employee.noticePeriodDays != null &&
+      (employee.employmentType !== "CONTRACT" || employee.contractStartDate) &&
+      (employee.employmentType !== "PROBATION" || employee.contractStartDate)
+    ),
+    hasSalaryStructure: (employee.salaryComponents ?? []).length > 0,
+    documentsSubmitted: employee.documentsSubmitted === true,
+    backgroundVerified: employee.backgroundVerified === true,
+    hasAccount: !!employee.userId,
+    offerLetterIssued: ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.offerLetterStatus ?? ""),
+    agreementIssued: ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.contractStatus ?? ""),
+    agreementConfirmed: ["CONFIRMED", "EXPIRED"].includes(employee.contractStatus ?? ""),
+    appointmentLetterIssued: ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.appointmentLetterStatus ?? ""),
+    idCardIssued: ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.idCardStatus ?? ""),
+    hasAutoDeposit: employee.autoDepositEnabled === true,
+  });
+  const isComplete = employee.onboardingComplete === true;
 
-  const steps = [
-    { label: "Profile & Wage", done: hasProfile && hasWage },
-    { label: "Employment Terms", done: hasEmploymentTerms },
-    { label: "Salary Structure", done: hasSalaryStructure },
-    { label: "Documents", done: documentsSubmitted },
-    { label: "BG Verification", done: backgroundVerified },
-    { label: "Login Account", done: hasAccount },
-    { label: "Offer Letter", done: offerLetterIssued },
-    { label: "Agreement Issued", done: agreementIssued },
-    { label: "Agreement Confirmed", done: agreementConfirmed },
-    { label: "Appointment Letter", done: appointmentLetterIssued },
-    { label: "ID Card", done: idCardIssued },
-    { label: "Auto-Deposit", done: hasAutoDeposit },
-  ];
-  const completedCount = steps.filter((s) => s.done).length;
-  const isComplete = completedCount === steps.length;
+  // ── Auto-skip: on initial load, jump to the first incomplete step ──
+  // The user said "I do not want obvious things to be stated again and again"
+  // — so if profile + wage are already set (from the FAB quick-create), we
+  // skip straight to the next incomplete step instead of showing the
+  // profile tab again.
+  useEffect(() => {
+    // Only auto-navigate if no explicit tab was requested (URL param is
+    // the default "profile" and the user hasn't clicked any tab yet).
+    // We use a ref guard so this only runs once on mount.
+    if (isComplete) return; // everything done — stay on profile
+    const firstIncomplete = steps.findIndex((s) => !s.done);
+    if (firstIncomplete === -1) return;
+    // Map step index → onboarding tab
+    const stepToTab: Record<number, string> = {
+      0: "profile",      // Profile & Wage
+      1: "profile",      // Employment Terms (same tab)
+      2: "salary",        // Salary Structure
+      3: "dossier",       // Documents
+      4: "dossier",       // BG Verification (same tab)
+      5: "account",       // Login Account
+      6: "offer",         // Offer Letter
+      7: "agreement",     // Agreement Issued
+      8: "agreement",     // Agreement Confirmed (same tab)
+      9: "appointment",   // Appointment Letter
+      10: "idcard",       // ID Card
+      11: "deposit",      // Auto-Deposit
+    };
+    const targetTab = stepToTab[firstIncomplete] ?? "profile";
+    // Only navigate if we're not already on the right tab
+    if (subTab !== targetTab) {
+      setSubTab(targetTab as typeof subTab);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount
 
   return (
     <div className="px-4 space-y-3">
-      {/* ── Onboarding progress bar ── */}
+      {/* ── Onboarding progress bar (shared component) ── */}
       <OnboardingProgress
         steps={steps}
         completedCount={completedCount}
@@ -224,21 +265,9 @@ export function MobileOnboardingTab({
         onboardingComplete={employee.onboardingComplete === true}
       />
 
-      {/* ── Sub-tab toggle (same RegisterTabs look as stock hub) ── */}
-      <RegisterTabs
-        tabs={[
-          { value: "profile", label: "Profile" },
-          { value: "account", label: "Account" },
-          { value: "salary", label: "Salary" },
-          { value: "offer", label: "Offer" },
-          { value: "agreement", label: "Agreement" },
-          { value: "appointment", label: "Appointment" },
-          { value: "idcard", label: "ID Card" },
-          { value: "deposit", label: "Deposit" },
-          { value: "dossier", label: "Dossier" },
-          { value: "offboard", label: "Offboard" },
-        ]}
-        value={subTab}
+      {/* ── 2-level onboarding nav (phases → sub-sections) ── */}
+      <OnboardingNav
+        value={subTab as OnboardingSubTab}
         onChange={setSubTab}
       />
 
@@ -249,6 +278,7 @@ export function MobileOnboardingTab({
           canManage={canManage}
           projects={projects}
           stockLocations={stockLocations}
+          departments={departments}
           onEdit={onEdit}
         />
       )}
@@ -329,125 +359,6 @@ export function MobileOnboardingTab({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Onboarding progress — compact 6-step checklist with completion bar
-   ═══════════════════════════════════════════════════════════════════════════ */
-function OnboardingProgress({
-  steps,
-  completedCount,
-  isComplete,
-  canManage,
-  employeeId,
-  onboardingComplete,
-}: {
-  steps: { label: string; done: boolean }[];
-  completedCount: number;
-  isComplete: boolean;
-  canManage: boolean;
-  employeeId: string;
-  onboardingComplete: boolean;
-}) {
-  const router = useRouter();
-  const [completing, setCompleting] = useState(false);
-  const pct = Math.round((completedCount / steps.length) * 100);
-
-  async function completeOnboarding() {
-    setCompleting(true);
-    try {
-      const res = await fetch(`/api/employees/${employeeId}/complete-onboarding`, { method: "POST" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? "Failed");
-      haptic([10, 40, 80]);
-      toast.success(data.message ?? "Onboarding complete");
-      router.refresh();
-    } catch (err: unknown) {
-      haptic([50, 20, 50]);
-      toast.error(err instanceof Error ? err.message : "Failed");
-    } finally {
-      setCompleting(false);
-    }
-  }
-
-  return (
-    <div
-      className="rounded-[0.75rem] border p-3"
-      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-m-label font-semibold uppercase tracking-wider" style={{ color: "var(--color-ink-400)" }}>
-          Onboarding
-        </p>
-        <span
-          className="text-m-label font-bold tabular-nums"
-          style={{ color: isComplete ? "var(--color-go)" : "var(--color-ink-500)" }}
-        >
-          {completedCount}/{steps.length}
-        </span>
-      </div>
-
-      {/* Progress bar */}
-      <div
-        className="h-1.5 rounded-full overflow-hidden mb-2.5"
-        style={{ backgroundColor: "var(--color-concrete)" }}
-      >
-        <div
-          className="h-full rounded-full"
-          style={{
-            width: `${pct}%`,
-            backgroundColor: isComplete ? "var(--color-go)" : "var(--color-ink-950)",
-            transition: "width 300ms cubic-bezier(0.4, 0, 0.2, 1)",
-          }}
-        />
-      </div>
-
-      {/* Steps — compact 2-col grid */}
-      <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-        {steps.map((step, i) => (
-          <div key={i} className="flex items-center gap-1.5">
-            {step.done ? (
-              <CheckCircle2 className="size-3 shrink-0" style={{ color: "var(--color-go)" }} />
-            ) : (
-              <Circle className="size-3 shrink-0" style={{ color: "var(--color-ink-300)" }} />
-            )}
-            <span
-              className="text-m-caption truncate"
-              style={{ color: step.done ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
-            >
-              {step.label}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {isComplete && onboardingComplete && (
-        <div
-          className="flex items-center gap-1.5 rounded-[0.375rem] px-2 py-1.5 mt-2 text-m-caption"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)", color: "var(--color-go)" }}
-        >
-          <CheckCircle2 className="size-3.5" />
-          <span className="font-semibold">Onboarding complete</span>
-        </div>
-      )}
-
-      {canManage && isComplete && !onboardingComplete && (
-        <button
-          onClick={completeOnboarding}
-          disabled={completing}
-          className="w-full rounded-[0.5rem] p-2.5 text-m-label font-semibold flex items-center justify-center gap-2 press disabled:opacity-50 mt-2"
-          style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
-        >
-          {completing ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Sparkles className="size-4" />
-          )}
-          Done — Complete Onboarding
-        </button>
-      )}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
    PROFILE SUB-TAB — hire details summary + employment terms editing
    ═══════════════════════════════════════════════════════════════════════════ */
 function ProfileSubTab({
@@ -455,12 +366,14 @@ function ProfileSubTab({
   canManage,
   projects,
   stockLocations,
+  departments,
   onEdit: _onEdit,
 }: {
   employee: OnboardingEmployeeData;
   canManage: boolean;
   projects: { id: string; name: string }[];
   stockLocations: { id: string; name: string }[];
+  departments: { id: string; name: string; active: boolean }[];
   onEdit: () => void;
 }) {
   const router = useRouter();
@@ -500,6 +413,7 @@ function ProfileSubTab({
               employee={employee}
               projects={projects}
               stockLocations={stockLocations}
+              departments={departments}
               onClose={() => setEditingHire(false)}
               onSaved={() => { setEditingHire(false); router.refresh(); }}
             />
@@ -565,12 +479,14 @@ function HireDetailsEditor({
   employee,
   projects,
   stockLocations,
+  departments,
   onClose,
   onSaved,
 }: {
   employee: OnboardingEmployeeData;
   projects: { id: string; name: string }[];
   stockLocations: { id: string; name: string }[];
+  departments: { id: string; name: string; active: boolean }[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -578,6 +494,7 @@ function HireDetailsEditor({
   const [phone, setPhone] = useState(employee.phone ?? "");
   const [trade, setTrade] = useState(employee.trade ?? "");
   const [designation, setDesignation] = useState(employee.designation ?? "");
+  const [departmentId, setDepartmentId] = useState(employee.departmentId ?? "");
   const [hierarchyLevel, setHierarchyLevel] = useState(employee.hierarchyLevel?.toString() ?? "");
   const [joinDate, setJoinDate] = useState(employee.joinDate ? employee.joinDate.split("T")[0] ?? "" : "");
   const [activeProjectId, setActiveProjectId] = useState(employee.activeProjectId ?? "");
@@ -586,7 +503,7 @@ function HireDetailsEditor({
 
   async function save() {
     if (!name.trim()) {
-      toast.error("Name is required");
+      fieldError("Name is required", "hire-name");
       haptic([50, 20, 50]);
       return;
     }
@@ -600,6 +517,7 @@ function HireDetailsEditor({
           phone: phone.trim() || null,
           trade: trade.trim() || null,
           designation: designation.trim() || null,
+          departmentId: departmentId || null,
           hierarchyLevel: hierarchyLevel ? Number(hierarchyLevel) : null,
           joinDate: joinDate || null,
           activeProjectId: activeProjectId || null,
@@ -621,7 +539,7 @@ function HireDetailsEditor({
 
   return (
     <div className="space-y-3 py-1">
-      <UnderlineInput label="Name" value={name} onChange={setName} placeholder="Full name" />
+      <UnderlineInput id="hire-name" label="Name" value={name} onChange={setName} placeholder="Full name" />
       <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
         <UnderlineInput label="Phone" value={phone} onChange={setPhone} placeholder="10-digit mobile" />
         <UnderlineInput label="Trade" value={trade} onChange={setTrade} placeholder="e.g. Masonry" />
@@ -645,12 +563,21 @@ function HireDetailsEditor({
       </div>
       <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
         <EnumSelect
+          label="Department"
+          value={departmentId}
+          onChange={setDepartmentId}
+          placeholder="— None —"
+          options={departments.filter((d) => d.active).map((d) => ({ value: d.id, label: d.name }))}
+        />
+        <EnumSelect
           label="Project"
           value={activeProjectId}
           onChange={setActiveProjectId}
           placeholder="— None —"
           options={projects.map((p) => ({ value: p.id, label: p.name }))}
         />
+      </div>
+      <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
         <EnumSelect
           label="Reporting"
           value={reportingLocationId}
@@ -1215,12 +1142,12 @@ function SalarySubTab({
   }, 0);
 
   function handleAdd() {
-    if (!newType) { toast.error("Select a component type"); return; }
+    if (!newType) { fieldError("Select a component type", "salary-new-type"); return; }
     if (!newIsPercentage && (!newAmount || Number(newAmount) <= 0)) {
-      toast.error("Enter a valid amount"); return;
+      fieldError("Enter a valid amount", "salary-new-amount"); return;
     }
     if (newIsPercentage && (!newPercentage || Number(newPercentage) <= 0)) {
-      toast.error("Enter a valid percentage"); return;
+      fieldError("Enter a valid percentage", "salary-new-percentage"); return;
     }
     const option = SALARY_COMPONENT_OPTIONS.find((o) => o.value === newType);
     setEditComponents((prev) => [
@@ -1417,6 +1344,7 @@ function SalarySubTab({
             <p className="text-m-caption font-bold mb-1.5" style={{ color: "var(--color-ink-700)" }}>ADD COMPONENT</p>
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
               <EnumSelect
+                id="salary-new-type"
                 label="Component"
                 value={newType}
                 onChange={setNewType}
@@ -1441,6 +1369,7 @@ function SalarySubTab({
             <div className="grid grid-cols-2 gap-2 divide-x mt-1" style={{ borderColor: "var(--color-line)" }}>
               {newIsPercentage ? (
                 <UnderlineInput
+                  id="salary-new-percentage"
                   label="% of Basic"
                   value={newPercentage}
                   onChange={setNewPercentage}
@@ -1451,6 +1380,7 @@ function SalarySubTab({
                 />
               ) : (
                 <UnderlineInput
+                  id="salary-new-amount"
                   label="Amount (₹)"
                   value={newAmount}
                   onChange={setNewAmount}
@@ -1503,6 +1433,9 @@ function SalarySubTab({
           </div>
         )}
       </div>
+
+      {/* ── Salary History Timeline ── */}
+      <SalaryHistoryTimeline employeeId={employee.id} />
     </div>
   );
 }
@@ -1619,6 +1552,17 @@ function OfferLetterSubTab({
           )}
         </div>
       </div>
+
+      {/* ── Terms & Conditions editor + shareable link ── */}
+      <TermsEditor
+        employeeId={employee.id}
+        type="offer"
+        terms={employee.offerLetterTerms}
+        token={employee.offerToken}
+        acceptedAt={employee.offerLetterAcceptedAt}
+        issued={issued}
+        canManage={canManage}
+      />
     </div>
   );
 }
@@ -1963,6 +1907,17 @@ function AgreementSubTab({
           )}
         </div>
       )}
+
+      {/* ── Terms & Conditions editor + shareable link ── */}
+      <TermsEditor
+        employeeId={employee.id}
+        type="agreement"
+        terms={employee.contractTerms}
+        token={employee.contractToken}
+        acceptedAt={employee.contractConfirmedAt}
+        issued={issued}
+        canManage={canManage}
+      />
     </div>
   );
 }
@@ -2217,13 +2172,15 @@ function DepositEditor({
 
   async function save() {
     if (!holder || !accountNo || !ifsc || !bankName) {
-      toast.error("Fill all required fields");
+      // Scroll to the first empty required field
+      const firstEmpty = !holder ? "deposit-holder" : !accountNo ? "deposit-account" : !ifsc ? "deposit-ifsc" : "deposit-bank";
+      fieldError("Fill all required fields", firstEmpty);
       haptic([50, 20, 50]);
       return;
     }
     const pd = Number(payDay);
     if (!pd || pd < 1 || pd > 31) {
-      toast.error("Pay day must be between 1 and 31");
+      fieldError("Pay day must be between 1 and 31", "deposit-payday");
       haptic([50, 20, 50]);
       return;
     }
@@ -2261,13 +2218,13 @@ function DepositEditor({
       title={employee.autoDepositEnabled ? "Edit Bank Details" : "Set Up Auto-Deposit"}
     >
       <div className="space-y-3">
-        <UnderlineInput label="Account Holder" value={holder} onChange={setHolder} placeholder="Name as per bank" required />
-        <UnderlineInput label="Account Number" value={accountNo} onChange={setAccountNo} placeholder="Bank account number" required mono inputMode="numeric" />
+        <UnderlineInput id="deposit-holder" label="Account Holder" value={holder} onChange={setHolder} placeholder="Name as per bank" required />
+        <UnderlineInput id="deposit-account" label="Account Number" value={accountNo} onChange={setAccountNo} placeholder="Bank account number" required mono inputMode="numeric" />
         <div className="grid grid-cols-2 gap-2">
-          <UnderlineInput label="IFSC" value={ifsc} onChange={setIfsc} placeholder="HDFC0001234" required mono />
-          <UnderlineInput label="Pay Day" value={payDay} onChange={setPayDay} type="number" inputMode="numeric" placeholder="1" required />
+          <UnderlineInput id="deposit-ifsc" label="IFSC" value={ifsc} onChange={setIfsc} placeholder="HDFC0001234" required mono />
+          <UnderlineInput id="deposit-payday" label="Pay Day" value={payDay} onChange={setPayDay} type="number" inputMode="numeric" placeholder="1" required />
         </div>
-        <UnderlineInput label="Bank Name" value={bankName} onChange={setBankName} placeholder="e.g. HDFC Bank" required />
+        <UnderlineInput id="deposit-bank" label="Bank Name" value={bankName} onChange={setBankName} placeholder="e.g. HDFC Bank" required />
         <UnderlineInput label="Branch" value={branch} onChange={setBranch} placeholder="Branch (optional)" />
         <div className="flex gap-2 pt-1">
           <button
@@ -2392,7 +2349,7 @@ function DossierSubTab({
       <EmergencyContactCard employee={employee} canManage={canManage} />
       <AddressesCard employee={employee} canManage={canManage} />
       <BenefitsCard employee={employee} canManage={canManage} />
-      <DocumentsCard employee={employee} />
+      <DocumentsCard employee={employee} canManage={canManage} />
     </div>
   );
 }
@@ -2836,7 +2793,7 @@ function BenefitEditor({
 
   async function save() {
     if (!type) {
-      toast.error("Select a benefit type");
+      fieldError("Select a benefit type", "benefit-type");
       haptic([50, 20, 50]);
       return;
     }
@@ -2893,6 +2850,7 @@ function BenefitEditor({
   return (
     <div className="space-y-3 py-1">
       <EnumSelect
+        id="benefit-type"
         label="Type"
         value={type}
         onChange={setType}
@@ -3036,7 +2994,7 @@ function ChecklistRow({
 }
 
 /* ── Documents card — uses AttachmentList ── */
-function DocumentsCard({ employee }: { employee: OnboardingEmployeeData }) {
+function DocumentsCard({ employee, canManage }: { employee: OnboardingEmployeeData; canManage: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -3071,26 +3029,25 @@ function DocumentsCard({ employee }: { employee: OnboardingEmployeeData }) {
           label="Documents submitted (PAN, Aadhaar, bank proof, education certs)"
           done={employee.documentsSubmitted === true}
           onClick={() => toggleChecklist("documentsSubmitted")}
-          disabled={busy}
+          disabled={busy || !canManage}
         />
         <ChecklistRow
           label="Background verification completed"
           done={employee.backgroundVerified === true}
           onClick={() => toggleChecklist("backgroundVerified")}
-          disabled={busy}
+          disabled={busy || !canManage}
         />
       </div>
       <div className="px-3 pt-2 pb-1 border-t" style={{ borderColor: "var(--color-line)" }}>
         <p className="text-m-label font-semibold uppercase tracking-wider" style={{ color: "var(--color-ink-400)" }}>
-          Uploaded Documents
+          Employee Documents
+        </p>
+        <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-400)" }}>
+          Upload PAN, Aadhaar, bank proof, photos & other documents (image or PDF).
         </p>
       </div>
       <div className="px-3 pb-3">
-        <AttachmentList
-          entityType="Employee"
-          entityId={employee.id}
-          compact
-        />
+        <EmployeeDocuments employeeId={employee.id} canManage={canManage} />
       </div>
     </div>
   );
@@ -3122,6 +3079,14 @@ function OffboardSubTab({
   const [reason, setReason] = useState("");
   const [endDate, setEndDate] = useTodayDateState();
   const [reactivating, setReactivating] = useState(false);
+  // Settlement fields
+  const [finalSettlement, setFinalSettlement] = useState("");
+  const [leaveEncashDays, setLeaveEncashDays] = useState("");
+  const [leaveEncashAmount, setLeaveEncashAmount] = useState("");
+  const [assetsReturned, setAssetsReturned] = useState<string>("");
+  const [exitInterview, setExitInterview] = useState<string>("");
+  const [pfFiled, setPfFiled] = useState<string>("");
+  const [esiFiled, setEsiFiled] = useState<string>("");
 
   const isActive = employee.active;
   const noticeDays = employee.noticePeriodDays;
@@ -3163,6 +3128,13 @@ function OffboardSubTab({
         body: JSON.stringify({
           reason: reason || "Terminated",
           employmentEndDate: endDate || null,
+          finalSettlementAmount: finalSettlement ? Number(finalSettlement) : null,
+          leaveEncashmentDays: leaveEncashDays ? Number(leaveEncashDays) : null,
+          leaveEncashmentAmount: leaveEncashAmount ? Number(leaveEncashAmount) : null,
+          assetsReturned: assetsReturned === "yes" ? true : assetsReturned === "no" ? false : null,
+          exitInterviewConducted: exitInterview === "yes" ? true : exitInterview === "no" ? false : null,
+          pfExitFiled: pfFiled === "yes" ? true : pfFiled === "no" ? false : null,
+          esiExitFiled: esiFiled === "yes" ? true : esiFiled === "no" ? false : null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -3306,6 +3278,87 @@ function OffboardSubTab({
                   </p>
                 </div>
               )}
+
+              {/* ── Final settlement ── */}
+              <div
+                className="rounded-[0.5rem] overflow-hidden"
+                style={{ backgroundColor: "var(--color-concrete)" }}
+              >
+                <div className="px-3 pt-2 pb-1">
+                  <p className="text-m-caption font-bold uppercase tracking-wider" style={{ color: "var(--color-ink-500)" }}>
+                    Final Settlement
+                  </p>
+                </div>
+                <div className="px-3 pb-2 space-y-2">
+                  <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                    <UnderlineInput
+                      label="Settlement Amount"
+                      value={finalSettlement}
+                      onChange={setFinalSettlement}
+                      placeholder="0"
+                      type="number"
+                    />
+                    <UnderlineInput
+                      label="Leave Encash (days)"
+                      value={leaveEncashDays}
+                      onChange={setLeaveEncashDays}
+                      placeholder="0"
+                      type="number"
+                    />
+                  </div>
+                  <UnderlineInput
+                    label="Leave Encashment Amount"
+                    value={leaveEncashAmount}
+                    onChange={setLeaveEncashAmount}
+                    placeholder="0"
+                    type="number"
+                  />
+                  <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                    <EnumSelect
+                      label="Assets Returned"
+                      value={assetsReturned}
+                      onChange={setAssetsReturned}
+                      placeholder="— Select —"
+                      options={[
+                        { value: "yes", label: "Yes" },
+                        { value: "no", label: "No" },
+                      ]}
+                    />
+                    <EnumSelect
+                      label="Exit Interview"
+                      value={exitInterview}
+                      onChange={setExitInterview}
+                      placeholder="— Select —"
+                      options={[
+                        { value: "yes", label: "Conducted" },
+                        { value: "no", label: "Not done" },
+                      ]}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                    <EnumSelect
+                      label="PF Exit Filed"
+                      value={pfFiled}
+                      onChange={setPfFiled}
+                      placeholder="— Select —"
+                      options={[
+                        { value: "yes", label: "Filed" },
+                        { value: "no", label: "Pending" },
+                      ]}
+                    />
+                    <EnumSelect
+                      label="ESI Exit Filed"
+                      value={esiFiled}
+                      onChange={setEsiFiled}
+                      placeholder="— Select —"
+                      options={[
+                        { value: "yes", label: "Filed" },
+                        { value: "no", label: "Pending" },
+                      ]}
+                    />
+                  </div>
+                </div>
+              </div>
 
               {/* Terminate button */}
               <button
@@ -3481,6 +3534,155 @@ function OffboardSubTab({
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/* ─── Salary History Timeline ─── */
+function SalaryHistoryTimeline({ employeeId }: { employeeId: string }) {
+  const [history, setHistory] = useState<Array<{
+    id: string;
+    components: Array<{ type: string; amount: number; frequency: string; isDeduction: boolean }>;
+    totalCtc: number | null;
+    effectiveFrom: string;
+    changeReason: string | null;
+    changedByName: string;
+    createdAt: string;
+  }> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/employees/${employeeId}/salary-history`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled && Array.isArray(data.history)) {
+          setHistory(data.history);
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [employeeId]);
+
+  if (loading) {
+    return (
+      <div
+        className="rounded-[0.75rem] overflow-hidden mt-3"
+        style={{ backgroundColor: "var(--color-paper)", border: "1px solid var(--color-line)" }}
+      >
+        <div className="px-3 py-3">
+          <p className="text-m-label font-semibold uppercase tracking-wider" style={{ color: "var(--color-ink-400)" }}>
+            Salary History
+          </p>
+          <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-400)" }}>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!history || history.length === 0) {
+    return null; // Don't show the section if there's no history yet
+  }
+
+  return (
+    <div
+      className="rounded-[0.75rem] overflow-hidden mt-3"
+      style={{ backgroundColor: "var(--color-paper)", border: "1px solid var(--color-line)" }}
+    >
+      <div className="px-3 pt-3 pb-1">
+        <p className="text-m-label font-semibold uppercase tracking-wider" style={{ color: "var(--color-ink-400)" }}>
+          Salary History
+        </p>
+      </div>
+      <div className="px-3 pb-3">
+        <div className="flex flex-col gap-2">
+          {history.map((entry, idx) => {
+            const isLatest = idx === 0;
+            const isExpandedRow = expanded === entry.id;
+            return (
+              <div
+                key={entry.id}
+                className="rounded-[0.5rem] overflow-hidden"
+                style={{
+                  backgroundColor: isLatest ? "color-mix(in srgb, var(--color-go) 5%, transparent)" : "var(--color-concrete)",
+                }}
+              >
+                <button
+                  onClick={() => setExpanded(isExpandedRow ? null : entry.id)}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left press"
+                >
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      {isLatest && (
+                        <span
+                          className="text-[10px] font-bold px-1 py-0.5 rounded-full"
+                          style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
+                        >
+                          CURRENT
+                        </span>
+                      )}
+                      <span className="text-m-body font-semibold truncate" style={{ color: "var(--color-ink-950)" }}>
+                        {entry.totalCtc != null ? formatCurrency(entry.totalCtc) + "/yr" : "—"}
+                      </span>
+                    </div>
+                    <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                      Effective {formatDate(entry.effectiveFrom)}
+                      {entry.changeReason ? ` · ${entry.changeReason}` : ""}
+                    </span>
+                  </div>
+                  <ChevronRight
+                    className="size-4 shrink-0 transition-transform"
+                    style={{
+                      color: "var(--color-ink-400)",
+                      transform: isExpandedRow ? "rotate(90deg)" : "none",
+                    }}
+                  />
+                </button>
+                {isExpandedRow && (
+                  <div className="px-3 pb-3 pt-1 border-t" style={{ borderColor: "var(--color-line)" }}>
+                    <div className="flex flex-col gap-1">
+                      {entry.components
+                        .filter((c) => !c.isDeduction)
+                        .map((c, i) => (
+                          <div key={i} className="flex items-center justify-between">
+                            <span className="text-m-caption" style={{ color: "var(--color-ink-600)" }}>{c.type}</span>
+                            <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                              {formatCurrency(c.amount)}{c.frequency === "MONTHLY" ? "/mo" : c.frequency === "YEARLY" ? "/yr" : ""}
+                            </span>
+                          </div>
+                        ))}
+                      {entry.components.some((c) => c.isDeduction) && (
+                        <div className="pt-1 mt-1 border-t" style={{ borderColor: "var(--color-line)" }}>
+                          <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--color-ink-400)" }}>
+                            Deductions
+                          </p>
+                          {entry.components
+                            .filter((c) => c.isDeduction)
+                            .map((c, i) => (
+                              <div key={i} className="flex items-center justify-between">
+                                <span className="text-m-caption" style={{ color: "var(--color-ink-600)" }}>{c.type}</span>
+                                <span className="text-m-caption font-semibold" style={{ color: "var(--color-stop)" }}>
+                                  −{formatCurrency(c.amount)}{c.frequency === "MONTHLY" ? "/mo" : ""}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                      <div className="pt-1 mt-1 border-t" style={{ borderColor: "var(--color-line)" }}>
+                        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--color-ink-400)" }}>
+                          Changed by {entry.changedByName} on {formatDate(entry.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

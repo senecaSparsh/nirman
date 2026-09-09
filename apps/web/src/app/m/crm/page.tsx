@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { Users, Phone, UserPlus, TrendingUp } from "lucide-react";
 import {
@@ -56,7 +56,7 @@ export default function MobileCrmPage() {
 
         // Total outstanding from active sales
         const sales = await prisma.assetSale.findMany({
-          where: { companyId: company.id, status: "ACTIVE" },
+          where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE" },
           select: {
             salePrice: true,
             gstAmount: true,

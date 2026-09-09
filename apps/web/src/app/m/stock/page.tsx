@@ -1,6 +1,6 @@
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { prisma } from "@nirman/db";
-import { toNum, getCompanyGroupIds } from "@/lib/server";
+import { toNum, getCompanyGroupIds, scopeWhere } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { MobileLocationDetail } from "./MobileLocationDetail";
@@ -42,7 +42,7 @@ export default function MobileStockPage({
             // (line 30) ensures locationId belongs to company.id, so any
             // movement from/to that location is inherently within the company.
             prisma.stockMovement.findMany({
-              where: {
+              where: {...await scopeWhere("StockMovement"), 
                 OR: [{ fromLocationId: locationId }, { toLocationId: locationId }],
               },
               orderBy: { timestamp: "desc" },
@@ -165,7 +165,7 @@ export default function MobileStockPage({
           }),
           // ── Ledger: movements ──
           prisma.stockMovement.findMany({
-            where: {
+            where: {...await scopeWhere("StockMovement"), 
               ...(materialId ? { materialId } : {}),
               OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }],
             },

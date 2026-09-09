@@ -247,9 +247,9 @@ export default function SettingsPage() {
                     meta="Edit"
                   />
                   <MobileRow
-                    href="/m/settings/team"
+                    href="/m/hr/employees"
                     icon={Users}
-                    title="Team & permissions"
+                    title="Employees & Access"
                     subtitle={`${teamMembers.length} members`}
                     meta="Manage"
                   />

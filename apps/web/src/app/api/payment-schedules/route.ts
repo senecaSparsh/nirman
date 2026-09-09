@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { generatePaymentSchedule } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -49,7 +49,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
   // Verify the sale belongs to the user's company before returning schedule
   const sale = await prisma.assetSale.findFirst({
-    where: { id: assetSaleId, companyId: company.id },
+    where: { id: assetSaleId, companyId: company.id, ...await scopeWhere("AssetSale", {}) },
     select: { id: true },
   });
   if (!sale) return json({ error: "No payment schedule found" }, { status: 404 });

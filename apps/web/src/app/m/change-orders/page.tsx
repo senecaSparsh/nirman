@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { GitBranch, Plus } from "lucide-react";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
@@ -20,9 +20,10 @@ export default function MobileChangeOrdersPage() {
   return (
     <MobileListPage managePerm={PERM.WO_MANAGE}>
       {async ({ company, canManage }) => {
+        const actions = await getActionPermissions();
         const [changeOrders, projects] = await Promise.all([
           prisma.changeOrder.findMany({
-            where: { companyId: company.id },
+            where: {...await scopeWhere("ChangeOrder"),  companyId: company.id },
             orderBy: { createdAt: "desc" },
             take: 50,
             include: {
@@ -101,7 +102,7 @@ export default function MobileChangeOrdersPage() {
               />
             )}
 
-            {canManage && projects.length > 0 && (
+            {(actions?.canCreateChangeOrder ?? canManage) && projects.length > 0 && (
               <MobileChangeOrdersFab projects={projects} />
             )}
           </div>

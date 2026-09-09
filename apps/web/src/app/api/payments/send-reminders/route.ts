@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { notifyPaymentDue } from "@nirman/services";
 import { emitNotificationEvent, NotificationEventType } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -166,6 +166,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         status: "ACTIVE",
         // Active tenancies where the end date hasn't passed yet
         endDate: { gte: now },
+        ...await scopeWhere("Tenancy", {}),
       },
     });
 

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, getCompany, getUserRole, requireUser, toNum } from "@/lib/server";
+import { apiHandler, json, getCompany, getUserRole, requireUser, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 
 /**
@@ -39,6 +39,11 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   const now = new Date();
   const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
+  // Pre-compute scope filters for scoped models (maintains Promise.all parallelism)
+  const reqScope = await scopeWhere("MaterialRequisition", {});
+  const assetSaleScope = await scopeWhere("AssetSale", {});
+  const builtUnitScope = await scopeWhere("BuiltUnit", {});
+
   const [
     lowStockItems,
     draftPOs,
@@ -56,15 +61,15 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       select: { id: true, minStock: true, stockItems: { where: { location: { deletedAt: null, companyId: company.id } }, select: { qty: true } } },
     }),
     prisma.purchaseOrder.count({ where: { companyId: company.id, status: "DRAFT" } }),
-    prisma.materialRequisition.count({ where: { project: { companyId: company.id }, status: "SUBMITTED" } }),
+    prisma.materialRequisition.count({ where: { project: { companyId: company.id }, status: "SUBMITTED", ...reqScope } }),
     prisma.purchaseOrder.count({ where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() } } }),
     prisma.assetSale.findMany({
-      where: { companyId: company.id, status: "ACTIVE" },
+      where: { companyId: company.id, status: "ACTIVE", ...assetSaleScope },
       select: { id: true, paymentStatus: true },
     }),
     prisma.stockCount.count({ where: { location: { companyId: company.id }, status: { in: ["DRAFT", "COUNTED"] } } }),
-    prisma.builtUnit.count({ where: { project: { companyId: company.id }, deletedAt: null, status: "AVAILABLE" } }),
-    prisma.materialRequisition.count({ where: { project: { companyId: company.id }, status: "APPROVED" } }),
+    prisma.builtUnit.count({ where: { project: { companyId: company.id }, deletedAt: null, status: "AVAILABLE", ...builtUnitScope } }),
+    prisma.materialRequisition.count({ where: { project: { companyId: company.id }, status: "APPROVED", ...reqScope } }),
     prisma.purchaseOrder.count({ where: { companyId: company.id, status: "APPROVED" } }),
     prisma.purchaseOrder.findMany({
       where: { companyId: company.id, status: { not: "CANCELLED" }, orderDate: { gte: sixMonthsAgo } },

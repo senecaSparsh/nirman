@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser } from "@/lib/server";
+import { getCompany, getCurrentUser, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import { MobileNewLeadClient } from "./MobileNewLeadClient";
@@ -23,7 +23,7 @@ export default function MobileNewLeadPage() {
             select: { id: true, name: true },
           }),
           prisma.builtUnit.findMany({
-            where: {
+            where: {...await scopeWhere("BuiltUnit"), 
               deletedAt: null,
               status: { in: ["AVAILABLE", "HOLD"] },
               project: { companyId: company.id, deletedAt: null },

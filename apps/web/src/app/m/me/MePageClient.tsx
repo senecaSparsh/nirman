@@ -28,6 +28,8 @@ import {
   Calendar,
   Clock,
   UserCircle,
+  Users,
+  GitBranch,
 } from "lucide-react";
 import { useSession, signOut as authSignOut, authClient } from "@/lib/auth-client";
 import { useFieldMode } from "@/lib/field-mode";
@@ -41,6 +43,8 @@ import {
   Badge,
 } from "@/components/mobile/v2/primitives";
 import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
+import { OnboardingProgress } from "@/components/mobile/v2/onboarding-progress";
+import { buildOnboardingSteps } from "@/lib/onboarding-steps";
 import { ROLES } from "@/lib/roles";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
@@ -56,6 +60,22 @@ import { toast } from "sonner";
  * renders with real data on first paint — no client-side /api/me +
  * /api/company waterfall, no skeleton-then-swap flash.
  */
+export interface OnboardingProgress {
+  employeeId: string;
+  hasProfile: boolean;
+  hasEmploymentTerms: boolean;
+  hasSalaryStructure: boolean;
+  documentsSubmitted: boolean;
+  backgroundVerified: boolean;
+  offerLetterIssued: boolean;
+  agreementIssued: boolean;
+  agreementConfirmed: boolean;
+  appointmentLetterIssued: boolean;
+  idCardIssued: boolean;
+  autoDepositEnabled: boolean;
+  isComplete: boolean;
+}
+
 export interface MePageInitial {
   name: string;
   role: string;
@@ -69,6 +89,14 @@ export interface MePageInitial {
   joiningDate: string | null;
   lastLoginAt: string | null;
   companyName: string;
+  /** Custom hierarchy level (H1-H6) from Employee.hierarchyLevel. */
+  hierarchyLevel: number | null;
+  /** Name of the person this user reports to (null for OWNER/ADMIN). */
+  reportsToName: string | null;
+  /** Designation of the person this user reports to. */
+  reportsToDesignation: string | null;
+  /** Onboarding progress from the Employee record (null if no Employee linked). */
+  onboarding: OnboardingProgress | null;
 }
 
 export function MePageClient({ initial }: { initial: MePageInitial | null }) {
@@ -89,6 +117,10 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
   const [userJoiningDate, setUserJoiningDate] = useState<string | null>(initial?.joiningDate ?? null);
   const [userLastLoginAt, setUserLastLoginAt] = useState<string | null>(initial?.lastLoginAt ?? null);
   const [companyName, setCompanyName] = useState(initial?.companyName ?? "");
+  const [hierarchyLevel] = useState<number | null>(initial?.hierarchyLevel ?? null);
+  const [reportsToName] = useState<string | null>(initial?.reportsToName ?? null);
+  const [reportsToDesignation] = useState<string | null>(initial?.reportsToDesignation ?? null);
+  const [onboarding] = useState<OnboardingProgress | null>(initial?.onboarding ?? null);
   // When the server provides initial data, the profile is never in a
   // loading state — we render real data on first paint. The loading
   // state is only used as a fallback when initial is null (e.g. the
@@ -473,6 +505,12 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
               <div className="grid grid-cols-2 gap-x-3 gap-y-3">
                 <InfoField icon={<UserCircle className="size-3" />} label="Role" value={roleLabel} />
                 <InfoField icon={<Building2 className="size-3" />} label="Company" value={companyName || null} />
+                {hierarchyLevel != null && (
+                  <InfoField icon={<GitBranch className="size-3" />} label="Hierarchy" value={`H${hierarchyLevel}`} />
+                )}
+                {reportsToName && (
+                  <InfoField icon={<Users className="size-3" />} label="Reports to" value={reportsToDesignation ? `${reportsToName} · ${reportsToDesignation}` : reportsToName} />
+                )}
                 <InfoField icon={<Mail className="size-3" />} label="Email" value={userEmail || null} />
                 <InfoField icon={<Phone className="size-3" />} label="Phone" value={userPhone || null} />
                 {userDepartment && <InfoField icon={<Briefcase className="size-3" />} label="Dept" value={userDepartment} />}
@@ -484,6 +522,37 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
           </div>
         )
       )}
+
+      {/* ── Onboarding progress (only if Employee record exists) ── */}
+      {!profileLoading && onboarding && (() => {
+        const { steps, completedCount, isComplete } = buildOnboardingSteps({
+          hasProfile: onboarding.hasProfile,
+          hasWage: true, // profile page doesn't have wage info; assume set
+          hasEmploymentTerms: onboarding.hasEmploymentTerms,
+          hasSalaryStructure: onboarding.hasSalaryStructure,
+          documentsSubmitted: onboarding.documentsSubmitted,
+          backgroundVerified: onboarding.backgroundVerified,
+          hasAccount: true, // they're logged in, so they have an account
+          offerLetterIssued: onboarding.offerLetterIssued,
+          agreementIssued: onboarding.agreementIssued,
+          agreementConfirmed: onboarding.agreementConfirmed,
+          appointmentLetterIssued: onboarding.appointmentLetterIssued,
+          idCardIssued: onboarding.idCardIssued,
+          hasAutoDeposit: onboarding.autoDepositEnabled,
+        });
+        return (
+          <OnboardingProgress
+            steps={steps}
+            completedCount={completedCount}
+            isComplete={isComplete}
+            canManage={false}
+            employeeId={onboarding.employeeId}
+            onboardingComplete={onboarding.isComplete}
+            showCompleteButton={false}
+            href={onboarding.employeeId ? `/m/hr/onboarding/${onboarding.employeeId}` : undefined}
+          />
+        );
+      })()}
 
       {/* ── Password change ────────────────────────────────────────── */}
       <div className="mb-4">

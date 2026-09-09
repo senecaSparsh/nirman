@@ -154,6 +154,7 @@ export function MobileNewLeaveForm({
                 onClose={onClose}
                 projects={[]}
                 stockLocations={[]}
+                departments={[]}
                 onCreated={(e) => onCreated(e.id, e.name)}
               />
             )}

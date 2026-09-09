@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { ShoppingCart } from "lucide-react";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
@@ -24,7 +24,7 @@ export default function MobileNewSalePage({
 
         const [units, parcels, customers, projects, allProjectsForSale, brokers] = await Promise.all([
           prisma.builtUnit.findMany({
-            where: {
+            where: {...await scopeWhere("BuiltUnit"), 
               deletedAt: null,
               status: "AVAILABLE",
               project: { companyId: company.id, deletedAt: null },
@@ -34,7 +34,7 @@ export default function MobileNewSalePage({
             include: { project: { select: { id: true, name: true, reraNumber: true } } },
           }),
           prisma.landParcel.findMany({
-            where: { deletedAt: null, status: "AVAILABLE", landPurchase: { companyId: company.id } },
+            where: {...await scopeWhere("LandParcel"),  deletedAt: null, status: "AVAILABLE", landPurchase: { companyId: company.id } },
             orderBy: { number: "asc" },
             take: 200,
             include: { landPurchase: { select: { id: true, sellerName: true, location: true } }, project: { select: { id: true, name: true, reraNumber: true } } },

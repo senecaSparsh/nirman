@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import {apiHandler, getCompany, json, requireUser} from "@/lib/server";
+import {apiHandler, getCompany, json, requireUser, scopeWhere} from "@/lib/server";
 
 /**
  * GET /api/suppliers/[id]/last-grn — returns logistics fields from the
@@ -26,6 +26,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
   const lastGrn = await prisma.goodsReceipt.findFirst({
     where: {
       purchaseOrder: { supplierId: id, companyId: company.id },
+      ...await scopeWhere("GoodsReceipt"),
       // Only consider GRNs that actually have vehicle info
       vehicleNumber: { not: null },
     },

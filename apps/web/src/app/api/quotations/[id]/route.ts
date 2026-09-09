@@ -10,6 +10,7 @@ import {
   getUserRole,
   json,
   requirePermission,
+  scopeWhere,
 } from "@/lib/server";
 
 /**
@@ -26,7 +27,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
   const membership = await getCurrentUserMembership();
 
   const request = await prisma.quotationRequest.findFirst({
-    where: { id, companyId: { in: groupCompanyIds } },
+    where: { id, companyId: { in: groupCompanyIds }, ...await scopeWhere("Quotation", {}) },
     select: {
       id: true,
       status: true,

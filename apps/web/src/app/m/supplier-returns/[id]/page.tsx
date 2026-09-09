@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import Link from "next/link";
@@ -57,7 +57,7 @@ export default function MobileSupplierReturnDetailPage({
         // Fetch linked gate pass for SUBMITTED returns (to show gate pass approval status)
         const gatePass = ret.status === "SUBMITTED"
           ? await prisma.gatePass.findFirst({
-              where: { refType: "SupplierReturn", refId: ret.id },
+              where: {...await scopeWhere("GatePass"),  refType: "SupplierReturn", refId: ret.id },
               select: { id: true, gatePassNumber: true, status: true },
             })
           : null;

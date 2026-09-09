@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import {prisma, type RaBillStatus} from "@nirman/db";
 import { createRaBill, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -52,7 +52,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   // Preview mode: return available unbilled MB entries for a work order
   if (preview === "unbilled" && workOrderId) {
     const wo = await prisma.subcontractorWorkOrder.findFirst({
-      where: { id: workOrderId, companyId: company.id },
+      where: { id: workOrderId, companyId: company.id, ...await scopeWhere("SubcontractorWorkOrder") },
       include: {
         lines: {
           include: {
@@ -75,6 +75,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         boqItemId: { in: boqItemIds },
         status: "APPROVED",
         raBillLineId: null,
+        ...await scopeWhere("MeasurementBookEntry"),
       },
       orderBy: { measureDate: "asc" },
       select: { id: true, mbNumber: true, measuredQty: true, measureDate: true, description: true, boqItemId: true },
@@ -146,6 +147,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       companyId: company.id,
       ...(workOrderId ? { workOrderId } : {}),
       ...(status ? { status: status as RaBillStatus } : {}),
+      ...await scopeWhere("RaBill"),
     },
     orderBy: { billDate: "desc" },
     include: {

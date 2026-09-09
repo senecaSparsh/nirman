@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileDprsList } from "./MobileDprsList";
@@ -15,7 +15,7 @@ export default function MobileDprsPage() {
 
         const BATCH_SIZE = 40;
         const dprs = await prisma.dailyProgressReport.findMany({
-          where: { project: { companyId: company.id } },
+          where: {...await scopeWhere("DailyProgressReport"),  project: { companyId: company.id } },
           orderBy: [{ date: "desc" }, { id: "desc" }],
           take: BATCH_SIZE + 1,
           include: {
@@ -104,11 +104,11 @@ async function fetchDprFormData(companyId: string) {
 
   const [todayDprs, yesterdayDprs, projects, employees, crews, materials] = await Promise.all([
     prisma.dailyProgressReport.findMany({
-      where: { companyId, date: { gte: startOfToday, lt: endOfToday } },
+      where: {...await scopeWhere("DailyProgressReport"),  companyId, date: { gte: startOfToday, lt: endOfToday } },
       include: { materialLines: true, laborLines: true },
     }),
     prisma.dailyProgressReport.findMany({
-      where: { companyId, date: { gte: startOfYesterday, lt: startOfToday } },
+      where: {...await scopeWhere("DailyProgressReport"),  companyId, date: { gte: startOfYesterday, lt: startOfToday } },
       include: { materialLines: true, laborLines: true },
     }),
     prisma.project.findMany({
@@ -122,7 +122,7 @@ async function fetchDprFormData(companyId: string) {
       orderBy: { name: "asc" },
     }),
     prisma.crew.findMany({
-      where: { companyId },
+      where: {...await scopeWhere("Crew"),  companyId },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

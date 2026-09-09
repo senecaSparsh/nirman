@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { recordLandPurchase, recordLandPurchaseWithPlan, recordLandPurchaseOrder, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, landPurchaseSchema, landPurchasePlanSchema, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, landPurchaseSchema, landPurchasePlanSchema, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -34,7 +34,7 @@ export const GET = apiHandler(async () => {
   await requirePermission(PERM.ASSETS_VIEW);
   const company = await getCompany();
   const purchases = await prisma.landPurchase.findMany({
-    where: { companyId: company.id, deletedAt: null },
+    where: { companyId: company.id, deletedAt: null, ...await scopeWhere("LandPurchase", {}) },
     orderBy: { createdAt: "desc" },
     include: {
       project: { select: { name: true } },
@@ -78,6 +78,18 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.ASSETS_MANAGE);
   const company = await getCompany();
   const body = await req.json();
+
+  try {
+    await assertScopeAllows({
+      projectId: body?.projectId ?? null,
+      departmentId: null,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Scope violation" },
+      { status: 403 },
+    );
+  }
 
   // If the body has a "mode" field, use the guided wizard (plan) flow.
   // Otherwise, fall back to the simple land purchase flow (backward compatible).

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { issueWorkOrder, completeWorkOrder, payAdvance, releaseRetention, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, requireUser, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -10,7 +10,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
   const wo = await prisma.subcontractorWorkOrder.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, ...await scopeWhere("SubcontractorWorkOrder") },
     include: {
       subcontractor: true,
       project: { select: { id: true, name: true } },
@@ -48,7 +48,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   await requireUser();
   const { id } = await params;
   const company = await getCompany();
-  const existing = await prisma.subcontractorWorkOrder.findFirst({ where: { id, companyId: company.id }, select: { id: true } });
+  const existing = await prisma.subcontractorWorkOrder.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("SubcontractorWorkOrder") }, select: { id: true } });
   if (!existing) return json({ error: "Work order not found" }, { status: 404 });
   const body = await req.json();
   const action = body?.action;
@@ -106,7 +106,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const { id } = await params;
 
   const wo = await prisma.subcontractorWorkOrder.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, ...await scopeWhere("SubcontractorWorkOrder") },
     select: { id: true, status: true },
   });
   if (!wo) return json({ error: "Work order not found" }, { status: 404 });

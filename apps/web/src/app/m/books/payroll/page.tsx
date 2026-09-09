@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { CalendarCheck } from "lucide-react";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum, getActionPermissions } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber } from "@/lib/utils";
 import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
@@ -27,6 +27,7 @@ async function BooksPayrollContent() {
   if (!hasPermission(role, PERM.PAYROLL_VIEW)) notFound();
   const company = await getCompany();
   const canManage = hasPermission(role, PERM.PAYROLL_MANAGE);
+  const actions = await getActionPermissions();
 
   const periods = await prisma.payrollPeriod.findMany({
     where: { companyId: company.id },
@@ -78,7 +79,7 @@ async function BooksPayrollContent() {
         />
       )}
 
-      {canManage && <MobilePayrollFab />}
+      {(actions?.canCreatePayroll ?? canManage) && <MobilePayrollFab />}
     </div>
   );
 }

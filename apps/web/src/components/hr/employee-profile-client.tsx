@@ -11,7 +11,7 @@ import {
   Wallet, Clock, ListChecks, FileText, CalendarOff, Pencil, Trash2,
   CheckCircle2, Circle, AlertCircle, Loader2, UserCircle,
   IdCard, Building2, Navigation, Activity, Paperclip, Gift,
-  UserPlus, Ban, RefreshCw, Sparkles,
+  UserPlus, Ban, RefreshCw, Sparkles, Check, Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -52,6 +52,8 @@ export type EmployeeProfileData = {
   activeProjectName: string | null;
   reportingLocationId: string | null;
   reportingLocationName: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
   userId: string | null;
   // ── Reporting line (from UserCompany.reportsTo) ──
   reportsTo: { membershipId: string; userId: string; name: string; role: string } | null;
@@ -152,6 +154,11 @@ export type EmployeeProfileData = {
     id: string; category: string; label: string | null; createdAt: string;
     upload: { id: string; url: string; originalName: string; mimeType: string; size: number };
   }[];
+  departments: { id: string; name: string; active: boolean }[];
+  // ── Multi-company: other companies this employee works in ──
+  companyMemberships: { companyId: string; companyName: string; employeeId: string; active: boolean }[];
+  // ── Multi-company: companies available to add the employee to ──
+  availableCompanies: { id: string; name: string; parentCompanyId: string | null }[];
 };
 
 // ───────────────────────────────────────────────────────────────
@@ -380,7 +387,7 @@ export function EmployeeProfileClient({
               <CrewTab employee={employee} />
             </TabsContent>
             <TabsContent value="dossier">
-              <DossierTab employee={employee} canManage={permissions.canManage} />
+              <DossierTab employee={employee} canManage={permissions.canManage} departments={employee.departments} />
             </TabsContent>
           </Tabs>
         </div>
@@ -765,7 +772,7 @@ function ProfileSidebar({
       <SidebarCard title="Employment" icon={IdCard}>
         <SidebarRow icon={Calendar} label="Join Date" value={employee.joinDate ? formatDate(employee.joinDate) : (u?.joiningDate ? formatDate(u.joiningDate) : null)} />
         <SidebarRow icon={Briefcase} label="Designation" value={employee.designation ?? u?.designation} />
-        <SidebarRow icon={Building2} label="Department" value={u?.department} />
+        <SidebarRow icon={Building2} label="Department" value={employee.departmentName ?? u?.department} />
         <SidebarRow
           icon={Wallet}
           label="Wage"
@@ -779,6 +786,41 @@ function ProfileSidebar({
           <SidebarRow icon={Calendar} label="End Date" value={formatDate(u.employmentEndDate)} />
         )}
       </SidebarCard>
+
+      {/* Multi-company: other companies this employee works in */}
+      {employee.companyMemberships.length > 0 && (
+        <SidebarCard title="Also Works In" icon={Building2}>
+          {employee.companyMemberships.map((m) => (
+            <div key={m.employeeId} className="flex items-center justify-between py-1.5 border-b last:border-0" style={{ borderColor: "var(--border)" }}>
+              <Link
+                href={`/hr/employees/${m.employeeId}`}
+                className="text-body text-foreground hover:text-brand-strong transition-colors"
+              >
+                {m.companyName}
+              </Link>
+              <span
+                className="text-meta px-1.5 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: m.active ? "color-mix(in srgb, var(--go) 12%, transparent)" : "color-mix(in srgb, var(--stop) 12%, transparent)",
+                  color: m.active ? "var(--go)" : "var(--stop)",
+                }}
+              >
+                {m.active ? "Active" : "Inactive"}
+              </span>
+            </div>
+          ))}
+          {employee.availableCompanies.length > 0 && (
+            <AddToCompanyButton employeeId={employee.id} companies={employee.availableCompanies} />
+          )}
+        </SidebarCard>
+      )}
+      {/* Show the add button even if no existing memberships but available companies exist */}
+      {employee.companyMemberships.length === 0 && employee.availableCompanies.length > 0 && (
+        <SidebarCard title="Also Works In" icon={Building2}>
+          <p className="text-body text-muted-foreground py-1">This employee only works in the current company.</p>
+          <AddToCompanyButton employeeId={employee.id} companies={employee.availableCompanies} />
+        </SidebarCard>
+      )}
 
       {/* Onboarding Checklist — shows where the employee is in the pipeline */}
       <SidebarCard title="Onboarding Checklist" icon={ListChecks}>
@@ -1673,10 +1715,99 @@ function SectionCard({ title, icon: Icon, action, children }: { title: string; i
 }
 
 // ───────────────────────────────────────────────────────────────
+//  Add-to-company button + dialog
+// ───────────────────────────────────────────────────────────────
+
+function AddToCompanyButton({ employeeId, companies }: { employeeId: string; companies: { id: string; name: string; parentCompanyId: string | null }[] }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [targetId, setTargetId] = useState("");
+
+  async function handleAdd() {
+    if (!targetId) return;
+    setAdding(true);
+    try {
+      const res = await fetch(`/api/employees/${employeeId}/add-to-company`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetCompanyId: targetId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to add employee to company");
+      toast.success(data.message ?? "Employee added to company");
+      setOpen(false);
+      // Navigate to the new employee's onboarding in the target company
+      if (data.newEmployeeId) {
+        router.push(`/hr/employees/${data.newEmployeeId}`);
+      } else {
+        router.refresh();
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-[0.375rem] text-meta font-bold border border-dashed hover:bg-muted/50 transition-colors"
+        style={{ borderColor: "var(--border)" }}
+      >
+        <Plus className="h-3.5 w-3.5" /> Add to Company
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !adding && setOpen(false)}>
+          <div className="bg-card rounded-lg shadow-lg max-w-sm w-full p-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-title font-bold mb-1">Add to Company</h3>
+            <p className="text-body text-muted-foreground mb-3">
+              Select a company to add this employee to. Their personal data will be copied; you&apos;ll complete onboarding for the new company.
+            </p>
+            <div className="space-y-1.5 mb-3">
+              {companies.map((c) => (
+                <label
+                  key={c.id}
+                  className={`flex items-center gap-2 p-2 rounded-[0.375rem] border cursor-pointer transition-colors ${targetId === c.id ? "border-brand-strong bg-brand-wash" : "border-border hover:bg-muted/50"}`}
+                >
+                  <input
+                    type="radio"
+                    name="targetCompany"
+                    value={c.id}
+                    checked={targetId === c.id}
+                    onChange={(e) => setTargetId(e.target.value)}
+                    className="accent-brand-strong"
+                  />
+                  <span className="text-body font-medium">{c.name}</span>
+                  {c.parentCompanyId === null && (
+                    <span className="text-meta px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">Parent</span>
+                  )}
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setOpen(false)} disabled={adding} className="flex-1">
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleAdd} disabled={adding || !targetId} className="flex-1">
+                {adding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                Add & Onboard
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────
 //  Dossier tab — attachments + benefits
 // ───────────────────────────────────────────────────────────────
 
-function DossierTab({ employee, canManage }: { employee: EmployeeProfileData; canManage: boolean }) {
+function DossierTab({ employee, canManage, departments }: { employee: EmployeeProfileData; canManage: boolean; departments: { id: string; name: string; active: boolean }[] }) {
   const { attachments, benefits } = employee;
   const router = useRouter();
   const [editingTerms, setEditingTerms] = useState(false);
@@ -1718,6 +1849,11 @@ function DossierTab({ employee, canManage }: { employee: EmployeeProfileData; ca
     currentAddress: employee.currentAddress ?? "",
   });
 
+  // Department
+  const [editingDept, setEditingDept] = useState(false);
+  const [savingDept, setSavingDept] = useState(false);
+  const [deptId, setDeptId] = useState(employee.departmentId ?? "");
+
   const saveDossierFields = async (fields: Record<string, unknown>) => {
     const res = await fetch(`/api/employees/${employee.id}`, {
       method: "PATCH",
@@ -1730,6 +1866,18 @@ function DossierTab({ employee, canManage }: { employee: EmployeeProfileData; ca
     }
     toast.success("Dossier updated");
     router.refresh();
+  };
+
+  const saveDept = async () => {
+    setSavingDept(true);
+    try {
+      await saveDossierFields({ departmentId: deptId || null });
+      setEditingDept(false);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSavingDept(false);
+    }
   };
 
   const saveIds = async () => {
@@ -1802,6 +1950,37 @@ function DossierTab({ employee, canManage }: { employee: EmployeeProfileData; ca
 
   return (
     <div className="space-y-4">
+      {/* Department — editable */}
+      <SectionCard
+        title="Department"
+        icon={Building2}
+        action={canManage && !editingDept ? (
+          <button onClick={() => setEditingDept(true)} className="text-meta text-brand-strong hover:underline">Edit</button>
+        ) : undefined}
+      >
+        {editingDept ? (
+          <div className="space-y-3 py-1">
+            <Select value={deptId} onChange={(e) => setDeptId(e.target.value)}>
+              <option value="">— None —</option>
+              {departments.filter((d) => d.active).map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </Select>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={saveDept} disabled={savingDept}>
+                {savingDept ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                Save
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => { setEditingDept(false); setDeptId(employee.departmentId ?? ""); }}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-body text-foreground">{employee.departmentName ?? "—"}</p>
+        )}
+      </SectionCard>
+
       {/* Employment Terms — editable */}
       <SectionCard
         title="Employment Terms"

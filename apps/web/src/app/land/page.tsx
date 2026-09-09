@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { LandView } from "@/components/land/land-view";
@@ -44,7 +44,7 @@ async function LandContent() {
   const [purchases, parcels, projects, landSales, customers, sellers] = await Promise.all([
     prisma.landPurchase.findMany({
       take: 500,
-      where: { companyId: company.id, deletedAt: null },
+      where: {...await scopeWhere("LandPurchase"),  companyId: company.id, deletedAt: null },
       orderBy: { createdAt: "desc" },
       include: {
         project: { select: { name: true } },
@@ -61,7 +61,7 @@ async function LandContent() {
     }),
     prisma.landParcel.findMany({
       take: 500,
-      where: { deletedAt: null, landPurchase: { companyId: company.id } },
+      where: {...await scopeWhere("LandParcel"),  deletedAt: null, landPurchase: { companyId: company.id } },
       orderBy: [{ landPurchaseId: "asc" }, { number: "asc" }],
       include: {
         project: { select: { name: true } },
@@ -77,7 +77,7 @@ async function LandContent() {
     }),
     prisma.assetSale.findMany({
       take: 200,
-      where: { companyId: company.id, assetType: "LAND", status: "ACTIVE" },
+      where: {...await scopeWhere("AssetSale"),  companyId: company.id, assetType: "LAND", status: "ACTIVE" },
       select: {
         id: true, saleNumber: true, salePrice: true, profit: true, saleDate: true,
         landParcelId: true, customer: { select: { name: true } },

@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { LandParcelStatus } from "@nirman/db";
 import { partitionLandParcel, unpartitionLandParcel, setParcelStatus, updateParcelValuation, updateParcelDetails } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, requireUser, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -24,6 +24,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       landPurchase: { companyId: company.id },
       ...(landPurchaseId ? { landPurchaseId } : {}),
       ...(status ? { status: status as LandParcelStatus } : {}),
+      ...await scopeWhere("LandParcel", {}),
     },
     include: {
       parentParcel: { select: { id: true, number: true } },
@@ -80,7 +81,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // Verify the relevant parcel belongs to the user's company before any action
   const parcelIdToCheck = body?.parentParcelId ?? body?.parcelId;
   if (parcelIdToCheck) {
-    const owned = await prisma.landParcel.findFirst({ where: { id: parcelIdToCheck, landPurchase: { companyId: company.id }, deletedAt: null }, select: { id: true } });
+    const owned = await prisma.landParcel.findFirst({ where: { id: parcelIdToCheck, landPurchase: { companyId: company.id }, deletedAt: null, ...await scopeWhere("LandParcel", {}) }, select: { id: true } });
     if (!owned) return json({ error: "Parcel not found" }, { status: 404 });
   }
 

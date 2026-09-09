@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getUserRole, getCompany } from "@/lib/server";
+import { toNum, getUserRole, getCompany, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { amountInWords } from "@nirman/services";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
@@ -29,7 +29,7 @@ export default async function SaleInvoicePage({
   const company = await getCompany();
 
   const sale = await prisma.assetSale.findFirst({
-    where: { id, companyId: company.id },
+    where: {...await scopeWhere("AssetSale"),  id, companyId: company.id },
     include: {
       customer: { select: { name: true, phone: true, email: true, address: true, gstin: true } },
       project: { select: { name: true, reraNumber: true } },
@@ -49,10 +49,10 @@ export default async function SaleInvoicePage({
 
   // Fetch land parcel or built unit separately (no direct relation on AssetSale)
   const landParcel = sale.landParcelId
-    ? await prisma.landParcel.findFirst({ where: { id: sale.landParcelId, deletedAt: null }, select: { number: true, area: true, areaUnit: true } })
+    ? await prisma.landParcel.findFirst({ where: {...await scopeWhere("LandParcel"),  id: sale.landParcelId, deletedAt: null }, select: { number: true, area: true, areaUnit: true } })
     : null;
   const builtUnit = sale.builtUnitId
-    ? await prisma.builtUnit.findFirst({ where: { id: sale.builtUnitId, deletedAt: null }, select: { unitNumber: true, unitType: true, area: true, areaUnit: true, carpetArea: true, superBuiltUpArea: true } })
+    ? await prisma.builtUnit.findFirst({ where: {...await scopeWhere("BuiltUnit"),  id: sale.builtUnitId, deletedAt: null }, select: { unitNumber: true, unitType: true, area: true, areaUnit: true, carpetArea: true, superBuiltUpArea: true } })
     : null;
 
   const salePrice = toNum(sale.salePrice);

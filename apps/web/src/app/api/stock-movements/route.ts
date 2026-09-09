@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
 
@@ -36,6 +36,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   // Build where: filter by company via location membership.
   // A movement belongs to the company if either its from/to location is in the company.
   const where: Record<string, unknown> = {
+    ...await scopeWhere("StockMovement"),
     OR: [
       { fromLocationId: { in: companyLocationIds } },
       { toLocationId: { in: companyLocationIds } },

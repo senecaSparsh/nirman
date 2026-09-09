@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM, ALL_ROLES, canAssignRole, isCustomRole, canAssignCustomRole, type Role } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 import { normalizePhone } from "@/lib/phone-otp";
@@ -47,7 +48,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const actorRole = session.role;
 
   const body = await req.json();
-  const { name, email, role, phone, password, employeeCode, designation, department, joiningDate, employmentEndDate, mustChangePassword } = body as {
+  const { name, email, role, phone, password, employeeCode, designation, department, joiningDate, employmentEndDate, mustChangePassword, employeeId } = body as {
     name?: string;
     email?: string;
     role?: string;
@@ -59,6 +60,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     joiningDate?: string;
     employmentEndDate?: string;
     mustChangePassword?: boolean;
+    employeeId?: string;
   };
 
   // ── Validate inputs ──
@@ -208,7 +210,24 @@ export const POST = apiHandler(async (req: NextRequest) => {
   //    unlinked Employee in this company, auto-link them so the Employee
   //    gets a login account without duplication. ──
   let autoLinkedEmployee: { id: string; name: string } | null = null;
-  if (normalizedPhone) {
+
+  // Explicit employeeId takes priority (from the employee profile provision flow)
+  if (employeeId) {
+    const targetEmployee = await prisma.employee.findFirst({
+      where: { id: employeeId, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
+      select: { id: true, name: true, userId: true },
+    });
+    if (targetEmployee && !targetEmployee.userId) {
+      await prisma.employee.update({
+        where: { id: targetEmployee.id },
+        data: { userId: result.id },
+      });
+      autoLinkedEmployee = { id: targetEmployee.id, name: targetEmployee.name };
+    }
+  }
+
+  // Fall back to phone-based auto-linking if no explicit employeeId was provided
+  if (!autoLinkedEmployee && normalizedPhone) {
     const matchingEmployee = await prisma.employee.findFirst({
       where: {
         companyId: company.id,
@@ -216,6 +235,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         userId: null,
         // Match by phone (last 10 digits, ignoring formatting)
         phone: { contains: normalizedPhone.slice(-4) },
+        ...await scopeWhere("Employee"),
       },
       select: { id: true, name: true, phone: true },
     });
@@ -234,6 +254,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const loginHint = normalizedPhone
     ? `phone number ${phone} and the password you set`
     : `email ${result.email} and the password you set`;
+
+  // Revalidate employee pages if we linked to an employee
+  if (autoLinkedEmployee) {
+    revalidatePath(`/m/hr/employees/${autoLinkedEmployee.id}`);
+  }
+  revalidatePath("/m/hr/employees");
 
   return json({
     id: result.id,

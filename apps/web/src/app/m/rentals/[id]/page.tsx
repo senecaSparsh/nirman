@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileRentalDetailClient } from "./MobileRentalDetailClient";
@@ -27,7 +27,7 @@ export default function MobileRentalDetailPage({
         const canSell = hasPermission(role, PERM.SALE_CREATE);
 
         const tenancy = await prisma.tenancy.findFirst({
-          where: { id, companyId: company.id },
+          where: {...await scopeWhere("Tenancy"),  id, companyId: company.id },
           include: {
             customer: { select: { id: true, name: true, phone: true, email: true } },
             project: { select: { id: true, name: true } },
@@ -45,13 +45,13 @@ export default function MobileRentalDetailPage({
         const [unit, parcel] = await Promise.all([
           tenancy.builtUnitId
             ? prisma.builtUnit.findFirst({
-                where: { id: tenancy.builtUnitId, deletedAt: null },
+                where: {...await scopeWhere("BuiltUnit"),  id: tenancy.builtUnitId, deletedAt: null },
                 select: { id: true, unitNumber: true, unitType: true, area: true, areaUnit: true },
               })
             : null,
           tenancy.landParcelId
             ? prisma.landParcel.findFirst({
-                where: { id: tenancy.landParcelId, deletedAt: null },
+                where: {...await scopeWhere("LandParcel"),  id: tenancy.landParcelId, deletedAt: null },
                 select: { id: true, number: true, area: true, areaUnit: true, landPurchaseId: true },
               })
             : null,

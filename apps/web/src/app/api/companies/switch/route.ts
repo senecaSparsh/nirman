@@ -26,7 +26,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     where: {
       id: companyId,
       deletedAt: null,
-      ...(isDevBypass ? {} : { userMemberships: { some: { userId: user.id } } }),
+      ...(isDevBypass ? {} : { userMemberships: { some: { userId: user.id, active: true } } }),
     },
     select: { id: true, name: true },
   });

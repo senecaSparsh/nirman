@@ -40,6 +40,7 @@ import {
   type RouteEntry,
 } from "@/lib/route-manifest";
 import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
+import { arrivedInternally } from "@/lib/mobile-nav";
 import type { NavBootstrap } from "@/lib/server";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -67,6 +68,8 @@ interface CompanyInfo {
   role: string;
   parentCompanyId: string | null;
   permissions: string[];
+  /** Current user's display name — shown in the NavSheet profile section. */
+  userName: string;
 }
 
 type CompanyOption = {
@@ -103,12 +106,14 @@ export function MobileShellV2({
           role: initial.me.role,
           parentCompanyId: initial.company.parentCompanyId,
           permissions: initial.me.permissions,
+          userName: initial.me.name ?? "User",
         }
       : {
           name: "Nirman",
           role: "PROJECT_MANAGER",
           parentCompanyId: null,
           permissions: [],
+          userName: "User",
         },
   );
   const [companies, setCompanies] = useState<CompanyOption[]>(initial?.company.companies ?? []);
@@ -175,6 +180,7 @@ export function MobileShellV2({
           permissions: Array.isArray(me?.permissions) && me.permissions.length > 0
             ? me.permissions
             : prev.permissions,
+          userName: me?.name ?? prev.userName,
         }));
       }
       if (Array.isArray(company?.companies)) setCompanies(company.companies);
@@ -544,8 +550,10 @@ function MobileShellInner({
     const elapsed = Date.now() - touchStart.current.time;
     if (touchStart.current.edge === "left") {
       if (swipeOffset > 80 || (swipeOffset > 40 && elapsed < 300)) {
-        // Edge-swipe = Back (OS convention), not Up
-        if (typeof window !== "undefined" && window.history.length > 1) {
+        // Edge-swipe = Back (OS convention). Use arrivedInternally() for
+        // the same smart-back logic as MobileBackButton: router.back() if
+        // we arrived via an in-app navigation, otherwise go to the parent.
+        if (arrivedInternally()) {
           router.back();
         } else {
           goUp();
@@ -563,10 +571,8 @@ function MobileShellInner({
   };
 
   // ── Up navigation (deterministic, deep-link safe) ──
-  // The header chevron is Up (parent from the route manifest), not Back.
-  // Edge-swipe remains Back (router.back) to match OS convention.
-  // Fixes D7: goBack() used to call router.back() which could leave the app
-  // on a WhatsApp deep link. Now the chevron always goes to the parent route.
+  // The header chevron uses smart-back: router.back() if arrived internally,
+  // otherwise go to the parent route. This matches the edge-swipe behavior.
   const upTarget = manifestUpHref(pathname);
   function goUp() {
     if (upTarget) {
@@ -574,6 +580,13 @@ function MobileShellInner({
     } else {
       // No parent — go home
       router.push("/m/home");
+    }
+  }
+  function goBack() {
+    if (arrivedInternally()) {
+      router.back();
+    } else {
+      goUp();
     }
   }
 
@@ -654,7 +667,7 @@ function MobileShellInner({
           <div className="flex items-center gap-0 min-w-0">
             {isDrillDown && (
               <button
-                onClick={goUp}
+                onClick={goBack}
                 aria-label="Go back"
                 className="press grid place-items-center size-8 rounded-[0.375rem] text-m-body"
                 style={{ color: "var(--color-ink-700)" }}
@@ -916,6 +929,8 @@ function MobileShellInner({
         moduleId={activeTab?.module ?? manifestMatchRoute(pathname)?.module ?? "home"}
         persona={persona}
         permissions={companyInfo.permissions}
+        userName={companyInfo.userName}
+        companyName={companyInfo.name}
       />
 
       {/* ══ TAB SWITCHER — right-edge swipe-left expands, persists as rail ══ */}

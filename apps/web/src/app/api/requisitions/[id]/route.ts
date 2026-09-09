@@ -10,7 +10,7 @@ import {
   logAction,
 } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, ForbiddenError, getCompany, json, requirePermission, requireUser, toNum, UnauthorizedError } from "@/lib/server";
+import { apiHandler, ForbiddenError, getCompany, json, requirePermission, requireUser, toNum, UnauthorizedError, scopeWhere } from "@/lib/server";
 import { z } from "zod";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -19,7 +19,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
   const req = await prisma.materialRequisition.findFirst({
-    where: { id, project: { companyId: company.id } },
+    where: { id, project: { companyId: company.id }, ...await scopeWhere("MaterialRequisition") },
     include: {
       project: { select: { id: true, name: true } },
       phase: { select: { id: true, name: true } },
@@ -118,7 +118,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   await requireUser();
   const { id } = await params;
   const company = await getCompany();
-  const existing = await prisma.materialRequisition.findFirst({ where: { id, project: { companyId: company.id } }, select: { id: true } });
+  const existing = await prisma.materialRequisition.findFirst({ where: { id, project: { companyId: company.id }, ...await scopeWhere("MaterialRequisition") }, select: { id: true } });
   if (!existing) return json({ error: "Indent not found" }, { status: 404 });
   const body = await req.json();
   const action = body?.action as string;
@@ -135,7 +135,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       const user = await requirePermission(PERM.REQUISITION_APPROVE);
       // Prevent self-approval — the requester cannot approve their own indent.
       const req = await prisma.materialRequisition.findFirst({
-        where: { id, project: { companyId: company.id } },
+        where: { id, project: { companyId: company.id }, ...await scopeWhere("MaterialRequisition") },
         select: { requestedById: true },
       });
       if (req?.requestedById === user.id) {
@@ -150,7 +150,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       const user = await requirePermission(PERM.REQUISITION_APPROVE);
       // Prevent self-rejection — same logic as self-approval.
       const req = await prisma.materialRequisition.findFirst({
-        where: { id, project: { companyId: company.id } },
+        where: { id, project: { companyId: company.id }, ...await scopeWhere("MaterialRequisition") },
         select: { requestedById: true },
       });
       if (req?.requestedById === user.id) {
@@ -203,7 +203,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const company = await getCompany();
   const { id } = await params;
   const req = await prisma.materialRequisition.findFirst({
-    where: { id, project: { companyId: company.id } },
+    where: { id, project: { companyId: company.id }, ...await scopeWhere("MaterialRequisition") },
   });
   if (!req) return json({ error: "Indent not found" }, { status: 404 });
   // Only allow deleting draft or rejected requisitions

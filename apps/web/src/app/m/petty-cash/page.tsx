@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobilePettyCashList, type PettyCashFloatListItem } from "./MobilePettyCashList";
@@ -13,7 +13,7 @@ export default function MobilePettyCashPage() {
     <MobileListPage managePerm={PERM.FINANCE_MANAGE} skeletonRows={4}>
       {async ({ company, canManage }) => {
         const floats = await prisma.pettyCashFloat.findMany({
-          where: { companyId: company.id },
+          where: {...await scopeWhere("PettyCashFloat"),  companyId: company.id },
           orderBy: { name: "asc" },
           include: {
             project: { select: { id: true, name: true } },

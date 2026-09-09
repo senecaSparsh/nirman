@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { verifyMbEntry, approveMbEntry, rejectMbEntry } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, requireUser } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireUser, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -12,7 +12,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
   const entry = await prisma.measurementBookEntry.findFirst({
-    where: { id, project: { companyId: company.id } },
+    where: { id, project: { companyId: company.id }, ...await scopeWhere("MeasurementBookEntry") },
     include: {
       project: { select: { id: true, name: true } },
       phase: { select: { id: true, name: true } },
@@ -71,7 +71,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const { id } = await params;
 
   const entry = await prisma.measurementBookEntry.findFirst({
-    where: { id, project: { companyId: company.id } },
+    where: { id, project: { companyId: company.id }, ...await scopeWhere("MeasurementBookEntry") },
     select: { id: true, status: true },
   });
   if (!entry) return json({ error: "MB entry not found" }, { status: 404 });

@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
@@ -15,7 +15,7 @@ export default function MobileSaleDetailPage({
     <MobileDetailPage params={params} skeletonSections={6}>
       {async ({ id, company, role }) => {
         const sale = await prisma.assetSale.findFirst({
-          where: { id, companyId: company.id },
+          where: {...await scopeWhere("AssetSale"),  id, companyId: company.id },
           include: {
             customer: { select: { id: true, name: true, phone: true } },
             project: { select: { id: true, name: true } },
@@ -40,7 +40,7 @@ export default function MobileSaleDetailPage({
         // AssetSale has no landParcel relation (only landParcelId) — fetch separately.
         const landParcel = sale?.landParcelId
           ? await prisma.landParcel.findFirst({
-              where: { id: sale.landParcelId, deletedAt: null },
+              where: {...await scopeWhere("LandParcel"),  id: sale.landParcelId, deletedAt: null },
               select: { id: true, number: true, area: true, areaUnit: true },
             })
           : null;

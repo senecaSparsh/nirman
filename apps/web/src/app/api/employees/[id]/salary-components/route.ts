@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { setSalaryComponents, HrError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { setSalaryComponents, autoCompleteOnboarding, HrError } from "@nirman/services";
+import { apiHandler, getCompany, json, requirePermission, toNum, assertCanManageEmployee, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -14,7 +15,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const { id } = await params;
 
   const employee = await prisma.employee.findFirst({
-    where: { id, companyId: company.id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
     select: { id: true },
   });
   if (!employee) return json({ error: "Employee not found" }, { status: 404 });
@@ -75,6 +76,12 @@ export const PUT = apiHandler(async (req: NextRequest, { params }: { params: Pro
   const company = await getCompany();
   const { id } = await params;
 
+  try {
+    await assertCanManageEmployee(id, company.id);
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Hierarchy violation" }, { status: 403 });
+  }
+
   const body = await req.json();
   const components = body.components;
   if (!Array.isArray(components)) {
@@ -85,6 +92,11 @@ export const PUT = apiHandler(async (req: NextRequest, { params }: { params: Pro
     const result = await setSalaryComponents(id, company.id, session.id, components, {
       changedBy: session.id,
     });
+    await autoCompleteOnboarding(id, company.id).catch(() => {});
+    revalidatePath(`/m/hr/employees/${id}`);
+    revalidatePath(`/hr/employees/${id}`);
+    revalidatePath(`/m/hr/onboarding/${id}`);
+    revalidatePath("/m/hr/onboarding");
     return json({ ok: true, count: result.length });
   } catch (err: unknown) {
     if (err instanceof HrError) {

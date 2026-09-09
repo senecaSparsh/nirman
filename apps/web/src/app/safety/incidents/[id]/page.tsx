@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { notFound } from "next/navigation";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
@@ -27,7 +27,7 @@ async function IncidentDetailContent({ id }: { id: string }) {
   const canManage = hasPermission(role, PERM.SAFETY_MANAGE);
 
   const incident = await prisma.safetyIncident.findFirst({
-    where: { id, companyId: company.id },
+    where: {...await scopeWhere("SafetyIncident"),  id, companyId: company.id },
     include: {
       project: { select: { id: true, name: true } },
       wbsNode: { select: { id: true, code: true, name: true } },

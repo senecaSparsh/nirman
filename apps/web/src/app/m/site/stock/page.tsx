@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, toNum, scopeWhere } from "@/lib/server";
 import { MobileSiteStockList } from "./MobileSiteStockList";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
@@ -37,7 +37,7 @@ async function SiteStockContent() {
       orderBy: { name: "asc" },
     }),
     prisma.stockMovement.findMany({
-      where: { OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] },
+      where: {...await scopeWhere("StockMovement"),  OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] },
       orderBy: { timestamp: "desc" },
       take: 5,
       include: {

@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { prisma } from "@nirman/db";
 import { getTallySyncStats, getSupplierOutstanding } from "@nirman/services";
-import { getCompany, getUserRole, getCurrentUser, toNum } from "@/lib/server";
+import { getCompany, getUserRole, getCurrentUser, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils";
@@ -491,7 +491,7 @@ async function AccountsExpensesTab() {
 
   const BATCH_SIZE = 40;
   const expenses = await prisma.expense.findMany({
-    where: { companyId: company.id },
+    where: {...await scopeWhere("Expense"),  companyId: company.id },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: BATCH_SIZE + 1,
     include: {
@@ -562,7 +562,7 @@ async function AccountsClaimsTab() {
 
   const BATCH_SIZE = 40;
   const claims = await prisma.expenseClaim.findMany({
-    where: { companyId: company.id },
+    where: {...await scopeWhere("ExpenseClaim"),  companyId: company.id },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: BATCH_SIZE + 1,
     include: {
@@ -612,7 +612,7 @@ async function AccountsPettyCashTab() {
   const canManage = hasPermission(role, PERM.FINANCE_MANAGE);
 
   const floats = await prisma.pettyCashFloat.findMany({
-    where: { companyId: company.id },
+    where: {...await scopeWhere("PettyCashFloat"),  companyId: company.id },
     orderBy: { name: "asc" },
     include: {
       project: { select: { id: true, name: true } },

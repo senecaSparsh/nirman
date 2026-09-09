@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getUserRole, getCompany, getCompanyGroupIds } from "@/lib/server";
+import { toNum, getUserRole, getCompany, getCompanyGroupIds, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { amountInWords } from "@nirman/services";
 import {formatCurrency} from "@/lib/utils";
@@ -31,7 +31,7 @@ export default async function GoodsReceiptChallanPage({
   const groupCompanyIds = await getCompanyGroupIds(company);
 
   const receipt = await prisma.goodsReceipt.findFirst({
-    where: {
+    where: {...await scopeWhere("GoodsReceipt"), 
       id,
       location: { companyId: { in: groupCompanyIds } },
     },

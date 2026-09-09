@@ -785,3 +785,21 @@ export function migrateRole(raw: string | undefined | null): Role | null {
   if (raw in LEGACY_ROLE_MAP) return LEGACY_ROLE_MAP[raw] ?? null;
   return null;
 }
+
+/** Visual metadata for each built-in role (color, label, icon name). */
+export const ROLE_META: Record<Role, { color: string; label: string; icon: string }> = {
+  OWNER: { color: "var(--color-ink-500)", label: "Owner", icon: "Crown" },
+  ADMIN: { color: "var(--color-ink-500)", label: "Admin", icon: "Shield" },
+  DEVELOPER: { color: "var(--color-ink-500)", label: "Developer", icon: "Code" },
+  PROJECT_DIRECTOR: { color: "var(--color-go)", label: "Project Director", icon: "UserCog" },
+  FINANCE_HEAD: { color: "var(--color-go)", label: "Finance Head", icon: "UserCog" },
+  PROJECT_MANAGER: { color: "var(--color-go)", label: "Project Manager", icon: "UserCog" },
+  PROCUREMENT_MANAGER: { color: "var(--color-signal)", label: "Procurement Manager", icon: "CircleDot" },
+  HR_MANAGER: { color: "var(--color-signal)", label: "HR Manager", icon: "CircleDot" },
+  SITE_ENGINEER: { color: "var(--color-signal)", label: "Site Engineer", icon: "CircleDot" },
+  STORE_KEEPER: { color: "var(--color-signal)", label: "Store Keeper", icon: "CircleDot" },
+  ACCOUNTANT: { color: "var(--color-signal)", label: "Accountant", icon: "CircleDot" },
+  SALES_MANAGER: { color: "var(--color-signal)", label: "Sales Manager", icon: "CircleDot" },
+  SUPERVISOR: { color: "var(--color-signal)", label: "Supervisor", icon: "CircleDot" },
+  QAQC_ENGINEER: { color: "var(--color-signal)", label: "QA/QC Engineer", icon: "CircleDot" },
+};

@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
@@ -35,7 +35,7 @@ export default async function TenancyDraftPage({
   }
 
   const tenancy = await prisma.tenancy.findFirst({
-    where: { id, companyId: company.id },
+    where: {...await scopeWhere("Tenancy"),  id, companyId: company.id },
     include: {
       customer: { select: { name: true, phone: true, email: true, address: true } },
       project: { select: { name: true } },

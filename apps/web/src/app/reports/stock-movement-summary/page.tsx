@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma, type StockMovementType } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
@@ -58,7 +58,7 @@ async function StockMovementSummaryContent({
   const [inBefore, outBefore, inPeriod, outPeriod, locationItems] = await Promise.all([
     prisma.stockMovement.findMany({
       take: 200,
-      where: {
+      where: {...await scopeWhere("StockMovement"), 
         movementType: { in: IN_TYPES },
         toLocation: { companyId: company.id, deletedAt: null },
         timestamp: { lt: fromDate },
@@ -67,7 +67,7 @@ async function StockMovementSummaryContent({
     }),
     prisma.stockMovement.findMany({
       take: 200,
-      where: {
+      where: {...await scopeWhere("StockMovement"), 
         movementType: { in: OUT_TYPES },
         fromLocation: { companyId: company.id, deletedAt: null },
         timestamp: { lt: fromDate },
@@ -76,7 +76,7 @@ async function StockMovementSummaryContent({
     }),
     prisma.stockMovement.findMany({
       take: 500,
-      where: {
+      where: {...await scopeWhere("StockMovement"), 
         movementType: { in: IN_TYPES },
         toLocation: { companyId: company.id, deletedAt: null },
         timestamp: { gte: fromDate, lte: toDate },
@@ -89,7 +89,7 @@ async function StockMovementSummaryContent({
     }),
     prisma.stockMovement.findMany({
       take: 500,
-      where: {
+      where: {...await scopeWhere("StockMovement"), 
         movementType: { in: OUT_TYPES },
         fromLocation: { companyId: company.id, deletedAt: null },
         timestamp: { gte: fromDate, lte: toDate },

@@ -16,6 +16,7 @@ import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobi
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import type { ActionPermissions } from "@/lib/server";
 
 export type DepartmentListItem = {
   id: string;
@@ -44,6 +45,7 @@ export function MobileDepartmentsList({
   activeCount,
   withStockRoom,
   canManage,
+  actions,
   exportTitle,
   exportRows,
   exportColumns,
@@ -53,6 +55,7 @@ export function MobileDepartmentsList({
   activeCount: number;
   withStockRoom: number;
   canManage?: boolean;
+  actions?: ActionPermissions;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
@@ -93,7 +96,7 @@ export function MobileDepartmentsList({
           title="No departments yet"
           hint={canManage ? "Tap + to create your first department" : "Departments will appear here once created."}
         />
-        {canManage ? (
+        {(actions?.canCreateDepartment ?? canManage) ? (
           <>
             <MobileFab onClick={fab.toggle} label="Add department" isOpen={fab.isOpen} />
             <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="Add Department">
@@ -165,7 +168,7 @@ export function MobileDepartmentsList({
         </MobileCardGrid>
       )}
 
-      {canManage ? (
+      {(actions?.canCreateDepartment ?? canManage) ? (
         <>
           <MobileFab onClick={fab.toggle} label="Add department" isOpen={fab.isOpen} />
           <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="Add Department">

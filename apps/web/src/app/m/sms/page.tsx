@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileSmsIngest } from "./MobileSmsIngest";
@@ -18,6 +18,7 @@ export default function MobileSmsPage() {
   return (
     <MobileListPage perm={PERM.SALES_VIEW} what="SMS log" permission="sales.view" managePerm={PERM.SALE_CREATE}>
       {async ({ company, canManage }) => {
+        const actions = await getActionPermissions();
         const [smsRecords, stats] = await Promise.all([
           prisma.bankSms.findMany({
             where: { companyId: company.id },
@@ -44,7 +45,7 @@ export default function MobileSmsPage() {
               <h1 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
                 Bank SMS
               </h1>
-              {canManage && <MobileSmsIngest />}
+              {(actions?.canCreateSms ?? canManage) && <MobileSmsIngest />}
             </div>
 
             {/* Stats */}

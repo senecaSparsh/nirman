@@ -42,7 +42,7 @@ export async function POST(req: Request) {
       deletedAt: null,
       ...(isDevBypass
         ? {}
-        : { userMemberships: { some: { userId: user.id } } }),
+        : { userMemberships: { some: { userId: user.id, active: true } } }),
     },
   });
 

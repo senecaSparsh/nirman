@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { softDelete, logAction, reallocateProjectCosts, postLandPurchase, reverseJournalEntry, refreshLandTotalCost, recomputeLandTotalCost, scheduledTotal, ServiceError } from "@nirman/services";
 import Decimal from "decimal.js";
-import { apiHandler, getCompany, json, requirePermission, toNum, landPurchaseEditSchema } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, landPurchaseEditSchema, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -12,7 +12,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
   const company = await getCompany();
   const { id } = await ctx.params;
   const lp = await prisma.landPurchase.findFirst({
-    where: { id, companyId: company.id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("LandPurchase", {}) },
     include: {
       project: { select: { name: true } },
       parcels: {
@@ -36,7 +36,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
   }
   // Re-fetch after recompute so the response reflects any accrual.
   const lpFresh = await prisma.landPurchase.findFirst({
-    where: { id, companyId: company.id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("LandPurchase", {}) },
     include: { costComponents: { orderBy: { createdAt: "asc" } } },
   });
   const totalCost = lpFresh ? toNum(lpFresh.totalCost) : toNum(lp.totalCost);
@@ -145,6 +145,17 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+  try {
+    await assertScopeAllows({
+      projectId: parsed.data.projectId ?? null,
+      departmentId: null,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Scope violation" },
+      { status: 403 },
+    );
+  }
   const data: Record<string, unknown> = {};
   if (parsed.data.projectId !== undefined) data.projectId = parsed.data.projectId;
   if (parsed.data.sellerId !== undefined) data.sellerId = parsed.data.sellerId;
@@ -228,7 +239,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   const updated = await withSerializableTransaction(async (tx) => {
     // Fetch the existing land purchase (need old totalCost + baseCost for delta calc)
     const existing = await tx.landPurchase.findFirst({
-      where: { id, companyId: company.id, deletedAt: null },
+      where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("LandPurchase", {}) },
       include: { parcels: { where: { deletedAt: null, parentParcelId: null } } },
     });
     if (!existing) throw new ServiceError("Land purchase not found", 404);
@@ -315,7 +326,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   await requirePermission(PERM.ASSETS_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
-  const existing = await prisma.landPurchase.findFirst({ where: { id, companyId: company.id, deletedAt: null }, select: { id: true } });
+  const existing = await prisma.landPurchase.findFirst({ where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("LandPurchase", {}) }, select: { id: true } });
   if (!existing) return json({ error: "Land purchase not found" }, { status: 404 });
   try {
     await softDelete("LandPurchase", id);

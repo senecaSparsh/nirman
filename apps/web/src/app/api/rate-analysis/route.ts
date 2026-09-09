@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { createRateAnalysis, getRateAnalysis } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -30,8 +30,15 @@ const createSchema = z.object({
 // GET /api/rate-analysis?boqItemId=xxx
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.ASSETS_VIEW);
+  const company = await getCompany();
   const boqItemId = req.nextUrl.searchParams.get("boqItemId");
   if (!boqItemId) return json({ error: "boqItemId is required" }, { status: 400 });
+  // Verify scope before returning
+  const existing = await prisma.boqItem.findFirst({
+    where: { id: boqItemId, project: { companyId: company.id }, ...await scopeWhere("BoqItem", {}) },
+    select: { id: true },
+  });
+  if (!existing) return json({ error: "BOQ item not found" }, { status: 404 });
   const ra = await getRateAnalysis(boqItemId);
   return json(ra);
 });
@@ -48,7 +55,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   // Verify the BOQ item belongs to a project in the user's company
   const boqItem = await prisma.boqItem.findFirst({
-    where: { id: parsed.data.boqItemId },
+    where: { id: parsed.data.boqItemId, ...await scopeWhere("BoqItem", {}) },
     include: { project: { select: { companyId: true } } },
   });
   if (!boqItem) return json({ error: "BOQ item not found" }, { status: 404 });

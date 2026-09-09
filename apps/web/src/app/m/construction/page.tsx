@@ -9,7 +9,7 @@ import {
   FileText,
   Package,
 } from "lucide-react";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum, scopeWhere, getActionPermissions, filterOptionsByScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
@@ -102,10 +102,12 @@ async function ConstructionWorkOrdersTab() {
   const company = await getCompany();
   const role = await getUserRole();
   const canManage = hasPermission(role, PERM.ASSETS_MANAGE);
+  // Scope-aware action permissions (for FAB gating)
+  const actions = await getActionPermissions();
 
   const [workOrders, projects, subcontractors] = await Promise.all([
     prisma.subcontractorWorkOrder.findMany({
-      where: { companyId: company.id },
+      where: {...await scopeWhere("SubcontractorWorkOrder"),  companyId: company.id },
       orderBy: { createdAt: "desc" },
       take: 50,
       include: {
@@ -114,14 +116,17 @@ async function ConstructionWorkOrdersTab() {
         _count: { select: { raBills: true, lines: true } },
       },
     }),
-    canManage
-      ? prisma.project.findMany({
-          where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
-          orderBy: { name: "asc" },
-          select: { id: true, name: true },
-        })
+    actions.canCreateWorkOrder
+      ? filterOptionsByScope(
+          await prisma.project.findMany({
+            where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+            orderBy: { name: "asc" },
+            select: { id: true, name: true },
+          }),
+          actions.allowedProjectIds,
+        )
       : [],
-    canManage
+    actions.canCreateWorkOrder
       ? prisma.subcontractor.findMany({
           where: { companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
@@ -178,7 +183,7 @@ async function ConstructionWorkOrdersTab() {
           hasSubcontractors={subcontractors.length > 0}
         />
       )}
-      {canManage && projects.length > 0 && subcontractors.length > 0 && (
+      {actions.canCreateWorkOrder && projects.length > 0 && subcontractors.length > 0 && (
         <MobileWorkOrdersFab projects={projects} subcontractors={subcontractors} />
       )}
     </div>
@@ -190,10 +195,11 @@ async function ConstructionChangeOrdersTab() {
   const company = await getCompany();
   const role = await getUserRole();
   const canManage = hasPermission(role, PERM.WO_MANAGE);
+  const actions = await getActionPermissions();
 
   const [changeOrders, projects] = await Promise.all([
     prisma.changeOrder.findMany({
-      where: { companyId: company.id },
+      where: {...await scopeWhere("ChangeOrder"),  companyId: company.id },
       orderBy: { createdAt: "desc" },
       take: 50,
       include: {
@@ -258,7 +264,7 @@ async function ConstructionChangeOrdersTab() {
           hint={canManage ? (projects.length === 0 ? "Create a project first, then track scope changes here" : "Tap + to create a change order for a project") : "Change orders will appear here"}
         />
       )}
-      {canManage && projects.length > 0 && <MobileChangeOrdersFab projects={projects} />}
+      {(actions?.canCreateChangeOrder ?? canManage) && projects.length > 0 && <MobileChangeOrdersFab projects={projects} />}
     </div>
   );
 }
@@ -268,10 +274,11 @@ async function ConstructionQualityTab() {
   const company = await getCompany();
   const role = await getUserRole();
   const canManage = hasPermission(role, PERM.WO_MANAGE);
+  const actions = await getActionPermissions();
 
   const [ncrs, projects, subcontractors] = await Promise.all([
     prisma.nonConformanceReport.findMany({
-      where: { companyId: company.id },
+      where: {...await scopeWhere("NonConformanceReport"),  companyId: company.id },
       orderBy: { createdAt: "desc" },
       take: 50,
       include: {
@@ -354,7 +361,7 @@ async function ConstructionQualityTab() {
           hint={canManage ? (projects.length === 0 ? "Create a project first, then raise NCRs for quality issues" : "Tap + to raise a Non-Conformance Report") : "NCRs will appear here"}
         />
       )}
-      {canManage && projects.length > 0 && (
+      {(actions?.canCreateNcr ?? canManage) && projects.length > 0 && (
         <MobileNcrFab projects={projects} subcontractors={subcontractors} />
       )}
     </div>
@@ -369,19 +376,19 @@ async function ConstructionSafetyTab() {
 
   const [incidents, hazards, inspections, projects] = await Promise.all([
     prisma.safetyIncident.findMany({
-      where: { companyId: company.id },
+      where: {...await scopeWhere("SafetyIncident"),  companyId: company.id },
       orderBy: { incidentDate: "desc" },
       take: 50,
       include: { project: { select: { id: true, name: true } } },
     }),
     prisma.safetyHazard.findMany({
-      where: { companyId: company.id },
+      where: {...await scopeWhere("SafetyHazard"),  companyId: company.id },
       orderBy: [{ riskLevel: "desc" }, { createdAt: "desc" }],
       take: 50,
       include: { project: { select: { id: true, name: true } } },
     }),
     prisma.safetyInspection.findMany({
-      where: { companyId: company.id },
+      where: {...await scopeWhere("SafetyInspection"),  companyId: company.id },
       orderBy: { scheduledDate: "desc" },
       take: 50,
       include: { project: { select: { id: true, name: true } } },
@@ -575,6 +582,7 @@ async function ConstructionBoqTab({ projectId }: { projectId?: string }) {
       : [],
     Promise.resolve(hasPermission(role, PERM.BOQ_MANAGE)),
   ]);
+  const actions = await getActionPermissions();
 
   const { tree, totalEstimatedAmount } = boqResult;
   const rows: BoqRow[] = [];
@@ -603,7 +611,7 @@ async function ConstructionBoqTab({ projectId }: { projectId?: string }) {
           {rows.map((row) => <BoqRowCard key={row.id} row={row} />)}
         </div>
       )}
-      {canManage && (
+      {(actions?.canCreateBoq ?? canManage) && (
         <MobileBoqFab
           projectId={projectId}
           parentItems={parentItems}
@@ -620,6 +628,7 @@ async function ConstructionWbsTab({ projectId }: { projectId?: string }) {
   const role = await getUserRole();
   const canView = hasPermission(role, PERM.WBS_VIEW);
   const canManage = hasPermission(role, PERM.WBS_MANAGE);
+  const actions = await getActionPermissions();
 
   const projects = await prisma.project.findMany({
     where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
@@ -644,7 +653,7 @@ async function ConstructionWbsTab({ projectId }: { projectId?: string }) {
     getWbsTree(projectId),
     canManage
       ? prisma.boqItem.findMany({
-          where: { projectId, type: "LINE_ITEM" },
+          where: {...await scopeWhere("BoqItem"),  projectId, type: "LINE_ITEM" },
           orderBy: { serialNo: "asc" },
           select: { id: true, serialNo: true, description: true, unit: true },
         })
@@ -697,7 +706,7 @@ async function ConstructionWbsTab({ projectId }: { projectId?: string }) {
       ) : (
         <div className="flex flex-col gap-1.5">{nodes.map((n) => renderNode(n, 0))}</div>
       )}
-      {canManage && (
+      {(actions?.canCreateWbs ?? canManage) && (
         <MobileWbsFab
           projectId={projectId}
           parentNodes={parentNodes}
@@ -732,7 +741,7 @@ async function ConstructionMbTab({ projectId }: { projectId?: string }) {
 
   const [entries, boqItems, wbsNodes] = await Promise.all([
     prisma.measurementBookEntry.findMany({
-      where: { projectId },
+      where: {...await scopeWhere("MeasurementBookEntry"),  projectId },
       orderBy: { measureDate: "desc" },
       take: 50,
       include: {
@@ -741,12 +750,12 @@ async function ConstructionMbTab({ projectId }: { projectId?: string }) {
       },
     }),
     prisma.boqItem.findMany({
-      where: { projectId, type: "LINE_ITEM" },
+      where: {...await scopeWhere("BoqItem"),  projectId, type: "LINE_ITEM" },
       orderBy: { serialNo: "asc" },
       select: { id: true, serialNo: true, description: true, unit: true, rate: true },
     }),
     prisma.wbsNode.findMany({
-      where: { projectId },
+      where: {...await scopeWhere("WbsNode"),  projectId },
       orderBy: { code: "asc" },
       select: { id: true, code: true, name: true, boqItemId: true },
     }),

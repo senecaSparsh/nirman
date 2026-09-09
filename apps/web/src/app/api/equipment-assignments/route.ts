@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import type { EquipmentAssignmentStatus } from "@nirman/db";
 import { assignEquipment } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, equipmentAssignSchema } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, equipmentAssignSchema, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
@@ -12,7 +12,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const status = searchParams.get("status") ?? "ACTIVE";
 
   const assignments = await prisma.equipmentAssignment.findMany({
-    where: { equipment: { companyId: company.id, deletedAt: null }, ...(status ? { status: status as EquipmentAssignmentStatus } : {}) },
+    where: { equipment: { companyId: company.id, deletedAt: null }, ...(status ? { status: status as EquipmentAssignmentStatus } : {}), ...await scopeWhere("EquipmentAssignment", {}) },
     orderBy: { assignedAt: "desc" },
     include: {
       equipment: { select: { id: true, name: true, assetTag: true } },
@@ -52,6 +52,17 @@ export const POST = apiHandler(async (req: NextRequest) => {
     where: { id: parsed.data.equipmentId, companyId: company.id, deletedAt: null },
   });
   if (!equipment) return json({ error: "Equipment not found in your company" }, { status: 404 });
+  try {
+    await assertScopeAllows({
+      projectId: parsed.data.projectId ?? null,
+      departmentId: null,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Scope violation" },
+      { status: 403 },
+    );
+  }
   try {
     const assignment = await assignEquipment({
       equipmentId: parsed.data.equipmentId,

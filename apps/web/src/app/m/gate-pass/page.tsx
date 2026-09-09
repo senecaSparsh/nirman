@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import {ShieldCheck, Truck, Clock, CheckCircle, XCircle} from "lucide-react";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
@@ -21,7 +21,7 @@ export default function MobileGatePassPage() {
         const BATCH_SIZE = 40;
         const [gatePasses, locations, projects] = await Promise.all([
           prisma.gatePass.findMany({
-            where: { companyId: company.id, status: { in: ["DRAFT", "PENDING", "APPROVED", "EXITED", "REJECTED"] } },
+            where: {...await scopeWhere("GatePass"),  companyId: company.id, status: { in: ["DRAFT", "PENDING", "APPROVED", "EXITED", "REJECTED"] } },
             orderBy: [{ createdAt: "desc" }, { id: "desc" }],
             take: BATCH_SIZE + 1,
             include: {

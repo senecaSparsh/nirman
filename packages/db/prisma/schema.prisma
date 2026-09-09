@@ -83,6 +83,7 @@ model Company {
   equipment      Equipment[]
   supplierReturns SupplierReturn[]
   employees      Employee[]
+  employeeResources EmployeeResource[]
   departments    Department[]
   crews          Crew[]
   payrollPeriods PayrollPeriod[]
@@ -180,6 +181,12 @@ model UserCompany {
   // recordCalls=true will have their calls recorded. Ignored when mode is
   // ALL (everyone recorded) or NONE (no one recorded).
   recordCalls Boolean @default(false)
+
+  // ── Active flag (for multi-company termination) ──
+  // When an employee is terminated in one company, only this membership is
+  // deactivated (active=false). The User account stays active as long as the
+  // employee has at least one active membership in another company.
+  active Boolean @default(true)
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
@@ -365,6 +372,7 @@ model Employee {
   wageType       WageType @default(DAILY)
   monthlySalary  Decimal? @db.Decimal(14,2) // set when wageType = MONTHLY/FIXED
   designation    String?  // e.g. "Site Engineer", "Lead Mason", "Helper"
+  departmentId  String?  // FK to Department — for department-based scoping
   joinDate       DateTime?
   crewId         String?  // crew membership (a worker belongs to one crew)
   activeProjectId String? // current project assignment (for attendance + DPR scoping)
@@ -379,6 +387,13 @@ model Employee {
   // owner customize the reporting hierarchy independent of permissions.
   // e.g. H1=Management, H2=Manager, H3=Engineer, H4=Supervisor, H5=Skilled Labor, H6=Labor
   hierarchyLevel Int? // 1-6, null = unassigned
+  // ── On-site reporting line (Employee → Employee) ──
+  // Who this employee reports to on-site. This is independent of the
+  // UserCompany.reportsTo permission chain — it tracks the real-world
+  // reporting hierarchy (e.g. a labourer reports to their site supervisor,
+  // who reports to the project manager). Works for employees without
+  // login accounts (unlike UserCompany.reportsTo).
+  reportsToEmployeeId String?
   active    Boolean  @default(true)
   // ── Employment terms ──
   employmentType     EmploymentType? // permanent / contract / casual / probation / intern
@@ -392,10 +407,15 @@ model Employee {
   contractIssuedAt  DateTime?       // when the agreement was generated/issued
   contractConfirmedAt DateTime?     // when the employee confirmed/signed
   contractAttachmentId String?      // → EntityAttachment (the generated agreement document)
+  contractTerms     String?         // custom T&Cs text (overrides default template)
+  contractToken     String?         // shareable token for employee acceptance link
   // ── Offer letter tracking ──
   offerLetterStatus   ContractStatus? // DRAFT → ISSUED → CONFIRMED (reuses ContractStatus enum)
   offerLetterIssuedAt DateTime?       // when the offer letter was generated/issued
   offerLetterAttachmentId String?     // → EntityAttachment (the generated offer letter document)
+  offerLetterTerms   String?         // custom T&Cs text (overrides default template)
+  offerLetterAcceptedAt DateTime?    // when the employee accepted via shareable link
+  offerToken         String?         // shareable token for employee acceptance link
   // ── Employee ID card tracking ──
   idCardStatus        ContractStatus? // DRAFT → ISSUED (reuses ContractStatus enum)
   idCardIssuedAt      DateTime?       // when the ID card was generated
@@ -449,7 +469,11 @@ model Employee {
 
   crew            Crew?              @relation("CrewMembers", fields: [crewId], references: [id], onDelete: SetNull)
   activeProject   Project?           @relation("EmployeeActiveProject", fields: [activeProjectId], references: [id], onDelete: SetNull)
+  department      Department?        @relation("EmployeeDepartment", fields: [departmentId], references: [id], onDelete: SetNull)
   supervisedCrews Crew[]             @relation("CrewSupervisor")
+  // Self-relation: on-site reporting line (Employee → Employee)
+  reportsTo       Employee?          @relation("EmployeeReportsTo", fields: [reportsToEmployeeId], references: [id], onDelete: SetNull)
+  directReports   Employee[]         @relation("EmployeeReportsTo")
   attendances     WorkerAttendance[]
   payrollLines    PayrollLine[]
   dprLaborLines   DPRLaborLine[]
@@ -458,12 +482,15 @@ model Employee {
   salaryComponents SalaryComponent[] @relation("EmployeeSalaryComponents")
   salaryHistory   SalaryHistory[]   @relation("EmployeeSalaryHistory")
   exitRecord      EmployeeExit?     @relation("EmployeeExit")
+  resources       EmployeeResource[] @relation("EmployeeResources")
 
   @@index([companyId])
   @@index([deletedAt])
   @@index([userId])
   @@index([crewId])
   @@index([activeProjectId])
+  @@index([departmentId])
+  @@index([reportsToEmployeeId])
   @@index([employmentType])
   @@index([contractStatus])
   @@index([offerLetterStatus])
@@ -630,6 +657,9 @@ model User {
   image         String?
   phone         String?   // phone number for WhatsApp notifications
   phoneNormalized String? // digits-only normalized phone (for OTP lookup); indexed
+  phoneVerified Boolean?  // null=unverified, true=verified via OTP, false=failed
+  phoneVerifiedAt DateTime? // when the phone was last verified
+  phoneSyncedAt  DateTime?  // last time the number was synced with Twilio/call-tracking
   role          String    @default("PROJECT_MANAGER") // See roles.ts for full list
   active        Boolean   @default(true)
   // Enterprise employee fields
@@ -681,6 +711,7 @@ model User {
   taskComments      TaskComment[]
   taskActivities    TaskActivity[]
   taskTimeLogs      TaskTimeLog[]
+  payrollPaidLines  PayrollLine[] @relation("PayrollLinePaidBy")
   createdWorkflows  Workflow[]
   // Approval / creator attribution for transactional records
   approvedPurchaseOrders PurchaseOrder[] @relation("POApprover")
@@ -1507,6 +1538,7 @@ model Department {
   materialIssues MaterialIssue[]
   requisitions  MaterialRequisition[] // department-scoped requisitions (rice mill)
   userScopes    UserScope[]    // Sub-Admin scope entries pointing at this department
+  employees     Employee[]    @relation("EmployeeDepartment")
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -1641,11 +1673,19 @@ model PayrollLine {
   grossPay        Decimal  @default(0) @db.Decimal(14, 2) // basic + overtime + allowance + bonus
   totalDeductions Decimal  @default(0) @db.Decimal(14, 2) // deductions + pf + esi + professionTax + tax
   netPay          Decimal  @default(0) @db.Decimal(14, 2) // grossPay - totalDeductions
+  // ── Payment proof + bank reconciliation ──
+  paymentReference String?  // UTR / NEFT/RTGS reference no, cheque no
+  paymentMode     String?  // BANK | CASH | UPI | CHEQUE | NEFT
+  paymentDate     DateTime? // when the salary was actually paid
+  proofUploadId   String?  // uploaded proof (bank statement screenshot, cheque photo, receipt)
+  paidById        String?  // who marked this line as paid
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   payrollPeriod PayrollPeriod @relation(fields: [payrollPeriodId], references: [id], onDelete: Cascade)
   employee      Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  proofUpload   Upload?       @relation("PayrollProofUpload", fields: [proofUploadId], references: [id], onDelete: SetNull)
+  paidBy        User?         @relation("PayrollLinePaidBy", fields: [paidById], references: [id], onDelete: SetNull)
 
   @@unique([payrollPeriodId, employeeId])
   @@index([employeeId])
@@ -6521,6 +6561,7 @@ model Upload {
   entityAttachments EntityAttachment[]
   feedbackScreenshots Feedback[] @relation("FeedbackScreenshot")
   feedbackVoiceNotes   Feedback[] @relation("FeedbackVoice")
+  payrollProofs   PayrollLine[] @relation("PayrollProofUpload")
 
   @@index([companyId])
   @@index([uploadedById])

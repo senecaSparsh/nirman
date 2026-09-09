@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {type MobileColumnSpec} from "@/components/mobile/v2/export-share-bar";
@@ -15,7 +15,7 @@ export default function MobileLeadsPage() {
       {async ({ company, canManage }) => {
         const BATCH_SIZE = 40;
         const leads = await prisma.lead.findMany({
-          where: { companyId: company.id, deletedAt: null },
+          where: {...await scopeWhere("Lead"),  companyId: company.id, deletedAt: null },
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           take: BATCH_SIZE + 1,
           include: {
@@ -40,7 +40,7 @@ export default function MobileLeadsPage() {
                 select: { id: true, name: true },
               }),
               prisma.builtUnit.findMany({
-                where: {
+                where: {...await scopeWhere("BuiltUnit"), 
                   deletedAt: null,
                   status: { in: ["AVAILABLE", "HOLD"] },
                   project: { companyId: company.id, deletedAt: null },

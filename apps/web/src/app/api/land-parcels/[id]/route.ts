@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { setParcelStatus, updateParcelValuation } from "@nirman/services";
-import { apiHandler, getCompany, json, parcelValuationSchema, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, parcelValuationSchema, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /** GET /api/land-parcels/[id] — fetch a single land parcel by ID */
@@ -11,7 +11,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
   const company = await getCompany();
   const { id } = await ctx.params;
   const parcel = await prisma.landParcel.findFirst({
-    where: { id, landPurchase: { companyId: company.id }, deletedAt: null },
+    where: { id, landPurchase: { companyId: company.id }, deletedAt: null, ...await scopeWhere("LandParcel", {}) },
     include: {
       landPurchase: { select: { id: true, sellerName: true, totalArea: true } },
       parentParcel: { select: { id: true, number: true, area: true, status: true } },
@@ -73,7 +73,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
 
   // Find the parcel, ensuring it belongs to the user's company via the land purchase
   const parcel = await prisma.landParcel.findFirst({
-    where: { id, landPurchase: { companyId: company.id }, deletedAt: null },
+    where: { id, landPurchase: { companyId: company.id }, deletedAt: null, ...await scopeWhere("LandParcel", {}) },
     include: {
       _count: { select: { children: true } },
     },

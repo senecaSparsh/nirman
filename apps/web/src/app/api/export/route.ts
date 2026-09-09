@@ -22,7 +22,7 @@ import {
   projectPnl,
 } from "@nirman/services";
 import { PERM, hasPermission } from "@/lib/roles";
-import { apiHandler, getCompany, json, toNum, requireUser, getUserRole } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, requireUser, getUserRole, scopeWhere } from "@/lib/server";
 
 /**
  * GET /api/export?type=<report>&format=xlsx|csv
@@ -42,6 +42,12 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const role = await getUserRole();
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
+
+  // Pre-compute scope filters for scoped models
+  const smScope = await scopeWhere("StockMovement", {});
+  const asScope = await scopeWhere("AssetSale", {});
+  const dprScope = await scopeWhere("DailyProgressReport", {});
+  const miScope = await scopeWhere("MaterialIssue", {});
   const type = searchParams.get("type") ?? "";
   const format = searchParams.get("format") ?? "xlsx";
   const from = searchParams.get("from");
@@ -128,12 +134,12 @@ export const GET = apiHandler(async (req: NextRequest) => {
         const OUT_TYPES: StockMovementType[] = ["TRANSFER_OUT", "ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "ADJUSTMENT_OUT", "RETURN", "SALE"];
         const [inMovements, outMovements, locations, materials] = await Promise.all([
           prisma.stockMovement.findMany({
-            where: { movementType: { in: IN_TYPES }, toLocation: { companyId: company.id, deletedAt: null }, timestamp: { lte: asOnDate! } },
+            where: { movementType: { in: IN_TYPES }, toLocation: { companyId: company.id, deletedAt: null }, timestamp: { lte: asOnDate! }, ...smScope },
             include: { material: { select: { id: true, code: true, name: true, unit: true, category: { select: { id: true, name: true } } } }, toLocation: { select: { id: true, name: true, type: true } } },
             orderBy: { timestamp: "desc" },
           }),
           prisma.stockMovement.findMany({
-            where: { movementType: { in: OUT_TYPES }, fromLocation: { companyId: company.id, deletedAt: null }, timestamp: { lte: asOnDate! } },
+            where: { movementType: { in: OUT_TYPES }, fromLocation: { companyId: company.id, deletedAt: null }, timestamp: { lte: asOnDate! }, ...smScope },
             include: { material: { select: { id: true, code: true, name: true, unit: true, category: { select: { id: true, name: true } } } }, fromLocation: { select: { id: true, name: true, type: true } } },
             orderBy: { timestamp: "desc" },
           }),
@@ -221,7 +227,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       title = "Sales & Revenue Report";
       const from12 = new Date(now.getFullYear(), now.getMonth() - 11, 1);
       const sales = await prisma.assetSale.findMany({
-        where: { companyId: company.id, status: "ACTIVE", saleDate: { gte: from12 } },
+        where: { companyId: company.id, status: "ACTIVE", saleDate: { gte: from12 }, ...asScope },
         include: { customer: { select: { name: true } }, project: { select: { name: true } }, payments: { select: { amount: true, paymentDate: true } } },
         orderBy: { saleDate: "asc" },
       });
@@ -270,7 +276,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         orderBy: { name: "asc" },
       });
       const latestDprs = await prisma.dailyProgressReport.findMany({
-        where: { companyId: company.id }, orderBy: { date: "desc" }, distinct: ["projectId"],
+        where: { companyId: company.id, ...dprScope }, orderBy: { date: "desc" }, distinct: ["projectId"],
         select: { projectId: true, progressPct: true, date: true },
       });
       const progressByProject = new Map(latestDprs.map((d) => [d.projectId, { progressPct: toNum(d.progressPct), date: d.date.toISOString() }]));
@@ -337,7 +343,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         return { poNumber: po.poNumber, supplier: po.supplier.name, expectedDate: po.expectedDate?.toISOString() ?? null, orderedValue, receivedValue, payable: receivedValue, status: po.status, daysOverdue, agingBucket: daysOverdue <= 0 ? "current" : daysOverdue <= 30 ? "1-30d" : daysOverdue <= 60 ? "31-60d" : daysOverdue <= 90 ? "61-90d" : ">90d" };
       });
       const sales = await prisma.assetSale.findMany({
-        where: { companyId: company.id, status: "ACTIVE", paymentStatus: { in: ["PENDING", "PARTIAL"] } },
+        where: { companyId: company.id, status: "ACTIVE", paymentStatus: { in: ["PENDING", "PARTIAL"] }, ...asScope },
         include: { customer: { select: { name: true } }, project: { select: { name: true } }, payments: { select: { amount: true } } },
         orderBy: { saleDate: "asc" },
       });
@@ -378,7 +384,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       };
       const companyLocationIds = new Set((await prisma.stockLocation.findMany({ where: { companyId: company.id }, select: { id: true } })).map((l) => l.id));
       const movements = await prisma.stockMovement.findMany({
-        where: { timestamp: { gte: fromDate, lte: toDate } },
+        where: { timestamp: { gte: fromDate, lte: toDate }, ...smScope },
         orderBy: { timestamp: "desc" },
         take: 5000,
         include: { material: { select: { id: true, code: true, name: true, unit: true } }, fromLocation: { select: { id: true, name: true } }, toLocation: { select: { id: true, name: true } } },
@@ -438,6 +444,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
           department: { companyId: company.id, deletedAt: null },
           departmentId: { not: null },
           ...dateFilter,
+          ...miScope,
         },
         include: {
           department: { select: { id: true, name: true } },
@@ -467,20 +474,20 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const OUT_TYPES: StockMovementType[] = ["ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "ADJUSTMENT_OUT", "RETURN", "SALE"];
       const [_inBefore, _outBefore, inPeriod, outPeriod, locationItems] = await Promise.all([
         prisma.stockMovement.findMany({
-          where: { movementType: { in: IN_TYPES }, toLocation: { companyId: company.id, deletedAt: null }, timestamp: { lt: fromDate } },
+          where: { movementType: { in: IN_TYPES }, toLocation: { companyId: company.id, deletedAt: null }, timestamp: { lt: fromDate }, ...smScope },
           select: { qty: true, unitCost: true, toLocationId: true, materialId: true },
         }),
         prisma.stockMovement.findMany({
-          where: { movementType: { in: OUT_TYPES }, fromLocation: { companyId: company.id, deletedAt: null }, timestamp: { lt: fromDate } },
+          where: { movementType: { in: OUT_TYPES }, fromLocation: { companyId: company.id, deletedAt: null }, timestamp: { lt: fromDate }, ...smScope },
           select: { qty: true, unitCost: true, fromLocationId: true, materialId: true },
         }),
         prisma.stockMovement.findMany({
-          where: { movementType: { in: IN_TYPES }, toLocation: { companyId: company.id, deletedAt: null }, timestamp: { gte: fromDate, lte: toDate } },
+          where: { movementType: { in: IN_TYPES }, toLocation: { companyId: company.id, deletedAt: null }, timestamp: { gte: fromDate, lte: toDate }, ...smScope },
           include: { toLocation: { select: { id: true, name: true, type: true } } },
           orderBy: { timestamp: "asc" },
         }),
         prisma.stockMovement.findMany({
-          where: { movementType: { in: OUT_TYPES }, fromLocation: { companyId: company.id, deletedAt: null }, timestamp: { gte: fromDate, lte: toDate } },
+          where: { movementType: { in: OUT_TYPES }, fromLocation: { companyId: company.id, deletedAt: null }, timestamp: { gte: fromDate, lte: toDate }, ...smScope },
           include: { fromLocation: { select: { id: true, name: true, type: true } } },
           orderBy: { timestamp: "asc" },
         }),
@@ -536,6 +543,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
             { project: { companyId: company.id, deletedAt: null } },
           ],
           ...dateFilter,
+          ...miScope,
         },
         include: {
           department: { select: { code: true, name: true } },

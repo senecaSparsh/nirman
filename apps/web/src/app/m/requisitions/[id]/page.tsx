@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@nirman/db";
-import { getCurrentUser, getUserPermissions, toNum } from "@/lib/server";
+import { getCurrentUser, getUserPermissions, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber, formatDate, formatCurrency } from "@/lib/utils";
 import { FileText } from "lucide-react";
@@ -33,7 +33,7 @@ export default function MobileRequisitionDetailPage({
         const overrides = await getUserPermissions();
 
         const req = await prisma.materialRequisition.findFirst({
-          where: { id, project: { companyId: company.id } },
+          where: {...await scopeWhere("MaterialRequisition"),  id, project: { companyId: company.id } },
           include: {
             project: { select: { id: true, name: true } },
             phase: { select: { name: true } },

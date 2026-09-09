@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { scheduledTotal, refreshLandTotalCost } from "@nirman/services";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileLandDetailClient } from "./MobileLandDetailClient";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
@@ -25,7 +25,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
         try { await refreshLandTotalCost(id); } catch (err) { console.warn("Land total cost refresh failed:", err); }
 
         const purchase = await prisma.landPurchase.findFirst({
-          where: { id, companyId: company.id, deletedAt: null },
+          where: {...await scopeWhere("LandPurchase"),  id, companyId: company.id, deletedAt: null },
           include: {
             project: { select: { id: true, name: true } },
             parcels: {
@@ -58,7 +58,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
         const parcelIds = purchase.parcels.map((p) => p.id);
         const [landSales, customers, parcelBuiltUnits, legalDocs] = await Promise.all([
           prisma.assetSale.findMany({
-            where: { landParcelId: { in: parcelIds }, assetType: "LAND", status: "ACTIVE" },
+            where: {...await scopeWhere("AssetSale"),  landParcelId: { in: parcelIds }, assetType: "LAND", status: "ACTIVE" },
             select: {
               id: true, saleNumber: true, salePrice: true, profit: true, saleDate: true,
               landParcelId: true, paymentStatus: true, saleStage: true,
@@ -72,7 +72,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
           }),
           // Built units linked to parcels (subdivided inventory — flats/shops built on the land)
           prisma.builtUnit.findMany({
-            where: { landParcelId: { in: parcelIds }, deletedAt: null },
+            where: {...await scopeWhere("BuiltUnit"),  landParcelId: { in: parcelIds }, deletedAt: null },
             select: {
               id: true, unitNumber: true, unitType: true, status: true,
               area: true, areaUnit: true, floor: true, wing: true,

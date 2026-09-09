@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getUserRole, getCompany } from "@/lib/server";
+import { toNum, getUserRole, getCompany, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import {formatCurrency, formatNumber} from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -25,7 +25,7 @@ export default async function MeasurementBookPrintPage({ params }: { params: Pro
   const company = await getCompany();
 
   const entry = await prisma.measurementBookEntry.findFirst({
-    where: {
+    where: {...await scopeWhere("MeasurementBookEntry"), 
       id,
       project: { companyId: company.id },
     },

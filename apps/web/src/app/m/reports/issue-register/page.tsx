@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { ClipboardList, FileText } from "lucide-react";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
@@ -42,7 +42,7 @@ async function MobileIssueRegisterContent() {
   toDate.setHours(23, 59, 59, 999);
 
   const issues = await prisma.materialIssue.findMany({
-    where: {
+    where: {...await scopeWhere("MaterialIssue"), 
       OR: [
         { department: { companyId: company.id, deletedAt: null } },
         { project: { companyId: company.id, deletedAt: null } },

@@ -10,7 +10,7 @@ import {
   ServiceError,
 } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission, requireUser, toNum } from "@/lib/server";
+import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.PROCUREMENT_VIEW);
@@ -41,7 +41,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 
   // Fetch the source requisition (if this PO was converted from one)
   const sourceRequisition = await prisma.materialRequisition.findFirst({
-    where: { convertedPoId: po.id },
+    where: { convertedPoId: po.id, ...await scopeWhere("MaterialRequisition") },
     select: { id: true, reqNumber: true },
   });
 

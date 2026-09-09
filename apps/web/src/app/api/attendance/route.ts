@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
 import type { Prisma } from "@nirman/db";
 import { recordAttendance, bulkRecordAttendance, combineTimeWithDate, computeAttendanceTier } from "@nirman/services";
-import { apiHandler, getCompany, json, attendanceSchema, bulkAttendanceSchema, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, attendanceSchema, bulkAttendanceSchema, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
@@ -21,7 +21,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const { take, cursor, skip } = parseCursorParams(req);
   const usePagination = url.searchParams.has("cursor") || url.searchParams.has("take");
 
-  const where: Record<string, unknown> = { companyId: company.id };
+  const where: Record<string, unknown> = { companyId: company.id, ...await scopeWhere("WorkerAttendance", {}) };
   if (date) {
     // Use UTC date range to match @db.Date storage (stored as UTC midnight)
     const dayStart = new Date(date + "T00:00:00.000Z");
@@ -81,6 +81,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       where: {
         companyId: company.id,
         OR: projectDatePairs,
+        ...await scopeWhere("DailyProgressReport"),
       },
       select: { projectId: true, date: true, approvalStatus: true },
     });
@@ -151,6 +152,17 @@ export const POST = apiHandler(async (req: NextRequest) => {
     if (isNaN(parsedDate.getTime())) {
       return json({ error: "Invalid date format" }, { status: 400 });
     }
+    try {
+      await assertScopeAllows({
+        projectId: parsed.data.projectId ?? null,
+        departmentId: null,
+      });
+    } catch (err) {
+      return json(
+        { error: err instanceof Error ? err.message : "Scope violation" },
+        { status: 403 },
+      );
+    }
     const results = await bulkRecordAttendance({
       companyId: company.id,
       date: parsedDate,
@@ -182,6 +194,17 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const attendanceDate = new Date(parsed.data.date);
   if (isNaN(attendanceDate.getTime())) {
     return json({ error: "Invalid date format" }, { status: 400 });
+  }
+  try {
+    await assertScopeAllows({
+      projectId: parsed.data.projectId ?? null,
+      departmentId: null,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Scope violation" },
+      { status: 403 },
+    );
   }
   const attendance = await recordAttendance({
     companyId: company.id,

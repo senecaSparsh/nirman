@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Shield,
@@ -17,6 +18,7 @@ import {
   Code,
   Lock,
   KeyRound,
+  UserCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ROLES, roleTier, type Role } from "@/lib/roles";
@@ -38,6 +40,7 @@ import { PermissionsEditorDialog } from "@/components/settings/permissions-edito
 import { ResetPasswordDialog } from "@/components/settings/reset-password-dialog";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import type { ActionPermissions } from "@/lib/server";
 
 interface TeamMember {
   id: string;
@@ -53,6 +56,7 @@ interface TeamMember {
   department: string | null;
   employeeCode: string | null;
   joiningDate: string | null;
+  employeeId: string | null;
 }
 
 interface AssignableRole {
@@ -127,6 +131,7 @@ const ROLE_META: Record<
 export function MobileTeamList({
   team,
   canManage,
+  actions,
   currentUserId: _currentUserId,
   currentRole: _currentRole,
   roleCounts,
@@ -141,6 +146,7 @@ export function MobileTeamList({
 }: {
   team: TeamMember[];
   canManage: boolean;
+  actions?: ActionPermissions;
   currentUserId: string;
   currentRole: string;
   roleCounts: Record<string, number>;
@@ -289,7 +295,8 @@ export function MobileTeamList({
       )}
 
       {/* ── Add member FAB (managers only) ── */}
-      {canManage && (
+      {/* TODO: pass actions from page */}
+      {(actions?.canCreateTeamMember ?? canManage) && (
         <MobileFab onClick={fab.toggle} label="Add team member" icon={UserPlus} isOpen={fab.isOpen} />
       )}
 
@@ -668,6 +675,21 @@ function MemberCard({
               <Pencil className="size-3" />
               Edit Profile
             </button>
+          )}
+
+          {/* View Employee Profile link (if linked to an Employee record) */}
+          {member.employeeId && (
+            <Link
+              href={`/m/hr/employees/${member.employeeId}`}
+              className="flex w-full items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press mb-2"
+              style={{
+                color: "var(--color-ink-700)",
+                backgroundColor: "var(--color-concrete)",
+              }}
+            >
+              <UserCircle className="size-3" />
+              View Employee Profile
+            </Link>
           )}
 
           {/* Set access scope button (managers only) */}

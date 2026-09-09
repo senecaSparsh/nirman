@@ -6,7 +6,7 @@ import {
   getComparativeStatement,
 } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere } from "@/lib/server";
 import { z } from "zod";
 
 /**
@@ -21,7 +21,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const company = await getCompany();
   // Verify the requisition belongs to the current company
   const requisition = await prisma.materialRequisition.findFirst({
-    where: { id: requisitionId, project: { companyId: company.id } },
+    where: { id: requisitionId, project: { companyId: company.id }, ...await scopeWhere("MaterialRequisition", {}) },
     select: { id: true },
   });
   if (!requisition) return json({ error: "Indent not found" }, { status: 404 });
@@ -136,7 +136,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // Verify the requisition belongs to the current company
   const company = await getCompany();
   const reqExists = await prisma.materialRequisition.findFirst({
-    where: { id: parsed.data.requisitionId, project: { companyId: company.id } },
+    where: { id: parsed.data.requisitionId, project: { companyId: company.id }, ...await scopeWhere("MaterialRequisition", {}) },
     select: { id: true },
   });
   if (!reqExists) return json({ error: "Indent not found" }, { status: 404 });

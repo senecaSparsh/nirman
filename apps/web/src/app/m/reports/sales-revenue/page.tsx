@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import {ShoppingCart, Building2} from "lucide-react";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
@@ -38,7 +38,7 @@ async function MobileSalesRevenueContent() {
   const from = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
   const sales = await prisma.assetSale.findMany({
-    where: { companyId: company.id, status: "ACTIVE", saleDate: { gte: from } },
+    where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE", saleDate: { gte: from } },
     include: {
       customer: { select: { name: true } },
       project: { select: { name: true } },

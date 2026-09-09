@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
-import { generateOfferLetter, HrError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { generateOfferLetter, autoCompleteOnboarding, HrError } from "@nirman/services";
+import { apiHandler, getCompany, json, requirePermission, assertCanManageEmployee } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -20,10 +20,21 @@ export const POST = apiHandler(async (_req: NextRequest, { params }: { params: P
   const { id } = await params;
 
   try {
+    await assertCanManageEmployee(id, company.id);
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Hierarchy violation" }, { status: 403 });
+  }
+
+  try {
     const result = await generateOfferLetter(id, company.id, session.id);
+
+    // Auto-complete onboarding if all steps are now done
+    await autoCompleteOnboarding(id, company.id).catch(() => {});
 
     revalidatePath(`/hr/employees/${id}`);
     revalidatePath(`/m/hr/employees/${id}`);
+    revalidatePath(`/m/hr/onboarding/${id}`);
+    revalidatePath("/m/hr/onboarding");
 
     return json({
       ok: true,

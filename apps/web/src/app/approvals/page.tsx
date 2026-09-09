@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserPermissions, toNum } from "@/lib/server";
+import { getCompany, getUserPermissions, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
@@ -51,7 +51,7 @@ async function ApprovalsContent() {
       : [],
     canApproveReq
       ? prisma.materialRequisition.findMany({
-          where: { project: { companyId: company.id }, status: "SUBMITTED" },
+          where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED" },
           orderBy: { createdAt: "desc" },
           take: 100,
           include: {

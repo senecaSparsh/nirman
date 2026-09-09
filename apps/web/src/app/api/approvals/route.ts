@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum } from "@/lib/server";
+import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -29,6 +29,10 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   }
   const company = await getCompany();
 
+  // Pre-compute scope filters for scoped models
+  const reqScope = await scopeWhere("MaterialRequisition", {});
+  const gpScope = await scopeWhere("GatePass", {});
+
   const [purchaseOrders, requisitions, gatePasses] = await Promise.all([
     prisma.purchaseOrder.findMany({
       where: { companyId: company.id, status: "DRAFT", createdById: { not: user.id } },
@@ -42,7 +46,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       },
     }),
     prisma.materialRequisition.findMany({
-      where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: user.id } },
+      where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: user.id }, ...reqScope },
       orderBy: { createdAt: "desc" },
       take: 100,
       include: {
@@ -58,7 +62,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     }),
     canApproveGatePass
       ? prisma.gatePass.findMany({
-          where: { companyId: company.id, status: "PENDING", createdById: { not: user.id } },
+          where: { companyId: company.id, status: "PENDING", createdById: { not: user.id }, ...gpScope },
           orderBy: { createdAt: "desc" },
           take: 100,
           include: {

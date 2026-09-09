@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import {Wallet, Building2, Tags} from "lucide-react";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
@@ -44,7 +44,7 @@ async function MobileExpensesContent() {
   const dateFilter = { date: { gte: fromDate, lte: toDate } };
 
   const expenses = await prisma.expense.findMany({
-    where: {
+    where: {...await scopeWhere("Expense"), 
       companyId: company.id,
       ...dateFilter,
     },
@@ -55,7 +55,7 @@ async function MobileExpensesContent() {
   });
 
   const projectCosts = await prisma.projectCost.findMany({
-    where: {
+    where: {...await scopeWhere("ProjectCost"), 
       project: { companyId: company.id },
       ...dateFilter,
     },

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserRole, scopeWhere, getCurrentUser } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
@@ -36,7 +36,7 @@ async function EmployeesContent() {
   const [employees, crews, crewRows, projects, locations, memberships] = await Promise.all([
     prisma.employee.findMany({
       take: 500,
-      where: { companyId: company.id, deletedAt: null },
+      where: { ...await scopeWhere("Employee"), companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       include: {
         crew: { select: { id: true, name: true } },
@@ -46,13 +46,13 @@ async function EmployeesContent() {
     }),
     prisma.crew.findMany({
       take: 200,
-      where: { companyId: company.id, active: true },
+      where: {...await scopeWhere("Crew"),  companyId: company.id, active: true },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
     prisma.crew.findMany({
       take: 500,
-      where: { companyId: company.id },
+      where: {...await scopeWhere("Crew"),  companyId: company.id },
       orderBy: { name: "asc" },
       include: {
         project: { select: { id: true, name: true } },
@@ -89,6 +89,16 @@ async function EmployeesContent() {
       },
     }),
   ]);
+
+  // ── Viewer hierarchy level — for client-side per-row action gating ──
+  // Computing canManageSpecificEmployee for every employee in a list is
+  // expensive (DB query per employee). Instead, fetch the viewer's
+  // hierarchyLevel once and let the client compare per row.
+  const currentUser = await getCurrentUser();
+  const viewerEmployee = await prisma.employee.findFirst({
+    where: { userId: currentUser?.id, companyId: company.id, deletedAt: null },
+    select: { hierarchyLevel: true },
+  }).catch(() => null);
 
   // Map userId → membershipId + reportsToUserCompanyId for quick lookup.
   const membershipByUserId = new Map(memberships.map((m) => [m.userId, m]));
@@ -179,6 +189,7 @@ async function EmployeesContent() {
         locations={locations.map((l) => ({ id: l.id, name: l.name }))}
         potentialManagers={potentialManagers}
         permissions={perms}
+        viewerHierarchyLevel={viewerEmployee?.hierarchyLevel ?? null}
       />
     </>
   );

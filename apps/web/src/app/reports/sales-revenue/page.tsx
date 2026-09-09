@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
@@ -36,7 +36,7 @@ async function SalesRevenueContent() {
   const [sales, projects] = await Promise.all([
     prisma.assetSale.findMany({
       take: 500,
-      where: {
+      where: {...await scopeWhere("AssetSale"), 
         companyId: company.id,
         status: "ACTIVE",
         saleDate: { gte: from },

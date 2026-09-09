@@ -830,6 +830,9 @@ export {
   type EmployeeTelephonyCost,
 } from "./employee-account";
 
+// Auto-onboarding — automatically marks onboarding complete when all steps are done
+export { autoCompleteOnboarding } from "./auto-onboarding";
+
 // SMS Parser — auto payment entry from bank SMS notifications
 export {
   parseSms,

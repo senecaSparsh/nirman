@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { getCompanyGroupIds, toNum } from "@/lib/server";
+import { getCompanyGroupIds, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
@@ -41,7 +41,7 @@ export default function InventoryHomePage() {
         where: { project: { companyId: company.id }, status: "SUBMITTED" },
       }),
       prisma.materialRequisition.findMany({
-        where: { project: { companyId: company.id }, status: "SUBMITTED" },
+        where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED" },
         orderBy: { createdAt: "desc" },
         take: 5,
         include: { project: { select: { name: true } } },

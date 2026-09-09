@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Home } from "lucide-react";
 import { MobileNewUnitDialog } from "@/app/m/units/MobileNewUnitDialog";
+import type { ActionPermissions } from "@/lib/server";
 
 /**
  * MobileProjectUnitsFab — renders the "Add Built Units" quick-action tile
@@ -13,14 +14,17 @@ export function MobileProjectUnitsFab({
   projectId,
   projectName,
   canManage,
+  actions,
 }: {
   projectId: string;
   projectName: string;
   canManage: boolean;
+  actions?: ActionPermissions;
 }) {
   const [open, setOpen] = useState(false);
 
-  if (!canManage) return null;
+  // TODO: pass actions from page
+  if (!(actions?.canCreateBuiltUnit ?? canManage)) return null;
 
   return (
     <>

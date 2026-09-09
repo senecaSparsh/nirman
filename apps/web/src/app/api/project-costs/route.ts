@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { ProjectCostType } from "@nirman/db";
 import { addProjectCost, deleteProjectCost } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, projectCostSchema, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, projectCostSchema, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
@@ -18,6 +18,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       project: { companyId: company.id },
       ...(projectId ? { projectId } : {}),
       ...(costType ? { costType: costType as ProjectCostType } : {}),
+      ...await scopeWhere("ProjectCost"),
     },
     orderBy: { date: "desc" },
     include: {
@@ -49,6 +50,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const parsed = projectCostSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  try {
+    await assertScopeAllows({ projectId: parsed.data.projectId ?? null, departmentId: null });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
   }
   try {
     const costDate = parsed.data.date ? new Date(parsed.data.date) : undefined;

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { unlinkEmployeePhone, HrError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, assertCanManageEmployee } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -17,6 +17,12 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   const session = await requirePermission(PERM.HR_MANAGE);
   const company = await getCompany();
   const { id } = await params;
+
+  try {
+    await assertCanManageEmployee(id, company.id);
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Hierarchy violation" }, { status: 403 });
+  }
 
   const body = await req.json().catch(() => ({}));
   const { reason } = body as { reason?: string };

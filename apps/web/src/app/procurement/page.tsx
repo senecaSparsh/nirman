@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getCompanyGroupIds, getCurrentUser, getCurrentUserMembership, toNum, getUserRole } from "@/lib/server";
+import { getCompany, getCompanyGroupIds, getCurrentUser, getCurrentUserMembership, toNum, getUserRole, scopeWhere } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
@@ -130,7 +130,7 @@ async function ProcurementContent() {
     // ── Requisitions (indents) — for the Indents tab ──
     prisma.materialRequisition.findMany({
       take: 500,
-      where: { project: { companyId: company.id } },
+      where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id } },
       orderBy: { createdAt: "desc" },
       include: {
         project: { select: { name: true } },
@@ -147,7 +147,7 @@ async function ProcurementContent() {
     // Project phases — needed by the requisitions view's phase selector
     prisma.projectPhase.findMany({
       take: 200,
-      where: { project: { companyId: company.id, deletedAt: null } },
+      where: {...await scopeWhere("ProjectPhase"),  project: { companyId: company.id, deletedAt: null } },
       select: { id: true, name: true, projectId: true },
     }),
     // ── Supplier returns — for the Returns tab ──

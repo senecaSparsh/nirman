@@ -19,6 +19,7 @@ import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileNewLandDialog } from "./MobileNewLandDialog";
 import { MobileLandWizard } from "./MobileLandWizard";
 import { MobileLandPurchaseOrderDialog } from "./MobileLandPurchaseOrderDialog";
+import type { ActionPermissions } from "@/lib/server";
 
 interface ParcelItem {
   id: string;
@@ -94,6 +95,7 @@ export function MobileLandList({
   items,
   portfolio,
   canManage,
+  actions,
   projects,
   sellers,
   company,
@@ -105,6 +107,7 @@ export function MobileLandList({
   items: LandPurchaseItem[];
   portfolio: Portfolio;
   canManage: boolean;
+  actions?: ActionPermissions;
   projects: { id: string; name: string }[];
   sellers?: { id: string; name: string; phone?: string | null }[];
   company?: { id: string; name: string } | null;
@@ -156,7 +159,7 @@ export function MobileLandList({
           title="No land purchases yet"
           hint={canManage ? "Tap + to record your first land purchase" : "Land purchases will appear here once recorded."}
         />
-        {canManage ? (
+        {(actions?.canCreateLand ?? canManage) ? (
           <>
             {/* Book Land (Token) — secondary action, sits above the FAB */}
             <button
@@ -351,7 +354,7 @@ export function MobileLandList({
       )}
 
       {/* ── FAB: New Land Purchase (opens guided wizard) ── */}
-      {canManage && (
+      {(actions?.canCreateLand ?? canManage) && (
         <>
           {/* Book Land (Token) — secondary action, sits above the FAB */}
           <button

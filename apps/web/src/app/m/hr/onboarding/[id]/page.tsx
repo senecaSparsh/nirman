@@ -53,18 +53,20 @@ async function MobileOnboardingDetailContent({
       ? { activeProjectId: { in: scope.projectIds.length > 0 ? scope.projectIds : ["__none__"] } }
       : {};
 
-  const [employee, projects, stockLocations, attachments] = await Promise.all([
+  const [employee, projects, stockLocations, departments, attachments] = await Promise.all([
     prisma.employee.findFirst({
       where: { id, companyId: company.id, deletedAt: null, ...employeeProjectFilter },
       include: {
         crew: { select: { id: true, name: true, project: { select: { id: true, name: true } } } },
         activeProject: { select: { id: true, name: true } },
         reportingLocation: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true } },
         user: {
           select: {
             id: true, name: true, email: true, role: true, phone: true, image: true,
             employeeCode: true, designation: true, department: true,
             joiningDate: true, active: true, lastLoginAt: true,
+            phoneVerified: true, phoneVerifiedAt: true, phoneSyncedAt: true,
           },
         },
         benefits: { orderBy: { createdAt: "desc" } },
@@ -79,6 +81,11 @@ async function MobileOnboardingDetailContent({
     prisma.stockLocation.findMany({
       where: { companyId: company.id, deletedAt: null },
       select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.department.findMany({
+      where: { companyId: company.id, active: true },
+      select: { id: true, name: true, active: true },
       orderBy: { name: "asc" },
     }),
     prisma.entityAttachment.findMany({
@@ -126,6 +133,8 @@ async function MobileOnboardingDetailContent({
     name: employee.name,
     trade: employee.trade,
     designation: employee.designation,
+    departmentId: employee.departmentId,
+    departmentName: employee.department?.name ?? null,
     phone: employee.phone,
     email: employee.email,
     wageType: employee.wageType as "DAILY" | "MONTHLY" | "FIXED",
@@ -144,8 +153,13 @@ async function MobileOnboardingDetailContent({
     contractStatus: employee.contractStatus,
     contractIssuedAt: employee.contractIssuedAt ? employee.contractIssuedAt.toISOString() : null,
     contractConfirmedAt: employee.contractConfirmedAt ? employee.contractConfirmedAt.toISOString() : null,
+    contractTerms: employee.contractTerms,
+    contractToken: employee.contractToken,
     offerLetterStatus: employee.offerLetterStatus,
     offerLetterIssuedAt: employee.offerLetterIssuedAt ? employee.offerLetterIssuedAt.toISOString() : null,
+    offerLetterTerms: employee.offerLetterTerms,
+    offerLetterAcceptedAt: employee.offerLetterAcceptedAt ? employee.offerLetterAcceptedAt.toISOString() : null,
+    offerToken: employee.offerToken,
     idCardStatus: employee.idCardStatus,
     idCardIssuedAt: employee.idCardIssuedAt ? employee.idCardIssuedAt.toISOString() : null,
     appointmentLetterStatus: employee.appointmentLetterStatus,
@@ -226,8 +240,17 @@ async function MobileOnboardingDetailContent({
           joiningDate: employee.user.joiningDate ? employee.user.joiningDate.toISOString() : null,
           active: employee.user.active,
           lastLoginAt: employee.user.lastLoginAt ? employee.user.lastLoginAt.toISOString() : null,
+          phoneVerified: employee.user.phoneVerified,
+          phoneVerifiedAt: employee.user.phoneVerifiedAt ? employee.user.phoneVerifiedAt.toISOString() : null,
+          phoneSyncedAt: employee.user.phoneSyncedAt ? employee.user.phoneSyncedAt.toISOString() : null,
         }
       : null,
+    companyMemberships: employee.userId
+      ? (await prisma.employee.findMany({
+          where: { userId: employee.userId, deletedAt: null, id: { not: employee.id } },
+          select: { id: true, companyId: true, active: true, company: { select: { name: true } } },
+        })).map((e) => ({ employeeId: e.id, companyId: e.companyId, companyName: e.company.name, active: e.active }))
+      : [],
   };
 
   return (
@@ -245,6 +268,7 @@ async function MobileOnboardingDetailContent({
       actorRole={role}
       projects={projects}
       stockLocations={stockLocations}
+      departments={departments}
     />
     </PageContextProvider>
   );

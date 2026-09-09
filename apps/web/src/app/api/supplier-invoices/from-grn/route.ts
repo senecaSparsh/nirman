@@ -4,7 +4,7 @@ import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { createSupplierInvoice } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission, scopeWhere } from "@/lib/server";
 
 /**
  * POST /api/supplier-invoices/from-grn
@@ -37,7 +37,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // Fetch the GRN with all related data
   const groupCompanyIds = await getCompanyGroupIds(company);
   const grn = await prisma.goodsReceipt.findFirst({
-    where: { id: body.goodsReceiptId },
+    where: { id: body.goodsReceiptId, ...await scopeWhere("GoodsReceipt") },
     include: {
       purchaseOrder: {
         include: {

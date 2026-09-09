@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { generateAutoRequisition, notifyLowStock } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, assertScopeAllows } from "@/lib/server";
 
 /**
  * POST /api/requisitions/auto
@@ -21,6 +21,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const projectId = body?.projectId as string | undefined;
   if (!projectId) {
     return json({ error: "projectId is required" }, { status: 400 });
+  }
+  try {
+    await assertScopeAllows({ projectId, departmentId: null });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
   }
   const neededByDate = body?.neededByDate ? new Date(body.neededByDate) : undefined;
 

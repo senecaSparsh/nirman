@@ -1,11 +1,9 @@
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { prisma } from "@nirman/db";
 
-import {
-  getCompanyGroupIds,
+import { getCompanyGroupIds,
   toNum,
-  getCurrentUserMembership,
-} from "@/lib/server";
+  getCurrentUserMembership, scopeWhere } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
@@ -48,7 +46,7 @@ export default function MobileProcurementPage() {
           }),
           // ── Indents tab ──
           prisma.materialRequisition.findMany({
-            where: { project: { companyId: company.id } },
+            where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id } },
             orderBy: [{ createdAt: "desc" }, { id: "desc" }],
             take: BATCH_SIZE + 1,
             include: {

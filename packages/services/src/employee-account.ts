@@ -108,6 +108,16 @@ export interface TerminateEmployeeInput {
   actorUserId: string;
   reason?: string;
   employmentEndDate?: string | null;
+  // Offboarding settlement fields (optional — can be filled in later)
+  finalSettlementAmount?: number | null;
+  leaveEncashmentDays?: number | null;
+  leaveEncashmentAmount?: number | null;
+  assetsReturned?: boolean | null;
+  assetsReturnNotes?: string | null;
+  exitInterviewConducted?: boolean | null;
+  exitInterviewNotes?: string | null;
+  pfExitFiled?: boolean | null;
+  esiExitFiled?: boolean | null;
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -243,6 +253,44 @@ export async function createEmployeeAccount(input: CreateEmployeeAccountInput) {
 
     // ── Sync shared fields from User → Employee ──
     await syncEmployeeUserFields(tx, input.employeeId, userId);
+
+    // ── Multi-company: propagate userId to sibling Employee records ──
+    // When an employee is onboarded in multiple companies simultaneously,
+    // each company gets its own Employee record but they share one User.
+    // The "Create Login" step only runs for the primary company, so we need
+    // to propagate the userId to all sibling Employee records (same phone,
+    // userId still null) in the company group and create their UserCompany
+    // memberships so the employee can switch to those companies.
+    const siblingEmployees = await tx.employee.findMany({
+      where: {
+        userId: null,
+        phone: input.phone,
+        deletedAt: null,
+        companyId: { not: input.companyId },
+      },
+      select: { id: true, companyId: true },
+    });
+    for (const sibling of siblingEmployees) {
+      // Link the sibling Employee to the same User
+      await tx.employee.update({
+        where: { id: sibling.id },
+        data: { userId },
+      });
+      // Create UserCompany membership if it doesn't exist
+      const existingMembership = await tx.userCompany.findUnique({
+        where: { userId_companyId: { userId, companyId: sibling.companyId } },
+        select: { id: true },
+      });
+      if (!existingMembership) {
+        await tx.userCompany.create({
+          data: {
+            userId,
+            companyId: sibling.companyId,
+            role: input.role,
+          },
+        });
+      }
+    }
 
     // ── Create UserPermission rows (module access) ──
     if (input.permissions && input.permissions.length > 0) {
@@ -541,13 +589,27 @@ export async function terminateEmployee(input: TerminateEmployeeInput) {
       },
     });
 
-    // 2. Disable the linked user account (if any)
+    // 2. Deactivate the UserCompany membership for THIS company only.
+    //    The User account stays active as long as the employee has at least
+    //    one active membership in another company (multi-company support).
     let recycledPhoneId: string | null = null;
     if (employee.userId) {
-      await tx.user.update({
-        where: { id: employee.userId },
-        data: { active: false, employmentEndDate: now },
+      await tx.userCompany.updateMany({
+        where: { userId: employee.userId, companyId: input.companyId },
+        data: { active: false },
       });
+
+      // 2b. Check if the user has any remaining active memberships.
+      //    If not, disable the User account entirely.
+      const activeMemberships = await tx.userCompany.count({
+        where: { userId: employee.userId, active: true },
+      });
+      if (activeMemberships === 0) {
+        await tx.user.update({
+          where: { id: employee.userId },
+          data: { active: false, employmentEndDate: now },
+        });
+      }
 
       // 3. Recycle the assigned phone (if any)
       const phone = await tx.companyPhone.findFirst({
@@ -576,6 +638,31 @@ export async function terminateEmployee(input: TerminateEmployeeInput) {
         reason: input.reason,
         employmentEndDate: input.employmentEndDate,
         recycledPhoneId,
+      },
+    });
+
+    // 4. Create the EmployeeExit record (offboarding tracker)
+    //    Tracks final settlement, leave encashment, asset return,
+    //    exit interview, and statutory PF/ESI filings.
+    await tx.employeeExit.create({
+      data: {
+        employeeId: input.employeeId,
+        companyId: input.companyId,
+        terminatedBy: input.actorUserId,
+        terminationDate: now,
+        terminationReason: input.reason ?? null,
+        finalSettlementAmount: input.finalSettlementAmount ?? null,
+        finalSettlementDate: input.finalSettlementAmount != null ? now : null,
+        finalSettlementStatus: input.finalSettlementAmount != null ? "COMPLETED" : "PENDING",
+        leaveEncashmentDays: input.leaveEncashmentDays ?? null,
+        leaveEncashmentAmount: input.leaveEncashmentAmount ?? null,
+        assetsReturned: input.assetsReturned ?? null,
+        assetsReturnNotes: input.assetsReturnNotes ?? null,
+        exitInterviewConducted: input.exitInterviewConducted ?? null,
+        exitInterviewNotes: input.exitInterviewNotes ?? null,
+        exitInterviewDate: input.exitInterviewConducted === true ? now : null,
+        pfExitFiled: input.pfExitFiled ?? null,
+        esiExitFiled: input.esiExitFiled ?? null,
       },
     });
 
@@ -963,6 +1050,7 @@ export async function generateEmploymentAgreement(
   agreementUrl: string;
   contractStatus: string;
   issuedAt: string;
+  contractToken?: string;
 }> {
   const employee = await prisma.employee.findFirst({
     where: { id: employeeId, companyId, deletedAt: null },
@@ -970,6 +1058,7 @@ export async function generateEmploymentAgreement(
       id: true,
       contractStatus: true,
       contractAttachmentId: true,
+      contractToken: true,
       employmentType: true,
       wageType: true,
       dailyRate: true,
@@ -977,6 +1066,7 @@ export async function generateEmploymentAgreement(
       noticePeriodDays: true,
       contractStartDate: true,
       contractEndDate: true,
+      salaryComponents: { where: { active: true }, select: { amount: true, frequency: true, isDeduction: true } },
     },
   });
   if (!employee) throw new HrError("Employee not found", 404);
@@ -991,11 +1081,23 @@ export async function generateEmploymentAgreement(
       400,
     );
   }
+
+  // ── Wage validation ──
+  // Accept either the Employee.wage fields OR active salary components.
+  const hasMonthlyComponents = employee.salaryComponents.some(
+    (c) => !c.isDeduction && c.frequency === "MONTHLY" && Number(c.amount) > 0,
+  );
+  const hasAnyComponents = employee.salaryComponents.length > 0;
+
   if (employee.wageType === "DAILY" && (!employee.dailyRate || Number(employee.dailyRate) === 0)) {
-    throw new HrError("Daily rate is not set. Fill the wage details in the employee dossier first.", 400);
+    if (!hasMonthlyComponents && !hasAnyComponents) {
+      throw new HrError("Daily rate is not set. Fill the wage details or add salary components first.", 400);
+    }
   }
   if ((employee.wageType === "MONTHLY" || employee.wageType === "FIXED") && (!employee.monthlySalary || Number(employee.monthlySalary) === 0)) {
-    throw new HrError("Monthly salary is not set. Fill the wage details in the employee dossier first.", 400);
+    if (!hasMonthlyComponents && !hasAnyComponents) {
+      throw new HrError("Monthly salary is not set. Fill the wage details or add salary components first.", 400);
+    }
   }
   if (employee.employmentType === "CONTRACT" && !employee.contractStartDate) {
     throw new HrError("Contract start date is not set. Fill the contract dates in the employee dossier first.", 400);
@@ -1048,8 +1150,10 @@ export async function generateEmploymentAgreement(
         contractStatus: "ISSUED",
         contractIssuedAt: new Date(),
         contractAttachmentId: attachmentId,
+        // Generate a shareable acceptance token if none exists
+        contractToken: employee.contractToken ?? crypto.randomUUID(),
       },
-      select: { contractStatus: true, contractIssuedAt: true },
+      select: { contractStatus: true, contractIssuedAt: true, contractToken: true },
     });
 
     await logAction(tx, {
@@ -1066,6 +1170,7 @@ export async function generateEmploymentAgreement(
       agreementUrl,
       contractStatus: updated.contractStatus ?? "ISSUED",
       issuedAt: updated.contractIssuedAt?.toISOString() ?? new Date().toISOString(),
+      contractToken: updated.contractToken ?? undefined,
     };
   });
 }
@@ -1145,6 +1250,7 @@ export async function generateOfferLetter(
   offerLetterUrl: string;
   offerLetterStatus: string;
   issuedAt: string;
+  offerToken?: string;
 }> {
   const employee = await prisma.employee.findFirst({
     where: { id: employeeId, companyId, deletedAt: null },
@@ -1152,12 +1258,14 @@ export async function generateOfferLetter(
       id: true,
       offerLetterStatus: true,
       offerLetterAttachmentId: true,
+      offerToken: true,
       employmentType: true,
       wageType: true,
       dailyRate: true,
       monthlySalary: true,
       designation: true,
       joinDate: true,
+      salaryComponents: { where: { active: true }, select: { amount: true, frequency: true, isDeduction: true } },
     },
   });
   if (!employee) throw new HrError("Employee not found", 404);
@@ -1169,11 +1277,26 @@ export async function generateOfferLetter(
       400,
     );
   }
+
+  // ── Wage validation ──
+  // Accept either the Employee.wage fields (dailyRate/monthlySalary) OR
+  // active salary components (the Salary Structure tab). This prevents
+  // the "Monthly salary is not set" error when the user added salary via
+  // the Salary Structure tab but didn't also fill the Hire Details wage.
+  const hasMonthlyComponents = employee.salaryComponents.some(
+    (c) => !c.isDeduction && c.frequency === "MONTHLY" && Number(c.amount) > 0,
+  );
+  const hasAnyComponents = employee.salaryComponents.length > 0;
+
   if (employee.wageType === "DAILY" && (!employee.dailyRate || Number(employee.dailyRate) === 0)) {
-    throw new HrError("Daily rate is not set. Fill the wage details first.", 400);
+    if (!hasMonthlyComponents && !hasAnyComponents) {
+      throw new HrError("Daily rate is not set. Fill the wage details or add salary components first.", 400);
+    }
   }
   if ((employee.wageType === "MONTHLY" || employee.wageType === "FIXED") && (!employee.monthlySalary || Number(employee.monthlySalary) === 0)) {
-    throw new HrError("Monthly salary is not set. Fill the wage details first.", 400);
+    if (!hasMonthlyComponents && !hasAnyComponents) {
+      throw new HrError("Monthly salary is not set. Fill the wage details or add salary components first.", 400);
+    }
   }
 
   const offerLetterUrl = `/print/offer-letter/${employeeId}`;
@@ -1218,8 +1341,10 @@ export async function generateOfferLetter(
         offerLetterStatus: "ISSUED",
         offerLetterIssuedAt: new Date(),
         offerLetterAttachmentId: attachmentId,
+        // Generate a shareable acceptance token if none exists
+        offerToken: employee.offerToken ?? crypto.randomUUID(),
       },
-      select: { offerLetterStatus: true, offerLetterIssuedAt: true },
+      select: { offerLetterStatus: true, offerLetterIssuedAt: true, offerToken: true },
     });
 
     await logAction(tx, {
@@ -1236,6 +1361,7 @@ export async function generateOfferLetter(
       offerLetterUrl,
       offerLetterStatus: updated.offerLetterStatus ?? "ISSUED",
       issuedAt: updated.offerLetterIssuedAt?.toISOString() ?? new Date().toISOString(),
+      offerToken: updated.offerToken ?? undefined,
     };
   });
 }

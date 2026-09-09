@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum, scopeWhere, getActionPermissions } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { MobileRealEstateHubTabs } from "../MobileRealEstateHubTabs";
@@ -118,7 +118,7 @@ async function RealEstateUnitsTab() {
 
   const [units, _projects] = await Promise.all([
     prisma.builtUnit.findMany({
-      where: { deletedAt: null, project: { companyId: company.id, deletedAt: null } },
+      where: {...await scopeWhere("BuiltUnit"),  deletedAt: null, project: { companyId: company.id, deletedAt: null } },
       orderBy: [{ project: { name: "asc" } }, { unitNumber: "asc" }],
       take: 200,
       include: { project: { select: { id: true, name: true } } },
@@ -167,10 +167,11 @@ async function RealEstateLandTab() {
   const company = await getCompany();
   const role = await getUserRole();
   const canManage = hasPermission(role, PERM.ASSETS_MANAGE);
+  const actions = await getActionPermissions();
 
   const [landPurchases, projects, sellers] = await Promise.all([
     prisma.landPurchase.findMany({
-      where: { companyId: company.id, deletedAt: null },
+      where: {...await scopeWhere("LandPurchase"),  companyId: company.id, deletedAt: null },
       orderBy: { createdAt: "desc" },
       include: {
         project: { select: { id: true, name: true } },
@@ -274,6 +275,7 @@ async function RealEstateLandTab() {
       items={items}
       portfolio={portfolio}
       canManage={canManage}
+      actions={actions}
       projects={projects.map((p) => ({ id: p.id, name: p.name }))}
       sellers={sellers.map((s) => ({ id: s.id, name: s.name, phone: s.phone }))}
       company={{ id: company.id, name: company.name }}
@@ -308,7 +310,7 @@ async function RealEstateCustomersTab() {
       },
     }),
     prisma.lead.findMany({
-      where: { companyId: company.id, deletedAt: null, stage: { not: "LOST" } },
+      where: {...await scopeWhere("Lead"),  companyId: company.id, deletedAt: null, stage: { not: "LOST" } },
       orderBy: { createdAt: "desc" },
       take: 100,
       select: {
@@ -416,18 +418,18 @@ async function RealEstateRentalsTab() {
 
   const [tenancies, unitAssets, parcelAssets, customers] = await Promise.all([
     prisma.tenancy.findMany({
-      where: { companyId: company.id, status: { in: ["ACTIVE", "PENDING"] } },
+      where: {...await scopeWhere("Tenancy"),  companyId: company.id, status: { in: ["ACTIVE", "PENDING"] } },
       orderBy: [{ status: "asc" }, { endDate: "asc" }],
       include: {
         payments: { orderBy: { dueDate: "desc" }, select: { amount: true, dueDate: true, status: true, paymentDate: true } },
       },
     }),
     prisma.builtUnit.findMany({
-      where: { project: { companyId: company.id }, deletedAt: null, status: { in: ["AVAILABLE", "UNDER_CONSTRUCTION"] } },
+      where: {...await scopeWhere("BuiltUnit"),  project: { companyId: company.id }, deletedAt: null, status: { in: ["AVAILABLE", "UNDER_CONSTRUCTION"] } },
       select: { id: true, unitNumber: true, project: { select: { name: true } } },
     }),
     prisma.landParcel.findMany({
-      where: { deletedAt: null, landPurchase: { companyId: company.id }, status: "AVAILABLE" },
+      where: {...await scopeWhere("LandParcel"),  deletedAt: null, landPurchase: { companyId: company.id }, status: "AVAILABLE" },
       select: { id: true, number: true, landPurchase: { select: { sellerName: true, location: true } } },
     }),
     prisma.customer.findMany({

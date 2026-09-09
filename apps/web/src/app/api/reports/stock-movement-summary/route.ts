@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma, type StockMovementType } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -36,6 +36,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const IN_TYPES: StockMovementType[] = ["PURCHASE_RECEIPT", "ADJUSTMENT_IN"];
   const OUT_TYPES: StockMovementType[] = ["ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "ADJUSTMENT_OUT", "RETURN", "SALE"];
 
+  const mvScope = await scopeWhere("StockMovement", {});
+
   // Fetch all relevant movements: IN (toLocation belongs to company) + OUT (fromLocation belongs to company)
   // We need movements before `fromDate` (for opening) and in [fromDate, toDate] (for rec/issue)
   const [inBefore, outBefore, inPeriod, outPeriod, locationItems] = await Promise.all([
@@ -44,6 +46,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         movementType: { in: IN_TYPES },
         toLocation: { companyId: company.id, deletedAt: null },
         timestamp: { lt: fromDate },
+        ...mvScope,
       },
       select: { qty: true, unitCost: true, toLocationId: true, materialId: true },
     }),
@@ -52,6 +55,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         movementType: { in: OUT_TYPES },
         fromLocation: { companyId: company.id, deletedAt: null },
         timestamp: { lt: fromDate },
+        ...mvScope,
       },
       select: { qty: true, unitCost: true, fromLocationId: true, materialId: true },
     }),
@@ -60,6 +64,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         movementType: { in: IN_TYPES },
         toLocation: { companyId: company.id, deletedAt: null },
         timestamp: { gte: fromDate, lte: toDate },
+        ...mvScope,
       },
       include: {
         material: { select: { id: true, code: true, name: true, unit: true, category: { select: { name: true } } } },
@@ -72,6 +77,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         movementType: { in: OUT_TYPES },
         fromLocation: { companyId: company.id, deletedAt: null },
         timestamp: { gte: fromDate, lte: toDate },
+        ...mvScope,
       },
       include: {
         material: { select: { id: true, code: true, name: true, unit: true, category: { select: { name: true } } } },

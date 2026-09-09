@@ -1,4 +1,5 @@
 import { prisma } from "@nirman/db";
+import { scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileSafetyContent } from "./MobileSafetyContent";
@@ -13,19 +14,19 @@ export default function MobileSafetyPage() {
       {async ({ company, canManage }) => {
         const [incidents, hazards, inspections, projects] = await Promise.all([
           prisma.safetyIncident.findMany({
-            where: { companyId: company.id },
+            where: {...await scopeWhere("SafetyIncident"),  companyId: company.id },
             orderBy: { incidentDate: "desc" },
             take: 50,
             include: { project: { select: { id: true, name: true } } },
           }),
           prisma.safetyHazard.findMany({
-            where: { companyId: company.id },
+            where: {...await scopeWhere("SafetyHazard"),  companyId: company.id },
             orderBy: [{ riskLevel: "desc" }, { createdAt: "desc" }],
             take: 50,
             include: { project: { select: { id: true, name: true } } },
           }),
           prisma.safetyInspection.findMany({
-            where: { companyId: company.id },
+            where: {...await scopeWhere("SafetyInspection"),  companyId: company.id },
             orderBy: { scheduledDate: "desc" },
             take: 50,
             include: { project: { select: { id: true, name: true } } },

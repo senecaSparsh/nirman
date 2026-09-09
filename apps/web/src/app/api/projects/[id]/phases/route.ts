@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, projectPhaseSchema, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, projectPhaseSchema, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
@@ -14,7 +14,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
   });
   if (!project) return json({ error: "Project not found" }, { status: 404 });
   const phases = await prisma.projectPhase.findMany({
-    where: { projectId: id },
+    where: { projectId: id, ...await scopeWhere("ProjectPhase") },
     orderBy: { sortOrder: "asc" },
   });
   return json(phases);
@@ -26,6 +26,11 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
   const { id } = await ctx.params;
   const project = await prisma.project.findFirst({ where: { id, companyId: company.id, deletedAt: null } });
   if (!project) return json({ error: "Project not found" }, { status: 404 });
+  try {
+    await assertScopeAllows({ projectId: id, departmentId: null });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+  }
   const body = await req.json();
   const parsed = projectPhaseSchema.safeParse(body);
   if (!parsed.success) {

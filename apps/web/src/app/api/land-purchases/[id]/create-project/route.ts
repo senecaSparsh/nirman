@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma, type ProjectType } from "@nirman/db";
 import { z } from "zod";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { logAction, reallocateProjectCosts, withSerializableTransaction } from "@nirman/services";
 
@@ -33,7 +33,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
 
   // Verify the land purchase belongs to this company
   const landPurchase = await prisma.landPurchase.findFirst({
-    where: { id, companyId: company.id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("LandPurchase", {}) },
     include: { parcels: { where: { deletedAt: null } } },
   });
 

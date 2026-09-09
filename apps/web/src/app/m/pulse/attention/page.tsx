@@ -8,7 +8,7 @@ import {
   CheckCircle2, ChevronRight, ArrowRight,
   TrendingDown, Building2, CalendarClock,
 } from "lucide-react";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, toNum, scopeWhere } from "@/lib/server";
 import { formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import { TallySyncButton } from "@/components/mobile/tally-sync-button";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
@@ -63,7 +63,7 @@ async function AttentionContent() {
       include: { supplier: { select: { id: true, name: true } } },
     }),
     prisma.materialRequisition.findMany({
-      where: { project: { companyId: company.id }, status: "SUBMITTED" },
+      where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED" },
       orderBy: { createdAt: "desc" },
       take: 20,
       include: { project: { select: { id: true, name: true } } },

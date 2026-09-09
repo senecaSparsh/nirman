@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { createEmployee, generateOfferLetter, generateEmploymentAgreement, generateEmployeeIdCard, setSalaryComponents } from "@nirman/services";
-import { apiHandler, getCompany, json, employeeSchema, requirePermission, toNum } from "@/lib/server";
+import { createEmployee, generateOfferLetter, generateEmploymentAgreement, generateEmployeeIdCard, generateAppointmentLetter, setSalaryComponents, autoCompleteOnboarding } from "@nirman/services";
+import { apiHandler, getCompany, json, employeeSchema, requirePermission, toNum, assertScopeAllows, getCompanyGroupIds, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
@@ -20,6 +20,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       deletedAt: null,
       ...(activeOnly ? { active: true } : {}),
       ...(crewId ? { crewId } : {}),
+      ...await scopeWhere("Employee"),
     },
     orderBy: { name: "asc" },
     include: {
@@ -61,12 +62,30 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+  // Scope validation: department/project must be within the viewer's scope
+  try {
+    await assertScopeAllows({
+      departmentId: parsed.data.departmentId ?? null,
+      projectId: parsed.data.activeProjectId ?? null,
+    });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+  }
   if (parsed.data.joinDate) {
     const d = new Date(parsed.data.joinDate);
     if (isNaN(d.getTime())) {
       return json({ error: "Invalid join date format" }, { status: 400 });
     }
   }
+
+  // ── Resolve target companies ──
+  // If companyIds is provided, validate each is in the user's company group
+  // (parent + children) and the user has HR_MANAGE in that company.
+  // Otherwise, default to the active company only.
+  const groupIds = await getCompanyGroupIds();
+  const requestedCompanyIds = parsed.data.companyIds?.filter((id) => groupIds.includes(id)) ?? [];
+  const targetCompanyIds = requestedCompanyIds.length > 0 ? requestedCompanyIds : [company.id];
+
   // ── Dedup detection: if the phone/email matches an existing User in
   //    this company who isn't yet linked to an Employee, flag it so the UI
   //    can offer to link instead of creating a duplicate. ──
@@ -116,101 +135,138 @@ export const POST = apiHandler(async (req: NextRequest) => {
     }
   }
 
-  const created = await createEmployee({
-    companyId: company.id,
-    name: parsed.data.name,
-    trade: parsed.data.trade ?? undefined,
-    phone: parsed.data.phone ?? undefined,
-    email: parsed.data.email ?? undefined,
-    dailyRate: parsed.data.dailyRate ?? 0,
-    wageType: parsed.data.wageType ?? "DAILY",
-    monthlySalary: parsed.data.monthlySalary ?? null,
-    designation: parsed.data.designation ?? undefined,
-    joinDate: parsed.data.joinDate ? new Date(parsed.data.joinDate) : undefined,
-    crewId: parsed.data.crewId || undefined,
-    activeProjectId: parsed.data.activeProjectId || undefined,
-    active: parsed.data.active ?? true,
-    reportingLocationId: parsed.data.reportingLocationId || undefined,
-    hierarchyLevel: parsed.data.hierarchyLevel ?? undefined,
-    userId: user.id,
-    // Employment terms (dossier) — accepted at creation time
-    employmentType: parsed.data.employmentType ?? undefined,
-    noticePeriodDays: parsed.data.noticePeriodDays ?? undefined,
-    contractStartDate: parsed.data.contractStartDate ? new Date(parsed.data.contractStartDate) : undefined,
-    contractEndDate: parsed.data.contractEndDate ? new Date(parsed.data.contractEndDate) : undefined,
-    // Dossier fields — collected during hiring
-    payDay: parsed.data.payDay ?? undefined,
-    bankAccountHolder: parsed.data.bankAccountHolder ?? undefined,
-    bankAccountNumber: parsed.data.bankAccountNumber ?? undefined,
-    bankIfsc: parsed.data.bankIfsc ?? undefined,
-    bankName: parsed.data.bankName ?? undefined,
-    bankBranch: parsed.data.bankBranch ?? undefined,
-    panNumber: parsed.data.panNumber ?? undefined,
-    aadhaarNumber: parsed.data.aadhaarNumber ?? undefined,
-    pfNumber: parsed.data.pfNumber ?? undefined,
-    esiNumber: parsed.data.esiNumber ?? undefined,
-    uan: parsed.data.uan ?? undefined,
-    emergencyContactName: parsed.data.emergencyContactName ?? undefined,
-    emergencyContactPhone: parsed.data.emergencyContactPhone ?? undefined,
-    emergencyContactRelation: parsed.data.emergencyContactRelation ?? undefined,
-    permanentAddress: parsed.data.permanentAddress ?? undefined,
-    currentAddress: parsed.data.currentAddress ?? undefined,
-    // Identity / personal (for ID card & compliance)
-    dateOfBirth: parsed.data.dateOfBirth ? new Date(parsed.data.dateOfBirth) : undefined,
-    bloodGroup: parsed.data.bloodGroup ?? undefined,
-    photoUrl: parsed.data.photoUrl ?? undefined,
-  });
+  // ── Create the employee in each target company ──
+  // The first created employee is the "primary" one we return for onboarding
+  // redirect. All employees share the same personal data; per-company fields
+  // (department, project, crew) are only set for the active company since
+  // those IDs are company-specific.
+  const createdIds: { id: string; companyId: string }[] = [];
+  let primaryCreated: { id: string; name: string; trade: string | null } | null = null;
+  const autoGenResults: { offerLetter?: string; agreement?: string; idCard?: string; appointmentLetter?: string } = {};
 
-  // ── Save salary components BEFORE auto-generating documents ──
-  // The offer letter and agreement render the CTC breakdown from these
-  // components, so they must be persisted first.
-  if (parsed.data.salaryComponents && parsed.data.salaryComponents.length > 0) {
-    try {
-      await setSalaryComponents(
-        created.id,
-        company.id,
-        user.id,
-        parsed.data.salaryComponents.map((c) => ({
-          employeeId: created.id,
-          type: c.type as never,
-          amount: c.amount,
-          frequency: c.frequency ?? "MONTHLY",
-          isDeduction: c.isDeduction ?? false,
-          isPercentage: c.isPercentage ?? false,
-          percentageOfBasic: c.percentageOfBasic ?? null,
-        })),
-        { changedBy: user.id, changeReason: "Joining" },
-      );
-    } catch { /* non-fatal — documents will still generate without CTC table */ }
+  for (const targetCompanyId of targetCompanyIds) {
+    // Department/project/crew IDs are company-specific — only apply to the
+    // active company where the form was filled. Other companies get the
+    // personal data only; HR in those companies can assign dept/project later.
+    const isPrimary = targetCompanyId === company.id;
+    const created = await createEmployee({
+      companyId: targetCompanyId,
+      name: parsed.data.name,
+      trade: parsed.data.trade ?? undefined,
+      phone: parsed.data.phone ?? undefined,
+      email: parsed.data.email ?? undefined,
+      dailyRate: isPrimary ? (parsed.data.dailyRate ?? 0) : 0,
+      wageType: isPrimary ? (parsed.data.wageType ?? "DAILY") : "DAILY",
+      monthlySalary: isPrimary ? (parsed.data.monthlySalary ?? null) : null,
+      designation: parsed.data.designation ?? undefined,
+      departmentId: isPrimary ? (parsed.data.departmentId || undefined) : undefined,
+      joinDate: parsed.data.joinDate ? new Date(parsed.data.joinDate) : undefined,
+      crewId: isPrimary ? (parsed.data.crewId || undefined) : undefined,
+      activeProjectId: isPrimary ? (parsed.data.activeProjectId || undefined) : undefined,
+      active: parsed.data.active ?? true,
+      reportingLocationId: isPrimary ? (parsed.data.reportingLocationId || undefined) : undefined,
+      hierarchyLevel: parsed.data.hierarchyLevel ?? undefined,
+      userId: user.id,
+      // Employment terms (dossier) — accepted at creation time
+      employmentType: parsed.data.employmentType ?? undefined,
+      noticePeriodDays: parsed.data.noticePeriodDays ?? undefined,
+      contractStartDate: parsed.data.contractStartDate ? new Date(parsed.data.contractStartDate) : undefined,
+      contractEndDate: parsed.data.contractEndDate ? new Date(parsed.data.contractEndDate) : undefined,
+      // Dossier fields — collected during hiring
+      payDay: parsed.data.payDay ?? undefined,
+      bankAccountHolder: parsed.data.bankAccountHolder ?? undefined,
+      bankAccountNumber: parsed.data.bankAccountNumber ?? undefined,
+      bankIfsc: parsed.data.bankIfsc ?? undefined,
+      bankName: parsed.data.bankName ?? undefined,
+      bankBranch: parsed.data.bankBranch ?? undefined,
+      panNumber: parsed.data.panNumber ?? undefined,
+      aadhaarNumber: parsed.data.aadhaarNumber ?? undefined,
+      pfNumber: parsed.data.pfNumber ?? undefined,
+      esiNumber: parsed.data.esiNumber ?? undefined,
+      uan: parsed.data.uan ?? undefined,
+      emergencyContactName: parsed.data.emergencyContactName ?? undefined,
+      emergencyContactPhone: parsed.data.emergencyContactPhone ?? undefined,
+      emergencyContactRelation: parsed.data.emergencyContactRelation ?? undefined,
+      permanentAddress: parsed.data.permanentAddress ?? undefined,
+      currentAddress: parsed.data.currentAddress ?? undefined,
+      // Identity / personal (for ID card & compliance)
+      dateOfBirth: parsed.data.dateOfBirth ? new Date(parsed.data.dateOfBirth) : undefined,
+      bloodGroup: parsed.data.bloodGroup ?? undefined,
+      photoUrl: parsed.data.photoUrl ?? undefined,
+    });
+    createdIds.push({ id: created.id, companyId: targetCompanyId });
+    if (isPrimary) {
+      primaryCreated = { id: created.id, name: created.name, trade: created.trade };
+    }
+
+    // ── Save salary components BEFORE auto-generating documents ──
+    // (only for the primary company — other companies set salary during
+    // their own onboarding)
+    if (isPrimary && parsed.data.salaryComponents && parsed.data.salaryComponents.length > 0) {
+      try {
+        await setSalaryComponents(
+          created.id,
+          targetCompanyId,
+          user.id,
+          parsed.data.salaryComponents.map((c) => ({
+            employeeId: created.id,
+            type: c.type as never,
+            amount: c.amount,
+            frequency: c.frequency ?? "MONTHLY",
+            isDeduction: c.isDeduction ?? false,
+            isPercentage: c.isPercentage ?? false,
+            percentageOfBasic: c.percentageOfBasic ?? null,
+          })),
+          { changedBy: user.id, changeReason: "Joining" },
+        );
+      } catch { /* non-fatal — documents will still generate without CTC table */ }
+    }
+
+    // ── Auto-generate offer letter, employment agreement, and ID card ──
+    // (only for the primary company to avoid duplicate document generation)
+    if (isPrimary) {
+      try {
+        const offer = await generateOfferLetter(created.id, targetCompanyId, user.id);
+        autoGenResults.offerLetter = offer.offerLetterUrl;
+      } catch { /* prerequisites not met — skip */ }
+      try {
+        const agreement = await generateEmploymentAgreement(created.id, targetCompanyId, user.id);
+        autoGenResults.agreement = agreement.agreementUrl;
+      } catch { /* prerequisites not met — skip */ }
+      try {
+        const idCard = await generateEmployeeIdCard(created.id, targetCompanyId, user.id);
+        autoGenResults.idCard = idCard.idCardUrl;
+      } catch { /* skip */ }
+      try {
+        const appt = await generateAppointmentLetter(created.id, targetCompanyId, user.id);
+        autoGenResults.appointmentLetter = appt.appointmentLetterUrl;
+      } catch { /* prerequisites not met — skip */ }
+    }
+
+    // ── Auto-complete onboarding if all steps are already done ──
+    await autoCompleteOnboarding(created.id, targetCompanyId).catch(() => {});
   }
 
-  // ── Auto-generate offer letter, employment agreement, and ID card ──
-  // These are best-effort: if prerequisites aren't met (e.g. no wage set),
-  // the generation is silently skipped. HR can generate manually later
-  // from the onboarding tab.
-  const autoGenResults: { offerLetter?: string; agreement?: string; idCard?: string } = {};
-  try {
-    const offer = await generateOfferLetter(created.id, company.id, user.id);
-    autoGenResults.offerLetter = offer.offerLetterUrl;
-  } catch { /* prerequisites not met — skip */ }
-  try {
-    const agreement = await generateEmploymentAgreement(created.id, company.id, user.id);
-    autoGenResults.agreement = agreement.agreementUrl;
-  } catch { /* prerequisites not met — skip */ }
-  try {
-    const idCard = await generateEmployeeIdCard(created.id, company.id, user.id);
-    autoGenResults.idCard = idCard.idCardUrl;
-  } catch { /* skip */ }
+  // Fallback if primary wasn't created (shouldn't happen, but be safe)
+  if (!primaryCreated) {
+    const first = createdIds[0];
+    if (first) {
+      const emp = await prisma.employee.findUnique({ where: { id: first.id }, select: { name: true, trade: true } });
+      primaryCreated = { id: first.id, name: emp?.name ?? "", trade: emp?.trade ?? null };
+    }
+  }
 
   revalidatePath("/hr/employees");
   revalidatePath("/m/hr/employees");
     revalidatePath("/m/hr?tab=employees");
+  revalidatePath("/m/hr/onboarding");
   return json(
     {
       ok: true,
-      id: created.id,
-      name: created.name,
-      trade: created.trade,
+      id: primaryCreated?.id,
+      name: primaryCreated?.name,
+      trade: primaryCreated?.trade,
+      companyIds: createdIds.map((c) => c.companyId),
       autoGenerated: autoGenResults,
       ...(dedupSuggestion ? { dedupSuggestion } : {}),
     },

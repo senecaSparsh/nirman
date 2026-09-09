@@ -4,7 +4,7 @@ import { prisma } from "@nirman/db";
 import type { RequisitionStatus } from "@nirman/db";
 import { createRequisition, submitRequisition, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission, requisitionSchema, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requisitionSchema, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.PROCUREMENT_VIEW);
@@ -14,7 +14,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const statusFilter = statusParam ? { status: { in: statusParam.split(",") as RequisitionStatus[] } } : {};
 
   const reqs = await prisma.materialRequisition.findMany({
-    where: { project: { companyId: company.id, deletedAt: null }, ...statusFilter },
+    where: { project: { companyId: company.id, deletedAt: null }, ...statusFilter, ...await scopeWhere("MaterialRequisition") },
     orderBy: { createdAt: "desc" },
     take: 200,
     include: {
@@ -56,6 +56,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
   const { phaseId, neededByDate, autoSubmit, ...rest } = parsed.data;
   const company = await getCompany();
+  try {
+    await assertScopeAllows({ projectId: parsed.data.projectId ?? null, departmentId: null });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+  }
   try {
     const req = await createRequisition({
       ...rest,

@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import {Wallet, TrendingUp, FileText, AlertTriangle} from "lucide-react";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
@@ -50,7 +50,7 @@ async function MobilePendingPaymentsContent() {
       orderBy: { expectedDate: "asc" },
     }),
     prisma.assetSale.findMany({
-      where: { companyId: company.id, status: "ACTIVE", paymentStatus: { in: ["PENDING", "PARTIAL"] } },
+      where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE", paymentStatus: { in: ["PENDING", "PARTIAL"] } },
       include: { customer: { select: { name: true } }, project: { select: { name: true } }, payments: { select: { amount: true } } },
       orderBy: { saleDate: "asc" },
     }),

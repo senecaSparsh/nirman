@@ -8,7 +8,7 @@ import {
   confirmExit,
   cancelGatePass,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, requireUser, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { prisma } from "@nirman/db";
 
@@ -22,7 +22,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const { id } = await params;
 
   const gp = await prisma.gatePass.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, ...await scopeWhere("GatePass", {}) },
     include: {
       lines: { include: { material: { select: { id: true, code: true, name: true, unit: true } } } },
       location: { select: { id: true, name: true, type: true } },
@@ -57,7 +57,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   // Verify company membership for all actions
   const company = await getCompany();
   const existing = await prisma.gatePass.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, ...await scopeWhere("GatePass", {}) },
     select: { id: true },
   });
   if (!existing) return json({ error: "Gate pass not found" }, { status: 404 });
@@ -103,7 +103,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const { id } = await params;
 
   const gp = await prisma.gatePass.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, ...await scopeWhere("GatePass", {}) },
     select: { id: true, status: true },
   });
   if (!gp) return json({ error: "Gate pass not found" }, { status: 404 });

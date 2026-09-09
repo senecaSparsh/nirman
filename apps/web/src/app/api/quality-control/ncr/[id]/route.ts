@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { getNcr, updateNcr, reviewNcr, closeNcr, cancelNcr, deleteNcr } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -31,9 +31,11 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
   await requirePermission(PERM.ASSETS_VIEW);
   const company = await getCompany();
   const { id } = await ctx.params;
-  const existing = await prisma.nonConformanceReport.findUnique({ where: { id }, select: { companyId: true } });
+  const existing = await prisma.nonConformanceReport.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("NonConformanceReport", {}) },
+    select: { id: true },
+  });
   if (!existing) return json({ error: "NCR not found" }, { status: 404 });
-  if (existing.companyId !== company.id) return json({ error: "NCR does not belong to your company" }, { status: 403 });
   const ncr = await getNcr(id);
   return json(ncr);
 });
@@ -45,9 +47,11 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   const { id } = await ctx.params;
   const body = await req.json();
 
-  const existing = await prisma.nonConformanceReport.findUnique({ where: { id }, select: { companyId: true } });
+  const existing = await prisma.nonConformanceReport.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("NonConformanceReport", {}) },
+    select: { id: true },
+  });
   if (!existing) return json({ error: "NCR not found" }, { status: 404 });
-  if (existing.companyId !== company.id) return json({ error: "NCR does not belong to your company" }, { status: 403 });
 
   // Workflow action
   if (body.action && typeof body.action === "string") {
@@ -103,9 +107,11 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   const user = await requirePermission(PERM.WO_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
-  const existing = await prisma.nonConformanceReport.findUnique({ where: { id }, select: { companyId: true } });
+  const existing = await prisma.nonConformanceReport.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("NonConformanceReport", {}) },
+    select: { id: true },
+  });
   if (!existing) return json({ error: "NCR not found" }, { status: 404 });
-  if (existing.companyId !== company.id) return json({ error: "NCR does not belong to your company" }, { status: 403 });
   try {
     await deleteNcr(id, user.id);
     revalidatePath("/quality-control");

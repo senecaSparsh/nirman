@@ -180,6 +180,7 @@ export function MobileEmployeeSelect(
           onCreated={(e) => onCreated(e.id, e.name)}
           projects={props.projects}
           stockLocations={props.stockLocations}
+          departments={[]}
           nested
         />
       )}

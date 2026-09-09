@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createRecurringExpense, generateDueRecurringExpenses, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -24,7 +24,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   await requirePermission(PERM.FINANCE_VIEW);
   const company = await getCompany();
   const items = await prisma.recurringExpense.findMany({
-    where: { companyId: company.id },
+    where: { companyId: company.id, ...await scopeWhere("RecurringExpense", {}) },
     orderBy: { nextRunDate: "asc" },
     include: {
       project: { select: { id: true, name: true } },
@@ -62,6 +62,17 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   const d = parsed.data;
+  try {
+    await assertScopeAllows({
+      projectId: d.projectId ?? null,
+      departmentId: null,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Scope violation" },
+      { status: 403 },
+    );
+  }
   try {
     const recurring = await createRecurringExpense({
       companyId: company.id,

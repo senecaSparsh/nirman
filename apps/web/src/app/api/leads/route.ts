@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@nirman/db";
 import { createLead } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 const createLeadSchema = z.object({
@@ -29,7 +29,7 @@ export const GET = apiHandler(async () => {
   await requirePermission(PERM.SALES_VIEW);
   const company = await getCompany();
   const leads = await prisma.lead.findMany({
-    where: { companyId: company.id, deletedAt: null },
+    where: { companyId: company.id, deletedAt: null, ...await scopeWhere("Lead", {}) },
     orderBy: [{ nextFollowUpAt: "asc" }, { createdAt: "desc" }],
     include: {
       project: { select: { id: true, name: true } },
@@ -79,6 +79,17 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const company = await getCompany();
   const parsed = createLeadSchema.safeParse(await req.json());
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  try {
+    await assertScopeAllows({
+      projectId: parsed.data.projectId ?? null,
+      departmentId: null,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Scope violation" },
+      { status: 403 },
+    );
+  }
   const lead = await createLead({
     companyId: company.id,
     name: parsed.data.name,

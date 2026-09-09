@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileMaterialSalesList } from "./MobileMaterialSalesList";
@@ -15,9 +15,11 @@ export default function MobileMaterialSalesPage() {
   return (
     <MobileListPage managePerm={PERM.SALE_CREATE}>
       {async ({ company, canManage }) => {
+        // Scope-aware action permissions (for FAB gating)
+        const actions = await getActionPermissions();
         const BATCH_SIZE = 60;
         const sales = await prisma.materialSale.findMany({
-          where: { companyId: company.id },
+          where: {...await scopeWhere("MaterialSale"),  companyId: company.id },
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           take: BATCH_SIZE + 1,
           select: {
@@ -95,7 +97,7 @@ export default function MobileMaterialSalesPage() {
               exportColumns={csvColumns}
               exportSummary={`${serialized.length} sales`}
             />
-            {canManage && (
+            {actions.canCreateMaterialSale && (
               <MobileMaterialSalesFab />
             )}
           </div>

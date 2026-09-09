@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
@@ -55,7 +55,7 @@ async function InventoryContent() {
       }),
       // Most recent pending indents for the "Pending indents" list.
       prisma.materialRequisition.findMany({
-        where: { project: { companyId: company.id }, status: "SUBMITTED" },
+        where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED" },
         orderBy: { createdAt: "desc" },
         take: 6,
         include: { project: { select: { name: true } } },

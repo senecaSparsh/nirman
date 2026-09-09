@@ -2,7 +2,7 @@ import { prisma } from "@nirman/db";
 import {
   Home, ShoppingCart, Building2, TrendingUp,
 } from "lucide-react";
-import { toNum, getUserPermissions } from "@/lib/server";
+import { toNum, getUserPermissions, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
 import {
@@ -46,7 +46,7 @@ export default function MobileUnitDetailPage({
         const overrides = await getUserPermissions();
 
         const unit = await prisma.builtUnit.findFirst({
-          where: { id, deletedAt: null, project: { companyId: company.id } },
+          where: {...await scopeWhere("BuiltUnit"),  id, deletedAt: null, project: { companyId: company.id } },
           include: {
             project: { select: { id: true, name: true } },
             phase: { select: { name: true } },

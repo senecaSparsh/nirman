@@ -9,7 +9,7 @@ import {
   deleteExpense,
   ServiceError,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -45,7 +45,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
   const e = await prisma.expense.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, ...await scopeWhere("Expense", {}) },
     include: {
       project: { select: { id: true, name: true } },
       categoryMaster: { select: { id: true, name: true, glAccountCode: true } },
@@ -158,6 +158,18 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   // ── Field update (DRAFT / REJECTED only) ──
   const user = await requirePermission(PERM.EXPENSE_CREATE);
   const company = await getCompany();
+
+  try {
+    await assertScopeAllows({
+      projectId: d.projectId ?? null,
+      departmentId: null,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Scope violation" },
+      { status: 403 },
+    );
+  }
 
   let expenseDate: Date | null | undefined;
   if (d.date !== undefined) {

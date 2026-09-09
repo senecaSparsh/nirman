@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { headers } from "next/headers";
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser } from "@/lib/server";
-import { PERM, hasPermission, roleTier } from "@/lib/roles";
+import { getCompany, getCurrentUser, scopeWhere, getActionPermissions } from "@/lib/server";
+import { roleTier } from "@/lib/roles";
 import { getUserRole } from "@/lib/server";
 import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
@@ -55,8 +55,8 @@ async function HomeContent() {
     getUserRole(),
   ]);
 
-  const canCreateCompany =
-    hasPermission(role, PERM.COMPANY_MANAGE) && !company.parentCompanyId;
+  const actions = await getActionPermissions();
+  const canCreateCompany = actions.canCreateCompany;
   const isDevBypass = process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production";
   let memberships;
 
@@ -155,7 +155,7 @@ async function HomeContent() {
 
   const myAttendance = myEmployee
     ? await prisma.workerAttendance.findFirst({
-        where: {
+        where: {...await scopeWhere("WorkerAttendance"), 
           employeeId: myEmployee.id,
           date: { gte: startOfToday, lt: endOfToday },
         },

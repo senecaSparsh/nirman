@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { Globe, Plus } from "lucide-react";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
@@ -20,6 +20,7 @@ export default function MobilePortalListingsPage() {
   return (
     <MobileListPage managePerm={PERM.SALES_MANAGE}>
       {async ({ company, canManage }) => {
+        const actions = await getActionPermissions();
         const listings = await prisma.portalListing.findMany({
           where: { companyId: company.id },
           orderBy: { createdAt: "desc" },
@@ -79,9 +80,9 @@ export default function MobilePortalListingsPage() {
               <MobileEmptyState
                 icon={Globe}
                 title="No portal listings"
-                hint={canManage ? "Tap 'New Listing' to list a unit on 99acres, MagicBricks, etc." : "Portal listings will appear here once created"}
+                hint={(actions?.canCreatePortalListing ?? canManage) ? "Tap 'New Listing' to list a unit on 99acres, MagicBricks, etc." : "Portal listings will appear here once created"}
                 action={
-                  canManage ? (
+                  (actions?.canCreatePortalListing ?? canManage) ? (
                     <MobileCta href="/m/portal-listings/new" icon={Plus} variant="primary">
                       New Listing
                     </MobileCta>
@@ -97,7 +98,7 @@ export default function MobilePortalListingsPage() {
                   exportColumns={csvColumns}
                   exportSummary={`${rows.length} listings · ${listed.length} listed`}
                 />
-                {canManage && (
+                {(actions?.canCreatePortalListing ?? canManage) && (
                   <div className="mt-4">
                     <MobileCta href="/m/portal-listings/new" icon={Plus} variant="primary">
                       New Listing

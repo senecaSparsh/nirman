@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole, getUserScope } from "@/lib/server";
+import { getCompany, toNum, getUserRole, getUserScope, scopeWhere } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
@@ -62,7 +62,7 @@ async function ReportContent({
 
   const issues = await prisma.materialIssue.findMany({
     take: 500,
-    where: {
+    where: {...await scopeWhere("MaterialIssue"), 
       department: { companyId: company.id, deletedAt: null },
       departmentId: { not: null },
       ...dateFilter,

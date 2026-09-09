@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { Users } from "lucide-react";
 import { MobileAttendanceForm } from "@/components/mobile/mobile-attendance-form";
@@ -57,7 +57,7 @@ async function MobileAttendanceContent() {
       orderBy: { name: "asc" },
     }),
     prisma.workerAttendance.findMany({
-      where: {
+      where: {...await scopeWhere("WorkerAttendance"), 
         companyId: company.id,
         date: { gte: startOfToday, lt: endOfToday },
       },

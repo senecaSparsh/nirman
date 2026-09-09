@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createExpense, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
@@ -53,6 +53,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       ...(categoryId ? { categoryId } : {}),
       ...(supplierId ? { supplierId } : {}),
       ...(cursorToWhere(cursor, "date") ?? {}),
+      ...await scopeWhere("Expense", {}),
     },
     orderBy: { date: "desc" },
     take: usePagination ? take + 1 : undefined,
@@ -121,6 +122,17 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   const d = parsed.data;
+  try {
+    await assertScopeAllows({
+      projectId: d.projectId ?? null,
+      departmentId: null,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Scope violation" },
+      { status: 403 },
+    );
+  }
   const expenseDate = d.date ? new Date(d.date) : new Date();
   if (isNaN(expenseDate.getTime())) {
     return json({ error: "Invalid date format" }, { status: 400 });

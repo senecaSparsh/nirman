@@ -9,7 +9,7 @@ import {
 import { MobileProjectPossession } from "./MobileProjectPossession";
 import { MobileProjectTabs } from "./MobileProjectTabs";
 import { MobileCheckMilestonesButton } from "./MobileCheckMilestonesButton";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { formatNumber, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
@@ -69,7 +69,7 @@ export default function MobileProjectDetailPage({
   const [units, recentPOs, recentIssues, recentCosts, recentDprs, requisitions, landParcels, recentAttendance, legalDocs] =
     await Promise.all([
       prisma.builtUnit.findMany({
-        where: { projectId: id, deletedAt: null },
+        where: {...await scopeWhere("BuiltUnit"),  projectId: id, deletedAt: null },
         orderBy: { unitNumber: "asc" },
         select: {
           id: true, unitNumber: true, unitType: true, status: true,
@@ -84,19 +84,19 @@ export default function MobileProjectDetailPage({
         include: { supplier: { select: { name: true } } },
       }),
       prisma.materialIssue.findMany({
-        where: { projectId: id },
+        where: {...await scopeWhere("MaterialIssue"),  projectId: id },
         orderBy: { createdAt: "desc" },
         take: 5,
         include: { fromLocation: { select: { name: true } } },
       }),
       prisma.projectCost.findMany({
-        where: { projectId: id },
+        where: {...await scopeWhere("ProjectCost"),  projectId: id },
         orderBy: { date: "desc" },
         take: 5,
         select: { id: true, costType: true, amount: true, date: true, vendor: true },
       }),
       prisma.dailyProgressReport.findMany({
-        where: { projectId: id },
+        where: {...await scopeWhere("DailyProgressReport"),  projectId: id },
         orderBy: { date: "desc" },
         take: 5,
         select: { id: true, date: true, approvalStatus: true, progressPct: true, workSummary: true },
@@ -108,7 +108,7 @@ export default function MobileProjectDetailPage({
         where: { projectId: id, deletedAt: null, status: "AVAILABLE" },
       }),
       prisma.workerAttendance.findMany({
-        where: { projectId: id },
+        where: {...await scopeWhere("WorkerAttendance"),  projectId: id },
         orderBy: { date: "desc" },
         take: 5,
         include: { employee: { select: { name: true } } },

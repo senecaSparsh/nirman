@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { Package } from "lucide-react";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
@@ -28,6 +28,8 @@ export default function MobileMaterialsPage({
     <MobileListPage managePerm={PERM.INVENTORY_MANAGE} skeletonRows={8}>
       {async ({ company, canManage }) => {
         const { category } = await searchParams;
+        // Scope-aware action permissions (for FAB gating)
+        const actions = await getActionPermissions();
 
         const materials = await prisma.material.findMany({
           where: { deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
@@ -47,7 +49,7 @@ export default function MobileMaterialsPage({
           take: 200,
         });
 
-        const categories = canManage
+        const categories = actions.canCreateMaterial
           ? await prisma.materialCategory.findMany({
               where: { deletedAt: null },
               orderBy: { name: "asc" },
@@ -124,7 +126,7 @@ export default function MobileMaterialsPage({
             )}
 
             {/* Floating add button — springs into a modal with the new-material form */}
-            {canManage && (
+            {actions.canCreateMaterial && (
               <MobileMaterialsFab categories={categories} />
             )}
           </div>

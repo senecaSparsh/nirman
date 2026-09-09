@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { UserPlus, ChevronRight, CheckCircle2, Circle } from "lucide-react";
+import { UserPlus, ChevronRight } from "lucide-react";
 import { getCompany, getUserRole, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
@@ -10,8 +10,13 @@ import {
   MobileSectionTitle,
   MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
+import {
+  OnboardingProgress,
+  type OnboardingStep,
+} from "@/components/mobile/v2/onboarding-progress";
+import { buildOnboardingSteps } from "@/lib/onboarding-steps";
 
-type ProgressStep = { label: string; done: boolean };
+type ProgressStep = OnboardingStep;
 interface QueueItem {
   id: string;
   name: string;
@@ -94,6 +99,7 @@ async function MobileOnboardingQueueContent() {
       idCardStatus: true,
       payDay: true,
       userId: true,
+      onboardingComplete: true,
       user: { select: { id: true, active: true, role: true } },
       activeProject: { select: { name: true } },
       salaryComponents: { where: { active: true }, select: { id: true } },
@@ -101,43 +107,29 @@ async function MobileOnboardingQueueContent() {
   });
 
   // ── Compute onboarding progress for each employee ──
-  // 12 canonical steps — MUST match MobileOnboardingTab exactly so "complete"
-  // means the same thing on the queue and the detail page.
+  // Uses the shared buildOnboardingSteps so "complete" means the same
+  // thing on the queue, the detail tab, and the profile page.
   const items: QueueItem[] = employees.map((e) => {
-    const hasProfile = !!(e.name && (e.phone || e.user) && (e.designation || e.trade));
-    const hasWage = e.wageType === "DAILY" ? (e.dailyRate?.toNumber() ?? 0) > 0 : (e.monthlySalary?.toNumber() ?? 0) > 0;
-    const hasEmploymentTerms = !!(
-      e.employmentType &&
-      e.noticePeriodDays != null &&
-      (e.employmentType !== "CONTRACT" || e.contractStartDate) &&
-      (e.employmentType !== "PROBATION" || e.contractStartDate)
-    );
-    const hasSalaryStructure = e.salaryComponents.length > 0;
-    const documentsSubmitted = e.documentsSubmitted === true;
-    const backgroundVerified = e.backgroundVerified === true;
-    const hasAccount = !!e.userId;
-    const offerLetterIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(e.offerLetterStatus ?? "");
-    const agreementIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(e.contractStatus ?? "");
-    const agreementConfirmed = ["CONFIRMED", "EXPIRED"].includes(e.contractStatus ?? "");
-    const appointmentLetterIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(e.appointmentLetterStatus ?? "");
-    const idCardIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(e.idCardStatus ?? "");
-    const hasAutoDeposit = e.autoDepositEnabled === true;
-
-    const steps = [
-      { label: "Profile & Wage", done: hasProfile && hasWage },
-      { label: "Employment Terms", done: hasEmploymentTerms },
-      { label: "Salary Structure", done: hasSalaryStructure },
-      { label: "Documents", done: documentsSubmitted },
-      { label: "BG Verification", done: backgroundVerified },
-      { label: "Login Account", done: hasAccount },
-      { label: "Offer Letter", done: offerLetterIssued },
-      { label: "Agreement Issued", done: agreementIssued },
-      { label: "Agreement Confirmed", done: agreementConfirmed },
-      { label: "Appointment Letter", done: appointmentLetterIssued },
-      { label: "ID Card", done: idCardIssued },
-      { label: "Auto-Deposit", done: hasAutoDeposit },
-    ];
-    const completedCount = steps.filter((s) => s.done).length;
+    const { steps, completedCount } = buildOnboardingSteps({
+      hasProfile: !!(e.name && (e.phone || e.user) && (e.designation || e.trade)),
+      hasWage: e.wageType === "DAILY" ? (e.dailyRate?.toNumber() ?? 0) > 0 : (e.monthlySalary?.toNumber() ?? 0) > 0,
+      hasEmploymentTerms: !!(
+        e.employmentType &&
+        e.noticePeriodDays != null &&
+        (e.employmentType !== "CONTRACT" || e.contractStartDate) &&
+        (e.employmentType !== "PROBATION" || e.contractStartDate)
+      ),
+      hasSalaryStructure: e.salaryComponents.length > 0,
+      documentsSubmitted: e.documentsSubmitted === true,
+      backgroundVerified: e.backgroundVerified === true,
+      hasAccount: !!e.userId,
+      offerLetterIssued: ["ISSUED", "CONFIRMED", "EXPIRED"].includes(e.offerLetterStatus ?? ""),
+      agreementIssued: ["ISSUED", "CONFIRMED", "EXPIRED"].includes(e.contractStatus ?? ""),
+      agreementConfirmed: ["CONFIRMED", "EXPIRED"].includes(e.contractStatus ?? ""),
+      appointmentLetterIssued: ["ISSUED", "CONFIRMED", "EXPIRED"].includes(e.appointmentLetterStatus ?? ""),
+      idCardIssued: ["ISSUED", "CONFIRMED", "EXPIRED"].includes(e.idCardStatus ?? ""),
+      hasAutoDeposit: e.autoDepositEnabled === true,
+    });
 
     return {
       id: e.id,
@@ -148,7 +140,11 @@ async function MobileOnboardingQueueContent() {
       activeProjectName: e.activeProject?.name ?? null,
       steps,
       completedCount,
-      isComplete: completedCount === steps.length,
+      // ── Single source of truth: the DB field ──
+      // autoCompleteOnboarding sets this when all 12 steps pass.
+      // The manual complete-onboarding endpoint can also set it.
+      // buildOnboardingSteps is only for showing progress (which steps are done).
+      isComplete: e.onboardingComplete === true,
     };
   });
 
@@ -206,7 +202,7 @@ async function MobileOnboardingQueueContent() {
               </p>
               <div className="space-y-2">
                 {inProgress.map((item) => (
-                  <OnboardingQueueCard key={item.id} item={item} />
+                  <OnboardingQueueCard key={item.id} item={item} canManage={_canManage} />
                 ))}
               </div>
             </div>
@@ -220,7 +216,7 @@ async function MobileOnboardingQueueContent() {
               </p>
               <div className="space-y-2">
                 {complete.map((item) => (
-                  <OnboardingQueueCard key={item.id} item={item} />
+                  <OnboardingQueueCard key={item.id} item={item} canManage={_canManage} />
                 ))}
               </div>
             </div>
@@ -234,7 +230,7 @@ async function MobileOnboardingQueueContent() {
               </p>
               <div className="space-y-2">
                 {inactive.map((item) => (
-                  <OnboardingQueueCard key={item.id} item={item} />
+                  <OnboardingQueueCard key={item.id} item={item} canManage={_canManage} />
                 ))}
               </div>
             </div>
@@ -271,11 +267,11 @@ function SummaryStat({ label, value, tone }: { label: string; value: number; ton
 /* ── Queue card — shows employee + progress bar + step dots ── */
 function OnboardingQueueCard({
   item,
+  canManage,
 }: {
   item: QueueItem;
+  canManage: boolean;
 }) {
-  const pct = Math.round((item.completedCount / item.steps.length) * 100);
-
   return (
     <Link
       href={`/m/hr/onboarding/${item.id}`}
@@ -308,40 +304,17 @@ function OnboardingQueueCard({
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div
-        className="h-1.5 rounded-full overflow-hidden mb-2"
-        style={{ backgroundColor: "var(--color-concrete)" }}
-      >
-        <div
-          className="h-full rounded-full"
-          style={{
-            width: `${pct}%`,
-            backgroundColor: item.isComplete ? "var(--color-go)" : "var(--color-ink-950)",
-            transition: "width 300ms cubic-bezier(0.4, 0, 0.2, 1)",
-          }}
-        />
-      </div>
-
-      {/* Step dots — compact */}
-      <div className="flex items-center gap-1">
-        {item.steps.map((step, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-0.5"
-            title={step.label}
-          >
-            {step.done ? (
-              <CheckCircle2 className="size-3" style={{ color: "var(--color-go)" }} />
-            ) : (
-              <Circle className="size-3" style={{ color: "var(--color-ink-300)" }} />
-            )}
-            {i < item.steps.length - 1 && (
-              <div className="w-2 h-px" style={{ backgroundColor: "var(--color-line)" }} />
-            )}
-          </div>
-        ))}
-      </div>
+      {/* Progress bar + step dots (shared component, no card border) */}
+      <OnboardingProgress
+        steps={item.steps}
+        completedCount={item.completedCount}
+        isComplete={item.isComplete}
+        canManage={canManage}
+        employeeId={item.id}
+        showCompleteButton={false}
+        compact
+        bare
+      />
     </Link>
   );
 }

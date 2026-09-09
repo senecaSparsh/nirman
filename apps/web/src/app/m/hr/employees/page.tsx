@@ -1,9 +1,10 @@
 import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
+import { redirect } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { Users } from "lucide-react";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum, getEmployeeAccessScope, getActionPermissions, filterOptionsByScope, getCompanyGroupIds, getCurrentUser } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import {
@@ -31,11 +32,19 @@ async function MobileEmployeesContent() {
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.HR_MANAGE);
+  // Gate: require HR_VIEW to access the employee roster
+  if (!hasPermission(role, PERM.HR_VIEW)) {
+    redirect("/m");
+  }
+  // Root-level access scope: department + field gating
+  const accessScope = await getEmployeeAccessScope();
+  const canManage = accessScope.canManageEmployee;
+  // Scope-aware action permissions (for FABs + form option restriction)
+  const actions = await getActionPermissions();
 
-  const [employees, projects, stockLocations] = await Promise.all([
+  const [employees, projects, stockLocations, departments] = await Promise.all([
     prisma.employee.findMany({
-      where: { companyId: company.id, active: true, deletedAt: null },
+      where: { companyId: company.id, active: true, deletedAt: null, ...accessScope.employeeFilter },
       orderBy: { name: "asc" },
       take: 100,
       select: {
@@ -47,26 +56,62 @@ async function MobileEmployeesContent() {
         wageType: true,
         monthlySalary: true,
         designation: true,
+        onboardingComplete: true,
+        active: true,
         activeProject: { select: { name: true } },
+        user: { select: { employeeCode: true } },
       },
     }),
-    canManage
-      ? prisma.project.findMany({
-          where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
-          orderBy: { name: "asc" },
-          select: { id: true, name: true },
-        })
+    actions.canCreateEmployee
+      ? filterOptionsByScope(
+          await prisma.project.findMany({
+            where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+            orderBy: { name: "asc" },
+            select: { id: true, name: true },
+          }),
+          actions.allowedProjectIds,
+        )
       : [],
-    canManage
+    actions.canCreateEmployee
       ? prisma.stockLocation.findMany({
           where: { companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
           select: { id: true, name: true, type: true },
         })
       : [],
+    actions.canCreateEmployee
+      ? filterOptionsByScope(
+          await prisma.department.findMany({
+            where: { companyId: company.id, active: true },
+            orderBy: { name: "asc" },
+            select: { id: true, name: true, active: true },
+          }),
+          actions.allowedDepartmentIds,
+        )
+      : [],
   ]);
 
+  // ── Company group: parent + children for multi-company onboarding ──
+  // Only owners/admins (COMPANY scope) can onboard across companies.
+  const groupIds = actions.canCreateEmployee ? await getCompanyGroupIds() : [];
+  const companyGroup = groupIds.length > 1
+    ? await prisma.company.findMany({
+        where: { id: { in: groupIds }, deletedAt: null },
+        select: { id: true, name: true, parentCompanyId: true },
+        orderBy: { name: "asc" },
+      })
+    : [];
+
   const trades = [...new Set(employees.map((e) => e.trade).filter(Boolean))];
+
+  // ── Viewer hierarchy level — for client-side per-row action gating ──
+  const currentUser = await getCurrentUser();
+  const viewerEmployee = await prisma.employee.findFirst({
+    where: { userId: currentUser?.id, companyId: company.id, deletedAt: null },
+    select: { hierarchyLevel: true },
+  }).catch(() => null);
+  const viewerHierarchyLevel = viewerEmployee?.hierarchyLevel ?? null;
+
   const dailyWorkers = employees.filter((e) => e.wageType === "DAILY");
   const monthlyStaff = employees.filter((e) => e.wageType !== "DAILY");
   const totalMonthlyCost = monthlyStaff.reduce(
@@ -85,6 +130,9 @@ async function MobileEmployeesContent() {
     monthlySalary: e.monthlySalary?.toString() ?? null,
     wageType: e.wageType,
     activeProjectName: e.activeProject?.name ?? null,
+    onboardingComplete: e.onboardingComplete === true,
+    employeeCode: e.user?.employeeCode ?? null,
+    active: e.active,
   }));
 
   return (
@@ -103,6 +151,7 @@ async function MobileEmployeesContent() {
 
       <MobileEmployeesList
         items={serialized}
+        viewerHierarchyLevel={viewerHierarchyLevel}
         exportTitle="Employees"
         exportRows={serialized as unknown as Record<string, unknown>[]}
         exportColumns={[
@@ -116,9 +165,14 @@ async function MobileEmployeesContent() {
         exportSummary={`${serialized.length} employees`}
       />
 
-      {/* FAB: New Employee */}
-      {canManage && (
-        <MobileEmployeesFab projects={projects} stockLocations={stockLocations} />
+      {/* FAB: New Employee — gated by scope-aware action permission */}
+      {actions.canCreateEmployee && (
+        <MobileEmployeesFab
+          projects={projects}
+          stockLocations={stockLocations}
+          departments={departments}
+          companyGroup={companyGroup}
+        />
       )}
 
       {employees.length === 0 && (

@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { addLandCostComponent, scheduledTotal } from "@nirman/services";
 import Decimal from "decimal.js";
-import { apiHandler, getCompany, json, toNum, landCostComponentSchema, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, landCostComponentSchema, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
@@ -12,7 +12,7 @@ export const GET = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ 
   const { id } = await ctx.params;
 
   const lp = await prisma.landPurchase.findFirst({
-    where: { id, companyId: company.id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("LandPurchase", {}) },
     select: { id: true },
   });
   if (!lp) return json({ error: "Land purchase not found" }, { status: 404 });
@@ -46,7 +46,7 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
   const { id } = await ctx.params;
 
   const lp = await prisma.landPurchase.findFirst({
-    where: { id, companyId: company.id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("LandPurchase", {}) },
     select: { id: true },
   });
   if (!lp) return json({ error: "Land purchase not found" }, { status: 404 });

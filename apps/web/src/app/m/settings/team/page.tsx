@@ -1,132 +1,20 @@
-import { Suspense } from "react";
-import { connection } from "next/server";
-import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser, getUserRole } from "@/lib/server";
-import { hasPermission, PERM, ROLES, migrateRole, assignableRoles as getAssignableRoles, type Role } from "@/lib/roles";
-import { MobileTeamList } from "./MobileTeamList";
-import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { redirect } from "next/navigation";
 
 /**
- * /m/settings/team — Team & Permissions.
+ * /m/settings/team — Redirected to /m/hr/employees.
  *
- * Purpose: an owner/admin opens this to manage who has access to the
- * company and what they can do. The page answers:
+ * Team & Permissions functionality has been merged into the Employee profile.
+ * Each employee profile now has an "Access & Login" section (gated by
+ * USERS_MANAGE permission) that handles:
+ *   - Role assignment
+ *   - Access scope (project/department scoping)
+ *   - Module permissions
+ *   - Password reset
+ *   - Activate/deactivate
+ *   - Provisioning login access for employees without accounts
  *
- *   1. Who's on the team?           → Team roster with roles
- *   2. What can each role do?        → Permission matrix reference
- *   3. Can I change someone's role?  → Inline role change (hierarchical RBAC)
- *   4. Can I deactivate someone?     → Toggle active/inactive
- *
- * Tier 5 roles (SUPERVISOR/QAQC_ENGINEER) get read-only access.
+ * Users without USERS_MANAGE permission don't see the access section at all.
  */
 export default function TeamPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center py-12">
-          <div className="size-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "var(--color-ink-300)", borderTopColor: "transparent" }} />
-        </div>
-      }
-    >
-      <TeamContent />
-    </Suspense>
-  );
-}
-
-async function TeamContent() {
-  await connection();
-  const company = await getCompany();
-  const currentUser = await getCurrentUser();
-  const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.USERS_MANAGE);
-
-  // Get all users in this company with their membership info
-  const [memberships, projects, departments, customRoles] = await Promise.all([
-    prisma.userCompany.findMany({
-      where: { companyId: company.id, user: { isHidden: { not: true } } },
-      orderBy: { createdAt: "asc" },
-      include: {
-        user: { select: { id: true, name: true, email: true, phone: true, active: true, role: true, designation: true, department: true, employeeCode: true, joiningDate: true } },
-        reportsTo: { include: { user: { select: { name: true } } } },
-      },
-    }),
-    prisma.project.findMany({
-      where: { companyId: company.id, deletedAt: null },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.department.findMany({
-      where: { companyId: company.id, deletedAt: null },
-      select: { id: true, code: true, name: true, active: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.customRole.findMany({
-      where: { companyId: company.id },
-      orderBy: { createdAt: "asc" },
-    }),
-  ]);
-
-  const team = memberships.map((m) => ({
-    id: m.user.id,
-    membershipId: m.id,
-    name: m.user.name,
-    email: m.user.email,
-    phone: m.user.phone,
-    role: (migrateRole(m.role) ?? "SUPERVISOR") as Role,
-    active: m.user.active,
-    isSelf: m.user.id === currentUser?.id,
-    reportsToName: m.reportsTo?.user.name ?? null,
-    designation: m.user.designation,
-    department: m.user.department,
-    employeeCode: m.user.employeeCode,
-    joiningDate: m.user.joiningDate?.toISOString() ?? null,
-  }));
-
-  // Count by role
-  const roleCounts: Record<string, number> = {};
-  for (const m of team) {
-    roleCounts[m.role] = (roleCounts[m.role] ?? 0) + 1;
-  }
-
-  const assignableRoles = canManage
-    ? [
-        ...getAssignableRoles(role).map((r) => ({ key: r, label: ROLES[r].label })),
-        // Include custom roles the actor can assign (based on tier)
-        ...customRoles
-          .filter((cr) => {
-            const actorTier = ROLES[migrateRole(role) ?? "SUPERVISOR"]?.tier ?? 5;
-            return actorTier < cr.tier;
-          })
-          .map((cr) => ({ key: cr.key, label: cr.label })),
-      ]
-    : [];
-
-  const activeCount = team.filter((m) => m.active).length;
-
-  const exportColumns: MobileColumnSpec[] = [
-    { key: "name", label: "Name" },
-    { key: "email", label: "Email" },
-    { key: "role", label: "Role" },
-    { key: "designation", label: "Designation" },
-    { key: "department", label: "Department" },
-    { key: "employeeCode", label: "Employee Code" },
-  ];
-
-  return (
-    <MobileTeamList
-      team={team}
-      canManage={canManage}
-      currentUserId={currentUser?.id ?? ""}
-      currentRole={role}
-      roleCounts={roleCounts}
-      assignableRoles={assignableRoles}
-      customRoles={customRoles.map((cr) => ({ id: cr.id, key: cr.key, label: cr.label, description: cr.description, baseRole: cr.baseRole, tier: cr.tier, permissions: cr.permissions }))}
-      projects={projects.map((p) => ({ id: p.id, name: p.name }))}
-      departments={departments.map((d) => ({ id: d.id, code: d.code, name: d.name, active: d.active }))}
-      exportTitle="Team"
-      exportRows={team as unknown as Record<string, unknown>[]}
-      exportColumns={exportColumns}
-      exportSummary={`${team.length} members · ${activeCount} active`}
-    />
-  );
+  redirect("/m/hr/employees");
 }

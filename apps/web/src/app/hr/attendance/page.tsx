@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { computeAttendanceTier } from "@nirman/services";
-import { getCompany, toNum, getUserRole, getUserScope } from "@/lib/server";
+import { getCompany, toNum, getUserRole, getUserScope, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
@@ -66,7 +66,7 @@ async function AttendanceContent() {
       orderBy: { name: "asc" },
     }),
     prisma.workerAttendance.findMany({
-      where: { companyId: company.id, date: { gte: weekAgo }, ...projectFilter },
+      where: {...await scopeWhere("WorkerAttendance"),  companyId: company.id, date: { gte: weekAgo }, ...projectFilter },
       orderBy: { date: "desc" },
       take: 100,
       include: {
@@ -76,7 +76,7 @@ async function AttendanceContent() {
     }),
     prisma.leaveRequest.findMany({
       take: 500,
-      where: { companyId: company.id },
+      where: {...await scopeWhere("LeaveRequest"),  companyId: company.id },
       orderBy: { createdAt: "desc" },
       include: {
         employee: { select: { id: true, name: true, trade: true, designation: true } },
@@ -102,7 +102,7 @@ async function AttendanceContent() {
   if (projectDateKeys.size > 0) {
     const dprs = await prisma.dailyProgressReport.findMany({
       take: 200,
-      where: { project: { companyId: company.id } },
+      where: {...await scopeWhere("DailyProgressReport"),  project: { companyId: company.id } },
       select: { projectId: true, date: true, approvalStatus: true },
     });
     for (const dpr of dprs) {

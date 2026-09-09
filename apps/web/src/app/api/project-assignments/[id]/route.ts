@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -11,7 +11,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const { id } = await params;
   // Verify the assignment belongs to a project in the user's company
   const existing = await prisma.projectAssignment.findFirst({
-    where: { id, project: { companyId: company.id } },
+    where: { id, project: { companyId: company.id }, ...await scopeWhere("ProjectAssignment") },
     select: { id: true },
   });
   if (!existing) {
@@ -47,7 +47,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const { id } = await params;
   // Verify the assignment belongs to a project in the user's company
   const existing = await prisma.projectAssignment.findFirst({
-    where: { id, project: { companyId: company.id } },
+    where: { id, project: { companyId: company.id }, ...await scopeWhere("ProjectAssignment") },
     select: { id: true, scopedRole: true, projectId: true, userId: true },
   });
   if (!existing) {

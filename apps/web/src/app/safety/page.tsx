@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole } from "@/lib/server";
+import { getCompany, getUserRole, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
@@ -35,19 +35,19 @@ async function SafetyContent() {
       select: { id: true, name: true, type: true, status: true },
     }),
     prisma.safetyIncident.findMany({
-      where: { companyId: company.id },
+      where: {...await scopeWhere("SafetyIncident"),  companyId: company.id },
       orderBy: { incidentDate: "desc" },
       take: 100,
       include: { project: { select: { id: true, name: true } } },
     }),
     prisma.safetyHazard.findMany({
-      where: { companyId: company.id },
+      where: {...await scopeWhere("SafetyHazard"),  companyId: company.id },
       orderBy: [{ riskLevel: "desc" }, { createdAt: "desc" }],
       take: 100,
       include: { project: { select: { id: true, name: true } } },
     }),
     prisma.safetyInspection.findMany({
-      where: { companyId: company.id },
+      where: {...await scopeWhere("SafetyInspection"),  companyId: company.id },
       orderBy: { scheduledDate: "desc" },
       take: 100,
       include: { project: { select: { id: true, name: true } } },

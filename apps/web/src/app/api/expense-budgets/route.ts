@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { setExpenseBudget, getExpenseBudgetVariance, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -21,7 +21,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   const company = await getCompany();
   const [budgets, variance] = await Promise.all([
     prisma.expenseBudget.findMany({
-      where: { companyId: company.id },
+      where: { companyId: company.id, ...await scopeWhere("ExpenseBudget", {}) },
       orderBy: { periodStart: "desc" },
       include: {
         project: { select: { id: true, name: true } },
@@ -59,6 +59,17 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   const d = parsed.data;
+  try {
+    await assertScopeAllows({
+      projectId: d.projectId ?? null,
+      departmentId: null,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Scope violation" },
+      { status: 403 },
+    );
+  }
   try {
     const budget = await setExpenseBudget({
       companyId: company.id,

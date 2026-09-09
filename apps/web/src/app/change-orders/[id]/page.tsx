@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { notFound } from "next/navigation";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
@@ -33,7 +33,7 @@ async function CoDetailContent({ id }: { id: string }) {
   }
 
   const co = await prisma.changeOrder.findFirst({
-    where: { id, companyId: company.id },
+    where: {...await scopeWhere("ChangeOrder"),  id, companyId: company.id },
     include: {
       project: { select: { id: true, name: true, totalBudget: true } },
       phase: { select: { id: true, name: true } },
