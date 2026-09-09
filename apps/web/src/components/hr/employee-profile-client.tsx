@@ -13,6 +13,7 @@ import {
   IdCard, Building2, Navigation, Activity, Paperclip, Gift,
   UserPlus, Ban, RefreshCw, Sparkles, Check, Plus,
   Laptop, Car, Wrench, Shirt, KeyRound, CreditCard, Package, Undo,
+  ShieldCheck, XCircle,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -109,6 +110,7 @@ export type EmployeeProfileData = {
     employeeCode: string | null; designation: string | null; department: string | null;
     joiningDate: string | null; employmentEndDate: string | null;
     active: boolean; image: string | null; lastLoginAt: string | null;
+    phoneVerified: boolean | null; phoneVerifiedAt: string | null; phoneSyncedAt: string | null;
   } | null;
   supervisedCrews: { id: string; name: string; active: boolean; projectName: string | null; memberCount: number }[];
   attendance: {
@@ -263,10 +265,12 @@ function initials(name: string): string {
 export function EmployeeProfileClient({
   employee,
   actorRole,
+  currentUserId,
   permissions,
 }: {
   employee: EmployeeProfileData;
   actorRole: string;
+  currentUserId: string | null;
   permissions: { canManage: boolean; canManagePayroll: boolean; canAssignTasks: boolean };
 }) {
   const [tab, setTab] = useTabParam(
@@ -279,6 +283,7 @@ export function EmployeeProfileClient({
   const [showCreateAccount, setShowCreateAccount] = useState(false);
   const [showTerminate, setShowTerminate] = useState(false);
   const [showSetupDeposit, setShowSetupDeposit] = useState(false);
+  const [showPhoneDialog, setShowPhoneDialog] = useState(false);
   const [availableNumbers, setAvailableNumbers] = useState<
     { id: string; phoneNumber: string; label: string | null; department: string | null; status: string; monthlyCost: number | null; provider: string | null }[]
   >([]);
@@ -298,7 +303,12 @@ export function EmployeeProfileClient({
       </Link>
 
       {/* ── Profile Hero ── */}
-      <ProfileHero employee={employee} permissions={permissions} onDelete={() => setShowDelete(true)} />
+      <ProfileHero
+        employee={employee}
+        permissions={permissions}
+        onOpenPhoneDialog={() => setShowPhoneDialog(true)}
+        onDelete={() => setShowDelete(true)}
+      />
 
       {/* ── Two-column: sticky sidebar + tabbed content ── */}
       <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
@@ -308,6 +318,7 @@ export function EmployeeProfileClient({
             employee={employee}
             canManage={permissions.canManage}
             canManagePayroll={permissions.canManagePayroll}
+            onOpenPhoneDialog={() => setShowPhoneDialog(true)}
             onCreateAccount={async () => {
               // Fetch available phone numbers
               try {
@@ -463,6 +474,18 @@ export function EmployeeProfileClient({
         />
       )}
 
+      {/* ── Phone status dialog (verification + Twilio sync) ── */}
+      {showPhoneDialog && employee.user && (
+        <PhoneStatusDialog
+          user={employee.user}
+          phone={employee.phone ?? employee.user.phone ?? null}
+          canManage={permissions.canManage}
+          isSelf={!!currentUserId && currentUserId === employee.user.id}
+          onClose={() => setShowPhoneDialog(false)}
+          onSynced={() => router.refresh()}
+        />
+      )}
+
       {/* ── In-page document viewer (FAB pop-up, no redirect) ── */}
       <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </div>
@@ -476,10 +499,12 @@ export function EmployeeProfileClient({
 function ProfileHero({
   employee,
   permissions,
+  onOpenPhoneDialog,
   onDelete,
 }: {
   employee: EmployeeProfileData;
   permissions: { canManage: boolean; canManagePayroll: boolean; canAssignTasks: boolean };
+  onOpenPhoneDialog: () => void;
   onDelete: () => void;
 }) {
   const u = employee.user;
@@ -596,12 +621,48 @@ function ProfileHero({
             {/* Contact pills — inline, dense */}
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               {phone && (
-                <a
-                  href={`tel:${phone.replace(/\s/g, "")}`}
-                  className="inline-flex items-center gap-1 rounded-full border border-border bg-subtle px-2.5 py-1 text-caption font-medium text-foreground transition-colors hover:bg-muted hover:border-border-strong"
-                >
-                  <Phone className="h-3 w-3 text-muted-foreground" /> {phone}
-                </a>
+                <span className="inline-flex items-center gap-1.5">
+                  <a
+                    href={`tel:${phone.replace(/\s/g, "")}`}
+                    className="inline-flex items-center gap-1 rounded-full border border-border bg-subtle px-2.5 py-1 text-caption font-medium text-foreground transition-colors hover:bg-muted hover:border-border-strong"
+                  >
+                    <Phone className="h-3 w-3 text-muted-foreground" /> {phone}
+                  </a>
+                  {employee.user && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={onOpenPhoneDialog}
+                        className={cn(
+                          "inline-flex items-center gap-0.5 rounded-full px-1.5 py-1 text-micro font-bold transition-colors hover:opacity-80",
+                          employee.user.phoneVerified === true
+                            ? "bg-success/12 text-success"
+                            : "bg-warning/15 text-warning-strong",
+                        )}
+                      >
+                        {employee.user.phoneVerified === true
+                          ? <CheckCircle2 className="h-3 w-3" />
+                          : <AlertCircle className="h-3 w-3" />}
+                        {employee.user.phoneVerified === true ? "Verified" : "Unverified"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onOpenPhoneDialog}
+                        className={cn(
+                          "inline-flex items-center gap-0.5 rounded-full px-1.5 py-1 text-micro font-bold transition-colors hover:opacity-80",
+                          employee.user.phoneSyncedAt
+                            ? "bg-success/12 text-success"
+                            : "bg-muted text-muted-foreground",
+                        )}
+                      >
+                        {employee.user.phoneSyncedAt
+                          ? <ShieldCheck className="h-3 w-3" />
+                          : <XCircle className="h-3 w-3" />}
+                        {employee.user.phoneSyncedAt ? "Twilio Synced" : "Not Synced"}
+                      </button>
+                    </>
+                  )}
+                </span>
               )}
               {email && (
                 <a
@@ -715,6 +776,7 @@ function ProfileSidebar({
   employee,
   canManage,
   canManagePayroll,
+  onOpenPhoneDialog,
   onCreateAccount,
   onTerminate,
   onGenerateAgreement,
@@ -725,6 +787,7 @@ function ProfileSidebar({
   employee: EmployeeProfileData;
   canManage: boolean;
   canManagePayroll: boolean;
+  onOpenPhoneDialog: () => void;
   onCreateAccount: () => void;
   onTerminate: () => void;
   onGenerateAgreement: () => void;
@@ -747,6 +810,32 @@ function ProfileSidebar({
           value={phone}
           href={phone ? `tel:${phone.replace(/\s/g, "")}` : null}
         />
+        {employee.user && phone && (
+          <div className="flex items-center gap-1.5 px-3 pb-1">
+            <button
+              type="button"
+              onClick={onOpenPhoneDialog}
+              className={cn(
+                "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-micro font-bold transition-colors hover:opacity-80",
+                employee.user.phoneVerified === true ? "bg-success/12 text-success" : "bg-warning/15 text-warning-strong",
+              )}
+            >
+              {employee.user.phoneVerified === true ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+              {employee.user.phoneVerified === true ? "Verified" : "Unverified"}
+            </button>
+            <button
+              type="button"
+              onClick={onOpenPhoneDialog}
+              className={cn(
+                "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-micro font-bold transition-colors hover:opacity-80",
+                employee.user.phoneSyncedAt ? "bg-success/12 text-success" : "bg-muted text-muted-foreground",
+              )}
+            >
+              {employee.user.phoneSyncedAt ? <ShieldCheck className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+              {employee.user.phoneSyncedAt ? "Twilio Synced" : "Not Synced"}
+            </button>
+          </div>
+        )}
         <SidebarLink
           icon={Mail}
           label="Email"
@@ -2877,5 +2966,185 @@ function DossierRow({ label, value }: { label: string; value: string }) {
       <span className="text-caption text-muted-foreground">{label}</span>
       <span className="text-caption font-medium text-foreground">{value}</span>
     </div>
+  );
+}
+
+function PhoneStatusDialog({
+  user,
+  phone,
+  canManage,
+  isSelf,
+  onClose,
+  onSynced,
+}: {
+  user: { id: string; phoneVerified: boolean | null; phoneVerifiedAt: string | null; phoneSyncedAt: string | null };
+  phone: string | null;
+  canManage: boolean;
+  isSelf: boolean;
+  onClose: () => void;
+  onSynced: () => void;
+}) {
+  const [sending, setSending] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [showVerify, setShowVerify] = useState(false);
+
+  const isVerified = user.phoneVerified === true;
+  const isSynced = !!user.phoneSyncedAt;
+
+  async function sendOtp() {
+    setSending(true);
+    try {
+      const res = await fetch(`/api/users/${user.id}/verify-phone?action=send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to send code");
+      toast.success(data.message ?? "Verification code sent");
+      setShowVerify(true);
+      if (data.devCode) toast.info(`Dev code: ${data.devCode}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function verifyOtp() {
+    if (!otpCode || otpCode.length !== 6) {
+      toast.error("Enter the 6-digit code");
+      return;
+    }
+    setVerifying(true);
+    try {
+      const res = await fetch(`/api/users/${user.id}/verify-phone?action=verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: otpCode }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Verification failed");
+      toast.success(data.message ?? "Phone verified");
+      if (data.syncedWithTwilio) {
+        toast.success("Also synced with Twilio");
+      } else {
+        toast.message("Phone verified, but not synced with Twilio. Use 'Sync with Twilio' below.");
+      }
+      setShowVerify(false);
+      setOtpCode("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  async function syncTwilio() {
+    setSyncing(true);
+    try {
+      const res = await fetch(`/api/users/${user.id}/verify-phone?action=sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Sync failed");
+      if (data.synced) {
+        toast.success(data.message ?? "Synced with Twilio");
+        onSynced();
+        onClose();
+      } else {
+        toast.error(data.message ?? "Not found in Twilio");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  return (
+    <Dialog open={true} onOpenChange={(o) => { if (!o) onClose(); }} title="Phone Status">
+      <div className="space-y-3">
+        {/* Phone number */}
+        <div>
+          <div className="text-caption text-muted-foreground">Number</div>
+          <div className="font-semibold">{phone ?? "No phone number"}</div>
+        </div>
+
+        {/* Status badges */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={cn(
+            "inline-flex items-center gap-1 rounded-full px-2 py-1 text-micro font-bold",
+            isVerified ? "bg-success/12 text-success" : "bg-warning/15 text-warning-strong",
+          )}>
+            {isVerified ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+            {isVerified ? "Verified" : "Unverified"}
+          </span>
+          <span className={cn(
+            "inline-flex items-center gap-1 rounded-full px-2 py-1 text-micro font-bold",
+            isSynced ? "bg-success/12 text-success" : "bg-muted text-muted-foreground",
+          )}>
+            {isSynced ? <ShieldCheck className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+            {isSynced ? "Twilio Synced" : "Not Synced"}
+          </span>
+        </div>
+
+        {/* Timestamps */}
+        {user.phoneVerifiedAt && (
+          <div className="text-caption text-muted-foreground">Verified on {formatDate(user.phoneVerifiedAt)}</div>
+        )}
+        {user.phoneSyncedAt && (
+          <div className="text-caption text-muted-foreground">Synced on {formatDate(user.phoneSyncedAt)}</div>
+        )}
+
+        {/* Actions */}
+        {(canManage || isSelf) && phone && (
+          <div className="flex flex-col gap-2 border-t pt-3">
+            {!isVerified && !showVerify && (
+              <Button onClick={sendOtp} disabled={sending} variant="default">
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                Send Verification Code
+              </Button>
+            )}
+
+            {showVerify && (
+              <div className="flex flex-col gap-2">
+                <div className="text-caption text-muted-foreground">Enter the 6-digit code sent to {phone}</div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                    placeholder="000000"
+                    className="flex-1 h-9 px-2 text-center font-mono border rounded-md bg-transparent"
+                  />
+                  <Button onClick={verifyOtp} disabled={verifying || otpCode.length !== 6} size="sm">
+                    {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    Verify
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {!isSynced && (
+              <Button onClick={syncTwilio} disabled={syncing} variant="outline">
+                {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                Sync with Twilio
+              </Button>
+            )}
+          </div>
+        )}
+
+        {!phone && (
+          <div className="text-caption text-muted-foreground">No phone number assigned.</div>
+        )}
+      </div>
+    </Dialog>
   );
 }

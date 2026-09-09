@@ -43,6 +43,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   const reqScope = await scopeWhere("MaterialRequisition", {});
   const assetSaleScope = await scopeWhere("AssetSale", {});
   const builtUnitScope = await scopeWhere("BuiltUnit", {});
+  const poScope = await scopeWhere("PurchaseOrder", {});
 
   const [
     lowStockItems,
@@ -60,9 +61,9 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       where: { deletedAt: null, minStock: { not: null } },
       select: { id: true, minStock: true, stockItems: { where: { location: { deletedAt: null, companyId: company.id } }, select: { qty: true } } },
     }),
-    prisma.purchaseOrder.count({ where: { companyId: company.id, status: "DRAFT" } }),
+    prisma.purchaseOrder.count({ where: { companyId: company.id, status: "DRAFT", ...poScope } }),
     prisma.materialRequisition.count({ where: { project: { companyId: company.id }, status: "SUBMITTED", ...reqScope } }),
-    prisma.purchaseOrder.count({ where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() } } }),
+    prisma.purchaseOrder.count({ where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() }, ...poScope } }),
     prisma.assetSale.findMany({
       where: { companyId: company.id, status: "ACTIVE", ...assetSaleScope },
       select: { id: true, paymentStatus: true },
@@ -70,9 +71,9 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     prisma.stockCount.count({ where: { location: { companyId: company.id }, status: { in: ["DRAFT", "COUNTED"] } } }),
     prisma.builtUnit.count({ where: { project: { companyId: company.id }, deletedAt: null, status: "AVAILABLE", ...builtUnitScope } }),
     prisma.materialRequisition.count({ where: { project: { companyId: company.id }, status: "APPROVED", ...reqScope } }),
-    prisma.purchaseOrder.count({ where: { companyId: company.id, status: "APPROVED" } }),
+    prisma.purchaseOrder.count({ where: { companyId: company.id, status: "APPROVED", ...poScope } }),
     prisma.purchaseOrder.findMany({
-      where: { companyId: company.id, status: { not: "CANCELLED" }, orderDate: { gte: sixMonthsAgo } },
+      where: { companyId: company.id, status: { not: "CANCELLED" }, orderDate: { gte: sixMonthsAgo }, ...poScope },
       select: { orderDate: true, total: true },
       orderBy: { orderDate: "asc" },
     }),

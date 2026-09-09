@@ -22,7 +22,7 @@ import {
   projectPnl,
 } from "@nirman/services";
 import { PERM, hasPermission } from "@/lib/roles";
-import { apiHandler, getCompany, json, toNum, requireUser, getUserRole, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, requireUser, getUserRole, scopeWhere, projectScopeFilter } from "@/lib/server";
 
 /**
  * GET /api/export?type=<report>&format=xlsx|csv
@@ -191,8 +191,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
     case "purchase-trends": {
       title = "Purchase Trends Report";
       const from12 = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+      const poScope = await scopeWhere("PurchaseOrder");
       const orders = await prisma.purchaseOrder.findMany({
-        where: { companyId: company.id, status: { not: "CANCELLED" }, orderDate: { gte: from12 } },
+        where: { companyId: company.id, status: { not: "CANCELLED" }, orderDate: { gte: from12 }, ...poScope },
         select: { id: true, poNumber: true, orderDate: true, status: true, total: true, subtotal: true, gstTotal: true, supplier: { select: { name: true } } },
         orderBy: { orderDate: "asc" },
       });
@@ -270,8 +271,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
     case "project-progress": {
       title = "Project Progress Report";
+      const projectScope = await projectScopeFilter();
       const projects = await prisma.project.findMany({
-        where: { companyId: company.id, deletedAt: null },
+        where: { companyId: company.id, deletedAt: null, ...(projectScope ?? {}) },
         select: { id: true, name: true, type: true, status: true, totalBudget: true, totalProjectCost: true, costPerSqft: true, totalSellableArea: true, phases: { select: { id: true, name: true, status: true } }, _count: { select: { builtUnits: true } } },
         orderBy: { name: "asc" },
       });
@@ -297,7 +299,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const from12 = new Date(now.getFullYear(), now.getMonth() - 11, 1);
       const periods = await prisma.payrollPeriod.findMany({
         where: { companyId: company.id, startDate: { gte: from12 } },
-        include: { lines: { include: { employee: { select: { id: true, name: true, trade: true, crewId: true, crew: { select: { name: true } } } } } } },
+        include: { lines: { where: { ...await scopeWhere("PayrollLine") }, include: { employee: { select: { id: true, name: true, trade: true, crewId: true, crew: { select: { name: true } } } } } } },
         orderBy: [{ year: "asc" }, { month: "asc" }],
       });
       const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -331,8 +333,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
     case "pending-payments": {
       title = "Pending Payments Report";
+      const poScope = await scopeWhere("PurchaseOrder");
       const overduePOs = await prisma.purchaseOrder.findMany({
-        where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: now } },
+        where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: now }, ...poScope },
         include: { supplier: { select: { name: true } }, lines: { select: { qtyOrdered: true, qtyReceived: true, unitCost: true } } },
         orderBy: { expectedDate: "asc" },
       });

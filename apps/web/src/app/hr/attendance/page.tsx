@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { computeAttendanceTier } from "@nirman/services";
-import { getCompany, toNum, getUserRole, getUserScope, scopeWhere } from "@/lib/server";
+import { getCompany, toNum, getUserRole, getUserScope, scopeWhere, getScopedFormOptions } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
@@ -43,28 +43,25 @@ async function AttendanceContent() {
     scope.scopeType === "PROJECT" && scope.projectIds.length > 0
       ? { projectId: { in: scope.projectIds } }
       : {};
-  const employeeProjectFilter =
+  const _employeeProjectFilter =
     scope.scopeType === "PROJECT" && scope.projectIds.length > 0
       ? { activeProjectId: { in: scope.projectIds } }
       : {};
-  const projectOptionFilter =
+  const _projectOptionFilter =
     scope.scopeType === "PROJECT" && scope.projectIds.length > 0
       ? { id: { in: scope.projectIds } }
       : {};
 
+  const scopedOpts = await getScopedFormOptions();
+
   const [employees, projects, recentAttendance, leaves, leaveEmployees] = await Promise.all([
     prisma.employee.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null, active: true, ...employeeProjectFilter },
+      where: { companyId: company.id, deletedAt: null, active: true, ...await scopeWhere("Employee") },
       orderBy: { name: "asc" },
       select: { id: true, name: true, trade: true, activeProjectId: true, crewId: true },
     }),
-    prisma.project.findMany({
-      take: 200,
-      where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] }, ...projectOptionFilter },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
+    Promise.resolve(scopedOpts.projects),
     prisma.workerAttendance.findMany({
       where: {...await scopeWhere("WorkerAttendance"),  companyId: company.id, date: { gte: weekAgo }, ...projectFilter },
       orderBy: { date: "desc" },
@@ -85,7 +82,7 @@ async function AttendanceContent() {
     }),
     prisma.employee.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null, active: true },
+      where: { companyId: company.id, deletedAt: null, active: true, ...await scopeWhere("Employee") },
       select: { id: true, name: true, trade: true, designation: true },
       orderBy: { name: "asc" },
     }),

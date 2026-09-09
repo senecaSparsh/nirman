@@ -1,5 +1,6 @@
 import { prisma } from "@nirman/db";
 import { PERM } from "@/lib/roles";
+import { getActionPermissions } from "@/lib/server";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {type MobileColumnSpec} from "@/components/mobile/v2/export-share-bar";
 import { MobileSubcontractorsList, type SubcontractorListItem } from "./MobileSubcontractorsList";
@@ -13,6 +14,8 @@ export default function MobileSubcontractorsPage() {
   return (
     <MobileListPage managePerm={PERM.PROCUREMENT_MANAGE}>
       {async ({ company, canManage }) => {
+        const actions = await getActionPermissions();
+        const canCreate = actions?.canCreateSubcontractor ?? canManage;
         const subcontractors = await prisma.subcontractor.findMany({
           where: { companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
@@ -56,7 +59,7 @@ export default function MobileSubcontractorsPage() {
               items={rows}
               totalWorkOrders={totalWorkOrders}
               activeTrades={activeTrades}
-              canCreate={canManage}
+              canCreate={canCreate}
               exportTitle="Subcontractors"
               exportRows={rows as unknown as Record<string, unknown>[]}
               exportColumns={exportColumns}

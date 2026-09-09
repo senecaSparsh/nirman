@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {type MobileColumnSpec} from "@/components/mobile/v2/export-share-bar";
@@ -14,6 +14,8 @@ export default function MobileSuppliersPage() {
   return (
     <MobileListPage perm={PERM.PROCUREMENT_VIEW} managePerm={PERM.PROCUREMENT_MANAGE} what="suppliers" permission="procurement.view">
       {async ({ company, canManage }) => {
+        const actions = await getActionPermissions();
+        const canCreate = actions?.canCreateSupplier ?? canManage;
         const BATCH_SIZE = 40;
         const suppliers = await prisma.supplier.findMany({
           where: { companyId: company.id, deletedAt: null },
@@ -59,7 +61,7 @@ export default function MobileSuppliersPage() {
             items={rows}
             totalOwed={totalOwed}
             withDuesCount={withDues.length}
-            canCreate={canManage}
+            canCreate={canCreate}
             loadMoreUrl="/api/mobile/list/suppliers"
             initialCursor={nextCursor}
             exportTitle="Suppliers"

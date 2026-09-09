@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserRole, scopeWhere, projectScopeFilter } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { NoAccess } from "@/components/no-access";
@@ -23,10 +23,12 @@ export async function GatePassesContent() {
     canManage: hasPermission(role, PERM.GATE_PASS_MANAGE),
   };
 
+  const projectScope = await projectScopeFilter();
+
   const [gatePasses, locations, materials, projects] = await Promise.all([
     prisma.gatePass.findMany({
       take: 500,
-      where: { companyId: company.id },
+      where: { companyId: company.id, ...await scopeWhere("GatePass") },
       orderBy: { createdAt: "desc" },
       include: {
         lines: true,
@@ -53,7 +55,7 @@ export async function GatePassesContent() {
     }),
     prisma.project.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null },
+      where: { companyId: company.id, deletedAt: null, ...(projectScope ?? {}) },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },
     }),

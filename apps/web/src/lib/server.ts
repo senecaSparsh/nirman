@@ -1928,6 +1928,24 @@ export async function getActionPermissions() {
   const canCreateTeamMember = hasPerm("company.manage");
   const canCreateBuiltUnit = hasPerm("projects.manage");
   const canCreateSms = hasPerm("inventory.manage") || hasPerm("hr.manage");
+  // ── Additional action flags for complete FAB gating ──
+  const canCreateVehicle = hasPerm("inventory.manage");
+  const canCreateStockLocation = hasPerm("inventory.manage") && scope.scopeType === "COMPANY";
+  const canCreateStandardConsumption = hasPerm("inventory.manage");
+  const canCreateRateContract = hasPerm("inventory.manage");
+  const canCreateSubcontractor = hasPerm("projects.manage");
+  const canCreateBroker = hasPerm("sales.manage");
+  const canCreateTask = hasPerm("tasks.assign");
+  const canCreateDpr = hasPerm("dpr.submit");
+  const canCreateIndent = hasPerm("procurement.manage");
+  const canCreatePo = hasPerm("procurement.manage");
+  const canCreateQuotation = hasPerm("quotation.manage");
+  const canCreateExpense = hasPerm("expense.create");
+  const canCreateProjectCost = hasPerm("projectcost.create");
+  const canCreateClaim = hasPerm("claim.create");
+  const canManagePettyCash = hasPerm("pettycash.manage");
+  const canManageSupplierPayment = hasPerm("supplierpayment.manage");
+  const canCreateSafetyItem = hasPerm("safety.manage");
 
   // ── Form option restrictions ──
   // When scope is DEPARTMENT, the department dropdown in any create/edit
@@ -1964,6 +1982,23 @@ export async function getActionPermissions() {
     canCreateTeamMember,
     canCreateBuiltUnit,
     canCreateSms,
+    canCreateVehicle,
+    canCreateStockLocation,
+    canCreateStandardConsumption,
+    canCreateRateContract,
+    canCreateSubcontractor,
+    canCreateBroker,
+    canCreateTask,
+    canCreateDpr,
+    canCreateIndent,
+    canCreatePo,
+    canCreateQuotation,
+    canCreateExpense,
+    canCreateProjectCost,
+    canCreateClaim,
+    canManagePettyCash,
+    canManageSupplierPayment,
+    canCreateSafetyItem,
     allowedDepartmentIds,
     allowedProjectIds,
   };

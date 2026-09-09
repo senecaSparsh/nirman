@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { FileText } from "lucide-react";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
@@ -19,6 +19,8 @@ export default function MobileRateContractsPage() {
   return (
     <MobileListPage managePerm={PERM.PROCUREMENT_MANAGE}>
       {async ({ company, canManage }) => {
+        const actions = await getActionPermissions();
+        const canCreate = actions?.canCreateRateContract ?? canManage;
         const [contracts, suppliers, materials, categories] = await Promise.all([
           prisma.rateContract.findMany({
             where: { companyId: company.id },
@@ -106,7 +108,7 @@ export default function MobileRateContractsPage() {
               />
             )}
 
-            {canManage && suppliers.length > 0 && materials.length > 0 && (
+            {canCreate && suppliers.length > 0 && materials.length > 0 && (
               <MobileRateContractsFab
                 suppliers={suppliers}
                 materials={materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit }))}

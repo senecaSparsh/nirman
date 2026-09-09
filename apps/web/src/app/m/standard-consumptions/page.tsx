@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { Beaker } from "lucide-react";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
@@ -19,6 +19,8 @@ export default function MobileStandardConsumptionsPage() {
   return (
     <MobileListPage managePerm={PERM.INVENTORY_MANAGE}>
       {async ({ company, canManage }) => {
+        const actions = await getActionPermissions();
+        const canCreate = actions?.canCreateStandardConsumption ?? canManage;
         const [benchmarks, materials, categories] = await Promise.all([
           prisma.standardConsumption.findMany({
             where: { companyId: company.id },
@@ -86,7 +88,7 @@ export default function MobileStandardConsumptionsPage() {
               />
             )}
 
-            {canManage && materialOptions.length > 0 && (
+            {canCreate && materialOptions.length > 0 && (
               <MobileStandardConsumptionsFab materials={materialOptions} />
             )}
           </div>

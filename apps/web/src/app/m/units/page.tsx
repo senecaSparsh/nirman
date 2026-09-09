@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum, scopeWhere } from "@/lib/server";
+import { toNum, scopeWhere, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { Home } from "lucide-react";
 import { formatNumber, formatCurrencyCompact } from "@/lib/utils";
@@ -28,6 +28,8 @@ export default function MobileUnitsPage({
   return (
     <MobileListPage managePerm={PERM.ASSETS_MANAGE} skeletonRows={8}>
       {async ({ company, canManage }) => {
+        const actions = await getActionPermissions();
+        const canCreate = actions?.canCreateBuiltUnit ?? canManage;
         const { project: projectId } = await searchParams;
 
         const project = projectId
@@ -86,7 +88,7 @@ export default function MobileUnitsPage({
         }));
 
         // Fetch active projects for the create-unit dialog dropdown
-        const projects = canManage
+        const projects = canCreate
           ? await prisma.project.findMany({
               where: { companyId: company.id, deletedAt: null },
               orderBy: { name: "asc" },
@@ -172,7 +174,7 @@ export default function MobileUnitsPage({
             />
 
             {/* ── FAB: New Unit ── */}
-            {canManage && projects.length > 0 && (
+            {canCreate && projects.length > 0 && (
               <MobileUnitsFab projects={projects} defaultProjectId={projectId} />
             )}
 
@@ -181,9 +183,9 @@ export default function MobileUnitsPage({
               <MobileEmptyState
                 icon={Home}
                 title="No units yet"
-                hint={canManage && projects.length > 0 ? "Tap + to create your first built unit." : "Units show here once a project creates them."}
+                hint={canCreate && projects.length > 0 ? "Tap + to create your first built unit." : "Units show here once a project creates them."}
                 action={
-                  !canManage || projects.length === 0 ? (
+                  !canCreate || projects.length === 0 ? (
                     <MobileCta href="/m/real-estate?tab=projects" icon={Home} variant="primary">
                       View Projects
                     </MobileCta>

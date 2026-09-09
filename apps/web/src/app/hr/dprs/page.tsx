@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { listWorkTypes } from "@nirman/services";
-import { getCompany, getCurrentUser, toNum, getUserRole, getUserScope, scopeWhere } from "@/lib/server";
+import { getCompany, getCurrentUser, toNum, getUserRole, getUserScope, scopeWhere, getScopedFormOptions } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
@@ -43,10 +43,12 @@ async function DprsContent() {
     scope.scopeType === "PROJECT" && scope.projectIds.length > 0
       ? { projectId: { in: scope.projectIds } }
       : {};
-  const projectOptionFilter =
+  const _projectOptionFilter =
     scope.scopeType === "PROJECT" && scope.projectIds.length > 0
       ? { id: { in: scope.projectIds } }
       : {};
+
+  const scopedOpts = await getScopedFormOptions();
 
   const [dprs, projects, materials, employees, workTypes] = await Promise.all([
     prisma.dailyProgressReport.findMany({
@@ -61,12 +63,7 @@ async function DprsContent() {
         _count: { select: { materialLines: true, laborLines: true } },
       },
     }),
-    prisma.project.findMany({
-      take: 200,
-      where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] }, ...projectOptionFilter },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
+    Promise.resolve(scopedOpts.projects),
     prisma.material.findMany({
       where: { deletedAt: null },
       select: { id: true, name: true, unit: true, standardCost: true },
@@ -75,7 +72,7 @@ async function DprsContent() {
     }),
     prisma.employee.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null, active: true },
+      where: { companyId: company.id, deletedAt: null, active: true, ...await scopeWhere("Employee") },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { scopeWhere } from "@/lib/server";
+import { scopeWhere, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileSafetyContent } from "./MobileSafetyContent";
@@ -12,6 +12,8 @@ export default function MobileSafetyPage() {
   return (
     <MobileListPage managePerm={PERM.SAFETY_MANAGE}>
       {async ({ company, canManage }) => {
+        const actions = await getActionPermissions();
+        const canCreateSafety = actions?.canCreateSafetyItem ?? canManage;
         const [incidents, hazards, inspections, projects] = await Promise.all([
           prisma.safetyIncident.findMany({
             where: {...await scopeWhere("SafetyIncident"),  companyId: company.id },
@@ -86,7 +88,7 @@ export default function MobileSafetyPage() {
             hazards={serializedHazards}
             inspections={serializedInspections}
             projects={projects}
-            canManage={canManage}
+            canManage={canCreateSafety}
           />
         );
       }}

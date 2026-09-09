@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole, scopeWhere, getCurrentUser, getActionPermissions } from "@/lib/server";
+import { getCompany, toNum, getUserRole, scopeWhere, getCurrentUser, getActionPermissions, getScopedFormOptions } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
@@ -28,13 +28,14 @@ async function EmployeesContent() {
   }
 
   const actions = await getActionPermissions();
+  const scopedOpts = await getScopedFormOptions();
   const perms = {
     canCreate: actions?.canCreateEmployee ?? hasPermission(role, PERM.HR_MANAGE),
     canEdit: actions?.canCreateEmployee ?? hasPermission(role, PERM.HR_MANAGE),
     canManage: hasPermission(role, PERM.HR_MANAGE),
   };
 
-  const [employees, crews, crewRows, projects, locations, memberships] = await Promise.all([
+  const [employees, crews, crewRows, locations, memberships] = await Promise.all([
     prisma.employee.findMany({
       take: 500,
       where: { ...await scopeWhere("Employee"), companyId: company.id, deletedAt: null },
@@ -65,22 +66,26 @@ async function EmployeesContent() {
         },
       },
     }),
-    prisma.project.findMany({
-      take: 200,
-      where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
     prisma.stockLocation.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null },
+      where: {
+        companyId: company.id, deletedAt: null,
+        ...(actions.allowedProjectIds ? { projectId: { in: actions.allowedProjectIds } } : {}),
+      },
       select: { id: true, name: true, type: true },
       orderBy: { name: "asc" },
     }),
     // All company memberships — used to populate the Reports To selector and
     // to resolve each employee's current reportsToUserCompanyId.
+    // Filtered to the viewer's scope: only users with an employee record in scope.
     prisma.userCompany.findMany({
-      where: { companyId: company.id },
+      where: {
+        companyId: company.id,
+        user: {
+          active: true,
+          employees: { some: { ...await scopeWhere("Employee"), companyId: company.id, deletedAt: null } },
+        },
+      },
       select: {
         id: true,
         userId: true,
@@ -90,6 +95,7 @@ async function EmployeesContent() {
       },
     }),
   ]);
+  const projects = scopedOpts.projects;
 
   // ── Viewer hierarchy level — for client-side per-row action gating ──
   // Computing canManageSpecificEmployee for every employee in a list is

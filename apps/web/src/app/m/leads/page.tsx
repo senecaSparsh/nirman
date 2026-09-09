@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum, scopeWhere } from "@/lib/server";
+import { toNum, scopeWhere, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {type MobileColumnSpec} from "@/components/mobile/v2/export-share-bar";
@@ -13,6 +13,8 @@ export default function MobileLeadsPage() {
   return (
     <MobileListPage perm={PERM.SALES_VIEW} managePerm={PERM.SALE_CREATE} what="leads" permission="sales.view">
       {async ({ company, canManage }) => {
+        const actions = await getActionPermissions();
+        const canCreate = actions?.canCreateLead ?? canManage;
         const BATCH_SIZE = 40;
         const leads = await prisma.lead.findMany({
           where: {...await scopeWhere("Lead"),  companyId: company.id, deletedAt: null },
@@ -32,7 +34,7 @@ export default function MobileLeadsPage() {
           : null;
 
         // Dropdown data for the inline new-lead FAB modal.
-        const [newLeadProjects, newLeadUnits, newLeadAssignees] = canManage
+        const [newLeadProjects, newLeadUnits, newLeadAssignees] = canCreate
           ? await Promise.all([
               prisma.project.findMany({
                 where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
@@ -110,7 +112,7 @@ export default function MobileLeadsPage() {
               hotCount={hotCount}
               bookedCount={bookedCount}
               followUpsDue={followUpsDue}
-              canCreate={canManage}
+              canCreate={canCreate}
               loadMoreUrl="/api/mobile/list/leads"
               initialCursor={nextCursor}
               exportTitle="Leads"

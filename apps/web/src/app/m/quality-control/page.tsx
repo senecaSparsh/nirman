@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { scopeWhere } from "@/lib/server";
+import { scopeWhere, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {
@@ -22,6 +22,8 @@ export default function MobileQualityControlPage() {
   return (
     <MobileListPage managePerm={PERM.WO_MANAGE}>
       {async ({ company, canManage }) => {
+        const actions = await getActionPermissions();
+        const canCreateNcr = actions?.canCreateNcr ?? canManage;
         const [ncrs, projects, subcontractors] = await Promise.all([
           prisma.nonConformanceReport.findMany({
             where: {...await scopeWhere("NonConformanceReport"),  companyId: company.id },
@@ -123,7 +125,7 @@ export default function MobileQualityControlPage() {
               />
             )}
 
-            {canManage && projects.length > 0 && (
+            {canCreateNcr && projects.length > 0 && (
               <MobileNcrFab projects={projects} subcontractors={subcontractors} />
             )}
           </div>

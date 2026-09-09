@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole, getEmployeeAccessScope, canManageSpecificEmployee, getCurrentUser, getCompanyGroupIds } from "@/lib/server";
+import { getCompany, toNum, getUserRole, getEmployeeAccessScope, canManageSpecificEmployee, getCurrentUser, getCompanyGroupIds, getScopedFormOptions } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
@@ -42,6 +42,9 @@ async function EmployeeProfileContent({
   // Root-level access scope: department + field gating
   const accessScope = await getEmployeeAccessScope();
   const currentUser = await getCurrentUser();
+  // Scoped form options — departments filtered to the viewer's scope.
+  const scopedOpts = await getScopedFormOptions();
+  const scopedDeptIds = scopedOpts.departments.map((d) => d.id);
 
   const employee = await prisma.employee.findFirst({
     where: { id, companyId: company.id, deletedAt: null, ...accessScope.employeeFilter },
@@ -56,6 +59,7 @@ async function EmployeeProfileContent({
           employeeCode: true, designation: true, department: true,
           joiningDate: true, employmentEndDate: true, active: true,
           image: true, lastLoginAt: true,
+          phoneVerified: true, phoneVerifiedAt: true, phoneSyncedAt: true,
         },
       },
       supervisedCrews: {
@@ -370,6 +374,9 @@ async function EmployeeProfileContent({
           active: employee.user.active,
           image: employee.user.image,
           lastLoginAt: employee.user.lastLoginAt ? employee.user.lastLoginAt.toISOString() : null,
+          phoneVerified: employee.user.phoneVerified,
+          phoneVerifiedAt: employee.user.phoneVerifiedAt ? employee.user.phoneVerifiedAt.toISOString() : null,
+          phoneSyncedAt: employee.user.phoneSyncedAt ? employee.user.phoneSyncedAt.toISOString() : null,
         }
       : null,
     supervisedCrews: employee.supervisedCrews.map((c) => ({
@@ -446,7 +453,7 @@ async function EmployeeProfileContent({
     reportsToMembershipId,
     // ── Departments (for the department selector) ──
     departments: (await prisma.department.findMany({
-      where: { companyId: company.id, deletedAt: null },
+      where: { companyId: company.id, deletedAt: null, id: { in: scopedDeptIds } },
       select: { id: true, name: true, active: true },
       orderBy: { name: "asc" },
     })),
@@ -497,6 +504,7 @@ async function EmployeeProfileContent({
     <EmployeeProfileClient
       employee={data}
       actorRole={role}
+      currentUserId={currentUser?.id ?? null}
       permissions={{
         canManage: effectiveCanManage,
         canManagePayroll: effectiveCanManagePayroll,

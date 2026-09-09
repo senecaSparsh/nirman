@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { Building2, Home } from "lucide-react";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
@@ -21,6 +21,8 @@ export default function MobileProjectsPage() {
   return (
     <MobileListPage managePerm={PERM.PROJECTS_MANAGE} skeletonRows={8}>
       {async ({ company, canManage }) => {
+        const actions = await getActionPermissions();
+        const canCreate = actions?.canCreateProject ?? canManage;
         const projects = await prisma.project.findMany({
           where: { companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
@@ -128,7 +130,7 @@ export default function MobileProjectsPage() {
 
             <MobileProjectsList
               items={serialized}
-              canManage={canManage}
+              canManage={canCreate}
               exportTitle="Projects"
               exportRows={serialized as unknown as Record<string, unknown>[]}
               exportColumns={[

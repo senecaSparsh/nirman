@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum, scopeWhere } from "@/lib/server";
+import { toNum, scopeWhere, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {type CustomerListItem} from "./MobileCustomersList";
@@ -18,6 +18,8 @@ export default function MobileCustomersPage() {
   return (
     <MobileListPage perm={PERM.SALES_VIEW} managePerm={PERM.SALES_MANAGE} skeletonRows={8} what="customers" permission="sales.view">
       {async ({ company, canManage }) => {
+        const actions = await getActionPermissions();
+        const canCreate = actions?.canCreateCustomer ?? canManage;
         // Fetch ALL customers for this company (not just those with asset sales)
         const BATCH_SIZE = 40;
         const [customers, leads] = await Promise.all([
@@ -144,9 +146,9 @@ export default function MobileCustomersPage() {
             <MobileCustomersLeadsTabs
               customers={rows}
               leads={leadRows}
-              canCreate={canManage}
-              canEdit={canManage}
-              canDelete={canManage}
+              canCreate={canCreate}
+              canEdit={canCreate}
+              canDelete={canCreate}
               customerLoadMoreUrl="/api/mobile/list/customers"
               customerInitialCursor={nextCursor}
               customerStats={{
