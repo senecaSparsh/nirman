@@ -70,6 +70,9 @@ function makeMockTx(overrides: Record<string, unknown> = {}) {
       delete: vi.fn().mockResolvedValue({ id: "cat-1" }),
       findFirst: vi.fn(),
     },
+    expenseBudget: {
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
     journalEntry: {
       findFirst: journalEntryFindFirst,
     },
@@ -406,6 +409,9 @@ describe("approveExpense — status guard + self-approval prevention", () => {
       igst: new Decimal(0),
       tdsAmount: new Decimal(0),
       categoryId: null,
+      projectId: null,
+      category: "General",
+      date: new Date("2024-01-01"),
     });
     runWithTx(tx);
     await expect(approveExpense("exp-1", "c1", "user-1")).resolves.toBeDefined();
@@ -425,6 +431,9 @@ describe("approveExpense — status guard + self-approval prevention", () => {
       igst: new Decimal(0),
       tdsAmount: new Decimal(0),
       categoryId: null,
+      projectId: null,
+      category: "General",
+      date: new Date("2024-01-01"),
     });
     runWithTx(tx);
     await expect(approveExpense("exp-1", "c1", "user-1")).resolves.toBeDefined();
@@ -444,6 +453,9 @@ describe("approveExpense — status guard + self-approval prevention", () => {
       igst: new Decimal(0),
       tdsAmount: new Decimal(0),
       categoryId: null,
+      projectId: null,
+      category: "General",
+      date: new Date("2024-01-01"),
     });
     runWithTx(tx);
     await expect(approveExpense("exp-1", "c1")).resolves.toBeDefined();
