@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
+import { getCompany, getUserRole, toNum, scopeWhere, getScopedFormOptions } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { Users } from "lucide-react";
 import { MobileAttendanceForm } from "@/components/mobile/mobile-attendance-form";
@@ -45,14 +45,11 @@ async function MobileAttendanceContent() {
   const startOfToday = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
   const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
 
+  const scopedOpts = await getScopedFormOptions();
   const [projects, employees, existingAttendance] = await Promise.all([
-    prisma.project.findMany({
-      where: { companyId: company.id, deletedAt: null, status: { in: ["ACTIVE", "PLANNED"] } },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
+    Promise.resolve(scopedOpts.projects),
     prisma.employee.findMany({
-      where: { companyId: company.id, deletedAt: null, active: true },
+      where: { companyId: company.id, deletedAt: null, active: true, ...await scopeWhere("Employee") },
       select: { id: true, name: true, trade: true, dailyRate: true, wageType: true },
       orderBy: { name: "asc" },
     }),

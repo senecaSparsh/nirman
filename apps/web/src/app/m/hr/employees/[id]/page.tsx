@@ -3,7 +3,7 @@ import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, getCurrentUser, getEmployeeAccessScope, canManageSpecificEmployee, getCompanyGroupIds } from "@/lib/server";
+import { getCompany, getUserRole, toNum, getCurrentUser, getEmployeeAccessScope, canManageSpecificEmployee, getCompanyGroupIds, getScopedFormOptions, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission, ROLES, type Role } from "@/lib/roles";
 import { MobileEmployeeDetailClient } from "./MobileEmployeeDetailClient";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -38,6 +38,7 @@ async function MobileEmployeeDetailContent({
   const currentUser = await getCurrentUser();
   const { id } = await params;
 
+  const scopedOpts = await getScopedFormOptions();
   const [employee, projects, stockLocations, attachments, customRoles, departments] = await Promise.all([
     prisma.employee.findFirst({
       where: { id, companyId: company.id, deletedAt: null, ...accessScope.employeeFilter },
@@ -112,7 +113,7 @@ async function MobileEmployeeDetailContent({
       },
     }),
     prisma.project.findMany({
-      where: { companyId: company.id, deletedAt: null },
+      where: { companyId: company.id, deletedAt: null, id: { in: scopedOpts.projects.map((p) => p.id) } },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
@@ -133,7 +134,7 @@ async function MobileEmployeeDetailContent({
       orderBy: { createdAt: "asc" },
     }),
     prisma.department.findMany({
-      where: { companyId: company.id, deletedAt: null },
+      where: { companyId: company.id, deletedAt: null, id: { in: scopedOpts.departments.map((d) => d.id) } },
       select: { id: true, code: true, name: true, active: true },
       orderBy: { name: "asc" },
     }),
@@ -218,6 +219,7 @@ async function MobileEmployeeDetailContent({
       deletedAt: null,
       active: true,
       id: { notIn: [employee.id, ...Array.from(descendantIds)] },
+      ...await scopeWhere("Employee"),
     },
     orderBy: { name: "asc" },
     select: { id: true, name: true, designation: true, trade: true },

@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum, scopeWhere } from "@/lib/server";
+import { toNum, scopeWhere, projectScopeFilter } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import {ShieldCheck, Truck, Clock, CheckCircle, XCircle} from "lucide-react";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
@@ -40,7 +40,7 @@ export default function MobileGatePassPage() {
             orderBy: { name: "asc" },
           }),
           prisma.project.findMany({
-            where: { companyId: company.id, deletedAt: null },
+            where: { companyId: company.id, deletedAt: null, ...await projectScopeFilter() ?? {} },
             select: { id: true, name: true },
             orderBy: { name: "asc" },
           }),
