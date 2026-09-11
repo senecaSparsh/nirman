@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Textarea } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
+import { Field } from "@/components/field";
+import { required } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 import type { DepartmentRow } from "@/lib/types";
 
 type FormState = {
@@ -38,9 +41,18 @@ export function DepartmentFormDialog({
   const [saving, setSaving] = useState(false);
   const isEdit = department != null;
 
+  // ── Inline validation ──────────────────────────────────────────
+  // Validates on blur and shows red error text under the field instantly.
+  const validationRules: ValidationRules<FormState> = {
+    code: (v) => required(v as string, "Code"),
+    name: (v) => required(v as string, "Name"),
+  };
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<FormState>(validationRules);
+
   // Sync form fields when the edit target changes or the dialog opens fresh.
   useEffect(() => {
     if (!open) return;
+    clearAll();
     setForm(
       department
         ? {
@@ -55,16 +67,13 @@ export function DepartmentFormDialog({
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+    clearError(key);
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.code.trim()) {
-      toast.error("Department code is required");
-      return;
-    }
-    if (!form.name.trim()) {
-      toast.error("Department name is required");
+    if (!validateAll(form)) {
+      toast.error("Please fix the errors in the form");
       return;
     }
     setSaving(true);
@@ -105,40 +114,37 @@ export function DepartmentFormDialog({
     >
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label>
-              Code <span className="text-danger">*</span>
-            </Label>
+          <Field label="Code" required error={errors.code}>
             <Input
               value={form.code}
               onChange={(e) => set("code", e.target.value)}
+              onBlur={() => onBlur("code", form)}
+              aria-invalid={!!errors.code}
               placeholder="BOILER"
               required
               autoFocus
               className="font-mono uppercase"
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label>
-              Name <span className="text-danger">*</span>
-            </Label>
+          </Field>
+          <Field label="Name" required error={errors.name}>
             <Input
               value={form.name}
               onChange={(e) => set("name", e.target.value)}
+              onBlur={() => onBlur("name", form)}
+              aria-invalid={!!errors.name}
               placeholder="Boiler House"
               required
             />
-          </div>
+          </Field>
         </div>
-        <div className="space-y-1.5">
-          <Label>Description</Label>
+        <Field label="Description">
           <Textarea
             value={form.description}
             onChange={(e) => set("description", e.target.value)}
             placeholder="Optional — what this cost centre is for"
             rows={2}
           />
-        </div>
+        </Field>
         <label className="flex items-center gap-2 text-body">
           <input
             type="checkbox"

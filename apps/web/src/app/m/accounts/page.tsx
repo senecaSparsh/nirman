@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
@@ -13,6 +14,7 @@ import {
 import { prisma } from "@nirman/db";
 import { getTallySyncStats, getSupplierOutstanding } from "@nirman/services";
 import { getCompany, getUserRole, getCurrentUser, toNum, scopeWhere } from "@/lib/server";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 import { PERM, hasPermission } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils";
@@ -360,8 +362,12 @@ async function AccountsOverviewContent() {
         approvalsCount={totalPending}
       />
 
+      <DepartmentActivityFeed department="finance" />
+
       {/* ── 2. Cash / Books toggle + quick actions ── */}
-      <AccountsInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} />
+      <Suspense fallback={null}>
+        <AccountsInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} />
+      </Suspense>
 
       {/* ── 3. Today — compact 3-line summary with status flags ──
           Replaces the old CashFlowSnapshot bars, pending queue, and
@@ -769,6 +775,7 @@ async function AccountsGlTab() {
   if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
 
   const accounts = await prisma.glAccount.findMany({
+    where: { companyId: company.id },
     orderBy: { code: "asc" },
     include: {
       journalLines: {

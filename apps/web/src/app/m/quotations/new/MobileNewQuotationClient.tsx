@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Loader2, Check, Search, X, Package, MapPin, Warehouse, Building2, HardHat } from "lucide-react";
+import { Plus, Trash2, Loader2, Check, Search, X, Package, MapPin, Warehouse, Building2, HardHat, CheckCircle2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
@@ -46,6 +46,7 @@ export function MobileNewQuotationClient({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState<{ id: string; requestNumber: string } | null>(null);
   const [title, setTitle] = useState("");
   const [projectId, setProjectId] = useState("");
   const [notes, setNotes] = useState("");
@@ -80,7 +81,7 @@ export function MobileNewQuotationClient({
     return found ?? null;
   }, [destinationLocationId, locationGroups]);
 
-  const allMaterials = useMemo(() => [...data.materials, ...extraMaterials], [data.materials, extraMaterials]);
+  const allMaterials = useMemo(() => [...data.materials, ...extraMaterials].filter((m, i, arr) => arr.findIndex((x) => x.id === m.id) === i), [data.materials, extraMaterials]);
 
   const filteredMaterials = useMemo(() => {
     if (!materialSearch.trim()) return allMaterials.slice(0, 50);
@@ -165,15 +166,7 @@ export function MobileNewQuotationClient({
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error ?? "Failed to create quotation request");
-      toast.success("Quotation request created", {
-        description: result.requestNumber,
-      });
-      if (onCreated) {
-        onCreated(result.id);
-      } else {
-        router.push(`/m/quotations/${result.id}`);
-      }
-      router.refresh();
+      setSuccess({ id: result.id, requestNumber: result.requestNumber ?? "created" });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -191,6 +184,26 @@ export function MobileNewQuotationClient({
   };
   const labelClass = "block text-m-caption font-bold mb-0";
   const labelStyle = { color: "var(--color-ink-700)" };
+
+  if (success) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+        <div className="grid place-items-center size-14 rounded-full mb-3" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}>
+          <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
+        </div>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>Quotation Request Created</p>
+        <p className="text-m-caption font-mono mb-4" style={{ color: "var(--color-ink-700)" }}>{success.requestNumber}</p>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <button onClick={() => { if (onCreated) onCreated(success.id); else { router.push(`/m/quotations/${success.id}`); router.refresh(); } }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+            <Eye className="size-4 inline mr-1" /> View Request
+          </button>
+          <button onClick={() => { setSuccess(null); setTitle(""); setProjectId(""); setNotes(""); setRequiredByDate(""); setWorkActivity(""); setDestinationLocationId(""); setLines([]); setExtraMaterials([]); router.refresh(); }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
+            <Plus className="size-4 inline mr-1" /> Create Another
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -604,7 +617,7 @@ export function MobileNewQuotationClient({
             hsnCode: m.hsnCode,
             gstRate: m.gstRate,
           };
-          setExtraMaterials((prev) => [...prev, newMat]);
+          setExtraMaterials((prev) => prev.some((x) => x.id === newMat.id) ? prev : [...prev, newMat]);
           addLine(newMat);
           setShowNewMaterialDialog(false);
           setShowMaterialPicker(false);

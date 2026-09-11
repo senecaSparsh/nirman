@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { PurchaseOrderStatus } from "@nirman/db";
@@ -80,7 +80,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       createdAt: r.createdAt,
       id: r.id,
     }));
-    return NextResponse.json({ items, nextCursor, hasMore });
+    return json({ items, nextCursor, hasMore });
   }
   return json(mapped);
 });
@@ -98,7 +98,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (body?.requisitionId) {
     return json({ error: "Use PATCH /api/requisitions/[id] with action:\"convert\" to convert an indent to a PO" }, { status: 400 });
   }
-  const { expectedDate, projectId, charges, ...rest } = parsed.data;
+  const { expectedDate, projectId, charges, quotationId, waiverReason, ...rest } = parsed.data;
   // Validate project scope
   try {
     await assertScopeAllows({ projectId: projectId ?? null, departmentId: null });
@@ -113,6 +113,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       expectedDate: expectedDate ? new Date(expectedDate) : undefined,
       notes: rest.notes ?? undefined,
       createdById: user.id,
+      quotationId: quotationId ?? undefined,
+      waiverReason: waiverReason ?? undefined,
       charges: charges && charges.length > 0
         ? charges.map((c) => ({ heading: c.heading, amount: c.amount, notes: c.notes ?? undefined }))
         : undefined,

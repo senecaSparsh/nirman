@@ -74,7 +74,7 @@ export function MobileSupplierPaymentsList({
       <MobileEmptyState
         icon={Banknote}
         title="No supplier payments"
-        hint={canManage ? "Tap + to record your first payment" : "Payments made to suppliers will appear here once recorded."}
+        hint={canManage ? "Record payments from the Accounts → Payments tab" : "Payments made to suppliers will appear here once recorded."}
       />
     );
   }

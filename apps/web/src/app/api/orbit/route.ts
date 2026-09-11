@@ -276,7 +276,7 @@ async function getCompanyNode(id: string, currentCompanyId: string): Promise<Orb
       { id: "subcontractors", type: "category", label: "Subcontractors", subtitle: "External crews", count: c._count.subcontractors, href: "/m/subcontractors" },
       { id: "expenses", type: "category", label: "Expenses", subtitle: "Direct costs", count: c._count.expenses, href: "/m/expenses" },
       { id: "leads", type: "category", label: "Leads", subtitle: "Sales pipeline", count: c._count.leads, href: "/m/leads" },
-      { id: "tasks", type: "category", label: "Tasks", subtitle: "Open work items", count: taskCount, href: "/m/tasks" },
+      { id: "tasks", type: "category", label: "Tasks", subtitle: "Open work items", count: taskCount, href: "/m/site/tasks" },
       { id: "scrapGenerations", type: "category", label: "Scrap", subtitle: "Generated material", count: c._count.scrapGenerations, href: "/m/stock?tab=scrap" },
       { id: "stockTransfers", type: "category", label: "Transfers", subtitle: "Inter-location moves", count: stockTransferCount, href: "/m/stock?tab=transfers" },
     ],
@@ -503,7 +503,7 @@ async function getProjectChildren(companyId: string, _c: string): Promise<ChildE
 
 async function getLandPurchaseChildren(companyId: string, _c: string): Promise<ChildEntity[]> {
   const items = await prisma.landPurchase.findMany({
-    where: { companyId },
+    where: { companyId, deletedAt: null },
     select: {
       id: true, sellerName: true, totalArea: true, areaUnit: true,
       totalCost: true, purchaseDate: true, location: true,

@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, XCircle, Truck, Loader2, Plus, X, IndianRupee } from "lucide-react";
+import { CheckCircle2, XCircle, Truck, Loader2, Plus, X, IndianRupee, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatCurrencyCompact, formatCurrency } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { useOptimisticAction } from "@/lib/use-optimistic-action";
 import { ActionBar } from "@/components/mobile/v2/primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 interface PoPayload {
@@ -16,6 +17,7 @@ interface PoPayload {
   poNumber: string;
   status: string;
   supplierName: string;
+  createdById?: string | null;
 }
 
 /**
@@ -37,6 +39,7 @@ export function MobilePoActions({
   supplierId,
   supplierName,
   balanceRemaining,
+  currentUserId,
   backHref: _backHref,
 }: {
   po: PoPayload;
@@ -46,6 +49,7 @@ export function MobilePoActions({
   supplierId?: string;
   supplierName?: string;
   balanceRemaining?: number;
+  currentUserId?: string | null;
   backHref: string;
 }) {
   const router = useRouter();
@@ -85,19 +89,35 @@ export function MobilePoActions({
     hapticOnSuccess: 30,
   });
 
+  const resubmitAction = useOptimisticAction({
+    endpoint: `/api/purchase-orders/${po.id}`,
+    method: "PATCH",
+    body: { action: "resubmit" },
+    optimisticUpdate: () => setVisibleStatus("DRAFT"),
+    revert: () => setVisibleStatus("REJECTED"),
+    successMessage: `PO ${po.poNumber} resubmitted`,
+    successDescription: "It's back in draft — edit if needed, then ask an approver to review.",
+    hapticOnSuccess: 10,
+  });
+
   // Use the optimistic status for button visibility so the action bar
   // updates immediately — no flash of the old buttons.
-  const showApprove = visibleStatus === "DRAFT" && canApprove;
+  // Self-approval prevention: the creator cannot approve their own PO.
+  // The API enforces this server-side, but hiding the button avoids a
+  // frustrating tap-then-error round-trip on mobile.
+  const isOwnPo = !!currentUserId && po.createdById === currentUserId;
+  const showApprove = visibleStatus === "DRAFT" && canApprove && !isOwnPo;
   const showOrder = visibleStatus === "APPROVED" && canManage;
-  const showCancel = visibleStatus === "DRAFT" && canManage;
+  const showCancel = (visibleStatus === "DRAFT" || visibleStatus === "APPROVED") && canManage;
+  const showResubmit = visibleStatus === "REJECTED" && canManage;
   const canAddLine =
-    (visibleStatus === "ORDERED" || visibleStatus === "PARTIAL") && canApprove;
+    (visibleStatus === "ORDERED" || visibleStatus === "PARTIAL") && canManage;
   const canRecordPayment =
     !!canManagePayments &&
     !!supplierId &&
     (visibleStatus === "PARTIAL" || visibleStatus === "RECEIVED");
 
-  if (!showApprove && !showOrder && !showCancel && !canAddLine && !canRecordPayment) return null;
+  if (!showApprove && !showOrder && !showCancel && !showResubmit && !canAddLine && !canRecordPayment) return null;
 
   return (
     <ActionBar>
@@ -148,6 +168,15 @@ export function MobilePoActions({
                 icon={XCircle}
                 label="Cancel PO"
                 variant="outline"
+              />
+            )}
+            {showResubmit && (
+              <ActionButton
+                onClick={() => resubmitAction.execute()}
+                busy={resubmitAction.isPending}
+                icon={RotateCcw}
+                label="Resubmit"
+                variant="primary"
               />
             )}
             {canAddLine && (
@@ -474,6 +503,7 @@ function MobileAddLineDialog({
   onAdded: () => void;
 }) {
   const [materials, setMaterials] = useState<{ id: string; name: string; code: string; unit: string }[]>([]);
+  const [categories, setCategories] = useState<{ id: string; name: string; unit: string; hsnCode?: string | null; gstRate?: number | string | null }[]>([]);
   const [materialId, setMaterialId] = useState("");
   const [qty, setQty] = useState("");
   const [unitCost, setUnitCost] = useState("");
@@ -483,12 +513,19 @@ function MobileAddLineDialog({
     let cancelled = false;
     async function load() {
       try {
-        const res = await fetch("/api/materials");
-        if (!cancelled && res.ok) {
-          const data = await res.json();
+        const [matRes, catRes] = await Promise.all([
+          fetch("/api/materials"),
+          fetch("/api/material-categories"),
+        ]);
+        if (!cancelled && matRes.ok) {
+          const data = await matRes.json();
           const rows = data?.rows ?? [];
           setMaterials(rows);
           if (rows.length > 0) setMaterialId(rows[0].id);
+        }
+        if (!cancelled && catRes.ok) {
+          const cats = await catRes.json();
+          setCategories(Array.isArray(cats) ? cats : []);
         }
       } catch {
         /* ignore */
@@ -601,6 +638,19 @@ function MobileAddLineDialog({
               options={materials.map((m) => ({ value: m.id, label: m.name, sub: m.code }))}
               placeholder={materials.length === 0 ? "Loading materials…" : "Select material…"}
               disabled={materials.length === 0}
+              createLabel="material"
+              renderDialog={({ open, onClose, onCreated }) => (
+                <MobileNewMaterialDialog
+                  open={open}
+                  onClose={onClose}
+                  onCreated={(m) => {
+                    setMaterials((prev) => prev.find((x) => x.id === m.id) ? prev : [...prev, { id: m.id, name: m.name, code: m.code, unit: m.unit }]);
+                    onCreated(m.id, m.name);
+                  }}
+                  categories={categories}
+                  nested
+                />
+              )}
             />
           </div>
 

@@ -8,6 +8,9 @@ import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewCustomerDialog } from "@/app/m/sales/MobileNewCustomerDialog";
+import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
+import { MobileNewBrokerClient } from "@/app/m/brokers/new/MobileNewBrokerClient";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "@/app/m/sales/MobileChequeFields";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
@@ -108,6 +111,7 @@ export function MobileNewSaleForm({
   initialBuiltUnitId,
   initialLandParcelId,
   initialCustomerId,
+  initialProjectId,
   existingPhones: _existingPhones = [],
   sellableProjects = [],
 }: {
@@ -120,16 +124,31 @@ export function MobileNewSaleForm({
   initialBuiltUnitId?: string;
   initialLandParcelId?: string;
   initialCustomerId?: string;
+  initialProjectId?: string;
   existingPhones?: string[];
 }) {
   const router = useRouter();
   const [customers, setCustomers] = useState<CustomerOpt[]>(initialCustomers);
+  const [localBrokers, setLocalBrokers] = useState(brokers);
+  // If initialProjectId is provided and there are units for that project,
+  // default to BUILT_UNIT with the first unit of that project pre-selected.
+  const projectUnits = initialProjectId ? units.filter((u) => u.projectId === initialProjectId) : [];
+  const projectParcels = initialProjectId ? parcels.filter((p) => p.projectId === initialProjectId) : [];
   const [assetType, setAssetType] = useState<"BUILT_UNIT" | "LAND" | "PROJECT">(
-    initialBuiltUnitId ? "BUILT_UNIT" : initialLandParcelId ? "LAND" : "BUILT_UNIT",
+    initialBuiltUnitId ? "BUILT_UNIT"
+      : initialLandParcelId ? "LAND"
+      : projectUnits.length > 0 ? "BUILT_UNIT"
+      : projectParcels.length > 0 ? "LAND"
+      : initialProjectId ? "PROJECT"
+      : "BUILT_UNIT",
   );
-  const [builtUnitId, setBuiltUnitId] = useState(initialBuiltUnitId ?? units[0]?.id ?? "");
-  const [landParcelId, setLandParcelId] = useState(initialLandParcelId ?? parcels[0]?.id ?? "");
-  const [projectId, setProjectId] = useState("");
+  const [builtUnitId, setBuiltUnitId] = useState(
+    initialBuiltUnitId ?? projectUnits[0]?.id ?? units[0]?.id ?? "",
+  );
+  const [landParcelId, setLandParcelId] = useState(
+    initialLandParcelId ?? projectParcels[0]?.id ?? parcels[0]?.id ?? "",
+  );
+  const [projectId, setProjectId] = useState(initialProjectId ?? "");
   const [customerId, setCustomerId] = useState(initialCustomerId ?? initialCustomers[0]?.id ?? "");
   const [salePrice, setSalePrice] = useState("");
   const [gstRate, setGstRate] = useState("0");
@@ -340,7 +359,7 @@ export function MobileNewSaleForm({
   const totalValue = priceValue + gstValue;
 
   return (
-    <div className="pb-32">
+    <div className="pb-2">
       <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="flex flex-col gap-2.5">
         {/* ══════ SECTION: WHAT ══════ */}
         {/* ── Asset type (full width) ── */}
@@ -441,21 +460,18 @@ export function MobileNewSaleForm({
             {/* Asset selector */}
             {assetType === "PROJECT" ? (
               <FormFieldSm label="Project" required>
-                {sellableProjects.length === 0 ? (
-                  <p className="text-m-caption py-1" style={{ color: "var(--color-ink-500)" }}>
-                    No sellable projects.
-                  </p>
-                ) : (
-                  <MobileSelectWithCreate
-                    label=""
-                    required
-                    value={projectId}
-                    onChange={onProjectChange}
-                    options={sellableProjects.map((p) => ({ value: p.id, label: p.name }))}
-                    placeholder="Select…"
-                    icon={FolderOpen}
-                  />
-                )}
+                <MobileSelectWithCreate
+                  label=""
+                  required
+                  value={projectId}
+                  onChange={onProjectChange}
+                  options={sellableProjects.map((p) => ({ value: p.id, label: p.name }))}
+                  placeholder="Select…"
+                  icon={FolderOpen}
+                  renderDialog={({ open, onClose, onCreated }) => (
+                    <MobileNewProjectDialog open={open} onClose={onClose} onCreated={(p) => onCreated(p.id, p.name)} />
+                  )}
+                />
               </FormFieldSm>
             ) : (
               <FormFieldSm label={assetType === "BUILT_UNIT" ? "Unit" : "Parcel"} required>
@@ -499,7 +515,7 @@ export function MobileNewSaleForm({
                   open={open}
                   onClose={onClose}
                   onCreated={(c) => {
-                    setCustomers((prev) => [...prev, { id: c.id, name: c.name, phone: null }]);
+                    setCustomers((prev) => [...prev, { id: c.id, name: c.name, phone: c.phone ?? null }]);
                     onCreated(c.id, c.name);
                   }}
                 />
@@ -615,32 +631,45 @@ export function MobileNewSaleForm({
             {/* Broker details (conditional) */}
             {dealSource === "BROKER" && (
               <>
-                {brokers.length > 0 && (
-                  <FormFieldSm label="Select from Broker Master">
-                    <MobileSelectWithCreate
-                      label=""
-                      value={brokerId}
-                      onChange={(id) => {
-                        setBrokerId(id);
-                        const b = brokers.find((x) => x.id === id);
-                        if (b) {
-                          setBrokerName(b.name);
-                          setBrokerPhone(b.phone);
-                          const sp = Number(salePrice) || 0;
-                          if (b.defaultCommissionPercent && sp > 0) {
-                            setCommissionAmount(((sp * b.defaultCommissionPercent) / 100).toFixed(2));
-                          }
+                <FormFieldSm label="Select from Broker Master">
+                  <MobileSelectWithCreate
+                    label=""
+                    value={brokerId}
+                    onChange={(id) => {
+                      setBrokerId(id);
+                      const b = localBrokers.find((x) => x.id === id);
+                      if (b) {
+                        setBrokerName(b.name);
+                        setBrokerPhone(b.phone);
+                        const sp = Number(salePrice) || 0;
+                        if (b.defaultCommissionPercent && sp > 0) {
+                          setCommissionAmount(((sp * b.defaultCommissionPercent) / 100).toFixed(2));
                         }
-                      }}
-                      options={brokers.map((b) => ({
-                        value: b.id,
-                        label: b.name,
-                        sub: b.agency ? b.agency : undefined,
-                      }))}
-                      placeholder="— Or type manually below —"
-                    />
-                  </FormFieldSm>
-                )}
+                      }
+                    }}
+                    options={localBrokers.map((b) => ({
+                      value: b.id,
+                      label: b.name,
+                      sub: b.agency ? b.agency : undefined,
+                    }))}
+                    placeholder="— Or type manually below —"
+                    renderDialog={({ open, onClose, onCreated }) => (
+                      <MobileFabModal open={open} onClose={onClose} title="New Broker" nested>
+                        <MobileNewBrokerClient
+                          onClose={onClose}
+                          onCreated={(b) => {
+                            setLocalBrokers((prev) =>
+                              prev.find((x) => x.id === b.id)
+                                ? prev
+                                : [...prev, { id: b.id, name: b.name, phone: "", agency: "", defaultCommissionPercent: null }],
+                            );
+                            onCreated(b.id, b.name);
+                          }}
+                        />
+                      </MobileFabModal>
+                    )}
+                  />
+                </FormFieldSm>
                 <div className="grid grid-cols-2 gap-1.5">
                   <FormFieldSm label="Broker Name">
                     <input
@@ -1140,14 +1169,13 @@ export function MobileNewSaleForm({
 
       {/* ── Sticky bottom bar ── */}
       <div
-        className="fixed left-0 right-0 z-30 border-t backdrop-blur-sm"
+        className="sticky bottom-0 z-30 border-t backdrop-blur-sm"
         style={{
-          bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px))",
           backgroundColor: "color-mix(in srgb, var(--color-paper) 97%, transparent)",
           borderColor: "var(--color-line)",
         }}
       >
-        <div className="max-w-md mx-auto px-3.5 py-2">
+        <div className="px-3.5 py-2">
           <button
             type="submit"
             disabled={submitting}

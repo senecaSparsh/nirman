@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, ShieldPlus, Loader2, Network, Plug, Pencil, Layers, Warehouse, Lock, KeyRound, History, Upload, Search } from "lucide-react";
+import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, ShieldPlus, Loader2, Network, Plug, Pencil, Layers, Warehouse, Lock, KeyRound, History, Upload, Search, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +46,8 @@ type UserRow = {
   department: string | null;
   employeeCode: string | null;
   joiningDate: string | null;
+  lockedUntil: string | Date | null;
+  failedLoginAttempts: number;
 };
 
 type CompanyInfo = {
@@ -315,6 +318,14 @@ export function SettingsView({
         </TabsList>
 
         <TabsContent value="company">
+          <div className="mb-3 flex items-center justify-between rounded-md border border-border bg-muted/30 px-4 py-2.5">
+            <div className="text-caption text-muted-foreground">
+              This tab covers identity & procurement. For the full company profile — members, hierarchy, security policy, audit — open the company profile page.
+            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/companies/${company.id}`}>Open company profile</Link>
+            </Button>
+          </div>
           <Card>
             <CardContent className="p-6">
               <form onSubmit={saveCompany} className="space-y-4 max-w-lg">
@@ -893,6 +904,24 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
     }
   };
 
+  const handleUnlock = async (userId: string, userName: string) => {
+    setSaving(userId);
+    try {
+      const res = await fetch(`/api/users/${userId}/unlock`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error ?? "Failed to unlock");
+      } else {
+        toast.success(`Account unlocked for ${userName}. They can sign in now.`);
+        router.refresh();
+      }
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const roleBadgeVariant = (role: string): "default" | "outline" | "success" | "warning" | "danger" | "muted" => {
     switch (role) {
       case "OWNER": return "warning";
@@ -924,9 +953,11 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
         </div>
         {canManage && (
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => setShowRolePerms(true)}>
-              <Shield className="h-3.5 w-3.5" /> Role Permissions
-            </Button>
+            {(actorRole === "DEVELOPER" || actorRole === "OWNER") && (
+              <Button size="sm" variant="outline" onClick={() => setShowRolePerms(true)}>
+                <Shield className="h-3.5 w-3.5" /> Role Permissions
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={() => setShowCreateRole(true)}>
               <ShieldPlus className="h-3.5 w-3.5" /> Custom Role
             </Button>
@@ -1063,6 +1094,17 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
                         >
                           <KeyRound className="size-3.5" />
                         </Button>
+                        {(u.lockedUntil || u.failedLoginAttempts > 0) && (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            title="Unlock account"
+                            onClick={() => handleUnlock(u.id, u.name)}
+                            disabled={saving === u.id}
+                          >
+                            {saving === u.id ? <Loader2 className="size-3.5 animate-spin" /> : <Unlock className="size-3.5" />}
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon-sm"

@@ -634,6 +634,10 @@ export async function verifyMbEntry(id: string, verifiedById: string) {
     if (entry.status !== "DRAFT") {
       throw new ServiceError(`Cannot verify entry in status ${entry.status}`, 400);
     }
+    // Prevent self-verification — the measurer cannot verify their own entry.
+    if (entry.measuredById && entry.measuredById === verifiedById) {
+      throw new ServiceError("You cannot verify an MB entry you measured. Ask another verifier to review it.", 403);
+    }
 
     const updated = await tx.measurementBookEntry.update({
       where: { id },
@@ -658,6 +662,10 @@ export async function approveMbEntry(id: string, approvedById: string) {
     if (!entry) throw new ServiceError("MB entry not found", 404);
     if (entry.status !== "VERIFIED") {
       throw new ServiceError(`Cannot approve entry in status ${entry.status} (must be VERIFIED first)`, 400);
+    }
+    // Prevent self-approval — the measurer cannot approve their own entry.
+    if (entry.measuredById && entry.measuredById === approvedById) {
+      throw new ServiceError("You cannot approve an MB entry you measured. Ask another approver to review it.", 403);
     }
 
     const updated = await tx.measurementBookEntry.update({
@@ -708,6 +716,10 @@ export async function rejectMbEntry(id: string, rejectReason: string, userId?: s
     if (!entry) throw new ServiceError("MB entry not found", 404);
     if (entry.status === "APPROVED") {
       throw new ServiceError("Cannot reject an already-approved entry", 400);
+    }
+    // Prevent self-rejection — the measurer cannot reject their own entry.
+    if (userId && entry.measuredById && userId === entry.measuredById) {
+      throw new ServiceError("You cannot reject an MB entry you measured.", 403);
     }
 
     const updated = await tx.measurementBookEntry.update({

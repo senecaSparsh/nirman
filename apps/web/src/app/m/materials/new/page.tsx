@@ -1,5 +1,6 @@
 import { prisma } from "@nirman/db";
 import { PERM } from "@/lib/roles";
+import { getCompany } from "@/lib/server";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import MobileNewMaterialClient from "./MobileNewMaterialClient";
 
@@ -11,14 +12,27 @@ export default function NewMaterialPage() {
   return (
     <MobileNewEntityPage perm={PERM.INVENTORY_MANAGE} what="add materials" permission="inventory.manage" fields={5}>
       {async () => {
-        // Fetch categories for the dropdown
-        const categories = await prisma.materialCategory.findMany({
-          where: { deletedAt: null },
-          orderBy: { name: "asc" },
-          select: { id: true, name: true, unit: true },
-        });
+        const company = await getCompany();
+        // Fetch categories + stock locations for the dropdowns (company-scoped)
+        const [categories, locations] = await Promise.all([
+          prisma.materialCategory.findMany({
+            where: { companyId: company.id, deletedAt: null },
+            orderBy: { name: "asc" },
+            select: { id: true, name: true, unit: true, hsnCode: true, gstRate: true },
+          }),
+          prisma.stockLocation.findMany({
+            where: { companyId: company.id, deletedAt: null },
+            orderBy: [{ type: "asc" }, { name: "asc" }],
+            select: { id: true, name: true, type: true, project: { select: { name: true } } },
+          }),
+        ]);
 
-        return <MobileNewMaterialClient categories={categories} />;
+        return (
+          <MobileNewMaterialClient
+            categories={categories.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))}
+            locations={locations.map((l) => ({ id: l.id, name: l.name, projectName: l.project?.name ?? null }))}
+          />
+        );
       }}
     </MobileNewEntityPage>
   );

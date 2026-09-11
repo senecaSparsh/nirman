@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 /* ═══════════════════════════════════════════════════════════
  * PhotoCapture — mandatory proof-of-delivery photos
@@ -364,24 +365,14 @@ export function SelectField({
   required?: boolean;
 }) {
   return (
-    <div>
-      <label className="text-m-caption font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--color-ink-500)" }}>
-        {label} {required ? <span style={{ color: "var(--color-stop)" }}>*</span> : null}
-      </label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-7 px-1 text-m-caption font-semibold outline-none border-b focus:border-b-2 transition-colors"
-        style={{
-          backgroundColor: "transparent",
-        }}
-      >
-        <option value="">Select…</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
-      </select>
-    </div>
+    <EnumSelect
+      label={label}
+      value={value}
+      onChange={onChange}
+      options={options}
+      required={required}
+      placeholder="Select…"
+    />
   );
 }
 

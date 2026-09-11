@@ -12,6 +12,7 @@ import { FLOWS } from "@/lib/flow-map";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { ClipboardCheck, Plus } from "lucide-react";
 import { MobileNcrList } from "./MobileNcrList";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 import { MobileNcrFab } from "./MobileNcrFab";
 
 /**
@@ -20,7 +21,7 @@ import { MobileNcrFab } from "./MobileNcrFab";
  */
 export default function MobileQualityControlPage() {
   return (
-    <MobileListPage managePerm={PERM.WO_MANAGE}>
+    <MobileListPage perm={PERM.QC_VIEW} managePerm={PERM.QC_MANAGE} what="quality control">
       {async ({ company, canManage }) => {
         const actions = await getActionPermissions();
         const canCreateNcr = actions?.canCreateNcr ?? canManage;
@@ -74,6 +75,7 @@ export default function MobileQualityControlPage() {
 
         return (
           <div>
+            <DepartmentActivityFeed department="quality" />
             <div className="grid grid-cols-3 gap-1.5 mb-4">
               <MobileStatCard label="Open" value={String(open)} icon={ClipboardCheck} tone={open > 0 ? "signal" : "neutral"} />
               <MobileStatCard label="CAPA Req" value={String(capaRequired)} icon={ClipboardCheck} tone={capaRequired > 0 ? "signal" : "neutral"} />

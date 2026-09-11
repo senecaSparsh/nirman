@@ -21,6 +21,7 @@
     "@nirman/db": "workspace:*",
     "decimal.js": "^10.4.3",
     "exceljs": "^4.4.0",
+    "hsn-code-package": "^3.0.0",
     "nodemailer": "^9.0.5",
     "web-push": "^3.6.7"
   },

@@ -106,7 +106,7 @@ export function ExpenseClaimsView({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? `Failed to ${action}`);
-      toast.success(action === "submit" ? "Claim submitted" : action === "approve" ? "Claim approved" : action === "reject" ? "Claim rejected" : "Claim paid");
+      toast.success(action === "submit" ? (claim.status === "REJECTED" ? "Claim resubmitted" : "Claim submitted") : action === "approve" ? "Claim approved" : action === "reject" ? "Claim rejected" : "Claim paid");
       if (action === "reject") setRejecting(null);
       if (action === "pay") setPaying(null);
       router.refresh();
@@ -210,13 +210,13 @@ export function ExpenseClaimsView({
             pageSize={50}
             rowActions={(c) => (
               <div className="flex items-center justify-end gap-0.5">
-                {c.status === "DRAFT" && permissions.canCreate && (
+                {(c.status === "DRAFT" || c.status === "REJECTED") && permissions.canCreate && (
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); doAction(c, "submit"); }}
                     disabled={actionLoading === `${c.id}-submit`}
                     className="rounded p-1.5 text-muted-foreground hover:bg-warning-soft hover:text-warning"
-                    title="Submit for approval"
+                    title={c.status === "REJECTED" ? "Resubmit for approval" : "Submit for approval"}
                   >
                     {actionLoading === `${c.id}-submit` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                   </button>

@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { Input, Select, Textarea } from "@/components/ui/input";
+import { Field } from "@/components/field";
+import { required } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 import type { ProjectOption, StockLocationRow } from "@/lib/types";
 
 type FormState = {
@@ -42,18 +45,30 @@ export function LocationFormDialog({
   const [saving, setSaving] = useState(false);
   const isEdit = location != null;
 
+  // ── Inline validation ──────────────────────────────────────────
+  // Validates on blur and shows red error text under the field instantly.
+  const validationRules: ValidationRules<FormState> = {
+    name: (v) => required(v as string, "Name"),
+    type: (v) => required(v as string, "Type"),
+    projectId: (v, all) => (all.type === "PROJECT_SITE" ? required(v as string, "Project") : undefined),
+  };
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<FormState>(validationRules);
+
+  // Reset validation errors when the dialog opens fresh.
+  useEffect(() => {
+    if (!open) return;
+    clearAll();
+  }, [open]);
+
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+    clearError(key);
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name.trim()) {
-      toast.error("Location name is required");
-      return;
-    }
-    if (form.type === "PROJECT_SITE" && !form.projectId) {
-      toast.error("A project site must be linked to a project");
+    if (!validateAll(form)) {
+      toast.error("Please fix the errors in the form");
       return;
     }
     setSaving(true);
@@ -97,13 +112,12 @@ export function LocationFormDialog({
       className="max-w-xl"
     >
       <form onSubmit={onSubmit} className="space-y-3">
-        <div className="space-y-1.5">
-          <Label>
-            Type <span className="text-danger">*</span>
-          </Label>
+        <Field label="Type" required error={errors.type}>
           <Select
             value={form.type}
             onChange={(e) => set("type", e.target.value as FormState["type"])}
+            onBlur={() => onBlur("type", form)}
+            aria-invalid={!!errors.type}
             disabled={isEdit}
           >
             <option value="CENTRAL_WAREHOUSE">Central Warehouse (Parent Company)</option>
@@ -111,25 +125,27 @@ export function LocationFormDialog({
             <option value="PROJECT_SITE">Project Site</option>
             <option value="DEPARTMENT">Department / Cost Centre</option>
           </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label>
-            Name <span className="text-danger">*</span>
-          </Label>
+        </Field>
+        <Field label="Name" required error={errors.name}>
           <Input
             value={form.name}
             onChange={(e) => set("name", e.target.value)}
+            onBlur={() => onBlur("name", form)}
+            aria-invalid={!!errors.name}
             placeholder={form.type === "COMPANY_WAREHOUSE" ? "Central Warehouse" : "Greenfield Site Yard"}
             required
             autoFocus
           />
-        </div>
+        </Field>
         {form.type === "PROJECT_SITE" && (
-          <div className="space-y-1.5">
-            <Label>
-              Project <span className="text-danger">*</span>
-            </Label>
-            <Select value={form.projectId} onChange={(e) => set("projectId", e.target.value)} required>
+          <Field label="Project" required error={errors.projectId}>
+            <Select
+              value={form.projectId}
+              onChange={(e) => set("projectId", e.target.value)}
+              onBlur={() => onBlur("projectId", form)}
+              aria-invalid={!!errors.projectId}
+              required
+            >
               <option value="" disabled>
                 Select project…
               </option>
@@ -139,17 +155,16 @@ export function LocationFormDialog({
                 </option>
               ))}
             </Select>
-          </div>
+          </Field>
         )}
-        <div className="space-y-1.5">
-          <Label>Address</Label>
+        <Field label="Address">
           <Textarea
             value={form.address}
             onChange={(e) => set("address", e.target.value)}
             placeholder="Optional address / landmark"
             rows={2}
           />
-        </div>
+        </Field>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel

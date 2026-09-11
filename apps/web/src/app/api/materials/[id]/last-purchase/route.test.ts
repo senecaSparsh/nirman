@@ -22,7 +22,7 @@ describe("GET /api/materials/[id]/last-purchase", () => {
   beforeEach(() => {
     setSessionUser(OWNER);
     mockPrisma().goodsReceiptLine!.findFirst.mockResolvedValue(null);
-    mockPrisma().material!.findUnique.mockResolvedValue({ standardCost: 75, currentCost: 70 });
+    mockPrisma().material!.findFirst.mockResolvedValue({ standardCost: 75, currentCost: 70 });
   });
 
   it("returns 200 with receipt source when a receipt exists", async () => {
@@ -51,7 +51,7 @@ describe("GET /api/materials/[id]/last-purchase", () => {
   });
 
   it("returns 200 with none source when no receipt and no standard cost", async () => {
-    mockPrisma().material!.findUnique.mockResolvedValue({ standardCost: 0, currentCost: 0 });
+    mockPrisma().material!.findFirst.mockResolvedValue({ standardCost: 0, currentCost: 0 });
     const res = await GET(makeRequest("/api/materials/mat-1/last-purchase"), { params: Promise.resolve({ id: "mat-1" }) });
     expect(res.status).toBe(200);
     const body = await getJson<{ source: string }>(res);
@@ -59,7 +59,7 @@ describe("GET /api/materials/[id]/last-purchase", () => {
   });
 
   it("returns 404 when material not found", async () => {
-    mockPrisma().material!.findUnique.mockResolvedValue(null);
+    mockPrisma().material!.findFirst.mockResolvedValue(null);
     const res = await GET(makeRequest("/api/materials/mat-99/last-purchase"), { params: Promise.resolve({ id: "mat-99" }) });
     expect(res.status).toBe(404);
   });

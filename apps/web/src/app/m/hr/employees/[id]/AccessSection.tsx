@@ -15,13 +15,16 @@ import {
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
-import { ROLES, roleTier, type Role, ROLE_META } from "@/lib/roles";
+import { ROLES, type Role, ROLE_META } from "@/lib/roles";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { Button } from "@/components/mobile/v2/primitives";
 import { ScopeEditorDialog } from "@/components/settings/scope-editor-dialog";
 import { PermissionsEditorDialog } from "@/components/settings/permissions-editor-dialog";
 import { ResetPasswordDialog } from "@/components/settings/reset-password-dialog";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+
+const HIERARCHY_LABELS_MOBILE = ["Management", "Manager", "Engineer", "Supervisor", "Skilled", "Labor"];
 
 export type AccessSectionUser = {
   id: string;
@@ -243,7 +246,7 @@ function ProvisionLoginDialog({
             type="text"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Default: nirman123"
+            placeholder="Leave blank for auto-generated"
             className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
             style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
           />
@@ -433,62 +436,47 @@ function PhoneStatusRow({ user, canManage }: { user: AccessSectionUser; canManag
 
   return (
     <div className="flex flex-col gap-1.5 mb-3">
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {/* Verification status */}
-        <span
-          className="flex items-center gap-1 text-m-caption font-bold px-1.5 py-0.5 rounded-full"
+      {/* Stateful buttons — status + action combined.
+          Green = done, amber = needs attention. Tapping performs the action. */}
+      <div className="flex gap-1.5">
+        {/* Phone verification */}
+        <button
+          onClick={canManage && !showVerify ? sendOtp : undefined}
+          disabled={sending}
+          className={`flex flex-1 items-center justify-center gap-1 h-8 px-1 rounded-[0.375rem] text-m-caption font-bold text-m-body ${canManage && !showVerify ? "press" : "cursor-default"} disabled:opacity-70`}
           style={
             isVerified
-              ? { backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)", color: "var(--color-go)" }
-              : { backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-500)" }
+              ? { color: "var(--color-go)", backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)" }
+              : { color: "var(--color-signal)", backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)" }
           }
         >
-          {isVerified ? <CheckCircle2 className="size-2.5" /> : <AlertCircle className="size-2.5" />}
-          {isVerified ? "Phone Verified" : "Phone Unverified"}
-        </span>
+          {sending
+            ? <Loader2 className="size-3 shrink-0 animate-spin" />
+            : isVerified
+              ? <CheckCircle2 className="size-3 shrink-0" />
+              : <AlertCircle className="size-3 shrink-0" />}
+          <span className="truncate">{isVerified ? "Phone Verified" : "Verify Phone"}</span>
+        </button>
 
-        {/* Twilio sync status */}
-        <span
-          className="flex items-center gap-1 text-m-caption font-bold px-1.5 py-0.5 rounded-full"
+        {/* Twilio sync */}
+        <button
+          onClick={canManage ? syncTwilio : undefined}
+          disabled={syncing}
+          className={`flex flex-1 items-center justify-center gap-1 h-8 px-1 rounded-[0.375rem] text-m-caption font-bold text-m-body ${canManage ? "press" : "cursor-default"} disabled:opacity-70`}
           style={
             isSynced
-              ? { backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)", color: "var(--color-go)" }
-              : { backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-500)" }
+              ? { color: "var(--color-go)", backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)" }
+              : { color: "var(--color-signal)", backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)" }
           }
         >
-          {isSynced ? <CheckCircle2 className="size-2.5" /> : <XCircle className="size-2.5" />}
-          {isSynced ? "Twilio Synced" : "Not Synced"}
-        </span>
+          {syncing
+            ? <Loader2 className="size-3 shrink-0 animate-spin" />
+            : isSynced
+              ? <CheckCircle2 className="size-3 shrink-0" />
+              : <XCircle className="size-3 shrink-0" />}
+          <span className="truncate">{isSynced ? "Twilio Synced" : "Sync Twilio"}</span>
+        </button>
       </div>
-
-      {/* Action buttons */}
-      {canManage && (
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {!isVerified && !showVerify && (
-            <button
-              onClick={sendOtp}
-              disabled={sending}
-              className="flex items-center gap-1 h-6 px-2 rounded-[0.25rem] text-m-caption font-semibold text-m-body press disabled:opacity-50"
-              style={{ color: "var(--color-ink-700)", backgroundColor: "var(--color-concrete)" }}
-            >
-              {sending ? <Loader2 className="size-2.5 animate-spin" /> : <KeyRound className="size-2.5" />}
-              Verify Phone
-            </button>
-          )}
-
-          {!isSynced && (
-            <button
-              onClick={syncTwilio}
-              disabled={syncing}
-              className="flex items-center gap-1 h-6 px-2 rounded-[0.25rem] text-m-caption font-semibold text-m-body press disabled:opacity-50"
-              style={{ color: "var(--color-ink-700)", backgroundColor: "var(--color-concrete)" }}
-            >
-              {syncing ? <Loader2 className="size-2.5 animate-spin" /> : <Shield className="size-2.5" />}
-              Sync with Twilio
-            </button>
-          )}
-        </div>
-      )}
 
       {/* OTP verification input */}
       {showVerify && (
@@ -555,9 +543,12 @@ function AccessManagementCard({
   const canManageAccess = !isSelf;
 
   const userRole = user.role ?? "SUPERVISOR";
+  // Build a label lookup from assignableRoles so custom roles show their
+  // actual DB label (e.g. "Sales Lead") instead of a derived string.
+  const roleLabelMap = new Map(assignableRoles.map((r) => [r.key, r.label]));
   const meta = ROLE_META[userRole as Role] ?? {
     color: "var(--color-ink-600)",
-    label: userRole.replace(/^CUSTOM_/, "").replace(/_/g, " "),
+    label: roleLabelMap.get(userRole) ?? userRole.replace(/^CUSTOM_/, "").replace(/_/g, " "),
     icon: "Shield",
   };
 
@@ -572,9 +563,7 @@ function AccessManagementCard({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Failed to update role");
-      const label = newRole.startsWith("CUSTOM_")
-        ? newRole.replace(/^CUSTOM_/, "").replace(/_/g, " ")
-        : ROLES[newRole as Role]?.label ?? newRole;
+      const label = roleLabelMap.get(newRole) ?? ROLES[newRole as Role]?.label ?? newRole;
       toast.success(`${employeeName} is now ${label}`);
       router.refresh();
     } catch (err) {
@@ -667,45 +656,60 @@ function AccessManagementCard({
           )}
         </div>
 
-        {/* Phone verification + Twilio sync status */}
-        <PhoneStatusRow user={user} canManage={canManageAccess} />
+        {/* Phone verification + Twilio sync status.
+            canManage=true for managers viewing others; isSelf=true for
+            viewing your own profile. Both should be able to verify phone —
+            a manager verifies an employee's phone, a user verifies their own. */}
+        <PhoneStatusRow user={user} canManage={canManageAccess || isSelf} />
 
         {/* Access management actions — gated by canManageAccess */}
         {canManageAccess ? (
           <>
-            {/* Set Access Scope */}
-            <button
-              onClick={() => setShowScope(true)}
-              className="flex w-full items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press mb-2"
-              style={{ color: "var(--color-ink-500)", backgroundColor: "var(--color-concrete)" }}
-            >
-              <Shield className="size-3" />
-              Set Access Scope
-            </button>
+            {/* ── Divider ── */}
+            <div className="h-px -mx-3 mb-3" style={{ backgroundColor: "var(--color-line)" }} />
 
-            {/* Module Permissions */}
-            <button
-              onClick={() => setShowPerms(true)}
-              className="flex w-full items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press mb-2"
-              style={{ color: "var(--color-ink-500)", backgroundColor: "var(--color-concrete)" }}
-            >
-              <Lock className="size-3" />
-              Module Permissions
-            </button>
+            {/* Section: Access Management */}
+            <p className="text-m-caption font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-ink-400)" }}>
+              Access Management
+            </p>
+            <div className="flex gap-1.5 mb-3">
+              {/* Set Access Scope */}
+              <button
+                onClick={() => setShowScope(true)}
+                className="flex flex-1 items-center justify-center gap-1 h-8 px-1 rounded-[0.375rem] text-m-caption font-bold text-m-body press"
+                style={{ color: "var(--color-ink-500)", backgroundColor: "var(--color-concrete)" }}
+              >
+                <Shield className="size-3 shrink-0" />
+                <span className="truncate">Access Scope</span>
+              </button>
 
-            {/* Reset Password */}
-            <button
-              onClick={() => setShowResetPwd(true)}
-              className="flex w-full items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press mb-2"
-              style={{ color: "var(--color-ink-500)", backgroundColor: "var(--color-concrete)" }}
-            >
-              <KeyRound className="size-3" />
-              Reset Password
-            </button>
+              {/* Module Permissions */}
+              <button
+                onClick={() => setShowPerms(true)}
+                className="flex flex-1 items-center justify-center gap-1 h-8 px-1 rounded-[0.375rem] text-m-caption font-bold text-m-body press"
+                style={{ color: "var(--color-ink-500)", backgroundColor: "var(--color-concrete)" }}
+              >
+                <Lock className="size-3 shrink-0" />
+                <span className="truncate">Permissions</span>
+              </button>
 
-            {/* Change Role */}
-            <p className="text-m-section font-extrabold tracking-tight mb-1.5" style={{ color: "var(--color-ink-700)" }}>
-              Change Role
+              {/* Reset Password */}
+              <button
+                onClick={() => setShowResetPwd(true)}
+                className="flex flex-1 items-center justify-center gap-1 h-8 px-1 rounded-[0.375rem] text-m-caption font-bold text-m-body press"
+                style={{ color: "var(--color-ink-500)", backgroundColor: "var(--color-concrete)" }}
+              >
+                <KeyRound className="size-3 shrink-0" />
+                <span className="truncate">Reset Pwd</span>
+              </button>
+            </div>
+
+            {/* ── Divider ── */}
+            <div className="h-px -mx-3 mb-3" style={{ backgroundColor: "var(--color-line)" }} />
+
+            {/* Section: Role */}
+            <p className="text-m-caption font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-ink-400)" }}>
+              Role
             </p>
             <div className="flex flex-wrap gap-1 mb-3">
               {assignableRoles.map((r) => {
@@ -717,7 +721,7 @@ function AccessManagementCard({
                     key={r.key}
                     onClick={() => changeRole(r.key)}
                     disabled={changing || isCurrent}
-                    className="flex items-center gap-1 h-6 px-2 rounded-[0.25rem] text-m-caption font-semibold text-m-body press disabled:opacity-40"
+                    className="flex items-center gap-1 h-7 px-2 rounded-[0.25rem] text-m-caption font-semibold text-m-body press disabled:opacity-40"
                     style={{
                       color: isCurrent
                         ? "var(--color-paper)"
@@ -738,33 +742,39 @@ function AccessManagementCard({
               })}
             </div>
 
-            {/* Create Custom Role */}
-            <button
-              onClick={() => setShowCreateRole(true)}
-              className="flex w-full items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press mb-2"
-              style={{
-                color: "var(--color-ink-500)",
-                backgroundColor: "var(--color-concrete)",
-                border: "1px dashed var(--color-line)",
-              }}
-            >
-              <Plus className="size-3" />
-              Create Custom Role
-            </button>
+            {/* ── Divider ── */}
+            <div className="h-px -mx-3 mb-3" style={{ backgroundColor: "var(--color-line)" }} />
 
-            {/* Activate / Deactivate */}
-            <button
-              onClick={toggleActive}
-              disabled={changing}
-              className="flex w-full items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press disabled:opacity-50"
-              style={{
-                color: user.active ? "var(--color-stop)" : "var(--color-go)",
-                backgroundColor: `color-mix(in srgb, ${user.active ? "var(--color-stop)" : "var(--color-go)"} 8%, transparent)`,
-              }}
-            >
-              {changing ? <Loader2 className="size-3 animate-spin" /> : null}
-              {user.active ? "Deactivate Access" : "Activate Access"}
-            </button>
+            {/* Section: Account */}
+            <div className="flex gap-1.5">
+              {/* Create Custom Role */}
+              <button
+                onClick={() => setShowCreateRole(true)}
+                className="flex flex-1 items-center justify-center gap-1 h-8 px-1 rounded-[0.375rem] text-m-caption font-bold text-m-body press"
+                style={{
+                  color: "var(--color-ink-500)",
+                  backgroundColor: "var(--color-concrete)",
+                  border: "1px dashed var(--color-line)",
+                }}
+              >
+                <Plus className="size-3 shrink-0" />
+                <span className="truncate">Custom Role</span>
+              </button>
+
+              {/* Activate / Deactivate */}
+              <button
+                onClick={toggleActive}
+                disabled={changing}
+                className="flex flex-1 items-center justify-center gap-1 h-8 px-1 rounded-[0.375rem] text-m-caption font-bold text-m-body press disabled:opacity-50"
+                style={{
+                  color: user.active ? "var(--color-stop)" : "var(--color-go)",
+                  backgroundColor: `color-mix(in srgb, ${user.active ? "var(--color-stop)" : "var(--color-go)"} 8%, transparent)`,
+                }}
+              >
+                {changing ? <Loader2 className="size-3 animate-spin shrink-0" /> : null}
+                <span className="truncate">{user.active ? "Deactivate" : "Activate"}</span>
+              </button>
+            </div>
           </>
         ) : (
           <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
@@ -841,6 +851,9 @@ function AccessManagementCard({
         <CreateCustomRoleDialog
           onClose={() => setShowCreateRole(false)}
           onCreated={() => setShowCreateRole(false)}
+          allowedBaseRoles={assignableRoles
+            .filter((r) => !r.key.startsWith("CUSTOM_"))
+            .map((r) => r.key)}
         />
       )}
     </div>
@@ -853,31 +866,44 @@ function AccessManagementCard({
 function CreateCustomRoleDialog({
   onClose,
   onCreated,
+  allowedBaseRoles,
 }: {
   onClose: () => void;
   onCreated: () => void;
+  allowedBaseRoles: string[];
 }) {
   const router = useRouter();
-  const [key, setKey] = useState("");
+  const initialBase = (allowedBaseRoles[0] as Role) ?? "SITE_ENGINEER";
   const [label, setLabel] = useState("");
   const [description, setDescription] = useState("");
-  const [baseRole, setBaseRole] = useState<Role>("SITE_ENGINEER");
+  const [baseRole, setBaseRole] = useState<Role>(initialBase);
+  const [hierarchyLevel, setHierarchyLevel] = useState<number>(ROLES[initialBase]?.tier ?? 3);
   const [saving, setSaving] = useState(false);
 
-  const baseRoles = (Object.keys(ROLES) as Role[]).filter((r) => r !== "OWNER" && r !== "DEVELOPER");
+  // Only offer base roles the actor can actually assign (tier-filtered).
+  // assignableRoles is already filtered by canAssignRole on the server, so
+  // we derive the allowed base roles from it. This prevents an HR_MANAGER
+  // from creating a custom role based on PROJECT_DIRECTOR (tier 2).
+  const baseRoles = (Object.keys(ROLES) as Role[])
+    .filter((r) => r !== "OWNER" && r !== "DEVELOPER")
+    .filter((r) => allowedBaseRoles.includes(r));
 
   async function handleCreate() {
-    if (!key.trim() || !label.trim()) return;
+    if (!label.trim()) return;
     setSaving(true);
     try {
+      // Auto-generate the key from the label — the user never sees or
+      // types the key. "Sales Lead" → "SALES_LEAD" → API stores "CUSTOM_SALES_LEAD".
+      const autoKey = label.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
       const res = await fetch("/api/custom-roles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          key: key.trim().toUpperCase().replace(/\s+/g, "_"),
+          key: autoKey,
           label: label.trim(),
           description: description.trim(),
           baseRole,
+          hierarchyLevel,
           permissions: [],
         }),
       });
@@ -899,29 +925,13 @@ function CreateCustomRoleDialog({
     <MobileDialog open={true} onClose={onClose} title="Create Custom Role">
       <div className="space-y-3">
         <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-          Create a custom role with a base role (for tier and default permissions).
-          You can fine-tune permissions after creation from the desktop settings.
+          Create a custom role by copying permissions from an existing role.
+          You can fine-tune permissions later from desktop settings.
         </p>
 
         <div className="space-y-1">
           <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-400)" }}>
-            Role Key *
-          </label>
-          <input
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            placeholder="e.g. SALES_LEAD"
-            className="w-full rounded-[0.5rem] border p-2.5 text-m-label"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          />
-          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-            Stored as CUSTOM_{key.trim().toUpperCase().replace(/\s+/g, "_") || "…"}
-          </p>
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-400)" }}>
-            Display Label *
+            Role Name *
           </label>
           <input
             value={label}
@@ -946,21 +956,34 @@ function CreateCustomRoleDialog({
         </div>
 
         <div className="space-y-1">
-          <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-400)" }}>
-            Base Role (inherits tier + permissions)
-          </label>
-          <select
+          <EnumSelect
+            label="Copy Permissions From"
             value={baseRole}
-            onChange={(e) => setBaseRole(e.target.value as Role)}
-            className="w-full rounded-[0.5rem] border p-2.5 text-m-label"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          >
-            {baseRoles.map((r) => (
-              <option key={r} value={r}>
-                {ROLES[r].label} (Tier {roleTier(r)})
-              </option>
-            ))}
-          </select>
+            onChange={(v) => {
+              const r = v as Role;
+              setBaseRole(r);
+              setHierarchyLevel(ROLES[r]?.tier ?? 3);
+            }}
+            options={baseRoles.map((r) => ({ value: r, label: ROLES[r].label }))}
+          />
+          <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
+            The new role starts with the same access level as the selected role.
+          </p>
+        </div>
+
+        <div className="space-y-1">
+          <EnumSelect
+            label="Hierarchy Level (H1–H6)"
+            value={String(hierarchyLevel)}
+            onChange={(v) => setHierarchyLevel(Number(v))}
+            options={[1, 2, 3, 4, 5, 6].map((h) => ({
+              value: String(h),
+              label: `H${h} — ${HIERARCHY_LABELS_MOBILE[h - 1] ?? `Level ${h}`}`,
+            }))}
+          />
+          <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
+            Controls where this role sits in the org tree. Use a level between the base role and the next level to create sub-roles (e.g. H2 for a sub-admin based on H1).
+          </p>
         </div>
 
         <div className="flex gap-2 pt-2">
@@ -973,7 +996,7 @@ function CreateCustomRoleDialog({
           </button>
           <button
             onClick={handleCreate}
-            disabled={saving || !key.trim() || !label.trim()}
+            disabled={saving || !label.trim()}
             className="flex-1 rounded-[0.5rem] p-2.5 text-m-label font-semibold press disabled:opacity-50"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >

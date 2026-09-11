@@ -36,11 +36,11 @@ const STATUS_CONFIG: Record<AttendanceStatus, { label: string; color: string; bg
   PRESENT: { label: "Present", color: "var(--color-go)", bg: "color-mix(in srgb, var(--color-go) 10%, transparent)", border: "color-mix(in srgb, var(--color-go) 30%, transparent)" },
   ABSENT: { label: "Absent", color: "var(--color-stop)", bg: "color-mix(in srgb, var(--color-stop) 10%, transparent)", border: "color-mix(in srgb, var(--color-stop) 30%, transparent)" },
   HALF_DAY: { label: "Half", color: "var(--color-signal-dark)", bg: "color-mix(in srgb, var(--color-signal) 12%, transparent)", border: "color-mix(in srgb, var(--color-signal) 30%, transparent)" },
-  OVERTIME: { label: "OT", color: "var(--color-signal-dark)", bg: "color-mix(in srgb, var(--color-signal) 12%, transparent)", border: "color-mix(in srgb, var(--color-signal) 30%, transparent)" },
+  OVERTIME: { label: "Overtime", color: "var(--color-signal-dark)", bg: "color-mix(in srgb, var(--color-signal) 12%, transparent)", border: "color-mix(in srgb, var(--color-signal) 30%, transparent)" },
   LEAVE: { label: "Leave", color: "var(--color-ink-500)", bg: "var(--color-concrete)", border: "var(--color-line)" },
   LATE: { label: "Late", color: "var(--color-signal-dark)", bg: "color-mix(in srgb, var(--color-signal) 8%, transparent)", border: "color-mix(in srgb, var(--color-signal) 25%, transparent)" },
-  PAID_LEAVE: { label: "PL", color: "var(--color-steel)", bg: "color-mix(in srgb, var(--color-steel) 10%, transparent)", border: "color-mix(in srgb, var(--color-steel) 30%, transparent)" },
-  NON_PAID_LEAVE: { label: "NPL", color: "var(--color-stop)", bg: "color-mix(in srgb, var(--color-stop) 8%, transparent)", border: "color-mix(in srgb, var(--color-stop) 25%, transparent)" },
+  PAID_LEAVE: { label: "Paid Leave", color: "var(--color-steel)", bg: "color-mix(in srgb, var(--color-steel) 10%, transparent)", border: "color-mix(in srgb, var(--color-steel) 30%, transparent)" },
+  NON_PAID_LEAVE: { label: "Unpaid Leave", color: "var(--color-stop)", bg: "color-mix(in srgb, var(--color-stop) 8%, transparent)", border: "color-mix(in srgb, var(--color-stop) 25%, transparent)" },
 };
 
 const ALL_STATUSES: AttendanceStatus[] = ["PRESENT", "LATE", "ABSENT", "HALF_DAY", "OVERTIME", "LEAVE", "PAID_LEAVE", "NON_PAID_LEAVE"];

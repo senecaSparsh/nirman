@@ -73,8 +73,8 @@ describe("ProjectAssignmentsPage (ProjectAssignmentsContent)", () => {
   });
 
   it("passes canManage=false for SITE_ENGINEER role", async () => {
-    // SITE_ENGINEER lacks USERS_VIEW so it shows NoAccess; use HR_MANAGER which has USERS_VIEW but not USERS_MANAGE
-    setSessionUser({ role: "HR_MANAGER" });
+    // FINANCE_HEAD has USERS_VIEW but not USERS_MANAGE → canManage=false
+    setSessionUser({ role: "FINANCE_HEAD" });
     const ui = await ProjectAssignmentsContent();
     render(ui);
     expect(screen.getByTestId("can-manage")).toHaveTextContent("false");

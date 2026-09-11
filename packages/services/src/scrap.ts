@@ -84,7 +84,7 @@ export async function createScrapGeneration(input: CreateScrapGenerationInput) {
   // Validate materials exist
   const materialIds = input.lines.map((l) => l.materialId);
   const materials = await prisma.material.findMany({
-    where: { id: { in: materialIds }, deletedAt: null },
+    where: { id: { in: materialIds }, companyId: input.companyId, deletedAt: null },
   });
   if (materials.length !== materialIds.length) {
     throw new ServiceError("One or more materials not found or deleted", 404);
@@ -93,7 +93,7 @@ export async function createScrapGeneration(input: CreateScrapGenerationInput) {
   // Validate source material if provided
   if (input.sourceMaterialId) {
     const sourceMaterial = await prisma.material.findFirst({
-      where: { id: input.sourceMaterialId, deletedAt: null },
+      where: { id: input.sourceMaterialId, companyId: input.companyId, deletedAt: null },
     });
     if (!sourceMaterial) throw new ServiceError("Source material not found", 404);
   }

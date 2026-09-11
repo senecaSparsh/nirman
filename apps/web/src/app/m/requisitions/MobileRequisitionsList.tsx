@@ -48,6 +48,7 @@ export type RequisitionListItem = {
   convertedToPo: boolean;
   rejectReason: string | null;
   requestedByName: string | null;
+  requestedById: string | null;
 };
 
 const FILTER_CHIPS: { label: string; value: ReqStatus }[] = [
@@ -72,6 +73,7 @@ export function MobileRequisitionsList({
   items: initialItems,
   canCreate,
   canApprove,
+  currentUserId,
   submittedCount = 0,
   loadMoreUrl,
   nextCursor: initialCursor,
@@ -83,6 +85,7 @@ export function MobileRequisitionsList({
   items: RequisitionListItem[];
   canCreate?: boolean;
   canApprove?: boolean;
+  currentUserId?: string | null;
   submittedCount?: number;
   loadMoreUrl?: string;
   nextCursor?: string | null;
@@ -188,9 +191,9 @@ export function MobileRequisitionsList({
       {/* ── Results ── */}
       {filtered.length === 0 ? (
         <MobileNoResults
-          title="No indents found"
+          title="No material requests found"
           query={query || undefined}
-          hint="No indents match the selected filter."
+          hint="Material requests (indents) ask the store to issue materials. Tap + to create one."
         />
       ) : (
         <div>
@@ -206,7 +209,7 @@ export function MobileRequisitionsList({
           )}
           <MobileCardGrid cols={2}>
             {filtered.map((r) => (
-              <ReqCard key={r.id} req={r} onAction={() => router.refresh()} />
+              <ReqCard key={r.id} req={r} canApprove={canApprove} currentUserId={currentUserId} onAction={() => router.refresh()} />
             ))}
           </MobileCardGrid>
           {loadMoreUrl ? (
@@ -227,7 +230,7 @@ export function MobileRequisitionsList({
    REQ CARD — distinct from PO cards. Left accent bar, requester-focused,
    needed-by badge, approval workflow context.
    ═══════════════════════════════════════════════════════════════════════════ */
-function ReqCard({ req, onAction }: { req: RequisitionListItem; onAction?: () => void }) {
+function ReqCard({ req, canApprove, currentUserId, onAction }: { req: RequisitionListItem; canApprove?: boolean; currentUserId?: string | null; onAction?: () => void }) {
   const router = useRouter();
   const now = useHydratedDate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -254,12 +257,14 @@ function ReqCard({ req, onAction }: { req: RequisitionListItem; onAction?: () =>
   }, [req.id, req.reqNumber, onAction]);
 
   const handleReject = useCallback(async () => {
+    const reason = window.prompt("Reason for rejecting this indent?") ?? "";
+    if (!reason.trim()) return;
     haptic(10);
     try {
       const res = await fetch(`/api/requisitions/${req.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reject", rejectReason: "Rejected from mobile" }),
+        body: JSON.stringify({ action: "reject", rejectReason: reason.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to reject");
@@ -287,11 +292,15 @@ function ReqCard({ req, onAction }: { req: RequisitionListItem; onAction?: () =>
     }
   }, [req.id, req.reqNumber, onAction]);
 
+  // ── Permission + creator gate: only show approve/reject to users who
+  //    have REQUISITION_APPROVE AND did not create this indent themselves.
+  const canActOn = canApprove && req.requestedById !== currentUserId;
+
   // Swipe actions based on status
   const swipeActions =
-    req.status === "DRAFT"
-      ? [{ label: "Submit", color: "var(--color-steel)", onPress: handleSubmit }]
-      : req.status === "SUBMITTED"
+    req.status === "DRAFT" || req.status === "REJECTED"
+      ? [{ label: "Resubmit", color: "var(--color-steel)", onPress: handleSubmit }]
+      : req.status === "SUBMITTED" && canActOn
         ? [
             { label: "Approve", color: "var(--color-go)", onPress: handleApprove },
             { label: "Reject", color: "var(--color-stop)", onPress: handleReject },
@@ -301,10 +310,10 @@ function ReqCard({ req, onAction }: { req: RequisitionListItem; onAction?: () =>
   // Context menu actions
   const contextActions: ContextAction[] = [
     { label: "View Details", icon: Eye, onPress: () => router.push(`/m/requisitions/${req.id}`) },
-    ...(req.status === "DRAFT"
-      ? [{ label: "Submit", icon: Send, color: "var(--color-steel)", onPress: handleSubmit }]
+    ...(req.status === "DRAFT" || req.status === "REJECTED"
+      ? [{ label: "Resubmit", icon: Send, color: "var(--color-steel)", onPress: handleSubmit }]
       : []),
-    ...(req.status === "SUBMITTED"
+    ...(req.status === "SUBMITTED" && canActOn
       ? [
           { label: "Approve", icon: Check, color: "var(--color-go)", onPress: handleApprove },
           { label: "Reject", icon: X, color: "var(--color-stop)", destructive: true, onPress: handleReject },

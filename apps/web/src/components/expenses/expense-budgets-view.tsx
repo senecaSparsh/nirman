@@ -161,8 +161,6 @@ export function ExpenseBudgetsView({
       width: "140px",
       render: (b) => {
         const pct = b.utilizationPct;
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const tone = pct >= 100 ? "danger" : pct >= 80 ? "warning" : "success";
         return (
           <div className="flex items-center justify-end gap-2">
             <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">

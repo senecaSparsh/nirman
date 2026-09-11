@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { topUpPettyCash, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
@@ -36,5 +36,6 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     throw err;
   }
   revalidatePath("/petty-cash");
-  return NextResponse.json({ ok: true }, { status: 201 });
+  revalidatePath("/m/petty-cash");
+  return json({ ok: true }, { status: 201 });
 });

@@ -82,7 +82,9 @@ export async function addClaimLine(input: AddClaimLineInput) {
   return withSerializableTransaction(async (tx) => {
     const claim = await tx.expenseClaim.findFirst({ where: { id: input.claimId, companyId: input.companyId } });
     if (!claim) throw new ServiceError("Claim not found", 404);
-    if (claim.status !== "DRAFT") throw new ServiceError("Can only add lines to a DRAFT claim", 409);
+    if (claim.status !== "DRAFT" && claim.status !== "REJECTED") {
+      throw new ServiceError("Can only add lines to a DRAFT or REJECTED claim", 409);
+    }
 
     const line = await tx.expenseClaimLine.create({
       data: {
@@ -121,7 +123,9 @@ export async function removeClaimLine(lineId: string, companyId: string, userId?
       include: { claim: true },
     });
     if (!line || line.claim.companyId !== companyId) throw new ServiceError("Claim line not found", 404);
-    if (line.claim.status !== "DRAFT") throw new ServiceError("Can only remove lines from a DRAFT claim", 409);
+    if (line.claim.status !== "DRAFT" && line.claim.status !== "REJECTED") {
+      throw new ServiceError("Can only remove lines from a DRAFT or REJECTED claim", 409);
+    }
     await tx.expenseClaimLine.delete({ where: { id: lineId } });
     const lineGst = line.gstAmount ? new Decimal(line.gstAmount) : new Decimal(0);
     await tx.expenseClaim.update({
@@ -141,10 +145,12 @@ export async function submitExpenseClaim(claimId: string, companyId: string, use
   return withSerializableTransaction(async (tx) => {
     const claim = await tx.expenseClaim.findFirst({ where: { id: claimId, companyId } });
     if (!claim) throw new ServiceError("Claim not found", 404);
-    if (claim.status !== "DRAFT") throw new ServiceError(`Only DRAFT claims can be submitted (current: ${claim.status})`, 409);
+    if (claim.status !== "DRAFT" && claim.status !== "REJECTED") {
+      throw new ServiceError(`Only DRAFT or REJECTED claims can be submitted (current: ${claim.status})`, 409);
+    }
     const updated = await tx.expenseClaim.update({
       where: { id: claimId },
-      data: { status: "SUBMITTED", submittedAt: new Date() },
+      data: { status: "SUBMITTED", submittedAt: new Date(), submittedById: userId ?? null },
     });
     await logAction(tx, {
       userId, companyId, action: "EXPENSE_CLAIM_SUBMIT",
@@ -251,9 +257,13 @@ export async function rejectExpenseClaim(claimId: string, companyId: string, rea
     const claim = await tx.expenseClaim.findFirst({ where: { id: claimId, companyId } });
     if (!claim) throw new ServiceError("Claim not found", 404);
     if (claim.status !== "SUBMITTED") throw new ServiceError(`Only SUBMITTED claims can be rejected (current: ${claim.status})`, 409);
+    // Prevent self-rejection: the claimant cannot reject their own claim.
+    if (userId && claim.claimantId === userId) {
+      throw new ServiceError("You cannot reject your own claim.", 403);
+    }
     const updated = await tx.expenseClaim.update({
       where: { id: claimId },
-      data: { status: "REJECTED", rejectedReason: reason, approvedById: null, approvedAt: null },
+      data: { status: "REJECTED", rejectedReason: reason, rejectedById: userId ?? null, rejectedAt: new Date(), approvedById: null, approvedAt: null },
     });
     await logAction(tx, {
       userId, companyId, action: "EXPENSE_CLAIM_REJECT",
@@ -306,6 +316,7 @@ export async function payExpenseClaim(
       data: {
         status: "PAID",
         paidAt: new Date(),
+        paidById: userId ?? null,
         paymentMode: payment.paymentMode,
         referenceNo: payment.referenceNo ?? null,
       },

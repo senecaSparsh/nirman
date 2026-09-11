@@ -48,8 +48,8 @@ export default function MobileRateContractsPage() {
           canManage
             ? prisma.materialCategory.findMany({
                 orderBy: { name: "asc" },
-                select: { id: true, name: true, unit: true },
-              })
+                select: { id: true, name: true, unit: true, hsnCode: true, gstRate: true },
+              }).then((rows) => rows.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null })))
             : [],
         ]);
 

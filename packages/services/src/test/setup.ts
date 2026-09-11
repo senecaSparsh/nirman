@@ -103,11 +103,12 @@ export async function createTestFixture() {
  * Seed the chart of accounts for the test company.
  * Required before any GL posting functions can be used.
  */
-export async function seedTestAccounts(_companyId: string) {
+export async function seedTestAccounts(companyId: string) {
   const { CHART_OF_ACCOUNTS } = await import("../gl-posting");
   for (const acct of CHART_OF_ACCOUNTS) {
     await prisma.glAccount.create({
       data: {
+        companyId,
         code: acct.code,
         name: acct.name,
         type: acct.type,

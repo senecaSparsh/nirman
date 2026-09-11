@@ -76,7 +76,7 @@ describe("Payroll lifecycle — generate → process → pay", () => {
   async function getPayrollEntries(payrollPeriodId: string) {
     return prisma.journalEntry.findMany({
       where: { sourceId: payrollPeriodId },
-      include: { lines: true },
+      include: { lines: { include: { account: { select: { code: true } } } } },
       orderBy: { createdAt: "asc" },
     });
   }
@@ -157,8 +157,8 @@ describe("Payroll lifecycle — generate → process → pay", () => {
     const processEntry = entries.find((e) => e.sourceType === "PAYROLL");
     expect(processEntry).toBeDefined();
 
-    const expenseLine = processEntry!.lines.find((l) => l.accountCode === ACCT.SALARIES_EXPENSE);
-    const payableLine = processEntry!.lines.find((l) => l.accountCode === ACCT.SALARIES_PAYABLE);
+    const expenseLine = processEntry!.lines.find((l) => l.account.code === ACCT.SALARIES_EXPENSE);
+    const payableLine = processEntry!.lines.find((l) => l.account.code === ACCT.SALARIES_PAYABLE);
     expect(expenseLine!.debit.toNumber()).toBe(50000);
     expect(payableLine!.credit.toNumber()).toBe(50000);
   });
@@ -258,8 +258,8 @@ describe("Payroll lifecycle — generate → process → pay", () => {
     const paymentEntry = entries.find((e) => e.sourceType === "PAYROLL_PAYMENT");
     expect(paymentEntry).toBeDefined();
 
-    const payableDebit = paymentEntry!.lines.find((l) => l.accountCode === ACCT.SALARIES_PAYABLE);
-    const cashCredit = paymentEntry!.lines.find((l) => l.accountCode === ACCT.CASH);
+    const payableDebit = paymentEntry!.lines.find((l) => l.account.code === ACCT.SALARIES_PAYABLE);
+    const cashCredit = paymentEntry!.lines.find((l) => l.account.code === ACCT.CASH);
     expect(payableDebit!.debit.toNumber()).toBe(40000);
     expect(cashCredit!.credit.toNumber()).toBe(40000);
   });
@@ -336,15 +336,15 @@ describe("Payroll lifecycle — generate → process → pay", () => {
     expect(processEntry).toBeDefined();
 
     // Dr Salaries Expense 60K
-    const expense = processEntry!.lines.find((l) => l.accountCode === ACCT.SALARIES_EXPENSE);
+    const expense = processEntry!.lines.find((l) => l.account.code === ACCT.SALARIES_EXPENSE);
     expect(expense!.debit.toNumber()).toBe(60000);
 
     // Cr PF Payable 6K
-    const pfPayable = processEntry!.lines.find((l) => l.accountCode === ACCT.PF_PAYABLE);
+    const pfPayable = processEntry!.lines.find((l) => l.account.code === ACCT.PF_PAYABLE);
     expect(pfPayable!.credit.toNumber()).toBe(6000);
 
     // Cr TDS Payable 5K
-    const tdsPayable = processEntry!.lines.find((l) => l.accountCode === ACCT.TDS_PAYABLE);
+    const tdsPayable = processEntry!.lines.find((l) => l.account.code === ACCT.TDS_PAYABLE);
     expect(tdsPayable!.credit.toNumber()).toBe(5000);
 
     // Net = 60000 - 6000 - 5000 - 2000 = 47000
@@ -352,7 +352,7 @@ describe("Payroll lifecycle — generate → process → pay", () => {
     // Wait: otherDeductions = totalDeductions(13000) - PF(6000) - ESI(0) - profTax(0) - TDS(5000) = 2000
     // Net payable = totalNet = 60000 - 13000 = 47000
     // Cr lines: Salaries Payable (net) 47000 + PF 6000 + TDS 5000 + Salaries Payable (other) 2000 = 60000
-    const salariesPayableLines = processEntry!.lines.filter((l) => l.accountCode === ACCT.SALARIES_PAYABLE);
+    const salariesPayableLines = processEntry!.lines.filter((l) => l.account.code === ACCT.SALARIES_PAYABLE);
     const totalSalariesPayable = salariesPayableLines.reduce((s, l) => s + l.credit.toNumber(), 0);
     expect(totalSalariesPayable).toBe(49000); // 47000 net + 2000 other deductions
 
@@ -370,8 +370,8 @@ describe("Payroll lifecycle — generate → process → pay", () => {
     const payment = allEntries.find((e) => e.sourceType === "PAYROLL_PAYMENT");
     expect(payment).toBeDefined();
 
-    const payableDebit = payment!.lines.find((l) => l.accountCode === ACCT.SALARIES_PAYABLE && l.debit.toNumber() > 0);
-    const cashCredit = payment!.lines.find((l) => l.accountCode === ACCT.CASH && l.credit.toNumber() > 0);
+    const payableDebit = payment!.lines.find((l) => l.account.code === ACCT.SALARIES_PAYABLE && l.debit.toNumber() > 0);
+    const cashCredit = payment!.lines.find((l) => l.account.code === ACCT.CASH && l.credit.toNumber() > 0);
     expect(payableDebit!.debit.toNumber()).toBe(47000);
     expect(cashCredit!.credit.toNumber()).toBe(47000);
   });

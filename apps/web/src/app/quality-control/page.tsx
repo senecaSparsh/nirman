@@ -5,6 +5,7 @@ import { getCompany, getUserRole, scopeWhere, projectScopeFilter } from "@/lib/s
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 import { PageHeader } from "@/components/page-header";
 import { QualityControlView } from "@/components/quality-control/quality-control-view";
 
@@ -23,7 +24,7 @@ async function QcContent() {
   const role = await getUserRole();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.ASSETS_VIEW)) {
+  if (!hasPermission(role, PERM.QC_VIEW)) {
     return <NoAccess what="quality control" />;
   }
 
@@ -52,7 +53,7 @@ async function QcContent() {
     }),
   ]);
 
-  const canManage = hasPermission(role, PERM.WO_MANAGE);
+  const canManage = hasPermission(role, PERM.QC_MANAGE);
 
   const serialized = ncrs.map((n) => ({
     id: n.id,
@@ -81,6 +82,7 @@ async function QcContent() {
           { label: "Closed", value: serialized.filter((n) => n.status === "CLOSED").length },
         ]}
       />
+      <DepartmentActivityFeed department="quality" />
       <QualityControlView
         ncrs={serialized}
         projects={projects}

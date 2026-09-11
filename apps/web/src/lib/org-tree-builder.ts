@@ -6,7 +6,96 @@ import type {
   OrgTaskSummary,
   OrgAttendanceInfo,
   OrgLeaveInfo,
-} from "@/app/m/hr/OrgHierarchy";
+} from "@/lib/org-hierarchy-types";
+import { migrateRole } from "@/lib/roles";
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * PREFERRED PARENT ROLE — the natural functional reporting hierarchy.
+ *
+ * When no explicit reporting line is set (UserCompany.reportsToUserCompanyId
+ * or Employee.reportsToEmployeeId), this map determines who each role should
+ * report to. It follows the natural construction company org chart:
+ *
+ *   OWNER → root
+ *   ADMIN → OWNER
+ *   DEVELOPER → ADMIN
+ *   PROJECT_DIRECTOR → OWNER               (direct report to owner)
+ *   FINANCE_HEAD → ADMIN
+ *   HR_MANAGER → ADMIN
+ *   PROCUREMENT_MANAGER → ADMIN
+ *   SALES_MANAGER → ADMIN
+ *   PROJECT_MANAGER → PROJECT_DIRECTOR
+ *   ACCOUNTANT → FINANCE_HEAD
+ *   SITE_ENGINEER → PROJECT_MANAGER
+ *   STORE_KEEPER → SITE_ENGINEER        (on-site, under the site engineer)
+ *   SUPERVISOR → SITE_ENGINEER
+ *   QAQC_ENGINEER → PROJECT_MANAGER     (independent — doesn't report to
+ *                                        the site engineer whose work they check)
+ *
+ * If the preferred parent role doesn't exist in the company, we walk up
+ * the chain (e.g. no PROJECT_DIRECTOR → PROJECT_MANAGER reports to ADMIN).
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+const PREFERRED_PARENT_ROLE: Record<string, string | null> = {
+  OWNER: null,               // root
+  ADMIN: "OWNER",
+  DEVELOPER: "ADMIN",
+  PROJECT_DIRECTOR: "OWNER",
+  FINANCE_HEAD: "ADMIN",
+  HR_MANAGER: "ADMIN",
+  PROCUREMENT_MANAGER: "ADMIN",      // separate function, not under finance
+  SALES_MANAGER: "ADMIN",             // separate function, not under project
+  PROJECT_MANAGER: "PROJECT_DIRECTOR",
+  ACCOUNTANT: "FINANCE_HEAD",
+  SITE_ENGINEER: "PROJECT_MANAGER",
+  STORE_KEEPER: "SITE_ENGINEER",     // on-site, under the site engineer
+  SUPERVISOR: "SITE_ENGINEER",
+  QAQC_ENGINEER: "PROJECT_MANAGER",   // independent from site engineer
+};
+
+/**
+ * Resolve the preferred parent role for a given role string.
+ * Uses migrateRole to handle custom/legacy roles — they map to a base
+ * role whose preferred parent is used. Returns null if the role should
+ * be a root (OWNER).
+ *
+ * If customRoles is provided, custom roles (CUSTOM_*) are resolved via
+ * their baseRole from the CustomRole table.
+ */
+function preferredParentRole(role: string, customRoles?: Map<string, CustomRoleDef>): string | null {
+  // Standard built-in role
+  if (role in PREFERRED_PARENT_ROLE) return PREFERRED_PARENT_ROLE[role]!;
+  // Custom role — resolve via baseRole from the CustomRole table
+  if (customRoles && role.startsWith("CUSTOM_")) {
+    const cr = customRoles.get(role);
+    if (cr) {
+      const parent = PREFERRED_PARENT_ROLE[cr.baseRole];
+      if (parent !== undefined) return parent;
+      // baseRole is OWNER → this custom role is a root
+      if (cr.baseRole === "OWNER") return null;
+    }
+  }
+  // Try the migrated role (legacy roles)
+  const migrated = migrateRole(role);
+  if (migrated && migrated in PREFERRED_PARENT_ROLE) {
+    return PREFERRED_PARENT_ROLE[migrated]!;
+  }
+  // Unknown role — fall back to tier-based parent
+  return null;
+}
+
+/**
+ * Fallback tier-based parent role for unknown/custom roles.
+ * Returns the role that a person of the given tier should report to.
+ */
+const TIER_PARENT_ROLE: Record<number, string> = {
+  1: "OWNER",
+  2: "ADMIN",
+  3: "ADMIN",
+  4: "ADMIN",
+  5: "ADMIN",
+};
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -49,6 +138,13 @@ interface RawMembership {
   role: string;
   reportsToUserCompanyId: string | null;
   hierarchyLevel: number | null; // from Employee.hierarchyLevel (H1-H6)
+  /** Employee.id — linked Employee record (if any). Used for:
+   *  1. Linking to /m/hr/employees/[id] in the org tree.
+   *  2. Employee.reportsToEmployeeId as a fallback reporting line. */
+  employeeId: string | null;
+  /** Employee.reportsToEmployeeId — on-site reporting line (Employee→Employee).
+   *  Independent of UserCompany.reportsToUserCompanyId (permission chain). */
+  reportsToEmployeeId: string | null;
   scopes: {
     scopeKind: string;
     projectId: string | null;
@@ -139,6 +235,17 @@ interface LeaveRow {
   endDate: Date;
 }
 
+/** Custom role definition — lets the tree builder resolve custom roles
+ *  (CUSTOM_*) to their base role for parent mapping + display their
+ *  real label instead of the fallback "Supervisor". */
+export interface CustomRoleDef {
+  key: string;       // e.g. "CUSTOM_SUB_ADMIN"
+  label: string;     // e.g. "Sub Admin"
+  baseRole: string;  // e.g. "ADMIN"
+  tier: number;      // 1-5
+  hierarchyLevel?: number | null; // optional H-level (1-6) for org tree depth
+}
+
 export interface OrgTreeResult {
   roots: OrgPersonNode[];
   unassigned: OrgPersonNode[];
@@ -204,7 +311,17 @@ export function buildOrgTree(
   allTasks: AllTaskRow[] = [],
   attendance: AttendanceRow[] = [],
   leaveRequests: LeaveRow[] = [],
+  // ── Custom role definitions (optional) — lets the tree builder ──
+  //    resolve custom roles (CUSTOM_*) to their base role for parent ──
+  //    mapping and display their real label instead of "Supervisor". ──
+  customRoles: CustomRoleDef[] = [],
 ): OrgTreeResult {
+  // ── Build custom roles lookup map ──
+  const customRoleMap = new Map<string, CustomRoleDef>();
+  for (const cr of customRoles) {
+    customRoleMap.set(cr.key, cr);
+  }
+
   // ── Index tasks + DPRs by user ──
   const tasksByUser = new Map<string, TaskRow[]>();
   for (const t of tasks) {
@@ -334,6 +451,7 @@ export function buildOrgTree(
     nodeMap.set(m.id, {
       id: m.id,
       userId: m.userId,
+      employeeId: m.employeeId ?? null,
       name: m.user.name,
       email: m.user.email,
       phone: m.user.phone,
@@ -375,119 +493,238 @@ export function buildOrgTree(
   }
 
   // ── Check if anyone has explicit reporting lines ──
-  const hasExplicitReports = memberships.some(
-    (m) => m.reportsToUserCompanyId && nodeMap.has(m.reportsToUserCompanyId),
-  );
+  // Priority: UserCompany.reportsToUserCompanyId (permission chain) first,
+  // then Employee.reportsToEmployeeId (on-site reporting line) as fallback.
+  const employeeIdToNodeMap = new Map<string, OrgPersonNode>();
+  for (const n of nodeMap.values()) {
+    if (n.employeeId) employeeIdToNodeMap.set(n.employeeId, n);
+  }
 
   // ── Assemble reporting tree ──
+  // Strategy: explicit reporting lines first, then functional inference
+  // for anyone not yet attached. This handles mixed scenarios where some
+  // people have explicit reportsTo set and others don't.
   const roots: OrgPersonNode[] = [];
 
-  if (hasExplicitReports) {
-    for (const m of memberships) {
-      const node = nodeMap.get(m.id)!;
-      const reportsTo = m.reportsToUserCompanyId;
-      if (reportsTo && nodeMap.has(reportsTo)) {
-        nodeMap.get(reportsTo)!.reports.push(node);
-      } else {
-        roots.push(node);
+  // Track which nodes have been placed in the tree
+  const placed = new Set<string>();
+
+  // ── Step 1: Process explicit reporting relationships ──
+  // Skip self-references and detect cycles (A→B, B→A).
+  // `parentOf` maps childId → parentId so we can walk up the chain
+  // to detect if adding `node` under `parent` would create a cycle.
+  const parentOf = new Map<string, string>();
+  for (const m of memberships) {
+    const node = nodeMap.get(m.id)!;
+    // 1. Try UserCompany.reportsToUserCompanyId (permission chain)
+    const reportsTo = m.reportsToUserCompanyId;
+    if (reportsTo && reportsTo !== m.id && nodeMap.has(reportsTo)) {
+      const parent = nodeMap.get(reportsTo)!;
+      // Cycle guard: walk up from `parent` — if we reach `node`, skip
+      let cur: string | undefined = parent.id;
+      let isCycle = false;
+      while (cur) {
+        if (cur === node.id) { isCycle = true; break; }
+        cur = parentOf.get(cur);
+      }
+      if (!isCycle) {
+        parent.reports.push(node);
+        placed.add(m.id);
+        parentOf.set(node.id, parent.id);
+      }
+      continue;
+    }
+    // 2. Try Employee.reportsToEmployeeId (on-site reporting line)
+    const empReportsTo = m.reportsToEmployeeId;
+    if (empReportsTo && empReportsTo !== m.id && employeeIdToNodeMap.has(empReportsTo)) {
+      const parent = employeeIdToNodeMap.get(empReportsTo)!;
+      // Cycle guard (same walk-up check using nodeMap ids)
+      let cur: string | undefined = parent.id;
+      let isCycle = false;
+      while (cur) {
+        if (cur === node.id) { isCycle = true; break; }
+        cur = parentOf.get(cur);
+      }
+      if (!isCycle) {
+        parent.reports.push(node);
+        placed.add(m.id);
+        parentOf.set(node.id, parent.id);
+      }
+      continue;
+    }
+  }
+
+  // ── Step 2: Infer parents for unattached people ──
+  // Use functional parent-role mapping: each role has a natural parent
+  // role (SITE_ENGINEER → PROJECT_MANAGER, FINANCE_HEAD → ADMIN, etc.).
+  // If the parent role doesn't exist, walk up the chain.
+  // Among multiple candidates, use scope matching.
+
+  // Index all people by role for fast lookup
+  const peopleByRole = new Map<string, OrgPersonNode[]>();
+  for (const n of nodeMap.values()) {
+    const arr = peopleByRole.get(n.role) ?? [];
+    arr.push(n);
+    peopleByRole.set(n.role, arr);
+  }
+
+  // Scope helpers
+  const scopeProjectNames = (n: OrgPersonNode): Set<string> =>
+    new Set(n.scopes.filter((s) => s.kind === "PROJECT").map((s) => s.projectName).filter(Boolean) as string[]);
+  const scopeDeptNames = (n: OrgPersonNode): Set<string> =>
+    new Set(n.scopes.filter((s) => s.kind === "DEPARTMENT").map((s) => s.departmentName).filter(Boolean) as string[]);
+
+  function pickParentByScope(
+    child: OrgPersonNode,
+    candidates: OrgPersonNode[],
+    roundRobinIdx: number,
+  ): OrgPersonNode {
+    const childProjects = scopeProjectNames(child);
+    const childDepts = scopeDeptNames(child);
+    if (childProjects.size > 0 || childDepts.size > 0) {
+      for (const p of candidates) {
+        const pProjects = scopeProjectNames(p);
+        const pDepts = scopeDeptNames(p);
+        const overlap =
+          [...childProjects].some((x) => pProjects.has(x)) ||
+          [...childDepts].some((x) => pDepts.has(x));
+        if (overlap) return p;
       }
     }
-  } else {
-    // ── Infer hierarchy from hierarchy levels (H1-H6) or role tiers ──
-    // When a node has hierarchyLevel (from Employee.hierarchyLevel), use it
-    // as the effective depth. Otherwise fall back to roleTier.
-    // OWNER is always the single root. ADMIN reports to OWNER.
-    // Lower levels report to the nearest level above them.
+    return candidates[roundRobinIdx % candidates.length]!;
+  }
 
-    /** Effective depth: hierarchyLevel (H1-H6) if set, otherwise role tier. */
-    const effLevel = (n: OrgPersonNode): number =>
-      n.hierarchyLevel != null ? n.hierarchyLevel : n.tier;
+  /** Check if a node is already placed (in roots or as someone's report).
+   *  O(1) via the `placed` Set — no scanning required. */
+  function isPlaced(n: OrgPersonNode): boolean {
+    return placed.has(n.id) || roots.includes(n);
+  }
 
-    const owners = Array.from(nodeMap.values())
-      .filter((n) => n.role === "OWNER")
-      .sort((a, b) => a.name.localeCompare(b.name));
-    const admins = Array.from(nodeMap.values())
-      .filter((n) => n.role === "ADMIN")
-      .sort((a, b) => a.name.localeCompare(b.name));
-    const others = Array.from(nodeMap.values())
-      .filter((n) => n.role !== "OWNER" && n.role !== "ADMIN")
-      .sort((a, b) => effLevel(a) - effLevel(b) || a.name.localeCompare(b.name));
+  /** Find parent candidates for a person by walking up the
+   *  preferred-parent-role chain. Returns null if no parent found. */
+  function findParentCandidates(
+    person: OrgPersonNode,
+  ): OrgPersonNode[] | null {
+    let currentRole = person.role;
+    const visited = new Set<string>([currentRole]);
 
-    // OWNER(s) are roots. If multiple owners, they're co-roots (partners).
-    for (const o of owners) roots.push(o);
-
-    // If no OWNER exists, ADMIN becomes root.
-    if (owners.length === 0) {
-      for (const a of admins) roots.push(a);
-    } else {
-      // ADMIN reports to the first OWNER (or distributed if multiple).
-      if (owners.length === 1) {
-        for (const a of admins) owners[0]!.reports.push(a);
-      } else {
-        for (let i = 0; i < admins.length; i++) {
-          owners[i % owners.length]!.reports.push(admins[i]!);
-        }
+    for (let depth = 0; depth < 10; depth++) {
+      // Look up preferred parent role
+      let parentRole = preferredParentRole(currentRole, customRoleMap);
+      if (parentRole === null) {
+        // currentRole is OWNER or unknown — no parent
+        if (currentRole === "OWNER") return null;
+        // Unknown role — use tier-based fallback
+        parentRole = TIER_PARENT_ROLE[person.tier] ?? "ADMIN";
       }
-    }
 
-    // Group all non-OWNER/ADMIN by effective level for hierarchical assignment.
-    const byLevel = new Map<number, OrgPersonNode[]>();
-    for (const n of others) {
-      const lvl = effLevel(n);
-      const arr = byLevel.get(lvl) ?? [];
-      arr.push(n);
-      byLevel.set(lvl, arr);
-    }
-    const levelsPresent = Array.from(byLevel.keys()).sort((a, b) => a - b);
-
-    // For each level (ascending), assign each person to someone at the
-    // nearest level above them. "Above" includes OWNER/ADMIN as level 1.
-    for (const t of levelsPresent) {
-      const nodesAtLevel = byLevel.get(t) ?? [];
-      if (nodesAtLevel.length === 0) continue;
-
-      // Find the nearest lower level that has people (including owners/admins).
-      let parents: OrgPersonNode[] = [];
-      // Check level 1 (owners + admins already placed).
-      if (t > 1) {
-        const level1 = [...roots, ...roots.flatMap((r) => r.reports)];
-        if (level1.length > 0) {
-          parents = level1;
-        }
-        // Also check levels between 1 and t.
-        for (let pt = t - 1; pt >= 2; pt--) {
-          const candidates = byLevel.get(pt) ?? [];
-          if (candidates.length > 0) {
-            // Only use candidates that already have a parent (were placed).
-            const placed = candidates.filter((c) =>
-              // Check if this node is already in someone's reports
-              Array.from(nodeMap.values()).some((n) =>
-                n.reports.includes(c),
-              ),
-            );
-            if (placed.length > 0) {
-              parents = placed;
-              break;
+      // Check if any placed people with this role exist
+      const candidates = (peopleByRole.get(parentRole) ?? []).filter((n) => isPlaced(n));
+      // Also check custom roles whose baseRole matches parentRole
+      if (candidates.length === 0) {
+        for (const [role, people] of peopleByRole) {
+          if (role.startsWith("CUSTOM_")) {
+            const cr = customRoleMap.get(role);
+            if (cr && cr.baseRole === parentRole) {
+              candidates.push(...people.filter((n) => isPlaced(n)));
+            }
+          } else {
+            const migrated = migrateRole(role);
+            if (migrated === parentRole) {
+              candidates.push(...people.filter((n) => isPlaced(n)));
             }
           }
         }
       }
 
-      if (parents.length === 0) {
-        // No parent found — become roots.
-        for (const n of nodesAtLevel) roots.push(n);
-      } else if (parents.length === 1) {
-        for (const n of nodesAtLevel) parents[0]!.reports.push(n);
-      } else {
-        // Distribute round-robin.
-        nodesAtLevel.sort((a, b) => a.name.localeCompare(b.name));
-        for (let i = 0; i < nodesAtLevel.length; i++) {
-          parents[i % parents.length]!.reports.push(nodesAtLevel[i]!);
-        }
+      if (candidates.length > 0) {
+        return candidates;
+      }
+
+      // Walk up: find the preferred parent of the parent role
+      if (visited.has(parentRole)) break; // cycle guard
+      visited.add(parentRole);
+      currentRole = parentRole;
+    }
+    return null;
+  }
+
+  // Process unattached people in tier order (top to bottom) so parents
+  // are placed before children. OWNERs are pre-placed as roots first so
+  // that other tier-1 roles (ADMIN, DEVELOPER) can find them as parents.
+  const unattached = Array.from(nodeMap.values())
+    .filter((n) => !isPlaced(n))
+    .sort((a, b) => a.tier - b.tier || a.name.localeCompare(b.name));
+
+  // Pre-place OWNERs (and custom OWNER-based roles) as roots
+  for (const person of unattached) {
+    if (person.role === "OWNER") {
+      roots.push(person);
+      placed.add(person.id);
+      continue;
+    }
+    if (person.role.startsWith("CUSTOM_")) {
+      const cr = customRoleMap.get(person.role);
+      if (cr && cr.baseRole === "OWNER") {
+        roots.push(person);
+        placed.add(person.id);
+        continue;
       }
     }
   }
 
+  const roundRobinCounters = new Map<string, number>();
+
+  for (const person of unattached) {
+    // Skip already-placed OWNERs
+    if (isPlaced(person)) continue;
+
+    const candidates = findParentCandidates(person);
+    if (candidates === null || candidates.length === 0) {
+      // No parent found — report to first OWNER, or become a root
+      const owners = roots.filter((r) => r.role === "OWNER");
+      if (owners.length > 0) {
+        owners[0]!.reports.push(person);
+        parentOf.set(person.id, owners[0]!.id);
+      } else {
+        roots.push(person);
+      }
+      placed.add(person.id);
+      continue;
+    }
+
+    let parent: OrgPersonNode;
+    if (candidates.length === 1) {
+      parent = candidates[0]!;
+    } else {
+      // Multiple candidates — use scope matching, then round-robin
+      const parentRole = candidates[0]!.role;
+      const idx = roundRobinCounters.get(parentRole) ?? 0;
+      roundRobinCounters.set(parentRole, idx + 1);
+      parent = pickParentByScope(person, candidates, idx);
+    }
+    // Cycle guard: don't attach if `parent` is a descendant of `person`
+    let cur: string | undefined = parent.id;
+    let isCycle = false;
+    while (cur) {
+      if (cur === person.id) { isCycle = true; break; }
+      cur = parentOf.get(cur);
+    }
+    if (isCycle) {
+      // Would create a cycle — fall back to OWNER or root
+      const owners = roots.filter((r) => r.role === "OWNER");
+      if (owners.length > 0) {
+        owners[0]!.reports.push(person);
+        parentOf.set(person.id, owners[0]!.id);
+      } else {
+        roots.push(person);
+      }
+    } else {
+      parent.reports.push(person);
+      parentOf.set(person.id, parent.id);
+    }
+    placed.add(person.id);
+  }
   // ── Compute descendant counts (recursive) ──
   function countDescendants(node: OrgPersonNode): number {
     let count = node.reports.length + node.teams.reduce((s, t) => s + t.members.length, 0);

@@ -4,6 +4,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {type MobileColumnSpec} from "@/components/mobile/v2/export-share-bar";
 import { MobileExpensesList, type ExpenseListItem } from "./MobileExpensesList";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
 
 /**
  * /m/expenses — mobile expense log. Shows recent company expenses with
@@ -80,6 +81,7 @@ export default function MobileExpensesPage() {
               exportColumns={exportColumns}
               exportSummary={`${rows.length} expenses · ${categories.size} categories`}
             />
+            {canCreate && <MobileFab href="/m/expenses/new" label="Add expense" />}
           </div>
         );
       }}

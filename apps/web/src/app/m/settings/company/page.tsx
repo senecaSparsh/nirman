@@ -1,45 +1,55 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { getCompany, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
-import { MobileCompanyEditClient } from "./MobileCompanyEditClient";
+import { MobileNoAccess } from "@/components/mobile/v2/primitives";
+import { PageContextProvider } from "@/components/mobile/v2/page-context";
+import { loadCompanyProfileData } from "@/lib/company-profile-data";
+import { MobileCompanyDetails } from "./MobileCompanyDetails";
 
 /**
- * /m/settings/company — mobile page to edit company details.
+ * /m/settings/company — mobile company details & management page.
  *
- * These details (name, GSTIN, PAN, address, phone, email) appear on every
- * printed bill, invoice, receipt, and purchase order. Only OWNER/ADMIN
- * can edit (COMPANY_MANAGE permission).
+ * Comprehensive company management: identity, members, hierarchy, locations,
+ * policy, procurement, and audit — all in collapsible sections. Uses the
+ * same shared data loader as the desktop /companies/[id] page.
  */
-export default function MobileCompanyEditPage() {
+export default function MobileCompanyPage() {
   return (
     <Suspense fallback={<PageLoading label="Loading company details…" />}>
-      <MobileCompanyEditContent />
+      <MobileCompanyContent />
     </Suspense>
   );
 }
 
-async function MobileCompanyEditContent() {
+async function MobileCompanyContent() {
   await connection();
+
+  // Load the current company's profile data using the shared loader.
+  // We pass the current company's ID — the loader resolves it from the session.
+  const { getCompany } = await import("@/lib/server");
   const company = await getCompany();
-  const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.COMPANY_MANAGE);
+  const result = await loadCompanyProfileData(company.id);
+
+  if (!result) {
+    return <MobileNoAccess what="company details" />;
+  }
 
   return (
-    <MobileCompanyEditClient
-      company={{
-        id: company.id,
-        name: company.name,
-        gstin: company.gstin,
-        pan: company.pan,
-        address: company.address,
-        phone: company.phone,
-        email: company.email,
-        currency: company.currency,
-        businessType: company.businessType,
+    <PageContextProvider
+      value={{
+        entityType: "company",
+        label: result.data.name,
+        subtitle: "Company Details",
+        recordId: result.data.id,
       }}
-      canManage={canManage}
-    />
+    >
+      <MobileCompanyDetails
+        data={result.data}
+        actorRole={result.actorRole}
+        permissions={result.permissions}
+        roleOptions={result.roleOptions}
+        assignableRoles={result.assignableRoles}
+      />
+    </PageContextProvider>
   );
 }

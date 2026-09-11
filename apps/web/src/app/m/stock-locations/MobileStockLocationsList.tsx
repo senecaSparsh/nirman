@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {MapPin, Pencil, Trash2, Loader2, Warehouse, Building2, Eye, Share2, Package, IndianRupee, FolderOpen} from "lucide-react";
+import {MapPin, Pencil, Trash2, Loader2, Warehouse, Building2, Share2, Package, IndianRupee, FolderOpen} from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { useLongPress } from "@/lib/use-long-press";
+import { useConfirm } from "@/lib/use-confirm";
 import {
   MobileOverviewSheet,
   type OverviewRow,
@@ -65,13 +66,20 @@ export function MobileStockLocationsList({
   const [editing, setEditing] = useState<LocationRow | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const fab = useFabModal();
+  const [confirm, confirmDialog] = useConfirm();
 
   async function handleDelete(loc: LocationRow) {
     if (loc.itemCount > 0) {
       toast.error("Cannot delete a location with stock items");
       return;
     }
-    if (!window.confirm(`Delete "${loc.name}"?\n\nThis cannot be undone.`)) return;
+    const ok = await confirm({
+      title: `Delete "${loc.name}"?`,
+      description: "This cannot be undone.",
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
     setDeleting(loc.id);
     haptic(10);
     try {
@@ -153,6 +161,7 @@ export function MobileStockLocationsList({
           onSaved={() => { setEditing(null); router.refresh(); }}
         />
       )}
+      {confirmDialog}
     </div>
   );
 }
@@ -196,11 +205,6 @@ function LocationCard({
   ];
 
   const overviewActions: ContextAction[] = [
-    {
-      label: "View Full Details",
-      icon: Eye,
-      onPress: () => router.push(`/m/stock-locations/${loc.id}`),
-    },
     {
       label: "Share",
       icon: Share2,

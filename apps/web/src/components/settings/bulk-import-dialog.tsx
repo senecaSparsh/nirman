@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Upload, FileSpreadsheet, CheckCircle2, XCircle, Download, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ALL_ROLES, type Role } from "@/lib/roles";
@@ -17,7 +16,7 @@ import { ALL_ROLES, type Role } from "@/lib/roles";
  *   name*, email*, role, phone, employeeCode, designation, department, joiningDate
  *
  * (*) = required. role defaults to SUPERVISOR if not specified.
- * All accounts get the default password "nirman123" — admin can reset later.
+ * All accounts get a random temporary password (shown after import).
  */
 export function BulkImportDialog({
   onClose,
@@ -234,7 +233,7 @@ export function BulkImportDialog({
           <div className="rounded-md bg-muted/30 p-3 text-caption text-muted-foreground">
             <p className="font-semibold text-foreground mb-1">Import notes:</p>
             <ul className="list-disc list-inside space-y-0.5">
-              <li>All accounts get the default password <code className="font-mono">nirman123</code></li>
+              <li>All accounts get a random temporary password (shown after import)</li>
               <li>Users that already exist (by email) will be added as members, not duplicated</li>
               <li>Invalid rows will be skipped — valid rows will still import</li>
               <li>Role defaults to SUPERVISOR if not specified</li>

@@ -5,9 +5,21 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Field } from "@/components/field";
+import { required, phone, email, gstin, nonNegativeNumber } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 import type { SupplierRow } from "@/lib/types";
+
+type FormState = {
+  name: string;
+  gstin: string;
+  phone: string;
+  email: string;
+  address: string;
+  leadTimeDays: string;
+};
 
 export function SupplierFormDialog({
   open,
@@ -26,7 +38,7 @@ export function SupplierFormDialog({
   const router = useRouter();
   const isEdit = supplier != null;
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<FormState>({
     name: supplier?.name ?? "",
     gstin: supplier?.gstin ?? "",
     phone: supplier?.phone ?? "",
@@ -35,9 +47,19 @@ export function SupplierFormDialog({
     leadTimeDays: supplier?.leadTimeDays != null ? String(supplier.leadTimeDays) : "",
   });
 
+  const validationRules: ValidationRules<FormState> = {
+    name: (v) => required(v as string, "Supplier Name"),
+    phone: (v) => phone(v as string),
+    email: (v) => email(v as string),
+    gstin: (v) => gstin(v as string),
+    leadTimeDays: (v) => nonNegativeNumber(v as string, "Lead Time"),
+  };
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<FormState>(validationRules);
+
   // Sync form fields when the edit target changes or the dialog opens fresh.
   useEffect(() => {
     if (!open) return;
+    clearAll();
     setForm({
       name: supplier?.name ?? "",
       gstin: supplier?.gstin ?? "",
@@ -48,19 +70,15 @@ export function SupplierFormDialog({
     });
   }, [open, supplier]);
 
-  function set(key: keyof typeof form, value: string) {
+  function set(key: keyof FormState, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+    clearError(key);
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name.trim()) {
-      toast.error("Supplier name is required");
-      return;
-    }
-    const leadTime = form.leadTimeDays.trim() === "" ? null : Number(form.leadTimeDays);
-    if (leadTime !== null && leadTime < 0) {
-      toast.error("Lead time cannot be negative");
+    if (!validateAll(form)) {
+      toast.error("Please fix the errors in the form");
       return;
     }
     setSaving(true);
@@ -71,7 +89,7 @@ export function SupplierFormDialog({
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
         address: form.address.trim() || null,
-        leadTimeDays: leadTime,
+        leadTimeDays: form.leadTimeDays.trim() === "" ? null : Number(form.leadTimeDays),
       };
       const url = supplier ? `/api/suppliers/${supplier.id}` : "/api/suppliers";
       const method = supplier ? "PATCH" : "POST";
@@ -104,40 +122,33 @@ export function SupplierFormDialog({
       className="max-w-lg"
     >
       <form onSubmit={onSubmit} className="space-y-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="s-name">Supplier Name *</Label>
-          <Input id="s-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. ABC Cement Agencies" required />
-        </div>
+        <Field label="Supplier Name" required error={errors.name}>
+          <Input value={form.name} onChange={(e) => set("name", e.target.value)} onBlur={() => onBlur("name", form)} aria-invalid={!!errors.name} placeholder="e.g. ABC Cement Agencies" required />
+        </Field>
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="s-gstin">GSTIN</Label>
-            <Input id="s-gstin" value={form.gstin} onChange={(e) => set("gstin", e.target.value.toUpperCase())} placeholder="29ABCDE1234F1Z5" />
+          <Field label="GSTIN" error={errors.gstin}>
+            <Input value={form.gstin} onChange={(e) => set("gstin", e.target.value.toUpperCase())} onBlur={() => onBlur("gstin", form)} aria-invalid={!!errors.gstin} placeholder="29ABCDE1234F1Z5" />
             {form.gstin.trim() && existingSuppliers && existingSuppliers.some((s) => s.gstin === form.gstin.trim() && s.id !== supplier?.id) && (
               <p className="text-caption text-warning" role="alert">
                 ⚠ Another supplier already uses this GSTIN.
               </p>
             )}
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="s-phone">Phone</Label>
-            <Input id="s-phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="98765 43210" />
-          </div>
+          </Field>
+          <Field label="Phone" error={errors.phone}>
+            <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} onBlur={() => onBlur("phone", form)} aria-invalid={!!errors.phone} placeholder="98765 43210" />
+          </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="s-email">Email</Label>
-            <Input id="s-email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="supplier@example.com" />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="s-lead">Lead Time (days)</Label>
-            <Input id="s-lead" type="number" min="0" value={form.leadTimeDays} onChange={(e) => set("leadTimeDays", e.target.value)} placeholder="e.g. 7" />
-            <p className="text-caption text-muted-foreground">Average vendor lead time — used by the Logistics Decision Engine (S_lead).</p>
-          </div>
+          <Field label="Email" error={errors.email}>
+            <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} onBlur={() => onBlur("email", form)} aria-invalid={!!errors.email} placeholder="supplier@example.com" />
+          </Field>
+          <Field label="Lead Time (days)" error={errors.leadTimeDays} hint="Average vendor lead time — used by the Logistics Decision Engine (S_lead).">
+            <Input type="number" min="0" value={form.leadTimeDays} onChange={(e) => set("leadTimeDays", e.target.value)} onBlur={() => onBlur("leadTimeDays", form)} aria-invalid={!!errors.leadTimeDays} placeholder="e.g. 7" />
+          </Field>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="s-address">Address</Label>
-          <Textarea id="s-address" value={form.address} onChange={(e) => set("address", e.target.value)} rows={2} placeholder="Shop/street, area, city, PIN" />
-        </div>
+        <Field label="Address">
+          <Textarea value={form.address} onChange={(e) => set("address", e.target.value)} rows={2} placeholder="Shop/street, area, city, PIN" />
+        </Field>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel

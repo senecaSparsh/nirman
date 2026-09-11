@@ -86,6 +86,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       userId: user.id,
     });
     revalidatePath("/renovations");
+    revalidatePath("/m/renovations");
     revalidatePath(`/renovations/${renovation.id}`);
     return json({ ok: true, id: renovation.id, renovationNumber: renovation.renovationNumber }, { status: 201 });
   } catch (err) {

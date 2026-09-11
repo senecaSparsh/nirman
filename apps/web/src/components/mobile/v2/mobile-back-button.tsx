@@ -3,23 +3,19 @@
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import { arrivedInternally } from "@/lib/mobile-nav";
+import { smartBack } from "@/lib/mobile-nav";
 
 /**
- * Back button + hook that navigates to the actual previous page in browser
- * history when the user arrived via an in-app (client-side) navigation, and
- * falls back to a logical parent URL when they didn't (deep link, refresh,
- * external referral).
+ * Back button + hook that tries `router.back()` first, and falls back to a
+ * logical parent URL if `router.back()` doesn't actually navigate (no
+ * history entry to go back to — deep link, refresh, external referral).
  *
- * This replaces the previous `window.history.length <= 1` heuristic, which was
- * unreliable: `history.length` counts ALL session entries (including forward
- * ones), so a deep-link from WhatsApp/SMS (length=2) would call `router.back()`
- * and navigate the user OUT of the app to a blank page, while a forward-then-
- * back navigation would loop the user forward.
+ * Detection is done via the `popstate` event: if `router.back()` navigates,
+ * the browser fires `popstate` synchronously. If it doesn't fire within
+ * 150ms, `router.back()` was a no-op and we use the fallback.
  *
- * The arrival signal is maintained by {@link NavigationTracker} (mounted in the
- * mobile layout) via a sessionStorage flag set on client-side route changes and
- * cleared on full page loads. See `src/lib/mobile-nav.ts`.
+ * This requires no state tracking — it works correctly regardless of how
+ * the user arrived at the current page.
  *
  * Use {@link MobileBackButton} for the standard chevron back button, or
  * {@link useMobileBack} when you need the same logic inside an existing button
@@ -65,15 +61,13 @@ export function useMobileBack(fallback?: string): () => void {
   const router = useRouter();
 
   return useCallback(() => {
-    if (arrivedInternally()) {
-      router.back();
-    } else if (fallback) {
-      router.push(fallback);
-    } else {
-      // No fallback provided — best-effort back(). On a deep link with no
-      // history this is a no-op, but at least it won't navigate out of the app
-      // (arrivedInternally() already returned false for external referrals).
-      router.back();
-    }
+    smartBack(
+      () => router.back(),
+      () => {
+        if (fallback) {
+          router.push(fallback);
+        }
+      },
+    );
   }, [router, fallback]);
 }

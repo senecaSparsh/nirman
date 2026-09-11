@@ -144,7 +144,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
             orderBy: { timestamp: "desc" },
           }),
           prisma.stockLocation.findMany({ where: { companyId: company.id, deletedAt: null }, select: { id: true, name: true, type: true } }),
-          prisma.material.findMany({ where: { deletedAt: null }, select: { id: true, code: true, name: true, unit: true, category: { select: { id: true, name: true } } } }),
+          prisma.material.findMany({ where: { companyId: company.id, deletedAt: null }, select: { id: true, code: true, name: true, unit: true, category: { select: { id: true, name: true } } } }),
         ]);
         const lastBalance = new Map<string, { qty: number; value: number }>();
         for (const m of inMovements) {

@@ -3,6 +3,7 @@ import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobilePettyCashList, type PettyCashFloatListItem } from "./MobilePettyCashList";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
 
 /**
  * /m/petty-cash — mobile petty cash float list. Shows cash floats
@@ -34,16 +35,19 @@ export default function MobilePettyCashPage() {
           lastTopUpDate: f.topUps[0]?.date.toISOString() ?? null,
         }));
 
-        const totalBalance = rows.reduce((s, f) => s + f.floatAmount, 0);
+        const totalBalance = rows.reduce((s, f) => s + f.floatAmount + (f.topUpTotal || 0) - (f.spentTotal || 0), 0);
         const totalTopUps = rows.reduce((s, f) => s + f.topUpTotal, 0);
 
         return (
-          <MobilePettyCashList
-            items={rows}
-            totalBalance={totalBalance}
-            totalTopUps={totalTopUps}
-            canManage={canManage}
-          />
+          <>
+            <MobilePettyCashList
+              items={rows}
+              totalBalance={totalBalance}
+              totalTopUps={totalTopUps}
+              canManage={canManage}
+            />
+            {canManage && <MobileFab href="/m/petty-cash/new" label="Add float" />}
+          </>
         );
       }}
     </MobileListPage>

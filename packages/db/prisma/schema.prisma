@@ -143,6 +143,9 @@ model Company {
   consentPolicies        ConsentPolicy[]
   backups                BackupRecord[]
   customRoles            CustomRole[]
+  materialCategories     MaterialCategory[]
+  materials              Material[]
+  glAccounts             GlAccount[]
 
   @@index([parentCompanyId])
 }
@@ -158,14 +161,14 @@ model UserCompany {
   id        String   @id @default(cuid())
   userId    String
   companyId String
-  role      String   @default("MANAGER") // OWNER | ADMIN | MANAGER | SUPERVISOR | SALES | ACCOUNTANT
+  role      String   @default("PROJECT_MANAGER") // See roles.ts for the full 14-role vocabulary (OWNER, ADMIN, DEVELOPER, PROJECT_DIRECTOR, …, QAQC_ENGINEER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // ── Hierarchical RBAC (Admin → Sub-Admin → Sub-Sub-Admin) ──
   // The architecture's multi-tier delegation hierarchy. The reporting line
   // is per-membership: a Sub-Sub-Admin (SUPERVISOR) in company X reports to a
-  // Sub-Admin (MANAGER) in the same company, who may themselves report up to
+  // Sub-Admin (PROJECT_MANAGER) in the same company, who may themselves report up to
   // an Admin (OWNER/ADMIN). Null = top of the chain for this company.
   reportsToUserCompanyId String?
 
@@ -229,7 +232,7 @@ model UserScope {
 // customizing roles without code changes.
 model RolePermission {
   id          String @id @default(cuid())
-  role        String // OWNER | ADMIN | MANAGER | SUPERVISOR | SALES | ACCOUNTANT
+  role        String // See roles.ts — OWNER, ADMIN, DEVELOPER, PROJECT_DIRECTOR, FINANCE_HEAD, PROJECT_MANAGER, PROCUREMENT_MANAGER, HR_MANAGER, SITE_ENGINEER, STORE_KEEPER, ACCOUNTANT, SALES_MANAGER, SUPERVISOR, QAQC_ENGINEER
   permission  String // e.g. "po.approve", "inventory.view"
   createdAt   DateTime @default(now())
 
@@ -261,16 +264,17 @@ model UserPermission {
 //  UserCompany.role (prefixed with "CUSTOM_").
 // ───────────────────────────────────────────────────────────
 model CustomRole {
-  id          String   @id @default(cuid())
-  companyId   String
-  key         String   // e.g. "CUSTOM_SALES_LEAD" — stored in UserCompany.role
-  label       String   // display label, e.g. "Sales Lead"
-  description String   @default("")
-  baseRole    String   // built-in role to inherit tier + base permissions from
-  tier        Int      // hierarchy tier (1-5), same as baseRole by default
-  permissions String[] // additive permissions on top of baseRole
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String   @id @default(cuid())
+  companyId       String
+  key             String   // e.g. "CUSTOM_SALES_LEAD" — stored in UserCompany.role
+  label           String   // display label, e.g. "Sales Lead"
+  description     String   @default("")
+  baseRole        String   // built-in role to inherit tier + base permissions from
+  tier            Int      // hierarchy tier (1-5), same as baseRole by default
+  hierarchyLevel  Int?     // optional H-level (1-6) for org tree visual depth; defaults to tier
+  permissions     String[] // additive permissions on top of baseRole
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
@@ -780,6 +784,7 @@ model User {
   createdPurchaseOrders  PurchaseOrder[] @relation("POCreator")
   rejectedPurchaseOrders PurchaseOrder[] @relation("PORejecter")
   requestedRequisitions  MaterialRequisition[] @relation("ReqRequester")
+  submittedRequisitions  MaterialRequisition[] @relation("ReqSubmitter")
   approvedRequisitions   MaterialRequisition[] @relation("ReqApprover")
   rejectedRequisitions   MaterialRequisition[] @relation("ReqRejecter")
   createdExpenses        Expense[]              @relation("ExpenseCreator")
@@ -823,6 +828,10 @@ model User {
   mbVerifiedEntries   MeasurementBookEntry[] @relation("MbVerifiedBy")
   mbApprovedEntries   MeasurementBookEntry[] @relation("MbApprovedBy")
   approvedRaBills     RaBill[]                @relation("RaBillApprover")
+  createdRaBills      RaBill[]                @relation("RaBillCreator")
+  submittedRaBills    RaBill[]                @relation("RaBillSubmitter")
+  rejectedRaBills     RaBill[]                @relation("RaBillRejecter")
+  paidRaBills         RaBill[]                @relation("RaBillPayer")
   submittedChangeOrders  ChangeOrder[]        @relation("ChangeOrderSubmitter")
   approvedChangeOrders   ChangeOrder[]        @relation("ChangeOrderApprover")
   implementedChangeOrders ChangeOrder[]       @relation("ChangeOrderImplementer")
@@ -871,9 +880,13 @@ model User {
   // ── Expenses module — approval + claim + petty cash + recurring ──
   submittedExpenses      Expense[]              @relation("ExpenseSubmitter")
   approvedExpenses       Expense[]              @relation("ExpenseApprover")
+  rejectedExpenses       Expense[]              @relation("ExpenseRejecter")
   expenseClaimants       ExpenseClaim[]         @relation("ExpenseClaimClaimant")
   submittedExpenseClaims ExpenseClaim[]         @relation("ExpenseClaimSubmitter")
   approvedExpenseClaims  ExpenseClaim[]         @relation("ExpenseClaimApprover")
+  rejectedExpenseClaims  ExpenseClaim[]         @relation("ExpenseClaimRejecter")
+  paidExpenseClaims      ExpenseClaim[]         @relation("ExpenseClaimPayer")
+  createdExpenseClaims   ExpenseClaim[]         @relation("ExpenseClaimCreator")
   pettyCashCustodied     PettyCashFloat[]       @relation("PettyCashCustodian")
   createdPettyCashTopUps PettyCashTopUp[]       @relation("PettyCashTopUpCreator")
   createdRecurringExpenses RecurringExpense[]   @relation("RecurringExpenseCreator")
@@ -1372,20 +1385,28 @@ enum MaterialClass {
 
 model MaterialCategory {
   id        String        @id @default(cuid())
-  name      String        @unique
+  companyId String
+  name      String
   unit      String        @default("NOS")
   class     MaterialClass @default(RAW_MATERIAL)
+  hsnCode   String?       // Default HSN/SAC code for materials in this category
+  gstRate   Decimal?      @db.Decimal(5,2) // Default GST % for materials in this category
   createdAt DateTime      @default(now())
   deletedAt DateTime?
 
+  company   Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   materials Material[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
 }
 
 model Material {
   id               String   @id @default(cuid())
-  code             String   @unique
-  barcode          String?  @unique
-  qrCode           String?  @unique
+  companyId        String
+  code             String
+  barcode          String?
+  qrCode           String?
   name             String
   // Grade + specification — used for auto-generating the material code and
   // for like-for-like comparison in quotations. Real-world material masters
@@ -1427,6 +1448,7 @@ model Material {
   deletedAt        DateTime?
 
   category          MaterialCategory   @relation(fields: [categoryId], references: [id])
+  company           Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   purchaseOrderLines PurchaseOrderLine[]
   goodsReceiptLines  GoodsReceiptLine[]
   stockMovements    StockMovement[]
@@ -1453,6 +1475,10 @@ model Material {
   ncrs             NonConformanceReport[] @relation("NcrMaterial")
 
   @@index([categoryId])
+  @@index([companyId])
+  @@unique([companyId, code])
+  @@unique([companyId, barcode])
+  @@unique([companyId, qrCode])
 }
 
 // ───────────────────────────────────────────────────────────
@@ -1902,6 +1928,10 @@ model PurchaseOrder {
   // The winning VendorQuote that this PO was generated from (traceability for
   // the Comparative Quote Engine). Null for POs created directly (not from a quote).
   selectedQuoteId       String?
+  // Quotation enforcement — when a PO is created directly (not from an approved
+  // quotation), waiverReason documents why the quotation flow was bypassed.
+  // This creates an audit trail for emergency/direct procurement.
+  quotationWaiverReason String?
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
 
@@ -3158,6 +3188,8 @@ model MaterialRequisition {
   departmentId String?         // set when the requisition is for a department (cost center)
   phaseId     String?
   requestedById String?
+  submittedById String?
+  submittedAt   DateTime?
   status      RequisitionStatus @default(DRAFT)
   requestDate DateTime         @default(now())
   neededByDate DateTime?
@@ -3190,6 +3222,7 @@ model MaterialRequisition {
   department  Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   phase       ProjectPhase?    @relation(fields: [phaseId], references: [id], onDelete: SetNull)
   requestedBy User?            @relation("ReqRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  submittedBy User?           @relation("ReqSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
   approvedBy  User?            @relation("ReqApprover", fields: [approvedById], references: [id], onDelete: SetNull)
   rejectedBy  User?            @relation("ReqRejecter", fields: [rejectedById], references: [id], onDelete: SetNull)
   quotesWaivedBy User?         @relation("ReqQuoteWaiver", fields: [quotesWaivedById], references: [id], onDelete: SetNull)
@@ -4162,6 +4195,8 @@ model Expense {
   approvedById  String?
   approvedAt    DateTime?
   rejectedReason String?
+  rejectedById  String?
+  rejectedAt    DateTime?
   glPostedAt    DateTime?  // set when the GL entry is posted (on approval)
   // Recurring + claim links
   recurringExpenseId String?
@@ -4178,6 +4213,7 @@ model Expense {
   createdBy User?   @relation("ExpenseCreator", fields: [createdById], references: [id], onDelete: SetNull)
   submittedBy User? @relation("ExpenseSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
   approvedBy User?  @relation("ExpenseApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  rejectedBy User?  @relation("ExpenseRejecter", fields: [rejectedById], references: [id], onDelete: SetNull)
   recurringExpense RecurringExpense? @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
   expenseClaim ExpenseClaim? @relation(fields: [expenseClaimId], references: [id], onDelete: SetNull)
 
@@ -4204,10 +4240,14 @@ model ExpenseClaim {
   totalAmount Decimal  @db.Decimal(14, 2)
   description String?
   submittedAt DateTime?
+  submittedById String?
   approvedById String?
   approvedAt  DateTime?
   rejectedReason String?
+  rejectedById String?
+  rejectedAt  DateTime?
   paidAt      DateTime?
+  paidById    String?
   paymentMode String?
   referenceNo String?
   createdById String?
@@ -4217,7 +4257,10 @@ model ExpenseClaim {
   claimant User   @relation("ExpenseClaimClaimant", fields: [claimantId], references: [id], onDelete: Cascade)
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   approvedBy User? @relation("ExpenseClaimApprover", fields: [approvedById], references: [id], onDelete: SetNull)
-  createdBy User?  @relation("ExpenseClaimSubmitter", fields: [createdById], references: [id], onDelete: SetNull)
+  submittedBy User? @relation("ExpenseClaimSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  rejectedBy User? @relation("ExpenseClaimRejecter", fields: [rejectedById], references: [id], onDelete: SetNull)
+  paidBy User?     @relation("ExpenseClaimPayer", fields: [paidById], references: [id], onDelete: SetNull)
+  createdBy User?  @relation("ExpenseClaimCreator", fields: [createdById], references: [id], onDelete: SetNull)
   lines    ExpenseClaimLine[]
   expenses Expense[]
 
@@ -4385,7 +4428,9 @@ enum AccountType {
 }
 
 model GlAccount {
-  code        String       @id
+  id          String       @id @default(cuid())
+  companyId   String
+  code        String
   name        String
   type        AccountType
   isSystem    Boolean       @default(true) // system accounts can't be deleted
@@ -4393,8 +4438,11 @@ model GlAccount {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   journalLines JournalLine[]
 
+  @@unique([companyId, code])
+  @@index([companyId])
   @@index([type])
 }
 
@@ -4430,7 +4478,7 @@ model JournalEntry {
 model JournalLine {
   id             String   @id @default(cuid())
   journalEntryId String
-  accountCode    String
+  accountId      String
   debit          Decimal  @default(0) @db.Decimal(14, 2)
   credit         Decimal  @default(0) @db.Decimal(14, 2)
   // Optional analytic dimensions — which material / project / party this line concerns
@@ -4439,11 +4487,11 @@ model JournalLine {
   memo           String?
 
   journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
-  account      GlAccount     @relation(fields: [accountCode], references: [code])
+  account      GlAccount     @relation(fields: [accountId], references: [id])
 
   @@index([journalEntryId])
-  @@index([accountCode])
-  @@index([journalEntryId, accountCode])
+  @@index([accountId])
+  @@index([journalEntryId, accountId])
   @@index([entityType, entityId])
 }
 
@@ -5686,6 +5734,14 @@ model RaBill {
   approvedById    String?
   approvedAt      DateTime?
   rejectReason    String?
+  // Audit trail — who created, submitted, rejected, and paid this bill
+  createdById     String?
+  submittedById   String?
+  submittedAt     DateTime?
+  rejectedById    String?
+  rejectedAt      DateTime?
+  paidById        String?
+  paidAt          DateTime?
   notes           String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -5695,6 +5751,10 @@ model RaBill {
   company         Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
   lines           RaBillLine[]
   approvedBy      User?                  @relation("RaBillApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  createdBy       User?                  @relation("RaBillCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  submittedBy     User?                  @relation("RaBillSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  rejectedBy      User?                  @relation("RaBillRejecter", fields: [rejectedById], references: [id], onDelete: SetNull)
+  paidBy          User?                  @relation("RaBillPayer", fields: [paidById], references: [id], onDelete: SetNull)
 
   @@index([workOrderId])
   @@index([projectId])

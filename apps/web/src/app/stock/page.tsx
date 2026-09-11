@@ -184,11 +184,11 @@ async function StockContent() {
       },
     }),
     // ── Materials (for issue dialog options) ──
-    // Global catalog entity (no companyId) — material definitions shared across
-    // companies; only stock quantities are company-scoped (handled elsewhere).
+    // Company-scoped catalog entity (Material.companyId) — each company has its
+    // own material definitions; stock quantities are also company-scoped.
     prisma.material.findMany({
       take: 200,
-      where: { deletedAt: null },
+      where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, code: true, name: true, unit: true, standardCost: true, gstRate: true, isLotTracked: true },
     }),
@@ -211,10 +211,9 @@ async function StockContent() {
       select: { id: true, name: true, type: true },
       orderBy: { name: "asc" },
     }),
-    // Global catalog entity — material definitions shared across companies.
     prisma.material.findMany({
       take: 200,
-      where: { deletedAt: null },
+      where: { companyId: company.id, deletedAt: null },
       select: { id: true, code: true, name: true, unit: true, isScrap: true },
       orderBy: { name: "asc" },
     }),
@@ -246,11 +245,11 @@ async function StockContent() {
         },
       },
     }),
-    // Global catalog entity — needed by the inline material creator in the
+    // Company-scoped catalog entity — needed by the inline material creator in the
     // issue form's line items.
     prisma.materialCategory.findMany({
       take: 200,
-      where: { deletedAt: null },
+      where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, unit: true },
     }),

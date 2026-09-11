@@ -8,9 +8,10 @@ import { RefreshButton } from "@/components/refresh-button";
 import { PageHeader } from "@/components/page-header";
 import { HrDashboard } from "@/components/hr/hr-dashboard";
 import { OrgHierarchyDesktop } from "@/components/hr/org-hierarchy";
-import type { OrgTreeData } from "@/app/m/hr/OrgHierarchy";
+import type { OrgTreeData } from "@/lib/org-hierarchy-types";
 import { buildOrgTree } from "@/lib/org-tree-builder";
 import { NoAccess } from "@/components/no-access";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 
 export default function HrDashboardPage() {
   return (
@@ -165,6 +166,7 @@ async function HrDashboardContent() {
           { label: "Crews", value: crewCount, hint: "Active worker crews currently registered." },
         ]}
       />
+      <DepartmentActivityFeed department="hr" />
       <div className="flex justify-end">
         <RefreshButton />
       </div>
@@ -249,13 +251,13 @@ async function loadOrgTree(
     orderBy: { user: { name: "asc" } },
   });
 
-  // ── Fetch hierarchy levels from Employee records (linked via userId) ──
+  // ── Fetch hierarchy levels + employee IDs + on-site reporting lines from Employee records ──
   const userIds = memberships.map((m) => m.userId);
   const employees = await prisma.employee.findMany({
     where: { companyId, userId: { in: userIds }, deletedAt: null },
-    select: { userId: true, hierarchyLevel: true },
+    select: { id: true, userId: true, hierarchyLevel: true, reportsToEmployeeId: true },
   });
-  const hierarchyByUserId = new Map(employees.map((e) => [e.userId, e.hierarchyLevel]));
+  const employeeByUserId = new Map(employees.map((e) => [e.userId, e]));
 
   if (memberships.length === 0) {
     return {
@@ -337,20 +339,43 @@ async function loadOrgTree(
     }).catch(() => []),
   ]);
 
+  // Fetch custom roles so the tree builder can resolve them
+  const customRoles = await prisma.customRole.findMany({
+    where: { companyId },
+    select: { key: true, label: true, baseRole: true, tier: true, hierarchyLevel: true },
+  }).catch(() => []);
+  const customRoleMap = new Map(customRoles.map((r) => [r.key, r]));
+
   const roleTierFn = (role: string): number => {
+    if (role.startsWith("CUSTOM_")) {
+      const cr = customRoleMap.get(role);
+      if (cr) return cr.tier;
+    }
     const r = migrateRole(role) ?? "SUPERVISOR";
     return ROLES[r]?.tier ?? 5;
   };
   const roleLabelFn = (role: string): string => {
+    if (role.startsWith("CUSTOM_")) {
+      const cr = customRoleMap.get(role);
+      if (cr) return cr.label;
+    }
     const r = migrateRole(role) ?? "SUPERVISOR";
     return ROLES[r]?.label ?? r;
   };
 
-  // ── Inject hierarchyLevel into memberships (from Employee records) ──
-  const membershipsWithHierarchy = memberships.map((m) => ({
-    ...m,
-    hierarchyLevel: hierarchyByUserId.get(m.userId) ?? null,
-  }));
+  // ── Inject hierarchyLevel + employeeId + reportsToEmployeeId into memberships ──
+  // For custom roles, use the custom role's hierarchyLevel if set (overrides
+  // Employee.hierarchyLevel so the org tree depth reflects the role's position).
+  const membershipsWithHierarchy = memberships.map((m) => {
+    const emp = employeeByUserId.get(m.userId);
+    const customRole = m.role.startsWith("CUSTOM_") ? customRoleMap.get(m.role) : undefined;
+    return {
+      ...m,
+      hierarchyLevel: customRole?.hierarchyLevel ?? emp?.hierarchyLevel ?? null,
+      employeeId: emp?.id ?? null,
+      reportsToEmployeeId: emp?.reportsToEmployeeId ?? null,
+    };
+  });
 
   const { roots, unassigned, projects, departments, labourByTrade, labourCount } = buildOrgTree(
     membershipsWithHierarchy as unknown as Parameters<typeof buildOrgTree>[0],
@@ -364,6 +389,7 @@ async function loadOrgTree(
     allTasks as unknown as Parameters<typeof buildOrgTree>[8],
     todayAttendanceRows as unknown as Parameters<typeof buildOrgTree>[9],
     leaveRows as unknown as Parameters<typeof buildOrgTree>[10],
+    customRoles,
   );
 
   return {

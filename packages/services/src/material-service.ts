@@ -39,12 +39,12 @@ export function determineAutoFillAction(
   return "no_action";
 }
 
-export async function autoFillHsnGst(materialId: string): Promise<{
+export async function autoFillHsnGst(materialId: string, companyId?: string): Promise<{
   hsnCode: string;
   gstRate: Decimal;
 } | null> {
   const material = await prisma.material.findFirst({
-    where: { id: materialId, deletedAt: null },
+    where: { id: materialId, ...(companyId ? { companyId } : {}), deletedAt: null },
     include: { category: { select: { name: true } } },
   });
   if (!material) return null;
@@ -125,12 +125,18 @@ export async function quickCreateMaterial(input: {
     where: { id: input.categoryId },
   });
   if (!category) throw new ServiceError("Category not found", 404);
+  // If the caller specified a companyId, the category must belong to it.
+  if (input.companyId && category.companyId !== input.companyId) {
+    throw new ServiceError("Category does not belong to this company", 403);
+  }
+
+  const companyId = input.companyId ?? category.companyId;
 
   // 1. Auto-generate material code
   const code = await generateMaterialCode(category.name, input.grade ?? null);
 
   // Check for existing code (shouldn't happen due to sequence, but be safe)
-  const existing = await prisma.material.findUnique({ where: { code } });
+  const existing = await prisma.material.findUnique({ where: { companyId_code: { companyId, code } } });
   if (existing && !existing.deletedAt) {
     throw new ServiceError(`Material with code ${code} already exists`);
   }
@@ -177,6 +183,7 @@ export async function quickCreateMaterial(input: {
 
     const mat = await tx.material.create({
       data: {
+        companyId,
         code,
         name: input.name,
         categoryId: input.categoryId,

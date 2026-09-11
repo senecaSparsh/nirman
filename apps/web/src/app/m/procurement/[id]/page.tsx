@@ -91,7 +91,8 @@ export default function MobilePoDetailPage({
           );
         }
 
-        const canApprove = hasPermission(role, PERM.PO_APPROVE) && po.createdById !== (await getCurrentUser())?.id;
+        const currentUserId = (await getCurrentUser())?.id;
+        const canApprove = hasPermission(role, PERM.PO_APPROVE) && po.createdById !== currentUserId;
         const canManagePayments = hasPermission(role, PERM.FINANCE_MANAGE);
         const canReceive = hasPermission(role, PERM.PROCUREMENT_VIEW);
         const isReceivable = po.status === "ORDERED" || po.status === "PARTIAL";
@@ -140,6 +141,7 @@ export default function MobilePoDetailPage({
           poNumber: po.poNumber,
           status: po.status,
           supplierName: po.supplier.name,
+          createdById: po.createdById,
           procurementScope: po.procurementScope,
           projectId: po.project?.id ?? null,
           projectName: po.project?.name ?? null,
@@ -696,6 +698,7 @@ export default function MobilePoDetailPage({
               canApprove={canApprove}
               canManage={canManage}
               canManagePayments={canManagePayments}
+              currentUserId={currentUserId}
               supplierId={po.supplierId}
               supplierName={po.supplier.name}
               balanceRemaining={Math.max(0, poPayload.total - totalPaid)}

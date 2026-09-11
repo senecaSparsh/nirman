@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { approvePurchaseOrder, approveGatePass } from "@nirman/services";
+import { approvePurchaseOrder, approveGatePass, approveRequisition } from "@nirman/services";
 import { apiHandler, getCompany, getUserPermissions, json, requireUser, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
@@ -109,14 +109,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
           results.push({ type: item.type, id: item.id, success: false, error: "Indent not found, not submitted, or you cannot approve your own indent" });
           continue;
         }
-        await prisma.materialRequisition.update({
-          where: { id: item.id },
-          data: {
-            status: "APPROVED",
-            approvedById: user.id,
-            approvedAt: new Date(),
-          },
-        });
+        await approveRequisition(item.id, user.id);
         results.push({ type: item.type, id: item.id, success: true });
       } else if (item.type === "gatePass") {
         if (!canApproveGp) {
@@ -146,6 +139,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const anyGp = results.some((r) => r.type === "gatePass" && r.success);
 
   revalidatePath("/approvals");
+    revalidatePath("/m/approvals");
   if (anyPo) {
     revalidatePath("/procurement");
     revalidatePath("/m/procurement");

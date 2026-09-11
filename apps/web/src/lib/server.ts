@@ -225,6 +225,8 @@ export const materialCategorySchema = z.object({
   name: z.string().min(1, "Name is required").max(80),
   unit: z.string().min(1).max(20).default("NOS"),
   class: z.enum(["RAW_MATERIAL", "CONSUMABLE", "MRO", "TEMPORARY"]).optional(),
+  hsnCode: z.string().max(15).optional(),
+  gstRate: z.number().min(0).max(100).optional(),
 });
 
 export const materialSchema = z.object({
@@ -461,6 +463,8 @@ export const purchaseOrderSchema = z.object({
   notes: z.string().max(2000).optional().nullable(),
   lines: z.array(purchaseOrderLineSchema).min(1, "At least one line item is required"),
   charges: z.array(purchaseOrderChargeSchema).optional().default([]),
+  quotationId: z.string().optional().nullable(),
+  waiverReason: z.string().max(1000).optional().nullable(),
 });
 
 export const receiveGoodsLineSchema = z.object({
@@ -573,6 +577,23 @@ export const issueMaterialsSchema = z.object({
 );
 
 // ── Land ──
+/**
+ * Money/decimal schema helper — accepts string or number, returns a string
+ * to preserve precision (avoids float64 rounding from z.coerce.number()).
+ * The service layer wraps the value in `new Decimal()`.
+ */
+const moneyField = (msg: string = "Amount must be > 0") =>
+  z.union([z.string(), z.number()]).transform((v) => String(v)).refine((v) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0;
+  }, msg);
+const moneyFieldOptional = (msg: string = "Amount must be >= 0") =>
+  z.union([z.string(), z.number()]).optional().nullable().transform((v) => v == null ? undefined : String(v)).refine((v) => {
+    if (v == null) return true;
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0;
+  }, msg);
+
 export const landPurchaseSchema = z.object({
   projectId: z.string().optional().nullable(),
   sellerId: z.string().optional().nullable(),
@@ -581,7 +602,7 @@ export const landPurchaseSchema = z.object({
   purchaseDate: z.string().optional().nullable(),
   totalArea: z.coerce.number().finite().positive("Total area must be > 0"),
   areaUnit: z.enum(["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"]).default("SQFT"),
-  totalCost: z.coerce.number().finite().positive("Total cost must be > 0"),
+  totalCost: moneyField("Total cost must be > 0"),
   registryNo: z.string().optional().nullable(),
   location: z.string().optional().nullable(),
   documentUrl: z.string().optional().nullable(),
@@ -622,7 +643,7 @@ export const landPurchasePlanSchema = z.object({
   purchaseDate: z.string().optional().nullable(),
   totalArea: z.coerce.number().finite().positive("Total area must be > 0"),
   areaUnit: z.enum(["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"]).default("SQFT"),
-  totalCost: z.coerce.number().finite().positive("Total cost must be > 0"),
+  totalCost: moneyField("Total cost must be > 0"),
   registryNo: z.string().optional().nullable(),
   location: z.string().optional().nullable(),
   documentUrl: z.string().optional().nullable(),
@@ -664,7 +685,7 @@ export const landPurchaseEditSchema = z.object({
   purchaseDate: z.string().optional().nullable(),
   totalArea: z.coerce.number().finite().positive("Total area must be > 0").optional(),
   areaUnit: z.enum(["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"]).optional(),
-  totalCost: z.coerce.number().finite().positive("Total cost must be > 0").optional(),
+  totalCost: moneyField("Total cost must be > 0").optional(),
   registryNo: z.string().optional().nullable(),
   location: z.string().optional().nullable(),
   documentUrl: z.string().optional().nullable(),
@@ -1015,8 +1036,8 @@ export const tenancySchema = z.object({
   tenantEmail: z.string().email("Invalid email").optional().nullable(),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
-  monthlyRent: z.coerce.number().finite().positive("Monthly rent must be > 0"),
-  securityDeposit: z.coerce.number().finite().nonnegative().optional(),
+  monthlyRent: moneyField("Monthly rent must be > 0"),
+  securityDeposit: moneyFieldOptional("Security deposit must be >= 0"),
   rentAgreementNo: z.string().optional().nullable(),
   rentAgreementDocumentUrl: z.string().optional().nullable(),
   rentAgreementDocumentName: z.string().optional().nullable(),
@@ -1037,8 +1058,8 @@ export const editTenancySchema = z.object({
   tenantEmail: z.string().email("Invalid email").optional().nullable(),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
-  monthlyRent: z.coerce.number().finite().positive("Monthly rent must be > 0"),
-  securityDeposit: z.coerce.number().finite().nonnegative().optional(),
+  monthlyRent: moneyField("Monthly rent must be > 0"),
+  securityDeposit: moneyFieldOptional("Security deposit must be >= 0"),
   rentAgreementNo: z.string().optional().nullable(),
   rentAgreementDocumentUrl: z.string().optional().nullable(),
   rentAgreementDocumentName: z.string().optional().nullable(),
@@ -1114,7 +1135,7 @@ export const equipmentSchema = z.object({
   model: z.string().optional().nullable(),
   serialNumber: z.string().optional().nullable(),
   category: z.string().optional().nullable(),
-  acquisitionCost: z.coerce.number().finite().nonnegative("Cost must be >= 0").default(0),
+  acquisitionCost: z.union([z.string(), z.number()]).transform((v) => String(v)).default("0"),
   purchaseDate: z.string().optional().nullable().refine((v) => !v || !isNaN(new Date(v).getTime()), "Invalid date"),
   notes: z.string().optional().nullable(),
 });
@@ -1326,6 +1347,7 @@ export const dprSchema = z.object({
   photoUrls: z.array(z.string()).max(8, "Maximum 8 photos").optional(),
   materialLines: z.array(dprMaterialLineSchema).optional(),
   laborLines: z.array(dprLaborLineSchema).optional(),
+  skipAttendanceCheck: z.boolean().optional(),
 });
 
 // ── Department / cost center ──
@@ -1703,7 +1725,7 @@ export async function scopeWhere(
     GoodsReceipt:         { project: "projectId" },
     MaterialReconciliation: { project: "projectId" },
     // Projects / Construction
-    // Task has no projectId — it's assigned to a User, not scopeable by project
+    // Task is intentionally not scopeable — see KNOWN_UNSCOPABLE below.
     Crew:                 { project: "projectId" },
     DailyProgressReport:  { project: "projectId" },
     DailyReport:          { project: "projectId" },
@@ -1750,8 +1772,24 @@ export async function scopeWhere(
     // Models without project/department FKs are not scopeable
   };
 
+  // Models that are intentionally not scopeable by project/department.
+  // These are explicitly listed so that a typo or a new model that hasn't
+  // been added to SCOPE_FIELDS doesn't silently fail open (returning
+  // unscoped data). If a model is neither in SCOPE_FIELDS nor here,
+  // we throw — forcing the developer to decide whether it should be scoped.
+  const KNOWN_UNSCOPABLE = new Set([
+    "Task", // assigned to a User, not to a project — not scopeable
+  ]);
+
   const fields = SCOPE_FIELDS[model];
-  if (!fields) return baseWhere;
+  if (!fields) {
+    if (KNOWN_UNSCOPABLE.has(model)) return baseWhere;
+    throw new Error(
+      `scopeWhere: unknown model "${model}" — not in SCOPE_FIELDS or KNOWN_UNSCOPABLE. ` +
+        "Add it to SCOPE_FIELDS with the correct project/department FK, or to KNOWN_UNSCOPABLE if intentionally unscoped. " +
+        "Failing closed to prevent unscoped data access.",
+    );
+  }
 
   const filter: Record<string, unknown> = {};
 
@@ -2467,6 +2505,20 @@ export async function requireUser(): Promise<CurrentUser> {
 }
 
 /**
+ * Throw ForbiddenError if the current user lacks ALL of the given permissions.
+ * The user must have at least ONE of the permissions to pass.
+ */
+export async function requireAnyPermission(...permissions: string[]): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user) throw new UnauthorizedError();
+  if (!user.active) throw new ForbiddenError("Your account is inactive.");
+  const perms = await getUserPermissions();
+  if (perms.includes("*")) return user; // OWNER/ADMIN superuser
+  if (!permissions.some((p) => perms.includes(p))) throw new ForbiddenError();
+  return user;
+}
+
+/**
  * Get the current user's UserCompany membership for the active company.
  * Returns the membership row (with id, role, scopeType, reportsToUserCompanyId)
  * or null if the user has no membership in the current company.
@@ -2640,6 +2692,7 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
 
       // Log the full error server-side but don't leak internal details to the client
       console.error("[apiHandler] Unhandled error:", err);
+
       const status = (err as { status?: number })?.status ?? 500;
 
       // Capture 500s in Sentry (no-op without SENTRY_DSN).

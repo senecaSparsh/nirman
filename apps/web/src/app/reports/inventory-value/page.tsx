@@ -155,7 +155,7 @@ async function InventoryValueContent({
       }),
       prisma.material.findMany({
         take: 200,
-        where: { deletedAt: null },
+        where: { companyId: company.id, deletedAt: null },
         select: {
           id: true, code: true, name: true, unit: true,
           category: { select: { id: true, name: true } },

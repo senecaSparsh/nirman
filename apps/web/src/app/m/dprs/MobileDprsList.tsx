@@ -35,6 +35,7 @@ export type DprListItem = {
   projectName: string;
   projectId: string;
   submittedByName: string | null;
+  submittedById: string | null;
   approvalStatus: string;
   progressPct: number;
   workType: string | null;
@@ -67,6 +68,8 @@ export function MobileDprsList({
   items: initialItems,
   canSubmit,
   canApproveSubAdmin,
+  canApproveAdmin,
+  currentUserId,
   submittedCount = 0,
   loadMoreUrl,
   nextCursor: initialCursor,
@@ -78,6 +81,8 @@ export function MobileDprsList({
   items: DprListItem[];
   canSubmit?: boolean;
   canApproveSubAdmin?: boolean;
+  canApproveAdmin?: boolean;
+  currentUserId?: string | null;
   submittedCount?: number;
   loadMoreUrl?: string;
   nextCursor?: string | null;
@@ -201,9 +206,9 @@ export function MobileDprsList({
       {/* ── Date-grouped sections ── */}
       {filtered.length === 0 ? (
         <MobileNoResults
-          title="No DPRs found"
+          title="No progress reports found"
           query={query || undefined}
-          hint="No DPRs match the selected filter."
+          hint="Daily Progress Reports track work done on site. Tap + to create one."
         />
       ) : (
         <div className="flex flex-col gap-4">
@@ -232,6 +237,9 @@ export function MobileDprsList({
                   <DprStrip
                     key={d.id}
                     dpr={d}
+                    canApproveSubAdmin={canApproveSubAdmin}
+                    canApproveAdmin={canApproveAdmin}
+                    currentUserId={currentUserId}
                     onAction={() => router.refresh()}
                   />
                 ))}
@@ -257,19 +265,31 @@ export function MobileDprsList({
    ═══════════════════════════════════════════════════════════════════════════ */
 function DprStrip({
   dpr,
+  canApproveSubAdmin,
+  canApproveAdmin,
+  currentUserId,
   onAction,
 }: {
   dpr: DprListItem;
+  canApproveSubAdmin?: boolean;
+  canApproveAdmin?: boolean;
+  currentUserId?: string | null;
   onAction?: () => void;
 }) {
   const info = STATUS_INFO[dpr.approvalStatus] ?? STATUS_INFO.SUBMITTED!;
   const isRejected = dpr.approvalStatus === "REJECTED";
   const pct = Math.min(dpr.progressPct, 100);
 
+  // ── Permission + creator gate: only show approve/reject to users who have
+  //    the right approval permission AND did not submit this DPR themselves.
+  const isOwnDpr = dpr.submittedById !== currentUserId;
+  const canSubAdminAct = canApproveSubAdmin && isOwnDpr;
+  const canAdminAct = canApproveAdmin && isOwnDpr;
+
   // Swipe actions for submitted / sub-admin approved DPRs
   const canSwipeApprove =
-    dpr.approvalStatus === "SUBMITTED" ||
-    dpr.approvalStatus === "SUB_ADMIN_APPROVED";
+    (dpr.approvalStatus === "SUBMITTED" && canSubAdminAct) ||
+    (dpr.approvalStatus === "SUB_ADMIN_APPROVED" && canAdminAct);
   const approveAction =
     dpr.approvalStatus === "SUBMITTED" ? "subAdminApprove" : "adminApprove";
   const approveLabel =

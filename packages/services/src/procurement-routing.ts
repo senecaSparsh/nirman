@@ -232,7 +232,7 @@ export async function evaluateRequisitionRouting(
   // Material-level LCI inputs
   const materialIds = req.lines.map((l) => l.materialId);
   const materials = await prisma.material.findMany({
-    where: { id: { in: materialIds }, deletedAt: null },
+    where: { id: { in: materialIds }, companyId: company?.id, deletedAt: null },
     select: {
       id: true,
       volumetricDensity: true,

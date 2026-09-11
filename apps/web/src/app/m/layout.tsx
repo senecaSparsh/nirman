@@ -1,5 +1,4 @@
 import { MobileShellV2 } from "@/components/mobile/v2/mobile-shell";
-import { NavigationTracker } from "@/components/mobile/v2/navigation-tracker";
 import { ChunkErrorRecovery } from "@/components/dev/chunk-error-recovery";
 import { getNavBootstrap } from "@/lib/server";
 
@@ -23,7 +22,6 @@ export default async function MobileLayout({ children }: { children: React.React
   const nav = await getNavBootstrap().catch(() => null);
   return (
     <MobileShellV2 initial={nav}>
-      <NavigationTracker />
       {children}
       <ChunkErrorRecovery />
     </MobileShellV2>

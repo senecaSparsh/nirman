@@ -7,7 +7,7 @@ import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
 const paymentSchema = z.object({
-  amount: z.coerce.number().positive("Amount must be greater than 0"),
+  amount: z.union([z.string(), z.number()]).transform((v) => String(v)).refine((v) => Number(v) > 0, "Amount must be greater than 0"),
   paymentMode: z.string().min(1, "Payment mode is required"),
   referenceNo: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -50,6 +50,7 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
       chequePhotoUrl: parsed.data.chequePhotoUrl ?? undefined,
     });
     revalidatePath("/land");
+    revalidatePath("/m/land");
     revalidatePath(`/land/${id}`);
     return json({ ok: true, paymentId: result.payment.id }, { status: 201 });
   } catch (err: unknown) {

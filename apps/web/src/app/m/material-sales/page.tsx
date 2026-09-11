@@ -4,6 +4,7 @@ import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileMaterialSalesList } from "./MobileMaterialSalesList";
 import { MobileMaterialSalesFab } from "./MobileMaterialSalesFab";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
@@ -37,6 +38,7 @@ export default function MobileMaterialSalesPage() {
             customer: { select: { name: true } },
             project: { select: { name: true } },
             lines: { select: { id: true } },
+            payments: { select: { amount: true } },
           },
         });
 
@@ -50,7 +52,7 @@ export default function MobileMaterialSalesPage() {
 
         const active = batch.filter((s) => s.status === "ACTIVE");
         const pendingPayment = active.filter((s) => s.paymentStatus === "PENDING");
-        const totalRevenue = active.reduce((s, sale) => s + toNum(sale.subtotal), 0);
+        const totalRevenue = active.reduce((s, sale) => s + toNum(sale.totalAmount), 0);
         const totalProfit = active.reduce(
           (s, sale) => s + toNum(sale.grossProfit),
           0,
@@ -63,6 +65,7 @@ export default function MobileMaterialSalesPage() {
           paymentStatus: s.paymentStatus,
           saleDate: s.saleDate.toISOString(),
           totalAmount: toNum(s.totalAmount),
+          totalPaid: s.payments.reduce((sum, p) => sum + toNum(p.amount), 0),
           grossProfit: toNum(s.grossProfit),
           scrapSubtotal: toNum(s.scrapSubtotal),
           customerName: s.customer?.name ?? null,
@@ -83,6 +86,7 @@ export default function MobileMaterialSalesPage() {
 
         return (
           <div>
+            <DepartmentActivityFeed department="sales" />
             <MobileMaterialSalesList
               items={serialized}
               totalRevenue={totalRevenue}

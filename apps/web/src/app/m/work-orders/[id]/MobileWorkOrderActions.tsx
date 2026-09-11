@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Send, CheckCircle, Banknote, Lock, Loader2, X, Printer,
+  Send, CheckCircle, Banknote, Lock, Loader2, X, Printer, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
@@ -32,6 +32,7 @@ export function MobileWorkOrderActions({
   const [advanceMode, setAdvanceMode] = useState("BANK");
   const [advanceRef, setAdvanceRef] = useState("");
   const [showRetention, setShowRetention] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
 
   async function doAction(action: string, extra?: Record<string, unknown>) {
     setActing(action);
@@ -60,6 +61,21 @@ export function MobileWorkOrderActions({
     }
   }
 
+  async function deleteDraft() {
+    setActing("delete");
+    try {
+      const res = await fetch(`/api/work-orders/${workOrderId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      toast.success("Draft work order deleted");
+      router.push("/m/work-orders");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setActing(null);
+    }
+  }
+
   const showIssue = canManage && status === "DRAFT";
   const showPayAdvance = canManage && (status === "ISSUED" || status === "ACTIVE");
   const showComplete = canManage && status === "ACTIVE";
@@ -80,12 +96,12 @@ export function MobileWorkOrderActions({
         {showIssue ? (
           <>
           <button
-            onClick={() => doAction("cancel")}
+            onClick={() => setShowDelete(true)}
             disabled={acting !== null}
             className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
             style={{ borderColor: "var(--color-stop)", color: "var(--color-stop)", backgroundColor: "transparent" }}
           >
-            <X className="size-4" />
+            <Trash2 className="size-4" />
             Cancel
           </button>
           <button
@@ -253,6 +269,47 @@ export function MobileWorkOrderActions({
                   style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
                 >
                   {acting === "release-retention" ? <Loader2 className="size-3.5 animate-spin" /> : "Release"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Delete draft confirmation */}
+      {showDelete ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end"
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+          onClick={() => setShowDelete(false)}
+        >
+          <div
+            className="w-full rounded-t-[1rem] mx-auto max-w-md"
+            style={{ backgroundColor: "var(--color-paper)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center pt-2 pb-1">
+              <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
+            </div>
+            <div className="flex items-center justify-between px-3 pb-2">
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Delete Draft?</p>
+              <button onClick={() => setShowDelete(false)} aria-label="Close delete dialog" className="text-m-body press p-1">
+                <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
+              </button>
+            </div>
+            <div className="px-3 pb-4">
+              <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
+                This will permanently delete this draft work order. This action cannot be undone.
+              </p>
+              <div className="flex gap-2">
+                <button onClick={() => setShowDelete(false)} disabled={acting !== null} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
+                <button
+                  onClick={() => deleteDraft()}
+                  disabled={acting !== null}
+                  className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1"
+                  style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
+                >
+                  {acting === "delete" ? <Loader2 className="size-3.5 animate-spin" /> : "Delete"}
                 </button>
               </div>
             </div>

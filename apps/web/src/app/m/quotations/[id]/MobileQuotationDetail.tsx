@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { downloadCSV } from "@/lib/export";
+import { useConfirm } from "@/lib/use-confirm";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileSupplierSelect } from "@/components/mobile/selectors";
 
@@ -178,15 +179,20 @@ export function MobileQuotationDetail({
   onChanged?: () => void;
 }) {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const [showAddQuote, setShowAddQuote] = useState(false);
   const [expandedMaterial, setExpandedMaterial] = useState<string | null>(null);
   const [approving, setApproving] = useState<string | null>(null);
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [approveQuoteId, setApproveQuoteId] = useState<string | null>(null);
   const [approveReason, setApproveReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
 
   // Non-rejected quotes for the matrix.
   const activeQuotes = useMemo(() => quotes.filter((q) => q.status !== "REJECTED"), [quotes]);
+
+  // Whether the request can still be cancelled (not yet approved/cancelled/closed).
+  const canCancel = request.status === "OPEN" || request.status === "QUOTES_COLLECTED";
 
   // Total savings = max - min landed total.
   const savings = useMemo(() => {
@@ -421,6 +427,46 @@ export function MobileQuotationDetail({
           </button>
         </ActionBar>
       ) : null}
+      {canCancel && !request.canApprove ? (
+        <ActionBar>
+          <button
+            disabled={cancelling}
+            onClick={async () => {
+              const ok = await confirm({
+                title: "Cancel quotation request?",
+                description: "This cannot be undone.",
+                confirmLabel: "Cancel request",
+                variant: "destructive",
+              });
+              if (!ok) return;
+              setCancelling(true);
+              try {
+                const res = await fetch(`/api/quotations/${request.id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ action: "cancel" }),
+                });
+                if (!res.ok) {
+                  const data = await res.json().catch(() => ({}));
+                  throw new Error(data.error || "Failed to cancel");
+                }
+                toast.success("Quotation request cancelled");
+                onChanged?.();
+                router.refresh();
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Failed to cancel");
+              } finally {
+                setCancelling(false);
+              }
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-[0.625rem] py-3 text-m-section font-bold text-m-body press active:scale-95 disabled:opacity-50"
+            style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
+          >
+            {cancelling ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
+            Cancel Request
+          </button>
+        </ActionBar>
+      ) : null}
 
       {/* ── Add Quote Dialog ── */}
       {showAddQuote ? (
@@ -456,6 +502,7 @@ export function MobileQuotationDetail({
           approving={approving !== null}
         />
       ) : null}
+      {confirmDialog}
     </div>
   );
 }

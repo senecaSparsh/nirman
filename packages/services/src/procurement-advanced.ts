@@ -210,7 +210,7 @@ export async function createRateContract(input: CreateRateContractInput) {
     if (!supplier) throw new ServiceError("Supplier not found or deleted", 404);
 
     const material = await tx.material.findFirst({
-      where: { id: input.materialId, deletedAt: null },
+      where: { id: input.materialId, companyId: input.companyId, deletedAt: null },
     });
     if (!material) throw new ServiceError("Material not found or deleted", 404);
 

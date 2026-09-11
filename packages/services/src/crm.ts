@@ -4,7 +4,7 @@ import { logAction } from "./audit";
 import { postPaymentReceived, postDepositReceived } from "./gl-posting";
 import { sendNotification } from "./notifications";
 import { ServiceError } from "./errors";
-import { createSalePaymentSchedule, type PaymentScheduleItemInput } from "./sale";
+import { createSalePaymentSchedule, syncPaymentScheduleFromPayments, type PaymentScheduleItemInput } from "./sale";
 import { withSerializableTransaction } from "./transaction";
 
 /**
@@ -623,6 +623,8 @@ export async function recordSchedulePayment(
         reference: `Installment ${item.installmentNo}: ${item.description}`,
       },
     });
+    // Reconcile all schedule items against actual payment totals
+    await syncPaymentScheduleFromPayments(tx, sale.id);
 
     // Post GL entry based on sale stage:
     // - Pre-completion (PENDING/DEPOSIT_RECEIVED): Dr Cash, Cr Customer Deposit (liability)

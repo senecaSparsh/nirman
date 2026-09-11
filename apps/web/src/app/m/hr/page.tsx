@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -17,6 +18,7 @@ import {
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
 import { HrInteractive } from "./hr-interactive";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 import {
   OrgHierarchy,
   type OrgTreeData,
@@ -258,8 +260,12 @@ export default function HrHomePage() {
               approvalsCount={totalPending}
             />
 
+            <DepartmentActivityFeed department="hr" />
+
             {/* ── 2. Field / People toggle + quick actions ── */}
-            <HrInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} />
+            <Suspense fallback={null}>
+              <HrInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} />
+            </Suspense>
 
             {/* ── 3. Organization tree — reporting line + scope assignments ── */}
             <SectionHead title="Organization" />
@@ -448,13 +454,13 @@ async function loadOrgTree(
     orderBy: { user: { name: "asc" } },
   });
 
-  // ── Fetch hierarchy levels from Employee records (linked via userId) ──
+  // ── Fetch hierarchy levels + employee IDs + on-site reporting lines from Employee records ──
   const userIds = memberships.map((m) => m.userId);
   const employees = await prisma.employee.findMany({
     where: { companyId, userId: { in: userIds }, deletedAt: null },
-    select: { userId: true, hierarchyLevel: true },
+    select: { id: true, userId: true, hierarchyLevel: true, reportsToEmployeeId: true },
   });
-  const hierarchyByUserId = new Map(employees.map((e) => [e.userId, e.hierarchyLevel]));
+  const employeeByUserId = new Map(employees.map((e) => [e.userId, e]));
 
   if (memberships.length === 0) {
     return {
@@ -571,20 +577,43 @@ async function loadOrgTree(
   ]);
 
   // ── Build the tree (shared logic with tier-based inference + teams) ──
+  // Fetch custom roles so the tree builder can resolve them
+  const customRoles = await prisma.customRole.findMany({
+    where: { companyId },
+    select: { key: true, label: true, baseRole: true, tier: true, hierarchyLevel: true },
+  }).catch(() => []);
+  const customRoleMap = new Map(customRoles.map((r) => [r.key, r]));
+
   const roleTierFn = (role: string): number => {
+    if (role.startsWith("CUSTOM_")) {
+      const cr = customRoleMap.get(role);
+      if (cr) return cr.tier;
+    }
     const r = migrateRole(role) ?? "SUPERVISOR";
     return ROLES[r]?.tier ?? 5;
   };
   const roleLabelFn = (role: string): string => {
+    if (role.startsWith("CUSTOM_")) {
+      const cr = customRoleMap.get(role);
+      if (cr) return cr.label;
+    }
     const r = migrateRole(role) ?? "SUPERVISOR";
     return ROLES[r]?.label ?? r;
   };
 
-  // ── Inject hierarchyLevel into memberships (from Employee records) ──
-  const membershipsWithHierarchy = memberships.map((m) => ({
-    ...m,
-    hierarchyLevel: hierarchyByUserId.get(m.userId) ?? null,
-  }));
+  // ── Inject hierarchyLevel + employeeId + reportsToEmployeeId into memberships ──
+  // For custom roles, use the custom role's hierarchyLevel if set (overrides
+  // Employee.hierarchyLevel so the org tree depth reflects the role's position).
+  const membershipsWithHierarchy = memberships.map((m) => {
+    const emp = employeeByUserId.get(m.userId);
+    const customRole = m.role.startsWith("CUSTOM_") ? customRoleMap.get(m.role) : undefined;
+    return {
+      ...m,
+      hierarchyLevel: customRole?.hierarchyLevel ?? emp?.hierarchyLevel ?? null,
+      employeeId: emp?.id ?? null,
+      reportsToEmployeeId: emp?.reportsToEmployeeId ?? null,
+    };
+  });
 
   const { roots, unassigned, projects, departments, labourByTrade, labourCount } = buildOrgTree(
     membershipsWithHierarchy as unknown as Parameters<typeof buildOrgTree>[0],
@@ -598,6 +627,7 @@ async function loadOrgTree(
     allTasks as unknown as Parameters<typeof buildOrgTree>[8],
     todayAttendanceRows as unknown as Parameters<typeof buildOrgTree>[9],
     leaveRows as unknown as Parameters<typeof buildOrgTree>[10],
+    customRoles,
   );
 
   return {

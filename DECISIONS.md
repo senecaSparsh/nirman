@@ -158,6 +158,27 @@ If you catch yourself planning to "build the rent module" or "add the sale lifec
 
 ---
 
+## Design decisions
+
+### PO workflow: DRAFT → APPROVED (no SUBMITTED step)
+
+Purchase orders go directly from DRAFT to APPROVED, while requisitions have a
+SUBMITTED step (DRAFT → SUBMITTED → APPROVED). This is intentional:
+
+- **POs** are created by procurement managers who know what they want to order.
+  DRAFT means "saved, awaiting approval." There's no separate "submit for
+  approval" action — the act of saving a draft PO puts it in the approval queue.
+- **Requisitions (indents)** are created by site engineers who need to explicitly
+  hand off to an approver. DRAFT means "still being edited." SUBMITTED means
+  "I'm done, please review." This two-step flow prevents half-finished indents
+  from clogging the approval queue.
+
+Adding a SUBMITTED step to POs would be a schema change with no business value.
+The self-approval guard (creator cannot approve their own PO) is enforced at
+the service layer regardless of whether there's a SUBMITTED step.
+
+---
+
 ## Source documents (for drill-down)
 
 | Doc                                     | Path                                                  | When to read                                                                                                                                                                                                                 |

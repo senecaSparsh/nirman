@@ -13,8 +13,6 @@ import {
   ExternalLink,
   Loader2,
   Inbox,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Filter,
 } from "lucide-react";
 import { Page } from "@/components/page";
 import { PageHeader } from "@/components/page-header";

@@ -14,8 +14,10 @@ import { MobileNewMaterialForm } from "./MobileNewMaterialDialog";
  */
 export function MobileMaterialsFab({
   categories,
+  locations = [],
 }: {
   categories: { id: string; name: string; unit: string }[];
+  locations?: { id: string; name: string; projectName?: string | null }[];
 }) {
   const fab = useFabModal();
 
@@ -28,7 +30,12 @@ export function MobileMaterialsFab({
         originRect={fab.originRect}
         title="New Material"
       >
-        <MobileNewMaterialForm onClose={fab.close} categories={categories} />
+        <MobileNewMaterialForm
+          onClose={fab.close}
+          categories={categories}
+          showOpeningStock
+          locations={locations}
+        />
       </MobileFabModal>
     </>
   );

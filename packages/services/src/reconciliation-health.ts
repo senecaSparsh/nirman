@@ -317,16 +317,24 @@ export async function reconcileInventoryGl(
   companyId: string,
   tolerance: string = MONEY_TOL,
 ): Promise<ReconciliationCheck> {
-  // GL balance for account 1300 (Inventory - Materials).
-  const glGrouped = await prisma.journalLine.aggregate({
-    where: {
-      accountCode: ACCT.INVENTORY,
-      journalEntry: { companyId, status: "POSTED" },
-    },
-    _sum: { debit: true, credit: true },
+  // Resolve account code → ID (GlAccount PK is now id, not code)
+  const inventoryAccount = await prisma.glAccount.findUnique({
+    where: { companyId_code: { companyId, code: ACCT.INVENTORY } },
+    select: { id: true },
   });
-  const glDebit = new Decimal(glGrouped._sum.debit ?? 0);
-  const glCredit = new Decimal(glGrouped._sum.credit ?? 0);
+
+  // GL balance for account 1300 (Inventory - Materials).
+  const glGrouped = inventoryAccount
+    ? await prisma.journalLine.aggregate({
+        where: {
+          accountId: inventoryAccount.id,
+          journalEntry: { companyId, status: "POSTED" },
+        },
+        _sum: { debit: true, credit: true },
+      })
+    : null;
+  const glDebit = new Decimal(glGrouped?._sum?.debit ?? 0);
+  const glCredit = new Decimal(glGrouped?._sum?.credit ?? 0);
   const glBalance = glDebit.minus(glCredit); // asset → debit-normal
 
   // Stock value = Σ qty × MAC.

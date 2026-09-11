@@ -118,7 +118,7 @@ export function CreateUserDialog({
           designation: designation.trim() || undefined,
           department: department.trim() || undefined,
           joiningDate: joiningDate || undefined,
-          mustChangePassword: false,
+          mustChangePassword: true,
         }),
       });
       const createData = await createRes.json();
@@ -156,7 +156,7 @@ export function CreateUserDialog({
       }
 
       toast.success("User created successfully", {
-        description: `${name.trim()} added as ${role}${scopeType !== "COMPANY" ? ` (${scopeType}-scoped)` : ""}. Default password: nirman123`,
+        description: `${name.trim()} added as ${role}${scopeType !== "COMPANY" ? ` (${scopeType}-scoped)` : ""}.` + (createData.tempPassword ? ` Temporary password: ${createData.tempPassword} — they will be asked to change it on first login.` : " They will be asked to change their password on first login."),
       });
       router.refresh();
       onClose();
@@ -184,8 +184,6 @@ export function CreateUserDialog({
       {/* Step indicator */}
       <div className="flex items-center gap-2 mb-4">
         {steps.map((s, i) => {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const Icon = s.icon;
           const active = step === s.num;
           const done = step > s.num;
           return (
@@ -430,8 +428,8 @@ export function CreateUserDialog({
 
           <div className="rounded-md border border-warning/40 bg-warning/5 p-3">
             <p className="text-caption text-foreground">
-              <span className="font-semibold">Default password:</span> nirman123
-              <br />The user can sign in immediately. Reset their password from the team page if needed.
+              <span className="font-semibold">Temporary password:</span> auto-generated (shown after creation)
+              <br />The user will be asked to set their own password on first login.
             </p>
           </div>
 

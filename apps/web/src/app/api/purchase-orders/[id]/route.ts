@@ -4,6 +4,7 @@ import { prisma } from "@nirman/db";
 import {
   approvePurchaseOrder,
   rejectPurchaseOrder,
+  resubmitPurchaseOrder,
   cancelPurchaseOrder,
   orderPurchaseOrder,
   addLineToPurchaseOrder,
@@ -132,8 +133,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (!existing) return json({ error: "Purchase order not found" }, { status: 404 });
   const body = await req.json();
   const action = body?.action as string | undefined;
-  if (!action || !["approve", "reject", "order", "cancel", "addLine"].includes(action)) {
-    return json({ error: "Invalid action. Use approve, reject, order, cancel, or addLine." }, { status: 400 });
+  if (!action || !["approve", "reject", "resubmit", "order", "cancel", "addLine"].includes(action)) {
+    return json({ error: "Invalid action. Use approve, reject, resubmit, order, cancel, or addLine." }, { status: 400 });
   }
   if (action === "approve") {
     const user = await requirePermission(PERM.PO_APPROVE);
@@ -162,6 +163,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });
       throw err;
     }
+  } else if (action === "resubmit") {
+    const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+    try {
+      await resubmitPurchaseOrder(id, user.id);
+    } catch (err) {
+      if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });
+      throw err;
+    }
   } else if (action === "order") {
     const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
     await orderPurchaseOrder(id, user.id);
@@ -171,8 +180,13 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     if (!materialId || !qtyOrdered || !unitCost) {
       return json({ error: "materialId, qtyOrdered, and unitCost are required" }, { status: 400 });
     }
-    const qtyNum = Number(qtyOrdered);
-    const costNum = Number(unitCost);
+    // Pass as string to preserve Decimal precision — the service layer
+    // converts with new Decimal(). Avoid Number() which loses precision
+    // for values > 2^53.
+    const qtyStr = String(qtyOrdered);
+    const costStr = String(unitCost);
+    const qtyNum = Number(qtyStr);
+    const costNum = Number(costStr);
     if (!Number.isFinite(qtyNum) || qtyNum <= 0) {
       return json({ error: "qtyOrdered must be a positive number" }, { status: 400 });
     }
@@ -183,8 +197,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       const line = await addLineToPurchaseOrder({
         poId: id,
         materialId,
-        qtyOrdered: qtyNum,
-        unitCost: costNum,
+        qtyOrdered: qtyStr,
+        unitCost: costStr,
         userId: user.id,
       });
       revalidatePath(`/m/procurement/${id}`);

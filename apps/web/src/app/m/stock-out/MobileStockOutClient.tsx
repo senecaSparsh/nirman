@@ -3,13 +3,10 @@
 import {useEffect, useState, useRef} from "react";
 import {useRouter} from "next/navigation";
 import {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  ArrowLeftRight, Package, MapPin, Plus, Trash2,
+  ArrowLeftRight, Package, Plus, Trash2,
   Send, Loader2, CheckCircle2, WifiOff, Truck,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  ShieldCheck, Printer, Building2, Clock, Info,
+  ShieldCheck, Printer, Clock, Info,
 } from "lucide-react";
-import {} from "@/lib/utils";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useLongPressNav } from "@/lib/use-long-press-nav";
@@ -70,96 +67,20 @@ const inputStyle = {
 const labelClass = "block text-m-caption font-bold mb-0";
 const labelStyle = { color: "var(--color-ink-700)" };
 
-// ── SelectorCard — prominent tappable underline-style selector ──
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function SelectorCard({
-  onClick, label, value, subvalue, required, icon: Icon,
-}: {
-  onClick: () => void;
-  label: string;
-  value?: string;
-  subvalue?: string | null;
-  required?: boolean;
-  icon?: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-}) {
-  const hasValue = !!value;
-  return (
-    <div>
-      <label className={labelClass} style={labelStyle}>
-        {label}{required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
-      </label>
-      <button
-        type="button"
-        onClick={onClick}
-        className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors text-left flex items-center gap-1.5 press"
-        style={{
-          borderColor: "var(--color-line)",
-          backgroundColor: "transparent",
-          color: hasValue ? "var(--color-ink-950)" : "var(--color-ink-500)",
-        }}
-      >
-        {Icon ? <Icon className="size-3.5 shrink-0" style={{ color: "var(--color-steel)" }} /> : null}
-        {hasValue ? (
-          <span className="truncate">
-            {value}{subvalue ? <span className="font-normal" style={{ color: "var(--color-ink-700)" }}> · {subvalue}</span> : null}
-          </span>
-        ) : (
-          <span>— Select —</span>
-        )}
-      </button>
-    </div>
-  );
-}
-
-// ── SelectorRow — compact tappable row for line item selectors ──
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function SelectorRow({
-  onClick, label, value, subvalue, required,
-}: {
-  onClick: () => void;
-  label: string;
-  value?: string;
-  subvalue?: string;
-  required?: boolean;
-}) {
-  const hasValue = !!value;
-  return (
-    <div>
-      <label className={labelClass} style={labelStyle}>
-        {label}{required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
-      </label>
-      <button
-        type="button"
-        onClick={onClick}
-        className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors text-left press"
-        style={{
-          borderColor: "var(--color-line)",
-          backgroundColor: "transparent",
-          color: hasValue ? "var(--color-ink-950)" : "var(--color-ink-500)",
-        }}
-      >
-        {hasValue ? (
-          <span className="truncate block">
-            {value}{subvalue ? <span className="font-normal" style={{ color: "var(--color-ink-700)" }}> · {subvalue}</span> : null}
-          </span>
-        ) : (
-          <span>— Select —</span>
-        )}
-      </button>
-    </div>
-  );
-}
-
 export function MobileStockOutClient({
   canTransfer,
   canIssue,
   initialMode,
   initialProjectId,
+  initialFromLocationId,
+  onClose,
 }: {
   canTransfer: boolean;
   canIssue: boolean;
   initialMode: Mode;
   initialProjectId: string;
+  initialFromLocationId: string;
+  onClose?: () => void;
 }) {
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();
@@ -258,7 +179,9 @@ export function MobileStockOutClient({
           setMarkupPct(draft.markupPct ?? "");
           setDraftRestored(true);
         } else {
-          if (locs.length > 0) setFromLocationId(locs[0]!.id);
+          if (initialFromLocationId && locs.some((l) => l.id === initialFromLocationId)) {
+            setFromLocationId(initialFromLocationId);
+          } else if (locs.length > 0) setFromLocationId(locs[0]!.id);
           if (locs.length > 1) setToLocationId(locs[1]!.id);
           if (initialProjectId && projs.some((p) => p.id === initialProjectId)) {
             setProjectId(initialProjectId);
@@ -674,6 +597,15 @@ export function MobileStockOutClient({
           >
             {isTransfer ? "Add Another Transfer" : "Issue More Materials"}
           </button>
+          {onClose ? (
+            <button
+              onClick={onClose}
+              className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-700)" }}
+            >
+              Done
+            </button>
+          ) : null}
         </div>
       </div>
     );

@@ -219,7 +219,7 @@ describe("addClaimLine — status guard", () => {
     runWithTx(tx);
     await expect(
       addClaimLine({ claimId: "claim-1", companyId: "c1", category: "Travel", amount: 100 }),
-    ).rejects.toThrow("Can only add lines to a DRAFT claim");
+    ).rejects.toThrow("Can only add lines to a DRAFT or REJECTED claim");
   });
 
   it("throws 409 when claim is APPROVED", async () => {
@@ -233,7 +233,7 @@ describe("addClaimLine — status guard", () => {
     runWithTx(tx);
     await expect(
       addClaimLine({ claimId: "claim-1", companyId: "c1", category: "Travel", amount: 100 }),
-    ).rejects.toThrow("Can only add lines to a DRAFT claim");
+    ).rejects.toThrow("Can only add lines to a DRAFT or REJECTED claim");
   });
 
   it("allows adding lines when claim is DRAFT", async () => {
@@ -313,21 +313,21 @@ describe("submitExpenseClaim — status guard", () => {
     const tx = makeMockTx();
     tx.expenseClaim.findFirst.mockResolvedValue({ id: "claim-1", status: "SUBMITTED", companyId: "c1" });
     runWithTx(tx);
-    await expect(submitExpenseClaim("claim-1", "c1")).rejects.toThrow("Only DRAFT claims can be submitted");
+    await expect(submitExpenseClaim("claim-1", "c1")).rejects.toThrow("Only DRAFT or REJECTED claims can be submitted");
   });
 
   it("throws 409 when claim is APPROVED", async () => {
     const tx = makeMockTx();
     tx.expenseClaim.findFirst.mockResolvedValue({ id: "claim-1", status: "APPROVED", companyId: "c1" });
     runWithTx(tx);
-    await expect(submitExpenseClaim("claim-1", "c1")).rejects.toThrow("Only DRAFT claims can be submitted");
+    await expect(submitExpenseClaim("claim-1", "c1")).rejects.toThrow("Only DRAFT or REJECTED claims can be submitted");
   });
 
-  it("throws 409 when claim is REJECTED", async () => {
+  it("allows resubmitting when claim is REJECTED", async () => {
     const tx = makeMockTx();
     tx.expenseClaim.findFirst.mockResolvedValue({ id: "claim-1", status: "REJECTED", companyId: "c1" });
     runWithTx(tx);
-    await expect(submitExpenseClaim("claim-1", "c1")).rejects.toThrow("Only DRAFT claims can be submitted");
+    await expect(submitExpenseClaim("claim-1", "c1", "user-1")).resolves.toBeDefined();
   });
 
   it("includes current status in error message", async () => {

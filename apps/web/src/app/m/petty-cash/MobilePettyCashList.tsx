@@ -154,7 +154,7 @@ function PettyCashCard({ f }: { f: PettyCashFloatListItem }) {
               )}
             </div>
             <div className="text-right">
-              <p className="tnum text-body font-semibold text-foreground">{formatCurrencyCompact(f.floatAmount)}</p>
+              <p className="tnum text-body font-semibold text-foreground">{formatCurrencyCompact(balanceAfter)}</p>
               <p className="tnum text-caption text-muted-foreground">balance</p>
             </div>
           </div>

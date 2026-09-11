@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@nirman/db";
 import { Cloud, Hammer, Users, CheckCircle2, XCircle } from "lucide-react";
-import { getUserPermissions, toNum, scopeWhere } from "@/lib/server";
+import { getUserPermissions, toNum, scopeWhere, getCurrentUser } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
 import { AttachmentList } from "@/components/attachments/attachment-list";
@@ -59,6 +59,8 @@ export default function MobileDprDetailPage({
         const canApproveAdmin = hasPermission(role, PERM.DPR_APPROVE_ADMIN);
         const canResubmit = hasPermission(role, PERM.DPR_SUBMIT);
         const canMarkCostPosted = hasPermission(role, PERM.FINANCE_VIEW);
+        const currentUser = await getCurrentUser();
+        const currentUserId = currentUser?.id ?? null;
 
         const status =
           dpr.approvalStatus === "SUBMITTED" ? "submitted" :
@@ -464,6 +466,8 @@ export default function MobileDprDetailPage({
               canMarkCostPosted={canMarkCostPosted}
               canManage={canManage}
               costPosted={!!dpr.costPostedDate}
+              submittedById={dpr.submittedBy?.id ?? null}
+              currentUserId={currentUserId}
             />
           </div>
           </PageContextProvider>

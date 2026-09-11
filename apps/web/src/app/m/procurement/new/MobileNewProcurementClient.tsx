@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Plus, Trash2, Loader2, CheckCircle2,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  ChevronRight,
   Send, WifiOff,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
@@ -335,7 +333,7 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
         <p className="text-m-caption mb-4" style={{ color: "var(--color-ink-700)" }}>
           {isQueued
             ? "Will be submitted as DRAFT when back online."
-            : "Purchase Order is awaiting approval. An approver will review it next."}
+            : "An approver has been notified. You'll be notified once it's approved."}
         </p>
         <div className="flex flex-col gap-3">
           {!isQueued && success.poId ? (
@@ -1061,22 +1059,6 @@ function PoForm({
           onCreated={(m) => handleCreated("material", m.id, m.name, { code: m.code, unit: m.unit, gstRate: m.gstRate })}
         />
       ) : null}
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════
- * Section header
- * ═══════════════════════════════════════════════════════════ */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function SectionHeader({ icon: Icon, label }: { icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; label: string }) {
-  return (
-    <div className="flex items-center gap-1.5 mt-1">
-      <Icon className="size-3" style={{ color: "var(--color-ink-950)" }} />
-      <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-        {label}
-      </span>
-      <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-line)" }} />
     </div>
   );
 }

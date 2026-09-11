@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
+import { HsnSacSearch } from "@/components/hsn-sac-search";
 
 /**
  * Mobile dialog for creating a material category.
@@ -25,12 +26,14 @@ export function MobileNewCategoryDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  onCreated: (cat: { id: string; name: string; unit: string }) => void;
+  onCreated: (cat: { id: string; name: string; unit: string; hsnCode?: string | null; gstRate?: number | null }) => void;
   nested?: boolean;
 }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("NOS");
+  const [hsnCode, setHsnCode] = useState("");
+  const [gstRate, setGstRate] = useState<number | undefined>(undefined);
   const [saving, setSaving] = useState(false);
 
   const COMMON_UNITS = [
@@ -67,6 +70,8 @@ export function MobileNewCategoryDialog({
         body: JSON.stringify({
           name: name.trim(),
           unit: unit.trim().toUpperCase(),
+          hsnCode: hsnCode.trim() || undefined,
+          gstRate: gstRate,
         }),
       });
       const data = await res.json();
@@ -74,9 +79,11 @@ export function MobileNewCategoryDialog({
       haptic([10, 40, 80]);
       toast.success(`${data.name} category created`);
       router.refresh();
-      onCreated({ id: data.id, name: data.name, unit: data.unit });
+      onCreated({ id: data.id, name: data.name, unit: data.unit, hsnCode: data.hsnCode ?? null, gstRate: data.gstRate != null ? Number(data.gstRate) : null });
       setName("");
       setUnit("NOS");
+      setHsnCode("");
+      setGstRate(undefined);
       onClose();
     } catch (err) {
       haptic([50, 20, 50]);
@@ -140,6 +147,55 @@ export function MobileNewCategoryDialog({
               </div>
             </div>
           </div>
+        </SectionCard>
+
+        {/* HSN Code + GST Rate */}
+        <SectionCard title="Default HSN/SAC Code">
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div className="pr-2">
+              <span className="block text-m-caption font-bold mb-0.5" style={{ color: "var(--color-ink-700)" }}>
+                HSN Code
+              </span>
+              <HsnSacSearch
+                value={hsnCode}
+                onCodeChange={setHsnCode}
+                onGstRateChange={(rate) => setGstRate(rate)}
+                placeholder="Search…"
+                materialName={name}
+                inputClassName="flex-1 min-w-0 h-7 px-1 text-m-caption outline-none font-mono"
+                inputStyle={{
+                  backgroundColor: "transparent",
+                  color: "var(--color-ink-950)",
+                }}
+              />
+            </div>
+            <div className="pl-2">
+              <span className="block text-m-caption font-bold mb-0.5" style={{ color: "var(--color-ink-700)" }}>
+                GST %
+              </span>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={gstRate ?? ""}
+                onChange={(e) => setGstRate(e.target.value === "" ? undefined : Number(e.target.value))}
+                placeholder="Auto"
+                className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors font-mono"
+                style={{
+                  borderColor: "var(--color-line)",
+                  backgroundColor: "transparent",
+                  color: "var(--color-ink-950)",
+                }}
+              />
+            </div>
+          </div>
+          <p
+            className="text-m-caption mt-1"
+            style={{ color: "var(--color-ink-500)" }}
+          >
+            Materials in this category will auto-fill this HSN code + GST rate.
+          </p>
         </SectionCard>
 
         {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}

@@ -50,7 +50,7 @@ import {
   receiveGoods,
   issueMaterialsToProject,
   sellAsset,
-  recordPayment,
+  recordDeposit,
   reallocateProjectCosts,
   seedChartOfAccounts,
   createMaterialSale,

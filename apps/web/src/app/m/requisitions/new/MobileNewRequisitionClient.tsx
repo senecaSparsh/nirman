@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ShoppingCart, Plus, Trash2, Send, Loader2,
+  CheckCircle2, Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLongPressNav } from "@/lib/use-long-press-nav";
@@ -15,6 +16,7 @@ import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCrea
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
+import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { useSmartDefaults } from "@/lib/use-smart-defaults";
 import { SmartDefaultsBadge } from "@/components/mobile/v2/smart-defaults-badge";
@@ -64,6 +66,8 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
   const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<ReqDraft>("requisition", "requisition-new");
   const [draftRestored, setDraftRestored] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState<{ id: string; reqNumber: string; submitted: boolean } | null>(null);
+  const [localSuppliers, setLocalSuppliers] = useState<SupplierItem[]>(data.suppliers);
 
   // ── Smart defaults — pre-fill project from last-used (if no draft) ──
   const { getDefault, recordDefaults } = useSmartDefaults("requisition");
@@ -135,6 +139,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
         projectId,
         neededByDate: neededByDate || null,
         notes: notes.trim() || null,
+        autoSubmit: true,
         lines: validLines.map((l) => ({
           materialId: l.materialId,
           qtyRequested: Number(l.qty),
@@ -166,20 +171,20 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(result.error ?? "Failed to create indent");
-      toast.success(
-        result.submitted
-          ? `Indent ${result.reqNumber ?? "created"} submitted for approval`
-          : `Indent ${result.reqNumber ?? "created"} saved as draft`,
-      );
-      clearDraft();
-      if (onCreated) {
-        onCreated(result.id);
-      } else if (result.id) {
-        router.push(`/m/requisitions/${result.id}`);
+      if (result.submitted) {
+        toast.success(`Indent ${result.reqNumber ?? "created"} submitted for approval`);
       } else {
-        router.push("/m/procurement?tab=indents");
-        router.refresh();
+        toast.warning(
+          `Indent ${result.reqNumber ?? "created"} saved as draft`,
+          {
+            description: result.submitError
+              ? `Auto-submit failed: ${result.submitError}`
+              : "You can submit it for approval from the indent list.",
+          },
+        );
       }
+      clearDraft();
+      setSuccess({ id: result.id, reqNumber: result.reqNumber ?? "created", submitted: result.submitted });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Error creating indent");
     } finally {
@@ -204,6 +209,75 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
           </Link>
         }
       />
+    );
+  }
+
+  /* ── Success state ── */
+  if (success) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+        <div
+          className="grid place-items-center size-14 rounded-full mb-3"
+          style={{ backgroundColor: success.submitted ? "color-mix(in srgb, var(--color-go) 12%, transparent)" : "color-mix(in srgb, var(--color-signal) 12%, transparent)" }}
+        >
+          <CheckCircle2 className="size-7" style={{ color: success.submitted ? "var(--color-go)" : "var(--color-signal)" }} />
+        </div>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
+          {success.submitted ? "Indent Submitted" : "Indent Saved as Draft"}
+        </p>
+        <p className="text-m-caption font-mono mb-3" style={{ color: "var(--color-ink-700)" }}>
+          {success.reqNumber}
+        </p>
+        <p className="text-m-caption mb-4" style={{ color: "var(--color-ink-700)" }}>
+          {success.submitted
+            ? "It's now in the approval queue for a manager to review."
+            : "You can submit it for approval from the indent list."}
+        </p>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          {success.id ? (
+            <button
+              onClick={() => {
+                if (onCreated) {
+                  onCreated(success.id);
+                } else {
+                  router.push(`/m/requisitions/${success.id}`);
+                }
+              }}
+              className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95"
+              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+            >
+              <Eye className="size-4 inline mr-1" /> View Indent
+            </button>
+          ) : null}
+          <button
+            onClick={() => {
+              // Reset form for another indent
+              setSuccess(null);
+              setProjectId(""); setNeededByDate(""); setNotes("");
+              setLines([{ materialId: "", qty: "", notes: "", preferredSupplierId: "" }]);
+              router.refresh();
+            }}
+            className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95"
+            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
+          >
+            <Plus className="size-4 inline mr-1" /> Create Another
+          </button>
+          <button
+            onClick={() => {
+              if (onCreated) {
+                onCreated("");
+              } else {
+                router.push("/m/procurement?tab=indents");
+                router.refresh();
+              }
+            }}
+            className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+          >
+            View All Indents
+          </button>
+        </div>
+      </div>
     );
   }
 
@@ -335,19 +409,29 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
 
                   {/* Supplier + Line note (side by side) */}
                   <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-                    {data.suppliers.length > 0 ? (
-                      <div>
-                        <MobileSelectWithCreate
-                          label="Preferred Supplier"
-                          value={line.preferredSupplierId}
-                          onChange={(val) => updateLine(idx, "preferredSupplierId", val)}
-                          options={data.suppliers.map((s) => ({ value: s.id, label: s.name }))}
-                          placeholder="No preferred supplier"
-                          compact
-                        />
-                      </div>
-                    ) : null}
-                    <div className={data.suppliers.length === 0 ? "col-span-2" : ""}>
+                    <div>
+                      <MobileSelectWithCreate
+                        label="Preferred Supplier"
+                        value={line.preferredSupplierId}
+                        onChange={(val) => updateLine(idx, "preferredSupplierId", val)}
+                        options={localSuppliers.map((s) => ({ value: s.id, label: s.name }))}
+                        placeholder="No preferred supplier"
+                        compact
+                        renderDialog={({ open, onClose, onCreated }) => (
+                          <MobileNewSupplierDialog
+                            open={open}
+                            onClose={onClose}
+                            onCreated={(s) => {
+                              setLocalSuppliers((prev) =>
+                                prev.find((x) => x.id === s.id) ? prev : [...prev, { id: s.id, name: s.name }],
+                              );
+                              onCreated(s.id, s.name);
+                            }}
+                          />
+                        )}
+                      />
+                    </div>
+                    <div>
                       <input
                         type="text"
                         value={line.notes}

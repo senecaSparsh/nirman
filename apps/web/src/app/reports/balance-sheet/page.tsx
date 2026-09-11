@@ -33,7 +33,7 @@ async function BalanceSheetContent() {
 
   // Aggregate debit/credit per account up to asOf
   const grouped = await prisma.journalLine.groupBy({
-    by: ["accountCode"],
+    by: ["accountId"],
     where: {
       journalEntry: {
         companyId: company.id,
@@ -42,14 +42,14 @@ async function BalanceSheetContent() {
       },
     },
     _sum: { debit: true, credit: true },
-    orderBy: { accountCode: "asc" },
+    orderBy: { accountId: "asc" },
   });
 
   const accounts = await prisma.glAccount.findMany({
-    where: { code: { in: grouped.map((g) => g.accountCode) } },
-    select: { code: true, name: true, type: true },
+    where: { id: { in: grouped.map((g) => g.accountId) } },
+    select: { id: true, code: true, name: true, type: true },
   });
-  const accountMap = new Map(accounts.map((a) => [a.code, a]));
+  const accountMap = new Map(accounts.map((a) => [a.id, a]));
 
   type Section = { code: string; name: string; balance: number };
   const assets: Section[] = [];
@@ -61,7 +61,7 @@ async function BalanceSheetContent() {
   let totalExpense = new Decimal(0);
 
   for (const g of grouped) {
-    const acct = accountMap.get(g.accountCode);
+    const acct = accountMap.get(g.accountId);
     if (!acct) continue;
     const debit = new Decimal(g._sum.debit ?? 0);
     const credit = new Decimal(g._sum.credit ?? 0);

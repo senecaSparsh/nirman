@@ -79,6 +79,18 @@ export function MobileNewCompanyForm({
       toast.error("Company name is required");
       return;
     }
+    const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/;
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+    const gstinVal = form.gstin.trim().toUpperCase();
+    const panVal = form.pan.trim().toUpperCase();
+    if (gstinVal && !gstinRegex.test(gstinVal)) {
+      toast.error("Invalid GSTIN format (e.g., 22AAAAA0000A1Z5)");
+      return;
+    }
+    if (panVal && !panRegex.test(panVal)) {
+      toast.error("Invalid PAN format (e.g., AAAAA0000A)");
+      return;
+    }
     setSaving(true);
     haptic(10);
     try {
@@ -88,8 +100,8 @@ export function MobileNewCompanyForm({
         body: JSON.stringify({
           name: form.name.trim(),
           businessType: form.businessType.trim() || null,
-          gstin: form.gstin.trim() || null,
-          pan: form.pan.trim() || null,
+          gstin: gstinVal || null,
+          pan: panVal || null,
           currency: form.currency,
           address: form.address.trim() || null,
           parentCompanyId: form.parentCompanyId || null,

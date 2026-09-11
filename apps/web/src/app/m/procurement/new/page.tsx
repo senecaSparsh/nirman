@@ -39,9 +39,9 @@ export default function MobileNewProcurementPage() {
           }),
           prisma.materialCategory.findMany({
             where: { deletedAt: null },
-            select: { id: true, name: true, unit: true },
+            select: { id: true, name: true, unit: true, hsnCode: true, gstRate: true },
             orderBy: { name: "asc" },
-          }),
+          }).then((rows) => rows.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))),
         ]);
 
         const serialized = {

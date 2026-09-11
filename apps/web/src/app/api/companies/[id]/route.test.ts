@@ -36,7 +36,13 @@ describe("GET /api/companies/[id]", () => {
   });
 
   it("returns 404 when company is not found and not a child", async () => {
-    mockPrisma().company!.findFirst.mockResolvedValue(null);
+    // getCompany() uses findFirst with userMemberships in the where clause;
+    // the route's own findFirst doesn't. Return the company for getCompany()
+    // but null for the route's lookup.
+    mockPrisma().company!.findFirst.mockImplementation(async (args?: { where?: Record<string, unknown> }) => {
+      if (args?.where?.userMemberships) return { id: "company-1", name: "Test Co", currency: "INR", parentCompanyId: null, deletedAt: null };
+      return null;
+    });
     const res = await GET(makeRequest("/api/companies/nope"), makeCtx("nope"));
     expect(res.status).toBe(404);
   });
@@ -82,7 +88,10 @@ describe("PATCH /api/companies/[id]", () => {
   });
 
   it("returns 404 when company is not found", async () => {
-    mockPrisma().company!.findFirst.mockResolvedValue(null);
+    mockPrisma().company!.findFirst.mockImplementation(async (args?: { where?: Record<string, unknown> }) => {
+      if (args?.where?.userMemberships) return { id: "company-1", name: "Test Co", currency: "INR", parentCompanyId: null, deletedAt: null };
+      return null;
+    });
     const res = await PATCH(
       makeRequest("/api/companies/nope", { method: "PATCH", body: { name: "X" } }),
       makeCtx("nope"),
@@ -122,7 +131,10 @@ describe("DELETE /api/companies/[id]", () => {
   });
 
   it("returns 404 when company is not found", async () => {
-    mockPrisma().company!.findFirst.mockResolvedValue(null);
+    mockPrisma().company!.findFirst.mockImplementation(async (args?: { where?: Record<string, unknown> }) => {
+      if (args?.where?.userMemberships) return { id: "company-1", name: "Test Co", currency: "INR", parentCompanyId: null, deletedAt: null };
+      return null;
+    });
     mockPrisma().company!.findUnique.mockResolvedValue(null);
     const res = await DELETE(makeRequest("/api/companies/nope", { method: "DELETE" }), makeCtx("nope"));
     expect(res.status).toBe(404);

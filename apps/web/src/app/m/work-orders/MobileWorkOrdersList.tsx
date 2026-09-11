@@ -2,9 +2,8 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { ClipboardList } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import { MobileStatusBadge, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -71,13 +70,7 @@ export function MobileWorkOrdersList({
   }, [items, query, filter]);
 
   if (items.length === 0) {
-    return (
-      <MobileEmptyState
-        icon={ClipboardList}
-        title="No work orders"
-        hint="Work orders will appear here"
-      />
-    );
+    return null;
   }
 
   return (

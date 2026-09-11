@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createPettyCashFloat, ServiceError } from "@nirman/services";
@@ -68,7 +68,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       userId: user.id,
     });
     revalidatePath("/petty-cash");
-    return NextResponse.json({ ok: true, id: float.id }, { status: 201 });
+    revalidatePath("/m/petty-cash");
+    return json({ ok: true, id: float.id }, { status: 201 });
   } catch (err) {
     if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });
     throw err;

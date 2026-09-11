@@ -85,7 +85,7 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
     if (input.lines.length === 0) throw new Error("Issue must have at least one line");
     const materialIds = input.lines.map((l) => l.materialId);
     const materials = await tx.material.findMany({
-      where: { id: { in: materialIds }, deletedAt: null },
+      where: { id: { in: materialIds }, companyId: project.companyId, deletedAt: null },
     });
     if (materials.length !== materialIds.length) {
       throw new Error("One or more materials not found or deleted");
@@ -232,7 +232,7 @@ export async function createMaterialIssueRequest(input: IssueMaterialsInput) {
   if (input.lines.length === 0) throw new ServiceError("Issue must have at least one line");
   const materialIds = input.lines.map((l) => l.materialId);
   const materials = await prisma.material.findMany({
-    where: { id: { in: materialIds }, deletedAt: null },
+    where: { id: { in: materialIds }, companyId: project.companyId, deletedAt: null },
   });
   if (materials.length !== materialIds.length) {
     throw new ServiceError("One or more materials not found or deleted", 404);
@@ -433,7 +433,7 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
     if (input.lines.length === 0) throw new Error("Issue must have at least one line");
     const materialIds = input.lines.map((l) => l.materialId);
     const materials = await tx.material.findMany({
-      where: { id: { in: materialIds }, deletedAt: null },
+      where: { id: { in: materialIds }, companyId: department.companyId, deletedAt: null },
     });
     if (materials.length !== materialIds.length) {
       throw new Error("One or more materials not found or deleted");

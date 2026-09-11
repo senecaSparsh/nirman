@@ -1,6 +1,6 @@
 "use client";
 
-import {useState, useMemo} from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { TrendingUp, Eye, Copy, Share2, IndianRupee, Calendar, User, Hash, Package } from "lucide-react";
@@ -18,7 +18,6 @@ import {
   MobileSearchHeader,
   MobileFilterIcon,
   MobileCardGrid,
-  MobileFab,
   MobileNoResults,
   MobileSummaryStrip,
   type SummaryStat,
@@ -28,6 +27,7 @@ import {
   type MobileColumnSpec,
 } from "@/components/mobile/v2/export-share-bar";
 import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
+import { MobileMaterialSalePaymentDialog } from "./MobileMaterialSalePaymentDialog";
 
 type SaleFilter = "ALL" | "ACTIVE" | "PENDING" | "PAID" | "CANCELLED";
 
@@ -38,6 +38,7 @@ export type MaterialSaleItem = {
   paymentStatus: string;
   saleDate: string;
   totalAmount: number;
+  totalPaid: number;
   grossProfit: number;
   scrapSubtotal: number;
   customerName: string | null;
@@ -218,19 +219,18 @@ export function MobileMaterialSalesList({
           ) : null}
         </div>
       )}
-
-      {canCreate ? (
-        <MobileFab href="/m/sales/new" label="New material sale" />
-      ) : null}
     </div>
   );
 }
 
 /* ─── Sale card — procurement-style with payment status accent ─── */
-function SaleCard({s}: { s: MaterialSaleItem; onAction?: () => void }) {
+function SaleCard({ s, onAction }: { s: MaterialSaleItem; onAction?: () => void }) {
   const router = useRouter();
   const isCancelled = s.status === "CANCELLED";
   const isPending = s.paymentStatus === "PENDING" && !isCancelled;
+
+  // ── Inline payment dialog (no redirect to detail page) ──
+  const [payOpen, setPayOpen] = useState(false);
 
   // Accent: green=paid, signal=pending, stop=cancelled
   const accentColor = isCancelled
@@ -264,6 +264,9 @@ function SaleCard({s}: { s: MaterialSaleItem; onAction?: () => void }) {
       icon: Eye,
       onPress: () => router.push(`/m/material-sales/${s.id}`),
     },
+    ...(isPending
+      ? [{ label: "Record Payment", icon: IndianRupee, color: "var(--color-go)", onPress: () => setPayOpen(true) }]
+      : []),
     {
       label: "Share",
       icon: Share2,
@@ -283,7 +286,7 @@ function SaleCard({s}: { s: MaterialSaleItem; onAction?: () => void }) {
   const contextActions: ContextAction[] = [
     { label: "View Details", icon: Eye, onPress: () => router.push(`/m/material-sales/${s.id}`) },
     ...(isPending
-      ? [{ label: "Record Payment", icon: IndianRupee, color: "var(--color-go)", onPress: () => router.push(`/m/material-sales/${s.id}`) }]
+      ? [{ label: "Record Payment", icon: IndianRupee, color: "var(--color-go)", onPress: () => setPayOpen(true) }]
       : []),
     {
       label: "Copy Number",
@@ -440,6 +443,17 @@ function SaleCard({s}: { s: MaterialSaleItem; onAction?: () => void }) {
         accentColor={accentColor}
         rows={overviewRows}
         actions={overviewActions}
+      />
+
+      {/* Inline payment dialog — no redirect to detail page */}
+      <MobileMaterialSalePaymentDialog
+        open={payOpen}
+        onClose={() => setPayOpen(false)}
+        saleId={s.id}
+        saleNumber={s.saleNumber}
+        totalAmount={s.totalAmount}
+        outstandingBalance={Math.max(0, s.totalAmount - s.totalPaid)}
+        onPaid={onAction}
       />
     </>
   );

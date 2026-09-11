@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Check, ChevronDown, Loader2 } from "lucide-react";
 import { useCompanySwitch } from "@/lib/use-company-switch";
 import { toast } from "sonner";
@@ -118,21 +119,11 @@ export function CompanySwitcher({
           {currency} · {role}
         </p>
       </div>
-      {/* Chevron — only when switchable */}
-      {hasMultiple ? (
-        <ChevronDown
-          className="size-4 shrink-0 transition-transform"
-          style={{
-            color: "var(--color-ink-500)",
-            transform: open ? "rotate(180deg)" : "none",
-          }}
-        />
-      ) : null}
     </>
   );
 
   const headerCls =
-    "w-full flex items-center gap-2.5 rounded-[0.625rem] border p-3";
+    "flex items-center gap-2.5 rounded-[0.625rem] border p-3";
   const headerStyle: React.CSSProperties = {
     borderColor: open ? "var(--color-ink-950)" : "var(--color-line)",
     backgroundColor: "var(--color-paper)",
@@ -140,20 +131,34 @@ export function CompanySwitcher({
 
   return (
     <div ref={ref} className="relative">
-      {hasMultiple ? (
-        <button
-          onClick={() => setOpen(!open)}
-          disabled={isSwitching}
-          className={`${headerCls} press disabled:opacity-60`}
+      <div className="flex items-stretch gap-0">
+        {/* Company name — links to the mobile company settings page */}
+        <Link
+          href="/m/settings/company"
+          className={`${headerCls} flex-1 press`}
           style={headerStyle}
         >
           {headerContent}
-        </button>
-      ) : (
-        <div className={headerCls} style={headerStyle}>
-          {headerContent}
-        </div>
-      )}
+        </Link>
+        {/* Chevron — opens the switcher dropdown (only when multiple) */}
+        {hasMultiple ? (
+          <button
+            onClick={() => setOpen(!open)}
+            disabled={isSwitching}
+            className="flex items-center justify-center px-3 rounded-[0.625rem] border border-l-0 press disabled:opacity-60"
+            style={headerStyle}
+            aria-label="Switch company"
+          >
+            <ChevronDown
+              className="size-4 shrink-0 transition-transform"
+              style={{
+                color: "var(--color-ink-500)",
+                transform: open ? "rotate(180deg)" : "none",
+              }}
+            />
+          </button>
+        ) : null}
+      </div>
 
       {/* Dropdown — only when multiple companies */}
       {hasMultiple && open ? (

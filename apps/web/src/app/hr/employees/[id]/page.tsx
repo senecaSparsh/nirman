@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, toNum, getUserRole, getEmployeeAccessScope, canManageSpecificEmployee, getCurrentUser, getCompanyGroupIds, getScopedFormOptions } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM, hasPermission, ROLES, canAssignRole, canAssignCustomRole, type Role } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { EmployeeProfileClient, type EmployeeProfileData } from "@/components/hr/employee-profile-client";
@@ -36,6 +36,7 @@ async function EmployeeProfileContent({
 
   const canManage = hasPermission(role, PERM.HR_MANAGE);
   const canManagePayroll = hasPermission(role, PERM.PAYROLL_MANAGE);
+  const canManageAccess = hasPermission(role, PERM.USERS_MANAGE);
   const canAssignTasks = hasPermission(role, PERM.TASKS_ASSIGN);
   const { id } = await params;
 
@@ -119,6 +120,13 @@ async function EmployeeProfileContent({
     orderBy: { createdAt: "desc" },
   });
 
+  // ── Load custom roles for this company (for role picker + label display) ──
+  const customRoles = await prisma.customRole.findMany({
+    where: { companyId: company.id },
+    select: { key: true, label: true, baseRole: true, tier: true },
+    orderBy: { createdAt: "asc" },
+  }).catch(() => []);
+
   if (!employee) {
     return <NoAccess what="employee" />;
   }
@@ -130,6 +138,7 @@ async function EmployeeProfileContent({
   );
   const effectiveCanManage = canManage && canEditEmployee;
   const effectiveCanManagePayroll = canManagePayroll && canEditEmployee;
+  const effectiveCanManageAccess = canManageAccess && canEditEmployee;
 
   // ── Lazy contract expiry check ──
   // If the employee has a contractEndDate that has passed and the contract
@@ -500,6 +509,32 @@ async function EmployeeProfileContent({
     })),
   };
 
+  // ── Build assignable roles list (built-in + custom) for role picker ──
+  const assignableRoles = [
+    ...(Object.keys(ROLES) as Role[])
+      .filter((r) => r !== "OWNER" && r !== "DEVELOPER")
+      .filter((r) => canAssignRole(role, r))
+      .map((r) => ({ key: r, label: ROLES[r].label })),
+    ...customRoles
+      .filter((cr) => canAssignCustomRole(role, cr.tier))
+      .map((cr) => ({ key: cr.key, label: cr.label })),
+  ];
+
+  // Ensure the target's current role is always in the list so the user can
+  // see what role the person currently has (shown as a checked, disabled chip).
+  const currentRoleKey = employee.user?.role;
+  if (currentRoleKey && !assignableRoles.some((r) => r.key === currentRoleKey)) {
+    const builtIn = ROLES[currentRoleKey as Role];
+    const custom = customRoles.find((cr) => cr.key === currentRoleKey);
+    assignableRoles.push({
+      key: currentRoleKey,
+      label: builtIn?.label ?? custom?.label ?? currentRoleKey.replace(/^CUSTOM_/, "").replace(/_/g, " "),
+    });
+  }
+
+  // ── Build role label lookup (for display in the Login Account card) ──
+  const roleLabelMap = new Map(assignableRoles.map((r) => [r.key, r.label]));
+
   return (
     <EmployeeProfileClient
       employee={data}
@@ -508,8 +543,11 @@ async function EmployeeProfileContent({
       permissions={{
         canManage: effectiveCanManage,
         canManagePayroll: effectiveCanManagePayroll,
+        canManageAccess: effectiveCanManageAccess,
         canAssignTasks,
       }}
+      assignableRoles={assignableRoles}
+      roleLabelMap={roleLabelMap}
     />
   );
 }

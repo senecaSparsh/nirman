@@ -422,6 +422,12 @@ function SupplierEditSheet({
 
   async function save() {
     if (!name.trim()) return toast.error("Name is required");
+    const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/;
+    const gstinVal = gstin.trim().toUpperCase();
+    if (gstinVal && !gstinRegex.test(gstinVal)) {
+      toast.error("Invalid GSTIN format (e.g., 22AAAAA0000A1Z5)");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`/api/suppliers/${supplierId}`, {
@@ -429,7 +435,7 @@ function SupplierEditSheet({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          gstin: gstin.trim() || null,
+          gstin: gstinVal || null,
           phone: phone.trim() || null,
           email: email.trim() || null,
           address: address.trim() || null,
@@ -472,7 +478,7 @@ function SupplierEditSheet({
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
               <div>
                 <label className={labelClass} style={labelStyle}>GSTIN</label>
-                <input value={gstin} onChange={(e) => setGstin(e.target.value)} placeholder="22AAAAA0000A1Z5" className={`${inputClass} font-mono`} style={inputStyle} />
+                <input value={gstin} onChange={(e) => setGstin(e.target.value.toUpperCase())} placeholder="22AAAAA0000A1Z5" className={`${inputClass} font-mono`} style={inputStyle} />
               </div>
               <div className="pl-2">
                 <label className={labelClass} style={labelStyle}>Lead Time (days)</label>

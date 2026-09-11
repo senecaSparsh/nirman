@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Plus, Trash2, Loader2, CheckCircle2,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  ChevronRight,
   Send, WifiOff,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";

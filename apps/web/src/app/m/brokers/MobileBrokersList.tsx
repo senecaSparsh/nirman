@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {Phone, Briefcase, Trash2, Share2, FileText, Percent} from "lucide-react";
 import { useLongPress } from "@/lib/use-long-press";
@@ -52,6 +53,7 @@ export function MobileBrokersList({
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<BrokerListItem | null>(null);
   const fab = useFabModal();
+  const router = useRouter();
 
   const filtered = useMemo(() => {
     if (!query.trim()) return items;
@@ -105,7 +107,7 @@ export function MobileBrokersList({
         <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="New Broker">
           <MobileNewBrokerClient
             onClose={fab.close}
-            onCreated={() => window.location.reload()}
+            onCreated={() => router.refresh()}
           />
         </MobileFabModal>
       ) : null}
@@ -246,6 +248,7 @@ function BrokerEditSheet({
   canDelete?: boolean;
   onClose: () => void;
 }) {
+  const router = useRouter();
   const [name, setName] = useState(broker.name);
   const [phone, setPhone] = useState(broker.phone ?? "");
   const [agency, setAgency] = useState(broker.agency ?? "");
@@ -276,7 +279,7 @@ function BrokerEditSheet({
       haptic([10, 40, 80]);
       toast.success("Broker updated");
       onClose();
-      window.location.reload();
+      router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
@@ -295,7 +298,7 @@ function BrokerEditSheet({
       haptic([10, 40, 80]);
       toast.success("Broker deleted");
       onClose();
-      window.location.reload();
+      router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {

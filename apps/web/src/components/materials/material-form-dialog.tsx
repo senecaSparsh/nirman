@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {Input, Textarea} from "@/components/ui/input";
+import {Input, Textarea, InputWithUnit} from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { CategoryFormDialog } from "@/components/materials/category-form-dialog";
 import { HsnSacSearch } from "@/components/hsn-sac-search";
+import { required, nonNegativeNumber, numberInRange, validateForm } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 import type { MaterialCategory, MaterialRow } from "@/lib/types";
 
 type FormState = {
@@ -111,9 +113,29 @@ export function MaterialFormDialog({
 
   const isEdit = material != null;
 
+  // ── Inline validation ──────────────────────────────────────────
+  // Validates on blur and shows red error text under the field instantly.
+  // Number fields catch text-in-number errors; required fields catch empties.
+  const validationRules: ValidationRules<FormState> = {
+    code: (v) => required(v as string, "Code"),
+    name: (v) => required(v as string, "Name"),
+    unit: (v) => required(v as string, "Unit of Measure"),
+    categoryId: (v) => (v as string) ? undefined : "Please select a category",
+    gstRate: (v) => numberInRange(v as string, 0, 100, "GST Rate"),
+    standardCost: (v) => nonNegativeNumber(v as string, "Standard Cost"),
+    minStock: (v) => nonNegativeNumber(v as string, "Min Stock"),
+    reorderPoint: (v) => nonNegativeNumber(v as string, "Reorder Point"),
+    economicOrderQty: (v) => nonNegativeNumber(v as string, "EOQ"),
+    volumetricDensity: (v) => nonNegativeNumber(v as string, "Volumetric Density"),
+    bulkDiscountPct: (v) => numberInRange(v as string, 0, 100, "Bulk Discount"),
+    uomConversionFactor: (v) => nonNegativeNumber(v as string, "UOM Conversion Factor"),
+  };
+  const { errors, setErrors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<FormState>(validationRules);
+
   // Sync form fields when the edit target changes or the dialog opens fresh.
   useEffect(() => {
     if (!open) return;
+    clearAll();
     setForm(
       material
         ? {
@@ -145,24 +167,15 @@ export function MaterialFormDialog({
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+    clearError(key);
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.code.trim()) {
-      toast.error("Material code is required");
-      return;
-    }
-    if (!form.name.trim()) {
-      toast.error("Material name is required");
-      return;
-    }
-    if (!form.unit.trim()) {
-      toast.error("Unit is required");
-      return;
-    }
-    if (!form.categoryId) {
-      toast.error("Please select a category");
+    const formErrors = validateForm(form, validationRules);
+    if (Object.keys(formErrors).length > 0) {
+      toast.error(Object.values(formErrors)[0]!);
+      setErrors(formErrors);
       return;
     }
     setSaving(true);
@@ -224,11 +237,13 @@ export function MaterialFormDialog({
     >
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Code" required>
+          <Field label="Code" required error={errors.code}>
             <div className="flex gap-2">
               <Input
                 value={form.code}
                 onChange={(e) => set("code", e.target.value)}
+                onBlur={() => onBlur("code", form)}
+                aria-invalid={!!errors.code}
                 placeholder="CEM-OPC53"
                 required
                 disabled={isEdit}
@@ -268,10 +283,12 @@ export function MaterialFormDialog({
               )}
             </div>
           </Field>
-          <Field label="Name" required>
+          <Field label="Name" required error={errors.name}>
             <Input
               value={form.name}
               onChange={(e) => set("name", e.target.value)}
+              onBlur={() => onBlur("name", form)}
+              aria-invalid={!!errors.name}
               placeholder="Cement OPC 53 Grade"
               required
             />
@@ -290,23 +307,41 @@ export function MaterialFormDialog({
               placeholder="IS 1786 / IS 269"
             />
           </Field>
-          <Field label="Category" required>
+          <Field label="Category" required error={errors.categoryId}>
             <SelectWithCreate
               value={form.categoryId ?? ""}
-              onChange={(v) => set("categoryId", v)}
+              onChange={(v) => {
+                set("categoryId", v);
+                // Auto-fill unit + HSN + GST from category defaults
+                const cat = localCategories.find((c) => c.id === v);
+                if (cat) {
+                  if (cat.unit) set("unit", cat.unit);
+                  if (cat.hsnCode) set("hsnCode", cat.hsnCode);
+                  if (cat.gstRate != null) set("gstRate", String(cat.gstRate));
+                }
+              }}
+              onBlur={() => onBlur("categoryId", form)}
+              aria-invalid={!!errors.categoryId}
               required
               placeholder="Select category…"
               createLabel="category"
-              options={localCategories.map((c) => ({ value: c.id, label: c.name }))}
+              options={localCategories.map((c) => ({
+                value: c.id,
+                label: c.hsnCode
+                  ? `${c.name} — HSN ${c.hsnCode}${c.gstRate != null ? ` · ${c.gstRate}% GST` : ""}`
+                  : c.name,
+              }))}
               renderCreateDialog={({ open: o, onCreated, onClose }) => (
-                <CategoryFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalCategories((p) => [...p, { id: e.id, name: e.label ?? "", unit: "NOS" }]); onCreated(e); }} category={null} />
+                <CategoryFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalCategories((p) => [...p, { id: e.id, name: e.label ?? "", unit: e.unit ?? "NOS", hsnCode: e.hsnCode ?? null, gstRate: e.gstRate ?? null }]); onCreated(e); }} category={null} />
               )}
             />
           </Field>
-          <Field label="Unit of Measure" required>
+          <Field label="Unit of Measure" required error={errors.unit}>
             <Input
               value={form.unit}
               onChange={(e) => set("unit", e.target.value)}
+              onBlur={() => onBlur("unit", form)}
+              aria-invalid={!!errors.unit}
               placeholder="BAG / KG / NOS / MTR"
               required
             />
@@ -321,7 +356,7 @@ export function MaterialFormDialog({
               categoryName={localCategories.find((c) => c.id === form.categoryId)?.name}
             />
           </Field>
-          <Field label="GST Rate (%)">
+          <Field label="GST Rate (%)" error={errors.gstRate}>
             <Input
               type="number"
               step="0.01"
@@ -329,9 +364,11 @@ export function MaterialFormDialog({
               max="100"
               value={form.gstRate}
               onChange={(e) => set("gstRate", e.target.value)}
+              onBlur={() => onBlur("gstRate", form)}
+              aria-invalid={!!errors.gstRate}
             />
           </Field>
-          <Field label="Standard Cost (₹)">
+          <Field label="Standard Cost (₹)" error={errors.standardCost}>
             <div className="flex gap-2">
               <Input
                 type="number"
@@ -339,6 +376,8 @@ export function MaterialFormDialog({
                 min="0"
                 value={form.standardCost}
                 onChange={(e) => set("standardCost", e.target.value)}
+                onBlur={() => onBlur("standardCost", form)}
+                aria-invalid={!!errors.standardCost}
                 className="flex-1"
               />
               {material && (
@@ -373,47 +412,58 @@ export function MaterialFormDialog({
               )}
             </div>
           </Field>
-          <Field label="Min Stock (reorder threshold)">
-            <Input
+          <Field label="Min Stock (reorder threshold)" error={errors.minStock}>
+            <InputWithUnit
               type="number"
               step="0.001"
               min="0"
               value={form.minStock}
               onChange={(e) => set("minStock", e.target.value)}
+              onBlur={() => onBlur("minStock", form)}
+              aria-invalid={!!errors.minStock}
+              unit={form.unit}
               placeholder="Leave empty for no alert"
             />
           </Field>
-          <Field label="Reorder Point">
-            <Input
+          <Field label="Reorder Point" error={errors.reorderPoint} hint={form.unit ? `Enter quantity in ${form.unit}` : undefined}>
+            <InputWithUnit
               type="number"
               step="0.001"
               min="0"
               value={form.reorderPoint}
               onChange={(e) => set("reorderPoint", e.target.value)}
-              placeholder="Auto-indent trigger level"
+              onBlur={() => onBlur("reorderPoint", form)}
+              aria-invalid={!!errors.reorderPoint}
+              unit={form.unit}
+              placeholder="50"
             />
           </Field>
-          <Field label="Economic Order Qty (EOQ)">
-            <Input
+          <Field label="Economic Order Qty (EOQ)" error={errors.economicOrderQty}>
+            <InputWithUnit
               type="number"
               step="0.001"
               min="0"
               value={form.economicOrderQty}
               onChange={(e) => set("economicOrderQty", e.target.value)}
+              onBlur={() => onBlur("economicOrderQty", form)}
+              aria-invalid={!!errors.economicOrderQty}
+              unit={form.unit}
               placeholder="Optimal order quantity"
             />
           </Field>
-          <Field label="Volumetric Density (V/W ratio)">
+          <Field label="Volumetric Density (V/W ratio)" error={errors.volumetricDensity}>
             <Input
               type="number"
               step="0.01"
               min="0"
               value={form.volumetricDensity}
               onChange={(e) => set("volumetricDensity", e.target.value)}
+              onBlur={() => onBlur("volumetricDensity", form)}
+              aria-invalid={!!errors.volumetricDensity}
               placeholder="LCI logistics input"
             />
           </Field>
-          <Field label="Bulk Discount (%)">
+          <Field label="Bulk Discount (%)" error={errors.bulkDiscountPct}>
             <Input
               type="number"
               step="0.01"
@@ -421,6 +471,8 @@ export function MaterialFormDialog({
               max="100"
               value={form.bulkDiscountPct}
               onChange={(e) => set("bulkDiscountPct", e.target.value)}
+              onBlur={() => onBlur("bulkDiscountPct", form)}
+              aria-invalid={!!errors.bulkDiscountPct}
               placeholder="Corporate volume discount"
             />
           </Field>
@@ -468,8 +520,8 @@ export function MaterialFormDialog({
             <Field label="Secondary Unit">
               <Input value={form.secondaryUnit} onChange={(e) => set("secondaryUnit", e.target.value)} placeholder="e.g. BAG" />
             </Field>
-            <Field label="1 secondary = N base">
-              <Input type="number" step="0.000001" min="0" value={form.uomConversionFactor} onChange={(e) => set("uomConversionFactor", e.target.value)} placeholder="e.g. 50" />
+            <Field label="1 secondary = N base" error={errors.uomConversionFactor}>
+              <Input type="number" step="0.000001" min="0" value={form.uomConversionFactor} onChange={(e) => set("uomConversionFactor", e.target.value)} onBlur={() => onBlur("uomConversionFactor", form)} aria-invalid={!!errors.uomConversionFactor} placeholder="e.g. 50" />
             </Field>
           </div>
         </div>

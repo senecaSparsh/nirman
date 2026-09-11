@@ -221,7 +221,15 @@ export function MobileNewChangeOrderForm({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create");
-      toast.success("Change order created");
+      if (data.submitted) {
+        toast.success("Change order submitted for approval");
+      } else {
+        toast.warning("Change order saved as draft", {
+          description: data.submitError
+            ? `Auto-submit failed: ${data.submitError}`
+            : "You can submit it for approval from the change order detail page.",
+        });
+      }
       onClose();
       router.refresh();
     } catch (err: unknown) {
@@ -494,7 +502,7 @@ export function MobileNewChangeOrderForm({
         }}
       >
         {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-        {saving ? "Creating…" : "Create"}
+        {saving ? "Creating…" : "Create & Submit"}
       </button>
     </form>
   );

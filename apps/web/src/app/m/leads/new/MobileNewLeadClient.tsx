@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ContactRound, FolderOpen } from "lucide-react";
+import { ArrowLeft, ContactRound, FolderOpen, CheckCircle2, Plus, Eye } from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileProjectSelect } from "@/components/mobile/selectors";
@@ -68,6 +68,7 @@ export function MobileNewLeadClient({
   const router = useRouter();
   const goBack = useMobileBack("/m/leads");
   const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState<{ id: string; name: string } | null>(null);
   const { getDefault, recordDefaults } = useSmartDefaults("lead");
   const [defaultsApplied, setDefaultsApplied] = useState(false);
   const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<typeof form>("lead", "lead-new");
@@ -161,14 +162,7 @@ export function MobileNewLeadClient({
       if (!res.ok) throw new Error(data.error ?? "Failed to add lead");
       haptic([10, 40, 80]);
       clearDraft();
-      toast.success("Lead added to the pipeline");
-      if (onClose) {
-        onCreated?.({ id: data.id });
-        onClose();
-      } else {
-        router.push("/m/leads");
-        router.refresh();
-      }
+      setSuccess({ id: data.id, name: form.name.trim() });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
@@ -181,6 +175,26 @@ export function MobileNewLeadClient({
     backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
+
+  if (success) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+        <div className="grid place-items-center size-14 rounded-full mb-3" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}>
+          <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
+        </div>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>Lead Added</p>
+        <p className="text-m-caption font-mono mb-4" style={{ color: "var(--color-ink-700)" }}>{success.name}</p>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <button onClick={() => { if (onClose) { onCreated?.({ id: success.id }); onClose(); } else { router.push("/m/leads"); router.refresh(); } }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+            <Eye className="size-4 inline mr-1" /> View Leads
+          </button>
+          <button onClick={() => { setSuccess(null); setForm({ name: "", phone: "", email: "", source: "PORTAL", priority: "MEDIUM", projectId: "", interestedUnitId: "", interestedUnitType: "", budgetMin: "", budgetMax: "", assignedToId: "", nextFollowUpAt: "", notes: "" }); router.refresh(); }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
+            <Plus className="size-4 inline mr-1" /> Add Another Lead
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-32">

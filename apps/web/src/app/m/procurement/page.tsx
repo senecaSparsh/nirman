@@ -112,9 +112,9 @@ export default function MobileProcurementPage() {
           }),
           prisma.materialCategory.findMany({
             where: { deletedAt: null },
-            select: { id: true, name: true, unit: true },
+            select: { id: true, name: true, unit: true, hsnCode: true, gstRate: true },
             orderBy: { name: "asc" },
-          }),
+          }).then((rows) => rows.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))),
           prisma.purchaseOrder.findMany({
             where: { status: { in: ["APPROVED", "ORDERED", "RECEIVED"] }, companyId: company.id },
             select: { id: true, poNumber: true, supplierId: true },
@@ -210,6 +210,7 @@ export default function MobileProcurementPage() {
           convertedToPo: !!r.convertedPoId,
           rejectReason: r.rejectReason ?? null,
           requestedByName: r.requestedBy?.name ?? null,
+          requestedById: r.requestedById ?? null,
         }));
 
         const indentExportColumns: MobileColumnSpec[] = [

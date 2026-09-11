@@ -59,7 +59,7 @@ describe("Test infrastructure smoke test", () => {
     const { company } = await createTestFixture();
     await seedTestAccounts(company.id);
 
-    const accounts = await prisma.glAccount.findMany();
+    const accounts = await prisma.glAccount.findMany({ where: { companyId: company.id } });
     // Should have the same number as CHART_OF_ACCOUNTS
     expect(accounts.length).toBeGreaterThan(15); // at least 18 system accounts
 

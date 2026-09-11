@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {Globe, Loader2, Plus} from "lucide-react";
+import {Globe, Loader2, Plus, CheckCircle2, Eye} from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { formatCurrencyCompact } from "@/lib/utils";
@@ -37,6 +37,7 @@ interface FormState {
 export function MobileNewPortalListingClient({ units }: { units: UnitOption[] }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState<{ id: string; title: string } | null>(null);
   const [form, setForm] = useState<FormState>({
     builtUnitId: "",
     portalName: "99acres",
@@ -92,9 +93,7 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create listing");
       haptic([10, 40, 80]);
-      toast.success("Listing created — sync it from the listings page");
-      router.push("/m/portal-listings");
-      router.refresh();
+      setSuccess({ id: data.id, title: form.title.trim() });
     } catch (err) {
       haptic([50, 20, 50]);
       toast.error(err instanceof Error ? err.message : "Something went wrong");
@@ -115,6 +114,27 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
           </MobileCta>
         }
       />
+    );
+  }
+
+  if (success) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+        <div className="grid place-items-center size-14 rounded-full mb-3" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}>
+          <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
+        </div>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>Listing Created</p>
+        <p className="text-m-caption font-mono mb-1" style={{ color: "var(--color-ink-700)" }}>{success.title}</p>
+        <p className="text-m-caption mb-4" style={{ color: "var(--color-ink-500)" }}>Sync it to the portal from the listings page.</p>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <button onClick={() => { router.push("/m/portal-listings"); router.refresh(); }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+            <Eye className="size-4 inline mr-1" /> View Listings
+          </button>
+          <button onClick={() => { setSuccess(null); setForm({ builtUnitId: "", portalName: "99acres", title: "", description: "", askingPrice: "", bedrooms: "", bathrooms: "", furnishing: "" }); setPhotos([]); router.refresh(); }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
+            <Plus className="size-4 inline mr-1" /> Create Another
+          </button>
+        </div>
+      </div>
     );
   }
 

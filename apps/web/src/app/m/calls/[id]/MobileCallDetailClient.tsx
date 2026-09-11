@@ -338,7 +338,7 @@ export function MobileCallDetailClient({
               {formatDateTime(call.startedAt)} · {formatDuration(call.durationSec)}
             </p>
             <div className="flex flex-wrap items-center gap-1.5 mt-2">
-              <Badge tone={tone}>{call.status}</Badge>
+              <Badge tone={tone}>{call.status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}</Badge>
               <span
                 className="text-m-caption font-semibold px-2 py-0.5 rounded-[0.25rem]"
                 style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}

@@ -105,6 +105,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
           qtyOrdered,
           qtyReceived,
           isOverdue,
+          createdById: p.createdById,
         };
       });
       const last = batch[batch.length - 1];
@@ -145,7 +146,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
         take: BATCH_SIZE + 1,
         include: {
           project: { select: { id: true, name: true } },
-          submittedBy: { select: { name: true } },
+          submittedBy: { select: { id: true, name: true } },
         },
       });
       const hasMore = dprs.length > BATCH_SIZE;
@@ -156,6 +157,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
         projectName: d.project.name,
         projectId: d.project.id,
         submittedByName: d.submittedBy?.name ?? null,
+        submittedById: d.submittedBy?.id ?? null,
         approvalStatus: d.approvalStatus,
         progressPct: toNum(d.progressPct),
         workType: d.workType ?? null,
@@ -236,6 +238,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
           customer: { select: { name: true } },
           project: { select: { name: true } },
           lines: { select: { id: true } },
+          payments: { select: { amount: true } },
         },
       });
       const hasMore = sales.length > BATCH_SIZE;
@@ -247,6 +250,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
         paymentStatus: s.paymentStatus,
         saleDate: s.saleDate.toISOString(),
         totalAmount: toNum(s.totalAmount),
+        totalPaid: s.payments.reduce((sum, p) => sum + toNum(p.amount), 0),
         grossProfit: toNum(s.grossProfit),
         scrapSubtotal: toNum(s.scrapSubtotal),
         customerName: s.customer?.name ?? null,
@@ -270,7 +274,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
           project: { select: { name: true } },
           lines: { select: { qtyRequested: true } },
           vendorQuotes: { select: { id: true } },
-          requestedBy: { select: { name: true } },
+          requestedBy: { select: { id: true, name: true } },
         },
       });
       const hasMore = reqs.length > BATCH_SIZE;
@@ -289,6 +293,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
         convertedToPo: !!r.convertedPoId,
         rejectReason: r.rejectReason ?? null,
         requestedByName: r.requestedBy?.name ?? null,
+        requestedById: r.requestedBy?.id ?? null,
       }));
       const last = batch[batch.length - 1];
       const nextCursor = hasMore && last

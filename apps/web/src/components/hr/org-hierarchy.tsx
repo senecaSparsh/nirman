@@ -36,7 +36,7 @@ import type {
   OrgAssignmentGroup,
   OrgTeamNode,
   OrgMemberNode,
-} from "@/app/m/hr/OrgHierarchy";
+} from "@/lib/org-hierarchy-types";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    DESKTOP ORG HIERARCHY — same tree, wider rows, shadcn styling.
@@ -163,7 +163,7 @@ function ReportingTreeD({
           key={person.id}
           person={person}
           isLast={i === roots.length - 1 && !hasLabour}
-          depth={0}
+          depth={1}
           ancestorLast={[]}
           defaultOpen={roots.length <= 2}
         />
@@ -393,21 +393,22 @@ function PersonNodeD({
   const subParts = [person.designation, person.employeeCode].filter(Boolean);
   const sub = subParts.length > 0 ? subParts.join(" · ") : undefined;
 
-  // ── Visual depth: use hierarchyLevel (H1→0, H2→1, …) when available
-  //    so the indentation matches the H-level badge. Fall back to the
-  //    tree-structural depth when hierarchyLevel is not set or when
-  //    we're in the assignment tree (useHierarchyDepth=false). ──
+  // ── Visual depth: map H-level to depth with gaps so sub-levels
+  //    have room. H1→1, H2→3, H3→5, H4→7, etc. This means a child
+  //    of H1 that's also H1 gets depth 2 (between H1 and H2), and
+  //    a custom role can be placed at any intermediate depth.
+  //    Never let it fall below parent_depth + 1. ──
+  const hDepth = person.hierarchyLevel != null ? person.hierarchyLevel * 2 - 1 : depth;
   const visualDepth = useHierarchyDepth && person.hierarchyLevel != null
-    ? person.hierarchyLevel - 1
+    ? Math.max(hDepth, depth)
     : depth;
 
   // ── Pad ancestorLast to match visualDepth. When there's a hierarchy
-  //    gap (e.g. parent H1 → child H3, skipping H2), the intermediate
-  //    connector levels inherit the parent's isLast so the vertical
-  //    lines continue correctly through the gap. ──
-  const lastAncestor = ancestorLast.length > 0 ? ancestorLast[ancestorLast.length - 1] : false;
+  //    gap (e.g. parent H1 → child H4), the intermediate connector
+  //    levels should draw a continuing vertical line, so we pad with
+  //    `false`. ──
   const paddedAncestorLast = ancestorLast.length < visualDepth
-    ? [...ancestorLast, ...Array(visualDepth - ancestorLast.length).fill(lastAncestor)]
+    ? [...ancestorLast, ...Array(visualDepth - ancestorLast.length).fill(false)]
     : ancestorLast.slice(0, visualDepth);
 
   const rightContent = effectiveIsFolder ? (
@@ -437,7 +438,7 @@ function PersonNodeD({
         chevronOpen={open}
         onChevronClick={() => expandable && setOpen((o) => !o)}
         name={person.name}
-        nameHref="/hr/employees"
+        nameHref={person.employeeId ? `/hr/employees/${person.employeeId}` : "/hr/employees"}
         nameOnClick={expandable ? () => setOpen((o) => !o) : undefined}
         nameBold={person.tier <= 2}
         roleTag={person.roleLabel}
@@ -452,9 +453,10 @@ function PersonNodeD({
         sub={sub}
         right={rightContent}
         callHref={person.phone ? `tel:${person.phone}` : undefined}
+        forceFullLine={open && (hasTeams || hasReports)}
       />
 
-      {open && expandable ? <PersonDetailD person={person} depth={visualDepth + 1} ancestorLast={[...paddedAncestorLast, isLast]} /> : null}
+      {open && expandable ? <PersonDetailD person={person} depth={visualDepth + 1} ancestorLast={[...paddedAncestorLast.slice(0, -1), isLast, false]} hasChildrenBelow={hasTeams || hasReports} /> : null}
 
       {open && hasTeams ? (
         <div>
@@ -464,7 +466,7 @@ function PersonNodeD({
               team={team}
               isLast={i === person.teams.length - 1 && !hasReports}
               depth={visualDepth + 1}
-              ancestorLast={[...paddedAncestorLast, isLast]}
+              ancestorLast={[...paddedAncestorLast.slice(0, -1), isLast, false]}
             />
           ))}
         </div>
@@ -474,17 +476,20 @@ function PersonNodeD({
         <div>
           {person.reports.map((report, i) => {
             // ── Compute child's visual depth from its hierarchyLevel ──
-            const childVisualDepth = useHierarchyDepth && report.hierarchyLevel != null
-              ? report.hierarchyLevel - 1
+            const rawChildDepth = useHierarchyDepth && report.hierarchyLevel != null
+              ? report.hierarchyLevel * 2 - 1
               : visualDepth + 1;
-            // ── Pad ancestorLast for the hierarchy gap between this
-            //    node's visualDepth and the child's visualDepth. Each
-            //    intermediate level inherits this node's isLast so
-            //    vertical connector lines continue through the gap. ──
-            const gap = Math.max(0, childVisualDepth - visualDepth);
+            const childVisualDepth = Math.max(rawChildDepth, visualDepth + 1);
+            // ── Build child's ancestorLast: parent's ancestor state
+            //    (excluding parent's elbow), then parent's isLast at
+            //    the parent's level, then gap levels (always draw line),
+            //    then elbow placeholder. ──
+            const gap = Math.max(0, childVisualDepth - visualDepth - 1);
             const childAncestorLast = [
-              ...paddedAncestorLast,
-              ...Array(gap).fill(isLast),
+              ...paddedAncestorLast.slice(0, -1),
+              isLast,
+              ...Array(gap).fill(false),
+              false,
             ];
             return (
               <PersonNodeD
@@ -580,7 +585,7 @@ function MemberNodeD({
       iconClass="bg-subtle"
       chevron={false}
       name={member.name}
-      nameHref="/hr/employees"
+      nameHref={`/hr/employees/${member.id}`}
       nameBold={false}
       sub={sub}
       right={
@@ -596,7 +601,7 @@ function MemberNodeD({
 /* ═══════════════════════════════════════════════════════════════════════════
    PERSON DETAIL (desktop) — mirrors the mobile PersonDetail structure
    ═══════════════════════════════════════════════════════════════════════════ */
-function PersonDetailD({ person, depth, ancestorLast }: { person: OrgPersonNode; depth: number; ancestorLast: boolean[] }) {
+function PersonDetailD({ person, depth, ancestorLast, hasChildrenBelow }: { person: OrgPersonNode; depth: number; ancestorLast: boolean[]; hasChildrenBelow: boolean }) {
   const ts = person.taskSummary;
   const hasTaskSummary = ts && (ts.pending + ts.inProgress + ts.completed + ts.overdue + ts.dueToday > 0);
   const att = person.attendance;
@@ -612,6 +617,16 @@ function PersonDetailD({ person, depth, ancestorLast }: { person: OrgPersonNode;
         const ancestorWasLast = ancestorLast[i] ?? false;
         if (!isElbowLevel && ancestorWasLast) {
           return <div key={i} className="shrink-0" style={{ width: INDENT_PX }} />;
+        }
+        if (isElbowLevel) {
+          return (
+            <div key={i} className="relative shrink-0" style={{ width: INDENT_PX }}>
+              <div
+                className="absolute left-1/2 -translate-x-1/2"
+                style={{ top: 0, width: 1, height: hasChildrenBelow ? undefined : "50%", bottom: hasChildrenBelow ? 0 : undefined, backgroundColor: "var(--color-border, hsl(var(--border)))" }}
+              />
+            </div>
+          );
         }
         return (
           <div key={i} className="relative shrink-0" style={{ width: INDENT_PX }}>
@@ -839,6 +854,7 @@ function TreeRowD({
   sub,
   right,
   callHref,
+  forceFullLine,
 }: {
   depth: number;
   isLast: boolean;
@@ -860,6 +876,7 @@ function TreeRowD({
   sub?: string;
   right?: React.ReactNode;
   callHref?: string;
+  forceFullLine?: boolean;
 }) {
   const rowH = 32;
 
@@ -871,7 +888,18 @@ function TreeRowD({
         const ancestorWasLast = ancestorLast[i] ?? false;
 
         if (!isElbowLevel && ancestorWasLast) {
-          return <div key={i} className="relative shrink-0" style={{ width: INDENT_PX, height: rowH }} />;
+          // Ancestor was the last child — no more siblings below, so
+          // don't continue the vertical line downward. But still draw
+          // a half-height line from the top to the middle so this row
+          // connects to its parent above.
+          return (
+            <div key={i} className="relative shrink-0" style={{ width: INDENT_PX, height: rowH }}>
+              <div
+                className="absolute left-1/2 -translate-x-1/2"
+                style={{ top: 0, width: 1, height: rowH / 2, backgroundColor: "var(--color-border, hsl(var(--border)))" }}
+              />
+            </div>
+          );
         }
 
         return (
@@ -883,19 +911,21 @@ function TreeRowD({
                   style={{
                     top: 0,
                     width: 1,
-                    height: isLast ? rowH / 2 : rowH,
+                    height: (isLast && !forceFullLine) ? rowH / 2 : rowH,
                     backgroundColor: "var(--color-border, hsl(var(--border)))",
                   }}
                 />
-                <div
-                  className="absolute top-1/2 -translate-y-1/2"
-                  style={{
-                    left: "50%",
-                    width: INDENT_PX / 2,
-                    height: 1,
-                    backgroundColor: "var(--color-border, hsl(var(--border)))",
-                  }}
-                />
+                {i > 0 ? (
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2"
+                    style={{
+                      left: -INDENT_PX / 2,
+                      width: INDENT_PX,
+                      height: 1,
+                      backgroundColor: "var(--color-border, hsl(var(--border)))",
+                    }}
+                  />
+                ) : null}
               </>
             ) : (
               <div

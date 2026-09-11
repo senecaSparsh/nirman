@@ -28,7 +28,7 @@ const actionSchema = z.object({
 
 // GET /api/quality-control/ncr/[id]
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requirePermission(PERM.QC_VIEW);
   const company = await getCompany();
   const { id } = await ctx.params;
   const existing = await prisma.nonConformanceReport.findFirst({
@@ -42,7 +42,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 
 // PATCH /api/quality-control/ncr/[id]
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.WO_MANAGE);
+  const user = await requirePermission(PERM.QC_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
   const body = await req.json();
@@ -62,17 +62,21 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
         case "review":
           if (!parsed.data.outcome || !parsed.data.reviewNotes) return json({ error: "outcome and reviewNotes required" }, { status: 400 });
           revalidatePath("/quality-control");
+          revalidatePath("/m/quality-control");
           return json(await reviewNcr(id, { outcome: parsed.data.outcome, reviewNotes: parsed.data.reviewNotes, userId: user.id }));
         case "close":
           if (!parsed.data.closureNotes) return json({ error: "closureNotes required" }, { status: 400 });
           revalidatePath("/quality-control");
+          revalidatePath("/m/quality-control");
           return json(await closeNcr(id, user.id, parsed.data.closureNotes));
         case "cancel":
           revalidatePath("/quality-control");
+          revalidatePath("/m/quality-control");
           return json(await cancelNcr(id, user.id));
         case "delete":
           await deleteNcr(id, user.id);
           revalidatePath("/quality-control");
+          revalidatePath("/m/quality-control");
           return json({ ok: true });
       }
     } catch (err: unknown) {
@@ -85,6 +89,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   try {
     revalidatePath("/quality-control");
+          revalidatePath("/m/quality-control");
     return json(await updateNcr(id, {
       title: parsed.data.title,
       description: parsed.data.description,
@@ -104,7 +109,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
 
 // DELETE /api/quality-control/ncr/[id]
 export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.WO_MANAGE);
+  const user = await requirePermission(PERM.QC_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
   const existing = await prisma.nonConformanceReport.findFirst({
@@ -115,6 +120,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   try {
     await deleteNcr(id, user.id);
     revalidatePath("/quality-control");
+          revalidatePath("/m/quality-control");
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });

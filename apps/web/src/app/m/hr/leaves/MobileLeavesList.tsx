@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { CalendarOff } from "lucide-react";
+import Link from "next/link";
 import { formatDate } from "@/lib/utils";
-import { MobileStatusBadge, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -73,13 +73,7 @@ export function MobileLeavesList({
   }, [items, query, filter]);
 
   if (items.length === 0) {
-    return (
-      <MobileEmptyState
-        icon={CalendarOff}
-        title="No leave requests"
-        hint="Leave requests will appear here"
-      />
-    );
+    return null;
   }
 
   return (
@@ -143,13 +137,13 @@ function LeaveCard({ leave: l }: { leave: LeaveListItem }) {
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <div className="flex items-center justify-between mb-1">
-        <p
+        <Link
+          href={`/m/hr/employees/${l.employeeId}`}
           className="text-m-section font-bold leading-tight truncate"
-          style={{ color: "var(--color-ink-950)", cursor: "pointer" }}
-          data-emp-id={l.employeeId}
+          style={{ color: "var(--color-ink-950)" }}
         >
           {l.employeeName}
-        </p>
+        </Link>
         <MobileStatusBadge status={l.status} />
       </div>
       <p className="text-m-caption truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>

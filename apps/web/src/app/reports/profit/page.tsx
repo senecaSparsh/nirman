@@ -42,7 +42,7 @@ async function ProfitReportContent() {
       status: "POSTED",
       entryDate: { gte: from },
     },
-    include: { lines: true },
+    include: { lines: { include: { account: { select: { code: true } } } } },
     orderBy: { entryDate: "asc" },
   });
 
@@ -71,10 +71,10 @@ async function ProfitReportContent() {
       const debit = toNum(line.debit);
       const credit = toNum(line.credit);
       // Revenue is credited; expenses are debited
-      if (line.accountCode === SALES_REVENUE) row.revenue += credit;
-      else if (line.accountCode === COGS) row.cogs += debit;
-      else if (line.accountCode === OPERATING_EXPENSE) row.operating += debit;
-      else if (line.accountCode === SALARIES_EXPENSE) row.salaries += debit;
+      if (line.account.code === SALES_REVENUE) row.revenue += credit;
+      else if (line.account.code === COGS) row.cogs += debit;
+      else if (line.account.code === OPERATING_EXPENSE) row.operating += debit;
+      else if (line.account.code === SALARIES_EXPENSE) row.salaries += debit;
     }
   }
 

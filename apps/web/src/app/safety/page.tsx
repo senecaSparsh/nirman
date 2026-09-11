@@ -5,6 +5,7 @@ import { getCompany, getUserRole, scopeWhere, projectScopeFilter } from "@/lib/s
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 import { PageHeader } from "@/components/page-header";
 import { SafetyView } from "@/components/safety/safety-view";
 
@@ -86,6 +87,7 @@ async function SafetyContent() {
           { label: "Critical Hazards", value: serializedHazards.filter((h) => h.riskLevel === "CRITICAL" && h.status !== "RESOLVED").length, hint: "Unresolved hazards rated CRITICAL — require immediate attention." },
         ]}
       />
+      <DepartmentActivityFeed department="safety" />
       <SafetyView
         incidents={serializedIncidents}
         hazards={serializedHazards}

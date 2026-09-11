@@ -49,7 +49,7 @@ export async function GatePassesContent() {
     }),
     prisma.material.findMany({
       take: 200,
-      where: { deletedAt: null },
+      where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, code: true, name: true, grade: true, specification: true, unit: true, isLotTracked: true, isScrap: true, baseUnit: true, secondaryUnit: true, uomConversionFactor: true },
     }),

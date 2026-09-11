@@ -412,7 +412,7 @@ export async function createRaBill(input: CreateRaBillInput) {
     // Compute cumulative gross (all previous RA bills + this one)
     const prevBills = await tx.raBill.aggregate({
       where: { workOrderId: input.workOrderId, status: { in: ["APPROVED", "PAID"] } },
-      _sum: { grossAmount: true },
+      _sum: { grossAmount: true, advanceRecovery: true },
     });
     const cumulativeGross = new Decimal(prevBills._sum.grossAmount ?? 0).plus(grossAmount);
 
@@ -423,14 +423,18 @@ export async function createRaBill(input: CreateRaBillInput) {
     const tdsPct = new Decimal(wo.tdsPct);
     const tdsAmount = grossAmount.times(tdsPct).div(100).toDecimalPlaces(2);
 
-    // Advance recovery: recover advanceRecoveryPct of grossAmount, but only if there's advance left
+    // Advance recovery: recover advanceRecoveryPct of grossAmount, capped at the
+    // remaining outstanding advance. The outstanding advance = total advance paid
+    // minus the sum of advance recoveries from all previous RA bills.
+    // (NOT totalPaid — that includes RA bill net payables and retention releases,
+    // which are unrelated to advance recovery.)
     const advanceRecoveryPct = new Decimal(wo.advanceRecoveryPct);
-    const advanceRecovery = wo.advanceAmount.gt(0)
+    const totalAdvanceRecovered = new Decimal(prevBills._sum.advanceRecovery ?? 0);
+    const outstandingAdvance = new Decimal(wo.advanceAmount).minus(totalAdvanceRecovered);
+    const advanceRecovery = wo.advanceAmount.gt(0) && outstandingAdvance.gt(0)
       ? Decimal.min(
           grossAmount.times(advanceRecoveryPct).div(100).toDecimalPlaces(2),
-          new Decimal(wo.advanceAmount).minus(wo.totalPaid).gt(0)
-            ? new Decimal(wo.advanceAmount).minus(wo.totalPaid)
-            : new Decimal(0),
+          outstandingAdvance,
         )
       : new Decimal(0);
 
@@ -462,6 +466,7 @@ export async function createRaBill(input: CreateRaBillInput) {
         otherDeductions: otherDeductions.toString(),
         netPayable: netPayable.toString(),
         notes: input.notes ?? null,
+        createdById: input.userId ?? null,
         lines: {
           create: lines.map((l) => ({
             boqItemId: l.boqItemId,
@@ -521,6 +526,13 @@ export async function approveRaBill(id: string, approvedById: string) {
     if (!bill) throw new ServiceError("RA bill not found", 404);
     if (bill.status !== "SUBMITTED") {
       throw new ServiceError(`Cannot approve RA bill in status ${bill.status} (must be SUBMITTED)`, 400);
+    }
+    // Prevent self-approval — the creator/submitter cannot approve their own RA bill.
+    if (bill.createdById && bill.createdById === approvedById) {
+      throw new ServiceError("You cannot approve an RA bill you created. Ask another approver to review it.", 403);
+    }
+    if (bill.submittedById && bill.submittedById === approvedById) {
+      throw new ServiceError("You cannot approve an RA bill you submitted. Ask another approver to review it.", 403);
     }
 
     const updated = await tx.raBill.update({
@@ -608,13 +620,13 @@ export async function submitRaBill(id: string, userId?: string) {
   return withSerializableTransaction(async (tx) => {
     const bill = await tx.raBill.findUnique({ where: { id } });
     if (!bill) throw new ServiceError("RA bill not found", 404);
-    if (bill.status !== "DRAFT") {
+    if (bill.status !== "DRAFT" && bill.status !== "REJECTED") {
       throw new ServiceError(`Cannot submit RA bill in status ${bill.status}`, 400);
     }
 
     const updated = await tx.raBill.update({
       where: { id },
-      data: { status: "SUBMITTED" },
+      data: { status: "SUBMITTED", submittedById: userId ?? null, submittedAt: new Date() },
     });
 
     if (userId) {
@@ -641,6 +653,13 @@ export async function rejectRaBill(id: string, rejectReason: string, userId?: st
     if (bill.status === "APPROVED" || bill.status === "PAID") {
       throw new ServiceError(`Cannot reject RA bill in status ${bill.status}`, 400);
     }
+    // Prevent self-rejection — the creator/submitter cannot reject their own RA bill.
+    if (userId && bill.createdById && userId === bill.createdById) {
+      throw new ServiceError("You cannot reject an RA bill you created.", 403);
+    }
+    if (userId && bill.submittedById && userId === bill.submittedById) {
+      throw new ServiceError("You cannot reject an RA bill you submitted.", 403);
+    }
 
     // Unlink all MB entries from this bill's lines so they can be re-billed
     const lineIds = bill.lines.map((l) => l.id);
@@ -653,7 +672,7 @@ export async function rejectRaBill(id: string, rejectReason: string, userId?: st
 
     const updated = await tx.raBill.update({
       where: { id },
-      data: { status: "REJECTED", rejectReason },
+      data: { status: "REJECTED", rejectReason, rejectedById: userId ?? null, rejectedAt: new Date() },
     });
 
     if (userId) {
@@ -770,6 +789,11 @@ export async function payRaBill(
       throw new ServiceError(`Cannot pay RA bill in status ${bill.status} (must be APPROVED)`, 400);
     }
 
+    // Prevent self-pay: the creator or submitter cannot pay their own RA bill.
+    if (paidById && (paidById === bill.createdById || (bill.submittedById && paidById === bill.submittedById))) {
+      throw new ServiceError("You cannot pay an RA bill you created or submitted — ask another authorized user", 403);
+    }
+
     const netPayable = new Decimal(bill.netPayable);
     if (netPayable.lte(0)) {
       throw new ServiceError("Net payable must be > 0", 400);
@@ -782,6 +806,8 @@ export async function payRaBill(
       where: { id },
       data: {
         status: "PAID",
+        paidById: paidById ?? null,
+        paidAt: new Date(),
         notes: [bill.notes, `Paid via ${mode}${paymentReference ? ` (ref: ${paymentReference})` : ""}`].filter(Boolean).join("\n"),
       },
     });

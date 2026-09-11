@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Input, Select } from "@/components/ui/input";
+import { Field } from "@/components/field";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import { required, nonNegativeNumber } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 import type { ProjectOption } from "@/lib/types";
 
 type PhaseStatus = "PLANNED" | "ACTIVE" | "COMPLETED" | "ON_HOLD";
@@ -67,8 +70,23 @@ export function PhaseFormDialog({
     sortOrder: initial?.sortOrder ?? 0,
   });
 
+  // ── Inline validation ──────────────────────────────────────────
+  // Validates on blur and shows red error text under the field instantly.
+  const validationRules: ValidationRules<PhaseFormValues> = {
+    name: (v) => required(v as string, "Phase Name"),
+    budget: (v) => nonNegativeNumber((v ?? "") as string | number, "Phase Budget"),
+  };
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<PhaseFormValues>(validationRules);
+
+  // Reset validation errors when the dialog opens fresh.
+  useEffect(() => {
+    if (!open) return;
+    clearAll();
+  }, [open]);
+
   function set<K extends keyof PhaseFormValues>(key: K, value: PhaseFormValues[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+    clearError(key);
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -77,8 +95,8 @@ export function PhaseFormDialog({
       toast.error("Select a project");
       return;
     }
-    if (!form.name.trim()) {
-      toast.error("Phase name is required");
+    if (!validateAll(form)) {
+      toast.error("Please fix the errors in the form");
       return;
     }
     setSaving(true);
@@ -113,8 +131,7 @@ export function PhaseFormDialog({
     >
       <form onSubmit={onSubmit} className="space-y-3">
         {projects && (
-          <div className="space-y-1.5">
-            <Label>Project *</Label>
+          <Field label="Project" required>
             <SelectWithCreate
               value={selectedProjectId}
               onChange={setSelectedProjectId}
@@ -133,15 +150,21 @@ export function PhaseFormDialog({
                 />
               )}
             />
-          </div>
+          </Field>
         )}
-        <div className="space-y-1.5">
-          <Label htmlFor="ph-name">Phase Name *</Label>
-          <Input id="ph-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Tower A" required />
-        </div>
+        <Field label="Phase Name" required error={errors.name}>
+          <Input
+            id="ph-name"
+            value={form.name}
+            onChange={(e) => set("name", e.target.value)}
+            onBlur={() => onBlur("name", form)}
+            aria-invalid={!!errors.name}
+            placeholder="e.g. Tower A"
+            required
+          />
+        </Field>
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="ph-status">Status</Label>
+          <Field label="Status">
             <Select id="ph-status" value={form.status} onChange={(e) => set("status", e.target.value as PhaseStatus)}>
               {(Object.keys(STATUS_LABELS) as PhaseStatus[]).map((s) => (
                 <option key={s} value={s}>
@@ -149,9 +172,8 @@ export function PhaseFormDialog({
                 </option>
               ))}
             </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="ph-sort">Sort Order</Label>
+          </Field>
+          <Field label="Sort Order">
             <Input
               id="ph-sort"
               type="number"
@@ -159,29 +181,28 @@ export function PhaseFormDialog({
               value={form.sortOrder}
               onChange={(e) => set("sortOrder", Number(e.target.value))}
             />
-          </div>
+          </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="ph-start">Start Date</Label>
+          <Field label="Start Date">
             <Input id="ph-start" type="date" value={form.startDate ?? ""} onChange={(e) => set("startDate", e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="ph-end">End Date</Label>
+          </Field>
+          <Field label="End Date">
             <Input id="ph-end" type="date" value={form.endDate ?? ""} onChange={(e) => set("endDate", e.target.value)} />
-          </div>
+          </Field>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="ph-budget">Phase Budget (₹)</Label>
+        <Field label="Phase Budget (₹)" error={errors.budget}>
           <Input
             id="ph-budget"
             type="number"
             min={0}
             value={form.budget ?? ""}
             onChange={(e) => set("budget", e.target.value === "" ? undefined : Number(e.target.value))}
+            onBlur={() => onBlur("budget", form)}
+            aria-invalid={!!errors.budget}
             placeholder="0"
           />
-        </div>
+        </Field>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel

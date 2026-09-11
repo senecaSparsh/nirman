@@ -16,8 +16,6 @@ import { PageHeader } from "@/components/page-header";
 import {
   Phone,
   Plus,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  ShieldCheck,
   AlertCircle,
   Loader2,
   Trash2,
@@ -25,8 +23,6 @@ import {
   Server,
   FileText,
   CheckCircle2,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Cloud,
   Users,
 } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";

@@ -8,8 +8,7 @@ import {
   User, Phone, Mail, Briefcase, IndianRupee, Calendar, Clock,
   Pencil, Loader2, Trash2, Wallet, ListChecks, FileText,
   CalendarOff, UsersRound, MapPin, UserCircle, MessageSquare,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  IdCard, Building2, Activity, FolderOpen,
+  IdCard, Building2, FolderOpen,
   CheckCircle2, ChevronRight, ArrowUp, ArrowDown, Check, Plus,
   AlertCircle, ShieldCheck, XCircle, KeyRound, Shield, Paperclip,
   Package,
@@ -18,8 +17,6 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import {
   MobileSectionTitle,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  MobileRow,
   MobileEmptyState,
   MobileStatusBadge,
 } from "@/components/mobile/v2/primitives";
@@ -27,6 +24,7 @@ import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { DetailStatGrid } from "@/components/mobile/v2/detail-primitives";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileProjectSelect, MobileStockLocationSelect, MobileEmployeeSelect } from "@/components/mobile/selectors";
 import { toast } from "sonner";
 import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 import { CreateAccountDialog } from "@/components/hr/create-account-dialog";
@@ -43,9 +41,6 @@ const WAGE_TYPE_LABELS: Record<WageType, string> = {
   MONTHLY: "Monthly Salary",
   FIXED: "Fixed Contract",
 };
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const HIERARCHY_LABELS = ["Management", "Manager", "Engineer", "Supervisor", "Skilled", "Labor"];
 
 const ATTENDANCE_LABELS: Record<string, string> = {
   PRESENT: "Present", ABSENT: "Absent", HALF_DAY: "Half Day", OVERTIME: "Overtime",
@@ -1242,7 +1237,7 @@ export function MobileEmployeeDetailClient({
                       {a.hoursWorked != null && (
                         <span className="text-m-caption tnum" style={{ color: "var(--color-ink-500)" }}>{a.hoursWorked.toFixed(1)}h</span>
                       )}
-                      <MobileStatusBadge status={a.status} label={ATTENDANCE_LABELS[a.status] ?? a.status} />
+                      <MobileStatusBadge status={a.status} label={ATTENDANCE_LABELS[a.status] ?? a.status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())} />
                     </div>
                   </div>
                 ))}
@@ -1406,7 +1401,7 @@ export function MobileEmployeeDetailClient({
                         <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>by {t.assignedByName}</p>
                       )}
                     </div>
-                    <MobileStatusBadge status={t.status} label={TASK_LABELS[t.status] ?? t.status} />
+                    <MobileStatusBadge status={t.status} label={TASK_LABELS[t.status] ?? t.status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())} />
                   </div>
                 ))}
               </div>
@@ -1494,7 +1489,7 @@ export function MobileEmployeeDetailClient({
                       <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>{l.reason}</p>
                     )}
                     <div className="mt-1">
-                      <MobileStatusBadge status={l.status} label={LEAVE_LABELS[l.status] ?? l.status} />
+                      <MobileStatusBadge status={l.status} label={LEAVE_LABELS[l.status] ?? l.status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())} />
                     </div>
                   </div>
                 ))}
@@ -1772,7 +1767,7 @@ function PayrollHistoryRow({ p, canManagePayroll, _employeeId }: { p: PayrollIte
           <span className="text-m-body font-bold tnum" style={{ color: "var(--color-ink-950)" }}>
             {formatCurrency(p.netPay)}
           </span>
-          <MobileStatusBadge status={p.status} label={PAYROLL_LABELS[p.status] ?? p.status} />
+          <MobileStatusBadge status={p.status} label={PAYROLL_LABELS[p.status] ?? p.status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())} />
         </div>
       </div>
 
@@ -1813,18 +1808,18 @@ function PayrollHistoryRow({ p, canManagePayroll, _employeeId }: { p: PayrollIte
             className="w-full h-7 px-2 text-m-caption outline-none border rounded-[0.25rem]"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
-          <select
+          <EnumSelect
+            label="Payment Mode"
             value={paymentMode}
-            onChange={(e) => setPaymentMode(e.target.value)}
-            className="w-full h-7 px-2 text-m-caption outline-none border rounded-[0.25rem]"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-          >
-            <option value="BANK">Bank Transfer</option>
-            <option value="CASH">Cash</option>
-            <option value="UPI">UPI</option>
-            <option value="CHEQUE">Cheque</option>
-            <option value="NEFT">NEFT/RTGS</option>
-          </select>
+            onChange={setPaymentMode}
+            options={[
+              { value: "BANK", label: "Bank Transfer" },
+              { value: "CASH", label: "Cash" },
+              { value: "UPI", label: "UPI" },
+              { value: "CHEQUE", label: "Cheque" },
+              { value: "NEFT", label: "NEFT/RTGS" },
+            ]}
+          />
           {/* Payment proof upload */}
           <label
             className="w-full h-7 rounded-[0.25rem] border flex items-center gap-1.5 px-2 text-m-caption press cursor-pointer"
@@ -2449,7 +2444,7 @@ function EmployeeEditSheet({
             </div>
 
             <div>
-              <MobileSelectWithCreate
+              <MobileProjectSelect
                 label="Active Project"
                 value={activeProjectId}
                 onChange={setActiveProjectId}
@@ -2471,7 +2466,7 @@ function EmployeeEditSheet({
             </div>
 
             <div>
-              <MobileSelectWithCreate
+              <MobileStockLocationSelect
                 label="Attendance Site"
                 value={reportingLocationId}
                 onChange={setReportingLocationId}
@@ -2481,7 +2476,7 @@ function EmployeeEditSheet({
             </div>
 
             <div>
-              <MobileSelectWithCreate
+              <MobileEmployeeSelect
                 label="Reports To"
                 value={reportsToEmployeeId}
                 onChange={setReportsToEmployeeId}
@@ -2490,6 +2485,8 @@ function EmployeeEditSheet({
                   label: `${m.name}${m.designation || m.trade ? ` · ${m.designation ?? m.trade}` : ""}`,
                 }))}
                 placeholder="— None — top of chain"
+                projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+                stockLocations={stockLocations.map((l) => ({ id: l.id, name: l.name, type: "COMPANY_WAREHOUSE" as const }))}
               />
             </div>
           </div>

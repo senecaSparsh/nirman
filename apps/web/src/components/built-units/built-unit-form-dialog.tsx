@@ -9,7 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import { required, positiveNumber, nonNegativeNumber } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 import type { AreaUnit, BuiltUnitType, PhaseOption, ProjectOption } from "@/lib/types";
+
+type FormState = { projectId: string } & Record<string, string>;
 
 const UNIT_TYPES: BuiltUnitType[] = [
   "BHK_1", "BHK_2", "BHK_3", "BHK_4", "SHOP", "OFFICE", "WAREHOUSE_UNIT", "VILLA", "OTHER",
@@ -175,6 +179,9 @@ export function BuiltUnitFormDialog({
         return next;
       }),
     );
+    if (key === "unitNumber") clearError(`unitNumber_${idx}`);
+    if (key === "area") clearError(`area_${idx}`);
+    if (key === "askingPrice") clearError(`askingPrice_${idx}`);
   }
 
   // Detect duplicate unit numbers within the batch (client-side UX)
@@ -188,6 +195,23 @@ export function BuiltUnitFormDialog({
   }, [rows]);
 
   const hasDuplicates = duplicateNumbers.size > 0;
+
+  const validationRules: ValidationRules<FormState> = {
+    projectId: (v) => required(v as string, "Project"),
+  };
+  rows.forEach((row, i) => {
+    validationRules[`unitNumber_${i}`] = (v) => required(v as string, `Unit No. (row ${i + 1})`);
+    validationRules[`area_${i}`] = (v) => positiveNumber(v as string, `Area (row ${i + 1})`);
+    validationRules[`askingPrice_${i}`] = (v) => nonNegativeNumber(v as string, `Asking Price (row ${i + 1})`);
+  });
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<FormState>(validationRules);
+
+  const formObj: FormState = { projectId };
+  rows.forEach((r, i) => {
+    formObj[`unitNumber_${i}`] = r.unitNumber;
+    formObj[`area_${i}`] = r.area;
+    formObj[`askingPrice_${i}`] = r.askingPrice;
+  });
 
   function generateSequential() {
     const start = parseInt(genStart) || 1;

@@ -1,14 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { required, nonNegativeNumber } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 
 const CATEGORIES = ["Heavy Machinery", "Power Tool", "Vehicle", "Scaffolding", "Other"];
+
+type FormState = {
+  assetTag: string;
+  name: string;
+  model: string;
+  serialNumber: string;
+  category: string;
+  acquisitionCost: string;
+  purchaseDate: string;
+  notes: string;
+};
 
 export function EquipmentFormDialog({
   open,
@@ -21,7 +34,7 @@ export function EquipmentFormDialog({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<FormState>({
     assetTag: "",
     name: "",
     model: "",
@@ -32,25 +45,29 @@ export function EquipmentFormDialog({
     notes: "",
   });
 
+  const validationRules: ValidationRules<FormState> = {
+    assetTag: (v) => required(v as string, "Asset Tag"),
+    name: (v) => required(v as string, "Name"),
+    acquisitionCost: (v) => required(v as string, "Acquisition Cost") ?? nonNegativeNumber(v as string, "Acquisition Cost"),
+  };
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<FormState>(validationRules);
+
+  useEffect(() => {
+    if (open) clearAll();
+  }, [open]);
+
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+    clearError(key);
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.assetTag.trim()) {
-      toast.error("Asset tag is required");
-      return;
-    }
-    if (!form.name.trim()) {
-      toast.error("Name is required");
+    if (!validateAll(form)) {
+      toast.error("Please fix the errors in the form");
       return;
     }
     const cost = Number(form.acquisitionCost);
-    if (form.acquisitionCost === "" || Number.isNaN(cost) || cost < 0) {
-      toast.error("Acquisition cost must be a number >= 0");
-      return;
-    }
     setSaving(true);
     try {
       const payload = {
@@ -86,6 +103,7 @@ export function EquipmentFormDialog({
         assetTag: "", name: "", model: "", serialNumber: "", category: "",
         acquisitionCost: "", purchaseDate: "", notes: "",
       });
+      clearAll();
       if (onCreated) {
         onCreated({ id: data.id, label: form.name.trim() });
       } else {
@@ -107,24 +125,30 @@ export function EquipmentFormDialog({
     >
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="space-y-1.5">
-          <Label htmlFor="eq-assetTag">Asset Tag *</Label>
+          <Label htmlFor="eq-assetTag" className={errors.assetTag ? "text-danger" : undefined}>Asset Tag *</Label>
           <Input
             id="eq-assetTag"
             value={form.assetTag}
             onChange={(e) => set("assetTag", e.target.value)}
+            onBlur={() => onBlur("assetTag", form)}
+            aria-invalid={!!errors.assetTag}
             placeholder="e.g. EXC-001"
             required
           />
+          {errors.assetTag && <p className="text-caption text-danger" role="alert">{errors.assetTag}</p>}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="eq-name">Name *</Label>
+          <Label htmlFor="eq-name" className={errors.name ? "text-danger" : undefined}>Name *</Label>
           <Input
             id="eq-name"
             value={form.name}
             onChange={(e) => set("name", e.target.value)}
+            onBlur={() => onBlur("name", form)}
+            aria-invalid={!!errors.name}
             placeholder="e.g. JCB 3DX Excavator"
             required
           />
+          {errors.name && <p className="text-caption text-danger" role="alert">{errors.name}</p>}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
@@ -159,7 +183,7 @@ export function EquipmentFormDialog({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="eq-cost">Acquisition Cost *</Label>
+            <Label htmlFor="eq-cost" className={errors.acquisitionCost ? "text-danger" : undefined}>Acquisition Cost *</Label>
             <Input
               id="eq-cost"
               type="number"
@@ -167,9 +191,12 @@ export function EquipmentFormDialog({
               step="0.01"
               value={form.acquisitionCost}
               onChange={(e) => set("acquisitionCost", e.target.value)}
+              onBlur={() => onBlur("acquisitionCost", form)}
+              aria-invalid={!!errors.acquisitionCost}
               placeholder="0"
               required
             />
+            {errors.acquisitionCost && <p className="text-caption text-danger" role="alert">{errors.acquisitionCost}</p>}
           </div>
         </div>
         <div className="space-y-1.5">

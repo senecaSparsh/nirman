@@ -135,7 +135,7 @@ export function MobileExpenseClaimDetailClient({
         description="This expense claim may have been deleted or does not exist."
         action={
           <Link
-            href="/m/accounts?tab=claims"
+            href="/m/expense-claims"
             className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-body font-medium text-brand-foreground"
           >
             <ArrowLeft className="size-4" /> Back to claims
@@ -163,7 +163,7 @@ export function MobileExpenseClaimDetailClient({
       if (!res.ok) throw new Error(data.error ?? `Failed to ${action}`);
       toast.success(
         action === "submit"
-          ? "Claim submitted"
+          ? status === "REJECTED" ? "Claim resubmitted" : "Claim submitted"
           : action === "approve"
             ? "Claim approved"
             : action === "reject"
@@ -252,7 +252,7 @@ export function MobileExpenseClaimDetailClient({
     }
   }
 
-  const canSubmit = status === "DRAFT" && canCreate;
+  const canSubmit = (status === "DRAFT" || status === "REJECTED") && canCreate;
   const canApproveAction = status === "SUBMITTED" && canApprove;
   const canRejectAction = status === "SUBMITTED" && canApprove;
   const canPayAction = status === "APPROVED" && canManage;
@@ -679,7 +679,7 @@ export function MobileExpenseClaimDetailClient({
                 onClick={() => doAction("submit")}
               >
                 {actionLoading === "submit" ? <Loader2 className="size-4 animate-spin" /> : <Clock className="size-4" />}
-                Submit
+                {status === "REJECTED" ? "Resubmit" : "Submit"}
               </button>
             )}
             {canApproveAction && (

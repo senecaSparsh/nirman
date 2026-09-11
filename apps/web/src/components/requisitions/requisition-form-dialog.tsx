@@ -183,7 +183,11 @@ export function RequisitionFormDialog({
           action: { label: "View Queue", onClick: () => router.push("/approvals") },
         });
       } else {
-        toast.success(`Indent ${data.reqNumber} created`);
+        toast.warning(`Indent ${data.reqNumber} saved as draft`, {
+          description: data.submitError
+            ? `Auto-submit failed: ${data.submitError}. You can submit it manually from the indent list.`
+            : "You can submit it for approval from the indent list.",
+        });
       }
       onOpenChange(false);
       // Reset form

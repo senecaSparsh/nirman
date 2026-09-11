@@ -28,6 +28,7 @@ function makeCtx(id: string) {
 describe("PATCH /api/wbs/nodes/[id]", () => {
   beforeEach(() => {
     setSessionUser(OWNER);
+    mockPrisma().wbsNode!.findFirst.mockResolvedValue({ id: "wbs-1" });
   });
 
   it("updates a WBS node and returns 200", async () => {
@@ -62,6 +63,7 @@ describe("PATCH /api/wbs/nodes/[id]", () => {
 describe("DELETE /api/wbs/nodes/[id]", () => {
   beforeEach(() => {
     setSessionUser(OWNER);
+    mockPrisma().wbsNode!.findFirst.mockResolvedValue({ id: "wbs-1" });
   });
 
   it("deletes a WBS node and returns { ok: true }", async () => {

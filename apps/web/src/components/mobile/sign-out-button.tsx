@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { LogOut, Loader2 } from "lucide-react";
 import { signOut as authSignOut } from "@/lib/auth-client";
 
@@ -21,8 +20,6 @@ export function MobileSignOutButton({
   label?: string;
   className?: string;
 }) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const router = useRouter();
   const [busy, setBusy] = useState(false);
 
   async function handleSignOut() {

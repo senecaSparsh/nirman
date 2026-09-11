@@ -121,13 +121,16 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     });
     if (!existing) return json({ error: "Equipment not found" }, { status: 404 });
 
-    const salePrice = Number(body?.salePrice);
-    if (!salePrice || salePrice <= 0) return json({ error: "Sale price must be positive" }, { status: 400 });
+    // Pass as string to preserve Decimal precision — the service layer
+    // converts with new Decimal(). Avoid Number() which loses precision.
+    const salePrice = String(body?.salePrice ?? "");
+    const salePriceNum = Number(salePrice);
+    if (!salePriceNum || salePriceNum <= 0) return json({ error: "Sale price must be positive" }, { status: 400 });
 
     try {
       await sellEquipment(id, {
         salePrice,
-        gstAmount: body?.gstAmount ? Number(body.gstAmount) : undefined,
+        gstAmount: body?.gstAmount ? String(body.gstAmount) : undefined,
         buyerName: body?.buyerName,
         buyerPhone: body?.buyerPhone,
         saleDate: body?.saleDate ? new Date(body.saleDate) : undefined,

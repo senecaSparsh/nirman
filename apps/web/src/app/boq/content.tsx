@@ -30,7 +30,7 @@ export async function BoqContent() {
 
   const materials = await prisma.material.findMany({
     take: 200,
-    where: { deletedAt: null },
+    where: { companyId: company.id, deletedAt: null },
     orderBy: { code: "asc" },
     select: { id: true, code: true, name: true, unit: true },
   });

@@ -31,9 +31,9 @@ const transferActionSchema = z.object({
   supervisorSignature: z.string().optional(),
   supervisorId: z.string().optional(),
   weighbridgeTicketNo: z.string().optional(),
-  grossWeight: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? Number(v) : undefined)),
-  tareWeight: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? Number(v) : undefined)),
-  netWeight: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? Number(v) : undefined)),
+  grossWeight: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? String(v) : undefined)),
+  tareWeight: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? String(v) : undefined)),
+  netWeight: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? String(v) : undefined)),
   lineReceipts: z.array(z.any()).optional(),
   // Return/cancel
   reason: z.string().optional(),

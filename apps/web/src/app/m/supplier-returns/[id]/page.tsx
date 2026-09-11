@@ -44,6 +44,14 @@ export default function MobileSupplierReturnDetailPage({
           },
         });
 
+        // Fetch linked PO separately (no relation in schema — only FK field)
+        const linkedPo = ret?.purchaseOrderId
+          ? await prisma.purchaseOrder.findUnique({
+              where: { id: ret.purchaseOrderId },
+              select: { id: true, poNumber: true },
+            })
+          : null;
+
         if (!ret) {
           return (
             <div>
@@ -155,6 +163,7 @@ export default function MobileSupplierReturnDetailPage({
                 { label: "Supplier", value: ret.supplier.name },
                 { label: "From Location", value: ret.location.name },
                 { label: "Return Date", value: formatDate(ret.returnDate) },
+                ...(linkedPo ? [{ label: "Linked PO", value: linkedPo.poNumber }] : []),
                 ...(ret.creditNoteNo ? [{ label: "Credit Note No", value: ret.creditNoteNo }] : []),
                 ...(ret.notes ? [{ label: "Notes", value: ret.notes }] : []),
               ]}

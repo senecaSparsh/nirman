@@ -31,12 +31,16 @@ export function RequisitionDetailDialog({
   requisition,
   suppliers,
   locations,
+  canApprove,
+  currentUserId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   requisition: RequisitionRow | null;
   suppliers: SupplierOption[];
   locations: LocationOption[];
+  canApprove?: boolean;
+  currentUserId?: string | null;
 }) {
   const router = useRouter();
   const [detail, setDetail] = useState<RequisitionDetail | null>(null);
@@ -69,13 +73,13 @@ export function RequisitionDetailDialog({
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const key = e.key.toLowerCase();
-      if (key === "s" && d.status === "DRAFT" && !acting) {
+      if (key === "s" && (d.status === "DRAFT" || d.status === "REJECTED") && !acting) {
         e.preventDefault();
         doAction("submit");
-      } else if (key === "a" && d.status === "SUBMITTED" && !acting) {
+      } else if (key === "a" && d.status === "SUBMITTED" && !acting && canApprove && d.requestedById !== currentUserId) {
         e.preventDefault();
         doAction("approve");
-      } else if (key === "r" && d.status === "SUBMITTED" && !acting) {
+      } else if (key === "r" && d.status === "SUBMITTED" && !acting && canApprove && d.requestedById !== currentUserId) {
         e.preventDefault();
         doAction("reject");
       } else if (key === "c" && d.status === "APPROVED" && !acting) {
@@ -202,7 +206,12 @@ export function RequisitionDetailDialog({
                   <ArrowRight className="h-4 w-4" /> Submit <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">S</kbd>
                 </Button>
               )}
-              {detail.status === "SUBMITTED" && (
+              {detail.status === "REJECTED" && (
+                <Button size="sm" onClick={() => doAction("submit")} disabled={acting}>
+                  <ArrowRight className="h-4 w-4" /> Resubmit
+                </Button>
+              )}
+              {detail.status === "SUBMITTED" && canApprove && detail.requestedById !== currentUserId && (
                 <>
                   <Button size="sm" onClick={() => doAction("approve")} disabled={acting}>
                     <Check className="h-4 w-4" /> Approve <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">A</kbd>

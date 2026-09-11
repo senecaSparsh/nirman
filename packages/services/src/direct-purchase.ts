@@ -131,7 +131,7 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
   if (input.lines && input.lines.length > 0) {
     const materialIds = input.lines.map((l) => l.materialId);
     const materials = await prisma.material.findMany({
-      where: { id: { in: materialIds }, deletedAt: null },
+      where: { id: { in: materialIds }, companyId: input.companyId, deletedAt: null },
     });
     if (materials.length !== materialIds.length) {
       throw new ServiceError("One or more materials not found or deleted", 404);

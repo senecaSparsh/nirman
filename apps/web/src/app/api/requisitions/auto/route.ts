@@ -70,7 +70,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         const materialIds = result.lines.map((l) => l.materialId);
         const [materials, stockAgg] = await Promise.all([
           prisma.material.findMany({
-            where: { id: { in: materialIds } },
+            where: { id: { in: materialIds }, companyId: company.id },
             select: { id: true, code: true, name: true, unit: true, reorderPoint: true },
           }),
           prisma.stockLocationItem.groupBy({

@@ -37,6 +37,7 @@ const expenseUpdateSchema = z.object({
   // Workflow actions (mutually exclusive with field updates)
   action: z.enum(["submit", "approve", "reject"]).optional(),
   rejectionReason: z.string().optional(),
+  reason: z.string().optional(),
   allowBudgetOverrun: z.boolean().optional(),
 });
 
@@ -129,6 +130,9 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     const company = await getCompany();
     const existing = await prisma.expense.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("Expense") } });
     if (!existing) return json({ error: "Expense not found or out of scope" }, { status: 404 });
+    if (existing.createdById === user.id || existing.submittedById === user.id) {
+      return json({ error: "You cannot approve your own expense" }, { status: 403 });
+    }
     try {
       await approveExpense(id, company.id, user.id, { allowBudgetOverrun: d.allowBudgetOverrun === true });
     } catch (err) {
@@ -148,11 +152,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     const company = await getCompany();
     const existing = await prisma.expense.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("Expense") } });
     if (!existing) return json({ error: "Expense not found or out of scope" }, { status: 404 });
-    if (!d.rejectionReason?.trim()) {
+    if (!d.rejectionReason?.trim() && !d.reason?.trim()) {
       return json({ error: "A rejection reason is required" }, { status: 400 });
     }
     try {
-      await rejectExpense(id, company.id, d.rejectionReason, user.id);
+      await rejectExpense(id, company.id, (d.rejectionReason ?? d.reason ?? "").trim(), user.id);
     } catch (err) {
       if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });
       throw err;

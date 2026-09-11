@@ -72,6 +72,8 @@ async function PoDetailContent({
   if (!po) notFound();
 
   const canApprove = hasPermission(role, PERM.PO_APPROVE) && po.createdById !== currentUser?.id;
+  const canManage = hasPermission(role, PERM.PROCUREMENT_MANAGE);
+  const canReceiveGoods = hasPermission(role, PERM.PROCUREMENT_MANAGE) || hasPermission(role, PERM.INVENTORY_MANAGE);
 
   // Fetch the source requisition (if this PO was converted from one)
   const sourceRequisition = await prisma.materialRequisition.findFirst({
@@ -185,7 +187,7 @@ async function PoDetailContent({
           </Link>
         }
       />
-      <PurchaseOrderDetailView po={detail} canApprove={canApprove} />
+      <PurchaseOrderDetailView po={detail} canApprove={canApprove} canManage={canManage} canReceiveGoods={canReceiveGoods} />
     </div>
   );
 }

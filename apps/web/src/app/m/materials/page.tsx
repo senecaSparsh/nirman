@@ -50,11 +50,24 @@ export default function MobileMaterialsPage({
         });
 
         const categories = actions.canCreateMaterial
-          ? await prisma.materialCategory.findMany({
+          ? (await prisma.materialCategory.findMany({
               where: { deletedAt: null },
               orderBy: { name: "asc" },
-              select: { id: true, name: true, unit: true },
-            })
+              select: { id: true, name: true, unit: true, hsnCode: true, gstRate: true },
+            })).map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))
+          : [];
+
+        // Fetch stock locations for the opening-stock section in the FAB dialog
+        const locations = actions.canCreateMaterial
+          ? await prisma.stockLocation.findMany({
+              where: { companyId: company.id, deletedAt: null },
+              orderBy: [{ type: "asc" }, { name: "asc" }],
+              select: {
+                id: true,
+                name: true,
+                project: { select: { name: true } },
+              },
+            }).then((locs) => locs.map((l) => ({ id: l.id, name: l.name, projectName: l.project?.name ?? null })))
           : [];
 
         const rows = materials
@@ -127,7 +140,7 @@ export default function MobileMaterialsPage({
 
             {/* Floating add button — springs into a modal with the new-material form */}
             {actions.canCreateMaterial && (
-              <MobileMaterialsFab categories={categories} />
+              <MobileMaterialsFab categories={categories} locations={locations} />
             )}
           </div>
         );

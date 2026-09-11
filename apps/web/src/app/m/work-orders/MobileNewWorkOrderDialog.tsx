@@ -9,6 +9,7 @@ import { haptic } from "@/lib/haptic";
 import { formatCurrency } from "@/lib/utils";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
+import { MobileNewSubcontractorDialog } from "@/app/m/work-orders/MobileNewSubcontractorDialog";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { SectionCard, UnderlineInput, EnumSelect } from "@/components/mobile/v2/form-primitives";
 
@@ -71,6 +72,7 @@ export function MobileNewWorkOrderForm({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [localSubcontractors, setLocalSubcontractors] = useState(subcontractors);
   const [step, setStep] = useState<1 | 2>(1);
   const [boqItems, setBoqItems] = useState<BoqLineItem[]>([]);
   const [loadingBoq, setLoadingBoq] = useState(false);
@@ -266,13 +268,26 @@ export function MobileNewWorkOrderForm({
                 value={form.subcontractorId}
                 onChange={(v) => set("subcontractorId", v)}
                 placeholder="— Select subcontractor —"
-                options={subcontractors.map((s) => ({
+                options={localSubcontractors.map((s) => ({
                   value: s.id,
                   label: s.name,
                   sub: s.trade ?? undefined,
                 }))}
                 inputClass={inputClass}
                 inputStyle={inputStyle}
+                renderDialog={({ open, onClose, onCreated }) => (
+                  <MobileNewSubcontractorDialog
+                    open={open}
+                    onClose={onClose}
+                    nested
+                    onCreated={(s) => {
+                      setLocalSubcontractors((prev) =>
+                        prev.find((x) => x.id === s.id) ? prev : [...prev, s],
+                      );
+                      onCreated(s.id, s.name);
+                    }}
+                  />
+                )}
               />
             </div>
             <UnderlineInput

@@ -31,7 +31,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
   // Aggregate debit/credit per account in the date range
   const grouped = await prisma.journalLine.groupBy({
-    by: ["accountCode"],
+    by: ["accountId"],
     where: {
       journalEntry: {
         companyId: company.id,
@@ -40,14 +40,14 @@ export const GET = apiHandler(async (req: NextRequest) => {
       },
     },
     _sum: { debit: true, credit: true },
-    orderBy: { accountCode: "asc" },
+    orderBy: { accountId: "asc" },
   });
 
   const accounts = await prisma.glAccount.findMany({
-    where: { code: { in: grouped.map((g) => g.accountCode) } },
-    select: { code: true, name: true, type: true },
+    where: { id: { in: grouped.map((g) => g.accountId) } },
+    select: { id: true, code: true, name: true, type: true },
   });
-  const accountMap = new Map(accounts.map((a) => [a.code, a]));
+  const accountMap = new Map(accounts.map((a) => [a.id, a]));
 
   type LineItem = { code: string; name: string; balance: number };
   const revenue: LineItem[] = [];
@@ -59,7 +59,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   let totalContra = new Decimal(0);
 
   for (const g of grouped) {
-    const acct = accountMap.get(g.accountCode);
+    const acct = accountMap.get(g.accountId);
     if (!acct) continue;
     const debit = new Decimal(g._sum.debit ?? 0);
     const credit = new Decimal(g._sum.credit ?? 0);

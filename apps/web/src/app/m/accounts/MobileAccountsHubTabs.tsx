@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useTabParam } from "@/lib/use-tab-param";
 import { MobileFab } from "@/components/mobile/v2/scaffold";
 import { RegisterTabs } from "@/components/mobile/v2/register-tabs";
@@ -118,6 +119,7 @@ export function MobileAccountsHubTabs({
   const claimFab = useFabModal();
   const pettyCashFab = useFabModal();
   const paymentFab = useFabModal();
+  const router = useRouter();
 
   const tabsWithCounts = TAB_META.map((t) => ({
     ...t,
@@ -158,7 +160,7 @@ export function MobileAccountsHubTabs({
               categories={expenseCategories}
               currentUserId={currentUserId}
               onClose={claimFab.close}
-              onCreated={() => { claimFab.close(); window.location.reload(); }}
+              onCreated={() => { claimFab.close(); router.refresh(); }}
             />
           </MobileFabModal>
         </>
@@ -176,7 +178,7 @@ export function MobileAccountsHubTabs({
               employees={employees}
               currentUserId={currentUserId}
               onClose={pettyCashFab.close}
-              onCreated={() => { pettyCashFab.close(); window.location.reload(); }}
+              onCreated={() => { pettyCashFab.close(); router.refresh(); }}
             />
           </MobileFabModal>
         </>
@@ -194,7 +196,7 @@ export function MobileAccountsHubTabs({
               purchaseOrders={purchaseOrders}
               invoices={invoices}
               onClose={paymentFab.close}
-              onCreated={() => { paymentFab.close(); window.location.reload(); }}
+              onCreated={() => { paymentFab.close(); router.refresh(); }}
             />
           </MobileFabModal>
         </>

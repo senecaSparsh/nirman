@@ -5,15 +5,16 @@ import { requirePermission } from "@/lib/server";
 
 /**
  * GET /api/low-stock — materials whose total stock across all locations
- * has dropped below their configured minStock threshold.
+ * has dropped below their configured reorderPoint threshold.
  */
 export const GET = apiHandler(async () => {
   await requirePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
   const materials = await prisma.material.findMany({
     where: {
+      companyId: company.id,
       deletedAt: null,
-      minStock: { not: null },
+      reorderPoint: { not: null },
       category: { deletedAt: null },
     },
     include: {
@@ -29,6 +30,7 @@ export const GET = apiHandler(async () => {
     .map((m) => {
       const totalQty = m.stockItems.reduce((s, i) => s + toNum(i.qty), 0);
       const minStock = toNum(m.minStock);
+      const reorderPoint = toNum(m.reorderPoint);
       return {
         id: m.id,
         code: m.code,
@@ -37,11 +39,12 @@ export const GET = apiHandler(async () => {
         unit: m.unit,
         totalQty,
         minStock,
-        shortfall: minStock - totalQty,
+        reorderPoint,
+        shortfall: reorderPoint - totalQty,
         standardCost: toNum(m.standardCost),
       };
     })
-    .filter((r) => r.totalQty < r.minStock)
+    .filter((r) => r.totalQty < r.reorderPoint)
     .sort((a, b) => b.shortfall - a.shortfall);
 
   return json(rows);

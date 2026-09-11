@@ -29,6 +29,8 @@ export async function MbContent() {
   });
 
   const canCreate = hasPermission(role, PERM.MB_VERIFY);
+  const canVerify = hasPermission(role, PERM.MB_VERIFY);
+  const canApprove = hasPermission(role, PERM.MB_APPROVE);
 
   return (
     <>
@@ -38,7 +40,7 @@ export async function MbContent() {
           { label: "Projects", value: projects.length },
         ]}
       />
-      <MeasurementBookView projects={projects} canCreate={canCreate} />
+      <MeasurementBookView projects={projects} canCreate={canCreate} canVerify={canVerify} canApprove={canApprove} />
     </>
   );
 }

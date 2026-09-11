@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { apiHandler, requirePermission, getCompany, json, userRoleSchema, scopeWhere } from "@/lib/server";
-import { canAssignRole, isCustomRole, canAssignCustomRole, PERM } from "@/lib/roles";
+import { canAssignRole, isCustomRole, canAssignCustomRole, ROLES, PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
 /**
@@ -67,8 +67,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
 
     if (!existingTierOk) {
+      const targetLabel = isCustomRole(existing.role)
+        ? (await prisma.customRole.findFirst({ where: { companyId: company.id, key: existing.role }, select: { label: true } }).catch(() => null))?.label ?? "this person"
+        : ROLES[existing.role as keyof typeof ROLES]?.label ?? "this person";
       return json(
-        { error: `You cannot manage a ${existing.role} — they are at or above your tier.` },
+        { error: `You don't have authority to manage ${targetLabel}.` },
         { status: 403 },
       );
     }
@@ -86,15 +89,21 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
 
     if (!newTierOk) {
+      const newLabel = isCustomRole(parsed.data.role)
+        ? (await prisma.customRole.findFirst({ where: { companyId: company.id, key: parsed.data.role }, select: { label: true } }).catch(() => null))?.label ?? "that role"
+        : ROLES[parsed.data.role as keyof typeof ROLES]?.label ?? "that role";
       return json(
-        { error: `Your role (${actorRole}) cannot assign the ${parsed.data.role} role.` },
+        { error: `You don't have authority to assign the ${newLabel} role.` },
         { status: 403 },
       );
     }
   } else if (parsed.data.active !== undefined && !canAssignRole(actorRole, existing.role)) {
     // Even toggling active/inactive requires the actor to be above the target.
+    const targetLabel = isCustomRole(existing.role)
+      ? (await prisma.customRole.findFirst({ where: { companyId: company.id, key: existing.role }, select: { label: true } }).catch(() => null))?.label ?? "this person"
+      : ROLES[existing.role as keyof typeof ROLES]?.label ?? "this person";
     return json(
-      { error: `You cannot manage a ${existing.role} — they are at or above your tier.` },
+      { error: `You don't have authority to manage ${targetLabel}.` },
       { status: 403 },
     );
   }
@@ -106,8 +115,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     parsed.data.employeeCode !== undefined || parsed.data.joiningDate !== undefined;
   if (isProfileEdit && actorId !== userId) {
     if (!canAssignRole(actorRole, existing.role)) {
+      const targetLabel = isCustomRole(existing.role)
+        ? (await prisma.customRole.findFirst({ where: { companyId: company.id, key: existing.role }, select: { label: true } }).catch(() => null))?.label ?? "this person"
+        : ROLES[existing.role as keyof typeof ROLES]?.label ?? "this person";
       return json(
-        { error: `You cannot edit a ${existing.role}'s profile — they are at or above your tier.` },
+        { error: `You don't have authority to edit ${targetLabel}'s profile.` },
         { status: 403 },
       );
     }
@@ -375,8 +387,12 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   });
   if (linkedEmployee) {
     revalidatePath(`/m/hr/employees/${linkedEmployee.id}`);
+    revalidatePath(`/hr/employees/${linkedEmployee.id}`);
   }
   revalidatePath("/m/hr/employees");
+  revalidatePath("/hr/employees");
+  revalidatePath("/hr");
+  revalidatePath("/m/hr");
 
   return json({ ok: true, user: updated });
 });

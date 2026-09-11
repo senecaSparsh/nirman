@@ -14,6 +14,7 @@ import {
  CalendarCheck,
  ShieldCheck,
  CheckCheck,
+ Receipt,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatCurrency, formatNumber, formatDate } from "@/lib/utils";
@@ -90,7 +91,17 @@ interface GatePassRow {
  lines: GpLine[];
 }
 
-type ItemKind = "po" | "req" | "dpr" | "gp";
+interface ExpenseRow {
+ id: string;
+ description: string;
+ amount: number;
+ category: string;
+ projectName: string | null;
+ createdByName: string | null;
+ createdAt: string;
+ date: string;
+}
+type ItemKind = "po" | "req" | "dpr" | "gp" | "expense";
 type ItemState = "pending" | "approving" | "approved" | "rejecting" | "rejected";
 
 // ── Component ───────────────────────────────────────────────────
@@ -100,11 +111,13 @@ export function MobileApprovalsQueue({
  requisitions,
  gatePasses = [],
  dprs = [],
+ expenses = [],
 }: {
  purchaseOrders: PoRow[];
  requisitions: ReqRow[];
  gatePasses?: GatePassRow[];
  dprs?: DprRow[];
+ expenses?: ExpenseRow[];
 }) {
  const router = useRouter();
  const { isSnoozed } = useSnooze();
@@ -112,13 +125,18 @@ export function MobileApprovalsQueue({
  const [reqStates, setReqStates] = useState<Record<string, ItemState>>({});
  const [gpStates, setGpStates] = useState<Record<string, ItemState>>({});
  const [dprStates, setDprStates] = useState<Record<string, ItemState>>({});
+const [expenseStates, setExpenseStates] = useState<Record<string, ItemState>>({});
  const [expanded, setExpanded] = useState<string | null>(null);
  const [rejectGp, setRejectGp] = useState<GatePassRow | null>(null);
  const [gpRejectReason, setGpRejectReason] = useState("");
+ const [rejectDprState, setRejectDpr] = useState<DprRow | null>(null);
+ const [dprRejectReason, setDprRejectReason] = useState("");
+const [rejectExpenseState, setRejectExpense] = useState<ExpenseRow | null>(null);
+const [expenseRejectReason, setExpenseRejectReason] = useState("");
  const [batchApproving, setBatchApproving] = useState(false);
 
  // ── Batch approve: approve all visible items of a given type ──
- async function batchApprove(type: "po" | "requisition" | "gatePass" | "dpr") {
+ async function batchApprove(type: "po" | "requisition" | "gatePass" | "dpr" | "expense") {
  haptic(10);
  setBatchApproving(true);
 
@@ -155,6 +173,18 @@ export function MobileApprovalsQueue({
  // Fall back to individual approves
  for (const dpr of visibleDprs) {
  await approveDpr(dpr);
+ }
+ setBatchApproving(false);
+ return;
+ } else if (type === "expense") {
+ // Expenses: approve individually (no batch API)
+ setExpenseStates((s) => {
+ const next = { ...s };
+ for (const e of visibleExpenses) next[e.id] = "approving";
+ return next;
+ });
+ for (const exp of visibleExpenses) {
+ await approveExpense(exp);
  }
  setBatchApproving(false);
  return;
@@ -238,6 +268,11 @@ export function MobileApprovalsQueue({
  const s = dprStates[d.id];
  return !s || s === "pending" || s === "approving" || s === "rejecting";
  });
+const visibleExpenses = expenses.filter((e) => {
+ if (isSnoozed(`approval:expense:${e.id}`)) return false;
+ const s = expenseStates[e.id];
+ return !s || s === "pending" || s === "approving" || s === "rejecting";
+});
 
  async function approvePo(po: PoRow) {
  haptic(10);
@@ -266,7 +301,7 @@ export function MobileApprovalsQueue({
  const res = await fetch(`/api/purchase-orders/${po.id}`, {
  method: "PATCH",
  headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ action: "cancel" }),
+ body: JSON.stringify({ action: "reject" }),
  });
  const data = await res.json();
  if (!res.ok) throw new Error(data.error ?? "Failed to reject PO");
@@ -341,14 +376,22 @@ export function MobileApprovalsQueue({
  }
  }
 
- async function rejectDpr(dpr: DprRow) {
+function rejectDpr(dpr: DprRow) {
+ haptic([10, 30]);
+ setRejectDpr(dpr);
+}
+
+async function confirmRejectDpr() {
+ if (!rejectDprState || !dprRejectReason.trim()) return;
+ const dpr = rejectDprState;
  haptic([10, 30]);
  setDprStates((s) => ({ ...s, [dpr.id]: "rejecting" }));
+ setRejectDpr(null);
  try {
  const res = await fetch(`/api/dprs/${dpr.id}`, {
  method: "PATCH",
  headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ action: "reject" }),
+ body: JSON.stringify({ action: "reject", reason: dprRejectReason.trim() }),
  });
  const data = await res.json();
  if (!res.ok) throw new Error(data.error ?? "Failed to reject DPR");
@@ -358,10 +401,62 @@ export function MobileApprovalsQueue({
  } catch (err) {
  toast.error(err instanceof Error ? err.message : "An error occurred");
  setDprStates((s) => ({ ...s, [dpr.id]: "pending" }));
+ } finally {
+ setDprRejectReason("");
  }
- }
+}
 
- async function approveGp(gp: GatePassRow) {
+ async function approveExpense(exp: ExpenseRow) {
+ haptic(10);
+ setExpenseStates((s) => ({ ...s, [exp.id]: "approving" }));
+ try {
+ const res = await fetch(`/api/expenses/${exp.id}`, {
+ method: "PATCH",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ action: "approve" }),
+ });
+ const data = await res.json();
+ if (!res.ok) throw new Error(data.error ?? "Failed to approve expense");
+ toast.success("Expense approved");
+ setExpenseStates((s) => ({ ...s, [exp.id]: "approved" }));
+ router.refresh();
+ } catch (err) {
+ toast.error(err instanceof Error ? err.message : "An error occurred");
+ setExpenseStates((s) => ({ ...s, [exp.id]: "pending" }));
+ }
+}
+
+function rejectExpense(exp: ExpenseRow) {
+ haptic([10, 30]);
+ setRejectExpense(exp);
+}
+
+async function confirmRejectExpense() {
+ if (!rejectExpenseState || !expenseRejectReason.trim()) return;
+ const exp = rejectExpenseState;
+ haptic([10, 30]);
+ setExpenseStates((s) => ({ ...s, [exp.id]: "rejecting" }));
+ setRejectExpense(null);
+ try {
+ const res = await fetch(`/api/expenses/${exp.id}`, {
+ method: "PATCH",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ action: "reject", rejectionReason: expenseRejectReason.trim() }),
+ });
+ const data = await res.json();
+ if (!res.ok) throw new Error(data.error ?? "Failed to reject expense");
+ toast.success("Expense rejected");
+ setExpenseStates((s) => ({ ...s, [exp.id]: "rejected" }));
+ router.refresh();
+ } catch (err) {
+ toast.error(err instanceof Error ? err.message : "An error occurred");
+ setExpenseStates((s) => ({ ...s, [exp.id]: "pending" }));
+ } finally {
+ setExpenseRejectReason("");
+ }
+}
+
+async function approveGp(gp: GatePassRow) {
  haptic(10);
  setGpStates((s) => ({ ...s, [gp.id]: "approving" }));
  try {
@@ -670,11 +765,71 @@ export function MobileApprovalsQueue({
  <MobileEmptyState icon={CheckCircle2} title="All DPRs reviewed" size="compact" />
  )}
 
- {purchaseOrders.length === 0 && requisitions.length === 0 && gatePasses.length === 0 && dprs.length === 0 && (
+ {/* ── Expenses ─────────────────────────────────────── */}
+{expenses.length > 0 && (
+ <div className="flex items-center justify-between px-4 pb-1.5 pt-5">
+ <h2 className="text-m-caption " style={{ color: "var(--color-ink-500)" }}>
+ Expenses ({visibleExpenses.length})
+ </h2>
+ {visibleExpenses.length > 1 && (
+ <button
+ disabled={batchApproving}
+ onClick={() => batchApprove("expense")}
+ className="flex items-center gap-1 rounded-[0.375rem] px-2 py-1 text-m-caption font-semibold text-m-body press disabled:opacity-50" style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
+ >
+ {batchApproving ? <Loader2 className="size-3 animate-spin" /> : <CheckCheck className="size-3" />}
+ Approve All
+ </button>
+ )}
+ </div>
+)}
+{visibleExpenses.map((exp) => {
+ const state = expenseStates[exp.id] ?? "pending";
+ const isOpen = expanded === `expense:${exp.id}`;
+ return (
+ <ApprovalCard
+ key={exp.id}
+ kind="expense"
+ isOpen={isOpen}
+ onToggle={() => setExpanded(isOpen ? null : `expense:${exp.id}`)}
+ icon={Receipt}
+ title={exp.description || exp.category}
+ subtitle={`${exp.category} · ${formatDate(exp.date)}`}
+ meta={formatCurrency(exp.amount)}
+ state={state}
+ onApprove={() => approveExpense(exp)}
+ onReject={() => rejectExpense(exp)}
+ snoozeId={`approval:expense:${exp.id}`}
+ snoozeLabel={`Expense ${exp.description}`}
+ >
+ <div className="space-y-1.5">
+ {exp.projectName && (
+ <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+ Project: {exp.projectName}
+ </div>
+ )}
+ {exp.createdByName && (
+ <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+ Created by: {exp.createdByName}
+ </div>
+ )}
+ <div className="border-t pt-1.5 flex justify-between text-m-body font-semibold" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-950)" }}>
+ <span>Amount</span>
+ <span className="tnum">{formatCurrency(exp.amount)}</span>
+ </div>
+ </div>
+ </ApprovalCard>
+ );
+})}
+{expenses.length > 0 && visibleExpenses.length === 0 && (
+ <MobileEmptyState icon={CheckCircle2} title="All expenses reviewed" size="compact" />
+)}
+
+{purchaseOrders.length === 0 && requisitions.length === 0 && gatePasses.length === 0 && dprs.length === 0 && expenses.length === 0 && (
  <MobileEmptyState
  icon={ClipboardCheck}
  title="Nothing to approve"
- description="Draft purchase orders, submitted indents, pending gate passes, and pending DPRs appear here."
+ description="Draft purchase orders, submitted indents, pending gate passes, pending DPRs, and pending expenses appear here."
  />
  )}
 
@@ -712,6 +867,86 @@ export function MobileApprovalsQueue({
  style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
  >
  {gpStates[rejectGp.id] === "rejecting" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Reject Gate Pass"}
+ </button>
+ </div>
+ </div>
+ </MobileDialog>
+ )}
+
+ {/* ── DPR reject dialog ──────────────────────────── */}
+ {rejectDprState && (
+ <MobileDialog open={true} onClose={() => setRejectDpr(null)} title={`Reject DPR`}>
+ <div className="flex flex-col gap-3">
+ <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+ <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+ Rejection Reason
+ </p>
+ <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Provide a reason for rejection</div>
+ <textarea
+ value={dprRejectReason}
+ onChange={(e) => setDprRejectReason(e.target.value)}
+ rows={3}
+ placeholder="Why is this DPR being rejected?"
+ className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+ style={{ backgroundColor: "transparent" }}
+ autoFocus
+ />
+ </div>
+ <div className="flex justify-end gap-2">
+ <button
+ onClick={() => setRejectDpr(null)}
+ className="rounded-[0.375rem] border px-3 py-1.5 text-m-caption press"
+ style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}
+ >
+ Cancel
+ </button>
+ <button
+ disabled={!dprRejectReason.trim() || dprStates[rejectDprState.id] === "rejecting"}
+ onClick={confirmRejectDpr}
+ className="rounded-[0.375rem] px-3 py-1.5 text-m-caption font-semibold press disabled:opacity-50"
+ style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
+ >
+ {dprStates[rejectDprState.id] === "rejecting" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Reject DPR"}
+ </button>
+ </div>
+ </div>
+ </MobileDialog>
+ )}
+
+{/* ── Expense reject dialog ──────────────────────────── */}
+{rejectExpenseState && (
+ <MobileDialog open={true} onClose={() => setRejectExpense(null)} title="Reject Expense">
+ <div className="flex flex-col gap-3">
+ <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+ <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+ Rejection Reason
+ </p>
+ <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Provide a reason for rejection</div>
+ <textarea
+ value={expenseRejectReason}
+ onChange={(e) => setExpenseRejectReason(e.target.value)}
+ rows={3}
+ placeholder="Why is this expense being rejected?"
+ className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+ style={{ backgroundColor: "transparent" }}
+ autoFocus
+ />
+ </div>
+ <div className="flex justify-end gap-2">
+ <button
+ onClick={() => setRejectExpense(null)}
+ className="rounded-[0.375rem] border px-3 py-1.5 text-m-caption press"
+ style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}
+ >
+ Cancel
+ </button>
+ <button
+ disabled={!expenseRejectReason.trim() || expenseStates[rejectExpenseState.id] === "rejecting"}
+ onClick={confirmRejectExpense}
+ className="rounded-[0.375rem] px-3 py-1.5 text-m-caption font-semibold press disabled:opacity-50"
+ style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
+ >
+ {expenseStates[rejectExpenseState.id] === "rejecting" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Reject Expense"}
  </button>
  </div>
  </div>

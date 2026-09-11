@@ -5,6 +5,7 @@ import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileLandList } from "./MobileLandList";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { formatCurrencyCompact } from "@/lib/utils";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 
 /**
  * /m/land — mobile land portfolio. Shows land purchases with parcel
@@ -130,6 +131,7 @@ export default function MobileLandPage() {
 
         return (
           <>
+            <DepartmentActivityFeed department="land" />
             <MobileLandList
               items={serialized}
               exportTitle="Land & Parcels"

@@ -2,12 +2,11 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Users, HardHat, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { Users, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
-  MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
@@ -99,13 +98,7 @@ export function MobileEmployeesList({
   const inactiveCount = items.filter((e) => e.active === false).length;
 
   if (items.length === 0) {
-    return (
-      <MobileEmptyState
-        icon={HardHat}
-        title="No employees"
-        hint="Employees will appear here once added"
-      />
-    );
+    return null;
   }
 
   return (

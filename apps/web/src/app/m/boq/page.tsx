@@ -66,7 +66,7 @@ export default function MobileBoqPage({
           getBoqTree(projectId),
           canCreateBoq
             ? prisma.material.findMany({
-                where: { deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
+                where: { companyId: company.id, deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
                 orderBy: { name: "asc" },
                 select: { id: true, name: true, unit: true },
               })

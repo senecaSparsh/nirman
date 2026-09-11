@@ -10,6 +10,7 @@ import { PageLoading } from "@/components/page-loading";
 import type { AssetSaleRow, CustomerRow, LeadRow } from "@/lib/types";
 
 import { NoAccess } from "@/components/no-access";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 export default function SalesPage({
   searchParams,
 }: {
@@ -362,6 +363,7 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
           { label: "Collected", value: formatCurrency(collected), tone: "success", hint: "Total payments received across all non-cancelled sales. The gap between Booked and Collected is outstanding." },
         ]}
       />
+      <DepartmentActivityFeed department="sales" />
       <SalesView
         leads={leadRows}
         sales={saleRows}

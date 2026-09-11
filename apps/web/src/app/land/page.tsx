@@ -12,6 +12,7 @@ import type {
 } from "@/lib/types";
 
 import { NoAccess } from "@/components/no-access";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 export default function LandPage() {
   return (
     <div className="space-y-6">
@@ -264,6 +265,7 @@ async function LandContent() {
           ] : []),
         ]}
       />
+      <DepartmentActivityFeed department="land" />
       <LandView
         purchases={purchaseRows}
         parcels={parcelRows}

@@ -119,6 +119,8 @@ services:
         sync: false
       - key: CRON_SECRET
         sync: false  # shared secret for cron endpoints (/api/cron/*)
+      - key: GSTA_API_KEY
+        sync: false  # optional: gstaccelerator.in API key for HSN/GST auto-sync
 
 # ── Cron jobs ───────────────────────────────────────────────────
 # Daily automated backup at 2am UTC. Exports all companies' data and
@@ -132,5 +134,32 @@ cronJobs:
         -H "x-cron-secret: $CRON_SECRET" \
         https://nirman-inventory.onrender.com/api/cron/backup \
         || echo "backup failed"
+    instanceType: nano
+    scheduleTimezone: UTC
+  # ── Reminder + notification flush every 15 minutes ──
+  # Processes PENDING NotificationLog entries (email/WhatsApp delivery),
+  # checks milestone payments, sends rent/sale reminders, generates due
+  # recurring expenses, and checks expiring legal docs.
+  # In-app notifications are created immediately by emitNotificationEvent,
+  # so this cron handles the deferred channels (email/WhatsApp).
+  - name: nirman-reminders
+    schedule: "*/15 * * * *"  # every 15 minutes
+    command: |
+      curl -fsS -X POST \
+        -H "x-cron-secret: $CRON_SECRET" \
+        https://nirman-inventory.onrender.com/api/cron/reminders \
+        || echo "reminders failed"
+    instanceType: nano
+    scheduleTimezone: UTC
+  # ── HSN/GST master weekly re-seed ──
+  # Re-seeds the DB from the bundled JSON baseline so rate changes
+  # (e.g. GST 2.0 updates) are picked up automatically after deploy.
+  - name: nirman-hsn-seed
+    schedule: "0 3 * * 1"  # weekly on Monday at 3:00 AM UTC
+    command: |
+      curl -fsS -X POST \
+        -H "x-cron-secret: $CRON_SECRET" \
+        https://nirman-inventory.onrender.com/api/cron/hsn-seed \
+        || echo "hsn-seed failed"
     instanceType: nano
     scheduleTimezone: UTC

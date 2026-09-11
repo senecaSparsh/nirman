@@ -575,7 +575,7 @@ async function ConstructionBoqTab({ projectId }: { projectId?: string }) {
     getBoqTree(projectId),
     hasPermission(role, PERM.BOQ_MANAGE)
       ? prisma.material.findMany({
-          where: { deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
+          where: { companyId: company.id, deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
           orderBy: { name: "asc" },
           select: { id: true, name: true, unit: true },
         })
@@ -801,7 +801,7 @@ async function ConstructionMbTab({ projectId }: { projectId?: string }) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-400)" }}>{e.mbNumber}</span>
-                    <Badge tone={e.status === "APPROVED" ? "go" : e.status === "DRAFT" ? "neutral" : "signal"}>{e.status}</Badge>
+                    <Badge tone={e.status === "APPROVED" ? "go" : e.status === "DRAFT" ? "neutral" : "signal"}>{e.status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}</Badge>
                   </div>
                   <p className="text-m-body font-medium" style={{ color: "var(--color-ink-900)" }}>
                     {e.boqSerialNo} · {e.boqDescription}

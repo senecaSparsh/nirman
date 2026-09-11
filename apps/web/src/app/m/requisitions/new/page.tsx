@@ -17,7 +17,7 @@ export default function MobileNewRequisitionPage() {
             orderBy: { name: "asc" },
           }),
           prisma.material.findMany({
-            where: { deletedAt: null },
+            where: { companyId: company.id, deletedAt: null },
             select: { id: true, name: true, code: true, unit: true },
             orderBy: { name: "asc" },
           }),

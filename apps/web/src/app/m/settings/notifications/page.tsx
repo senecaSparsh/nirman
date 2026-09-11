@@ -451,12 +451,12 @@ function LogTab({ logs }: { logs: LogEntry[] }) {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-m-label font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
-                    {EVENT_LABELS[log.eventType] ?? log.eventType.replace(/_/g, " ")}
+                    {EVENT_LABELS[log.eventType] ?? log.eventType.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
                   </p>
                   <div className="flex items-center gap-1 shrink-0">
                     <StatusIcon className="size-3" style={{ color: status.color }} />
                     <span className="text-m-caption font-bold uppercase" style={{ color: status.color }}>
-                      {log.status}
+                      {log.status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
                     </span>
                   </div>
                 </div>

@@ -1,9 +1,25 @@
 import { NextRequest } from "next/server";
+import { randomBytes } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM, ALL_ROLES, canAssignRole, type Role } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
+
+/**
+ * Generate a random temporary password for bulk import.
+ * All bulk-imported users get the same temp password (simpler for
+ * the admin to communicate) but it's random per import, not hardcoded.
+ */
+function generateTempPassword(minLength: number = 8): string {
+  const chars = "abcdefghijkmnpqrstuvwxyz23456789";
+  const bytes = randomBytes(Math.max(minLength, 8));
+  let result = "";
+  for (let i = 0; i < bytes.length; i++) {
+    result += chars[bytes[i]! % chars.length];
+  }
+  return result;
+}
 
 /**
  * POST /api/users/bulk — create multiple team members at once.
@@ -20,9 +36,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const session = await requirePermission(PERM.USERS_MANAGE);
   const company = await getCompany();
   const actorRole = session.role;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const minLength = company.passwordMinLength ?? 8;
-  const defaultPassword = "nirman123";
+  const defaultPassword = generateTempPassword(minLength);
 
   const body = await req.json();
   const { users } = body as {

@@ -24,21 +24,15 @@ const authFetch: typeof fetch = (input, init) => {
   return fetch(input, init);
 };
 
-export const authClient = createAuthClient(
-  process.env.NEXT_PUBLIC_APP_URL
-    ? {
-        baseURL: process.env.NEXT_PUBLIC_APP_URL,
-        plugins: [passkeyClient()],
-        fetchOptions: {
-          customFetchImpl: authFetch,
-        },
-      }
-    : {
-        plugins: [passkeyClient()],
-        fetchOptions: {
-          customFetchImpl: authFetch,
-        },
-      },
-);
+export const authClient = createAuthClient({
+  // Always use same-origin — the auth API is served from the same
+  // server as the app. Using NEXT_PUBLIC_APP_URL here causes CORS
+  // errors when accessing via 127.0.0.1 while the env var says localhost.
+  baseURL: typeof window !== "undefined" ? window.location.origin : "",
+  plugins: [passkeyClient()],
+  fetchOptions: {
+    customFetchImpl: authFetch,
+  },
+});
 
 export const { signIn, signOut, signUp, useSession } = authClient;

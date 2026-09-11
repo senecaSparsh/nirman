@@ -19,7 +19,7 @@ const adjustStockSchema = z.object({
   locationId: z.string().min(1, "Stock location is required"),
   direction: z.enum(["IN", "OUT"]),
   qty: z.coerce.number().positive("Quantity must be greater than 0"),
-  unitCost: z.coerce.number().nonnegative().optional().nullable(),
+  unitCost: z.union([z.string(), z.number()]).optional().nullable().transform((v) => v == null ? undefined : String(v)),
   reason: z.string().min(1, "A reason is required").max(500, "Reason is too long"),
 });
 
@@ -49,7 +49,7 @@ export const POST = apiHandler(
     // The service re-validates, but we scope here for a clear 404.
     const [material, location] = await Promise.all([
       prisma.material.findFirst({
-        where: { id, deletedAt: null },
+        where: { id, companyId: company.id, deletedAt: null },
         select: { id: true, code: true, unit: true },
       }),
       prisma.stockLocation.findFirst({

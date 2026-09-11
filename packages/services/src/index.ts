@@ -59,6 +59,7 @@ export {
   createPurchaseOrderTx,
   approvePurchaseOrder,
   rejectPurchaseOrder,
+  resubmitPurchaseOrder,
   orderPurchaseOrder,
   cancelPurchaseOrder,
   addLineToPurchaseOrder,
@@ -526,9 +527,15 @@ export {
 // HSN / GST Master — government-provided HSN codes with auto-pick GST rates
 export {
   seedHsnGstRates,
+  relinkCategoryGstRates,
+  seedDefaultCategories,
+  DEFAULT_CATEGORIES,
   lookupGstByHsn,
   suggestHsnByMaterial,
   searchHsnGst,
+  parseHsnCsv,
+  importHsnEntries,
+  getBundledMasterVersion,
   type HsnGstEntry,
 } from "./hsn-gst";
 
@@ -542,6 +549,7 @@ export {
   createQuotationRequest,
   addQuoteToRequest,
   approveQuotation,
+  cancelQuotationRequest,
   getPendingApprovalsForManager,
   getComparativeMatrix,
   listQuotationRequests,
@@ -618,6 +626,7 @@ export {
   postPaymentReceived,
   postDepositReceived,
   postDepositRefund,
+  postPaymentReversal,
   postMaterialSalePayment,
   postProjectCost,
   postRaBillApproval,

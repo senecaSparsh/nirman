@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import type { Prisma } from "@nirman/db";
 import { recordAttendance, bulkRecordAttendance, combineTimeWithDate, computeAttendanceTier } from "@nirman/services";
@@ -132,7 +132,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       createdAt: r.date instanceof Date ? r.date.toISOString() : r.date,
       id: r.id,
     }));
-    return NextResponse.json({ items, nextCursor, hasMore });
+    return json({ items, nextCursor, hasMore });
   }
   return json(mapped);
 });

@@ -8,6 +8,7 @@ export const GET = apiHandler(async () => {
   await requirePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
   const departments = await prisma.department.findMany({
+    take: 500,
     where: { companyId: company.id, deletedAt: null },
     orderBy: { code: "asc" },
     include: {

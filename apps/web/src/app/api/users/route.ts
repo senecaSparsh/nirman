@@ -1,11 +1,27 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
+import { randomBytes } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM, ALL_ROLES, canAssignRole, isCustomRole, canAssignCustomRole, type Role } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 import { normalizePhone } from "@/lib/phone-otp";
+
+/**
+ * Generate a random temporary password that meets the minimum length.
+ * Uses crypto.randomBytes for cryptographic randomness.
+ * Format: 8 random alphanumeric chars (meets default 8-char min).
+ */
+function generateTempPassword(minLength: number = 8): string {
+  const chars = "abcdefghijkmnpqrstuvwxyz23456789"; // no confusing chars (l, o, 0, 1)
+  const bytes = randomBytes(Math.max(minLength, 8));
+  let result = "";
+  for (let i = 0; i < bytes.length; i++) {
+    result += chars[bytes[i]! % chars.length];
+  }
+  return result;
+}
 
 /**
  * GET /api/users — list users scoped to the active company (for task
@@ -15,6 +31,7 @@ export const GET = apiHandler(async () => {
   await requirePermission(PERM.USERS_VIEW);
   const company = await getCompany();
   const users = await prisma.user.findMany({
+    take: 500,
     where: { memberships: { some: { companyId: company.id } }, active: true },
     orderBy: { name: "asc" },
     select: { id: true, email: true, name: true, role: true, active: true, designation: true, employeeCode: true, department: true },
@@ -110,7 +127,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   // ── Password policy ──
   const minLength = company.passwordMinLength ?? 8;
-  const defaultPassword = password?.trim() || "nirman123";
+  const defaultPassword = password?.trim() || generateTempPassword(minLength);
   if (defaultPassword.length < minLength) {
     return json({ error: `Password must be at least ${minLength} characters` }, { status: 400 });
   }
@@ -252,8 +269,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   const loginHint = normalizedPhone
-    ? `phone number ${phone} and the password you set`
-    : `email ${result.email} and the password you set`;
+    ? `phone number ${phone} and the temporary password`
+    : `email ${result.email} and the temporary password`;
 
   // Revalidate employee pages if we linked to an employee
   if (autoLinkedEmployee) {
@@ -267,6 +284,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
     email: result.email,
     role: result.role,
     ...(autoLinkedEmployee ? { autoLinkedEmployee } : {}),
+    // Return the temp password only if the admin didn't set a custom one
+    // (so they can share it with the new user). Always returned in dev for
+    // convenience; in prod, only if no custom password was provided.
+    tempPassword: !password?.trim() ? defaultPassword : undefined,
     message: `${result.name} added. They can sign in with ${loginHint}.${mustChangePassword !== false ? " They will be asked to set a new password on first login." : ""}${autoLinkedEmployee ? ` Auto-linked to employee record: ${autoLinkedEmployee.name}.` : ""}`,
   }, { status: 201 });
 });

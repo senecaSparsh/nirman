@@ -81,6 +81,7 @@ export function MobileSubcontractorsList({
   const [query, setQuery] = useState("");
   const [tradeFilter, setTradeFilter] = useState<TradeFilter>("ALL");
   const fab = useFabModal();
+  const router = useRouter();
 
   const filtered = useMemo(() => {
     let result = items;
@@ -168,7 +169,7 @@ export function MobileSubcontractorsList({
         <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="New Subcontractor">
           <MobileNewSubcontractorClient
             onClose={fab.close}
-            onCreated={() => window.location.reload()}
+            onCreated={() => router.refresh()}
           />
         </MobileFabModal>
       ) : null}

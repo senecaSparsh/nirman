@@ -8,6 +8,7 @@ import { PageLoading } from "@/components/page-loading";
 import { MaterialSalesView } from "@/components/material-sales/material-sales-view";
 
 import { NoAccess } from "@/components/no-access";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 export default function MaterialSalesPage() {
   return (
     <div className="space-y-6">
@@ -75,14 +76,13 @@ async function MaterialSalesContent() {
     }),
     prisma.material.findMany({
       take: 200,
-      where: { deletedAt: null },
+      where: { companyId: company.id, deletedAt: null },
       select: { id: true, name: true, unit: true },
       orderBy: { name: "asc" },
     }),
-    // Global catalog entity — needed by the inline material creator.
     prisma.materialCategory.findMany({
       take: 200,
-      where: { deletedAt: null },
+      where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, unit: true },
     }),
@@ -160,6 +160,8 @@ async function MaterialSalesContent() {
   }));
 
   return (
+    <>
+    <DepartmentActivityFeed department="sales" />
     <MaterialSalesView
       sales={saleRows}
       customers={customers.map((c) => ({ id: c.id, name: c.name, phone: c.phone }))}
@@ -172,5 +174,6 @@ async function MaterialSalesContent() {
       )}
       permissions={perms}
     />
+    </>
   );
 }

@@ -15,6 +15,7 @@ import { z } from "zod";
 const actionSchema = z.object({
   action: z.enum(["submit", "approve", "reject", "pay"]).optional(),
   rejectionReason: z.string().optional(),
+  reason: z.string().optional(),
   paymentMode: z.string().optional(),
   referenceNo: z.string().optional().nullable(),
 });
@@ -91,8 +92,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       await approveExpenseClaim(id, company.id, user.id);
     } else if (d.action === "reject") {
       const user = await requirePermission(PERM.EXPENSE_APPROVE);
-      if (!d.rejectionReason?.trim()) return json({ error: "A rejection reason is required" }, { status: 400 });
-      await rejectExpenseClaim(id, company.id, d.rejectionReason, user.id);
+      if (!d.rejectionReason?.trim() && !d.reason?.trim()) return json({ error: "A rejection reason is required" }, { status: 400 });
+      await rejectExpenseClaim(id, company.id, (d.rejectionReason ?? d.reason ?? "").trim(), user.id);
     } else if (d.action === "pay") {
       const user = await requirePermission(PERM.FINANCE_MANAGE);
       if (!d.paymentMode) return json({ error: "Payment mode is required" }, { status: 400 });
@@ -109,5 +110,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   revalidatePath("/expenses");
   revalidatePath("/finance");
   revalidatePath("/gl");
+  revalidatePath("/m/expense-claims");
+  revalidatePath("/m/accounts?tab=expenses");
+  revalidatePath("/m/approvals");
   return json({ ok: true });
 });

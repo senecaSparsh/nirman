@@ -50,6 +50,13 @@ async function MobileGstContent() {
   const INPUT_GST = "1400";
   const OUTPUT_GST = "2100";
 
+  // Resolve account codes → IDs (GlAccount PK is now id, not code)
+  const glAccounts = await prisma.glAccount.findMany({
+    where: { companyId: company.id, code: { in: [INPUT_GST, OUTPUT_GST] } },
+    select: { id: true, code: true },
+  });
+  const gstAccountIds = glAccounts.map((a) => a.id);
+
   const entries = await prisma.journalEntry.findMany({
     where: {
       companyId: company.id,
@@ -58,7 +65,8 @@ async function MobileGstContent() {
     },
     include: {
       lines: {
-        where: { accountCode: { in: [INPUT_GST, OUTPUT_GST] } },
+        where: { accountId: { in: gstAccountIds } },
+        include: { account: { select: { code: true } } },
       },
     },
     orderBy: { entryDate: "asc" },
@@ -84,8 +92,8 @@ async function MobileGstContent() {
     for (const line of entry.lines) {
       const debit = toNum(line.debit);
       const credit = toNum(line.credit);
-      if (line.accountCode === INPUT_GST) row.inputGst += debit;
-      else if (line.accountCode === OUTPUT_GST) row.outputGst += credit;
+      if (line.account.code === INPUT_GST) row.inputGst += debit;
+      else if (line.account.code === OUTPUT_GST) row.outputGst += credit;
     }
   }
 

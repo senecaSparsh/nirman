@@ -534,6 +534,7 @@ async function stockQueryResponse(companyId: string, entities: ParsedEntities): 
   if (entities.materialName) {
     const materials = await prisma.material.findMany({
       where: {
+        companyId,
         deletedAt: null,
         name: { contains: entities.materialName, mode: "insensitive" },
         stockItems: { some: { location: { companyId, deletedAt: null } } },
@@ -2484,16 +2485,16 @@ async function findProjectByName(companyId: string, name: string) {
 }
 
 // ── Helper: find material by name (fuzzy) ─────────────────────────────────
-async function _findMaterialByName(_companyId: string, name: string) {
+async function _findMaterialByName(companyId: string, name: string) {
   if (!name) return null;
-  // Materials are global (not company-scoped)
+  // Materials are company-scoped (Material.companyId).
   const exact = await prisma.material.findFirst({
-    where: { deletedAt: null, name: { equals: name, mode: "insensitive" } },
+    where: { companyId, deletedAt: null, name: { equals: name, mode: "insensitive" } },
     select: { id: true, name: true, code: true, unit: true },
   });
   if (exact) return exact;
   return prisma.material.findFirst({
-    where: { deletedAt: null, name: { contains: name, mode: "insensitive" } },
+    where: { companyId, deletedAt: null, name: { contains: name, mode: "insensitive" } },
     select: { id: true, name: true, code: true, unit: true },
   });
 }

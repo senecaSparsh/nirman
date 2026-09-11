@@ -238,11 +238,10 @@ export async function createQuotationRequest(input: CreateQuotationRequestInput)
     );
   }
 
-  // Validate materials exist and belong to the company (via category — materials
-  // don't have a companyId, but they're shared across the company group).
+  // Validate materials exist and belong to the active company.
   const materialIds = input.lines.map((l) => l.materialId);
   const materials = await prisma.material.findMany({
-    where: { id: { in: materialIds }, deletedAt: null },
+    where: { id: { in: materialIds }, companyId: input.companyId, deletedAt: null },
     select: { id: true, hsnCode: true, gstRate: true, name: true },
   });
   if (materials.length !== materialIds.length) {
@@ -805,6 +804,43 @@ export async function approveQuotation(input: ApproveQuotationInput) {
     });
 
     return { ...updated, purchaseOrder: { id: po.id, poNumber: po.poNumber, total: po.total } };
+  });
+}
+
+/**
+ * Cancel a quotation request. Only allowed from OPEN or QUOTES_COLLECTED
+ * status — once a request is APPROVED, the PO is already created and it's
+ * too late to cancel the request.
+ */
+export async function cancelQuotationRequest(id: string, userId: string, reason?: string) {
+  return withSerializableTransaction(async (tx) => {
+    const request = await tx.quotationRequest.findUnique({
+      where: { id },
+      select: { id: true, status: true, requestNumber: true },
+    });
+    if (!request) throw new ServiceError("Quotation request not found", 404);
+    if (request.status === "APPROVED") {
+      throw new ServiceError("Cannot cancel an approved request — cancel the purchase order instead", 400);
+    }
+    if (request.status === "CANCELLED" || request.status === "CLOSED") {
+      throw new ServiceError(`Request is already ${request.status.toLowerCase()}`, 400);
+    }
+
+    const updated = await tx.quotationRequest.update({
+      where: { id },
+      data: { status: "CANCELLED", notes: reason ?? null },
+    });
+
+    await logAction(tx, {
+      userId,
+      action: "QUOTATION_CANCEL",
+      entityType: "QuotationRequest",
+      entityId: id,
+      before: { status: request.status, requestNumber: request.requestNumber },
+      after: { status: "CANCELLED", reason: reason ?? null },
+    });
+
+    return updated;
   });
 }
 

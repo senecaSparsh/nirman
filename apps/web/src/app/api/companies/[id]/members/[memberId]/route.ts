@@ -155,6 +155,17 @@ export const GET = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ 
 export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string; memberId: string }> }) => {
   await requirePermission(PERM.COMPANY_MANAGE);
   const { id, memberId } = await ctx.params;
+  // Clean up user preferences for this company before removing the membership
+  // (UserPreference has no FK to UserCompany, so orphans would otherwise remain).
+  const membership = await prisma.userCompany.findUnique({
+    where: { id: memberId },
+    select: { userId: true, companyId: true },
+  });
+  if (membership) {
+    await prisma.userPreference.deleteMany({
+      where: { userId: membership.userId, companyId: membership.companyId },
+    }).catch(() => {});
+  }
   await prisma.userCompany.delete({ where: { id: memberId, companyId: id } });
   return json({ ok: true });
 });

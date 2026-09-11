@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   Loader2, Shield, HardHat, Package, ShoppingCart, MapPin, Calculator,
   TrendingUp, Users, FileText, Truck, DoorOpen, CheckSquare, Phone, Settings,
+  ShieldAlert, ClipboardCheck,
   Check, Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import { PERMISSION_MODULES, PERM } from "@/lib/roles";
 
 const ICONS: Record<string, typeof Shield> = {
   HardHat, Package, ShoppingCart, MapPin, Calculator, TrendingUp, Users,
-  FileText, Truck, DoorOpen, CheckSquare, Phone, Settings,
+  FileText, Truck, DoorOpen, CheckSquare, Phone, Settings, ShieldAlert, ClipboardCheck,
 };
 
 type PermissionsResponse = {

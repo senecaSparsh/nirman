@@ -158,6 +158,15 @@ export type ProjectHubData = {
   // ── Legal documents (permissions, licenses, NOCs, certificates, ATS) ──
   legalDocs?: import("@/components/legal/legal-docs-section").LegalDocRow[];
   canManageLegal?: boolean;
+  canManage?: boolean;
+  canReallocate?: boolean;
+  quickActionPerms?: {
+    canCreatePO?: boolean;
+    canIssueMaterials?: boolean;
+    canManageUnits?: boolean;
+    canCreateSale?: boolean;
+    canAddCost?: boolean;
+  };
 };
 
 const MOVEMENT_VARIANT: Record<string, "default" | "success" | "warning" | "muted" | "danger"> = {
@@ -237,8 +246,8 @@ export function ProjectHub({
           <Link href="/projects">← Projects</Link>
         </Button>
         <div className="flex items-center gap-2">
-          <QuickActionsMenu />
-          <ProjectDetailActions projectId={project.id} initial={editInitial} editOpen={editOpen} setEditOpen={setEditOpen} />
+          <QuickActionsMenu perms={data.quickActionPerms} />
+          <ProjectDetailActions projectId={project.id} initial={editInitial} editOpen={editOpen} setEditOpen={setEditOpen} canManage={data.canManage ?? false} canReallocate={data.canReallocate ?? false} />
         </div>
       </div>
 
@@ -378,16 +387,23 @@ function CountBadge({ n }: { n: number }) {
 }
 
 const QUICK_ACTIONS = [
-  { href: "/procurement", label: "New Purchase Order", icon: Truck },
-  { href: "/stock?tab=issues", label: "Issue Materials", icon: Package },
-  { href: "/units", label: "Add Built Units", icon: Home },
-  { href: "/sales", label: "Record a Sale", icon: TrendingUp },
-  { href: "/finance", label: "Add Project Cost", icon: Wallet },
-  { href: "/equipment", label: "Assign Equipment", icon: Wrench },
+  { href: "/procurement", label: "New Purchase Order", icon: Truck, perm: "canCreatePO" as const },
+  { href: "/stock?tab=issues", label: "Issue Materials", icon: Package, perm: "canIssueMaterials" as const },
+  { href: "/units", label: "Add Built Units", icon: Home, perm: "canManageUnits" as const },
+  { href: "/sales", label: "Record a Sale", icon: TrendingUp, perm: "canCreateSale" as const },
+  { href: "/finance", label: "Add Project Cost", icon: Wallet, perm: "canAddCost" as const },
+  { href: "/equipment", label: "Assign Equipment", icon: Wrench, perm: "canManageUnits" as const },
 ] as const;
 
-function QuickActionsMenu() {
+function QuickActionsMenu({ perms }: { perms?: ProjectHubData["quickActionPerms"] }) {
   const [open, setOpen] = useState(false);
+  // Filter actions by the role's permissions. Each action declares a
+  // required permission key; only show it if the role has that permission.
+  const visibleActions = QUICK_ACTIONS.filter((a) => {
+    if (!a.perm) return true;
+    return perms?.[a.perm] ?? false;
+  });
+  if (visibleActions.length === 0) return null;
   return (
     <div className="relative shrink-0">
       <Button
@@ -402,7 +418,7 @@ function QuickActionsMenu() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="overlay-in absolute right-0 top-full z-50 mt-1 min-w-52 rounded-lg border border-border bg-elevated p-1 shadow-overlay">
-            {QUICK_ACTIONS.map((a) => {
+            {visibleActions.map((a) => {
               const Icon = a.icon;
               return (
                 <Link

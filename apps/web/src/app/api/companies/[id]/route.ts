@@ -46,6 +46,18 @@ const companyUpdateSchema = z.object({
   lciThresholdDefault: z.coerce.number().min(0).max(100).optional().nullable(),
   poApprovalThresholdManager: z.coerce.number().min(0).optional().nullable(),
   poApprovalThresholdAdmin: z.coerce.number().min(0).optional().nullable(),
+  // ── Password policy (tenancy-level) ──
+  passwordMinLength: z.coerce.number().min(4).max(128).optional(),
+  passwordRequireSpecial: z.boolean().optional(),
+  passwordExpiryDays: z.coerce.number().min(0).optional().nullable(),
+  accountLockoutThreshold: z.coerce.number().min(1).max(50).optional(),
+  accountLockoutDurationMin: z.coerce.number().min(1).max(1440).optional(),
+  // ── Call recording config (retention/storage/consent; mode + per-user
+  //    selection stays on /api/telephony/recording-config) ──
+  recordingConsentBeep: z.boolean().optional(),
+  recordingRetentionDays: z.coerce.number().min(0).optional(),
+  recordingAutoDelete: z.boolean().optional(),
+  recordingStorageProvider: z.string().optional(),
 });
 
 /**

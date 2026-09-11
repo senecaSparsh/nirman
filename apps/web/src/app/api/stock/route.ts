@@ -19,6 +19,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const materialId = searchParams.get("materialId");
 
   const items = await prisma.stockLocationItem.findMany({
+    take: 500,
     where: {
       location: { deletedAt: null, companyId: company.id, ...(locationId ? { id: locationId } : {}) },
       material: { deletedAt: null, ...(materialId ? { id: materialId } : {}) },

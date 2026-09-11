@@ -24,7 +24,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
   // Aggregate debit/credit per account up to asOf
   const grouped = await prisma.journalLine.groupBy({
-    by: ["accountCode"],
+    by: ["accountId"],
     where: {
       journalEntry: {
         companyId: company.id,
@@ -33,14 +33,14 @@ export const GET = apiHandler(async (req: NextRequest) => {
       },
     },
     _sum: { debit: true, credit: true },
-    orderBy: { accountCode: "asc" },
+    orderBy: { accountId: "asc" },
   });
 
   const accounts = await prisma.glAccount.findMany({
-    where: { code: { in: grouped.map((g) => g.accountCode) } },
-    select: { code: true, name: true, type: true },
+    where: { id: { in: grouped.map((g) => g.accountId) } },
+    select: { id: true, code: true, name: true, type: true },
   });
-  const accountMap = new Map(accounts.map((a) => [a.code, a]));
+  const accountMap = new Map(accounts.map((a) => [a.id, a]));
 
   type Section = { code: string; name: string; balance: number };
   const assets: Section[] = [];
@@ -48,7 +48,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const equity: Section[] = [];
 
   for (const g of grouped) {
-    const acct = accountMap.get(g.accountCode);
+    const acct = accountMap.get(g.accountId);
     if (!acct) continue;
     const debit = new Decimal(g._sum.debit ?? 0);
     const credit = new Decimal(g._sum.credit ?? 0);
@@ -68,7 +68,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
   // Compute net income (revenue - expenses) and add to equity as retained earnings
   const revenueAndExpense = await prisma.journalLine.groupBy({
-    by: ["accountCode"],
+    by: ["accountId"],
     where: {
       journalEntry: {
         companyId: company.id,
@@ -79,14 +79,14 @@ export const GET = apiHandler(async (req: NextRequest) => {
     _sum: { debit: true, credit: true },
   });
   const revAccts = await prisma.glAccount.findMany({
-    where: { type: { in: ["REVENUE", "EXPENSE", "CONTRA_EXPENSE"] } },
-    select: { code: true, type: true },
+    where: { companyId: company.id, type: { in: ["REVENUE", "EXPENSE", "CONTRA_EXPENSE"] } },
+    select: { id: true, type: true },
   });
-  const revMap = new Map(revAccts.map((a) => [a.code, a.type]));
+  const revMap = new Map(revAccts.map((a) => [a.id, a.type]));
   let totalRevenue = new Decimal(0);
   let totalExpense = new Decimal(0);
   for (const g of revenueAndExpense) {
-    const type = revMap.get(g.accountCode);
+    const type = revMap.get(g.accountId);
     if (!type) continue;
     const debit = new Decimal(g._sum.debit ?? 0);
     const credit = new Decimal(g._sum.credit ?? 0);

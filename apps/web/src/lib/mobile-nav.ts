@@ -1,30 +1,33 @@
 /**
- * Mobile navigation arrival tracking.
+ * Mobile navigation back-button logic.
  *
- * Used by {@link MobileBackButton} to decide between `router.back()` and a
- * fallback URL. The previous heuristic (`window.history.length <= 1`) was
- * unreliable: `history.length` counts ALL session entries (including forward
- * ones), so a deep-link from WhatsApp/SMS (length=2: blank tab + link) would
- * call `router.back()` and navigate the user OUT of the app to a blank page,
- * while a forward-then-back navigation would loop the user forward.
+ * The back button should call `router.back()` when there's a real previous
+ * page in the browser history (user navigated within the app), and fall back
+ * to a logical parent URL when there isn't (deep link, refresh, external
+ * referral).
  *
- * This module tracks whether the CURRENT page was reached via an in-app
- * (client-side) navigation. The {@link NavigationTracker} component (mounted
- * in the mobile layout) sets a sessionStorage flag on every client-side route
- * change and clears it on full page loads (deep links, refreshes, external
- * referrals). `arrivedInternally()` reads that flag.
+ * Previous approaches tried to track this state with sessionStorage flags
+ * and depth counters, but both had issues:
+ * - The pathname-flag approach set the flag on the destination page after
+ *   `router.back()`, causing the next back click to navigate OUT of the app.
+ * - The depth-counter approach relied on `popstate` to distinguish forward
+ *   from back navigations, but `popstate` fires for BOTH directions and has
+ *   timing issues with React's effect lifecycle.
  *
- * Decision rule for the back button:
- *   - arrived internally  -> `router.back()`  (return to where the user came from)
- *   - deep-linked/refreshed -> `router.push(fallback)`  (go to the logical parent)
+ * The current approach is simpler and more reliable: always try
+ * `router.back()` first, then detect if it actually navigated by listening
+ * for the `popstate` event. If `popstate` fires within 150ms, the
+ * navigation worked. If it doesn't fire, `router.back()` was a no-op (no
+ * history entry to go back to), so we call the fallback.
+ *
+ * This requires no state tracking, no sessionStorage, and no lifecycle
+ * dependencies — it works correctly regardless of how the user arrived at
+ * the current page.
  */
-
-export const INTERNAL_ARRIVAL_FLAG = "__nirman_internal_arrival";
 
 /**
  * Normalize a pathname for comparison (strip trailing slash except for root,
- * ignore query/hash). The flag stores a normalized pathname so that
- * `/m/leads/` and `/m/leads` match.
+ * ignore query/hash).
  */
 export function normalizePath(path: string): string {
   let p = path.split("?")[0]!.split("#")[0]!;
@@ -33,19 +36,56 @@ export function normalizePath(path: string): string {
 }
 
 /**
- * Returns true if the current page was reached via an in-app client-side
- * navigation (i.e. there is a safe history entry to go back to within the app).
- * Returns false for deep links, full reloads, and external referrals — in
- * those cases the back button should fall back to a logical parent URL.
+ * Smart back navigation: tries `router.back()` first, and if it doesn't
+ * actually navigate (no `popstate` event within 150ms), calls the fallback.
+ *
+ * This handles all cases correctly:
+ *  - User navigated A → B within the app: `router.back()` works, popstate
+ *    fires, fallback is NOT called. User goes back to A.
+ *  - User deep-linked/refreshed (no history): `router.back()` is a no-op,
+ *    popstate doesn't fire, fallback IS called after 150ms.
+ *  - User came from an external site: `router.back()` navigates to the
+ *    external page, which unloads the current page. The fallback never
+ *    fires (page is gone), which is the correct behavior — the user goes
+ *    back to where they came from.
+ *
+ * @param back Function that calls router.back() / history.back()
+ * @param fallback Function to call if back() doesn't navigate
+ * @param timeoutMs How long to wait for popstate before falling back (default 150ms)
  */
-export function arrivedInternally(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    const flag = sessionStorage.getItem(INTERNAL_ARRIVAL_FLAG);
-    if (!flag) return false;
-    return normalizePath(flag) === normalizePath(window.location.pathname);
-  } catch (err) {
-    console.warn("mobile-nav sessionStorage read failed:", err);
-    return false;
+export function smartBack(
+  back: () => void,
+  fallback: () => void,
+  timeoutMs = 150,
+): void {
+  if (typeof window === "undefined") {
+    // SSR — just call the fallback
+    fallback();
+    return;
   }
+
+  let didNavigate = false;
+
+  const onPopState = () => {
+    didNavigate = true;
+    cleanup();
+  };
+  const cleanup = () => {
+    window.removeEventListener("popstate", onPopState);
+  };
+
+  window.addEventListener("popstate", onPopState);
+
+  // Call router.back() — if there's a history entry, the browser fires
+  // popstate synchronously (or within a microtask), which sets didNavigate.
+  back();
+
+  // Safety net: if popstate didn't fire within the timeout, router.back()
+  // was a no-op (no history to go back to). Clean up and use the fallback.
+  setTimeout(() => {
+    cleanup();
+    if (!didNavigate) {
+      fallback();
+    }
+  }, timeoutMs);
 }

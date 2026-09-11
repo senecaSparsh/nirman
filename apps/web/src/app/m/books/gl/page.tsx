@@ -33,6 +33,7 @@ async function MobileGlContent() {
   const company = await getCompany();
 
   const accounts = await prisma.glAccount.findMany({
+    where: { companyId: company.id },
     orderBy: { code: "asc" },
     include: {
       journalLines: {

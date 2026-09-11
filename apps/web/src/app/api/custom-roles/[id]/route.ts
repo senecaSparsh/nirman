@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
-import { PERM, ALL_PERMISSIONS } from "@/lib/roles";
+import { PERM, ALL_PERMISSIONS, ROLES, roleTier, canAssignRole, effectivePermissions } from "@/lib/roles";
 import { z } from "zod";
 
 /**
@@ -30,11 +30,12 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     return json({ error: `Cannot delete: ${usersWithRole} user(s) are still assigned to this role. Reassign them first.` }, { status: 409 });
   }
 
-  // Clean up any RolePermission overrides for this custom role key
-  await prisma.rolePermission.deleteMany({
-    where: { role: role.key },
-  }).catch(() => {});
-
+  // RolePermission is a global table (no companyId) — deleting by role key
+  // would wipe overrides for every company that shares the same custom role
+  // key (the unique constraint is (companyId, key), so keys can collide
+  // across companies). Since we've verified no users are assigned to this
+  // role, the RolePermission rows are inert orphans — no user will ever
+  // resolve them. Leaving them is safe; deleting them is not.
   await prisma.customRole.delete({ where: { id } });
 
   await logAction(prisma, {
@@ -92,6 +93,43 @@ export const PUT = apiHandler(async (req: NextRequest, { params }: { params: Pro
       return json({ error: `Unknown permissions: ${invalid.join(", ")}` }, { status: 400 });
     }
     updates.permissions = parsed.data.permissions;
+  }
+
+  // ── Tier guard: if tier is being changed, the new tier must be below ──
+  // the actor's own tier. Prevents escalating a role to a higher tier.
+  if (parsed.data.tier !== undefined) {
+    if (parsed.data.tier <= roleTier(session.role)) {
+      return json(
+        { error: `You can't set the access level for this role higher than your own.` },
+        { status: 403 },
+      );
+    }
+  }
+
+  // ── Base role guard: the actor must be able to assign the role's ──
+  // base role. Prevents editing a role based on a higher-tier base role.
+  if (!canAssignRole(session.role, role.baseRole)) {
+    return json(
+      { error: `You don't have authority to modify a role based on ${ROLES[role.baseRole as keyof typeof ROLES]?.label ?? role.baseRole}.` },
+      { status: 403 },
+    );
+  }
+
+  // ── Permission scope guard: the actor can only grant permissions they ──
+  // themselves have. OWNER/ADMIN (permissions = "*") bypass this check.
+  if (parsed.data.permissions !== undefined) {
+    const actorPerms = effectivePermissions(session.role);
+    if (actorPerms !== ALL_PERMISSIONS) {
+      const actorPermSet = new Set(actorPerms);
+      const outOfScope = parsed.data.permissions.filter((p) => !actorPermSet.has(p));
+      if (outOfScope.length > 0) {
+        const humanize = (p: string) => (p.split(".")[0] ?? p).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        return json(
+          { error: `You can't grant permissions you don't have: ${outOfScope.map(humanize).join(", ")}` },
+          { status: 403 },
+        );
+      }
+    }
   }
 
   const updated = await prisma.customRole.update({

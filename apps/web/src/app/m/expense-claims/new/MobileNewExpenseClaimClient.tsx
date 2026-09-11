@@ -2,13 +2,16 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Send, Plus, Trash2, IndianRupee, Camera } from "lucide-react";
+import { Loader2, Send, Plus, Trash2, IndianRupee, Camera, CheckCircle2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useLongPressNav } from "@/lib/use-long-press-nav";
 import { useSmartDefaults } from "@/lib/use-smart-defaults";
 import { useTodayDateState } from "@/lib/use-today-date";
 import { SmartDefaultsBadge } from "@/components/mobile/v2/smart-defaults-badge";
 import { SectionCard, SelectorModal } from "@/components/mobile/v2/form-primitives";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
+import { MobileNewEmployeeDialog } from "@/app/m/hr/employees/MobileNewEmployeeDialog";
 import { formatCurrency } from "@/lib/utils";
 
 type Employee = { id: string; name: string };
@@ -56,11 +59,16 @@ export function MobileNewExpenseClaimClient({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState<{ id: string; submitted: boolean; lineCount: number; total: number } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [claimantId, setClaimantId] = useState("");
   const [projectId, setProjectId] = useState("");
   const [description, setDescription] = useState("");
   const [modal, setModal] = useState<"claimant" | "project" | null>(null);
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const [showCreateEmployee, setShowCreateEmployee] = useState(false);
+  const [extraProjects, setExtraProjects] = useState<Project[]>([]);
+  const [extraEmployees, setExtraEmployees] = useState<Employee[]>([]);
   const [categoryModalLine, setCategoryModalLine] = useState<number | null>(null);
   const submitLongPress = useLongPressNav("/m/expense-claims", "Expense claims");
   const { getDefault, recordDefaults } = useSmartDefaults("expense-claim");
@@ -95,7 +103,7 @@ export function MobileNewExpenseClaimClient({
   }, [today, lines.length]);
 
   const selectedClaimant = employees.find((e) => e.id === claimantId);
-  const selectedProject = projects.find((p) => p.id === projectId);
+  const selectedProject = [...projects, ...extraProjects].filter((p, i, arr) => arr.findIndex((x) => x.id === p.id) === i).find((p) => p.id === projectId);
 
   // ── Compute total from valid lines ──
   const totalAmount = lines.reduce((sum, l) => {
@@ -204,27 +212,11 @@ export function MobileNewExpenseClaimClient({
       });
       if (!submitRes.ok) {
         // Claim created + lines added but submit failed — still usable
-        toast.success("Expense claim created", {
-          description: "Lines added. Submit the claim from the detail page.",
-        });
-        if (onCreated) {
-          onCreated(claimId);
-        } else {
-          router.push(`/m/expense-claims/${claimId}`);
-          router.refresh();
-        }
+        setSuccess({ id: claimId, submitted: false, lineCount: validLines.length, total: totalAmount });
         return;
       }
 
-      toast.success("Expense claim submitted", {
-        description: `${validLines.length} line ${validLines.length === 1 ? "item" : "items"} · ${formatCurrency(totalAmount)}`,
-      });
-      if (onCreated) {
-        onCreated(claimId);
-      } else {
-        router.push(`/m/expense-claims/${claimId}`);
-        router.refresh();
-      }
+      setSuccess({ id: claimId, submitted: true, lineCount: validLines.length, total: totalAmount });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -246,6 +238,35 @@ export function MobileNewExpenseClaimClient({
   };
 
   const activeCategories = categories.filter((c) => c.isActive);
+
+  if (success) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+        <div className="grid place-items-center size-14 rounded-full mb-3" style={{ backgroundColor: success.submitted ? "color-mix(in srgb, var(--color-go) 12%, transparent)" : "color-mix(in srgb, var(--color-signal) 12%, transparent)" }}>
+          <CheckCircle2 className="size-7" style={{ color: success.submitted ? "var(--color-go)" : "var(--color-signal)" }} />
+        </div>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
+          {success.submitted ? "Expense Claim Submitted" : "Expense Claim Saved as Draft"}
+        </p>
+        <p className="text-m-caption font-mono mb-1" style={{ color: "var(--color-ink-700)" }}>
+          {success.lineCount} line {success.lineCount === 1 ? "item" : "items"} · {formatCurrency(success.total)}
+        </p>
+        <p className="text-m-caption mb-4" style={{ color: "var(--color-ink-500)" }}>
+          {success.submitted
+            ? "It's now in the approval queue for a manager to review."
+            : "Submit it for approval from the claim detail page."}
+        </p>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <button onClick={() => { if (onCreated) onCreated(success.id); else { router.push(`/m/expense-claims/${success.id}`); router.refresh(); } }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+            <Eye className="size-4 inline mr-1" /> View Claim
+          </button>
+          <button onClick={() => { setSuccess(null); setDescription(""); setLines([emptyLine(today)]); setExtraProjects([]); setExtraEmployees([]); router.refresh(); }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
+            <Plus className="size-4 inline mr-1" /> Create Another
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-32">
@@ -472,10 +493,12 @@ export function MobileNewExpenseClaimClient({
       {modal === "claimant" ? (
         <SelectorModal
           title="Select Claimant"
-          items={employees.map((e) => ({ id: e.id, label: e.name }))}
+          items={[...employees, ...extraEmployees].filter((e, i, arr) => arr.findIndex((x) => x.id === e.id) === i).map((e) => ({ id: e.id, label: e.name }))}
           selectedId={claimantId}
           onSelect={handleSelect}
           onClose={() => setModal(null)}
+          onCreate={() => setShowCreateEmployee(true)}
+          createLabel="Create new employee"
         />
       ) : null}
 
@@ -484,11 +507,13 @@ export function MobileNewExpenseClaimClient({
           title="Select Project"
           items={[
             { id: "", label: "No project", sub: undefined as string | undefined },
-            ...projects.map((p) => ({ id: p.id, label: p.name })),
+            ...[...projects, ...extraProjects].filter((p, i, arr) => arr.findIndex((x) => x.id === p.id) === i).map((p) => ({ id: p.id, label: p.name })),
           ]}
           selectedId={projectId}
           onSelect={handleSelect}
           onClose={() => setModal(null)}
+          onCreate={() => setShowCreateProject(true)}
+          createLabel="Create new project"
         />
       ) : null}
 
@@ -504,6 +529,42 @@ export function MobileNewExpenseClaimClient({
           onClose={() => setCategoryModalLine(null)}
         />
       )}
+
+      {/* ══════ INLINE CREATE PROJECT DIALOG ══════ */}
+      {showCreateProject ? (
+        <MobileFabModal open onClose={() => setShowCreateProject(false)} title="New Project" nested>
+          <MobileNewProjectDialog
+            open
+            onClose={() => setShowCreateProject(false)}
+            onCreated={(p) => {
+              setExtraProjects((prev) => prev.some((x) => x.id === p.id) ? prev : [...prev, { id: p.id, name: p.name }]);
+              setProjectId(p.id);
+              setShowCreateProject(false);
+              setModal(null);
+            }}
+          />
+        </MobileFabModal>
+      ) : null}
+
+      {/* ══════ INLINE CREATE EMPLOYEE DIALOG ══════ */}
+      {showCreateEmployee ? (
+        <MobileFabModal open onClose={() => setShowCreateEmployee(false)} title="New Employee" nested>
+          <MobileNewEmployeeDialog
+            open
+            onClose={() => setShowCreateEmployee(false)}
+            projects={[]}
+            stockLocations={[]}
+            departments={[]}
+            nested
+            onCreated={(e) => {
+              setExtraEmployees((prev) => prev.some((x) => x.id === e.id) ? prev : [...prev, { id: e.id, name: e.name }]);
+              setClaimantId(e.id);
+              setShowCreateEmployee(false);
+              setModal(null);
+            }}
+          />
+        </MobileFabModal>
+      ) : null}
     </div>
   );
 }

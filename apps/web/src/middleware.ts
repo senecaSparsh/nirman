@@ -28,6 +28,8 @@ import { NextRequest, NextResponse } from "next/server";
  *   · "/m" on any UA                       →  stays on "/m" (no reverse redirect)
  *   · Deep routes are never redirected — explicit navigation is respected.
  *   · "nirman-desktop=1" cookie overrides mobile detection (escape hatch).
+ *   · "?desktop=1"  sets the escape-hatch cookie (phone → desktop view).
+ *   · "?mobile=1"   clears the escape-hatch cookie (back to mobile view).
  *
  * Auth (all environments): checks for the better-auth session cookie. If
  * missing, redirects to /sign-in. Set AUTH_BYPASS=true to skip the cookie
@@ -76,6 +78,7 @@ export function isPublicRoute(pathname: string): boolean {
     pathname.startsWith("/change-password/") ||
     pathname === "/consent" ||
     pathname.startsWith("/consent/") ||
+    pathname.startsWith("/accept/") ||
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/api/telephony/webhook") ||
     pathname.startsWith("/portal") ||
@@ -154,6 +157,17 @@ export function middleware(req: NextRequest) {
     return res;
   }
 
+  // ── "View mobile" — clear the desktop escape hatch ────────
+  // Symmetric to ?desktop=1 above. Clears the nirman-desktop cookie so
+  // the user returns to the mobile surface immediately. This is the
+  // reliable way back to mobile after using the desktop escape hatch —
+  // without it, the cookie persists until the browser closes.
+  if (searchParams.get("mobile") === "1") {
+    const res = NextResponse.redirect(new URL("/m", req.url));
+    res.cookies.delete("nirman-desktop");
+    return res;
+  }
+
   // ── Server-side mobile redirect (eliminates flash + handles deep routes) ──
   // Mobile UA users are redirected from desktop routes to their mobile
   // equivalents. This covers BOTH the landing page ("/") AND deep routes
@@ -168,7 +182,8 @@ export function middleware(req: NextRequest) {
   if (
     !hasDesktopCookie(req) &&
     isMobileRequest(req) &&
-    !pathname.startsWith("/m") &&
+    !pathname.startsWith("/m/") &&
+    pathname !== "/m" &&
     !pathname.startsWith("/print") &&
     !pathname.startsWith("/portal") &&
     !pathname.startsWith("/api") &&
@@ -227,6 +242,7 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/change-password/") ||
     pathname === "/consent" ||
     pathname.startsWith("/consent/") ||
+    pathname.startsWith("/accept/") ||
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/api/telephony/webhook") ||
     pathname.startsWith("/portal") ||

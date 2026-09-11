@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { receiveGoods, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, receiveGoodsSchema, requirePermission, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, receiveGoodsSchema, requireAnyPermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -12,12 +12,15 @@ import { PERM } from "@/lib/roles";
  * pick a PO and record a goods receipt against it.
  */
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.PROCUREMENT_VIEW);
+  // Store keepers (INVENTORY_VIEW) need to load receivable POs too,
+  // not just procurement managers (PROCUREMENT_VIEW).
+  await requireAnyPermission(PERM.PROCUREMENT_VIEW, PERM.INVENTORY_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const receivableOnly = searchParams.get("receivable") === "true";
 
   const pos = await prisma.purchaseOrder.findMany({
+    take: 500,
     where: {
       companyId: company.id,
       ...(receivableOnly ? { status: { in: ["ORDERED", "PARTIAL"] } } : {}),
@@ -79,7 +82,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
  * page so site storekeepers can receive shipments without connectivity.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+  // Goods receipt is the primary warehouse duty. Both procurement managers
+  // (PROCUREMENT_MANAGE) and store keepers (INVENTORY_MANAGE) can receive goods.
+  const user = await requireAnyPermission(PERM.PROCUREMENT_MANAGE, PERM.INVENTORY_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = receiveGoodsSchema.safeParse(body);

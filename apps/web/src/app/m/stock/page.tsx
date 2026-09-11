@@ -74,9 +74,9 @@ export default function MobileStockPage({
             // Material categories for inline material creation (global table, not company-scoped)
             prisma.materialCategory.findMany({
               where: { deletedAt: null },
-              select: { id: true, name: true, unit: true },
+              select: { id: true, name: true, unit: true, hsnCode: true, gstRate: true },
               orderBy: { name: "asc" },
-            }),
+            }).then((rows) => rows.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))),
           ]);
 
           if (!location) {
@@ -151,6 +151,7 @@ export default function MobileStockPage({
           transfers,
           counts,
           scraps,
+          onHandItems,
         ] = await Promise.all([
           // ── Ledger: locations ──
           prisma.stockLocation.findMany({
@@ -165,7 +166,7 @@ export default function MobileStockPage({
           }),
           // ── Ledger: movements ──
           prisma.stockMovement.findMany({
-            where: {...await scopeWhere("StockMovement"), 
+            where: {...await scopeWhere("StockMovement"),
               ...(materialId ? { materialId } : {}),
               OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }],
             },
@@ -195,9 +196,9 @@ export default function MobileStockPage({
           // ── Ledger: categories ──
           prisma.materialCategory.findMany({
             where: { deletedAt: null },
-            select: { id: true, name: true, unit: true },
+            select: { id: true, name: true, unit: true, hsnCode: true, gstRate: true },
             orderBy: { name: "asc" },
-          }),
+          }).then((rows) => rows.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))),
           // ── Transfers tab ──
           prisma.stockTransfer.findMany({
             where: {
@@ -245,6 +246,27 @@ export default function MobileStockPage({
                 },
               },
             },
+          }),
+          // ── On Hand tab: materials with stock at this company's locations ──
+          prisma.material.findMany({
+            where: {
+              deletedAt: null,
+              stockItems: { some: { location: { companyId: company.id } } },
+            },
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              unit: true,
+              category: { select: { name: true } },
+              reorderPoint: true,
+              stockItems: {
+                where: { location: { companyId: company.id } },
+                select: { qty: true, movingAvgCost: true, location: { select: { id: true, name: true, type: true } } },
+              },
+            },
+            orderBy: { name: "asc" },
+            take: 200,
           }),
         ]);
 
@@ -392,6 +414,45 @@ export default function MobileStockPage({
           { key: "totalValue", label: "Value", format: "currency" },
         ];
 
+        // ── On Hand serialization ──
+        const onHandRows = onHandItems.map((m) => {
+          const totalQty = m.stockItems.reduce((s, i) => s + toNum(i.qty), 0);
+          const stockValue = m.stockItems.reduce((s, i) => s + toNum(i.qty) * toNum(i.movingAvgCost), 0);
+          const mac = totalQty > 0 ? stockValue / totalQty : 0;
+          const reorderPoint = m.reorderPoint ? toNum(m.reorderPoint) : null;
+          const isLow = reorderPoint != null && totalQty <= reorderPoint && totalQty > 0;
+          const isOut = totalQty <= 0;
+          return {
+            id: m.id,
+            code: m.code,
+            name: m.name,
+            unit: m.unit,
+            categoryName: m.category.name,
+            totalQty,
+            stockValue,
+            mac,
+            reorderPoint,
+            isLow,
+            isOut,
+            locations: m.stockItems.map((i) => ({
+              id: i.location.id,
+              name: i.location.name,
+              type: i.location.type,
+              qty: toNum(i.qty),
+            })),
+          };
+        }).sort((a, b) => Number(b.isLow || b.isOut) - Number(a.isLow || a.isOut) || a.name.localeCompare(b.name));
+
+        const onHandCsvColumns: MobileColumnSpec[] = [
+          { key: "code", label: "Code" },
+          { key: "name", label: "Material" },
+          { key: "categoryName", label: "Category" },
+          { key: "totalQty", label: "On Hand" },
+          { key: "unit", label: "Unit" },
+          { key: "mac", label: "MAC", format: "currency" },
+          { key: "stockValue", label: "Value", format: "currency" },
+        ];
+
         return (
           <MobileStockHubTabs
             ledgerLocations={serializedLocations}
@@ -422,6 +483,10 @@ export default function MobileStockPage({
             scrapTotalValue={scrapTotalValue}
             scrapCanCreate={canManage}
             scrapExportColumns={scrapCsvColumns}
+            onHandItems={onHandRows}
+            onHandExportColumns={onHandCsvColumns}
+            onHandTotalValue={onHandRows.reduce((s, r) => s + r.stockValue, 0)}
+            onHandLowCount={onHandRows.filter((r) => r.isLow || r.isOut).length}
           />
         );
       }}

@@ -6,8 +6,7 @@ import { toast } from "sonner";
 import {
   FileText, Upload, X, Plus, Trash2, Loader2, CheckCircle2,
   Clock, Download,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  ChevronRight, Pencil, ChevronDown, Lock, ShieldCheck, MapPin, Building2, CircleDot, AlertCircle,
+  ChevronRight, Pencil, Lock, ShieldCheck, MapPin, Building2, CircleDot, AlertCircle,
 } from "lucide-react";
 import {
   MobileSectionTitle,

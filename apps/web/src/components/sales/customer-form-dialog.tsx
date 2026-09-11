@@ -5,9 +5,20 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Field } from "@/components/field";
+import { required, phone, email, gstin } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 import type { CustomerRow } from "@/lib/types";
+
+type FormState = {
+  name: string;
+  phone: string;
+  email: string;
+  gstin: string;
+  address: string;
+};
 
 export function CustomerFormDialog({
   open,
@@ -23,7 +34,7 @@ export function CustomerFormDialog({
   const router = useRouter();
   const isEdit = customer != null;
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<FormState>({
     name: customer?.name ?? "",
     phone: customer?.phone ?? "",
     email: customer?.email ?? "",
@@ -31,9 +42,18 @@ export function CustomerFormDialog({
     address: customer?.address ?? "",
   });
 
+  const validationRules: ValidationRules<FormState> = {
+    name: (v) => required(v as string, "Customer Name"),
+    phone: (v) => phone(v as string),
+    email: (v) => email(v as string),
+    gstin: (v) => gstin(v as string),
+  };
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<FormState>(validationRules);
+
   // Sync form fields when the edit target changes or the dialog opens fresh.
   useEffect(() => {
     if (!open) return;
+    clearAll();
     setForm({
       name: customer?.name ?? "",
       phone: customer?.phone ?? "",
@@ -43,14 +63,15 @@ export function CustomerFormDialog({
     });
   }, [open, customer]);
 
-  function set(key: keyof typeof form, value: string) {
+  function set(key: keyof FormState, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+    clearError(key);
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name.trim()) {
-      toast.error("Customer name is required");
+    if (!validateAll(form)) {
+      toast.error("Please fix the errors in the form");
       return;
     }
     setSaving(true);
@@ -105,28 +126,23 @@ export function CustomerFormDialog({
       className="max-w-lg"
     >
       <form onSubmit={onSubmit} className="space-y-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="c-name">Customer Name *</Label>
-          <Input id="c-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Rajesh Sharma" required />
-        </div>
+        <Field label="Customer Name" required error={errors.name}>
+          <Input value={form.name} onChange={(e) => set("name", e.target.value)} onBlur={() => onBlur("name", form)} aria-invalid={!!errors.name} placeholder="e.g. Rajesh Sharma" required />
+        </Field>
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="c-phone">Phone</Label>
-            <Input id="c-phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="98765 43210" />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="c-email">Email</Label>
-            <Input id="c-email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="customer@example.com" />
-          </div>
+          <Field label="Phone" error={errors.phone}>
+            <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} onBlur={() => onBlur("phone", form)} aria-invalid={!!errors.phone} placeholder="98765 43210" />
+          </Field>
+          <Field label="Email" error={errors.email}>
+            <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} onBlur={() => onBlur("email", form)} aria-invalid={!!errors.email} placeholder="customer@example.com" />
+          </Field>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="c-gstin">GSTIN</Label>
-          <Input id="c-gstin" value={form.gstin} onChange={(e) => set("gstin", e.target.value)} placeholder="29ABCDE1234F1Z5" />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="c-address">Address</Label>
-          <Textarea id="c-address" value={form.address} onChange={(e) => set("address", e.target.value)} rows={2} placeholder="Flat/house no, street, area, city, PIN" />
-        </div>
+        <Field label="GSTIN" error={errors.gstin}>
+          <Input value={form.gstin} onChange={(e) => set("gstin", e.target.value)} onBlur={() => onBlur("gstin", form)} aria-invalid={!!errors.gstin} placeholder="29ABCDE1234F1Z5" />
+        </Field>
+        <Field label="Address">
+          <Textarea value={form.address} onChange={(e) => set("address", e.target.value)} rows={2} placeholder="Flat/house no, street, area, city, PIN" />
+        </Field>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel

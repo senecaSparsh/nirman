@@ -3,6 +3,7 @@ import { scopeWhere, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileSafetyContent } from "./MobileSafetyContent";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 
 /**
  * /m/safety — mobile Safety Management.
@@ -10,7 +11,7 @@ import { MobileSafetyContent } from "./MobileSafetyContent";
  */
 export default function MobileSafetyPage() {
   return (
-    <MobileListPage managePerm={PERM.SAFETY_MANAGE}>
+    <MobileListPage perm={PERM.SAFETY_VIEW} managePerm={PERM.SAFETY_MANAGE} what="safety management">
       {async ({ company, canManage }) => {
         const actions = await getActionPermissions();
         const canCreateSafety = actions?.canCreateSafetyItem ?? canManage;
@@ -83,13 +84,16 @@ export default function MobileSafetyPage() {
         }));
 
         return (
-          <MobileSafetyContent
+          <>
+            <DepartmentActivityFeed department="safety" />
+            <MobileSafetyContent
             incidents={serializedIncidents}
             hazards={serializedHazards}
             inspections={serializedInspections}
             projects={projects}
             canManage={canCreateSafety}
           />
+        </>
         );
       }}
     </MobileListPage>

@@ -169,7 +169,7 @@ export default function MobileNewEquipmentClient({
   }
 
   return (
-    <div className="pb-32">
+    <div className={onClose ? "pb-2" : "pb-32"}>
       {hasDraft && !draftRestored && !success ? (
         <DraftBanner
           formName="equipment-new"
@@ -290,14 +290,14 @@ export default function MobileNewEquipmentClient({
 
       {/* ── STICKY BOTTOM BAR ── */}
       <div
-        className="fixed left-0 right-0 z-30 border-t backdrop-blur-sm"
+        className={onClose ? "sticky bottom-0 z-30 border-t backdrop-blur-sm" : "fixed left-0 right-0 z-30 border-t backdrop-blur-sm"}
         style={{
-          bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px))",
+          ...(onClose ? {} : { bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px))" }),
           backgroundColor: "color-mix(in srgb, var(--color-paper) 97%, transparent)",
           borderColor: "var(--color-line)",
         }}
       >
-        <div className="max-w-md mx-auto px-3.5 py-2 flex items-center gap-1">
+        <div className={onClose ? "px-3.5 py-2 flex items-center gap-1" : "max-w-md mx-auto px-3.5 py-2 flex items-center gap-1"}>
           {/* Summary */}
           <div className="shrink-0">
             <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-700)" }}>

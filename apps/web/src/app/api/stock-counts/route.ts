@@ -10,6 +10,7 @@ export const GET = apiHandler(async () => {
   await requirePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
   const counts = await prisma.stockCount.findMany({
+    take: 500,
     where: { location: { companyId: company.id, deletedAt: null } },
     orderBy: { createdAt: "desc" },
     include: {

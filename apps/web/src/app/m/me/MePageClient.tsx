@@ -79,6 +79,7 @@ export interface OnboardingProgress {
 export interface MePageInitial {
   name: string;
   role: string;
+  roleLabel: string | null;
   email: string;
   phone: string | null;
   image: string | null;
@@ -331,9 +332,12 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
     }
   }
 
-  // Resolve the role enum to a human label (e.g. "PROJECT_MANAGER" → "Project Manager")
-  const roleLabel = (userRole && (ROLES as Record<string, { label: string }>)[userRole]?.label)
-    ?? (userRole ? userRole.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : null);
+  // Resolve the role enum to a human label (e.g. "PROJECT_MANAGER" → "Project Manager").
+  // For custom roles, prefer the server-resolved DB label (initial.roleLabel)
+  // over deriving from the key string.
+  const roleLabel = initial?.roleLabel
+    ?? (userRole && (ROLES as Record<string, { label: string }>)[userRole]?.label)
+    ?? (userRole ? userRole.replace(/^CUSTOM_/, "").replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : null);
 
   return (
     <div>

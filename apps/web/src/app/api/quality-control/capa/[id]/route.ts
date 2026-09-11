@@ -24,7 +24,7 @@ const actionSchema = z.object({
 
 // PATCH /api/quality-control/capa/[id]
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.WO_MANAGE);
+  const user = await requirePermission(PERM.QC_MANAGE);
   const { id } = await ctx.params;
 
   const company = await getCompany();
@@ -40,21 +40,26 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
       switch (parsed.data.action) {
         case "start":
           revalidatePath("/quality-control");
+          revalidatePath("/m/quality-control");
           return json(await startCapa(id, user.id));
         case "corrective_done":
           revalidatePath("/quality-control");
+          revalidatePath("/m/quality-control");
           return json(await completeCorrectiveAction(id, user.id));
         case "preventive_done":
           revalidatePath("/quality-control");
+          revalidatePath("/m/quality-control");
           return json(await completePreventiveAction(id, user.id));
         case "verify":
           if (!parsed.data.verificationMethod || !parsed.data.verificationNotes || parsed.data.effective === undefined)
             return json({ error: "verificationMethod, verificationNotes, and effective are required" }, { status: 400 });
           revalidatePath("/quality-control");
+          revalidatePath("/m/quality-control");
           return json(await verifyCapa(id, user.id, parsed.data.verificationMethod, parsed.data.verificationNotes, parsed.data.effective));
         case "close":
           if (!parsed.data.closureNotes) return json({ error: "closureNotes required" }, { status: 400 });
           revalidatePath("/quality-control");
+          revalidatePath("/m/quality-control");
           return json(await closeCapa(id, user.id, parsed.data.closureNotes));
       }
     } catch (err: unknown) {
@@ -66,6 +71,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   try {
     revalidatePath("/quality-control");
+          revalidatePath("/m/quality-control");
     return json(await updateCapa(id, {
       rootCause: parsed.data.rootCause,
       correctiveAction: parsed.data.correctiveAction,

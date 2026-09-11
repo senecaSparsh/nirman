@@ -182,4 +182,42 @@ export function Fieldset({
   );
 }
 
+/**
+ * An input with a trailing unit suffix — e.g. "50 [BAG]" or "₹500 [SQM]".
+ *
+ * The unit is shown as a non-editable adornment on the right, so the user
+ * knows the unit without it polluting the placeholder or the value. The
+ * input itself only accepts the number; the unit is purely visual context.
+ *
+ * Use this for quantity/threshold fields where the unit comes from the
+ * material or category (reorder point, min stock, EOQ, opening qty, etc.).
+ */
+export const InputWithUnit = React.forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement> & { unit?: string | null }
+>(({ className, unit, ...props }, ref) => {
+  if (!unit) {
+    return <Input ref={ref} className={className} {...props} />;
+  }
+  return (
+    <div className="relative w-full">
+      <input
+        ref={ref}
+        className={cn(
+          fieldBase,
+          fieldSize,
+          (props.type === "number" || props.type === "date" || props.type === "time") && "tnum",
+          "pr-12",
+          className,
+        )}
+        {...props}
+      />
+      <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-caption font-medium text-muted-foreground tabular-nums">
+        {unit}
+      </span>
+    </div>
+  );
+});
+InputWithUnit.displayName = "InputWithUnit";
+
 export { Textarea } from "./textarea";

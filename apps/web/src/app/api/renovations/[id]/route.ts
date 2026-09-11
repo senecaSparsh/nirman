@@ -75,6 +75,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return r;
     });
     revalidatePath("/renovations");
+    revalidatePath("/m/renovations");
     revalidatePath(`/renovations/${id}`);
     return json({ ok: true, id: updated.id, title: updated.title });
   } catch (err) {
@@ -93,6 +94,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     if (action === "start") {
       const r = await startRenovation(id, user.id);
       revalidatePath("/renovations");
+    revalidatePath("/m/renovations");
       revalidatePath(`/renovations/${id}`);
       return json({ ok: true, id: r.id, status: r.status });
     } else if (action === "complete") {
@@ -101,6 +103,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
         userId: user.id,
       });
       revalidatePath("/renovations");
+    revalidatePath("/m/renovations");
       revalidatePath(`/renovations/${id}`);
       revalidatePath("/projects");
       revalidatePath("/gl");
@@ -108,6 +111,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     } else if (action === "cancel") {
       const r = await cancelRenovation(id, user.id);
       revalidatePath("/renovations");
+    revalidatePath("/m/renovations");
       revalidatePath(`/renovations/${id}`);
       return json({ ok: true, id: r.id, status: r.status });
     }

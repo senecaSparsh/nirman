@@ -157,7 +157,7 @@ async function MobileDprContent() {
       orderBy: { name: "asc" },
     }),
     prisma.material.findMany({
-      where: { deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
+      where: { companyId: company.id, deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
       select: { id: true, name: true, unit: true, standardCost: true },
       orderBy: { name: "asc" },
       take: 100,

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
+import { seedDefaultCategories } from "@nirman/services";
 import { apiHandler, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
@@ -96,6 +97,15 @@ export const POST = apiHandler(async (req: NextRequest) => {
     },
     select: { id: true, name: true },
   });
+
+  // Seed default construction categories for the new company.
+  // Non-throwing — if this fails, the company is still usable; the user
+  // can create categories manually. Logged for debugging.
+  try {
+    await seedDefaultCategories(created.id);
+  } catch (err) {
+    console.error("[company-create] failed to seed default categories (non-fatal):", err);
+  }
 
   return json(created, { status: 201 });
 });

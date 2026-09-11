@@ -27,6 +27,8 @@ export function MobileDprActions({
   canMarkCostPosted,
   canManage,
   costPosted,
+  submittedById,
+  currentUserId,
 }: {
   dprId: string;
   status: string;
@@ -36,6 +38,8 @@ export function MobileDprActions({
   canMarkCostPosted: boolean;
   canManage: boolean;
   costPosted: boolean;
+  submittedById?: string | null;
+  currentUserId?: string | null;
 }) {
   const router = useRouter();
   const [visibleStatus, setVisibleStatus] = useState(status);
@@ -84,8 +88,10 @@ export function MobileDprActions({
     hapticOnSuccess: 20,
   });
 
-  const showSubAdmin = visibleStatus === "SUBMITTED" && canApproveSubAdmin;
-  const showAdmin = visibleStatus === "SUB_ADMIN_APPROVED" && canApproveAdmin;
+  // Creator gate: don't show approve/reject to the person who submitted the DPR
+  const isOwnDpr = submittedById !== currentUserId;
+  const showSubAdmin = visibleStatus === "SUBMITTED" && canApproveSubAdmin && isOwnDpr;
+  const showAdmin = visibleStatus === "SUB_ADMIN_APPROVED" && canApproveAdmin && isOwnDpr;
   const showResubmit = visibleStatus === "REJECTED" && canResubmit;
   const showMarkCost = canMarkCostPosted && visibleStatus === "APPROVED" && !costPosted;
   const canDelete = canManage;

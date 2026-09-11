@@ -11,6 +11,8 @@ import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid
 import { formatCurrency } from "@/lib/utils";
 import type { MaterialOption, StockLocationOption } from "@/lib/types";
 import { VehicleCapture, type VehicleData } from "@/components/mobile/vehicle-capture";
+import { required, positiveNumber, nonNegativeNumber } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 
 type SupplierOption = { id: string; name: string };
 
@@ -20,6 +22,15 @@ type Line = {
   qty: string;
   unitCost: string;
   gstRate: string;
+};
+
+type FormState = {
+  supplierId: string;
+  supplierName: string;
+  locationId: string;
+  billDate: string;
+  notes: string;
+  lines: Line[];
 };
 
 export function DirectPurchaseFormDialog({
@@ -105,6 +116,26 @@ export function DirectPurchaseFormDialog({
   const [showVehicle, setShowVehicle] = useState(false);
   const [vehicle, setVehicle] = useState<VehicleData>({ vehicleNumber: "", vehicleType: "" });
 
+  // ── Inline validation ──────────────────────────────────────────
+  // Validates on blur and shows red error text under the field instantly.
+  const validationRules: ValidationRules<FormState> = {
+    supplierName: (_v, all) => {
+      if (!all.supplierId && !all.supplierName.trim()) return "Supplier is required";
+    },
+    locationId: (v) => required(v as string, "Receive Location"),
+    lines: (v) => {
+      const ls = v as Line[];
+      for (const l of ls) {
+        if (!l.materialId) continue;
+        const qErr = positiveNumber(l.qty, "Quantity");
+        if (qErr) return qErr;
+        const cErr = nonNegativeNumber(l.unitCost, "Rate");
+        if (cErr) return cErr;
+      }
+    },
+  };
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<FormState>(validationRules);
+
   // Wrap setLines to auto-fill gstRate & unitCost from the selected material.
   function setLines(updater: Line[] | ((prev: Line[]) => Line[])) {
     setLinesState((prev) => {
@@ -124,6 +155,7 @@ export function DirectPurchaseFormDialog({
         return line;
       });
     });
+    clearError("lines");
   }
 
   function addLine() { setLines((ls) => [...ls, { id: crypto.randomUUID(), materialId: "", qty: "", unitCost: "", gstRate: "" }]); }
@@ -139,8 +171,10 @@ export function DirectPurchaseFormDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!supplierName.trim() && !supplierId) return toast.error("Select or enter a supplier name");
-    if (!locationId) return toast.error("Select a receive location");
+    if (!validateAll({ supplierId, supplierName, locationId, billDate, notes, lines })) {
+      toast.error("Please fix the errors in the form");
+      return;
+    }
     const finalSupplierName = supplierId
       ? suppliers.find((s) => s.id === supplierId)?.name ?? supplierName
       : supplierName.trim();
@@ -193,6 +227,7 @@ export function DirectPurchaseFormDialog({
       onOpenChange={(o) => {
         onOpenChange(o);
         if (o) {
+          clearAll();
           // Default bill date to today
           setBillDate((cur) => cur || new Date().toISOString().slice(0, 10));
         }
@@ -204,16 +239,19 @@ export function DirectPurchaseFormDialog({
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label>Supplier *</Label>
+            <Label className={errors.supplierName ? "text-danger" : undefined}>Supplier *</Label>
             <Select
               value={supplierId}
               onChange={(e) => {
                 setSupplierId(e.target.value);
+                clearError("supplierName");
                 if (e.target.value) {
                   const s = suppliers.find((s) => s.id === e.target.value);
                   setSupplierName(s?.name ?? "");
                 }
               }}
+              onBlur={() => onBlur("supplierName", { supplierId, supplierName, locationId, billDate, notes, lines })}
+              aria-invalid={!!errors.supplierName}
             >
               <option value="">— Or type name below —</option>
               {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -221,18 +259,27 @@ export function DirectPurchaseFormDialog({
             {!supplierId && (
               <Input
                 value={supplierName}
-                onChange={(e) => setSupplierName(e.target.value)}
+                onChange={(e) => { setSupplierName(e.target.value); clearError("supplierName"); }}
+                onBlur={() => onBlur("supplierName", { supplierId, supplierName, locationId, billDate, notes, lines })}
+                aria-invalid={!!errors.supplierName}
                 placeholder="Supplier name (ad-hoc)"
                 className="mt-1"
               />
             )}
+            {errors.supplierName && <p className="text-caption text-danger" role="alert">{errors.supplierName}</p>}
           </div>
           <div className="space-y-1.5">
-            <Label>Receive Location *</Label>
-            <Select value={locationId} onChange={(e) => setLocationId(e.target.value)}>
+            <Label className={errors.locationId ? "text-danger" : undefined}>Receive Location *</Label>
+            <Select
+              value={locationId}
+              onChange={(e) => { setLocationId(e.target.value); clearError("locationId"); }}
+              onBlur={() => onBlur("locationId", { supplierId, supplierName, locationId, billDate, notes, lines })}
+              aria-invalid={!!errors.locationId}
+            >
               <option value="">Select…</option>
               {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </Select>
+            {errors.locationId && <p className="text-caption text-danger" role="alert">{errors.locationId}</p>}
           </div>
           <div className="space-y-1.5">
             <Label>Bill Date</Label>
@@ -257,6 +304,7 @@ export function DirectPurchaseFormDialog({
               className="max-h-[40vh]"
             />
           </div>
+          {errors.lines && <p className="text-caption text-danger" role="alert">{errors.lines}</p>}
         </div>
 
         {validLines.length > 0 && (

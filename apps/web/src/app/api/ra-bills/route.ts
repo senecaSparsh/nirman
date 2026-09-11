@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import {prisma, type RaBillStatus} from "@nirman/db";
-import { createRaBill, ServiceError } from "@nirman/services";
+import { createRaBill, submitRaBill, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
@@ -13,10 +13,13 @@ const schema = z.object({
   mbEntryIds: z.array(z.string()).optional(),
   otherDeductions: z.coerce.number().optional(),
   notes: z.string().optional().nullable(),
+  /** When true (default), the RA bill is auto-submitted for approval right
+   *  after creation — eliminates the useless manual "Submit" step. */
+  autoSubmit: z.boolean().optional().default(true),
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requirePermission(PERM.RA_SUBMIT);
   const body = await req.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid" }, { status: 400 });
@@ -31,9 +34,26 @@ export const POST = apiHandler(async (req: NextRequest) => {
       notes: d.notes ?? undefined,
       userId: user.id,
     });
+
+    // Auto-submit by default — eliminates the useless manual "Submit for
+    // Approval" step. The RA bill goes straight to the approval queue.
+    let submitted = false;
+    let submitError: string | null = null;
+    if (d.autoSubmit !== false) {
+      try {
+        await submitRaBill(bill.id, user.id);
+        submitted = true;
+      } catch (err) {
+        // If auto-submit fails, still return success — the bill was created
+        // as DRAFT and can be submitted manually. Surface the error reason.
+        submitError = err instanceof ServiceError ? err.message : (err instanceof Error ? err.message : "Unknown error");
+        console.error("[ra-bills] Auto-submit failed for", bill.id, err);
+      }
+    }
+
     revalidatePath("/finance");
     revalidatePath("/m/accounts");
-    return json(bill, { status: 201 });
+    return json({ ...bill, submitted, submitError }, { status: 201 });
   } catch (err: unknown) {
     revalidatePath("/finance");
     revalidatePath("/m/accounts");

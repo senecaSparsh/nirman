@@ -18,9 +18,18 @@ export const POST = apiHandler(async (_req: NextRequest, { params }: { params: P
 
   const target = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, lockedUntil: true, failedLoginAttempts: true },
+    select: { id: true, name: true, lockedUntil: true, failedLoginAttempts: true, companyId: true },
   });
   if (!target) {
+    return json({ error: "User not found." }, { status: 404 });
+  }
+
+  // ── Tenancy guard: the target must belong to the actor's company ──
+  const membership = await prisma.userCompany.findFirst({
+    where: { userId, companyId: company.id },
+    select: { id: true },
+  });
+  if (!membership && target.companyId !== company.id) {
     return json({ error: "User not found." }, { status: 404 });
   }
 

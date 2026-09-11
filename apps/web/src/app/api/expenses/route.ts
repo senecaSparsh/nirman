@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createExpense, ServiceError } from "@nirman/services";
@@ -108,7 +108,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       createdAt: r.date,
       id: r.id,
     }));
-    return NextResponse.json({ items, nextCursor, hasMore });
+    return json({ items, nextCursor, hasMore });
   }
   return json(mapped);
 });

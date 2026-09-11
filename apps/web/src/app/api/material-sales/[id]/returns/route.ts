@@ -8,7 +8,7 @@ import { PERM } from "@/lib/roles";
 
 const returnLineSchema = z.object({
   materialSaleLineId: z.string().min(1),
-  qty: z.union([z.number(), z.string()]).transform(Number).pipe(z.number().positive()),
+  qty: z.union([z.number(), z.string()]).transform((v) => String(v)).refine((v) => parseFloat(v) > 0, "Quantity must be > 0"),
   reason: z.string().optional(),
 });
 

@@ -1489,6 +1489,8 @@ export interface SubmitDprInput {
   materialLines?: DprMaterialLineInput[];
   laborLines?: DprLaborLineInput[];
   userId?: string;
+  /** Waiver: skip the attendance/labor check. Use for no-work days or material-only DPRs. */
+  skipAttendanceCheck?: boolean;
 }
 
 /**
@@ -1595,6 +1597,22 @@ export async function submitDPR(input: SubmitDprInput) {
             taskDescription: `${a.employee?.trade ?? "Labor"} — auto-populated from attendance (in: ${a.checkIn?.toISOString().slice(11, 16) ?? "N/A"}, out: ${a.checkOut?.toISOString().slice(11, 16) ?? "N/A"})`,
           })),
         });
+      }
+    }
+
+    // ── Attendance/Labor gate ──
+    // A DPR should reflect actual work done. If there are no labor lines
+    // (neither explicit nor auto-populated from attendance) AND no material
+    // lines, the DPR is empty and should be rejected unless an explicit
+    // waiver is provided (e.g. no-work days, planning-only days).
+    if (!input.skipAttendanceCheck) {
+      const laborCount = await tx.dPRLaborLine.count({ where: { dprId: dpr.id } });
+      const materialCount = input.materialLines?.length ?? 0;
+      if (laborCount === 0 && materialCount === 0) {
+        throw new HrError(
+          "DPR has no labor or material data. Either mark attendance for this project+date, provide explicit labor/material lines, or set skipAttendanceCheck=true for no-work days.",
+          400,
+        );
       }
     }
 
@@ -1779,6 +1797,10 @@ export async function rejectDpr(dprId: string, rejecterId: string, reason: strin
     if (!dpr) throw new HrError("DPR not found", 404);
     if (dpr.approvalStatus === "APPROVED") {
       throw new HrError("Cannot reject an already-approved DPR", 409);
+    }
+    // Prevent self-rejection — the submitter cannot reject their own DPR.
+    if (dpr.submittedById === rejecterId) {
+      throw new HrError("You cannot reject your own DPR.", 403);
     }
     const previousStatus = dpr.approvalStatus;
     const updated = await tx.dailyProgressReport.update({

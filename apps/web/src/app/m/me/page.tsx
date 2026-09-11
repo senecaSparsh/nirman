@@ -78,6 +78,20 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
   // "Reports to" for non-owner/admin roles that have a reportsTo set.
   const role = membership?.role ?? user.role ?? "";
   const isTopLevel = role === "OWNER" || role === "ADMIN";
+
+  // ── Resolve custom role label from DB ──
+  // For custom roles (CUSTOM_...), the label is stored in the CustomRole table,
+  // not in the ROLES map. Without this, the client derives "Custom Site Lead"
+  // from the key instead of showing the actual DB label "Site Lead".
+  let roleLabel: string | null = null;
+  if (role.startsWith("CUSTOM_")) {
+    const customRole = await prisma.customRole.findFirst({
+      where: { companyId: company.id, key: role },
+      select: { label: true },
+    }).catch(() => null);
+    roleLabel = customRole?.label ?? null;
+  }
+
   const reportsToName = (!isTopLevel && membership?.reportsTo?.user?.name)
     ? membership.reportsTo.user.name
     : null;
@@ -88,6 +102,7 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
   return {
     name: user.name,
     role,
+    roleLabel,
     email: user.email,
     phone: dbUser?.phone ?? null,
     image: dbUser?.image ?? null,

@@ -313,7 +313,15 @@ export function AppShell({
 
   const worlds = worldsFor(userRole);
   const onSettings = isSettingsPath(pathname);
-  const activeWorld = onSettings ? (worlds[0] ?? worldForPath(pathname)) : worldForPath(pathname);
+  // Use the role-filtered version of the active world so the panel never
+  // shows links the role can't access. worldForPath returns the raw
+  // (unfiltered) world; we match it against the filtered `worlds` list
+  // by key to get the role-safe version. If the path belongs to a world
+  // the role can't see, fall back to the first available world.
+  const rawWorld = worldForPath(pathname);
+  const activeWorld = onSettings
+    ? (worlds[0] ?? rawWorld)
+    : (worlds.find((w) => w.key === rawWorld.key) ?? worlds[0] ?? rawWorld);
   const activeLink = linkForPath(pathname);
   const settingsLinks = settingsLinksFor(userRole);
 

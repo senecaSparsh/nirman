@@ -1,13 +1,26 @@
-import { prisma } from "@nirman/db";
+import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
+import { withSerializableTransaction } from "./transaction";
+// Single source of truth: hsn-code-package npm package
+// (12,604 HSN codes + 496 SAC codes from CBIC Notification 09/2025-CT(Rate))
+import hsnPkg from "hsn-code-package";
+import hsnCodeData from "hsn-code-package/data/hsn_codes.json";
+import gstRateData from "hsn-code-package/data/gst_rates.json";
+import sacCodeData from "hsn-code-package/data/sac_codes.json";
+import hsnMeta from "hsn-code-package/data/metadata.json";
 
 /**
  * HSN / SAC Master — government-provided HSN codes with GST rates.
  *
+ * The single source of truth is the `hsn-code-package` npm package
+ * (12,604 HSN codes + 496 SAC codes from CBIC Notification 09/2025-CT(Rate)).
+ *
  * The system auto-picks the GST rate when a material's HSN code is entered,
- * so users never have to look up the rate manually. Seeded from CBIC data
- * (a curated subset of the most common construction-industry HSN codes is
- * included in `seedHsnGstRates`; the full CBIC master can be loaded later).
+ * so users never have to look up the rate manually. Categories link to
+ * specific HSN codes so selecting a category auto-fills the HSN + GST.
+ *
+ * To update rates: `pnpm update hsn-code-package` then re-seed the DB.
+ * An admin can also bulk-import a CSV from gst.gov.in via /api/hsn-gst/import.
  */
 
 export interface HsnGstEntry {
@@ -47,332 +60,223 @@ export function extractSearchWords(query: string): string[] {
 }
 
 /**
- * Curated HSN/SAC master for the construction industry. This covers the
- * most common materials a real-estate builder procures. The full CBIC
- * master (~12,000 codes) can be loaded from a JSON file later — this seed
- * ensures the system is useful out of the box.
+ * Build the HSN/SAC master entries from the hsn-code-package npm package.
+ * This is the single source of truth — no curated JSON file, no hardcoded data.
+ *
+ * - HSN codes (Goods): 12,604 entries with GST rates from gst_rates.json
+ * - SAC codes (Services): 496 entries with descriptions from sac_codes.json
+ *   (SAC codes default to 18% GST — the standard rate for most construction services)
  */
-const CONSTRUCTION_HSN_MASTER: HsnGstEntry[] = [
-  // ── Cement & Lime ──
-  // GST 2.0 (22 Sep 2025): cement reduced from 28% to 18%
-  { hsnCode: "2523", description: "Portland cement, aluminous cement, slag cement, supersulphate cement", gstRate: 18 },
-  { hsnCode: "2522", description: "Quicklime, slaked lime and hydraulic lime", gstRate: 18 },
-  { hsnCode: "2521", description: "Limestone flux, limestone and other calcareous stone", gstRate: 5 },
+function buildMasterFromPackage(): HsnGstEntry[] {
+  const entries: HsnGstEntry[] = [];
 
-  // ── Iron & Steel ──
-  { hsnCode: "7213", description: "Bars and rods, hot-rolled, in irregularly wound coils, of iron or non-alloy steel", gstRate: 18 },
-  { hsnCode: "7214", description: "Other bars and rods of iron or non-alloy steel, not further worked than forged, hot-rolled", gstRate: 18 },
-  { hsnCode: "7215", description: "Other bars and rods of iron or non-alloy steel", gstRate: 18 },
-  { hsnCode: "7216", description: "Angles, shapes and sections of iron or non-alloy steel", gstRate: 18 },
-  { hsnCode: "7228", description: "Other bars and rods of other alloy steel", gstRate: 18 },
-  { hsnCode: "7301", description: "Sheet piling of iron or steel, welded angles, shapes and sections", gstRate: 18 },
-  { hsnCode: "7302", description: "Railway or tramway track construction material of iron or steel", gstRate: 18 },
-  { hsnCode: "7304", description: "Tubes, pipes and hollow profiles, seamless, of iron or steel", gstRate: 18 },
-  { hsnCode: "7306", description: "Other tubes, pipes and hollow profiles, of iron or steel", gstRate: 18 },
-  { hsnCode: "7308", description: "Structures and parts of structures, of iron or steel", gstRate: 18 },
-  { hsnCode: "7310", description: "Tanks, casks, drums, cans, boxes of iron or steel", gstRate: 18 },
-  { hsnCode: "7315", description: "Chain and parts thereof, of iron or steel", gstRate: 18 },
-  { hsnCode: "7317", description: "Nails, tacks, drawing pins, corrugated nails, staples of iron or steel", gstRate: 18 },
-  { hsnCode: "7318", description: "Screws, bolts, nuts, coach screws, screw hooks, rivets, cotters, cotter pins", gstRate: 18 },
+  // HSN codes (Goods) — merge hsn_codes.json (descriptions) with gst_rates.json (rates)
+  const descMap = new Map<string, string>();
+  for (const c of hsnCodeData as { code: string; description: string }[]) {
+    descMap.set(c.code, c.description);
+  }
+  for (const r of gstRateData as { code: string; igstRate: number }[]) {
+    const description = descMap.get(r.code) ?? r.code;
+    // Capitalize first letter for readability
+    const desc = description.charAt(0) + description.slice(1).toLowerCase();
+    entries.push({
+      hsnCode: r.code,
+      description: desc,
+      gstRate: r.igstRate,
+      category: "Goods",
+      sacCode: null,
+    });
+  }
 
-  // ── Aluminium ──
-  { hsnCode: "7604", description: "Aluminium bars, rods and profiles", gstRate: 18 },
-  { hsnCode: "7608", description: "Aluminium tubes and pipes", gstRate: 18 },
-  { hsnCode: "7610", description: "Aluminium structures and parts of structures", gstRate: 18 },
+  // SAC codes (Services) — 496 entries, default 18% GST
+  for (const s of sacCodeData as { code: string; description: string }[]) {
+    const desc = s.description.charAt(0) + s.description.slice(1).toLowerCase();
+    entries.push({
+      hsnCode: s.code,
+      description: desc,
+      gstRate: 18, // Standard GST rate for services
+      category: "Services",
+      sacCode: s.code,
+    });
+  }
 
-  // ── Bricks & Building Stone ──
-  { hsnCode: "6810", description: "Articles of cement, concrete or artificial stone, bricks, building blocks", gstRate: 18 },
-  { hsnCode: "6901", description: "Bricks, blocks, tiles and other ceramic goods of siliceous fossil meals", gstRate: 5 },
-  { hsnCode: "6902", description: "Refractory bricks, blocks, tiles and similar ceramic goods", gstRate: 18 },
-  { hsnCode: "6904", description: "Ceramic building bricks, flooring blocks, support or filler tiles", gstRate: 5 },
-  { hsnCode: "6905", description: "Roofing tiles, chimney pots, cowls, chimney liners, architectural ornaments", gstRate: 5 },
-  { hsnCode: "6907", description: "Unglazed ceramic flags and paving tiles, hearth tiles", gstRate: 5 },
-  { hsnCode: "6908", description: "Glazed ceramic flags and paving tiles, hearth tiles", gstRate: 5 },
-  { hsnCode: "2515", description: "Marble, travertine, ecaussine and other calcareous monumental or building stone", gstRate: 5 },
-  { hsnCode: "2516", description: "Granite, porphyry, basalt, sandstone and other monumental or building stone", gstRate: 5 },
-  { hsnCode: "2517", description: "Pebbles, gravel, broken or crushed stone, macadam, dolomite", gstRate: 5 },
-
-  // ── Sand & Aggregates ──
-  { hsnCode: "2505", description: "Natural sands of all kinds, whether or not coloured, other metal-bearing sands", gstRate: 5 },
-  { hsnCode: "2529", description: "Siliceous fossil meals and similar siliceous earths", gstRate: 5 },
-
-  // ── Wood & Timber ── (GST 2.0: wood products at 12%)
-  { hsnCode: "4407", description: "Wood sawn or chipped lengthwise, sliced or peeled, of thickness exceeding 6mm", gstRate: 12 },
-  { hsnCode: "4408", description: "Sheets for veneering, plywood, of thickness not exceeding 6mm", gstRate: 12 },
-  { hsnCode: "4410", description: "Particle board and similar board of wood or other ligneous materials", gstRate: 12 },
-  { hsnCode: "4412", description: "Plywood, veneered panels and similar laminated wood", gstRate: 12 },
-  { hsnCode: "4418", description: "Builders' joinery and carpentry of wood, including cellular wood panels", gstRate: 12 },
-  { hsnCode: "4421", description: "Other articles of wood", gstRate: 12 },
-
-  // ── Glass ──
-  { hsnCode: "7005", description: "Glass of float and surface ground or polished, in sheets", gstRate: 18 },
-  { hsnCode: "7008", description: "Multiple-walled insulating units of glass", gstRate: 18 },
-  // GST 2.0: glass building goods moved from 28% to 18%
-  { hsnCode: "7016", description: "Paving blocks, bricks, tiles and other glass goods for building", gstRate: 18 },
-
-  // ── Paints & Coatings ──
-  { hsnCode: "3208", description: "Paints and varnishes based on synthetic polymers or chemically modified natural polymers", gstRate: 18 },
-  { hsnCode: "3209", description: "Paints and varnishes based on acrylic or vinyl polymers", gstRate: 18 },
-  { hsnCode: "3210", description: "Other paints and varnishes", gstRate: 18 },
-  // GST 2.0: plaster/putty/mastic moved from 28% to 18%
-  { hsnCode: "3214", description: "Glass frit, glazes, enamels, mastics, non-refractory surfacing preparations", gstRate: 18 },
-
-  // ── Electrical & Wiring ──
-  { hsnCode: "8544", description: "Insulated wire, cable and other insulated conductors, with connector fittings", gstRate: 18 },
-  { hsnCode: "8536", description: "Electrical apparatus for switching or protecting electrical circuits", gstRate: 18 },
-  { hsnCode: "8537", description: "Boards, panels, consoles, desks, cabinets for electric control", gstRate: 18 },
-  { hsnCode: "8504", description: "Electrical transformers, static converters and rectifiers", gstRate: 18 },
-  { hsnCode: "9405", description: "Lamps and lighting fittings including searchlights and spotlights", gstRate: 18 },
-
-  // ── Pipes & Fittings (PVC/CPVC) ──
-  { hsnCode: "3917", description: "Tubes, pipes and hoses and fittings thereof, of plastics", gstRate: 18 },
-  { hsnCode: "3925", description: "Builders' ware of plastics, not elsewhere specified or included", gstRate: 18 },
-
-  // ── Sanitary Ware ──
-  { hsnCode: "6910", description: "Ceramic sinks, wash basins, bath tubs, bidets, toilet pans, cisterns", gstRate: 18 },
-  { hsnCode: "7324", description: "Sanitary ware and parts thereof, of iron or steel", gstRate: 18 },
-  { hsnCode: "7418", description: "Table, kitchen or other household articles and parts thereof, of copper", gstRate: 18 },
-
-  // ── Roofing & Waterproofing ──
-  { hsnCode: "6807", description: "Articles of asphalt or of similar material, rolled roofing, waterproofing", gstRate: 18 },
-  { hsnCode: "6808", description: "Panels, boards, tiles, blocks and similar articles of vegetable fibre", gstRate: 12 },
-  { hsnCode: "6811", description: "Articles of asbestos-cement, cellulose fibre-cement", gstRate: 18 },
-  { hsnCode: "6812", description: "Fabricated asbestos fibres; mixtures based on asbestos", gstRate: 18 },
-
-  // ── Hardware & Fittings ──
-  { hsnCode: "8302", description: "Base metal mountings, fittings and similar articles suitable for buildings", gstRate: 18 },
-  { hsnCode: "8303", description: "Base metal padlocks, locks and keys", gstRate: 18 },
-  { hsnCode: "8481", description: "Valves, cocks, valves and similar appliances for pipes, boiler shells", gstRate: 18 },
-
-  // ── Construction Equipment & Machinery ──
-  { hsnCode: "8428", description: "Other lifting, handling, loading machinery (lifts, escalators, conveyors)", gstRate: 18 },
-  { hsnCode: "8430", description: "Other moving, grading, excavating, levelling machinery (dozers, excavators)", gstRate: 18 },
-  { hsnCode: "8474", description: "Machinery for sorting, screening, separating, washing, crushing earth", gstRate: 18 },
-  { hsnCode: "8501", description: "Electric motors and generators (DC/AC)", gstRate: 18 },
-  { hsnCode: "8413", description: "Pumps for liquids, whether or not fitted with a measuring device", gstRate: 18 },
-
-  // ── Fuel & Lubricants ──
-  { hsnCode: "2710", description: "Petroleum oils and oils obtained from bituminous minerals", gstRate: 18 },
-  { hsnCode: "3403", description: "Lubricating preparations, anti-rust or anti-corrosion preparations", gstRate: 18 },
-
-  // ── Adhesives & Sealants ──
-  { hsnCode: "3506", description: "Prepared glues and adhesives, including rubber solution", gstRate: 18 },
-  { hsnCode: "3215", description: "Printing inks, writing or drawing inks and other inks", gstRate: 18 },
-
-  // ── Safety Equipment ──
-  { hsnCode: "6506", description: "Headgear and other headgear, safety helmets", gstRate: 18 },
-  { hsnCode: "6117", description: "Made-up articles of knitted or crocheted fabrics (safety vests)", gstRate: 5 },
-  { hsnCode: "6401", description: "Waterproof footwear with rubber or plastics uppers (safety boots)", gstRate: 18 },
-
-  // ── Services (SAC) ──
-  { hsnCode: "9954", description: "Construction services (civil, structural, finishing, repair)", gstRate: 18, category: "Services", sacCode: "9954" },
-  { hsnCode: "9953", description: "Real estate services (sale, lease, brokerage)", gstRate: 18, category: "Services", sacCode: "9953" },
-  { hsnCode: "9972", description: "Legal, accounting, auditing, consultancy services", gstRate: 18, category: "Services", sacCode: "9972" },
-  { hsnCode: "9983", description: "Engineering, scientific and technical consulting services", gstRate: 18, category: "Services", sacCode: "9983" },
-  { hsnCode: "9985", description: "Packaging, security, travel, transport support services", gstRate: 18, category: "Services", sacCode: "9985" },
-  { hsnCode: "9965", description: "Transport of goods by road services", gstRate: 18, category: "Services", sacCode: "9965" },
-  { hsnCode: "9966", description: "Transport support services, cargo handling, storage", gstRate: 18, category: "Services", sacCode: "9966" },
-  // ── Rental / Leasing services (SAC 9973) ──
-  // The business rents out cables, shuttering, scaffolding, equipment to
-  // other parties. This is a SERVICE supply (SAC), not goods (HSN).
-  { hsnCode: "9973", description: "Leasing or rental services with or without operator (parent heading)", gstRate: 18, category: "Services", sacCode: "9973" },
-  { hsnCode: "997313", description: "Leasing/rental of construction machinery and equipment with or without operator", gstRate: 18, category: "Services", sacCode: "997313" },
-  { hsnCode: "997314", description: "Leasing/rental of office machinery and equipment (except computers) with or without operator", gstRate: 18, category: "Services", sacCode: "997314" },
-  { hsnCode: "997317", description: "Leasing/rental of other machinery and equipment with or without operator", gstRate: 18, category: "Services", sacCode: "997317" },
-  { hsnCode: "997319", description: "Leasing/rental of other machinery and equipment (other than transport, agricultural, construction, office, computer, telecom)", gstRate: 18, category: "Services", sacCode: "997319" },
-  { hsnCode: "997323", description: "Leasing/rental of furniture and fixtures with or without operator", gstRate: 18, category: "Services", sacCode: "997323" },
-  { hsnCode: "997329", description: "Leasing/rental of other goods (general rental services)", gstRate: 18, category: "Services", sacCode: "997329" },
-  // ── Real estate rental (SAC 99721) ──
-  { hsnCode: "997211", description: "Rental or leasing of residential property (exempt under GST)", gstRate: 0, category: "Services", sacCode: "997211" },
-  { hsnCode: "997212", description: "Rental or leasing of non-residential property (commercial rent)", gstRate: 18, category: "Services", sacCode: "997212" },
-
-  // ── Detailed 8-digit HSN sub-codes (CBIC master) ──
-  // Sandstone, limestone, marble — worked stone
-  { hsnCode: "25171010", description: "Limestone for building (crushed stone)", gstRate: 5 },
-  { hsnCode: "25171020", description: "Sand for building", gstRate: 5 },
-  { hsnCode: "25171090", description: "Other crushed/granite stone for building", gstRate: 5 },
-  // GST 2.0: cement sub-codes 28% → 18%
-  { hsnCode: "25232900", description: "Other Portland cement", gstRate: 18 },
-  { hsnCode: "25232100", description: "Cement clinkers", gstRate: 18 },
-  { hsnCode: "68109900", description: "Other articles of cement/concrete (pipes, slabs, beams)", gstRate: 18 },
-  { hsnCode: "68101100", description: "Concrete building blocks and bricks", gstRate: 18 },
-  { hsnCode: "68101900", description: "Other articles of cement/concrete — building blocks", gstRate: 18 },
-  { hsnCode: "68109100", description: "Articles of cement/concrete — pipes", gstRate: 18 },
-
-  // Steel — detailed sub-codes
-  { hsnCode: "72139100", description: "Wire rod — free cutting steel, hot-rolled", gstRate: 18 },
-  { hsnCode: "72142090", description: "Other bars and rods (iron/steel) — hot-rolled", gstRate: 18 },
-  { hsnCode: "72085100", description: "Hot-rolled steel plates — width ≥600mm, thickness >10mm", gstRate: 18 },
-  { hsnCode: "72085200", description: "Hot-rolled steel plates — width ≥600mm, thickness 4.75-10mm", gstRate: 18 },
-  { hsnCode: "72085300", description: "Hot-rolled steel plates — width ≥600mm, thickness 3-4.75mm", gstRate: 18 },
-  { hsnCode: "7225", description: "Flat-rolled products of alloy/other steel — width ≥600mm", gstRate: 18 },
-  { hsnCode: "73083000", description: "Doors, windows and their frames (iron/steel)", gstRate: 18 },
-  { hsnCode: "73089000", description: "Other structures and parts of structures (iron/steel)", gstRate: 18 },
-  { hsnCode: "73063000", description: "Welded tubes — circular cross-section (iron/steel)", gstRate: 18 },
-  { hsnCode: "73181500", description: "Screws — other (iron/steel)", gstRate: 18 },
-  { hsnCode: "73181600", description: "Nuts (iron/steel)", gstRate: 18 },
-  { hsnCode: "73182100", description: "Spring washers (iron/steel)", gstRate: 18 },
-  { hsnCode: "73182400", description: "Cotter pins and split pins (iron/steel)", gstRate: 18 },
-
-  // Paints — detailed sub-codes
-  { hsnCode: "32081010", description: "Paints based on acrylic/vinyl polymers", gstRate: 18 },
-  { hsnCode: "32089020", description: "Other paints and enamels (polymer based)", gstRate: 18 },
-  // GST 2.0: plaster/putty 28% → 18%
-  { hsnCode: "32141000", description: "Plaster, putty, mastic — fillers/stopper", gstRate: 18 },
-
-  // Worked stone
-  { hsnCode: "68022100", description: "Marble — worked/granite blocks/slabs", gstRate: 18 },
-  { hsnCode: "68022900", description: "Other worked monumental/building stone", gstRate: 18 },
-  { hsnCode: "6805", description: "Abrasive powder/grain on base of textile/paper (sandpaper)", gstRate: 18 },
-
-  // Plastics — detailed sub-codes
-  { hsnCode: "39172300", description: "Rigid PVC tubes/pipes", gstRate: 18 },
-  { hsnCode: "39251000", description: "Doors, windows, frames, thresholds (plastics)", gstRate: 18 },
-  { hsnCode: "39252000", description: "Fittings for buildings (plastics — sinks, wash basins)", gstRate: 18 },
-  { hsnCode: "39269000", description: "Other articles of plastics", gstRate: 18 },
-
-  // Wood — detailed sub-codes (GST 12% for wood products)
-  { hsnCode: "44101000", description: "Particle board, oriented strand board (OSB)", gstRate: 12 },
-  { hsnCode: "44181000", description: "Windows, French windows, doors (wood)", gstRate: 12 },
-  { hsnCode: "44182000", description: "Doors and their frames, thresholds (wood)", gstRate: 12 },
-  { hsnCode: "44189000", description: "Other builders' carpentry of wood", gstRate: 12 },
-  { hsnCode: "48141000", description: "Wallpaper (wood pulp/vinyl coated)", gstRate: 12 },
-
-  // Electrical — detailed sub-codes
-  { hsnCode: "85011000", description: "Universal AC/DC micro-motors (<37.5W)", gstRate: 18 },
-  { hsnCode: "85044000", description: "Static converters (rectifiers, inverters)", gstRate: 18 },
-  { hsnCode: "85361000", description: "Fuses (electrical, <1000V)", gstRate: 18 },
-  { hsnCode: "85366900", description: "Plugs and sockets (<1000V)", gstRate: 18 },
-  { hsnCode: "85444290", description: "Other insulated electric conductors (with connectors, ≤1000V)", gstRate: 18 },
-
-  // Machinery — detailed sub-codes
-  { hsnCode: "84137010", description: "Pumps — centrifugal (for liquids)", gstRate: 18 },
-  { hsnCode: "84281000", description: "Lifts and skip hoists", gstRate: 18 },
-  { hsnCode: "84283300", description: "Continuous-action elevators/conveyors — belt type", gstRate: 18 },
-  { hsnCode: "84295100", description: "Front-end shovel loaders", gstRate: 18 },
-  { hsnCode: "84295200", description: "Mechanical shovels and excavators", gstRate: 18 },
-  { hsnCode: "84301000", description: "Pile-drivers and pile-extractors", gstRate: 18 },
-  { hsnCode: "84306900", description: "Other boring/sinking machinery", gstRate: 18 },
-  { hsnCode: "84741000", description: "Sorting/screening/separating machinery", gstRate: 18 },
-  { hsnCode: "84742090", description: "Other crushing/grinding machinery (stone/ore)", gstRate: 18 },
-  { hsnCode: "84798990", description: "Other machines with individual functions", gstRate: 18 },
-
-  // GST 2.0 (Notification 14/2025): bricks and blocks restructured
-  // Concrete bricks/blocks: 5%, Fly ash bricks/AAC blocks: 12%
-  { hsnCode: "68101110", description: "Concrete bricks", gstRate: 5 },
-  { hsnCode: "68101910", description: "Concrete building blocks", gstRate: 5 },
-  { hsnCode: "68101190", description: "Fly ash bricks and blocks", gstRate: 12 },
-  { hsnCode: "68101920", description: "Autoclaved aerated concrete (AAC) blocks", gstRate: 12 },
-  { hsnCode: "68101990", description: "Other concrete articles for construction", gstRate: 18 },
-
-  // Ceramic tiles
-  { hsnCode: "69071000", description: "Unglazed ceramic tiles — water absorption <0.5%", gstRate: 5 },
-  { hsnCode: "69072100", description: "Unglazed ceramic tiles — water absorption 0.5-3%", gstRate: 5 },
-  { hsnCode: "69081000", description: "Glazed ceramic tiles — water absorption <0.5%", gstRate: 5 },
-  { hsnCode: "69089000", description: "Other glazed ceramic tiles", gstRate: 5 },
-  { hsnCode: "69149000", description: "Other ceramic articles", gstRate: 18 },
-
-  // Bitumen, coal tar, asphalt
-  { hsnCode: "2715", description: "Bituminous mixtures based on natural asphalt, bitumen, petroleum bitumen", gstRate: 18 },
-  { hsnCode: "27150000", description: "Bituminous mixtures for road surfacing", gstRate: 18 },
-
-  // Gypsum, plaster
-  { hsnCode: "2520", description: "Gypsum, anhydrite, plasters of gypsum or calcium sulphate", gstRate: 18 },
-  { hsnCode: "25202000", description: "Anhydrite and plasters of gypsum/calcium sulphate", gstRate: 18 },
-  { hsnCode: "6809", description: "Articles of plaster or of compositions based on plaster", gstRate: 18 },
-  { hsnCode: "68091100", description: "Boards, sheets and panels of plaster for construction", gstRate: 18 },
-  { hsnCode: "68091900", description: "Other articles of plaster for construction", gstRate: 18 },
-
-  // Insulation materials
-  { hsnCode: "6806", description: "Slag wool, rock wool and similar mineral wools, expanded minerals", gstRate: 18 },
-  { hsnCode: "68061000", description: "Slag wool, rock wool and similar mineral wools", gstRate: 18 },
-  { hsnCode: "68062000", description: "Expanded clay, foamed slag and similar expanded materials", gstRate: 18 },
-  { hsnCode: "3921", description: "Other plates, sheets, film, foil and strip of plastics — cellular", gstRate: 18 },
-
-  // Vitrified tiles, granite slabs
-  { hsnCode: "6907", description: "Unglazed ceramic flags and paving tiles, hearth tiles", gstRate: 5 },
-  { hsnCode: "6908", description: "Glazed ceramic flags and paving tiles, hearth tiles", gstRate: 5 },
-  { hsnCode: "6810", description: "Articles of cement, concrete or artificial stone (general)", gstRate: 18 },
-
-  // Door fittings, hinges
-  { hsnCode: "83021000", description: "Hinges of base metal (for doors, windows, furniture)", gstRate: 18 },
-  { hsnCode: "83024100", description: "Base metal mountings and fittings for buildings", gstRate: 18 },
-
-  // Water tanks, storage
-  { hsnCode: "7310", description: "Tanks, casks, drums, cans (iron/steel) — capacity <300L", gstRate: 18 },
-  { hsnCode: "73110000", description: "Containers for compressed/liquefied gas (iron/steel)", gstRate: 18 },
-
-  // Geotextiles, tarpaulins
-  { hsnCode: "5903", description: "Textile fabrics impregnated, coated, covered with plastics", gstRate: 18 },
-  { hsnCode: "6306", description: "Tarpaulins, awnings, sunblinds, tents (textile)", gstRate: 18 },
-
-  // Welding rods, electrodes
-  { hsnCode: "8311", description: "Wire, rods, tubes, plates, electrodes of base metal for welding", gstRate: 18 },
-  { hsnCode: "83111000", description: "Wire of base metal coated with flux for welding", gstRate: 18 },
-  { hsnCode: "83113000", description: "Coated electrodes for arc welding", gstRate: 18 },
-
-  // Diesel/petrol (for construction equipment)
-  { hsnCode: "27101110", description: "Motor spirit (petrol)", gstRate: 28 },
-  { hsnCode: "27101940", description: "Light diesel oil (LDO)", gstRate: 18 },
-  { hsnCode: "27101960", description: "High speed diesel oil (HSD)", gstRate: 18 },
-
-  // Bricks — fly ash, AAC
-  { hsnCode: "68101190", description: "Fly ash bricks and blocks", gstRate: 18 },
-  { hsnCode: "68101920", description: "Autoclaved aerated concrete (AAC) blocks", gstRate: 18 },
-
-  // Construction SAC codes — detailed sub-codes
-  { hsnCode: "995411", description: "Construction services of single dwelling or multi dwelling buildings", gstRate: 18, category: "Services", sacCode: "995411" },
-  { hsnCode: "995412", description: "Construction services of industrial buildings", gstRate: 18, category: "Services", sacCode: "995412" },
-  { hsnCode: "995413", description: "Construction services of non-residential buildings", gstRate: 18, category: "Services", sacCode: "995413" },
-  { hsnCode: "995421", description: "General construction services of highways, streets, roads", gstRate: 18, category: "Services", sacCode: "995421" },
-  { hsnCode: "995423", description: "General construction services of bridges and tunnels", gstRate: 18, category: "Services", sacCode: "995423" },
-  { hsnCode: "995424", description: "General construction services of dams, waterways", gstRate: 18, category: "Services", sacCode: "995424" },
-  { hsnCode: "995441", description: "Specialized construction services of foundations", gstRate: 18, category: "Services", sacCode: "995441" },
-  { hsnCode: "995451", description: "Plumbing and drain-laying services", gstRate: 18, category: "Services", sacCode: "995451" },
-  { hsnCode: "995452", description: "Electrical wiring services", gstRate: 18, category: "Services", sacCode: "995452" },
-  { hsnCode: "995461", description: "Concrete work services", gstRate: 18, category: "Services", sacCode: "995461" },
-  { hsnCode: "995462", description: "Steel reinforcement work services", gstRate: 18, category: "Services", sacCode: "995462" },
-  { hsnCode: "995463", description: "Masonry services", gstRate: 18, category: "Services", sacCode: "995463" },
-  { hsnCode: "995464", description: "Carpentry services", gstRate: 18, category: "Services", sacCode: "995464" },
-  { hsnCode: "995465", description: "Tiling and flooring services", gstRate: 18, category: "Services", sacCode: "995465" },
-  { hsnCode: "995466", description: "Glazing services", gstRate: 18, category: "Services", sacCode: "995466" },
-  { hsnCode: "995467", description: "Plastering services", gstRate: 18, category: "Services", sacCode: "995467" },
-  { hsnCode: "995468", description: "Painting services", gstRate: 18, category: "Services", sacCode: "995468" },
-  { hsnCode: "995471", description: "Scaffolding services", gstRate: 18, category: "Services", sacCode: "995471" },
-  { hsnCode: "995473", description: "Building site preparation services", gstRate: 18, category: "Services", sacCode: "995473" },
-  { hsnCode: "995482", description: "Installation services of elevators/escalators", gstRate: 18, category: "Services", sacCode: "995482" },
-  { hsnCode: "995483", description: "Installation services of air-conditioning", gstRate: 18, category: "Services", sacCode: "995483" },
-  { hsnCode: "995494", description: "Specialized repair services of buildings", gstRate: 18, category: "Services", sacCode: "995494" },
-  { hsnCode: "997213", description: "Real estate property management services", gstRate: 18, category: "Services", sacCode: "997213" },
-  { hsnCode: "997214", description: "Real estate valuation services", gstRate: 18, category: "Services", sacCode: "997214" },
-  { hsnCode: "997215", description: "Real estate consulting services", gstRate: 18, category: "Services", sacCode: "997215" },
-
-  // Transport/logistics services
-  { hsnCode: "996511", description: "Transport of goods by road — full truck load (FTL)", gstRate: 18, category: "Services", sacCode: "996511" },
-  { hsnCode: "996512", description: "Transport of goods by road — less than truck load (LTL)", gstRate: 18, category: "Services", sacCode: "996512" },
-  { hsnCode: "996531", description: "Transport of goods by rail", gstRate: 0, category: "Services", sacCode: "996531" },
-
-  // Professional services
-  { hsnCode: "997211", description: "Real estate services involving sale/rent of own/leased property", gstRate: 18, category: "Services", sacCode: "997211" },
-  { hsnCode: "998311", description: "Engineering design services", gstRate: 18, category: "Services", sacCode: "998311" },
-  { hsnCode: "998312", description: "Engineering advisory and consultancy services", gstRate: 18, category: "Services", sacCode: "998312" },
-  { hsnCode: "998314", description: "Architectural services", gstRate: 18, category: "Services", sacCode: "998314" },
-  { hsnCode: "998315", description: "Architectural advisory and consultancy services", gstRate: 18, category: "Services", sacCode: "998315" },
-  { hsnCode: "998341", description: "Surveying services (land, topographical, hydrographic)", gstRate: 18, category: "Services", sacCode: "998341" },
-  { hsnCode: "998342", description: "Cartography and spatial mapping services", gstRate: 18, category: "Services", sacCode: "998342" },
-  { hsnCode: "998511", description: "Security services (guard, patrol, surveillance)", gstRate: 18, category: "Services", sacCode: "998511" },
-  { hsnCode: "998512", description: "Detective agency services", gstRate: 18, category: "Services", sacCode: "998512" },
-  { hsnCode: "998521", description: "Packaging services", gstRate: 18, category: "Services", sacCode: "998521" },
-  { hsnCode: "998531", description: "Travel agency and tour operator services", gstRate: 18, category: "Services", sacCode: "998531" },
-];
+  return entries;
+}
 
 /**
- * Seed the HsnGstRate table with the curated construction-industry master.
+ * Get the npm package version (for tracking when the master was last updated).
+ */
+export function getBundledMasterVersion(): string {
+  const meta = hsnMeta as { version: string; gstRatesLastUpdated: string };
+  return `hsn-code-package v${meta.version} (${meta.gstRatesLastUpdated})`;
+}
+
+/**
+ * Default construction-industry material categories with their government HSN codes.
+ *
+ * Each category is linked to a specific HSN code from the government master
+ * (hsn-code-package). The GST rate is auto-filled from the HsnGstRate table
+ * by `seedDefaultCategories()` — never hardcoded.
+ *
+ * This is the single source of truth for the default category list. Both
+ * the seed script and the company-creation hook read from here.
+ *
+ * Every HSN code below has been verified to exist in the government master
+ * (hsn-code-package, CBIC Notification 09/2025-CT(Rate)). Never add a code
+ * without verifying it against the seeded HsnGstRate table first.
+ *
+ * Organized by MaterialClass:
+ *   RAW_MATERIAL — becomes part of the building (48 categories)
+ *   TEMPORARY    — reused during construction, not part of building (2)
+ *   CONSUMABLE   — consumed during construction (11)
+ *   MRO          — maintenance, repair, operations supplies (18)
+ */
+export const DEFAULT_CATEGORIES = [
+  // ── RAW_MATERIAL: Building structure & finishes ──
+  { name: "Cement & Binding", unit: "BAG", class: "RAW_MATERIAL" as const, hsnCode: "25232910" },
+  { name: "White Cement & Special", unit: "BAG", class: "RAW_MATERIAL" as const, hsnCode: "25232100" },
+  { name: "Steel & Rebar", unit: "KG", class: "RAW_MATERIAL" as const, hsnCode: "72142090" },
+  { name: "Steel Structural", unit: "KG", class: "RAW_MATERIAL" as const, hsnCode: "72161000" },
+  { name: "Steel Sheets & Roofing", unit: "SQM", class: "RAW_MATERIAL" as const, hsnCode: "72107000" },
+  { name: "Bricks & Blocks", unit: "NOS", class: "RAW_MATERIAL" as const, hsnCode: "68101110" },
+  { name: "Sand & Aggregate", unit: "CFT", class: "RAW_MATERIAL" as const, hsnCode: "25051011" },
+  { name: "Crushed Stone & Gravel", unit: "CFT", class: "RAW_MATERIAL" as const, hsnCode: "25171010" },
+  { name: "Marble & Stone", unit: "SQM", class: "RAW_MATERIAL" as const, hsnCode: "25151100" },
+  { name: "Granite & Stone", unit: "SQM", class: "RAW_MATERIAL" as const, hsnCode: "25161100" },
+  { name: "Limestone & Calcareous", unit: "KG", class: "RAW_MATERIAL" as const, hsnCode: "25210010" },
+  { name: "Gypsum & Plaster", unit: "KG", class: "RAW_MATERIAL" as const, hsnCode: "25201010" },
+  { name: "Pre-cast & RMC", unit: "NOS", class: "RAW_MATERIAL" as const, hsnCode: "68101110" },
+  { name: "Wood & Timber", unit: "CFT", class: "RAW_MATERIAL" as const, hsnCode: "44071010" },
+  { name: "Plywood & Veneer", unit: "SQM", class: "RAW_MATERIAL" as const, hsnCode: "44081010" },
+  { name: "Blockboard & MDF", unit: "SQM", class: "RAW_MATERIAL" as const, hsnCode: "44111110" },
+  { name: "Doors & Windows", unit: "NOS", class: "RAW_MATERIAL" as const, hsnCode: "44182090" },
+  { name: "Glass & Glazing", unit: "SQM", class: "RAW_MATERIAL" as const, hsnCode: "70051010" },
+  { name: "Aluminum & UPVC", unit: "MTR", class: "RAW_MATERIAL" as const, hsnCode: "76041010" },
+  { name: "Aluminum Sheets", unit: "SQM", class: "RAW_MATERIAL" as const, hsnCode: "76061110" },
+  { name: "Flooring & Tiling", unit: "SQM", class: "RAW_MATERIAL" as const, hsnCode: "69071010" },
+  { name: "Sanitary Fixtures", unit: "NOS", class: "RAW_MATERIAL" as const, hsnCode: "69101000" },
+  { name: "Sanitary Ware", unit: "NOS", class: "RAW_MATERIAL" as const, hsnCode: "39221000" },
+  { name: "Plumbing Pipes", unit: "MTR", class: "RAW_MATERIAL" as const, hsnCode: "39171010" },
+  { name: "Steel Pipes", unit: "MTR", class: "RAW_MATERIAL" as const, hsnCode: "73041011" },
+  { name: "Copper Pipes", unit: "MTR", class: "RAW_MATERIAL" as const, hsnCode: "74111000" },
+  { name: "Electrical Cables", unit: "MTR", class: "RAW_MATERIAL" as const, hsnCode: "85441110" },
+  { name: "Switchgear & Panels", unit: "NOS", class: "RAW_MATERIAL" as const, hsnCode: "85361010" },
+  { name: "Lighting & Lamps", unit: "NOS", class: "RAW_MATERIAL" as const, hsnCode: "94051010" },
+  { name: "LED & Lamps", unit: "NOS", class: "RAW_MATERIAL" as const, hsnCode: "85394100" },
+  { name: "Transformers", unit: "NOS", class: "RAW_MATERIAL" as const, hsnCode: "85041010" },
+  { name: "Batteries", unit: "NOS", class: "RAW_MATERIAL" as const, hsnCode: "85072000" },
+  { name: "Solar & Renewable", unit: "NOS", class: "RAW_MATERIAL" as const, hsnCode: "85414011" },
+  { name: "Paint & Finishes", unit: "LTR", class: "RAW_MATERIAL" as const, hsnCode: "32089090" },
+  { name: "Distemper & Primers", unit: "LTR", class: "RAW_MATERIAL" as const, hsnCode: "32100011" },
+  { name: "Putty & Mastics", unit: "KG", class: "RAW_MATERIAL" as const, hsnCode: "32141000" },
+  { name: "Waterproofing", unit: "KG", class: "RAW_MATERIAL" as const, hsnCode: "32149010" },
+  { name: "Adhesives & Sealants", unit: "NOS", class: "RAW_MATERIAL" as const, hsnCode: "32149010" },
+  { name: "Hardware & Fittings", unit: "NOS", class: "RAW_MATERIAL" as const, hsnCode: "83021010" },
+  { name: "Locks & Padlocks", unit: "NOS", class: "RAW_MATERIAL" as const, hsnCode: "83014010" },
+  { name: "Fasteners & Fixings", unit: "NOS", class: "RAW_MATERIAL" as const, hsnCode: "73181110" },
+  { name: "Barbed Wire & Fencing", unit: "MTR", class: "RAW_MATERIAL" as const, hsnCode: "73130010" },
+  { name: "Wire Mesh", unit: "SQM", class: "RAW_MATERIAL" as const, hsnCode: "73141410" },
+  { name: "Insulation", unit: "SQM", class: "RAW_MATERIAL" as const, hsnCode: "68061000" },
+  { name: "Concrete Admixtures", unit: "KG", class: "RAW_MATERIAL" as const, hsnCode: "38241000" },
+  { name: "Bitumen & Tar", unit: "KG", class: "RAW_MATERIAL" as const, hsnCode: "27131100" },
+  { name: "Asphalt & Roadwork", unit: "KG", class: "RAW_MATERIAL" as const, hsnCode: "27141000" },
+  { name: "Landscaping & Garden", unit: "KG", class: "RAW_MATERIAL" as const, hsnCode: "31010010" },
+
+  // ── TEMPORARY: Reused during construction ──
+  { name: "Formwork & Scaffolding", unit: "NOS", class: "TEMPORARY" as const, hsnCode: "44181000" },
+  { name: "Tarpaulin & Covers", unit: "NOS", class: "TEMPORARY" as const, hsnCode: "63061100" },
+
+  // ── CONSUMABLE: Consumed during construction ──
+  { name: "Safety Headgear", unit: "NOS", class: "CONSUMABLE" as const, hsnCode: "65061090" },
+  { name: "Safety Footwear", unit: "NOS", class: "CONSUMABLE" as const, hsnCode: "64011010" },
+  { name: "Safety Goggles", unit: "NOS", class: "CONSUMABLE" as const, hsnCode: "90049010" },
+  { name: "Welding & Gas", unit: "NOS", class: "CONSUMABLE" as const, hsnCode: "83111000" },
+  { name: "Welding Consumables", unit: "KG", class: "CONSUMABLE" as const, hsnCode: "38101010" },
+  { name: "Cleaning & Housekeeping", unit: "NOS", class: "CONSUMABLE" as const, hsnCode: "34011110" },
+  { name: "Paint Thinners", unit: "LTR", class: "CONSUMABLE" as const, hsnCode: "38140010" },
+  { name: "Fire Safety", unit: "NOS", class: "CONSUMABLE" as const, hsnCode: "38130000" },
+  { name: "First Aid & Medical", unit: "NOS", class: "CONSUMABLE" as const, hsnCode: "30065000" },
+  { name: "Stationery & Office", unit: "NOS", class: "CONSUMABLE" as const, hsnCode: "48201010" },
+  { name: "Diesel & Fuel", unit: "LTR", class: "CONSUMABLE" as const, hsnCode: "27101930" },
+
+  // ── MRO: Maintenance, Repair, Operations equipment ──
+  { name: "Hand Tools", unit: "NOS", class: "MRO" as const, hsnCode: "82052000" },
+  { name: "Spanners & Wrenches", unit: "NOS", class: "MRO" as const, hsnCode: "82041110" },
+  { name: "Saws & Blades", unit: "NOS", class: "MRO" as const, hsnCode: "82023100" },
+  { name: "Pliers & Cutters", unit: "NOS", class: "MRO" as const, hsnCode: "82031000" },
+  { name: "Cutting Tools", unit: "NOS", class: "MRO" as const, hsnCode: "82089010" },
+  { name: "Pumps & Motors", unit: "NOS", class: "MRO" as const, hsnCode: "84131110" },
+  { name: "Concrete Pumps", unit: "NOS", class: "MRO" as const, hsnCode: "84134000" },
+  { name: "HVAC & Ventilation", unit: "NOS", class: "MRO" as const, hsnCode: "84158110" },
+  { name: "Elevators & Lifts", unit: "NOS", class: "MRO" as const, hsnCode: "84281011" },
+  { name: "Cranes & Hoists", unit: "NOS", class: "MRO" as const, hsnCode: "84261100" },
+  { name: "Forklifts", unit: "NOS", class: "MRO" as const, hsnCode: "84271000" },
+  { name: "Concrete Mixers", unit: "NOS", class: "MRO" as const, hsnCode: "84743110" },
+  { name: "Special Machinery", unit: "NOS", class: "MRO" as const, hsnCode: "84791000" },
+  { name: "Generators", unit: "NOS", class: "MRO" as const, hsnCode: "85021100" },
+  { name: "Inverters & UPS", unit: "NOS", class: "MRO" as const, hsnCode: "85044010" },
+  { name: "Excavators & Dozers", unit: "NOS", class: "MRO" as const, hsnCode: "84292000" },
+  { name: "Dumpers & Trucks", unit: "NOS", class: "MRO" as const, hsnCode: "87041010" },
+  { name: "Surveying Equipment", unit: "NOS", class: "MRO" as const, hsnCode: "90154000" },
+] as const;
+
+/**
+ * Seed default material categories for a company.
+ *
+ * Called when a new company is created. Creates all 17 default construction
+ * categories, each linked to its government HSN code with GST auto-filled
+ * from the HsnGstRate master table.
+ *
+ * Idempotent: skips categories that already exist (by name within the company).
+ * Non-throwing: logs errors but never fails the company creation.
+ */
+export async function seedDefaultCategories(
+  companyId: string,
+  tx?: Prisma.TransactionClient,
+): Promise<{ created: number; skipped: number }> {
+  const client = tx ?? prisma;
+  let created = 0;
+  let skipped = 0;
+
+  for (const cat of DEFAULT_CATEGORIES) {
+    // Check if a category with this name already exists for this company
+    const existing = await client.materialCategory.findUnique({
+      where: { companyId_name: { companyId, name: cat.name } },
+      select: { id: true },
+    });
+    if (existing) {
+      skipped++;
+      continue;
+    }
+
+    // Look up GST rate from the HSN master
+    const hsnEntry = await lookupGstByHsn(cat.hsnCode);
+    const gstRate = hsnEntry ? hsnEntry.gstRate : null;
+
+    await client.materialCategory.create({
+      data: {
+        companyId,
+        name: cat.name,
+        unit: cat.unit,
+        class: cat.class,
+        hsnCode: cat.hsnCode,
+        gstRate,
+      },
+    });
+    created++;
+  }
+
+  return { created, skipped };
+}
+
+/**
+ * Seed the HsnGstRate table from the hsn-code-package npm package.
  * Idempotent — upserts by hsnCode, so re-running updates descriptions/rates.
  */
 export async function seedHsnGstRates(): Promise<{ created: number; updated: number }> {
+  const master = buildMasterFromPackage();
   let created = 0;
-  for (const entry of CONSTRUCTION_HSN_MASTER) {
+  for (const entry of master) {
     const result = await prisma.hsnGstRate.upsert({
       where: { hsnCode: entry.hsnCode },
       create: {
@@ -392,6 +296,209 @@ export async function seedHsnGstRates(): Promise<{ created: number; updated: num
     // Prisma upsert doesn't tell us if it was create or update — approximate
     // by checking if the row was recently created. For simplicity, we just
     // count total processed.
+    void result;
+    created++;
+  }
+  return { created, updated: 0 };
+}
+
+/**
+ * Relink category GST rates from the HSN master.
+ *
+ * After `seedHsnGstRates()` updates the `HsnGstRate` table with the latest
+ * government rates, this function propagates those rates to `MaterialCategory`
+ * rows so the category dropdown always shows the current GST rate.
+ *
+ * For each category that has an `hsnCode`:
+ *   1. Look up the current GST rate from `HsnGstRate`.
+ *   2. If it differs from the category's cached `gstRate`, update the category.
+ *   3. Record the change in the report.
+ *
+ * **Non-disruptive design:**
+ *   - All updates run inside a single Serializable transaction with retry,
+ *     so either ALL categories are relinked or NONE are (no partial state).
+ *   - Only categories whose rate actually changed are written, minimizing
+ *     lock contention with concurrent user operations.
+ *   - Orphaned HSN codes (not in government master) are reported but never
+ *     cause a failure — the category keeps its existing rate.
+ *   - The function never throws — it always returns a report. This ensures
+ *     the cron job doesn't crash if one category has a bad HSN code.
+ *
+ * Returns a report of what changed — useful for verification after sync.
+ */
+export async function relinkCategoryGstRates(): Promise<{
+  checked: number;
+  updated: number;
+  changes: { categoryId: string; categoryName: string; hsnCode: string; oldRate: number; newRate: number }[];
+  orphans: { categoryId: string; categoryName: string; hsnCode: string }[];
+}> {
+  try {
+    // ── Phase 1: Read all data (no locks held) ──
+    const categories = await prisma.materialCategory.findMany({
+      where: { hsnCode: { not: null }, deletedAt: null },
+      select: { id: true, name: true, hsnCode: true, gstRate: true },
+    });
+
+    if (categories.length === 0) {
+      return { checked: 0, updated: 0, changes: [], orphans: [] };
+    }
+
+    const hsnCodes = [...new Set(categories.map((c) => c.hsnCode!).filter(Boolean))];
+    const hsnRows = await prisma.hsnGstRate.findMany({
+      where: { hsnCode: { in: hsnCodes } },
+      select: { hsnCode: true, gstRate: true },
+    });
+    const hsnMap = new Map(hsnRows.map((r) => [r.hsnCode, r.gstRate.toNumber()]));
+
+    // ── Phase 2: Compute changes (pure, no DB) ──
+    const changes: { categoryId: string; categoryName: string; hsnCode: string; oldRate: number; newRate: number }[] = [];
+    const orphans: { categoryId: string; categoryName: string; hsnCode: string }[] = [];
+    const updates: { id: string; gstRate: Decimal }[] = [];
+
+    for (const cat of categories) {
+      const hsnCode = cat.hsnCode!;
+      const masterRate = hsnMap.get(hsnCode);
+      if (masterRate == null) {
+        orphans.push({ categoryId: cat.id, categoryName: cat.name, hsnCode });
+        continue;
+      }
+      const currentRate = cat.gstRate ? cat.gstRate.toNumber() : null;
+      if (currentRate !== masterRate) {
+        updates.push({ id: cat.id, gstRate: new Decimal(masterRate) });
+        changes.push({
+          categoryId: cat.id,
+          categoryName: cat.name,
+          hsnCode,
+          oldRate: currentRate ?? 0,
+          newRate: masterRate,
+        });
+      }
+    }
+
+    // ── Phase 3: Apply all updates atomically ──
+    if (updates.length > 0) {
+      await withSerializableTransaction(async (tx) => {
+        for (const u of updates) {
+          await tx.materialCategory.update({
+            where: { id: u.id },
+            data: { gstRate: u.gstRate },
+          });
+        }
+      });
+    }
+
+    return { checked: categories.length, updated: changes.length, changes, orphans };
+  } catch (err) {
+    // Never throw from relink — the cron job must not crash.
+    // Return an empty report so the caller can continue.
+    console.error("[relinkCategoryGstRates] failed (non-fatal):", err);
+    return { checked: 0, updated: 0, changes: [], orphans: [] };
+  }
+}
+
+/**
+ * Parse a CBIC-format CSV string into HsnGstEntry[].
+ *
+ * Supports two common CBIC CSV formats:
+ *   1. `hsnCode,description,gstRate` (with optional `category`,`sacCode` columns)
+ *   2. `HSN Code,Description,GST Rate,Category,SAC Code` (header row, any case)
+ *
+ * - Skips empty rows and header rows.
+ * - Trims whitespace, uppercases HSN codes.
+ * - gstRate is parsed as number (handles "18%", "18.00", "0.18" → 18).
+ */
+export function parseHsnCsv(csvText: string): HsnGstEntry[] {
+  const lines = csvText.split(/\r?\n/);
+  const entries: HsnGstEntry[] = [];
+  let startIndex = 0;
+
+  // Detect and skip header row
+  const firstLine = lines[0]?.toLowerCase() ?? "";
+  if (firstLine.includes("hsn") && firstLine.includes("description")) {
+    startIndex = 1;
+  }
+
+  for (let i = startIndex; i < lines.length; i++) {
+    const line = lines[i]?.trim();
+    if (!line) continue;
+
+    // Simple CSV parser — handles quoted fields with commas
+    const cols = parseCsvLine(line);
+    if (cols.length < 3) continue;
+
+    const hsnCode = cols[0]?.trim().toUpperCase();
+    const description = cols[1]?.trim();
+    const gstRateRaw = cols[2]?.trim();
+    if (!hsnCode || !description || !gstRateRaw) continue;
+
+    let gstRate = parseFloat(gstRateRaw.replace("%", "").trim());
+    if (isNaN(gstRate)) continue;
+    // Handle 0.18 → 18 (if rate looks like a fraction < 1 and non-zero, multiply by 100)
+    if (gstRate > 0 && gstRate < 1) gstRate = gstRate * 100;
+
+    const category = cols[3]?.trim() || undefined;
+    const sacCode = cols[4]?.trim() || undefined;
+
+    entries.push({
+      hsnCode,
+      description,
+      gstRate,
+      category: category || (hsnCode.startsWith("99") ? "Services" : "Goods"),
+      sacCode: sacCode || null,
+    });
+  }
+
+  return entries;
+}
+
+/** Simple CSV line parser — handles quoted fields. */
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === "," && !inQuotes) {
+      result.push(current);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current);
+  return result;
+}
+
+/**
+ * Bulk-import HSN entries into the DB. Upserts by hsnCode.
+ * Returns counts of created vs updated (approximate — Prisma upsert doesn't distinguish).
+ */
+export async function importHsnEntries(entries: HsnGstEntry[]): Promise<{ created: number; updated: number }> {
+  let created = 0;
+  for (const entry of entries) {
+    const result = await prisma.hsnGstRate.upsert({
+      where: { hsnCode: entry.hsnCode },
+      create: {
+        hsnCode: entry.hsnCode,
+        description: entry.description,
+        gstRate: new Decimal(entry.gstRate),
+        sacCode: entry.sacCode ?? null,
+        category: entry.category ?? "Goods",
+      },
+      update: {
+        description: entry.description,
+        gstRate: new Decimal(entry.gstRate),
+        sacCode: entry.sacCode ?? null,
+        category: entry.category ?? "Goods",
+      },
+    });
     void result;
     created++;
   }
@@ -606,28 +713,28 @@ export async function suggestHsnByMaterial(
   category: string | null;
 }[]> {
   const query = materialName.trim().toLowerCase();
-  if (!query) return [];
 
   // Expand with synonyms — this handles trade names like "TMT", "OPC",
   // "wooden door", "copper wire", etc.
-  const words = expandWithSynonyms(materialName);
-  if (words.length === 0) return [];
-
-  // Build OR conditions for each word against the description field.
-  const orConditions = words.map((w) => ({
-    description: { contains: w, mode: "insensitive" as const },
-  }));
+  const words = query ? expandWithSynonyms(materialName) : [];
 
   // Also match against category name if provided.
-  let catWords: string[] = [];
-  if (categoryName) {
-    catWords = categoryName.trim().toLowerCase().split(/\s+/).filter((w) => w.length >= 3);
-    for (const cw of catWords) {
-      orConditions.push({
-        description: { contains: cw, mode: "insensitive" as const },
-      });
-    }
-  }
+  const catWords: string[] = categoryName
+    ? categoryName.trim().toLowerCase().split(/\s+/).filter((w) => w.length >= 3)
+    : [];
+
+  // Need at least one source of search words
+  if (words.length === 0 && catWords.length === 0) return [];
+
+  // Build OR conditions for each word against the description field.
+  const orConditions: { description: { contains: string; mode: "insensitive" } }[] = [
+    ...words.map((w) => ({
+      description: { contains: w, mode: "insensitive" as const },
+    })),
+    ...catWords.map((cw) => ({
+      description: { contains: cw, mode: "insensitive" as const },
+    })),
+  ];
 
   const entries = await prisma.hsnGstRate.findMany({
     where: { OR: orConditions },

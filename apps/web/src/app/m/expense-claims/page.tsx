@@ -3,6 +3,7 @@ import { toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileExpenseClaimsList, type ExpenseClaimListItem } from "./MobileExpenseClaimsList";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
 
 /**
  * /m/expense-claims — mobile expense claim list. Shows employee
@@ -48,15 +49,18 @@ export default function MobileExpenseClaimsPage() {
         const pendingCount = rows.filter((c) => c.status === "SUBMITTED").length;
 
         return (
-          <MobileExpenseClaimsList
-            items={rows}
-            totalAmount={totalAmount}
-            pendingCount={pendingCount}
-            canApprove={canApprove}
-            canCreate={canCreate}
-            loadMoreUrl="/api/mobile/list/expense-claims"
-            initialCursor={nextCursor}
-          />
+          <>
+            <MobileExpenseClaimsList
+              items={rows}
+              totalAmount={totalAmount}
+              pendingCount={pendingCount}
+              canApprove={canApprove}
+              canCreate={canCreate}
+              loadMoreUrl="/api/mobile/list/expense-claims"
+              initialCursor={nextCursor}
+            />
+            {canCreate && <MobileFab href="/m/expense-claims/new" label="Submit claim" />}
+          </>
         );
       }}
     </MobileListPage>

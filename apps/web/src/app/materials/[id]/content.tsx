@@ -17,7 +17,7 @@ export async function MaterialDetailContent({ params }: { params: Promise<{ id: 
   const { id } = await params;
 
   const material = await prisma.material.findFirst({
-    where: { id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null },
     include: {
       category: { select: { name: true } },
       stockItems: {

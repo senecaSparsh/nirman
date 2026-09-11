@@ -45,7 +45,7 @@ export async function lowStockAlerts(companyId?: string) {
     where: {
       deletedAt: null,
       reorderPoint: { not: null },
-      ...(companyId ? { stockItems: { some: { location: { companyId } } } } : {}),
+      ...(companyId ? { companyId, stockItems: { some: { location: { companyId } } } } : {}),
     },
     include: {
       stockItems: {

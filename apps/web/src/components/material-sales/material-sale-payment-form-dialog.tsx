@@ -10,6 +10,16 @@ import { Input, Select } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { ChequeFields, EMPTY_CHEQUE, type ChequeFormState } from "@/components/sales/cheque-fields";
 import { formatCurrency } from "@/lib/utils";
+import { required, positiveNumber } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
+
+type FormState = {
+  amount: string;
+  paymentDate: string;
+  paymentMode: string;
+  referenceNo: string;
+  notes: string;
+};
 
 export function MaterialSalePaymentFormDialog({
   open,
@@ -38,9 +48,20 @@ export function MaterialSalePaymentFormDialog({
   const parsedAmount = Number(amount) || 0;
   const isCheque = paymentMode === "CHEQUE";
 
+  // ── Inline validation ──────────────────────────────────────────
+  // Validates on blur and shows red error text under the field instantly.
+  const validationRules: ValidationRules<FormState> = {
+    amount: (v) => required(v as string, "Amount") ?? positiveNumber(v as string, "Amount"),
+    paymentDate: (v) => required(v as string, "Payment Date"),
+  };
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<FormState>(validationRules);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (parsedAmount <= 0) { toast.error("Amount must be greater than 0"); return; }
+    if (!validateAll({ amount, paymentDate, paymentMode, referenceNo, notes })) {
+      toast.error("Please fix the errors in the form");
+      return;
+    }
     if (parsedAmount > outstandingBalance) {
       toast.error(`Amount exceeds outstanding balance of ${formatCurrency(outstandingBalance)}`);
       return;
@@ -84,7 +105,7 @@ export function MaterialSalePaymentFormDialog({
       open={open}
       onOpenChange={(o) => {
         onOpenChange(o);
-        if (!o) { setAmount(""); setReferenceNo(""); setNotes(""); }
+        if (!o) { setAmount(""); setReferenceNo(""); setNotes(""); clearAll(); }
       }}
       title="Record Payment"
       description={`Payment against material sale ${saleNumber}`}
@@ -92,7 +113,7 @@ export function MaterialSalePaymentFormDialog({
     >
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Amount" required>
+          <Field label="Amount" required error={errors.amount}>
             <div className="relative">
               <IndianRupee className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -100,18 +121,22 @@ export function MaterialSalePaymentFormDialog({
                 step="0.01"
                 min="0"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => { setAmount(e.target.value); clearError("amount"); }}
+                onBlur={() => onBlur("amount", { amount, paymentDate, paymentMode, referenceNo, notes })}
+                aria-invalid={!!errors.amount}
                 placeholder="0.00"
                 className="pl-8 tnum"
                 required
               />
             </div>
           </Field>
-          <Field label="Payment Date" required>
+          <Field label="Payment Date" required error={errors.paymentDate}>
             <Input
               type="date"
               value={paymentDate}
-              onChange={(e) => setPaymentDate(e.target.value)}
+              onChange={(e) => { setPaymentDate(e.target.value); clearError("paymentDate"); }}
+              onBlur={() => onBlur("paymentDate", { amount, paymentDate, paymentMode, referenceNo, notes })}
+              aria-invalid={!!errors.paymentDate}
               required
             />
           </Field>

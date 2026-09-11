@@ -25,13 +25,19 @@ async function main() {
   console.log(`Database: ${process.env.DATABASE_URL?.split("@")[1]?.split("/")[0] ?? "(unknown)"}`);
   console.log("");
 
-  // Step 1: Ensure the chart of accounts is present so GL posting works
-  console.log("Seeding chart of accounts…");
-  await seedChartOfAccounts();
+  // Step 1: Ensure the chart of accounts is present for every company so GL posting works
+  const companies = await prisma.company.findMany({ where: { deletedAt: null }, select: { id: true, name: true } });
+  console.log(`Seeding chart of accounts for ${companies.length} company(ies)…`);
+  for (const c of companies) {
+    await seedChartOfAccounts(c.id);
+  }
+  if (companies.length === 0) {
+    console.log("  → No companies yet. Chart of accounts will be seeded when the first company is created (auto-seeds on first GL access).");
+  }
 
   // Step 2: Report database state (informational only)
   const userCount = await prisma.user.count();
-  const companyCount = await prisma.company.count();
+  const companyCount = companies.length;
   console.log(`Database state: ${companyCount} companies, ${userCount} users`);
 
   if (userCount === 0) {

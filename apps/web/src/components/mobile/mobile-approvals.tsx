@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { prisma, type DprApprovalStatus } from "@nirman/db";
-import { getCompany, getUserRole, getUserPermissions, toNum } from "@/lib/server";
+import { getCompany, getUserRole, getUserPermissions, getCurrentUser, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobilePageHeader } from "@/components/mobile/v2/primitives";
 import { MobileRefreshButton } from "@/components/mobile/v2/scaffold";
@@ -13,6 +13,8 @@ import { MobileApprovalsQueue } from "@/components/mobile/mobile-approvals-queue
  * + pending DPRs. The server fetches the queue with line details; the client
  * component handles inline approve/reject without jumping to the desktop
  * approvals desk.
+ *
+ * Self-created items are excluded — a user cannot approve their own submission.
  */
 export async function MobileApprovals({ title }: { title: string }) {
   await connection();
@@ -22,15 +24,18 @@ export async function MobileApprovals({ title }: { title: string }) {
   // UserPermission grants. Passing as `overrides` to hasPermission means a
   // permission granted to one individual is honored here, matching the API.
   const overrides = await getUserPermissions();
+  const currentUser = await getCurrentUser();
+  const userId = currentUser?.id ?? "";
 
   const canApprovePo = hasPermission(role, PERM.PO_APPROVE, overrides);
   const canApproveReq = hasPermission(role, PERM.REQUISITION_APPROVE, overrides);
   const canApproveGatePass = hasPermission(role, PERM.GATE_PASS_APPROVE, overrides);
   const canApproveDprSubAdmin = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN, overrides);
   const canApproveDprAdmin = hasPermission(role, PERM.DPR_APPROVE_ADMIN, overrides);
+ const canApproveExpense = hasPermission(role, PERM.EXPENSE_APPROVE, overrides);
 
   // If the user can't approve anything, don't surface the queue.
-  if (!canApprovePo && !canApproveReq && !canApproveGatePass && !canApproveDprSubAdmin && !canApproveDprAdmin) {
+  if (!canApprovePo && !canApproveReq && !canApproveGatePass && !canApproveDprSubAdmin && !canApproveDprAdmin && !canApproveExpense) {
     return (
       <div>
         <MobilePageHeader title={title} subtitle="No access" right={<MobileRefreshButton />} />
@@ -46,10 +51,10 @@ export async function MobileApprovals({ title }: { title: string }) {
   if (canApproveDprSubAdmin) dprApprovalStatuses.push("SUBMITTED");
   if (canApproveDprAdmin) dprApprovalStatuses.push("SUB_ADMIN_APPROVED");
 
-  const [draftPOs, pendingReqs, pendingGatePasses, pendingDprs] = await Promise.all([
+  const [draftPOs, pendingReqs, pendingGatePasses, pendingDprs, pendingExpenses] = await Promise.all([
     canApprovePo
       ? prisma.purchaseOrder.findMany({
-          where: { companyId: company.id, status: "DRAFT" },
+          where: { companyId: company.id, status: "DRAFT", createdById: { not: userId } },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: {
@@ -68,7 +73,7 @@ export async function MobileApprovals({ title }: { title: string }) {
       : [],
     canApproveReq
       ? prisma.materialRequisition.findMany({
-          where: { project: { companyId: company.id }, status: "SUBMITTED" },
+          where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: userId } },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: {
@@ -86,7 +91,7 @@ export async function MobileApprovals({ title }: { title: string }) {
       : [],
     canApproveGatePass
       ? prisma.gatePass.findMany({
-          where: { companyId: company.id, status: "PENDING" },
+          where: { companyId: company.id, status: "PENDING", createdById: { not: userId } },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: {
@@ -98,12 +103,23 @@ export async function MobileApprovals({ title }: { title: string }) {
       : [],
     dprApprovalStatuses.length > 0
       ? prisma.dailyProgressReport.findMany({
-          where: { companyId: company.id, approvalStatus: { in: dprApprovalStatuses } },
+          where: { companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, submittedById: { not: userId } },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: {
             project: { select: { name: true } },
             submittedBy: { select: { name: true } },
+          },
+        })
+      : [],
+    canApproveExpense
+      ? prisma.expense.findMany({
+          where: { companyId: company.id, status: "PENDING", submittedById: { not: userId } },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+          include: {
+            project: { select: { name: true } },
+            createdBy: { select: { name: true } },
           },
         })
       : [],
@@ -161,6 +177,17 @@ export async function MobileApprovals({ title }: { title: string }) {
     canApproveAdmin: canApproveDprAdmin,
   }));
 
+  const expenseRows = pendingExpenses.map((e) => ({
+    id: e.id,
+    description: e.notes ?? "",
+    amount: toNum(e.amount),
+    category: e.category,
+    projectName: e.project?.name ?? null,
+    createdByName: e.createdBy?.name ?? null,
+    createdAt: e.createdAt.toISOString(),
+    date: e.date.toISOString(),
+  }));
+
   const gatePassRows = pendingGatePasses.map((gp) => ({
     id: gp.id,
     gatePassNumber: gp.gatePassNumber,
@@ -183,8 +210,8 @@ export async function MobileApprovals({ title }: { title: string }) {
 
   return (
     <div>
-      <MobilePageHeader title={title} subtitle={`${poRows.length + reqRows.length + gatePassRows.length + dprRows.length} awaiting approval`} right={<MobileRefreshButton />} />
-      <MobileApprovalsQueue purchaseOrders={poRows} requisitions={reqRows} gatePasses={gatePassRows} dprs={dprRows} />
+      <MobilePageHeader title={title} subtitle={`${poRows.length + reqRows.length + gatePassRows.length + dprRows.length + expenseRows.length} awaiting approval`} right={<MobileRefreshButton />} />
+      <MobileApprovalsQueue purchaseOrders={poRows} requisitions={reqRows} gatePasses={gatePassRows} dprs={dprRows} expenses={expenseRows} />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { ProjectsView } from "@/components/projects/projects-view";
 import { NoAccess } from "@/components/no-access";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 
 const TYPE_LABELS: Record<string, string> = {
   RESIDENTIAL: "Residential",
@@ -115,6 +116,7 @@ export async function ProjectsContent() {
           { label: "On hold", value: onHoldCount, hint: "Projects paused or on hold." },
         ]}
       />
+      <DepartmentActivityFeed department="projects" />
       <ProjectsView
         projects={projectRows}
         typeLabels={TYPE_LABELS}

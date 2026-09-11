@@ -94,14 +94,19 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     });
 
     // In production, send via SMS. In dev, log to console.
-    if (process.env.NODE_ENV === "production" && isTwilioConfigured()) {
+    if (process.env.NODE_ENV === "production") {
+      // SMS via Twilio is not yet wired — return an error instead of
+      // pretending the code was sent. The OTP is stored in the DB so
+      // when SMS is wired, the verify step will work. For now, the
+      // admin must use the dev environment or wire up Twilio SMS.
       // TODO: send SMS via Twilio when SMS provider is wired
-      console.log(`[phone-verify] OTP for ${normalized}: ${code} (SMS not yet wired)`);
+      console.warn(`[phone-verify] OTP for ${normalized}: ${code} (SMS not yet wired — returning error to client)`);
+      return json({ error: "SMS verification is not yet configured. Contact your administrator." }, { status: 501 });
     } else {
       console.log(`[phone-verify] OTP for ${normalized}: ${code}`);
     }
 
-    return json({ ok: true, message: "Verification code sent.", devCode: process.env.NODE_ENV !== "production" ? code : undefined });
+    return json({ ok: true, message: "Verification code sent.", devCode: code });
   }
 
   // ── Action: verify OTP ──

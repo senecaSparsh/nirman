@@ -23,10 +23,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const companyId = company.id;
 
   const [materials, projects, suppliers, purchaseOrders] = await Promise.all([
-    // Material is a global catalog entity (no companyId); scoped per-company
-    // only via its stockItems → StockLocation.companyId. See /api/materials.
+    // Material is company-scoped (Material.companyId). Filter directly.
     prisma.material.findMany({
-      where: { name: { contains: q, mode: "insensitive" }, deletedAt: null },
+      where: { companyId, name: { contains: q, mode: "insensitive" }, deletedAt: null },
       take: 5,
       select: { id: true, name: true, code: true, unit: true },
     }),

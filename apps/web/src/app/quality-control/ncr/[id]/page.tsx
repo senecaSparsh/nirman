@@ -26,9 +26,9 @@ async function NcrDetailContent({ id }: { id: string }) {
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.WO_MANAGE);
+  const canManage = hasPermission(role, PERM.QC_MANAGE);
 
-  if (!hasPermission(role, PERM.ASSETS_VIEW)) {
+  if (!hasPermission(role, PERM.QC_VIEW)) {
     return <NoAccess what="NCR" />;
   }
 

@@ -253,6 +253,9 @@ export const PERM = {
   // Safety — incidents, hazards, inspections
   SAFETY_VIEW: "safety.view",
   SAFETY_MANAGE: "safety.manage",
+  // Quality control — NCRs and CAPA
+  QC_VIEW: "qc.view",
+  QC_MANAGE: "qc.manage",
   // Audit — view audit logs (before/after payloads)
   AUDIT_VIEW: "audit.view",
 } as const;
@@ -356,6 +359,12 @@ export const PERMISSION_MODULES: {
     icon: "ShieldAlert",
     permissions: [PERM.SAFETY_VIEW, PERM.SAFETY_MANAGE],
   },
+  {
+    key: "quality",
+    label: "Quality Control",
+    icon: "ClipboardCheck",
+    permissions: [PERM.QC_VIEW, PERM.QC_MANAGE],
+  },
 ];
 
 export const ROLES: Record<Role, RoleDef> = {
@@ -422,6 +431,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_RECORDING_LISTEN, PERM.CALL_ANALYTICS,
       PERM.TELEPHONY_VIEW,
       PERM.SAFETY_VIEW, PERM.SAFETY_MANAGE,
+      PERM.QC_VIEW, PERM.QC_MANAGE,
       PERM.AUDIT_VIEW,
     ],
     canManageUsers: false,
@@ -482,6 +492,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.CALL_VIEW, PERM.CALL_VIEW_ALL, PERM.CALL_VIEW_FULL_NUMBER,
       PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_RECORDING_LISTEN, PERM.CALL_ANALYTICS,
       PERM.SAFETY_VIEW, PERM.SAFETY_MANAGE,
+      PERM.QC_VIEW, PERM.QC_MANAGE,
     ],
     canManageUsers: false,
     canAssignTasks: true,
@@ -496,7 +507,7 @@ export const ROLES: Record<Role, RoleDef> = {
     permissions: [
       PERM.PROJECTS_VIEW,
       PERM.INVENTORY_VIEW, PERM.INVENTORY_MANAGE,
-      PERM.PROCUREMENT_VIEW, PERM.PROCUREMENT_MANAGE, PERM.REQUISITION_APPROVE,
+      PERM.PROCUREMENT_VIEW, PERM.PROCUREMENT_MANAGE, PERM.PO_APPROVE, PERM.REQUISITION_APPROVE,
       PERM.QUOTATION_VIEW, PERM.QUOTATION_MANAGE,
       PERM.ASSETS_VIEW, PERM.RENTALS_VIEW,
       PERM.BOQ_VIEW, PERM.WBS_VIEW, PERM.MB_VIEW, PERM.PROJECT_CONTROL_VIEW,
@@ -553,6 +564,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.GATE_PASS_VIEW, PERM.GATE_PASS_CREATE, PERM.GATE_PASS_MANAGE,
       PERM.CALL_VIEW, PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_RECORDING_LISTEN,
       PERM.SAFETY_VIEW, PERM.SAFETY_MANAGE,
+      PERM.QC_VIEW,
     ],
     canManageUsers: false,
     canAssignTasks: false,
@@ -642,7 +654,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.HR_VIEW, PERM.DPR_VIEW, PERM.DPR_SUBMIT,
       PERM.GATE_PASS_VIEW, PERM.GATE_PASS_CREATE, PERM.GATE_PASS_EXIT,
       PERM.CALL_VIEW, PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_RECORDING_LISTEN,
-      PERM.SAFETY_VIEW,
+      PERM.SAFETY_VIEW, PERM.SAFETY_MANAGE,
     ],
     canManageUsers: false,
     canAssignTasks: false,
@@ -666,6 +678,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.GATE_PASS_VIEW,
       PERM.CALL_VIEW, PERM.CALL_CREATE,
       PERM.SAFETY_VIEW, PERM.SAFETY_MANAGE,
+      PERM.QC_VIEW, PERM.QC_MANAGE,
     ],
     canManageUsers: false,
     canAssignTasks: false,
@@ -765,7 +778,7 @@ export function effectivePermissions(
 /**
  * Roles allowed to approve purchase orders / requisitions.
  */
-export const APPROVER_ROLES: Role[] = ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "PROJECT_MANAGER"];
+export const APPROVER_ROLES: Role[] = ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "PROJECT_MANAGER", "PROCUREMENT_MANAGER"];
 
 /** Can a role approve procurement (POs + requisitions)? */
 export function canApproveProcurement(role: string | undefined | null): boolean {

@@ -121,21 +121,33 @@ export async function generateGstr1(
   });
   const companyGstin = company?.gstin ?? null;
 
-  // Find all journal lines crediting Output GST (2100) in the date range
-  const gstLines = await prisma.journalLine.findMany({
-    where: {
-      accountCode: "2100",
-      credit: { gt: 0 },
-      journalEntry: {
-        companyId,
-        entryDate: { gte: fromDate, lte: toDate },
-      },
-    },
-    include: {
-      journalEntry: { select: { id: true, entryDate: true, sourceType: true, sourceId: true, memo: true } },
-    },
-    orderBy: { journalEntry: { entryDate: "asc" } },
+  // Resolve account codes → IDs (GlAccount PK is now id, not code)
+  const accountCodes = ["2100", "4000", "4100", "4200"];
+  const glAccounts = await prisma.glAccount.findMany({
+    where: { companyId, code: { in: accountCodes } },
+    select: { id: true, code: true },
   });
+  const codeToId = new Map(glAccounts.map((a) => [a.code, a.id]));
+  const outputGstAccountId = codeToId.get("2100");
+  const revenueAccountIds = ["4000", "4100", "4200"].map((c) => codeToId.get(c)).filter((id): id is string => !!id);
+
+  // Find all journal lines crediting Output GST (2100) in the date range
+  const gstLines = outputGstAccountId
+    ? await prisma.journalLine.findMany({
+        where: {
+          accountId: outputGstAccountId,
+          credit: { gt: 0 },
+          journalEntry: {
+            companyId,
+            entryDate: { gte: fromDate, lte: toDate },
+          },
+        },
+        include: {
+          journalEntry: { select: { id: true, entryDate: true, sourceType: true, sourceId: true, memo: true } },
+        },
+        orderBy: { journalEntry: { entryDate: "asc" } },
+      })
+    : [];
 
   const entries: Gstr1Report["entries"] = [];
   let totalTaxableValue = new Decimal(0);
@@ -146,11 +158,11 @@ export async function generateGstr1(
 
   // Batch-fetch revenue lines and counterparty sales to avoid N+1 queries.
   const journalEntryIds = gstLines.map((gl) => gl.journalEntryId);
-  const revenueLines = journalEntryIds.length > 0
+  const revenueLines = journalEntryIds.length > 0 && revenueAccountIds.length > 0
     ? await prisma.journalLine.findMany({
         where: {
           journalEntryId: { in: journalEntryIds },
-          accountCode: { in: ["4000", "4100", "4200"] },
+          accountId: { in: revenueAccountIds },
           credit: { gt: 0 },
         },
         select: { journalEntryId: true, credit: true },
@@ -257,20 +269,34 @@ export async function generateGstr3b(
   });
   const companyGstin = company?.gstin ?? null;
 
-  // ── Outward supplies: compute per-entry to get CGST/SGST/IGST split ──
-  const outputGstLines = await prisma.journalLine.findMany({
-    where: {
-      accountCode: "2100",
-      credit: { gt: 0 },
-      journalEntry: {
-        companyId,
-        entryDate: { gte: fromDate, lte: toDate },
-      },
-    },
-    include: {
-      journalEntry: { select: { id: true, sourceType: true, sourceId: true } },
-    },
+  // Resolve account codes → IDs (GlAccount PK is now id, not code)
+  const accountCodes3b = ["2100", "4000", "4100", "4200", "1400", "1300"];
+  const glAccounts3b = await prisma.glAccount.findMany({
+    where: { companyId, code: { in: accountCodes3b } },
+    select: { id: true, code: true },
   });
+  const codeToId3b = new Map(glAccounts3b.map((a) => [a.code, a.id]));
+  const revenueAccountIds3b = ["4000", "4100", "4200"].map((c) => codeToId3b.get(c)).filter((id): id is string => !!id);
+  const outputGstId3b = codeToId3b.get("2100");
+  const inputGstId3b = codeToId3b.get("1400");
+  const inventoryId3b = codeToId3b.get("1300");
+
+  // ── Outward supplies: compute per-entry to get CGST/SGST/IGST split ──
+  const outputGstLines = outputGstId3b
+    ? await prisma.journalLine.findMany({
+        where: {
+          accountId: outputGstId3b,
+          credit: { gt: 0 },
+          journalEntry: {
+            companyId,
+            entryDate: { gte: fromDate, lte: toDate },
+          },
+        },
+        include: {
+          journalEntry: { select: { id: true, sourceType: true, sourceId: true } },
+        },
+      })
+    : [];
 
   let outwardOutputGst = new Decimal(0);
   let outwardCgst = new Decimal(0);
@@ -325,7 +351,7 @@ export async function generateGstr3b(
   // Sales revenue (taxable value)
   const revenueLines = await prisma.journalLine.aggregate({
     where: {
-      accountCode: { in: ["4000", "4100", "4200"] },
+      accountId: { in: revenueAccountIds3b },
       credit: { gt: 0 },
       journalEntry: {
         companyId,
@@ -337,19 +363,21 @@ export async function generateGstr3b(
   const outwardTaxableValue = new Decimal(revenueLines._sum?.credit ?? 0);
 
   // ── Inward supplies: compute per-entry to get CGST/SGST/IGST split ──
-  const inputGstLineRecords = await prisma.journalLine.findMany({
-    where: {
-      accountCode: "1400",
-      debit: { gt: 0 },
-      journalEntry: {
-        companyId,
-        entryDate: { gte: fromDate, lte: toDate },
-      },
-    },
-    include: {
-      journalEntry: { select: { id: true, sourceType: true, sourceId: true } },
-    },
-  });
+  const inputGstLineRecords = inputGstId3b
+    ? await prisma.journalLine.findMany({
+        where: {
+          accountId: inputGstId3b,
+          debit: { gt: 0 },
+          journalEntry: {
+            companyId,
+            entryDate: { gte: fromDate, lte: toDate },
+          },
+        },
+        include: {
+          journalEntry: { select: { id: true, sourceType: true, sourceId: true } },
+        },
+      })
+    : [];
 
   let itcAvailable = new Decimal(0);
   let inwardCgst = new Decimal(0);
@@ -405,7 +433,7 @@ export async function generateGstr3b(
   // Purchase value (taxable)
   const purchaseInventoryLines = await prisma.journalLine.aggregate({
     where: {
-      accountCode: "1300",
+      accountId: inventoryId3b!,
       debit: { gt: 0 },
       journalEntry: {
         companyId,
@@ -420,7 +448,7 @@ export async function generateGstr3b(
   // ITC reversed (credited back) — from supplier returns, cancellations
   const itcReversedLines = await prisma.journalLine.aggregate({
     where: {
-      accountCode: "1400",
+      accountId: inputGstId3b!,
       credit: { gt: 0 },
       journalEntry: {
         companyId,

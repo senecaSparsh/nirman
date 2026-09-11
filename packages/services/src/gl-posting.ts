@@ -120,14 +120,15 @@ export const ACCT = {
 } as const;
 
 /**
- * Seed the default chart of accounts. Idempotent — skips accounts that
- * already exist. Call on first boot (or from a migration). Safe to re-run.
+ * Seed the default chart of accounts for a company. Idempotent — skips
+ * accounts that already exist. Call on first boot (or from a migration).
+ * Safe to re-run.
  */
-export async function seedChartOfAccounts() {
+export async function seedChartOfAccounts(companyId: string) {
   for (const a of CHART_OF_ACCOUNTS) {
     await prisma.glAccount.upsert({
-      where: { code: a.code },
-      create: { code: a.code, name: a.name, type: a.type, isSystem: true },
+      where: { companyId_code: { companyId, code: a.code } },
+      create: { companyId, code: a.code, name: a.name, type: a.type, isSystem: true },
       update: { name: a.name, type: a.type, isSystem: true },
     });
   }
@@ -184,17 +185,23 @@ export async function postJournalEntry(
 
   // Defensive: ensure all account codes exist in GlAccount before creating lines.
   // If the database was reset (db:push) without re-seeding, the GlAccount table
-  // would be empty and the FK constraint on JournalLine.accountCode would fail
+  // would be empty and the FK constraint on JournalLine.accountId would fail
   // with a cryptic error. Give a clear error message instead.
+  // Also resolve accountCode → accountId (GlAccount PK changed from code to id
+  // for multi-tenant support — each company has its own chart of accounts).
   const accountCodes = [...new Set(lines.map((l) => l.accountCode))];
-  const existingCount = await tx.glAccount.count({
-    where: { code: { in: accountCodes } },
+  const glAccounts = await tx.glAccount.findMany({
+    where: { companyId: input.companyId, code: { in: accountCodes } },
+    select: { id: true, code: true },
   });
-  if (existingCount < accountCodes.length) {
+  if (glAccounts.length < accountCodes.length) {
+    const found = new Set(glAccounts.map((g) => g.code));
+    const missing = accountCodes.filter((c) => !found.has(c));
     throw new ServiceError(
-      `Chart of accounts is not seeded — account codes [${accountCodes.join(", ")}] are missing from GlAccount. Run \`pnpm --filter @nirman/db seed\` or call seedChartOfAccounts() to fix this.`,
+      `Chart of accounts is not seeded — account codes [${missing.join(", ")}] are missing from GlAccount for this company. Run \`pnpm --filter @nirman/db seed\` or call seedChartOfAccounts(companyId) to fix this.`,
     );
   }
+  const codeToId = new Map(glAccounts.map((g) => [g.code, g.id]));
 
   const d = input.entryDate ?? new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
@@ -215,7 +222,7 @@ export async function postJournalEntry(
       totalCredit,
       lines: {
         create: lines.map((l) => ({
-          accountCode: l.accountCode,
+          accountId: codeToId.get(l.accountCode)!,
           debit: l.debit,
           credit: l.credit,
           entityType: l.entityType,
@@ -254,14 +261,14 @@ export async function reverseJournalEntry(
 ) {
   const original = await tx.journalEntry.findUnique({
     where: { id: originalEntryId },
-    include: { lines: true },
+    include: { lines: { include: { account: { select: { code: true } } } } },
   });
   if (!original) throw new ServiceError("Journal entry not found — cannot reverse", 404);
   if (original.lines.length === 0) return null;
 
   // Swap debits and credits
   const reversedLines: JournalLineInput[] = original.lines.map((l) => ({
-    accountCode: l.accountCode,
+    accountCode: l.account.code,
     debit: l.credit,
     credit: l.debit,
     entityType: l.entityType ?? undefined,
@@ -653,6 +660,36 @@ export async function postDepositRefund(
     lines: [
       { accountCode: ACCT.CUSTOMER_DEPOSIT, debit: opts.amount, credit: 0, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Reverse deposit liability" },
       { accountCode: ACCT.CASH, debit: 0, credit: opts.amount, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Deposit refund to customer" },
+    ],
+  });
+}
+
+/**
+ * Reverse a payment received against an asset sale (e.g. cheque bounce after
+ * completion). Reverses the original postPaymentReceived entry.
+ *
+ *   Dr Accounts Receivable     (amount)  — restore the receivable
+ *   Cr Cash / Bank             (amount)  — remove the phantom cash
+ */
+export async function postPaymentReversal(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    assetSaleId: string;
+    paymentId: string;
+    amount: Decimal;
+    postedById?: string;
+  },
+) {
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "PAYMENT_REVERSAL",
+    sourceId: opts.paymentId,
+    memo: "Payment reversed (cheque bounce after completion)",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.AR, debit: opts.amount, credit: 0, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Restore receivable (cheque bounced)" },
+      { accountCode: ACCT.CASH, debit: 0, credit: opts.amount, entityType: "AssetSalePayment", entityId: opts.paymentId, memo: "Reverse cash from bounced cheque" },
     ],
   });
 }
@@ -1817,29 +1854,29 @@ export async function postSecurityDepositRefunded(
 export async function trialBalance(companyId: string) {
   // Aggregate debit/credit sums per account at the DB level.
   const grouped = await prisma.journalLine.groupBy({
-    by: ["accountCode"],
+    by: ["accountId"],
     where: { journalEntry: { companyId, status: "POSTED" } },
     _sum: { debit: true, credit: true },
-    orderBy: { accountCode: "asc" },
+    orderBy: { accountId: "asc" },
   });
 
   // Fetch account metadata for the accounts that have entries.
-  const accountCodes = grouped.map((g) => g.accountCode);
+  const accountIds = grouped.map((g) => g.accountId);
   const accounts = await prisma.glAccount.findMany({
-    where: { code: { in: accountCodes } },
-    select: { code: true, name: true, type: true },
+    where: { id: { in: accountIds } },
+    select: { id: true, code: true, name: true, type: true },
   });
-  const accountMap = new Map(accounts.map((a) => [a.code, a]));
+  const accountMap = new Map(accounts.map((a) => [a.id, a]));
 
   const result = grouped.map((g) => {
-    const acct = accountMap.get(g.accountCode);
+    const acct = accountMap.get(g.accountId);
     const debit = new Decimal(g._sum.debit ?? 0);
     const credit = new Decimal(g._sum.credit ?? 0);
     // Balance: for assets/expenses, balance = debit - credit; for liabilities/equity/revenue, credit - debit.
     const isDebitNormal = acct?.type === "ASSET" || acct?.type === "EXPENSE";
     const balance = isDebitNormal ? debit.minus(credit) : credit.minus(debit);
     return {
-      code: g.accountCode,
+      code: acct?.code ?? "???",
       name: acct?.name ?? "Unknown",
       type: acct?.type ?? "UNKNOWN",
       debit,
@@ -1872,8 +1909,15 @@ export async function accountLedger(
   },
 ) {
   const limit = Math.min(opts?.limit ?? 100, 500);
+  // Resolve accountCode → accountId (GlAccount PK is now id, not code)
+  const account = await prisma.glAccount.findUnique({
+    where: { companyId_code: { companyId, code: accountCode } },
+    select: { id: true },
+  });
+  if (!account) return { lines: [], hasMore: false, nextCursor: null };
+
   const where: Prisma.JournalLineWhereInput = {
-    accountCode,
+    accountId: account.id,
     journalEntry: {
       companyId,
       status: "POSTED",

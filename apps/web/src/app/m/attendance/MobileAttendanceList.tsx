@@ -7,7 +7,6 @@ import {
   MobileSectionTitle,
   MobileRow,
   MobileStatusBadge,
-  MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
@@ -111,13 +110,7 @@ export function MobileAttendanceList({
   }, [items, query, statusFilter, dateFilter, projectFilter]);
 
   if (items.length === 0) {
-    return (
-      <MobileEmptyState
-        icon={CalendarCheck}
-        title="No attendance records"
-        hint="Attendance records will appear here"
-      />
-    );
+    return null;
   }
 
   return (

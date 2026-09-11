@@ -10,6 +10,7 @@ import {
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
 import { MobileProjectsList } from "./MobileProjectsList";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 
 /**
  * /m/projects — mobile project list. Replaces every desktop `/projects`
@@ -119,6 +120,8 @@ export default function MobileProjectsPage() {
           <div>
             {/* ── Attention banner carousel ── */}
             <AttentionBannerCarousel banners={attentionBanners} />
+
+            <DepartmentActivityFeed department="projects" />
 
             {/* ── KPI strip ─────────────────────────────────────────────── */}
             <div className="grid grid-cols-4 gap-1.5 mb-4">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
@@ -28,10 +28,42 @@ export function MobileNewStockLocationForm({
   const router = useRouter();
   const [name, setName] = useState("");
   const [type, setType] = useState<
-    "CENTRAL_WAREHOUSE" | "COMPANY_WAREHOUSE" | "PROJECT_SITE"
+    "CENTRAL_WAREHOUSE" | "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT"
   >("COMPANY_WAREHOUSE");
   const [projectId, setProjectId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [dupWarning, setDupWarning] = useState<string | null>(null);
+
+  // Fetch company group (self + children) for the company selector
+  const [companies, setCompanies] = useState<{ id: string; name: string; isCurrent: boolean }[]>([]);
+  const [targetCompanyId, setTargetCompanyId] = useState("");
+  useEffect(() => {
+    // Fetch current company + all companies (for child company selection)
+    Promise.all([
+      fetch("/api/company").then((r) => r.ok ? r.json() : null).catch(() => null),
+      fetch("/api/companies").then((r) => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([current, all]) => {
+      if (current?.id) {
+        setTargetCompanyId(current.id);
+        // Build the company group: current company + its children
+        const children = Array.isArray(all)
+          ? all.filter((c: { parentCompanyId?: string | null }) => c.parentCompanyId === current.id)
+          : [];
+        const group = [
+          { id: current.id, name: current.name, isCurrent: true },
+          ...children.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name, isCurrent: false })),
+        ];
+        setCompanies(group);
+      }
+    });
+  }, []);
+
+  // Whether this type needs a project selector
+  const needsProject = type === "PROJECT_SITE";
+  // Whether the current company has children (show company selector)
+  const hasChildren = companies.filter((c) => !c.isCurrent).length > 0;
+  // Whether this type can target a child company
+  const canTargetCompany = type === "COMPANY_WAREHOUSE" || type === "DEPARTMENT";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,7 +71,7 @@ export function MobileNewStockLocationForm({
       toast.error("Location name is required");
       return;
     }
-    if (type === "PROJECT_SITE" && !projectId) {
+    if (needsProject && !projectId) {
       toast.error("Please select a project");
       return;
     }
@@ -52,12 +84,22 @@ export function MobileNewStockLocationForm({
         body: JSON.stringify({
           name: name.trim(),
           type,
-          projectId: type === "PROJECT_SITE" ? projectId : null,
+          projectId: needsProject ? projectId : null,
+          targetCompanyId: canTargetCompany && targetCompanyId ? targetCompanyId : undefined,
+          // If we're overriding a duplicate warning, send force: true
+          ...(dupWarning ? { force: true } : {}),
         }),
       });
       const data = await res.json();
-      if (!res.ok)
+      if (!res.ok) {
+        if (res.status === 409 && data.warning === "duplicate") {
+          // Show duplicate warning — let the user confirm
+          setDupWarning(data.message);
+          setSaving(false);
+          return;
+        }
         throw new Error(data.error ?? "Failed to create stock location");
+      }
       haptic([10, 40, 80]);
       toast.success(`${data.name} stock location created`);
       router.refresh();
@@ -65,6 +107,7 @@ export function MobileNewStockLocationForm({
       setName("");
       setType("COMPANY_WAREHOUSE");
       setProjectId("");
+      setDupWarning(null);
       onClose();
     } catch (err) {
       haptic([50, 20, 50]);
@@ -116,21 +159,45 @@ export function MobileNewStockLocationForm({
                     v as
                       | "CENTRAL_WAREHOUSE"
                       | "COMPANY_WAREHOUSE"
-                      | "PROJECT_SITE",
+                      | "PROJECT_SITE"
+                      | "DEPARTMENT",
                   );
                   setProjectId("");
+                  setDupWarning(null);
                 }}
                 options={[
-                  { value: "CENTRAL_WAREHOUSE", label: "Central Warehouse" },
                   { value: "COMPANY_WAREHOUSE", label: "Company Warehouse" },
                   { value: "PROJECT_SITE", label: "Project Site" },
+                  { value: "CENTRAL_WAREHOUSE", label: "Central Warehouse" },
+                  { value: "DEPARTMENT", label: "Department" },
                 ]}
               />
             </div>
           </div>
 
+          {/* Type description */}
+          <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
+            {type === "PROJECT_SITE" && "Stock stored at a specific project site. Requires a project."}
+            {type === "COMPANY_WAREHOUSE" && "Company-level warehouse. No project needed."}
+            {type === "CENTRAL_WAREHOUSE" && "Parent company warehouse for distributing to child companies. No project needed."}
+            {type === "DEPARTMENT" && "Operational cost-center stock room (e.g. Workshop, Boiler house). No project needed."}
+          </p>
+
+          {/* Target company — only if current company has children AND type allows targeting */}
+          {hasChildren && canTargetCompany && (
+            <EnumSelect
+              label="Belongs to"
+              value={targetCompanyId}
+              onChange={setTargetCompanyId}
+              options={companies.map((c) => ({
+                value: c.id,
+                label: c.isCurrent ? `${c.name} (current)` : c.name,
+              }))}
+            />
+          )}
+
           {/* Project — only when type is PROJECT_SITE */}
-          {type === "PROJECT_SITE" && (
+          {needsProject && (
             <MobileProjectSelect
               required
               value={projectId}
@@ -141,6 +208,39 @@ export function MobileNewStockLocationForm({
             />
           )}
         </div>
+
+        {/* Duplicate warning */}
+        {dupWarning && (
+          <div
+            className="rounded-[0.5rem] border p-3 flex flex-col gap-2"
+            style={{
+              borderColor: "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))",
+              backgroundColor: "color-mix(in srgb, var(--color-stop) 6%, var(--color-paper))",
+            }}
+          >
+            <p className="text-m-caption font-bold" style={{ color: "var(--color-stop)" }}>
+              ⚠ {dupWarning}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 rounded-[0.375rem] py-1.5 text-m-caption font-bold press disabled:opacity-50"
+                style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
+              >
+                {saving ? <Loader2 className="size-3 animate-spin mx-auto" /> : "Create anyway"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDupWarning(null)}
+                className="rounded-[0.375rem] px-3 py-1.5 text-m-caption font-bold border press"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
         <div

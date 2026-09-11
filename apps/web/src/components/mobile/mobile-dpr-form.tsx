@@ -13,6 +13,7 @@ import { formatRelativeTime } from "@/lib/utils";
 import { useSmartDefaults } from "@/lib/use-smart-defaults";
 import { useNearestProject } from "@/lib/use-nearest-project";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileProjectSelect, MobileEmployeeSelect } from "@/components/mobile/selectors";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type MaterialLine = { materialId: string; qty: string; unitCost: string };
@@ -608,7 +609,7 @@ export function MobileDprForm({
       <FormField label="Project" required>
         <div className="flex gap-1.5 items-center">
           <div className="flex-1">
-            <MobileSelectWithCreate
+            <MobileProjectSelect
               label=""
               required
               value={fProject}
@@ -884,13 +885,15 @@ export function MobileDprForm({
                   <X className="size-3" style={{ color: "var(--color-stop)" }} />
                 </button>
               </div>
-              <MobileSelectWithCreate
+              <MobileEmployeeSelect
                 label="Worker"
                 value={l.employeeId}
                 onChange={(v) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, employeeId: v, crewId: v ? "" : m.crewId } : m))}
                 options={employees.map((emp) => ({ value: emp.id, label: emp.name, sub: emp.trade ?? undefined }))}
                 placeholder="Individual worker…"
                 compact
+                projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+                stockLocations={[]}
               />
               <MobileSelectWithCreate
                 label="Crew"

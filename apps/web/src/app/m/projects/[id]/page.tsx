@@ -27,6 +27,7 @@ import {
 
 import { MobileEditProjectButton } from "./MobileEditProjectButton";
 import { MobileDeleteProjectButton } from "./MobileDeleteProjectButton";
+import { MobileProjectUnitsFab } from "./MobileProjectUnitsFab";
 import { MobileLegalDocsSection } from "@/components/legal/mobile-legal-docs-section";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -268,7 +269,7 @@ export default function MobileProjectDetailPage({
             </p>
           </div>
           <div>
-            <DetailKeyValue label="Units" value={`${formatNumber(units.length, 0)} ${availableUnits.length} avail`} />
+            <DetailKeyValue label="Units" value={units.length === 0 ? "0" : `${formatNumber(units.length, 0)} · ${availableUnits.length} avail`} />
             <DetailKeyValue label="Sold" value={formatNumber(soldUnits.length, 0)} tone="go" />
             <DetailKeyValue label="Cost" value={totalProjectCost ? formatCurrencyCompact(totalProjectCost) : "—"} />
             <DetailKeyValue label="₹/sqft" value={project.costPerSqft ? formatCurrencyCompact(toNum(project.costPerSqft)) : "—"} />
@@ -348,7 +349,7 @@ export default function MobileProjectDetailPage({
         <MobileEmptyState
           icon={Home}
           title="No units yet"
-          hint="Units show here once created"
+          hint={canManage ? "Tap + to create your first built unit" : "Units will appear here once created"}
         />
       ) : (
         <div className="grid grid-cols-3 gap-1.5 mb-3">
@@ -356,6 +357,9 @@ export default function MobileProjectDetailPage({
             <UnitCard key={u.id} unit={u} />
           ))}
         </div>
+      )}
+      {canManage && (
+        <MobileProjectUnitsFab projectId={id} projectName={project.name} />
       )}
             </>
           ),

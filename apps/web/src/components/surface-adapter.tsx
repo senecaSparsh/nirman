@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { ROUTES, ROUTE_BY_PATH, matchRoute } from "@/lib/route-manifest";
 
 /**
@@ -27,8 +27,8 @@ import { ROUTES, ROUTE_BY_PATH, matchRoute } from "@/lib/route-manifest";
  * If a route has no equivalent on the other surface (e.g., `/m/site` is
  * mobile-only), the user stays on the current surface — no redirect.
  *
- * The redirect uses `window.location.replace()` (no history pollution)
- * and preserves query params and dynamic segments.
+ * The redirect uses `router.replace()` (instant client-side navigation,
+ * no full page reload) and preserves query params and dynamic segments.
  * ═══════════════════════════════════════════════════════════════════
  */
 
@@ -48,16 +48,24 @@ for (const r of ROUTES) {
     // Explicit mapping (e.g., "/m/expense-claims" → "/finance?tab=claims")
     const desktopBase = r.desktopPath.split("?")[0]!;
     mobileToDesktop.set(r.path, r.desktopPath);
-    desktopToMobile.set(desktopBase, r.path);
+    // Don't overwrite an existing base mapping. When multiple mobile routes
+    // share the same desktopPath base (e.g., /procurement, /procurement?tab=indents,
+    // /procurement?tab=returns), the first one (the "hub" without query params)
+    // should win for the reverse desktop→mobile mapping. Without this guard,
+    // the last route in the manifest overwrites the correct base mapping.
+    if (!desktopToMobile.has(desktopBase)) {
+      desktopToMobile.set(desktopBase, r.path);
+    }
   } else if (r.kind !== "redirect") {
     // Fallback: strip /m prefix (e.g., "/m/materials" → "/materials")
+    // Only add FORWARD mapping (mobile→desktop). Don't add reverse mapping
+    // (desktop→mobile) because we don't know if a desktop page actually
+    // exists — stripping /m is just a guess. Reverse mappings should only
+    // come from explicit desktopPath entries. The parent-based mapping
+    // in resolveTarget handles detail pages via the parent's explicit map.
     const desktop = r.path.slice(2); // "/m/materials" → "/materials"
     if (desktop && desktop !== "/") {
       mobileToDesktop.set(r.path, desktop);
-      // Only add reverse mapping if no explicit one exists
-      if (!desktopToMobile.has(desktop)) {
-        desktopToMobile.set(desktop, r.path);
-      }
     }
   }
 }
@@ -70,25 +78,35 @@ desktopToMobile.set("/", "/m/home");
 // ── Routes that should never be redirected ──────────────────────
 const SKIP_PREFIXES = [
   "/sign-in", "/sign-up", "/forgot-password", "/reset-password",
-  "/change-password", "/consent", "/api/", "/_next/", "/portal",
+  "/change-password", "/consent", "/accept/", "/api/", "/_next/", "/portal", "/print",
 ];
-function shouldSkip(pathname: string): boolean {
+export function shouldSkip(pathname: string): boolean {
   if (SKIP_PREFIXES.some((p) => pathname.startsWith(p))) return true;
   if (pathname === "/favicon.ico" || /\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|map|webmanifest|txt)$/.test(pathname)) return true;
   return false;
 }
 
 // ── Check if a desktop path exists (either in manifest or as a known route) ──
-function desktopRouteExists(path: string): boolean {
+// The manifest only has /m/* routes, so we also check the desktopToMobile
+// map (which has desktop paths as keys from desktopPath mappings) and the
+// mobileToDesktop map values (which are desktop paths).
+export function desktopRouteExists(path: string): boolean {
   const base = path.split("?")[0]!;
-  // Check exact match
+  // Check if any mobile route maps TO this desktop path
+  if (desktopToMobile.has(base)) return true;
+  // Check exact match in manifest (catches /m/* routes that might be
+  // passed here, though normally we only check desktop paths)
   if (ROUTE_BY_PATH.has(base)) return true;
-  // Check if it could be a detail page (parent exists)
+  // Check if it could be a detail page (parent exists in the desktop mapping)
   const segments = base.split("/");
-  // Try progressively shorter prefixes
   for (let i = segments.length; i > 1; i--) {
     const prefix = segments.slice(0, i).join("/");
-    if (ROUTE_BY_PATH.has(prefix)) return true;
+    if (desktopToMobile.has(prefix)) return true;
+    // Skip redirect entries when checking parents — a redirect like "/"
+    // or "/m" doesn't have real children. Only real pages (hub, list,
+    // detail, create, edit) can have path children.
+    const parentEntry = ROUTE_BY_PATH.get(prefix);
+    if (parentEntry && parentEntry.kind !== "redirect") return true;
     // Check with [id] pattern
     const dynamicPrefix = [...segments.slice(0, i - 1), "[id]"].join("/");
     if (ROUTE_BY_PATH.has(dynamicPrefix)) return true;
@@ -97,13 +115,18 @@ function desktopRouteExists(path: string): boolean {
 }
 
 // ── Check if a mobile path exists ──
-function mobileRouteExists(path: string): boolean {
+export function mobileRouteExists(path: string): boolean {
   const base = path.split("?")[0]!;
   if (ROUTE_BY_PATH.has(base)) return true;
   const segments = base.split("/");
   for (let i = segments.length; i > 1; i--) {
     const prefix = segments.slice(0, i).join("/");
-    if (ROUTE_BY_PATH.has(prefix)) return true;
+    // Skip redirect entries when checking parents — "/m" is a redirect
+    // to "/m/home", so "/m/crews" should NOT match just because "/m"
+    // exists. Only real pages (hub, list, detail, create, edit) can
+    // have path children.
+    const parentEntry = ROUTE_BY_PATH.get(prefix);
+    if (parentEntry && parentEntry.kind !== "redirect") return true;
     const dynamicPrefix = [...segments.slice(0, i - 1), "[id]"].join("/");
     if (ROUTE_BY_PATH.has(dynamicPrefix)) return true;
   }
@@ -115,7 +138,7 @@ function mobileRouteExists(path: string): boolean {
  * Returns the target pathname (with query params) or null if no
  * equivalent exists on the other surface.
  */
-function resolveTarget(pathname: string, search: string, toMobile: boolean): string | null {
+export function resolveTarget(pathname: string, search: string, toMobile: boolean): string | null {
   if (toMobile) {
     // ── Desktop → Mobile ──
     if (pathname === "/" || pathname === "") return "/m/home" + (search || "");
@@ -143,7 +166,10 @@ function resolveTarget(pathname: string, search: string, toMobile: boolean): str
     }
 
     // Try parent-based mapping (for detail pages)
-    if (entry?.parent) {
+    // Only applies when the pathname is a PATH CHILD of the parent (not just
+    // a logical child in the manifest). E.g., /materials/abc is a path child
+    // of /materials, but /procurement is NOT a path child of /hr.
+    if (entry?.parent && base.startsWith(entry.parent + "/")) {
       const parentMobile = desktopToMobile.get(entry.parent);
       if (parentMobile) {
         // Replace the desktop parent with the mobile parent in the path
@@ -167,6 +193,12 @@ function resolveTarget(pathname: string, search: string, toMobile: boolean): str
     if (entry.desktopPath) {
       // Preserve dynamic segments if the route has them
       const target = mapDynamicSegments(pathname, entry.path, entry.desktopPath);
+      // Append search params if the desktopPath doesn't already have query params.
+      // If desktopPath has its own query (e.g., "/finance?tab=claims"), don't
+      // append the current search — the desktop route's query takes priority.
+      if (search && !entry.desktopPath.includes("?")) {
+        return target + search;
+      }
       return target;
     }
 
@@ -177,7 +209,8 @@ function resolveTarget(pathname: string, search: string, toMobile: boolean): str
     }
 
     // Try parent-based mapping (for detail pages without desktopPath)
-    if (entry.parent) {
+    // Only applies when the pathname is a PATH CHILD of the parent.
+    if (entry.parent && pathname.startsWith(entry.parent + "/")) {
       const parentDesktop = mobileToDesktop.get(entry.parent);
       if (parentDesktop) {
         const parentBase = parentDesktop.split("?")[0]!;
@@ -198,7 +231,7 @@ function resolveTarget(pathname: string, search: string, toMobile: boolean): str
  * e.g., pathname="/m/materials/abc123", sourcePattern="/m/materials/[id]",
  *       targetPattern="/materials" → "/materials/abc123"
  */
-function mapDynamicSegments(pathname: string, sourcePattern: string | undefined, targetPattern: string): string {
+export function mapDynamicSegments(pathname: string, sourcePattern: string | undefined, targetPattern: string): string {
   if (!sourcePattern || !sourcePattern.includes("[")) {
     // No dynamic segments in source — return target as-is
     return targetPattern;
@@ -238,70 +271,119 @@ function mapDynamicSegments(pathname: string, sourcePattern: string | undefined,
 export function SurfaceAdapter() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const currentPath = pathname ?? "";
   const search = searchParams?.toString() ?? "";
   const isRedirecting = useRef(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    if (shouldSkip(currentPath)) return;
+  // ── Core redirect logic (shared by mount + change listeners) ──
+  // Uses router.replace() for instant client-side navigation — no full
+  // page reload, no re-downloading JS, no re-hydrating React, no losing
+  // SWR cache. The transition is effectively instant.
+  const attemptRedirect = (path: string, searchStr: string) => {
+    if (shouldSkip(path)) return;
     if (isRedirecting.current) return;
+
+    // Respect the "View desktop" escape-hatch cookie. The middleware sets
+    // this when the user visits ?desktop=1. If it's present, the user
+    // explicitly chose desktop — don't fight them.
+    if (document.cookie.includes("nirman-desktop=1")) return;
 
     const mql = window.matchMedia(MOBILE_BREAKPOINT);
     const isMobile = mql.matches;
-    const onMobileRoute = currentPath.startsWith("/m");
+    const onMobileRoute = path.startsWith("/m/") || path === "/m";
 
-    // Check if we need to redirect
     const needsRedirect =
       (isMobile && !onMobileRoute) || (!isMobile && onMobileRoute);
-
     if (!needsRedirect) return;
 
-    const target = resolveTarget(currentPath, search ? `?${search}` : "", !isMobile);
-    if (!target) return; // No equivalent on the other surface — stay
+    // resolveTarget(pathname, search, toMobile):
+    //   toMobile=true  → desktop→mobile mapping
+    //   toMobile=false → mobile→desktop mapping
+    // When isMobile=true (narrow), we're going TO mobile → toMobile=true.
+    // When isMobile=false (wide), we're going TO desktop → toMobile=false.
+    // So the third arg is simply `isMobile` (not `!isMobile`).
+    const target = resolveTarget(path, searchStr || "", isMobile);
+    if (!target) {
+      // No direct mobile equivalent. For desktop→mobile, fall back to
+      // /m/home so the user always lands on the mobile surface instead
+      // of being stuck on a desktop page on a phone screen.
+      if (isMobile && !onMobileRoute) {
+        isRedirecting.current = true;
+        if (resetTimer.current) clearTimeout(resetTimer.current);
+        resetTimer.current = setTimeout(() => { isRedirecting.current = false; }, 1500);
+        router.replace("/m/home");
+        return;
+      }
+      return; // Mobile→desktop with no equivalent — stay on mobile
+    }
 
-    // Instant redirect — replace() avoids history pollution
     isRedirecting.current = true;
-    window.location.replace(target);
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+    resetTimer.current = setTimeout(() => { isRedirecting.current = false; }, 1500);
+    router.replace(target);
+  };
+
+  // ── 1. Check on mount and when the path changes ──────────────
+  useEffect(() => {
+    attemptRedirect(currentPath, search ? `?${search}` : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPath, search]);
 
-  // Listen for viewport size changes (orientation, resize, window move)
+  // ── 2. Listen for viewport size changes ──────────────────────
+  // Primary: matchMedia change event (fires when crossing the breakpoint).
+  // Fallback: resize event (fires on every pixel change — debounced).
+  // The resize fallback catches edge cases where matchMedia change
+  // doesn't fire (rare browser bugs, certain DevTools workflows).
   useEffect(() => {
     if (shouldSkip(currentPath)) return;
 
     const mql = window.matchMedia(MOBILE_BREAKPOINT);
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let resizeDebounce: ReturnType<typeof setTimeout> | null = null;
 
-    const handleChange = () => {
-      if (isRedirecting.current) return;
-      if (debounceTimer) clearTimeout(debounceTimer);
-
-      // Small debounce to avoid rapid redirects during drag-resize
-      debounceTimer = setTimeout(() => {
-        const isMobile = mql.matches;
-        const onMobileRoute = currentPath.startsWith("/m");
-        const needsRedirect =
-          (isMobile && !onMobileRoute) || (!isMobile && onMobileRoute);
-
-        if (!needsRedirect) return;
-
-        const target = resolveTarget(currentPath, search ? `?${search}` : "", !isMobile);
-        if (!target) return;
-
-        isRedirecting.current = true;
-        window.location.replace(target);
-      }, 150);
+    // matchMedia change fires ONCE when crossing the breakpoint — no
+    // debounce needed, redirect immediately for instant response.
+    const handleMediaChange = () => {
+      attemptRedirect(currentPath, search ? `?${search}` : "");
     };
 
-    mql.addEventListener("change", handleChange);
+    // resize fires on EVERY pixel change during drag — debounce to avoid
+    // spamming router.replace() while the user is still dragging.
+    const handleResize = () => {
+      if (resizeDebounce) clearTimeout(resizeDebounce);
+      resizeDebounce = setTimeout(() => {
+        attemptRedirect(currentPath, search ? `?${search}` : "");
+      }, 100);
+    };
+
+    // Safari < 14 uses the legacy addListener/removeListener API.
+    const supportsAddEventListener = typeof mql.addEventListener === "function";
+    if (supportsAddEventListener) {
+      mql.addEventListener("change", handleMediaChange);
+    } else {
+      (mql as MediaQueryList & { addListener: (cb: () => void) => void }).addListener(handleMediaChange);
+    }
+    window.addEventListener("resize", handleResize);
     return () => {
-      mql.removeEventListener("change", handleChange);
-      if (debounceTimer) clearTimeout(debounceTimer);
+      if (supportsAddEventListener) {
+        mql.removeEventListener("change", handleMediaChange);
+      } else {
+        (mql as MediaQueryList & { removeListener: (cb: () => void) => void }).removeListener(handleMediaChange);
+      }
+      window.removeEventListener("resize", handleResize);
+      if (resizeDebounce) clearTimeout(resizeDebounce);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPath, search]);
 
-  // Reset the redirecting flag when the pathname changes (new page loaded)
+  // ── 3. Reset the redirecting flag when the pathname changes ──
   useEffect(() => {
     isRedirecting.current = false;
+    if (resetTimer.current) {
+      clearTimeout(resetTimer.current);
+      resetTimer.current = null;
+    }
   }, [currentPath]);
 
   return null;

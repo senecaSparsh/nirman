@@ -73,6 +73,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       await processPayroll({ payrollPeriodId: id, userId: user.id });
       revalidatePath("/hr/payroll");
       revalidatePath("/m/hr");
+      revalidatePath("/m/books/payroll");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Failed to process payroll") }, { status: 400 });
@@ -85,6 +86,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       await payPayroll({ payrollPeriodId: id, userId: user.id });
       revalidatePath("/hr/payroll");
       revalidatePath("/m/hr");
+      revalidatePath("/m/books/payroll");
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Failed to settle payroll") }, { status: 400 });

@@ -188,7 +188,7 @@ export async function createTransfer(input: CreateTransferInput) {
   // Validate materials + qty
   const materialIds = input.lines.map((l) => l.materialId);
   const materials = await prisma.material.findMany({
-    where: { id: { in: materialIds }, deletedAt: null },
+    where: { id: { in: materialIds }, companyId: { in: input.companyGroupIds }, deletedAt: null },
   });
   if (materials.length !== materialIds.length) {
     throw new ServiceError("One or more materials not found or deleted", 404);
@@ -772,13 +772,13 @@ export async function completeTransfer(transferId: string, userId?: string, proo
   // Auto-fill HSN/GST on materials that are missing it (best-effort, outside tx)
   const transferWithLines = await prisma.stockTransfer.findUnique({
     where: { id: transferId },
-    select: { lines: { select: { materialId: true } } },
+    select: { lines: { select: { materialId: true } }, fromLocation: { select: { companyId: true } } },
   });
   void (async () => {
     if (transferWithLines) {
       for (const line of transferWithLines.lines) {
         try {
-          await autoFillHsnGst(line.materialId);
+          await autoFillHsnGst(line.materialId, transferWithLines.fromLocation?.companyId);
         } catch { /* best-effort */ }
       }
     }

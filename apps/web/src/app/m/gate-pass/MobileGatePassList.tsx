@@ -35,8 +35,7 @@ import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
-import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
-import { MobileProjectSelect } from "@/components/mobile/selectors";
+import { MobileProjectSelect, MobileStockLocationSelect } from "@/components/mobile/selectors";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 type GatePassRow = {
@@ -722,7 +721,7 @@ export function MobileGatePassFormDialog({
               Location
             </p>
             <div>
-              <MobileSelectWithCreate
+              <MobileStockLocationSelect
                 label="Location"
                 required
                 value={locationId}

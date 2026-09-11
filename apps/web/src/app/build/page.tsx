@@ -72,7 +72,7 @@ async function BuildContent() {
     // Stock
     materialInventoryValue(company.id),
     lowStockAlerts(company.id),
-    prisma.material.count({ where: { deletedAt: null } }),
+    prisma.material.count({ where: { companyId: company.id, deletedAt: null } }),
     prisma.equipment.count({ where: { companyId: company.id, deletedAt: null, status: { not: "RETIRED" } } }),
     // Construct
     prisma.project.count({ where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } } }),
@@ -106,7 +106,7 @@ async function BuildContent() {
       count: suppliers,
     });
   }
-  if (hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+  if (hasPermission(role, PERM.FINANCE_VIEW)) {
     acquireItems.push({
       label: "Rate Contracts",
       href: "/rate-contracts",
@@ -224,31 +224,47 @@ async function BuildContent() {
       count: activeProjects,
     });
   }
-  if (hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+  if (hasPermission(role, PERM.BOQ_VIEW)) {
     constructItems.push({
       label: "BOQ",
       href: "/boq",
       hint: "Bill of Quantities — the project cost budget, item by item",
     });
+  }
+  if (hasPermission(role, PERM.WBS_VIEW)) {
     constructItems.push({
       label: "Schedule (WBS)",
       href: "/wbs",
       hint: "Work Breakdown Structure — activities, dependencies, critical path",
     });
   }
-  if (hasPermission(role, PERM.PROJECTS_VIEW)) {
+  if (hasPermission(role, PERM.MB_VIEW)) {
     constructItems.push({
       label: "Measurement Book",
       href: "/measurement-book",
       hint: "Site engineer's verified record of actual quantities executed",
     });
   }
-  if (hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+  if (hasPermission(role, PERM.WO_MANAGE)) {
     constructItems.push({
       label: "Work Orders",
       href: "/work-orders",
       hint: "Subcontractor work orders and RA bills with TDS and retention",
       count: openWorkOrders,
+    });
+  }
+  if (hasPermission(role, PERM.QC_VIEW)) {
+    constructItems.push({
+      label: "Quality Control",
+      href: "/quality-control",
+      hint: "Non-Conformance Reports (NCR) and Corrective And Preventive Actions (CAPA)",
+    });
+  }
+  if (hasPermission(role, PERM.SAFETY_VIEW)) {
+    constructItems.push({
+      label: "Safety",
+      href: "/safety",
+      hint: "Hazards, incidents, and safety inspections across all sites",
     });
   }
   if (constructItems.length > 0) {
@@ -309,17 +325,23 @@ async function BuildContent() {
     });
   }
 
+  const headerStats: { label: string; value: string | number; tone?: "default" | "warning" | "danger" | "success" }[] = [
+    { label: "Stages", value: stages.length },
+    { label: "Active projects", value: activeProjects },
+  ];
+  if (hasPermission(role, PERM.INVENTORY_VIEW)) {
+    headerStats.push({ label: "Inventory", value: formatCurrency(toNum(inventoryVal)) });
+  }
+  if (hasPermission(role, PERM.SALES_VIEW)) {
+    headerStats.push({ label: "Available units", value: availableUnits, tone: availableUnits > 0 ? "success" : "default" });
+  }
+
   return (
     <>
       <PageHeader
         title="Build"
         description="The asset lifecycle — acquire land, buy material, build, sell. Click a stage to expand it; pin two open to compare side-by-side."
-        stats={[
-          { label: "Stages", value: stages.length },
-          { label: "Active projects", value: activeProjects },
-          { label: "Inventory", value: formatCurrency(toNum(inventoryVal)) },
-          { label: "Available units", value: availableUnits, tone: availableUnits > 0 ? "success" : "default" },
-        ]}
+        stats={headerStats}
         action={<RefreshButton />}
       />
       <PipelineOverview stages={stages} />

@@ -46,12 +46,11 @@ function DprStatsBar({ dprs }: { dprs: DprRow[] }) {
   const pending = dprs.filter((d) => d.approvalStatus === "SUBMITTED").length;
   const subApproved = dprs.filter((d) => d.approvalStatus === "SUB_ADMIN_APPROVED").length;
   const approved = dprs.filter((d) => d.approvalStatus === "APPROVED").length;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const rejected = dprs.filter((d) => d.approvalStatus === "REJECTED").length;
   const avgProgress = total > 0 ? dprs.reduce((sum, d) => sum + d.progressPct, 0) / total : 0;
 
   return (
-    <div className="grid grid-cols-2 divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-5 sm:divide-x divide-y sm:divide-y-0">
+    <div className="grid grid-cols-2 divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-6 sm:divide-x divide-y sm:divide-y-0">
       <div className="flex flex-col gap-0.5 p-3">
         <span className="text-label text-muted-foreground/75">Total DPRs</span>
         <span className="text-figure text-foreground">{total}</span>
@@ -70,6 +69,11 @@ function DprStatsBar({ dprs }: { dprs: DprRow[] }) {
         <span className="text-label text-muted-foreground/75">Approved</span>
         <span className="text-figure text-success">{approved}</span>
         <span className="text-micro text-muted-foreground">fully approved</span>
+      </div>
+      <div className="flex flex-col gap-0.5 p-3">
+        <span className="text-label text-muted-foreground/75">Rejected</span>
+        <span className="text-figure text-danger">{rejected}</span>
+        <span className="text-micro text-muted-foreground">needs revision</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
         <span className="text-label text-muted-foreground/75">Avg Progress</span>

@@ -202,7 +202,7 @@ describe("WIP Capitalization backfill — integration tests", () => {
     // Verify the capitalization entry was posted
     const entry = await prisma.journalEntry.findFirst({
       where: { sourceType: "WIP_CAPITALIZATION", sourceId: unit.id },
-      include: { lines: true },
+      include: { lines: { include: { account: { select: { code: true } } } } },
     });
     expect(entry).not.toBeNull();
     expect(entry!.totalDebit.toNumber()).toBe(1000000);
@@ -241,14 +241,14 @@ describe("WIP Capitalization backfill — integration tests", () => {
     // Verify the capitalization entry was posted with the sale's costBasis
     const entry = await prisma.journalEntry.findFirst({
       where: { sourceType: "WIP_CAPITALIZATION", sourceId: unit.id },
-      include: { lines: true },
+      include: { lines: { include: { account: { select: { code: true } } } } },
     });
     expect(entry).not.toBeNull();
     expect(entry!.totalDebit.toNumber()).toBe(costBasis.toNumber());
 
     // Verify the Dr line is UNIT_ASSET (1800) and Cr line is WIP (1500)
-    const debitLine = entry!.lines.find((l) => l.accountCode === ACCT.UNIT_ASSET);
-    const creditLine = entry!.lines.find((l) => l.accountCode === ACCT.WIP);
+    const debitLine = entry!.lines.find((l) => l.account.code === ACCT.UNIT_ASSET);
+    const creditLine = entry!.lines.find((l) => l.account.code === ACCT.WIP);
     expect(debitLine).toBeDefined();
     expect(creditLine).toBeDefined();
     expect(debitLine!.debit.toNumber()).toBe(costBasis.toNumber());

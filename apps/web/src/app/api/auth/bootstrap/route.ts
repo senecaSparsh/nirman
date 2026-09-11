@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
 import { json } from "@/lib/server";
-import { withSerializableTransaction } from "@nirman/services";
+import { withSerializableTransaction, seedDefaultCategories } from "@nirman/services";
 
 /**
  * POST /api/auth/bootstrap — one-time first owner + company setup.
@@ -121,6 +121,15 @@ export const POST = async (req: NextRequest) => {
 
     return { company, user };
   });
+
+  // Seed default construction categories for the first company.
+  // Non-throwing — the company is usable without these, but having them
+  // pre-seeded means the owner can start adding materials immediately.
+  try {
+    await seedDefaultCategories(result.company.id);
+  } catch (err) {
+    console.error("[bootstrap] failed to seed default categories (non-fatal):", err);
+  }
 
   return json({
     ok: true,

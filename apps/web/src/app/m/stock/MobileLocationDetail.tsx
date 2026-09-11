@@ -200,7 +200,7 @@ export function MobileLocationDetail({
       {/* ── Quick actions ── */}
       <div className="grid grid-cols-3 gap-1.5 mb-3">
         <Link
-          href="/m/stock-out?mode=issue"
+          href={`/m/stock-out?mode=issue&from=${locationId}`}
           className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
@@ -447,10 +447,6 @@ function TransitTab({ incoming, outgoing }: { incoming: InTransitTransfer[]; out
 /* ─── Inventory tab — material list with qty + value ─── */
 function InventoryTab({
   items,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  canManage = false,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onAddMaterial,
 }: {
   items: DetailStockItem[];
   canManage?: boolean;

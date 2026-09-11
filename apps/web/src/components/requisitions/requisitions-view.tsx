@@ -29,7 +29,17 @@ type LocationOption = { id: string; name: string; type: "CENTRAL_WAREHOUSE" | "C
 type CategoryOption = { id: string; name: string; unit: string };
 
 /** Column definitions for the requisitions DataTable. */
-const reqColumns: Column<RequisitionRow>[] = [
+function buildReqColumns(opts: {
+  canApprove: boolean;
+  currentUserId?: string;
+  onApprove: (r: RequisitionRow) => void;
+  onReject: (r: RequisitionRow) => void;
+  onConvert: (r: RequisitionRow) => void;
+  onSubmit: (r: RequisitionRow) => void;
+  onDelete: (r: RequisitionRow) => void;
+  onPrint: (r: RequisitionRow) => void;
+}): Column<RequisitionRow>[] {
+  return [
   {
     key: "reqNumber",
     label: "Indent No",
@@ -105,7 +115,48 @@ const reqColumns: Column<RequisitionRow>[] = [
       );
     },
   },
-];
+  {
+    key: "actions",
+    label: "Actions",
+    align: "right",
+    render: (r) => {
+      const isOwner = r.requestedById === opts.currentUserId;
+      return (
+        <div className="flex items-center justify-end gap-1">
+          {(r.status === "DRAFT" || r.status === "REJECTED") && isOwner && (
+            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); opts.onSubmit(r); }}>
+              <Check className="h-3 w-3" /> {r.status === "REJECTED" ? "Resubmit" : "Submit"}
+            </Button>
+          )}
+          {r.status === "SUBMITTED" && opts.canApprove && !isOwner && (
+            <>
+              <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); opts.onReject(r); }}>
+                <X className="h-3 w-3" /> Reject
+              </Button>
+              <Button size="sm" onClick={(e) => { e.stopPropagation(); opts.onApprove(r); }}>
+                <Check className="h-3 w-3" /> Approve
+              </Button>
+            </>
+          )}
+          {r.status === "APPROVED" && (
+            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); opts.onConvert(r); }}>
+              <ShoppingCart className="h-3 w-3" /> Convert
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); opts.onPrint(r); }} title="Print">
+            <Printer className="h-3 w-3" />
+          </Button>
+          {r.status === "DRAFT" && isOwner && (
+            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); opts.onDelete(r); }} title="Delete">
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+      );
+    },
+  },
+  ];
+}
 
 export function RequisitionsView({
   requisitions,
@@ -314,7 +365,16 @@ export function RequisitionsView({
               <DataTable
                 data={filtered}
                 initialSort={{ key: "requestDate", direction: "desc" }}
-                columns={reqColumns}
+                columns={buildReqColumns({
+                  canApprove,
+                  currentUserId,
+                  onApprove: (r) => action(r.id, "approve"),
+                  onReject: (r) => { setRejectTarget(r); },
+                  onConvert: (r) => setConvertTarget(r),
+                  onSubmit: (r) => action(r.id, "submit"),
+                  onDelete: (r) => setDeleting(r),
+                  onPrint: (r) => window.open(`/print/requisition/${r.id}`, "_blank"),
+                })}
                 onRowClick={(r) => {
                   if (r.status === "APPROVED") setConvertTarget(r);
                 }}
@@ -491,6 +551,9 @@ export function RequisitionsView({
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
                               </>
+                            )}
+                            {r.status === "REJECTED" && (
+                              <Button size="sm" variant="outline" className="h-7 flex-1" onClick={() => action(r.id, "submit")}>Resubmit</Button>
                             )}
                             {r.status === "SUBMITTED" && canApprove && r.requestedById !== currentUserId && (
                               <>

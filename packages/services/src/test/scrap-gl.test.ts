@@ -35,6 +35,7 @@ describe("Scrap GL Posting — integration tests", () => {
     // Create a material category (required by Material model)
     const category = await prisma.materialCategory.create({
       data: {
+        companyId: fixture.company.id,
         name: "Test Scrap Category",
         unit: "KG",
       },
@@ -43,6 +44,7 @@ describe("Scrap GL Posting — integration tests", () => {
     // Create a material for scrap
     const material = await prisma.material.create({
       data: {
+        companyId: fixture.company.id,
         code: "SCRAP-001",
         name: "Test Scrap Material",
         unit: "KG",
@@ -78,7 +80,7 @@ describe("Scrap GL Posting — integration tests", () => {
         sourceType: "SCRAP_GENERATION",
         sourceId: scrapGenerationId,
       },
-      include: { lines: true },
+      include: { lines: { include: { account: { select: { code: true } } } } },
     });
   }
 
@@ -109,8 +111,8 @@ describe("Scrap GL Posting — integration tests", () => {
     expect(entry!.sourceType).toBe("SCRAP_GENERATION");
     expect(entry!.lines).toHaveLength(2);
 
-    const debitLine = entry!.lines.find((l) => l.accountCode === ACCT.INVENTORY);
-    const creditLine = entry!.lines.find((l) => l.accountCode === ACCT.WIP);
+    const debitLine = entry!.lines.find((l) => l.account.code === ACCT.INVENTORY);
+    const creditLine = entry!.lines.find((l) => l.account.code === ACCT.WIP);
     expect(debitLine).toBeDefined();
     expect(creditLine).toBeDefined();
 
@@ -146,8 +148,8 @@ describe("Scrap GL Posting — integration tests", () => {
     expect(entry).not.toBeNull();
     expect(entry!.lines).toHaveLength(2);
 
-    const debitLine = entry!.lines.find((l) => l.accountCode === ACCT.INVENTORY);
-    const creditLine = entry!.lines.find((l) => l.accountCode === ACCT.OPERATING_EXPENSE);
+    const debitLine = entry!.lines.find((l) => l.account.code === ACCT.INVENTORY);
+    const creditLine = entry!.lines.find((l) => l.account.code === ACCT.OPERATING_EXPENSE);
     expect(debitLine).toBeDefined();
     expect(creditLine).toBeDefined();
 
@@ -156,7 +158,7 @@ describe("Scrap GL Posting — integration tests", () => {
     expect(creditLine!.credit.toNumber()).toBe(1000);
 
     // Verify WIP is NOT credited for standalone scrap
-    const wipLine = entry!.lines.find((l) => l.accountCode === ACCT.WIP);
+    const wipLine = entry!.lines.find((l) => l.account.code === ACCT.WIP);
     expect(wipLine).toBeUndefined();
   });
 
@@ -259,6 +261,7 @@ describe("Scrap GL Posting — integration tests", () => {
     // Create a second material
     const material2 = await prisma.material.create({
       data: {
+        companyId: company.id,
         code: "SCRAP-002",
         name: "Test Scrap Material 2",
         unit: "KG",

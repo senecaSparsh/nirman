@@ -1,10 +1,60 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { generateMaterialCode, logAction, lookupGstByHsn, suggestHsnByMaterial } from "@nirman/services";
+import { generateMaterialCode, logAction, lookupGstByHsn, suggestHsnByMaterial, recordStockAdjustment } from "@nirman/services";
 import { apiHandler, getCompany, json, materialSchema, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
+
+/**
+ * Auto-fill HSN code and GST rate for a material.
+ *
+ * Priority:
+ *   1. If HSN is provided but GST is 0 → look up GST from the HSN master.
+ *   2. If HSN is not provided → use the category's stored default HSN/GST.
+ *   3. If still no HSN → fuzzy-suggest from material name + category name.
+ *
+ * Used by both the single-material POST and the bulk-import PUT so they
+ * stay consistent.
+ */
+async function autoFillHsnGst(
+  parsed: { hsnCode?: string | null; gstRate?: number; categoryId: string; name: string },
+  companyId: string,
+): Promise<{ hsnCode: string | null; gstRate: number }> {
+  let hsnCode = parsed.hsnCode ?? null;
+  let gstRate = parsed.gstRate ?? 0;
+
+  // If HSN is provided but GST is 0, look up GST from the HSN master
+  if (hsnCode && toNum(gstRate) === 0) {
+    const hsnEntry = await lookupGstByHsn(hsnCode);
+    if (hsnEntry) {
+      gstRate = hsnEntry.gstRate.toNumber();
+    }
+  }
+
+  // If HSN is not provided, try the category's stored default HSN/GST first,
+  // then fall back to fuzzy suggestion from material name + category name.
+  if (!hsnCode) {
+    const category = await prisma.materialCategory.findUnique({ where: { id: parsed.categoryId, companyId, deletedAt: null } });
+    if (category?.hsnCode) {
+      hsnCode = category.hsnCode;
+      if (toNum(gstRate) === 0) {
+        gstRate = category.gstRate != null ? category.gstRate.toNumber() : 0;
+      }
+    }
+    if (!hsnCode) {
+      const suggestions = await suggestHsnByMaterial(parsed.name, category?.name);
+      if (suggestions.length > 0) {
+        hsnCode = suggestions[0]!.hsnCode;
+        if (toNum(gstRate) === 0) {
+          gstRate = suggestions[0]!.gstRate.toNumber();
+        }
+      }
+    }
+  }
+
+  return { hsnCode, gstRate };
+}
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.INVENTORY_VIEW);
@@ -14,9 +64,10 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const q = searchParams.get("q")?.trim();
   const limit = Math.min(Number(searchParams.get("limit") ?? 200), 500);
 
-  // Material is a global catalog entity (no companyId); stock is scoped per
-  // company via the stockItems relation → StockLocation.companyId.
+  // Material is company-scoped (Material.companyId). Filter directly so
+  // cross-company materials are never exposed even if stockItems is empty.
   const where = {
+    companyId: company.id,
     deletedAt: null,
     ...(categoryId ? { categoryId } : {}),
     ...(q
@@ -89,44 +140,47 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.INVENTORY_MANAGE);
+  const company = await getCompany();
   const body = await req.json();
   const parsed = materialSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
 
+  // ── Opening stock (optional) ──
+  // If provided, the material is created AND stock is recorded in one action.
+  const openingStock = body.openingStock as
+    | { locationId?: string; qty?: number; unitCost?: number; reason?: string }
+    | undefined;
+  const hasOpeningStock =
+    openingStock &&
+    openingStock.locationId &&
+    openingStock.qty &&
+    Number(openingStock.qty) > 0;
+  if (hasOpeningStock) {
+    // Validate the location belongs to this company before we create anything
+    const loc = await prisma.stockLocation.findFirst({
+      where: { id: openingStock!.locationId!, companyId: company.id, deletedAt: null },
+      select: { id: true },
+    });
+    if (!loc) {
+      return json({ error: "Stock location not found in this company" }, { status: 400 });
+    }
+  }
+
   // ── Auto-generate material code if not provided ──
   // Format: {CATEGORY_PREFIX}-{GRADE}-{SEQ} (e.g. STL-Fe500D-001)
   let code = parsed.data.code;
   if (!code || code.trim() === "AUTO") {
-    const category = await prisma.materialCategory.findUnique({ where: { id: parsed.data.categoryId, deletedAt: null } });
+    const category = await prisma.materialCategory.findUnique({ where: { id: parsed.data.categoryId, companyId: company.id, deletedAt: null } });
     if (!category) return json({ error: "Category not found" }, { status: 400 });
     code = await generateMaterialCode(category.name, parsed.data.grade ?? null);
   }
 
   // ── Auto-fill HSN/GST from government master if not provided ──
-  let hsnCode = parsed.data.hsnCode;
-  let gstRate = parsed.data.gstRate;
+  const { hsnCode, gstRate } = await autoFillHsnGst(parsed.data, company.id);
 
-  // If HSN is provided but GST is 0, look up GST from the HSN master
-  if (hsnCode && toNum(gstRate) === 0) {
-    const hsnEntry = await lookupGstByHsn(hsnCode);
-    if (hsnEntry) {
-      gstRate = hsnEntry.gstRate.toNumber();
-    }
-  }
-
-  // If neither HSN nor GST is provided, try to suggest from material name + category
-  if (!hsnCode && toNum(gstRate) === 0) {
-    const category = await prisma.materialCategory.findUnique({ where: { id: parsed.data.categoryId, deletedAt: null } });
-    const suggestions = await suggestHsnByMaterial(parsed.data.name, category?.name);
-    if (suggestions.length > 0) {
-      hsnCode = suggestions[0]!.hsnCode;
-      gstRate = suggestions[0]!.gstRate.toNumber();
-    }
-  }
-
-  const existing = await prisma.material.findUnique({ where: { code } });
+  const existing = await prisma.material.findUnique({ where: { companyId_code: { companyId: company.id, code } } });
   if (existing && existing.deletedAt) {
     const restored = await withSerializableTransaction(async (tx) => {
       const mat = await tx.material.update({
@@ -151,13 +205,14 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
   try {
     const created = await withSerializableTransaction(async (tx) => {
-      // Validate category exists
-      const category = await tx.materialCategory.findUnique({ where: { id: parsed.data.categoryId, deletedAt: null } });
+      // Validate category exists and belongs to the active company
+      const category = await tx.materialCategory.findUnique({ where: { id: parsed.data.categoryId, companyId: company.id, deletedAt: null } });
       if (!category) throw new Error("Category not found");
 
       const mat = await tx.material.create({
         data: {
           ...parsed.data,
+          companyId: company.id,
           code,
           hsnCode,
           gstRate,
@@ -175,6 +230,28 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     revalidatePath("/materials");
     revalidatePath("/m/materials");
+    // ── Record opening stock if provided ──
+    if (hasOpeningStock) {
+      try {
+        await recordStockAdjustment({
+          materialId: created.id,
+          locationId: openingStock!.locationId!,
+          direction: "IN",
+          qty: Number(openingStock!.qty),
+          unitCost: openingStock!.unitCost != null ? String(openingStock!.unitCost) : null,
+          reason: openingStock!.reason?.trim() || "Opening stock entry",
+          userId: user.id,
+        });
+        revalidatePath(`/materials/${created.id}`);
+        revalidatePath(`/m/materials/${created.id}`);
+        revalidatePath("/stock");
+        revalidatePath("/m/stock");
+      } catch (err: unknown) {
+        // Material was created successfully — don't fail the whole request.
+        // Log the stock error but return the material.
+        console.error("Opening stock failed:", err instanceof Error ? err.message : err);
+      }
+    }
     return json(created, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to create material") }, { status: 400 });
@@ -188,6 +265,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
 export const PUT = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.INVENTORY_MANAGE);
+  const company = await getCompany();
   const body = await req.json();
   const items: unknown = body.items;
   if (!Array.isArray(items)) {
@@ -203,18 +281,22 @@ export const PUT = apiHandler(async (req: NextRequest) => {
       results.errors.push({ row: i + 1, error: parsed.error.issues[0]?.message ?? "Invalid input" });
       continue;
     }
-    const existing = await prisma.material.findUnique({ where: { code: parsed.data.code } });
+    const existing = await prisma.material.findUnique({ where: { companyId_code: { companyId: company.id, code: parsed.data.code } } });
     if (existing && !existing.deletedAt) {
       results.skipped++;
       continue;
     }
     try {
+      // Auto-fill HSN/GST from category / HSN master (same as single POST)
+      const { hsnCode, gstRate } = await autoFillHsnGst(parsed.data, company.id);
+      const dataWithHsn = { ...parsed.data, hsnCode, gstRate };
+
       await withSerializableTransaction(async (tx) => {
         if (existing && existing.deletedAt) {
           // Restore soft-deleted material
           await tx.material.update({
             where: { id: existing.id },
-            data: { ...parsed.data, deletedAt: null },
+            data: { ...dataWithHsn, deletedAt: null },
           });
           await logAction(tx, {
             userId: user.id,
@@ -225,7 +307,7 @@ export const PUT = apiHandler(async (req: NextRequest) => {
           });
         } else {
           const mat = await tx.material.create({
-            data: { ...parsed.data, currentCost: parsed.data.standardCost },
+            data: { ...dataWithHsn, companyId: company.id, currentCost: parsed.data.standardCost },
           });
           await logAction(tx, {
             userId: user.id,

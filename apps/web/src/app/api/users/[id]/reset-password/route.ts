@@ -42,9 +42,21 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   // ── Verify the target user exists ──
   const target = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, role: true },
+    select: { id: true, name: true, email: true, role: true, companyId: true },
   });
   if (!target) {
+    return json({ error: "User not found." }, { status: 404 });
+  }
+
+  // ── Tenancy guard: the target must belong to the actor's company ──
+  // Same pattern as PATCH /api/users/[id] — prevents cross-tenant
+  // password resets (an admin in company A cannot reset company B's
+  // user password or revoke their sessions).
+  const membership = await prisma.userCompany.findFirst({
+    where: { userId, companyId: company.id },
+    select: { id: true },
+  });
+  if (!membership && target.companyId !== company.id) {
     return json({ error: "User not found." }, { status: 404 });
   }
 

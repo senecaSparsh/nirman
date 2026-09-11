@@ -14,6 +14,7 @@ import type {
 } from "@/lib/types";
 
 import { NoAccess } from "@/components/no-access";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 export default function ProcurementPage() {
   return (
     <div className="space-y-6">
@@ -40,6 +41,7 @@ async function ProcurementContent() {
     canApprove: hasPermission(role, PERM.PO_APPROVE),
     canManagePayments: hasPermission(role, PERM.FINANCE_MANAGE),
     canApproveRequisitions: hasPermission(role, PERM.REQUISITION_APPROVE),
+    canReceiveGoods: hasPermission(role, PERM.PROCUREMENT_MANAGE) || hasPermission(role, PERM.INVENTORY_MANAGE),
   };
 
   // Company group: current company + siblings/parent/children. PO destination
@@ -74,10 +76,9 @@ async function ProcurementContent() {
         },
       },
     }),
-    // Material is a global catalog entity (no companyId); stock scoped per company.
     prisma.material.findMany({
       take: 500,
-      where: { deletedAt: null },
+      where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       include: {
         category: { select: { id: true, name: true, unit: true } },
@@ -119,11 +120,11 @@ async function ProcurementContent() {
         },
       },
     }),
-    // Global catalog entity (no companyId); needed by the inline material
+    // Company-scoped catalog entity; needed by the inline material
     // creator inside the PO form's line items.
     prisma.materialCategory.findMany({
       take: 200,
-      where: { deletedAt: null },
+      where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, unit: true },
     }),
@@ -214,6 +215,7 @@ async function ProcurementContent() {
       totalReceived,
       receivedPct: totalOrdered > 0 ? Math.round((totalReceived / totalOrdered) * 100) : 0,
       createdAt: po.createdAt.toISOString(),
+      createdById: po.createdById,
     };
   });
 
@@ -401,6 +403,7 @@ async function ProcurementContent() {
           { label: "Indents", value: pendingRequisitions, tone: pendingRequisitions > 0 ? "warning" : "muted", hint: "Material indents submitted and awaiting approval." },
         ]}
       />
+      <DepartmentActivityFeed department="procurement" />
       <ProcurementView
         suppliers={supplierRows}
         purchaseOrders={poRows}

@@ -36,12 +36,12 @@ describe("GET /api/reports/profit-loss", () => {
 
   it("computes revenue and expense from grouped journal lines", async () => {
     mockPrisma().journalLine!.groupBy.mockResolvedValue([
-      { accountCode: "4001", _sum: { debit: 0, credit: 100000 } },
-      { accountCode: "5001", _sum: { debit: 60000, credit: 0 } },
+      { accountId: "acct-4001", _sum: { debit: 0, credit: 100000 } },
+      { accountId: "acct-5001", _sum: { debit: 60000, credit: 0 } },
     ]);
     mockPrisma().glAccount!.findMany.mockResolvedValue([
-      { code: "4001", name: "Sales Revenue", type: "REVENUE" },
-      { code: "5001", name: "Material Cost", type: "EXPENSE" },
+      { id: "acct-4001", code: "4001", name: "Sales Revenue", type: "REVENUE" },
+      { id: "acct-5001", code: "5001", name: "Material Cost", type: "EXPENSE" },
     ]);
     const res = await GET(makeNextRequest("/api/reports/profit-loss"), {});
     expect(res.status).toBe(200);

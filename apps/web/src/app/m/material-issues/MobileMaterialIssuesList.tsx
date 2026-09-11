@@ -72,7 +72,7 @@ export function MobileMaterialIssuesList({
               subtitle={target}
               meta={meta}
               badge={
-                <MobileStatusBadge status={issue.status} label={issue.status} />
+                <MobileStatusBadge status={issue.status} />
               }
             />
           );

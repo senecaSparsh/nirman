@@ -13,7 +13,7 @@ import {
   IdCard, Building2, Navigation, Activity, Paperclip, Gift,
   UserPlus, Ban, RefreshCw, Sparkles, Check, Plus,
   Laptop, Car, Wrench, Shirt, KeyRound, CreditCard, Package, Undo,
-  ShieldCheck, XCircle,
+  ShieldCheck, Shield, XCircle,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { CreateAccountDialog } from "@/components/hr/create-account-dialog";
+import { PermissionsEditorDialog } from "@/components/settings/permissions-editor-dialog";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { useTabParam } from "@/lib/use-tab-param";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
@@ -267,11 +268,15 @@ export function EmployeeProfileClient({
   actorRole,
   currentUserId,
   permissions,
+  assignableRoles = [],
+  roleLabelMap = new Map(),
 }: {
   employee: EmployeeProfileData;
   actorRole: string;
   currentUserId: string | null;
-  permissions: { canManage: boolean; canManagePayroll: boolean; canAssignTasks: boolean };
+  permissions: { canManage: boolean; canManagePayroll: boolean; canManageAccess: boolean; canAssignTasks: boolean };
+  assignableRoles?: { key: string; label: string }[];
+  roleLabelMap?: Map<string, string>;
 }) {
   const [tab, setTab] = useTabParam(
     ["overview", "attendance", "payroll", "tasks", "dprs", "leaves", "crew", "reports", "dossier"] as const,
@@ -281,6 +286,7 @@ export function EmployeeProfileClient({
   const docViewer = useDocumentViewer();
   const [showDelete, setShowDelete] = useState(false);
   const [showCreateAccount, setShowCreateAccount] = useState(false);
+  const [showPermsEditor, setShowPermsEditor] = useState(false);
   const [showTerminate, setShowTerminate] = useState(false);
   const [showSetupDeposit, setShowSetupDeposit] = useState(false);
   const [showPhoneDialog, setShowPhoneDialog] = useState(false);
@@ -318,7 +324,12 @@ export function EmployeeProfileClient({
             employee={employee}
             canManage={permissions.canManage}
             canManagePayroll={permissions.canManagePayroll}
+            canManageAccess={permissions.canManageAccess}
             onOpenPhoneDialog={() => setShowPhoneDialog(true)}
+            onManageAccess={() => setShowPermsEditor(true)}
+            assignableRoles={assignableRoles}
+            roleLabelMap={roleLabelMap}
+            onRoleChanged={() => router.refresh()}
             onCreateAccount={async () => {
               // Fetch available phone numbers
               try {
@@ -448,6 +459,18 @@ export function EmployeeProfileClient({
         />
       )}
 
+      {/* Permissions editor dialog — manage module-level permissions for this user */}
+      {showPermsEditor && employee.user && (
+        <PermissionsEditorDialog
+          userId={employee.user.id}
+          userName={employee.name}
+          userRole={employee.user.role ?? "SITE_ENGINEER"}
+          canEdit={permissions.canManageAccess}
+          onClose={() => setShowPermsEditor(false)}
+          onSaved={() => { setShowPermsEditor(false); router.refresh(); }}
+        />
+      )}
+
       {/* Terminate confirm */}
       {showTerminate && (
         <TerminateDialog
@@ -549,11 +572,16 @@ function ProfileHero({
         {/* Action buttons — top right of cover */}
         {permissions.canManage && (
           <div className="absolute right-3 top-3 flex items-center gap-2">
-            <Link href="/hr/employees">
-              <Button size="sm" className="bg-white/15 backdrop-blur-md border border-white/20 text-white hover:bg-white/25 shadow-lg">
-                <Pencil className="h-3.5 w-3.5" /> Edit
-              </Button>
-            </Link>
+            <Button
+              size="sm"
+              className="bg-white/15 backdrop-blur-md border border-white/20 text-white hover:bg-white/25 shadow-lg"
+              onClick={() => {
+                const el = document.getElementById("employee-edit-sections");
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            >
+              <Pencil className="h-3.5 w-3.5" /> Edit
+            </Button>
             <Button
               size="sm"
               className="bg-white/15 backdrop-blur-md border border-white/20 text-white hover:bg-red-500/40 shadow-lg"
@@ -776,24 +804,34 @@ function ProfileSidebar({
   employee,
   canManage,
   canManagePayroll,
+  canManageAccess,
   onOpenPhoneDialog,
+  onManageAccess,
   onCreateAccount,
   onTerminate,
   onGenerateAgreement,
   onConfirmAgreement,
   onGenerateAndConfirm,
   onSetupDeposit,
+  assignableRoles = [],
+  roleLabelMap = new Map(),
+  onRoleChanged,
 }: {
   employee: EmployeeProfileData;
   canManage: boolean;
   canManagePayroll: boolean;
+  canManageAccess: boolean;
   onOpenPhoneDialog: () => void;
+  onManageAccess: () => void;
   onCreateAccount: () => void;
   onTerminate: () => void;
   onGenerateAgreement: () => void;
   onConfirmAgreement: () => void;
   onGenerateAndConfirm: () => void;
   onSetupDeposit: () => void;
+  assignableRoles?: { key: string; label: string }[];
+  roleLabelMap?: Map<string, string>;
+  onRoleChanged?: () => void;
 }) {
   const docViewer = useDocumentViewer();
   const u = employee.user;
@@ -940,14 +978,29 @@ function ProfileSidebar({
             <SidebarRow
               icon={UserCircle}
               label="Role"
-              value={u.role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+              value={roleLabelMap.get(u.role) ?? u.role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
             />
             <SidebarRow icon={UserCircle} label="Status" value={u.active ? "Active login" : "Disabled"} />
             {u.lastLoginAt && (
               <SidebarRow icon={Clock} label="Last Login" value={formatDate(u.lastLoginAt)} />
             )}
             {canManage && employee.active && (
-              <div className="py-2">
+              <div className="py-2 space-y-2">
+                {canManageAccess && assignableRoles.length > 0 && (
+                  <RolePicker
+                    userId={u.id}
+                    employeeName={employee.name}
+                    currentRole={u.role}
+                    assignableRoles={assignableRoles}
+                    roleLabelMap={roleLabelMap}
+                    onChanged={onRoleChanged}
+                  />
+                )}
+                {canManageAccess && (
+                  <Button variant="outline" size="sm" className="w-full" onClick={onManageAccess}>
+                    <Shield className="h-3.5 w-3.5" /> Manage Access
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" className="w-full text-destructive" onClick={onTerminate}>
                   <Ban className="h-3.5 w-3.5" /> Terminate Employee
                 </Button>
@@ -1102,6 +1155,99 @@ function contractStatusLabel(status: string): string {
     TERMINATED: "Terminated",
   };
   return labels[status] ?? status;
+}
+
+// ── Role Picker — change a user's role (built-in + custom) ──
+function RolePicker({
+  userId,
+  employeeName,
+  currentRole,
+  assignableRoles,
+  roleLabelMap,
+  onChanged,
+}: {
+  userId: string;
+  employeeName: string;
+  currentRole: string;
+  assignableRoles: { key: string; label: string }[];
+  roleLabelMap: Map<string, string>;
+  onChanged?: () => void;
+}) {
+  const [changing, setChanging] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+
+  async function changeRole(newRole: string) {
+    if (newRole === currentRole) {
+      setShowPicker(false);
+      return;
+    }
+    setChanging(true);
+    try {
+      const res = await fetch(`/api/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: newRole }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to update role");
+      const label = roleLabelMap.get(newRole) ?? newRole;
+      toast.success(`${employeeName} is now ${label}`);
+      setShowPicker(false);
+      onChanged?.();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setChanging(false);
+    }
+  }
+
+  if (!showPicker) {
+    return (
+      <Button variant="outline" size="sm" className="w-full" onClick={() => setShowPicker(true)}>
+        <Shield className="h-3.5 w-3.5" /> Change Role
+      </Button>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-caption font-semibold text-muted-foreground">Select Role</span>
+        <button
+          onClick={() => setShowPicker(false)}
+          className="text-caption text-muted-foreground hover:text-foreground"
+        >
+          Cancel
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+        {assignableRoles.map((r) => {
+          const isCurrent = r.key === currentRole;
+          return (
+            <button
+              key={r.key}
+              onClick={() => changeRole(r.key)}
+              disabled={changing || isCurrent}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md px-2 py-1 text-caption font-semibold transition-colors disabled:opacity-50",
+                isCurrent
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted/50 text-foreground hover:bg-muted"
+              )}
+            >
+              {isCurrent && <Check className="h-3 w-3" />}
+              {r.label}
+            </button>
+          );
+        })}
+      </div>
+      {changing && (
+        <div className="flex items-center gap-1.5 text-caption text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" /> Updating…
+        </div>
+      )}
+    </div>
+  );
 }
 
 function SidebarCard({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
@@ -2351,7 +2497,7 @@ function DossierTab({ employee, canManage, departments }: { employee: EmployeePr
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" id="employee-edit-sections">
       {/* Department — editable */}
       <SectionCard
         title="Department"

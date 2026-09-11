@@ -80,6 +80,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     // Auto-submit by default — eliminates the useless manual "Submit for
     // Approval" step. The indent goes straight to the approval queue.
     let submitted = false;
+    let submitError: string | null = null;
     if (autoSubmit !== false) {
       try {
         await submitRequisition(req.id, user.id);
@@ -87,14 +88,15 @@ export const POST = apiHandler(async (req: NextRequest) => {
       } catch (err) {
         // If auto-submit fails (e.g. transition not allowed), still return
         // success — the indent was created as DRAFT and can be submitted
-        // manually. Log the error for debugging.
+        // manually. Surface the error reason so the client can warn the user.
+        submitError = err instanceof ServiceError ? err.message : (err instanceof Error ? err.message : "Unknown error");
         console.error("[requisitions] Auto-submit failed for", req.id, err);
       }
     }
 
     revalidatePath("/requisitions");
     revalidatePath("/m/procurement");
-    return json({ ok: true, id: req.id, reqNumber: req.reqNumber, submitted }, { status: 201 });
+    return json({ ok: true, id: req.id, reqNumber: req.reqNumber, submitted, submitError }, { status: 201 });
   } catch (err: unknown) {
     if (err instanceof ServiceError) {
       return json({ error: err.message }, { status: err.status ?? 400 });

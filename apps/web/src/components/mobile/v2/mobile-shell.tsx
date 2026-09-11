@@ -40,7 +40,7 @@ import {
   type RouteEntry,
 } from "@/lib/route-manifest";
 import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
-import { arrivedInternally } from "@/lib/mobile-nav";
+import { smartBack } from "@/lib/mobile-nav";
 import type { NavBootstrap } from "@/lib/server";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -486,7 +486,11 @@ function MobileShellInner({
   // IMPORTANT: We defer the title to after mount to guarantee server and
   // client produce identical HTML on first paint.
   const pageCtx = usePageContext();
-  const computedTitle = pageCtx.label ?? activeTab?.title ?? manifestTitleFor(pathname);
+  // For drill-down pages (not on a tab root), use the route's own title
+  // instead of the parent tab's title — so /m/construction shows "Construction"
+  // not "Inventory", /m/stock shows "Stock" not "Inventory", etc.
+  const ownTitle = manifestTitleFor(pathname);
+  const computedTitle = pageCtx.label ?? (isDrillDown && ownTitle !== "Nirman" ? ownTitle : activeTab?.title) ?? ownTitle;
   const computedSubtitle = pageCtx.subtitle;
   const [drillDownTitle, setDrillDownTitle] = useState("");
   const [drillDownSubtitle, setDrillDownSubtitle] = useState("");
@@ -550,14 +554,9 @@ function MobileShellInner({
     const elapsed = Date.now() - touchStart.current.time;
     if (touchStart.current.edge === "left") {
       if (swipeOffset > 80 || (swipeOffset > 40 && elapsed < 300)) {
-        // Edge-swipe = Back (OS convention). Use arrivedInternally() for
-        // the same smart-back logic as MobileBackButton: router.back() if
-        // we arrived via an in-app navigation, otherwise go to the parent.
-        if (arrivedInternally()) {
-          router.back();
-        } else {
-          goUp();
-        }
+        // Edge-swipe = Back (OS convention). Try router.back() first;
+        // if it doesn't navigate (no history), fall back to parent route.
+        smartBack(() => router.back(), goUp);
       }
     } else if (touchStart.current.edge === "right") {
       // Right-edge swipe left → open tab switcher
@@ -571,8 +570,9 @@ function MobileShellInner({
   };
 
   // ── Up navigation (deterministic, deep-link safe) ──
-  // The header chevron uses smart-back: router.back() if arrived internally,
-  // otherwise go to the parent route. This matches the edge-swipe behavior.
+  // The header chevron tries router.back() first; if it doesn't actually
+  // navigate (no history entry — deep link/refresh), falls back to the
+  // parent route. This matches the edge-swipe behavior.
   const upTarget = manifestUpHref(pathname);
   function goUp() {
     if (upTarget) {
@@ -583,11 +583,7 @@ function MobileShellInner({
     }
   }
   function goBack() {
-    if (arrivedInternally()) {
-      router.back();
-    } else {
-      goUp();
-    }
+    smartBack(() => router.back(), goUp);
   }
 
   // ── Merge pull-to-refresh + edge-swipe touch handlers ──
@@ -701,24 +697,31 @@ function MobileShellInner({
                 )}
               </div>
             ) : (
-              <div ref={companySwitcherRef} className="relative min-w-0">
-                <button
-                  onClick={() => canSwitchCompany && onToggleCompanySwitcher()}
-                  className="flex items-center gap-1 text-m-body font-bold truncate text-m-body press rounded-[0.25rem] px-0.5 py-0.5"
+              <div ref={companySwitcherRef} className="relative flex items-center min-w-0">
+                <Link
+                  href="/m/settings/company"
+                  className="flex items-center gap-1 text-m-body font-bold truncate text-m-body press rounded-[0.25rem] px-0.5 py-0.5 min-w-0"
                   style={{ color: "var(--color-ink-950)" }}
-                  aria-label="Switch company"
+                  aria-label="Company profile"
                 >
                   <span className="truncate">{companyInfo.name}</span>
-                  {canSwitchCompany && (
+                </Link>
+                {canSwitchCompany && (
+                  <button
+                    onClick={onToggleCompanySwitcher}
+                    className="press grid place-items-center size-7 rounded-[0.25rem] shrink-0"
+                    style={{ color: "var(--color-ink-500)" }}
+                    aria-label="Switch company"
+                  >
                     <ChevronDown
-                      className="size-3 shrink-0 transition-transform"
+                      className="size-3 transition-transform"
                       style={{
                         color: "var(--color-ink-500)",
                         transform: companySwitcherOpen ? "rotate(180deg)" : "none",
                       }}
                     />
-                  )}
-                </button>
+                  </button>
+                )}
                 {companySwitcherOpen && canSwitchCompany && (
                   <div
                     className="absolute top-full left-0 z-50 mt-1 rounded-[0.5rem] border shadow-lg overflow-hidden min-w-[180px]"

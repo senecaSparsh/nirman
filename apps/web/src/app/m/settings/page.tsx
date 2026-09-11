@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   User,
-  Users,
   Bell,
   TrendingUp,
   Wallet,
@@ -13,7 +12,6 @@ import {
   Building2,
   Shield,
   Monitor,
-  MapPin,
   type LucideIcon,
 } from "lucide-react";
 import { prisma } from "@nirman/db";
@@ -64,7 +62,6 @@ export default function SettingsPage() {
           supplierOutstanding,
           tallyStats,
           userCompanies,
-          teamMembers,
           recentActivity,
           , // pendingDues (unused)
           receivableDues,
@@ -90,14 +87,6 @@ export default function SettingsPage() {
                 where: { userId: user.id },
                 include: { company: { select: { id: true, name: true, deletedAt: true } } },
               }).then((m) => m.filter((m) => m.company.deletedAt === null))
-            : [],
-          // Team members
-          isOwner
-            ? prisma.userCompany.findMany({
-                where: { companyId: company.id, user: { isHidden: { not: true } } },
-                include: { user: { select: { id: true, name: true, email: true, active: true } } },
-                take: 20,
-              })
             : [],
           // Recent audit activity (last 8)
           prisma.auditLog.findMany({
@@ -243,21 +232,7 @@ export default function SettingsPage() {
                     href="/m/settings/company"
                     icon={Building2}
                     title="Company details"
-                    subtitle="Name, GSTIN, PAN, address, phone"
-                    meta="Edit"
-                  />
-                  <MobileRow
-                    href="/m/hr/employees"
-                    icon={Users}
-                    title="Employees & Access"
-                    subtitle={`${teamMembers.length} members`}
-                    meta="Manage"
-                  />
-                  <MobileRow
-                    href="/m/stock-locations"
-                    icon={MapPin}
-                    title="Stock locations"
-                    subtitle="Warehouses, project sites, departments"
+                    subtitle="Identity, team, locations, policy, procurement"
                     meta="Manage"
                   />
                   <MobileRow

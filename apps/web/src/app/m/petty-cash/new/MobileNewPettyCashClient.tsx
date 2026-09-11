@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Send, CheckCircle2, Plus, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { useLongPressNav } from "@/lib/use-long-press-nav";
 import { useSmartDefaults } from "@/lib/use-smart-defaults";
 import { SmartDefaultsBadge } from "@/components/mobile/v2/smart-defaults-badge";
 import { SectionCard, SelectorModal, UnderlineInput } from "@/components/mobile/v2/form-primitives";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
+import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
+import { MobileNewEmployeeDialog } from "@/app/m/hr/employees/MobileNewEmployeeDialog";
 
 type Project = { id: string; name: string };
 type Employee = { id: string; name: string };
@@ -27,12 +30,17 @@ export function MobileNewPettyCashClient({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState<{ id: string; name: string } | null>(null);
   const [name, setName] = useState("");
   const [nameTouched, setNameTouched] = useState(false);
   const [floatAmount, setFloatAmount] = useState("");
   const [projectId, setProjectId] = useState("");
   const [custodianId, setCustodianId] = useState("");
   const [modal, setModal] = useState<"project" | "custodian" | null>(null);
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const [showCreateEmployee, setShowCreateEmployee] = useState(false);
+  const [extraProjects, setExtraProjects] = useState<Project[]>([]);
+  const [extraEmployees, setExtraEmployees] = useState<Employee[]>([]);
   const submitLongPress = useLongPressNav("/m/petty-cash", "Petty cash");
   const { getDefault, recordDefaults } = useSmartDefaults("petty-cash");
   const [defaultsApplied, setDefaultsApplied] = useState(false);
@@ -50,7 +58,7 @@ export function MobileNewPettyCashClient({
     setDefaultsApplied(true);
   }, [defaultsApplied, getDefault, projects, employees, currentUserId]);
 
-  const selectedProject = projects.find((p) => p.id === projectId);
+  const selectedProject = [...projects, ...extraProjects].filter((p, i, arr) => arr.findIndex((x) => x.id === p.id) === i).find((p) => p.id === projectId);
   const selectedCustodian = employees.find((e) => e.id === custodianId);
 
   // ── Auto-generate float name from project/custodian when user hasn't typed one ──
@@ -84,15 +92,7 @@ export function MobileNewPettyCashClient({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Failed to create float");
-      toast.success("Petty cash float created", {
-        description: `${formatCurrency(Number(floatAmount))} · ${finalName}`,
-      });
-      if (onCreated) {
-        onCreated();
-      } else {
-        router.push("/m/petty-cash");
-        router.refresh();
-      }
+      setSuccess({ id: data.id, name: finalName });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -105,6 +105,26 @@ export function MobileNewPettyCashClient({
     else if (modal === "custodian") setCustodianId(id);
     setModal(null);
   };
+
+  if (success) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+        <div className="grid place-items-center size-14 rounded-full mb-3" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}>
+          <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
+        </div>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>Float Created</p>
+        <p className="text-m-caption font-mono mb-4" style={{ color: "var(--color-ink-700)" }}>{success.name}</p>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <button onClick={() => { if (onCreated) onCreated(); else { router.push("/m/petty-cash"); router.refresh(); } }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+            <Eye className="size-4 inline mr-1" /> View Petty Cash
+          </button>
+          <button onClick={() => { setSuccess(null); setName(""); setFloatAmount(""); setProjectId(""); setCustodianId(""); setExtraProjects([]); setExtraEmployees([]); router.refresh(); }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
+            <Plus className="size-4 inline mr-1" /> Create Another
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-32">
@@ -198,11 +218,13 @@ export function MobileNewPettyCashClient({
           title="Select Project"
           items={[
             { id: "", label: "No project", sub: undefined as string | undefined },
-            ...projects.map((p) => ({ id: p.id, label: p.name })),
+            ...[...projects, ...extraProjects].filter((p, i, arr) => arr.findIndex((x) => x.id === p.id) === i).map((p) => ({ id: p.id, label: p.name })),
           ]}
           selectedId={projectId}
           onSelect={handleSelect}
           onClose={() => setModal(null)}
+          onCreate={() => setShowCreateProject(true)}
+          createLabel="Create new project"
         />
       ) : null}
 
@@ -211,12 +233,50 @@ export function MobileNewPettyCashClient({
           title="Select Custodian"
           items={[
             { id: "", label: "No custodian", sub: undefined as string | undefined },
-            ...employees.map((e) => ({ id: e.id, label: e.name })),
+            ...[...employees, ...extraEmployees].filter((e, i, arr) => arr.findIndex((x) => x.id === e.id) === i).map((e) => ({ id: e.id, label: e.name })),
           ]}
           selectedId={custodianId}
           onSelect={handleSelect}
           onClose={() => setModal(null)}
+          onCreate={() => setShowCreateEmployee(true)}
+          createLabel="Create new employee"
         />
+      ) : null}
+
+      {/* ══════ INLINE CREATE PROJECT DIALOG ══════ */}
+      {showCreateProject ? (
+        <MobileFabModal open onClose={() => setShowCreateProject(false)} title="New Project" nested>
+          <MobileNewProjectDialog
+            open
+            onClose={() => setShowCreateProject(false)}
+            onCreated={(p) => {
+              setExtraProjects((prev) => prev.some((x) => x.id === p.id) ? prev : [...prev, { id: p.id, name: p.name }]);
+              setProjectId(p.id);
+              setShowCreateProject(false);
+              setModal(null);
+            }}
+          />
+        </MobileFabModal>
+      ) : null}
+
+      {/* ══════ INLINE CREATE EMPLOYEE DIALOG ══════ */}
+      {showCreateEmployee ? (
+        <MobileFabModal open onClose={() => setShowCreateEmployee(false)} title="New Employee" nested>
+          <MobileNewEmployeeDialog
+            open
+            onClose={() => setShowCreateEmployee(false)}
+            projects={[]}
+            stockLocations={[]}
+            departments={[]}
+            nested
+            onCreated={(e) => {
+              setExtraEmployees((prev) => prev.some((x) => x.id === e.id) ? prev : [...prev, { id: e.id, name: e.name }]);
+              setCustodianId(e.id);
+              setShowCreateEmployee(false);
+              setModal(null);
+            }}
+          />
+        </MobileFabModal>
       ) : null}
     </div>
   );

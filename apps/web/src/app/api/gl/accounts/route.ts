@@ -2,24 +2,28 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { seedChartOfAccounts } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 
 /**
  * GET /api/gl/accounts
- * Returns the chart of accounts (all GlAccount rows), ordered by code.
- * Auto-seeds if the table is empty (e.g. after db:push without re-running seed).
+ * Returns the chart of accounts (all GlAccount rows for the active company),
+ * ordered by code. Auto-seeds if the table is empty (e.g. after db:push
+ * without re-running seed).
  */
 export const GET = apiHandler(async (_req: NextRequest) => {
   await requirePermission(PERM.FINANCE_VIEW);
+  const company = await getCompany();
   let accounts = await prisma.glAccount.findMany({
+    where: { companyId: company.id },
     orderBy: { code: "asc" },
-    select: { code: true, name: true, type: true, isSystem: true, description: true },
+    select: { id: true, code: true, name: true, type: true, isSystem: true, description: true },
   });
   if (accounts.length === 0) {
-    await seedChartOfAccounts();
+    await seedChartOfAccounts(company.id);
     accounts = await prisma.glAccount.findMany({
+      where: { companyId: company.id },
       orderBy: { code: "asc" },
-      select: { code: true, name: true, type: true, isSystem: true, description: true },
+      select: { id: true, code: true, name: true, type: true, isSystem: true, description: true },
     });
   }
   return json(accounts);
@@ -32,10 +36,12 @@ export const GET = apiHandler(async (_req: NextRequest) => {
  */
 export const POST = apiHandler(async (_req: NextRequest) => {
   await requirePermission(PERM.FINANCE_MANAGE);
-  await seedChartOfAccounts();
+  const company = await getCompany();
+  await seedChartOfAccounts(company.id);
   const accounts = await prisma.glAccount.findMany({
+    where: { companyId: company.id },
     orderBy: { code: "asc" },
-    select: { code: true, name: true, type: true, isSystem: true, description: true },
+    select: { id: true, code: true, name: true, type: true, isSystem: true, description: true },
   });
   return json({ ok: true, count: accounts.length });
 });

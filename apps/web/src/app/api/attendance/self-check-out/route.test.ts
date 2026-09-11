@@ -21,6 +21,7 @@ const OWNER = { role: "OWNER" as const };
 describe("POST /api/attendance/self-check-out", () => {
   beforeEach(() => {
     setSessionUser(OWNER);
+    mockPrisma().employee!.findFirst.mockResolvedValue({ id: "emp-1", userId: "user-owner-1" });
     mockPrisma().workerAttendance!.findUnique.mockResolvedValue({
       id: "att-1",
       checkIn: new Date("2024-01-15T09:00:00.000Z"),

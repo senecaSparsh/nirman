@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowRight, Check, X, Package, Printer, Link2, Plus } from "lucide-react";
+import { ArrowRight, Check, X, Package, Printer, Link2, Plus, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
@@ -28,9 +28,13 @@ import type { PurchaseOrderDetail } from "@/lib/types";
 export function PurchaseOrderDetailView({
   po,
   canApprove,
+  canManage = false,
+  canReceiveGoods = false,
 }: {
   po: PurchaseOrderDetail;
   canApprove: boolean;
+  canManage?: boolean;
+  canReceiveGoods?: boolean;
 }) {
   const router = useRouter();
   const [detail, setDetail] = useState<PurchaseOrderDetail>(po);
@@ -45,7 +49,7 @@ export function PurchaseOrderDetailView({
   const [approvalNotes, setApprovalNotes] = useState("");
   const [showApproveField, setShowApproveField] = useState(false);
 
-  async function doAction(action: "approve" | "order" | "cancel") {
+  async function doAction(action: "approve" | "order" | "cancel" | "resubmit") {
     setActing(true);
     try {
       const payload: Record<string, unknown> = { action };
@@ -68,6 +72,10 @@ export function PurchaseOrderDetailView({
         });
       } else if (action === "cancel") {
         toast.success(`PO ${detail.poNumber} cancelled`);
+      } else if (action === "resubmit") {
+        toast.success(`PO ${detail.poNumber} resubmitted`, {
+          description: "It's back in draft — edit if needed, then ask an approver to review.",
+        });
       }
       setApprovalNotes("");
       setShowApproveField(false);
@@ -177,22 +185,27 @@ export function PurchaseOrderDetailView({
             <Check className="h-4 w-4" /> Approve
           </Button>
         )}
-        {detail.status === "APPROVED" && (
+        {detail.status === "REJECTED" && canManage && (
+          <Button size="sm" onClick={() => doAction("resubmit")} disabled={acting}>
+            <RotateCcw className="h-4 w-4" /> Resubmit
+          </Button>
+        )}
+        {detail.status === "APPROVED" && canManage && (
           <Button size="sm" onClick={() => doAction("order")} disabled={acting}>
             <ArrowRight className="h-4 w-4" /> Mark as Ordered
           </Button>
         )}
-        {isReceivable && (
+        {isReceivable && canReceiveGoods && (
           <Button size="sm" onClick={() => setRecvOpen(true)}>
             <Package className="h-4 w-4" /> Receive Goods
           </Button>
         )}
-        {isReceivable && (
+        {isReceivable && canManage && (
           <Button size="sm" variant="outline" onClick={() => setAddLineOpen(true)}>
             <Plus className="h-4 w-4" /> Add Line
           </Button>
         )}
-        {(detail.status === "DRAFT" || detail.status === "APPROVED") && (
+        {(detail.status === "DRAFT" || detail.status === "APPROVED") && canManage && (
           <Button size="sm" variant="outline" onClick={() => doAction("cancel")} disabled={acting} className="text-muted-foreground hover:text-danger">
             <X className="h-4 w-4" /> Cancel PO
           </Button>

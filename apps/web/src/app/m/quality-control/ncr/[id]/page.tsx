@@ -25,7 +25,15 @@ async function MobileNcrDetailContent({ id }: { id: string }) {
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.WO_MANAGE);
+  const canManage = hasPermission(role, PERM.QC_MANAGE);
+
+  if (!hasPermission(role, PERM.QC_VIEW)) {
+    return (
+      <div className="p-4 text-center text-muted-foreground">
+        You don&rsquo;t have access to quality control.
+      </div>
+    );
+  }
 
   const ncr = await prisma.nonConformanceReport.findUnique({
     where: { id },

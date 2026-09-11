@@ -809,8 +809,8 @@ function WorkOrderDetailDialog({
                             </td>
                             <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-0.5">
-                {canCreate && permissions.canSubmit && rb.status === "DRAFT" && (
-                  <button disabled={actionLoading} onClick={() => onRaBillAction(rb.id, "submit", onRefresh)} className="p-1 text-muted-foreground hover:text-primary disabled:opacity-50" title="Submit">
+                {canCreate && permissions.canSubmit && (rb.status === "DRAFT" || rb.status === "REJECTED") && (
+                  <button disabled={actionLoading} onClick={() => onRaBillAction(rb.id, "submit", onRefresh)} className="p-1 text-muted-foreground hover:text-primary disabled:opacity-50" title={rb.status === "REJECTED" ? "Resubmit" : "Submit"}>
                     <Send className="h-3.5 w-3.5" />
                   </button>
                 )}
@@ -1033,13 +1033,22 @@ function RaBillDialog({
           periodFrom: new Date(periodFrom).toISOString(),
           periodTo: new Date(periodTo).toISOString(),
           notes: notes || undefined,
+          autoSubmit: true,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success(`RA bill ${data.raBillNumber} created`, {
-        description: `Gross: ${formatCurrency(data.grossAmount)} · Net: ${formatCurrency(data.netPayable)}`,
-      });
+      if (data.submitted) {
+        toast.success(`RA bill ${data.raBillNumber} submitted for approval`, {
+          description: `Gross: ${formatCurrency(data.grossAmount)} · Net: ${formatCurrency(data.netPayable)}`,
+        });
+      } else {
+        toast.warning(`RA bill ${data.raBillNumber} saved as draft`, {
+          description: data.submitError
+            ? `Auto-submit failed: ${data.submitError}`
+            : "You can submit it for approval from the RA bill detail page.",
+        });
+      }
       onOpenChange(false);
       onSaved();
     } catch (err: unknown) {
@@ -1156,7 +1165,7 @@ function RaBillDialog({
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button type="submit" disabled={saving || !hasUnbilled}>
-            {saving ? "Creating…" : hasUnbilled ? "Create RA Bill" : "No entries to bill"}
+            {saving ? "Creating…" : hasUnbilled ? "Create & Submit" : "No entries to bill"}
           </Button>
         </div>
       </form>
@@ -1584,9 +1593,9 @@ function RaBillDetailDialog({
               )}
             </div>
             <div className="flex gap-2">
-              {canCreate && permissions.canSubmit && detail.status === "DRAFT" && (
+              {canCreate && permissions.canSubmit && (detail.status === "DRAFT" || detail.status === "REJECTED") && (
                 <Button size="sm" disabled={actionLoading} onClick={() => { setActionLoading(true); onAction("submit"); }}>
-                  <Send className="mr-1 h-3.5 w-3.5" /> Submit for Approval
+                  <Send className="mr-1 h-3.5 w-3.5" /> {detail.status === "REJECTED" ? "Resubmit" : "Submit for Approval"}
                 </Button>
               )}
               {canCreate && permissions.canApprove && detail.status === "SUBMITTED" && (

@@ -8,6 +8,7 @@ import {
   postPaymentReceived,
   postDepositReceived,
   postDepositRefund,
+  postPaymentReversal,
   postJournalEntry,
   reverseJournalEntry,
   postSaleExpense,
@@ -37,6 +38,49 @@ import { autoSyncEntryToTally } from "./auto-sync";
  *   (saleStage = COMPLETED, existing behaviour preserved).
  * - Cancellation refunds the deposit and releases the asset back to AVAILABLE.
  */
+
+/**
+ * Reconcile PaymentScheduleItem.paidAmount against actual AssetSalePayment
+ * totals for a sale. Distributes total paid FIFO across schedule items.
+ *
+ * This MUST be called after every AssetSalePayment creation to keep the
+ * schedule view consistent with the payment ledger. Without it, the
+ * schedule shows "0 paid" even after the customer has paid in full.
+ *
+ * Only counts CLEARED payments (skips PENDING/BOUNCED cheques) so the
+ * schedule reflects realised funds, not provisional ones.
+ */
+export async function syncPaymentScheduleFromPayments(tx: Prisma.TransactionClient, saleId: string) {
+  const schedule = await tx.paymentSchedule.findFirst({
+    where: { assetSaleId: saleId },
+    include: { items: { orderBy: { installmentNo: "asc" } } },
+  });
+  if (!schedule || schedule.items.length === 0) return;
+
+  // Sum all realised payments (skip uncleared cheques)
+  const payments = await tx.assetSalePayment.findMany({
+    where: { assetSaleId: saleId },
+    select: { amount: true, chequeStatus: true },
+  });
+  const totalPaid = payments.reduce((sum, p) => {
+    if (p.chequeStatus === "PENDING" || p.chequeStatus === "BOUNCED") return sum;
+    return sum.plus(new Decimal(p.amount));
+  }, new Decimal(0));
+
+  // Distribute FIFO across schedule items
+  let remaining = totalPaid;
+  for (const item of schedule.items) {
+    const itemAmount = new Decimal(item.amount);
+    const allocation = remaining.lt(itemAmount) ? remaining : itemAmount;
+    const newStatus = allocation.gte(itemAmount) ? "PAID" : allocation.gt(0) ? "PARTIAL" : "PENDING";
+    await tx.paymentScheduleItem.update({
+      where: { id: item.id },
+      data: { paidAmount: allocation, status: newStatus },
+    });
+    remaining = remaining.minus(allocation);
+    if (remaining.lte(0)) break;
+  }
+}
 
 /**
  * TDS under Section 194-IA: 1% TDS on sale of immovable property
@@ -545,6 +589,7 @@ export async function sellAsset(input: SellAssetInput) {
           chequeStatus: (input.initialPaymentMode === "CHEQUE") ? "PENDING" : null,
         },
       });
+      await syncPaymentScheduleFromPayments(tx, sale.id);
 
       // For immediate full payment, keep the sale at DEPOSIT_RECEIVED even
       // though payment is fully received. The sale must be explicitly
@@ -617,6 +662,7 @@ export async function sellAsset(input: SellAssetInput) {
           chequeStatus: (input.initialPaymentMode === "CHEQUE") ? "PENDING" : null,
         },
       });
+      await syncPaymentScheduleFromPayments(tx, sale.id);
 
       await tx.assetSale.update({
         where: { id: sale.id },
@@ -649,7 +695,7 @@ export async function sellAsset(input: SellAssetInput) {
           saleNumber: sale.saleNumber,
           assetType: sale.assetType,
           salePrice: sale.salePrice,
-          saleStage: isImmediateFullPayment ? "COMPLETED" : initAmount.gt(0) ? "DEPOSIT_RECEIVED" : "PENDING",
+          saleStage: isImmediateFullPayment ? "DEPOSIT_RECEIVED" : initAmount.gt(0) ? "DEPOSIT_RECEIVED" : "PENDING",
         },
       });
     }
@@ -740,6 +786,7 @@ export async function recordDeposit(input: RecordDepositInput) {
         chequeStatus: (input.paymentMode === "CHEQUE") ? "PENDING" : null,
       },
     });
+    await syncPaymentScheduleFromPayments(tx, input.saleId);
 
     // Update sale stage + deposit fields
     const paymentStatus = cumulativeDeposit.gte(totalCollectible) ? "PAID" : "PARTIAL";
@@ -899,6 +946,7 @@ export async function completeSale(input: CompleteSaleInput) {
           chequeStatus: (input.paymentMode === "CHEQUE") ? "PENDING" : null,
         },
       });
+      await syncPaymentScheduleFromPayments(tx, input.saleId);
     }
 
     // Mark asset SOLD + delist portal listings
@@ -1060,10 +1108,12 @@ export async function markRegistryDone(input: MarkRegistryDoneInput) {
       );
     }
 
-    // If the sale is fully paid AND registry is done, the sale can be
-    // auto-completed. Otherwise, it moves to REGISTRY_PENDING (waiting
-    // for final payment or explicit completion).
-    const newStage = sale.paymentStatus === "PAID" ? "COMPLETED" : "REGISTRY_PENDING";
+    // Always move to REGISTRY_PENDING — do NOT auto-complete here.
+    // completeSale() enforces the document trail (ATS/BBA + registry)
+    // per the owner's required lifecycle: Sale Order → ATS/BBA → Registry → Complete.
+    // Auto-completing when paymentStatus === "PAID" would bypass the
+    // ATS/BBA document gating that completeSale() enforces.
+    const newStage = "REGISTRY_PENDING" as const;
 
     const updated = await tx.assetSale.update({
       where: { id: input.saleId },
@@ -1072,7 +1122,7 @@ export async function markRegistryDone(input: MarkRegistryDoneInput) {
         saleDeedNo: input.saleDeedNo ?? sale.saleDeedNo ?? null,
         registryDocumentUrl: input.registryDocumentUrl ?? undefined,
         registryDocumentName: input.registryDocumentName ?? undefined,
-        finalSaleDate: newStage === "COMPLETED" ? new Date() : undefined,
+        finalSaleDate: undefined,
       },
     });
 
@@ -1146,6 +1196,7 @@ export async function recordPayment(input: RecordPaymentInput) {
         chequeStatus: (input.mode === "CHEQUE") ? "PENDING" : null,
       },
     });
+    await syncPaymentScheduleFromPayments(tx, input.assetSaleId);
 
     // Recompute payment status (against total collectible = salePrice + GST)
     let paymentStatus: "PENDING" | "PARTIAL" | "PAID";
@@ -1164,29 +1215,7 @@ export async function recordPayment(input: RecordPaymentInput) {
       },
     });
 
-    // ── Allocate payment to schedule items (FIFO by installmentNo) ──
-    const schedule = await tx.paymentSchedule.findFirst({
-      where: { assetSaleId: input.assetSaleId },
-      include: { items: { orderBy: { installmentNo: "asc" } } },
-    });
-    if (schedule) {
-      let remaining = amount;
-      for (const item of schedule.items) {
-        if (remaining.lte(0)) break;
-        const itemAmount = new Decimal(item.amount);
-        const alreadyPaid = new Decimal(item.paidAmount);
-        const itemBalance = itemAmount.minus(alreadyPaid);
-        if (itemBalance.lte(0)) continue;
-        const allocation = remaining.lt(itemBalance) ? remaining : itemBalance;
-        const newPaid = alreadyPaid.plus(allocation);
-        const newItemStatus = newPaid.gte(itemAmount) ? "PAID" : newPaid.gt(0) ? "PARTIAL" : "PENDING";
-        await tx.paymentScheduleItem.update({
-          where: { id: item.id },
-          data: { paidAmount: newPaid, status: newItemStatus },
-        });
-        remaining = remaining.minus(allocation);
-      }
-    }
+    // Schedule items are already reconciled by syncPaymentScheduleFromPayments above.
 
     // Post the payment to the General Ledger.
     // Pre-completion (saleStage != COMPLETED): post as a deposit liability
@@ -1451,8 +1480,14 @@ export async function cancelSale(saleId: string, userId?: string) {
     // Pre-completion payments (deposits + schedule installments) were all
     // posted as Dr Cash / Cr Customer_Deposit (liability). On cancellation,
     // reverse them all: Dr Customer_Deposit / Cr Cash.
+    // Only count CLEARED payments — uncleared cheques haven't settled yet
+    // and their reversal would create a phantom cash credit.
     const totalPreCompletionPayments = sale.payments.reduce(
-      (sum, p) => sum.plus(new Decimal(p.amount)),
+      (sum, p) => {
+        // Skip uncleared cheques — they haven't been realised yet.
+        if (p.chequeStatus === "PENDING" || p.chequeStatus === "BOUNCED") return sum;
+        return sum.plus(new Decimal(p.amount));
+      },
       new Decimal(0),
     );
     if (sale.saleStage !== "PENDING" && totalPreCompletionPayments.gt(0)) {
@@ -1501,6 +1536,11 @@ export async function cancelSale(saleId: string, userId?: string) {
     }
 
     // Reset payment schedule items on cancellation
+    // NOTE: AssetSalePayment rows are immutable audit records — they stay
+    // as historical evidence of money that changed hands. The schedule
+    // items are reset to PENDING/paidAmount=0 so the schedule can be
+    // reused if the sale is ever re-opened. The paymentStatus on the
+    // sale itself is also reset to PENDING to match the schedule state.
     const schedule = await tx.paymentSchedule.findFirst({
       where: { assetSaleId: saleId },
       select: { id: true },
@@ -1514,7 +1554,7 @@ export async function cancelSale(saleId: string, userId?: string) {
 
     const updated = await tx.assetSale.update({
       where: { id: saleId },
-      data: { status: "CANCELLED", saleStage: "CANCELLED" },
+      data: { status: "CANCELLED", saleStage: "CANCELLED", paymentStatus: "PENDING" },
     });
 
     if (userId) {
@@ -1952,6 +1992,8 @@ export async function clearCheque(paymentId: string, userId?: string) {
       where: { id: paymentId },
       data: { chequeStatus: "CLEARED", chequeClearDate: new Date() },
     });
+    // Re-sync schedule items — the cheque is now counted as realised
+    await syncPaymentScheduleFromPayments(tx, payment.assetSaleId);
 
     const sale = payment.assetSale;
     if (sale.saleStage === "DEPOSIT_RECEIVED" && sale.paymentStatus === "PAID") {
@@ -2050,16 +2092,34 @@ export async function bounceCheque(paymentId: string, userId?: string, bounceRea
       where: { id: paymentId },
       data: { chequeStatus: "BOUNCED", chequeBounceReason: bounceReason ?? null },
     });
+    // Re-sync schedule items — the bounced cheque no longer counts
+    await syncPaymentScheduleFromPayments(tx, sale.id);
 
-    // Reverse the deposit GL entry for this payment (Dr Customer Deposit, Cr Cash)
+    // Reverse the GL entry for this payment based on sale stage:
+    // - Pre-completion (PENDING/DEPOSIT_RECEIVED): the original entry was
+    //   Dr Cash / Cr Customer Deposit (postDepositReceived) → reverse with
+    //   postDepositRefund (Dr Customer Deposit / Cr Cash).
+    // - Post-completion (COMPLETED): the original entry was
+    //   Dr Cash / Cr AR (postPaymentReceived) → reverse with
+    //   postPaymentReversal (Dr AR / Cr Cash).
     const amount = new Decimal(payment.amount);
     if (amount.gt(0)) {
-      await postDepositRefund(tx, {
-        companyId: sale.companyId,
-        assetSaleId: sale.id,
-        amount,
-        postedById: userId,
-      });
+      if (sale.saleStage === "COMPLETED") {
+        await postPaymentReversal(tx, {
+          companyId: sale.companyId,
+          assetSaleId: sale.id,
+          paymentId,
+          amount,
+          postedById: userId,
+        });
+      } else {
+        await postDepositRefund(tx, {
+          companyId: sale.companyId,
+          assetSaleId: sale.id,
+          amount,
+          postedById: userId,
+        });
+      }
     }
 
     // Recompute sale stage based on remaining valid payments

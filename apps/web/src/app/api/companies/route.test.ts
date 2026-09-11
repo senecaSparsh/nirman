@@ -56,7 +56,17 @@ describe("GET /api/companies", () => {
 describe("POST /api/companies", () => {
   beforeEach(() => {
     setSessionUser(OWNER);
-    mockPrisma().company!.findFirst.mockResolvedValue(null);
+    // getCompany() calls company.findFirst to resolve the current company.
+    // Return the default company for that, but null for parent company checks
+    // (which pass a where clause with a specific parentCompanyId).
+    mockPrisma().company!.findFirst.mockImplementation(async (args?: { where?: { id?: string } }) => {
+      // Parent company check passes { id: parentCompanyId, deletedAt: null }
+      // getCompany passes { id: companyId, deletedAt: null, userMemberships: {...} }
+      // Distinguish by checking if the where clause has userMemberships.
+      const where = args?.where as Record<string, unknown> | undefined;
+      if (where && where.userMemberships) return { id: "company-1", name: "Test Co", currency: "INR", parentCompanyId: null, deletedAt: null };
+      return null;
+    });
     mockPrisma().company!.create.mockResolvedValue({ id: "co-new", name: "New Co" });
   });
 
@@ -80,7 +90,8 @@ describe("POST /api/companies", () => {
   });
 
   it("returns 400 when parent company is not found", async () => {
-    mockPrisma().company!.findFirst.mockResolvedValue(null);
+    // Keep the conditional mock from beforeEach — parent check returns null
+    // (non-userMemberships call), getCompany() returns the company.
     const res = await POST(
       makeRequest("/api/companies", {
         method: "POST",

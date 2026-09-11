@@ -32,6 +32,7 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
       userId: user.id,
     });
     revalidatePath("/projects");
+    revalidatePath("/m/projects");
     revalidatePath(`/projects/${id}`);
     return json({ ok: true, result });
   } catch (err: unknown) {

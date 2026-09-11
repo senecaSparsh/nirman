@@ -43,6 +43,7 @@ import {
   Handshake,
   Phone,
   PhoneCall,
+  Stethoscope,
   type LucideIcon,
 } from "lucide-react";
 
@@ -106,6 +107,10 @@ const LEADERSHIP = ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "FINANCE_HEAD", "PROJE
 const OWNERS = ["OWNER", "ADMIN", "DEVELOPER"];
 /** Roles that see reports (finance users plus field/sales who need a few). */
 const REPORTS = [...BOOKS, "SUPERVISOR", "QAQC_ENGINEER", "SALES_MANAGER", "SITE_ENGINEER", "STORE_KEEPER", "PROCUREMENT_MANAGER", "HR_MANAGER"];
+/** Roles with SAFETY_VIEW — must match the permission grants in roles.ts. */
+const SAFETY_ROLES = ["OWNER", "ADMIN", "DEVELOPER", "PROJECT_DIRECTOR", "PROJECT_MANAGER", "SITE_ENGINEER", "SUPERVISOR", "QAQC_ENGINEER"];
+/** Roles with QC_VIEW — must match the permission grants in roles.ts. */
+const QC_ROLES = ["OWNER", "ADMIN", "DEVELOPER", "PROJECT_DIRECTOR", "PROJECT_MANAGER", "SITE_ENGINEER", "QAQC_ENGINEER"];
 
 export type NavLink = {
   label: string;
@@ -292,7 +297,7 @@ export const WORLDS: World[] = [
             href: "/suppliers",
             icon: Landmark,
             hint: "Who you buy from, what you owe them, and how they've performed (ratings tab inside)",
-            roles: [...OPS, "ACCOUNTANT"],
+            roles: [...OPS, "ACCOUNTANT", "FINANCE_HEAD"],
             keywords: ["vendor", "seller", "party", "supplier", "vendor rating", "supplier score", "performance", "on-time", "quality", "price", "evaluation", "scorecard"],
           },
           {
@@ -314,7 +319,7 @@ export const WORLDS: World[] = [
             href: "/procurement",
             icon: Truck,
             hint: "Indents, quotations, purchase orders, cash purchases, returns, and supplier directory — all in one place",
-            roles: [...OPS, "ACCOUNTANT", "SALES_MANAGER"],
+            roles: [...OPS, "ACCOUNTANT", "FINANCE_HEAD"],
             badge: { endpoint: "/api/purchase-orders?status=DRAFT,APPROVED,ORDERED,PARTIAL" },
             keywords: ["po", "order", "buy", "procure", "procurement", "purchase order", "indent", "requisition", "request", "demand", "material request", "quote", "quotation", "vendor quote", "comparative", "rate", "price", "tender", "bid", "hsn", "gst", "landed cost", "per piece", "return", "debit note", "credit note", "defective", "reject", "send back", "purchase return"],
           },
@@ -442,7 +447,7 @@ export const WORLDS: World[] = [
             href: "/reports/inventory-value",
             icon: Package,
             hint: "What your stock is worth right now, by location",
-            roles: [...BOOKS, "SUPERVISOR"],
+            roles: [...OPS, "SUPERVISOR"],
             keywords: ["valuation", "stock value", "closing stock", "mac", "inventory value"],
             hidden: true,
             group: RG.STOCK,
@@ -452,7 +457,7 @@ export const WORLDS: World[] = [
             href: "/reports/stock-movement-summary",
             icon: ScrollText,
             hint: "Opening, received, issued and balance — the stock flow statement",
-            roles: [...BOOKS, "SUPERVISOR"],
+            roles: [...OPS, "SUPERVISOR"],
             keywords: ["saleable stock", "stock flow", "opening", "closing", "movement summary", "stock statement"],
             hidden: true,
             group: RG.STOCK,
@@ -472,7 +477,7 @@ export const WORLDS: World[] = [
             href: "/reports/department-consumption",
             icon: BarChart3,
             hint: "Which department or site consumed what",
-            roles: [...BOOKS, "SUPERVISOR"],
+            roles: [...OPS, "SUPERVISOR"],
             keywords: ["department", "consumption", "cost center", "usage", "cost centre"],
             hidden: true,
             group: RG.STOCK,
@@ -561,7 +566,7 @@ export const WORLDS: World[] = [
             href: "/quality-control",
             icon: ClipboardCheck,
             hint: "Non-Conformance Reports (NCR) and Corrective And Preventive Actions (CAPA)",
-            roles: BOOKS,
+            roles: QC_ROLES,
             keywords: ["quality", "ncr", "capa", "non-conformance", "corrective", "preventive", "qa", "qc", "defect", "rework"],
           },
           {
@@ -569,7 +574,7 @@ export const WORLDS: World[] = [
             href: "/safety",
             icon: ShieldAlert,
             hint: "Hazards, incidents, and safety inspections across all sites",
-            roles: [...OPS, "SUPERVISOR"],
+            roles: SAFETY_ROLES,
             keywords: ["safety", "hazard", "incident", "inspection", "accident", "near miss", "ppe", "compliance"],
           },
           // ── Construction reports (hidden from sidebar, on /reports) ──
@@ -604,7 +609,7 @@ export const WORLDS: World[] = [
             href: "/units",
             icon: Home,
             hint: "Flats, shops, plots — what's available, booked, or sold (renovations + portal listings tabs inside)",
-            roles: SELLING,
+            roles: [...SELLING, "ACCOUNTANT"],
             keywords: ["flat", "shop", "apartment", "unit", "available", "stock", "inventory", "99acres", "magicbricks", "housing.com", "portal", "listing", "property", "sync", "marketplace", "renovation", "addition", "improvement", "refurbish", "value add", "repair"],
           },
           {
@@ -612,7 +617,7 @@ export const WORLDS: World[] = [
             href: "/sales",
             icon: ShoppingCart,
             hint: "Bookings, payment plans and what's still to collect (customers tab inside)",
-            roles: SELLING,
+            roles: [...SELLING, "ACCOUNTANT"],
             keywords: ["booking", "sale", "deal", "agreement", "collection", "allotment", "buyer", "client", "tenant", "party", "customer"],
           },
           {
@@ -628,7 +633,7 @@ export const WORLDS: World[] = [
             href: "/rentals",
             icon: KeyRound,
             hint: "Units you've rented out and the rent due each month",
-            roles: SELLING,
+            roles: [...SELLING, "ACCOUNTANT"],
             keywords: ["lease", "tenant", "rent", "monthly", "leave and license"],
           },
           {
@@ -646,6 +651,14 @@ export const WORLDS: World[] = [
             hint: "Auto-parse bank payment SMS and match them to outstanding sales/rents (tab inside Sales)",
             roles: SELLING,
             keywords: ["sms", "bank", "payment", "auto", "upi", "text", "message", "parse", "credit", "received"],
+          },
+          {
+            label: "Quotations",
+            href: "/quotations",
+            icon: FileText,
+            hint: "Request quotes from suppliers, compare landed costs, and convert the winner into a purchase order",
+            roles: ["SALES_MANAGER", ...OPS],
+            keywords: ["quote", "quotation", "vendor quote", "comparative", "rate", "price", "tender", "bid", "rfq"],
           },
           // ── Sales reports (hidden from sidebar, on /reports) ──
           {
@@ -681,7 +694,7 @@ export const WORLDS: World[] = [
     icon: HardHat,
     color: "var(--color-world-hr)",
     href: "/hr",
-    roles: [...OPS, "ACCOUNTANT"],
+    roles: [...OPS, "ACCOUNTANT", "HR_MANAGER", "FINANCE_HEAD"],
     sections: [
       {
         label: "Overview",
@@ -691,7 +704,7 @@ export const WORLDS: World[] = [
             href: "/hr",
             icon: HardHat,
             hint: "Who's on site right now, and this month's labour cost",
-            roles: [...OPS, "ACCOUNTANT"],
+            roles: [...OPS, "ACCOUNTANT", "HR_MANAGER", "FINANCE_HEAD"],
             keywords: ["hr", "workforce", "overview", "headcount", "labour"],
           },
         ],
@@ -704,7 +717,7 @@ export const WORLDS: World[] = [
             href: "/hr/employees",
             icon: Users,
             hint: "Staff and labour — their wage rate and where they're posted (crews/gangs tab inside)",
-            roles: [...OPS, "ACCOUNTANT"],
+            roles: [...OPS, "ACCOUNTANT", "HR_MANAGER", "FINANCE_HEAD"],
             keywords: ["staff", "labour", "worker", "mazdoor", "roster", "employee", "gang", "crew", "team", "group", "contractor", "mazdoor gang"],
           },
         ],
@@ -717,7 +730,7 @@ export const WORLDS: World[] = [
             href: "/hr/attendance",
             icon: CalendarCheck,
             hint: "Mark present, half-day or absent — and the hours worked (haziri). Leave tab inside.",
-            roles: [...OPS, "ACCOUNTANT"],
+            roles: [...OPS, "ACCOUNTANT", "HR_MANAGER", "FINANCE_HEAD"],
             keywords: ["present", "absent", "haziri", "muster", "time", "hours", "attendance", "leave", "holiday", "off", "chutti", "absence"],
           },
           {
@@ -725,7 +738,7 @@ export const WORLDS: World[] = [
             href: "/hr/dprs",
             icon: ClipboardList,
             hint: "The DPR — what work got done on site today, and by whom",
-            roles: OPS,
+            roles: [...OPS, "HR_MANAGER", "FINANCE_HEAD"],
             keywords: ["dpr", "daily progress report", "daily report", "progress", "site report", "work done", "work log", "labour report", "site diary"],
           },
           {
@@ -733,7 +746,7 @@ export const WORLDS: World[] = [
             href: "/hr/pending",
             icon: ClipboardList,
             hint: "Everything that needs your attention — pending approvals, leaves, payrolls, POs, and overdue tasks in one place",
-            roles: [...new Set([...LEADERSHIP, ...OPS, "ACCOUNTANT"])],
+            roles: [...new Set([...LEADERSHIP, ...OPS, "ACCOUNTANT", "HR_MANAGER", "FINANCE_HEAD"])],
             badge: { endpoint: "/api/approvals" },
             keywords: ["pending", "approval", "overdue", "task", "leave", "payroll", "po", "requisition", "queue", "action", "approve", "sign off", "authorise"],
           },
@@ -747,7 +760,7 @@ export const WORLDS: World[] = [
             href: "/hr/payroll",
             icon: Wallet,
             hint: "Turn attendance into salary — run it, review it, pay it",
-            roles: BOOKS,
+            roles: [...BOOKS, "HR_MANAGER", "FINANCE_HEAD"],
             keywords: ["salary", "wage", "pay", "tankha", "run", "payroll"],
           },
           // ── People reports (hidden from sidebar, on /reports) ──
@@ -809,7 +822,7 @@ export const WORLDS: World[] = [
             keywords: ["cash flow", "forecast", "inflow", "outflow", "liquidity", "treasury"],
             icon: Wallet,
             hidden: true,
-            roles: REPORTS,
+            roles: BOOKS,
             group: RG.BOOKS,
           },
           {
@@ -819,7 +832,7 @@ export const WORLDS: World[] = [
             keywords: ["job costing", "direct cost", "indirect cost", "overhead", "absorption", "cost accounting"],
             icon: Calculator,
             hidden: true,
-            roles: REPORTS,
+            roles: BOOKS,
             group: RG.BOOKS,
           },
           {
@@ -850,6 +863,14 @@ export const WORLDS: World[] = [
             hint: "Compare DPR-recorded costs (material + labor) against GL-posted costs — find variances before month-end",
             roles: BOOKS,
             keywords: ["dpr", "finance", "reconciliation", "variance", "cost", "bridge", "posted"],
+          },
+          {
+            label: "Books Health",
+            href: "/health-books",
+            icon: Stethoscope,
+            hint: "Five independent tie-outs that prove the operational ledgers (stock, land, units) agree with the general ledger — before the owner notices they don't",
+            roles: BOOKS,
+            keywords: ["reconciliation", "tie-out", "health", "books health", "stock gl", "land gl", "units gl", "variance", "audit"],
           },
           {
             label: "Audit Trail",
@@ -1069,23 +1090,29 @@ export function linkForPath(pathname: string): (NavLink & { world: WorldKey }) |
  * is /finance.
  */
 export function homeWorldFor(role: string): World {
-  const map: Record<string, WorldKey> = {
-    SUPERVISOR: "build",
-    QAQC_ENGINEER: "build",
-    SITE_ENGINEER: "build",
-    STORE_KEEPER: "build",
-    SALES_MANAGER: "build",
-    ACCOUNTANT: "finance",
-    FINANCE_HEAD: "finance",
-    PROCUREMENT_MANAGER: "build",
-    PROJECT_MANAGER: "build",
-    HR_MANAGER: "hr",
-    PROJECT_DIRECTOR: "build",
+  // Map each role to the world that contains their primary daily work.
+  // The `homeHref` override sends them to a specific page within that
+  // world — e.g. a Store Keeper lands in Build but on /stock (not the
+  // pipeline overview), a Sales Manager lands on /sales, etc.
+  const map: Record<string, { world: WorldKey; homeHref?: string }> = {
+    SUPERVISOR: { world: "hr", homeHref: "/hr/dprs" },
+    QAQC_ENGINEER: { world: "build", homeHref: "/quality-control" },
+    SITE_ENGINEER: { world: "hr", homeHref: "/hr/dprs" },
+    STORE_KEEPER: { world: "build", homeHref: "/stock" },
+    SALES_MANAGER: { world: "build", homeHref: "/sales" },
+    ACCOUNTANT: { world: "finance" },
+    FINANCE_HEAD: { world: "finance" },
+    PROCUREMENT_MANAGER: { world: "build", homeHref: "/procurement" },
+    PROJECT_MANAGER: { world: "today" },
+    HR_MANAGER: { world: "hr" },
+    PROJECT_DIRECTOR: { world: "today" },
   };
-  const key = map[role];
-  if (key) {
-    const w = WORLD_BY_KEY[key];
-    if (w && roleAllowed(w.roles, role)) return w;
+  const entry = map[role];
+  if (entry) {
+    const w = WORLD_BY_KEY[entry.world];
+    if (w && roleAllowed(w.roles, role)) {
+      return entry.homeHref ? { ...w, href: entry.homeHref } : w;
+    }
   }
   return WORLD_BY_KEY.today;
 }

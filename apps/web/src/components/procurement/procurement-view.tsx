@@ -50,7 +50,7 @@ export function ProcurementView({
   supplierReturns?: SupplierReturnRow[];
   quotationRequests?: QuotationRequestRow[];
   reportIds?: Set<string>;
-  permissions?: { canCreate?: boolean; canApprove?: boolean; canManagePayments?: boolean; canApproveRequisitions?: boolean };
+  permissions?: { canCreate?: boolean; canApprove?: boolean; canManagePayments?: boolean; canApproveRequisitions?: boolean; canReceiveGoods?: boolean };
   currentUserId?: string;
 }) {
   const [tab, setTab] = useTabParam(
@@ -61,6 +61,7 @@ export function ProcurementView({
   const canApprove = permissions?.canApprove ?? false;
   const canManagePayments = permissions?.canManagePayments ?? false;
   const canApproveRequisitions = permissions?.canApproveRequisitions ?? false;
+  const canReceiveGoods = permissions?.canReceiveGoods ?? false;
   const canManage = canCreate;
 
   // Derive simplified option types for the cash-purchase dialog
@@ -110,7 +111,7 @@ export function ProcurementView({
         </TabsList>
 
         <TabsContent value="purchase-orders">
-          <PurchaseOrdersTab purchaseOrders={purchaseOrders} suppliers={suppliers} materials={materials} locations={locations} projects={projects} categories={categories} canCreate={canCreate} canApprove={canApprove} canManagePayments={canManagePayments} />
+          <PurchaseOrdersTab purchaseOrders={purchaseOrders} suppliers={suppliers} materials={materials} locations={locations} projects={projects} categories={categories} canCreate={canCreate} canApprove={canApprove} canManagePayments={canManagePayments} canManage={canManage} canReceiveGoods={canReceiveGoods} currentUserId={currentUserId} />
         </TabsContent>
         <TabsContent value="indents">
           {requisitions && phases ? (
@@ -133,7 +134,7 @@ export function ProcurementView({
           ) : null}
         </TabsContent>
         <TabsContent value="suppliers">
-          <SuppliersTab suppliers={suppliers} canManagePayments={canManagePayments} />
+          <SuppliersTab suppliers={suppliers} canManage={canManage} canManagePayments={canManagePayments} />
         </TabsContent>
         <TabsContent value="direct-purchases">
           <DirectPurchasesTab directPurchases={directPurchases} suppliers={suppliers} locations={locationOptions} materials={materialOptions} canCreate={canCreate} />
@@ -349,7 +350,7 @@ const directPurchaseColumns: Column<DirectPurchaseRow>[] = [
 ];
 
 function PurchaseOrdersTab({
-  purchaseOrders, suppliers, materials, locations, projects, categories, canCreate, canApprove, canManagePayments,
+  purchaseOrders, suppliers, materials, locations, projects, categories, canCreate, canApprove, canManagePayments, canManage, canReceiveGoods, currentUserId,
 }: {
   purchaseOrders: PurchaseOrderRow[];
   suppliers: SupplierRow[];
@@ -360,6 +361,9 @@ function PurchaseOrdersTab({
   canCreate: boolean;
   canApprove: boolean;
   canManagePayments: boolean;
+  canManage: boolean;
+  canReceiveGoods: boolean;
+  currentUserId?: string | null;
 }) {
   const [statusFilter, setStatusFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -659,8 +663,11 @@ function PurchaseOrdersTab({
           <PurchaseOrderDetailPanel
             po={selected}
             canApprove={canApprove}
+            canManage={canManage}
+            canReceiveGoods={canReceiveGoods}
             suppliers={suppliers}
             canManagePayments={canManagePayments}
+            currentUserId={currentUserId}
           />
         </Dialog>
       )}
@@ -688,7 +695,7 @@ function PurchaseOrdersTab({
 //  Suppliers tab
 // ───────────────────────────────────────────────────────────
 
-function SuppliersTab({ suppliers, canManagePayments }: { suppliers: SupplierRow[]; canManagePayments: boolean }) {
+function SuppliersTab({ suppliers, canManage, canManagePayments }: { suppliers: SupplierRow[]; canManage: boolean; canManagePayments: boolean }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<SupplierRow | null>(null);
   const [deleting, setDeleting] = useState<SupplierRow | null>(null);
@@ -751,12 +758,16 @@ function SuppliersTab({ suppliers, canManagePayments }: { suppliers: SupplierRow
               Pay
             </Button>
           )}
-          <Button variant="ghost" size="icon-sm" title="Edit" onClick={() => { setEditing(s); setFormOpen(true); }}>
-            <Pencil className="size-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon-sm" title="Delete" onClick={() => setDeleting(s)}>
-            <Trash2 className="size-3.5" />
-          </Button>
+          {canManage && (
+            <Button variant="ghost" size="icon-sm" title="Edit" onClick={() => { setEditing(s); setFormOpen(true); }}>
+              <Pencil className="size-3.5" />
+            </Button>
+          )}
+          {canManage && (
+            <Button variant="ghost" size="icon-sm" title="Delete" onClick={() => setDeleting(s)}>
+              <Trash2 className="size-3.5" />
+            </Button>
+          )}
         </div>
       ),
     },
@@ -770,9 +781,11 @@ function SuppliersTab({ suppliers, canManagePayments }: { suppliers: SupplierRow
           title="No suppliers yet"
           description="Add suppliers to raise purchase orders. Each supplier tracks GSTIN, contact details, and outstanding payables."
           action={
-            <Button onClick={() => { setEditing(null); setFormOpen(true); }} size="sm">
-              <Plus className="h-4 w-4" /> New Supplier
-            </Button>
+            canManage ? (
+              <Button onClick={() => { setEditing(null); setFormOpen(true); }} size="sm">
+                <Plus className="h-4 w-4" /> New Supplier
+              </Button>
+            ) : undefined
           }
         />
       ) : (
@@ -797,7 +810,7 @@ function SuppliersTab({ suppliers, canManagePayments }: { suppliers: SupplierRow
               key === "openPOs" ? sum.toLocaleString("en-IN") : formatCurrency(sum)
             }
             rowTone={(s) => (s.balanceOwed > 0 ? "warning" : null)}
-            onAddRow={() => { setEditing(null); setFormOpen(true); }}
+            onAddRow={canManage ? () => { setEditing(null); setFormOpen(true); } : undefined}
             addRowLabel="New Supplier"
           />
         </div>
@@ -994,7 +1007,7 @@ function DirectPurchasesTab({
 //  Quotations tab — read-only overview (management is mobile-first)
 // ───────────────────────────────────────────────────────────
 
-function QuotationsTab({
+export function QuotationsTab({
   requests,
   reportIds,
 }: {

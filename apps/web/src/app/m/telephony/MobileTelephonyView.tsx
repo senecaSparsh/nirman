@@ -3,8 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   Phone, Server, ShieldCheck, Cloud, Plus, Trash2, UserMinus,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  ChevronDown, ChevronUp, Loader2, CheckCircle2, FileText,
+  ChevronDown, ChevronUp, Loader2, CheckCircle2,
   PhoneIncoming, Mic, MicOff,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -284,7 +283,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <Badge tone={n.status === "ACTIVE" ? "go" : "neutral"}>
-                  {n.status}
+                  {n.status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
                 </Badge>
                 {n.provider === "TWILIO" && (
                   <Badge tone="signal">Twilio</Badge>

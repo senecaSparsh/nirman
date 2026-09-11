@@ -15,16 +15,22 @@ import {
   UnderlineInput,
   TypeCard,
   StickyActionBar,
+  EnumSelect,
 } from "@/components/mobile/v2/form-primitives";
 
 interface ProjectItem { id: string; name: string; }
+interface CompanyItem { id: string; name: string; isParent: boolean; }
 
-type LocationType = "COMPANY_WAREHOUSE" | "PROJECT_SITE";
+type LocationType = "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "CENTRAL_WAREHOUSE" | "DEPARTMENT";
 
 export default function MobileNewStockLocationClient({
   projects,
+  companies = [],
+  currentCompanyId,
 }: {
   projects: ProjectItem[];
+  companies?: CompanyItem[];
+  currentCompanyId: string;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -33,12 +39,21 @@ export default function MobileNewStockLocationClient({
   const [type, setType] = useState<LocationType>("COMPANY_WAREHOUSE");
   const [name, setName] = useState("");
   const [projectId, setProjectId] = useState("");
+  const [targetCompanyId, setTargetCompanyId] = useState(currentCompanyId);
   const [address, setAddress] = useState("");
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
   const [geoRadius, setGeoRadius] = useState("");
   const [detecting, setDetecting] = useState(false);
   const [geoAccuracy, setGeoAccuracy] = useState<number | null>(null);
+  const [dupWarning, setDupWarning] = useState<string | null>(null);
+
+  // Whether the current company has children (show company selector)
+  const hasChildren = companies.filter((c) => c.id !== currentCompanyId).length > 0;
+  // Whether this type needs a project selector
+  const needsProject = type === "PROJECT_SITE";
+  // Whether this type can target a child company
+  const canTargetCompany = type === "COMPANY_WAREHOUSE" || type === "DEPARTMENT";
 
   async function handleDetectLocation() {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
@@ -102,7 +117,7 @@ export default function MobileNewStockLocationClient({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) { toast.error("Location name is required"); return; }
-    if (type === "PROJECT_SITE" && !projectId) { toast.error("Select a project for project sites"); return; }
+    if (needsProject && !projectId) { toast.error("Select a project for project sites"); return; }
 
     setSaving(true);
     haptic(10);
@@ -113,15 +128,24 @@ export default function MobileNewStockLocationClient({
         body: JSON.stringify({
           type,
           name: name.trim(),
-          projectId: type === "PROJECT_SITE" ? projectId : null,
+          projectId: needsProject ? projectId : null,
+          targetCompanyId: canTargetCompany ? targetCompanyId : currentCompanyId,
           address: address.trim() || null,
           lat: lat ? parseFloat(lat) : null,
           lng: lng ? parseFloat(lng) : null,
           geoRadius: geoRadius ? parseInt(geoRadius) : null,
+          ...(dupWarning ? { force: true } : {}),
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to create location");
+      if (!res.ok) {
+        if (res.status === 409 && data.warning === "duplicate") {
+          setDupWarning(data.message);
+          setSaving(false);
+          return;
+        }
+        throw new Error(data.error ?? "Failed to create location");
+      }
 
       haptic([10, 40, 80]);
       setSuccess(data.name);
@@ -181,16 +205,50 @@ export default function MobileNewStockLocationClient({
           <div className="grid grid-cols-2 gap-2">
             <TypeCard
               active={type === "COMPANY_WAREHOUSE"}
-              onClick={() => { setType("COMPANY_WAREHOUSE"); haptic(10); }}
+              onClick={() => { setType("COMPANY_WAREHOUSE"); haptic(10); setDupWarning(null); }}
               label="Warehouse"
             />
             <TypeCard
               active={type === "PROJECT_SITE"}
-              onClick={() => { setType("PROJECT_SITE"); haptic(10); }}
+              onClick={() => { setType("PROJECT_SITE"); haptic(10); setDupWarning(null); }}
               label="Project Site"
             />
+            <TypeCard
+              active={type === "CENTRAL_WAREHOUSE"}
+              onClick={() => { setType("CENTRAL_WAREHOUSE"); haptic(10); setDupWarning(null); setTargetCompanyId(currentCompanyId); }}
+              label="Central WH"
+            />
+            <TypeCard
+              active={type === "DEPARTMENT"}
+              onClick={() => { setType("DEPARTMENT"); haptic(10); setDupWarning(null); }}
+              label="Department"
+            />
           </div>
+          <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-400)" }}>
+            {type === "PROJECT_SITE" && "Stock stored at a specific project site. Requires a project."}
+            {type === "COMPANY_WAREHOUSE" && "Company-level warehouse. No project needed."}
+            {type === "CENTRAL_WAREHOUSE" && "Parent company warehouse for distributing to child companies. No project needed."}
+            {type === "DEPARTMENT" && "Operational cost-center stock room (e.g. Workshop, Boiler house). No project needed."}
+          </p>
         </SectionCard>
+
+        {/* Target company — only if current company has children AND type allows targeting */}
+        {hasChildren && canTargetCompany && (
+          <SectionCard title="Company">
+            <p className="text-m-caption mb-2" style={{ color: "var(--color-ink-400)" }}>
+              Which company should this warehouse belong to?
+            </p>
+            <EnumSelect
+              label="Belongs to"
+              value={targetCompanyId}
+              onChange={setTargetCompanyId}
+              options={companies.map((c) => ({
+                value: c.id,
+                label: c.id === currentCompanyId ? `${c.name} (current)` : c.name,
+              }))}
+            />
+          </SectionCard>
+        )}
 
         {/* Details */}
         <SectionCard title="Details">
@@ -204,7 +262,7 @@ export default function MobileNewStockLocationClient({
           />
 
           {/* Project (only for PROJECT_SITE) */}
-          {type === "PROJECT_SITE" && (
+          {needsProject && (
             <MobileSelectWithCreate
               label="Project"
               required
@@ -324,6 +382,40 @@ export default function MobileNewStockLocationClient({
           />
         </SectionCard>
       </form>
+
+      {/* Duplicate warning */}
+      {dupWarning && (
+        <div
+          className="rounded-[0.5rem] border p-3 flex flex-col gap-2 mt-3"
+          style={{
+            borderColor: "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))",
+            backgroundColor: "color-mix(in srgb, var(--color-stop) 6%, var(--color-paper))",
+          }}
+        >
+          <p className="text-m-caption font-bold" style={{ color: "var(--color-stop)" }}>
+            ⚠ {dupWarning}
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => handleSubmit({ preventDefault: () => {} } as unknown as React.FormEvent)}
+              disabled={saving}
+              className="flex-1 rounded-[0.375rem] py-1.5 text-m-caption font-bold press disabled:opacity-50"
+              style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
+            >
+              {saving ? "Creating…" : "Create anyway"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setDupWarning(null)}
+              className="rounded-[0.375rem] px-3 py-1.5 text-m-caption font-bold border press"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Sticky bottom bar */}
       <StickyActionBar

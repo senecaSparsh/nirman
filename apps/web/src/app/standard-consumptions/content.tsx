@@ -26,13 +26,13 @@ export async function StandardConsumptionsContent() {
     }),
     prisma.material.findMany({
       take: 200,
-      where: { deletedAt: null },
+      where: { companyId: company.id, deletedAt: null },
       select: { id: true, code: true, name: true, unit: true },
       orderBy: { name: "asc" },
     }),
     prisma.materialCategory.findMany({
       take: 200,
-      where: { deletedAt: null },
+      where: { companyId: company.id, deletedAt: null },
       select: { id: true, name: true, unit: true },
       orderBy: { name: "asc" },
     }),

@@ -233,7 +233,7 @@ export async function deleteRenovationCost(costId: string, userId?: string) {
           totalCredit: je.totalDebit,
           lines: {
             create: lines.map((l) => ({
-              accountCode: l.accountCode,
+              accountId: l.accountId,
               debit: l.credit,
               credit: l.debit,
               entityType: l.entityType,
@@ -439,7 +439,7 @@ export async function cancelRenovation(id: string, userId?: string) {
             totalCredit: je.totalDebit,
             lines: {
               create: lines.map((l) => ({
-                accountCode: l.accountCode,
+                accountId: l.accountId,
                 debit: l.credit,
                 credit: l.debit,
                 entityType: l.entityType,

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSearchHeader, MobileFilterChips } from "@/components/mobile/v2/scaffold";
 import { MobileStatusBadge, MobileEmptyState, MobileCta } from "@/components/mobile/v2/primitives";
 
@@ -272,19 +273,12 @@ function SaleCard({
               </div>
             </div>
             <div className="space-y-1">
-              <label className="text-m-caption font-medium" style={{ color: "var(--color-ink-600)" }}>Mode</label>
-              <select
+              <EnumSelect
+                label="Mode"
                 value={mode}
-                onChange={(e) => setMode(e.target.value)}
-                className="w-full rounded-[0.375rem] border px-3 py-2.5 text-m-body outline-none"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              >
-                {PAYMENT_MODES.map((m) => (
-                  <option key={m} value={m}>
-                    {m.replace(/_/g, " ")}
-                  </option>
-                ))}
-              </select>
+                onChange={setMode}
+                options={PAYMENT_MODES.map((m) => ({ value: m, label: m.replace(/_/g, " ") }))}
+              />
             </div>
             <div className="space-y-1">
               <label className="text-m-caption font-medium" style={{ color: "var(--color-ink-600)" }}>Reference (optional)</label>

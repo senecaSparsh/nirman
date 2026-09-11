@@ -217,7 +217,7 @@ export function ClaimDetailDialog({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h4 className="text-subhead font-medium">Expense Lines ({detail.lines.length})</h4>
-              {canEdit && isDraft && (
+              {canEdit && (isDraft || isRejected) && (
                 <span className="text-caption text-muted-foreground">Add lines below</span>
               )}
             </div>
@@ -226,7 +226,7 @@ export function ClaimDetailDialog({
               <EmptyState
                 icon={<Receipt />}
                 title="No expense lines yet"
-                description={isDraft && canEdit ? "Add one below." : undefined}
+                description={(isDraft || isRejected) && canEdit ? "Add one below." : undefined}
                 size="compact"
               />
             ) : (
@@ -252,7 +252,7 @@ export function ClaimDetailDialog({
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="tnum font-medium text-foreground">{formatCurrency(line.amount + (line.gstAmount ?? 0))}</span>
-                      {canEdit && isDraft && (
+                      {canEdit && (isDraft || isRejected) && (
                         <button
                           type="button"
                           onClick={() => removeLine(line.id)}
@@ -274,8 +274,8 @@ export function ClaimDetailDialog({
             )}
           </div>
 
-          {/* Add line form (only in DRAFT) */}
-          {canEdit && isDraft && (
+          {/* Add line form (DRAFT or REJECTED — editable before resubmit) */}
+          {canEdit && (isDraft || isRejected) && (
             <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
               <h4 className="text-subhead font-medium flex items-center gap-1.5">
                 <Plus className="h-3.5 w-3.5" /> Add Expense Line

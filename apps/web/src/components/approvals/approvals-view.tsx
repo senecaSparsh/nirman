@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { Page, Section, StatusPill, Toolbar, ToolbarCount } from "@/components/page";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
-import type { ApprovalPORow, ApprovalReqRow } from "@/lib/types";
+import type { ApprovalPORow, ApprovalReqRow, ApprovalGatePassRow, ApprovalDprRow, ApprovalExpenseRow } from "@/lib/types";
 
 // ── Urgency badge ──────────────────────────────────────────────
 
@@ -126,9 +126,15 @@ function BudgetDetail({
 export function ApprovalsView({
   purchaseOrders,
   requisitions,
+  gatePasses = [],
+  dprs = [],
+  expenses = [],
 }: {
   purchaseOrders: ApprovalPORow[];
   requisitions: ApprovalReqRow[];
+  gatePasses?: ApprovalGatePassRow[];
+  dprs?: ApprovalDprRow[];
+  expenses?: ApprovalExpenseRow[];
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -197,8 +203,40 @@ export function ApprovalsView({
     );
   }, [requisitions, query]);
 
-  const empty = filteredPOs.length === 0 && filteredReqs.length === 0;
-  const totalCount = purchaseOrders.length + requisitions.length;
+  const filteredGatePasses = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return gatePasses;
+    return gatePasses.filter((gp) =>
+      gp.gatePassNumber.toLowerCase().includes(q) ||
+      gp.category.toLowerCase().includes(q) ||
+      (gp.locationName ?? "").toLowerCase().includes(q) ||
+      (gp.createdByName ?? "").toLowerCase().includes(q),
+    );
+  }, [gatePasses, query]);
+
+  const filteredDprs = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return dprs;
+    return dprs.filter((d) =>
+      (d.projectName ?? "").toLowerCase().includes(q) ||
+      (d.submittedByName ?? "").toLowerCase().includes(q) ||
+      (d.workSummary ?? "").toLowerCase().includes(q),
+    );
+  }, [dprs, query]);
+
+  const filteredExpenses = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return expenses;
+    return expenses.filter((e) =>
+      e.category.toLowerCase().includes(q) ||
+      (e.payeeName ?? "").toLowerCase().includes(q) ||
+      (e.projectName ?? "").toLowerCase().includes(q) ||
+      (e.submittedByName ?? "").toLowerCase().includes(q),
+    );
+  }, [expenses, query]);
+
+  const empty = filteredPOs.length === 0 && filteredReqs.length === 0 && filteredGatePasses.length === 0 && filteredDprs.length === 0 && filteredExpenses.length === 0;
+  const totalCount = purchaseOrders.length + requisitions.length + gatePasses.length + dprs.length + expenses.length;
 
   if (totalCount === 0) {
     return (
@@ -293,6 +331,36 @@ export function ApprovalsView({
               </div>
             </Section>
           )}
+
+          {filteredGatePasses.length > 0 && (
+            <Section title="Gate Passes" action={<Badge variant="muted">{filteredGatePasses.length}</Badge>}>
+              <div className="divide-y divide-border">
+                {filteredGatePasses.map((gp) => (
+                  <GatePassApprovalRow key={gp.id} gp={gp} />
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {filteredDprs.length > 0 && (
+            <Section title="Daily Progress Reports" action={<Badge variant="muted">{filteredDprs.length}</Badge>}>
+              <div className="divide-y divide-border">
+                {filteredDprs.map((d) => (
+                  <DprApprovalRow key={d.id} dpr={d} />
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {filteredExpenses.length > 0 && (
+            <Section title="Expenses" action={<Badge variant="muted">{filteredExpenses.length}</Badge>}>
+              <div className="divide-y divide-border">
+                {filteredExpenses.map((e) => (
+                  <ExpenseApprovalRow key={e.id} expense={e} />
+                ))}
+              </div>
+            </Section>
+          )}
         </>
       )}
     </Page>
@@ -381,6 +449,10 @@ function POApprovalRow({ po }: { po: ApprovalPORow }) {
         <div className="text-caption text-muted-foreground">
           Created {formatDate(po.createdAt)}
           {po.expectedDate ? ` · expected ${formatDate(po.expectedDate)}` : ""}
+        </div>
+        <div className="text-caption">
+          <span className="text-muted-foreground">Waiting on: </span>
+          <span className="font-medium text-foreground">{po.waitingOn}</span>
         </div>
         {po.projectBudget !== null && (
           <BudgetDetail
@@ -517,6 +589,10 @@ function ReqApprovalRow({ req }: { req: ApprovalReqRow }) {
             Created {formatDate(req.createdAt)}
             {req.neededByDate ? ` · needed by ${formatDate(req.neededByDate)}` : ""}
           </div>
+          <div className="text-caption">
+            <span className="text-muted-foreground">Waiting on: </span>
+            <span className="font-medium text-foreground">{req.waitingOn}</span>
+          </div>
           {req.projectBudget !== null && (
             <BudgetDetail
               projectBudget={req.projectBudget}
@@ -609,6 +685,294 @@ function ReqApprovalRow({ req }: { req: ApprovalReqRow }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function GatePassApprovalRow({ gp }: { gp: ApprovalGatePassRow }) {
+  const router = useRouter();
+  const [acting, setActing] = useState(false);
+  const [done, setDone] = useState(false);
+  const [rejected, setRejected] = useState(false);
+
+  async function act(action: "approve" | "reject") {
+    setActing(true);
+    try {
+      const res = await fetch(`/api/gate-passes/${gp.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error ?? `Failed to ${action} gate pass`);
+      }
+      if (action === "approve") {
+        toast.success(`Gate pass ${gp.gatePassNumber} approved`);
+        setDone(true);
+      } else {
+        toast.success(`Gate pass ${gp.gatePassNumber} rejected`);
+        setRejected(true);
+      }
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setActing(false);
+    }
+  }
+
+  if (done || rejected) {
+    return (
+      <div className="flex items-center justify-between gap-4 p-4 bg-subtle/50">
+        <div className="flex items-center gap-2 text-body text-muted-foreground">
+          {done ? (
+            <>
+              <Check className="h-4 w-4 text-success" />
+              <span className="font-medium text-foreground">{gp.gatePassNumber}</span>
+              approved
+            </>
+          ) : (
+            <>
+              <X className="h-4 w-4 text-danger" />
+              <span className="font-medium text-foreground">{gp.gatePassNumber}</span>
+              rejected
+            </>
+          )}
+        </div>
+        {done && (
+          <Link href={`/gate-passes`} className="text-caption text-brand hover:underline inline-flex items-center gap-1">
+            View Gate Passes <ArrowRight className="h-3 w-3" />
+          </Link>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start justify-between gap-4 p-4">
+      <div className="min-w-0 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-body font-semibold text-foreground">{gp.gatePassNumber}</span>
+          <StatusPill status={gp.category} />
+          <UrgencyBadge urgency={gp.urgency} />
+        </div>
+        <div className="text-caption text-muted-foreground">
+          {gp.locationName}
+          {gp.destination ? ` → ${gp.destination}` : ""}
+          {gp.vehicleNumber ? ` · ${gp.vehicleNumber}` : ""}
+          {gp.driverName ? ` · ${gp.driverName}` : ""}
+          {gp.createdByName ? ` · raised by ${gp.createdByName}` : ""}
+        </div>
+        <div className="text-caption text-muted-foreground">
+          Created {formatDate(gp.createdAt)} · {gp.lineCount} line{gp.lineCount === 1 ? "" : "s"}
+        </div>
+        <div className="text-caption">
+          <span className="text-muted-foreground">Waiting on: </span>
+          <span className="font-medium text-foreground">{gp.waitingOn}</span>
+        </div>
+      </div>
+      {gp.canApprove && (
+        <div className="flex shrink-0 gap-2">
+          <Button size="sm" variant="outline" disabled={acting} onClick={() => act("reject")}>
+            {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />} Reject
+          </Button>
+          <Button size="sm" disabled={acting} onClick={() => act("approve")}>
+            {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DprApprovalRow({ dpr }: { dpr: ApprovalDprRow }) {
+  const router = useRouter();
+  const [acting, setActing] = useState(false);
+  const [done, setDone] = useState(false);
+  const [rejected, setRejected] = useState(false);
+
+  async function act(action: "subAdminApprove" | "adminApprove" | "reject") {
+    setActing(true);
+    try {
+      const res = await fetch(`/api/dprs/${dpr.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error ?? `Failed to ${action} DPR`);
+      }
+      toast.success(`DPR ${action.includes("approve") ? "approved" : "rejected"}`);
+      if (action.includes("approve")) setDone(true);
+      else setRejected(true);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setActing(false);
+    }
+  }
+
+  if (done || rejected) {
+    return (
+      <div className="flex items-center justify-between gap-4 p-4 bg-subtle/50">
+        <div className="flex items-center gap-2 text-body text-muted-foreground">
+          {done ? (
+            <>
+              <Check className="h-4 w-4 text-success" />
+              <span className="font-medium text-foreground">{dpr.projectName ?? "DPR"}</span>
+              approved
+            </>
+          ) : (
+            <>
+              <X className="h-4 w-4 text-danger" />
+              <span className="font-medium text-foreground">{dpr.projectName ?? "DPR"}</span>
+              rejected
+            </>
+          )}
+        </div>
+        {done && (
+          <Link href={`/hr/dprs`} className="text-caption text-brand hover:underline inline-flex items-center gap-1">
+            View DPRs <ArrowRight className="h-3 w-3" />
+          </Link>
+        )}
+      </div>
+    );
+  }
+
+  const actionLabel = dpr.canApproveAdmin ? "Admin Approve" : "Approve";
+  const actionName = dpr.canApproveAdmin ? "adminApprove" : "subAdminApprove";
+
+  return (
+    <div className="flex items-start justify-between gap-4 p-4">
+      <div className="min-w-0 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-body font-semibold text-foreground">{dpr.projectName ?? "DPR"}</span>
+          <StatusPill status={dpr.approvalStatus} />
+          <UrgencyBadge urgency={dpr.urgency} />
+        </div>
+        <div className="text-caption text-muted-foreground">
+          {dpr.submittedByName ? `Submitted by ${dpr.submittedByName}` : ""}
+          {dpr.workSummary ? ` · ${dpr.workSummary.slice(0, 80)}${dpr.workSummary.length > 80 ? "…" : ""}` : ""}
+        </div>
+        <div className="text-caption text-muted-foreground">
+          Date {formatDate(dpr.date)} · {dpr.progressPct.toFixed(0)}% progress
+        </div>
+        <div className="text-caption">
+          <span className="text-muted-foreground">Waiting on: </span>
+          <span className="font-medium text-foreground">{dpr.waitingOn}</span>
+        </div>
+      </div>
+      <div className="flex shrink-0 gap-2">
+        <Button size="sm" variant="outline" disabled={acting} onClick={() => act("reject")}>
+          {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />} Reject
+        </Button>
+        <Button size="sm" disabled={acting} onClick={() => act(actionName as "subAdminApprove" | "adminApprove")}>
+          {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} {actionLabel}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ExpenseApprovalRow({ expense }: { expense: ApprovalExpenseRow }) {
+  const router = useRouter();
+  const [acting, setActing] = useState(false);
+  const [done, setDone] = useState(false);
+  const [rejected, setRejected] = useState(false);
+
+  async function act(action: "approve" | "reject") {
+    setActing(true);
+    try {
+      const res = await fetch(`/api/expenses/${expense.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error ?? `Failed to ${action} expense`);
+      }
+      if (action === "approve") {
+        toast.success(`Expense approved`);
+        setDone(true);
+      } else {
+        toast.success(`Expense rejected`);
+        setRejected(true);
+      }
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setActing(false);
+    }
+  }
+
+  if (done || rejected) {
+    return (
+      <div className="flex items-center justify-between gap-4 p-4 bg-subtle/50">
+        <div className="flex items-center gap-2 text-body text-muted-foreground">
+          {done ? (
+            <>
+              <Check className="h-4 w-4 text-success" />
+              <span className="font-medium text-foreground">{expense.categoryName ?? expense.category}</span>
+              approved
+            </>
+          ) : (
+            <>
+              <X className="h-4 w-4 text-danger" />
+              <span className="font-medium text-foreground">{expense.categoryName ?? expense.category}</span>
+              rejected
+            </>
+          )}
+        </div>
+        {done && (
+          <Link href={`/expenses`} className="text-caption text-brand hover:underline inline-flex items-center gap-1">
+            View Expenses <ArrowRight className="h-3 w-3" />
+          </Link>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start justify-between gap-4 p-4">
+      <div className="min-w-0 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-body font-semibold text-foreground">{expense.categoryName ?? expense.category}</span>
+        </div>
+        <div className="text-caption text-muted-foreground">
+          {expense.payeeName ?? ""}
+          {expense.projectName ? ` · ${expense.projectName}` : ""}
+          {expense.submittedByName ? ` · raised by ${expense.submittedByName}` : ""}
+        </div>
+        <div className="text-caption text-muted-foreground">
+          Date {formatDate(expense.date)}
+        </div>
+        <div className="text-caption">
+          <span className="text-muted-foreground">Waiting on: </span>
+          <span className="font-medium text-foreground">{expense.waitingOn}</span>
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <div className="text-right">
+          <div className="text-body font-semibold tnum text-foreground">
+            {formatCurrency(expense.amount)}
+          </div>
+        </div>
+        {expense.canApprove && (
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" disabled={acting} onClick={() => act("reject")}>
+              {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />} Reject
+            </Button>
+            <Button size="sm" disabled={acting} onClick={() => act("approve")}>
+              {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

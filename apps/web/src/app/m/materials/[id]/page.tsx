@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@nirman/db";
 import {
-  Package, ArrowLeftRight,
+  Package, ArrowLeftRight, AlertTriangle, ArrowLeft,
 } from "lucide-react";
 import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -49,7 +49,7 @@ export default function MobileMaterialDetailPage({
       {async ({ id, company, canManage }) => {
         const [material, stockItems, movements, locationRows] = await Promise.all([
           prisma.material.findFirst({
-            where: { id, deletedAt: null },
+            where: { id, companyId: company.id, deletedAt: null },
             include: { category: { select: { name: true } } },
           }),
           prisma.stockLocationItem.findMany({
@@ -79,8 +79,9 @@ export default function MobileMaterialDetailPage({
         if (!material) {
           return (
             <div>
-              <div className="mb-4">
-              </div>
+              <Link href="/m/materials" className="inline-flex items-center gap-1 text-m-body font-bold mb-4 press" style={{ color: "var(--color-ink-500)" }}>
+                <ArrowLeft className="size-4" /> Back to materials
+              </Link>
               <MobileEmptyState icon={Package} title="Material not found" />
             </div>
           );
@@ -108,10 +109,12 @@ export default function MobileMaterialDetailPage({
           { label: "Standard cost", value: formatCurrency(toNum(material.standardCost)) },
           { label: "Moving Average Cost", value: formatCurrency(aggregateMac) },
           { label: "Locations", value: `${String(stockItems.length)} sites` },
-          { label: "Movements", value: `${String(movements.length)} recent` },
+          { label: "Movements", value: movements.length >= 10 ? "10+ recent" : `${String(movements.length)} recent` },
         ];
 
         const detailEntries: { label: string; value: string; tone?: "default" | "go" | "stop" | "signal" }[] = [];
+        if (material.grade) detailEntries.push({ label: "Grade", value: material.grade });
+        if (material.specification) detailEntries.push({ label: "Specification", value: material.specification });
         if (minStock != null) detailEntries.push({ label: "Min stock", value: `${formatNumber(minStock, 0)} ${material.unit}` });
         if (reorderPoint != null) detailEntries.push({ label: "Reorder at", value: `${formatNumber(reorderPoint, 0)} ${material.unit}`, ...(isLow || isOut ? { tone: "signal" as const } : {}) });
         if (material.economicOrderQty) detailEntries.push({ label: "EOQ", value: `${formatNumber(toNum(material.economicOrderQty), 0)} ${material.unit}` });
@@ -145,6 +148,32 @@ export default function MobileMaterialDetailPage({
               />
             </DetailHeroCard>
 
+            {/* ── Low/Out of stock alert banner ── */}
+            {(isOut || isLow) && (
+              <div
+                className="rounded-[0.5rem] border p-3 flex items-center gap-2 mb-2"
+                style={{
+                  borderColor: isOut ? "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))" : "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
+                  backgroundColor: isOut ? "color-mix(in srgb, var(--color-stop) 6%, var(--color-paper))" : "color-mix(in srgb, var(--color-signal) 6%, var(--color-paper))",
+                }}
+              >
+                <AlertTriangle className="size-4 shrink-0" style={{ color: isOut ? "var(--color-stop)" : "var(--color-signal-dark)" }} />
+                <p className="text-m-caption font-bold" style={{ color: isOut ? "var(--color-stop)" : "var(--color-signal-dark)" }}>
+                  {isOut
+                    ? "Out of stock — tap \u201cAdjust stock\u201d to add opening balance"
+                    : `Low stock — below reorder point of ${formatNumber(reorderPoint ?? 0, 0)} ${material.unit}`}
+                </p>
+              </div>
+            )}
+
+            {/* ── Description (if present) ── */}
+            {material.description && (
+              <div className="rounded-[0.5rem] border p-3 mb-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-caption font-bold mb-1" style={{ color: "var(--color-ink-700)" }}>Description</p>
+                <p className="text-m-body" style={{ color: "var(--color-ink-950)" }}>{material.description}</p>
+              </div>
+            )}
+
             {/* ── Overview + Details — 2-col grid ── */}
             <div className="grid grid-cols-2 gap-2">
               <DetailKeyValueCard title="Overview" entries={overviewEntries} />
@@ -162,6 +191,7 @@ export default function MobileMaterialDetailPage({
                   <MobileEmptyState
                     icon={Package}
                     title="None on hand"
+                    description={canManage ? "Tap \u201cAdjust stock\u201d below to add opening balance" : "Stock will appear here once received"}
                     size="compact"
                   />
                 ) : (

@@ -2,12 +2,13 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { softDelete, logAction, extractVersion, ConcurrentEditError, ServiceError } from "@nirman/services";
-import { apiHandler, json, materialSchema, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, materialSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.INVENTORY_MANAGE);
+  const company = await getCompany();
   const { id } = await params;
   const body = await req.json();
   const expectedVersion = extractVersion(body);
@@ -15,19 +16,19 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  // Material is a global catalog entity (no companyId) — verify it exists and isn't deleted.
-  // Access is gated by requirePermission(PERM.INVENTORY_MANAGE).
+  // Material is company-scoped (Material.companyId) — verify it belongs to the
+  // active company and isn't deleted.
   const existing = await prisma.material.findFirst({
-    where: { id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null },
     select: { id: true },
   });
   if (!existing) {
     return json({ error: "Material not found" }, { status: 404 });
   }
-  // If code is changing, ensure uniqueness among non-deleted materials
+  // If code is changing, ensure uniqueness within the same company.
   if (parsed.data.code) {
     const clash = await prisma.material.findFirst({
-      where: { code: parsed.data.code, deletedAt: null, NOT: { id } },
+      where: { companyId: company.id, code: parsed.data.code, deletedAt: null, NOT: { id } },
     });
     if (clash) {
       return json({ error: "A material with this code already exists" }, { status: 409 });
@@ -76,10 +77,12 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.INVENTORY_MANAGE);
+  const company = await getCompany();
   const { id } = await params;
-  // Material is a global catalog entity — verify it exists and isn't deleted.
+  // Material is company-scoped (Material.companyId) — verify it belongs to the
+  // active company and isn't deleted.
   const existing = await prisma.material.findFirst({
-    where: { id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null },
     select: { id: true },
   });
   if (!existing) {

@@ -266,8 +266,8 @@ function ExpenseCard({ e }: { e: ExpenseListItem }) {
                 {formatDate(e.date)}
               </span>
               <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: statusColor }} />
-              <span className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: statusColor }}>
-                {e.status}
+              <span className="text-m-caption font-semibold tracking-wide" style={{ color: statusColor }}>
+                {e.status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
               </span>
             </div>
 

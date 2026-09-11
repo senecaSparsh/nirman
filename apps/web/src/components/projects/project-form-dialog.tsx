@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { FileText, ShieldCheck } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Input, Select } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Field } from "@/components/field";
+import { required, nonNegativeNumber, numberInRange, validateForm } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 import { cn } from "@/lib/utils";
 
 export type ProjectFormValues = {
@@ -90,12 +93,32 @@ export function ProjectFormDialog({
 
   function set<K extends keyof ProjectFormValues>(key: K, value: ProjectFormValues[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+    clearError(key);
   }
+
+  // ── Inline validation ──────────────────────────────────────────
+  // Validates on blur and shows red error text under the field instantly.
+  const validationRules: ValidationRules<ProjectFormValues> = {
+    name: (v) => required(v as string, "Project name"),
+    totalBudget: (v) => nonNegativeNumber((v ?? "") as string | number, "Total Budget"),
+    totalSellableArea: (v) => nonNegativeNumber((v ?? "") as string | number, "Sellable Area"),
+    lciThreshold: (v) => numberInRange((v ?? "") as string | number, 0, 100, "LCI Threshold"),
+    atsRegistrationAmount: (v) => nonNegativeNumber((v ?? "") as string | number, "Registration Amount"),
+  };
+  const { errors, setErrors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<ProjectFormValues>(validationRules);
+
+  // Reset validation errors when the dialog opens fresh.
+  useEffect(() => {
+    if (!open) return;
+    clearAll();
+  }, [open]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name.trim()) {
-      toast.error("Project name is required");
+    const formErrors = validateForm(form, validationRules);
+    if (Object.keys(formErrors).length > 0) {
+      toast.error(Object.values(formErrors)[0]!);
+      setErrors(formErrors);
       return;
     }
     setSaving(true);
@@ -145,20 +168,20 @@ export function ProjectFormDialog({
       className="max-w-xl"
     >
       <form onSubmit={onSubmit} className="space-y-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="p-name">Project Name *</Label>
+        <Field label="Project Name" required error={errors.name}>
           <Input
             id="p-name"
             value={form.name}
             onChange={(e) => set("name", e.target.value)}
+            onBlur={() => onBlur("name", form)}
+            aria-invalid={!!errors.name}
             placeholder="e.g. Apex Center — Tower One"
             required
           />
-        </div>
+        </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="p-type">Type</Label>
+          <Field label="Type">
             <Select id="p-type" value={form.type} onChange={(e) => set("type", e.target.value as ProjectFormValues["type"])}>
               {(Object.keys(TYPE_LABELS) as ProjectFormValues["type"][]).map((t) => (
                 <option key={t} value={t}>
@@ -166,9 +189,8 @@ export function ProjectFormDialog({
                 </option>
               ))}
             </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="p-status">Status</Label>
+          </Field>
+          <Field label="Status">
             <Select id="p-status" value={form.status} onChange={(e) => set("status", e.target.value as ProjectFormValues["status"])}>
               {(Object.keys(STATUS_LABELS) as ProjectFormValues["status"][]).map((s) => (
                 <option key={s} value={s}>
@@ -176,39 +198,36 @@ export function ProjectFormDialog({
                 </option>
               ))}
             </Select>
-          </div>
+          </Field>
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="p-address">Address</Label>
+        <Field label="Address">
           <Input id="p-address" value={form.address ?? ""} onChange={(e) => set("address", e.target.value)} placeholder="Site address — plot no, area, city, PIN" />
-        </div>
+        </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="p-start">Start Date</Label>
+          <Field label="Start Date">
             <Input id="p-start" type="date" value={form.startDate ?? ""} onChange={(e) => set("startDate", e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="p-end">End Date</Label>
+          </Field>
+          <Field label="End Date">
             <Input id="p-end" type="date" value={form.endDate ?? ""} onChange={(e) => set("endDate", e.target.value)} />
-          </div>
+          </Field>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="p-budget">Total Budget (₹)</Label>
+          <Field label="Total Budget (₹)" error={errors.totalBudget}>
             <Input
               id="p-budget"
               type="number"
               min={0}
               value={form.totalBudget ?? ""}
               onChange={(e) => set("totalBudget", e.target.value === "" ? undefined : Number(e.target.value))}
+              onBlur={() => onBlur("totalBudget", form)}
+              aria-invalid={!!errors.totalBudget}
               placeholder="0"
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="p-area">Sellable Area (sq.ft)</Label>
+          </Field>
+          <Field label="Sellable Area (sq.ft)" error={errors.totalSellableArea}>
             <Input
               id="p-area"
               type="number"
@@ -216,18 +235,18 @@ export function ProjectFormDialog({
               step="any"
               value={form.totalSellableArea ?? ""}
               onChange={(e) => set("totalSellableArea", e.target.value === "" ? undefined : Number(e.target.value))}
+              onBlur={() => onBlur("totalSellableArea", form)}
+              aria-invalid={!!errors.totalSellableArea}
               placeholder="0"
             />
-          </div>
+          </Field>
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="p-desc">Description</Label>
+        <Field label="Description">
           <Textarea id="p-desc" value={form.description ?? ""} onChange={(e) => set("description", e.target.value)} rows={3} placeholder="Optional notes" />
-        </div>
+        </Field>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="p-lci">LCI Threshold (%) — optional</Label>
+        <Field label="LCI Threshold (%) — optional" error={errors.lciThreshold}>
           <Input
             id="p-lci"
             type="number"
@@ -236,12 +255,14 @@ export function ProjectFormDialog({
             step="any"
             value={form.lciThreshold ?? ""}
             onChange={(e) => set("lciThreshold", e.target.value === "" ? undefined : Number(e.target.value))}
+            onBlur={() => onBlur("lciThreshold", form)}
+            aria-invalid={!!errors.lciThreshold}
             placeholder="Company default"
           />
           <p className="text-caption text-muted-foreground">
             Per-project LCI (Low-Cost Item) threshold override. Items below this % of project budget are auto-procured without PO. Leave blank to use company default.
           </p>
-        </div>
+        </Field>
 
         {/* ── RERA Registration ── */}
         <div className="rounded-md border border-border p-3 space-y-3">
@@ -255,44 +276,40 @@ export function ProjectFormDialog({
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="p-rera-no">RERA Number</Label>
+            <Field label="RERA Number">
               <Input
                 id="p-rera-no"
                 value={form.reraNumber ?? ""}
                 onChange={(e) => set("reraNumber", e.target.value)}
                 placeholder="e.g. P1234567890"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="p-rera-date">Registration Date</Label>
+            </Field>
+            <Field label="Registration Date">
               <Input
                 id="p-rera-date"
                 type="date"
                 value={form.reraRegistrationDate ?? ""}
                 onChange={(e) => set("reraRegistrationDate", e.target.value)}
               />
-            </div>
+            </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="p-rera-valid">Validity Date</Label>
+            <Field label="Validity Date">
               <Input
                 id="p-rera-valid"
                 type="date"
                 value={form.reraValidityDate ?? ""}
                 onChange={(e) => set("reraValidityDate", e.target.value)}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="p-rera-url">RERA Website URL</Label>
+            </Field>
+            <Field label="RERA Website URL">
               <Input
                 id="p-rera-url"
                 value={form.reraWebsiteUrl ?? ""}
                 onChange={(e) => set("reraWebsiteUrl", e.target.value)}
                 placeholder="https://maharera.maharashtra.gov.in/..."
               />
-            </div>
+            </Field>
           </div>
         </div>
 
@@ -334,31 +351,30 @@ export function ProjectFormDialog({
             </div>
             {form.isATS && (
               <div className="grid grid-cols-2 gap-3 pt-1">
-                <div className="space-y-1.5">
-                  <Label htmlFor="p-ats-amt">Registration Amount (₹)</Label>
+                <Field label="Registration Amount (₹)" error={errors.atsRegistrationAmount}>
                   <Input
                     id="p-ats-amt"
                     type="number"
                     min={0}
                     value={form.atsRegistrationAmount ?? ""}
                     onChange={(e) => set("atsRegistrationAmount", e.target.value === "" ? undefined : Number(e.target.value))}
+                    onBlur={() => onBlur("atsRegistrationAmount", form)}
+                    aria-invalid={!!errors.atsRegistrationAmount}
                     placeholder="e.g. 500000"
                   />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="p-ats-date">Expected Registry Date</Label>
+                </Field>
+                <Field label="Expected Registry Date">
                   <Input
                     id="p-ats-date"
                     type="date"
                     value={form.atsExpectedRegistryDate ?? ""}
                     onChange={(e) => set("atsExpectedRegistryDate", e.target.value || undefined)}
                   />
-                </div>
+                </Field>
               </div>
             )}
             {!form.isATS && (
-              <div className="space-y-1.5 pt-1">
-                <Label htmlFor="p-reg-no">Registry / Sale Deed No.</Label>
+              <Field label="Registry / Sale Deed No." className="pt-1">
                 <Input
                   id="p-reg-no"
                   value={form.registryNo ?? ""}
@@ -368,7 +384,7 @@ export function ProjectFormDialog({
                 <p className="text-caption text-muted-foreground">
                   Enter the sale deed / registry number for the land on which this project is built.
                 </p>
-              </div>
+              </Field>
             )}
           </div>
         )}

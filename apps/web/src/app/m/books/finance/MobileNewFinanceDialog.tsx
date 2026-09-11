@@ -10,6 +10,7 @@ import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCrea
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileFab } from "@/components/mobile/v2/scaffold";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
+import { MobileNewSubcontractorDialog } from "@/app/m/work-orders/MobileNewSubcontractorDialog";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useTodayDate } from "@/lib/use-today-date";
 
@@ -98,6 +99,7 @@ export function MobileNewFinanceDialog({
   const router = useRouter();
   const today = useTodayDate();
   const [saving, setSaving] = useState(false);
+  const [localSubcontractors, setLocalSubcontractors] = useState(subcontractors);
   const [tab, setTab] = useState<Tab>(
     initialTab ?? (canCreateExpense ? "expense" : "projectCost"),
   );
@@ -513,23 +515,34 @@ export function MobileNewFinanceDialog({
                 </div>
 
                 {/* Subcontractor (from master) */}
-                {subcontractors.length > 0 && (
-                  <div>
-                    <MobileSelectWithCreate
-                      label="Subcontractor"
-                      value={costForm.subcontractorId}
-                      onChange={(v) => setCost("subcontractorId", v)}
-                      placeholder="— None —"
-                      options={subcontractors.map((s) => ({
-                        value: s.id,
-                        label: s.name,
-                        sub: s.trade ?? undefined,
-                      }))}
-                      inputClass={inputClass}
-                      inputStyle={inputStyle}
-                    />
-                  </div>
-                )}
+                <div>
+                  <MobileSelectWithCreate
+                    label="Subcontractor"
+                    value={costForm.subcontractorId}
+                    onChange={(v) => setCost("subcontractorId", v)}
+                    placeholder="— None —"
+                    options={localSubcontractors.map((s) => ({
+                      value: s.id,
+                      label: s.name,
+                      sub: s.trade ?? undefined,
+                    }))}
+                    inputClass={inputClass}
+                    inputStyle={inputStyle}
+                    renderDialog={({ open, onClose, onCreated }) => (
+                      <MobileNewSubcontractorDialog
+                        open={open}
+                        onClose={onClose}
+                        nested
+                        onCreated={(s) => {
+                          setLocalSubcontractors((prev) =>
+                            prev.find((x) => x.id === s.id) ? prev : [...prev, s],
+                          );
+                          onCreated(s.id, s.name);
+                        }}
+                      />
+                    )}
+                  />
+                </div>
 
                 {/* Notes */}
                 <div>

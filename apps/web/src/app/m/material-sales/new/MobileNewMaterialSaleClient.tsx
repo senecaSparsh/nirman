@@ -7,16 +7,10 @@ import {
   Trash2,
   Loader2,
   CheckCircle2,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  ChevronDown,
   User,
   MapPin,
   Package,
   Building2,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Wallet,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Send,
   WifiOff,
   ShieldCheck,
 } from "lucide-react";
@@ -36,6 +30,9 @@ import { useLongPressNav } from "@/lib/use-long-press-nav";
 import { useUnsavedGuard } from "@/lib/use-unsaved-guard";
 import { MobileNewCustomerDialog } from "@/app/m/sales/MobileNewCustomerDialog";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
+import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
+import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewStockLocationDialog";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import {
   VehicleCapture,
   type VehicleData,
@@ -741,8 +738,10 @@ export default function MobileNewMaterialSaleClient({
       <SaleForm
         customers={customers}
         locations={locations}
+        setLocations={setLocations}
         materials={materials}
         projects={projects}
+        setProjects={setProjects}
         customerId={customerId}
         setCustomerId={setCustomerId}
         projectId={projectId}
@@ -780,8 +779,10 @@ export default function MobileNewMaterialSaleClient({
 function SaleForm({
   customers,
   locations,
+  setLocations,
   materials,
   projects,
+  setProjects,
   customerId,
   setCustomerId,
   projectId,
@@ -811,8 +812,10 @@ function SaleForm({
 }: {
   customers: CustomerItem[];
   locations: LocationItem[];
+  setLocations: React.Dispatch<React.SetStateAction<LocationItem[]>>;
   materials: MaterialItem[];
   projects: ProjectItem[];
+  setProjects: React.Dispatch<React.SetStateAction<ProjectItem[]>>;
   customerId: string;
   setCustomerId: (v: string) => void;
   projectId: string;
@@ -847,16 +850,18 @@ function SaleForm({
   } | null>(null);
   const [showNewCustomerDialog, setShowNewCustomerDialog] = useState(false);
   const [showNewMaterialDialog, setShowNewMaterialDialog] = useState(false);
+  const [showNewProjectDialog, setShowNewProjectDialog] = useState(false);
+  const [showNewLocationDialog, setShowNewLocationDialog] = useState(false);
   const [extraCustomers, setExtraCustomers] = useState<CustomerItem[]>([]);
   const [extraMaterials, setExtraMaterials] = useState<MaterialItem[]>([]);
   const submitLongPress = useLongPressNav("/m/material-sales", "Sales list");
 
   const allCustomers = useMemo(
-    () => [...customers, ...extraCustomers],
+    () => [...customers, ...extraCustomers].filter((c, i, arr) => arr.findIndex((x) => x.id === c.id) === i),
     [customers, extraCustomers],
   );
   const allMaterials = useMemo(
-    () => [...materials, ...extraMaterials],
+    () => [...materials, ...extraMaterials].filter((m, i, arr) => arr.findIndex((x) => x.id === m.id) === i),
     [materials, extraMaterials],
   );
 
@@ -1489,14 +1494,26 @@ function SaleForm({
                 ? () => {
                     setShowNewMaterialDialog(true);
                   }
-                : undefined
+                : modal.type === "project"
+                  ? () => {
+                      setShowNewProjectDialog(true);
+                    }
+                  : modal.type === "location"
+                    ? () => {
+                        setShowNewLocationDialog(true);
+                      }
+                    : undefined
           }
           createLabel={
             modal.type === "customer"
               ? "Create new customer"
               : modal.type === "material"
                 ? "Create new material"
-                : undefined
+                : modal.type === "project"
+                  ? "Create new project"
+                  : modal.type === "location"
+                    ? "Create new location"
+                    : undefined
           }
         />
       ) : null}
@@ -1507,7 +1524,7 @@ function SaleForm({
         onClose={() => setShowNewCustomerDialog(false)}
         nested
         onCreated={(c) => {
-          setExtraCustomers((prev) => [
+          setExtraCustomers((prev) => prev.some((x) => x.id === c.id) ? prev : [
             ...prev,
             { id: c.id, name: c.name, phone: null },
           ]);
@@ -1531,7 +1548,7 @@ function SaleForm({
             unit: m.unit,
             gstRate: m.gstRate,
           };
-          setExtraMaterials((prev) => [...prev, newMat]);
+          setExtraMaterials((prev) => prev.some((x) => x.id === newMat.id) ? prev : [...prev, newMat]);
           if (modal?.lineIndex !== undefined) {
             onLineChange(modal.lineIndex, "materialId", m.id);
           }
@@ -1539,37 +1556,39 @@ function SaleForm({
           closeModal();
         }}
       />
-    </div>
-  );
-}
 
-/* ═══════════════════════════════════════════════════════════
- * Section header — divides the form into purpose-driven sections
- * ═══════════════════════════════════════════════════════════ */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function SectionHeader({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  icon: Icon,
-  label,
-}: {
-  icon: React.ComponentType<{
-    className?: string;
-    style?: React.CSSProperties;
-  }>;
-  label: string;
-}) {
-  return (
-    <div className="flex items-center gap-1.5 mt-1">
-      <span
-        className="text-m-section font-extrabold tracking-tight"
-        style={{ color: "var(--color-ink-950)" }}
-      >
-        {label}
-      </span>
-      <div
-        className="flex-1 h-px"
-        style={{ backgroundColor: "var(--color-line)" }}
+      {/* Inline project create dialog */}
+      {showNewProjectDialog ? (
+        <MobileFabModal open onClose={() => setShowNewProjectDialog(false)} title="New Project" nested>
+          <MobileNewProjectDialog
+            open
+            onClose={() => setShowNewProjectDialog(false)}
+            onCreated={(p) => {
+              setProjects((prev) => prev.some((x) => x.id === p.id) ? prev : [...prev, { id: p.id, name: p.name }]);
+              setProjectId(p.id);
+              setShowNewProjectDialog(false);
+              closeModal();
+            }}
+          />
+        </MobileFabModal>
+      ) : null}
+
+      {/* Inline location create dialog */}
+      <MobileNewStockLocationDialog
+        open={showNewLocationDialog}
+        onClose={() => setShowNewLocationDialog(false)}
+        projects={projects}
+        nested
+        onCreated={(l) => {
+          setLocations((prev) => prev.some((x) => x.id === l.id) ? prev : [...prev, { id: l.id, name: l.name, type: l.type }]);
+          if (modal?.lineIndex !== undefined) {
+            onLineChange(modal.lineIndex, "locationId", l.id);
+          }
+          setShowNewLocationDialog(false);
+          closeModal();
+        }}
       />
     </div>
   );
 }
+

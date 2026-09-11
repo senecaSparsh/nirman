@@ -65,7 +65,7 @@ async function DprsContent() {
     }),
     Promise.resolve(scopedOpts.projects),
     prisma.material.findMany({
-      where: { deletedAt: null },
+      where: { companyId: company.id, deletedAt: null },
       select: { id: true, name: true, unit: true, standardCost: true },
       orderBy: { name: "asc" },
       take: 200,

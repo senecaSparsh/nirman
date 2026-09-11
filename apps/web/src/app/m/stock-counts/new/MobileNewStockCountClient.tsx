@@ -16,6 +16,7 @@ import { DraftBanner } from "@/components/mobile/draft-banner";
 import { ScanButton } from "@/components/mobile/v2/scan-button";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { SelectorCard, SelectorModal } from "@/components/mobile/v2/form-primitives";
+import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewStockLocationDialog";
 
 interface LocationItem { id: string; name: string; type: string; }
 interface StockItem {
@@ -62,6 +63,7 @@ export default function MobileNewStockCountClient({ onClose, onCreated }: { onCl
   const [notes, setNotes] = useState("");
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showMaterialModal, setShowMaterialModal] = useState(false);
+  const [showNewLocationDialog, setShowNewLocationDialog] = useState(false);
   const [stockLoading, setStockLoading] = useState(false);
 
   const [success, setSuccess] = useState<{ id: string } | null>(null);
@@ -607,6 +609,8 @@ export default function MobileNewStockCountClient({ onClose, onCreated }: { onCl
             setShowLocationModal(false);
           }}
           onClose={() => setShowLocationModal(false)}
+          onCreate={() => setShowNewLocationDialog(true)}
+          createLabel="Create new location"
         />
       ) : null}
 
@@ -630,6 +634,20 @@ export default function MobileNewStockCountClient({ onClose, onCreated }: { onCl
           onClose={() => setShowMaterialModal(false)}
         />
       ) : null}
+
+      {/* ── Inline create location dialog ── */}
+      <MobileNewStockLocationDialog
+        open={showNewLocationDialog}
+        onClose={() => setShowNewLocationDialog(false)}
+        projects={[]}
+        nested
+        onCreated={(l) => {
+          setLocations((prev) => prev.some((x) => x.id === l.id) ? prev : [...prev, { id: l.id, name: l.name, type: l.type }]);
+          setLocationId(l.id);
+          setShowNewLocationDialog(false);
+          setShowLocationModal(false);
+        }}
+      />
     </div>
     </>
   );

@@ -27,6 +27,7 @@ import { OutstandingActionCard } from "@/components/finance/outstanding-action-c
 import type { ProjectCostRow, AuditLogRow, ProjectOption, ExpenseRow, ExpenseCategoryRow, GlAccountOption } from "@/lib/types";
 
 import { NoAccess } from "@/components/no-access";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 export default function FinancePage({
   searchParams,
 }: {
@@ -193,8 +194,8 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
   const [expenseCategories, glAccounts, users] = await Promise.all([
     prisma.expenseCategory.findMany({ where: { companyId: company.id }, orderBy: { name: "asc" } }),
     (async () => {
-      let accounts = await prisma.glAccount.findMany({ orderBy: { code: "asc" }, select: { code: true, name: true, type: true, isSystem: true } });
-      if (accounts.length === 0) { await seedChartOfAccounts(); accounts = await prisma.glAccount.findMany({ orderBy: { code: "asc" }, select: { code: true, name: true, type: true, isSystem: true } }); }
+      let accounts = await prisma.glAccount.findMany({ where: { companyId: company.id }, orderBy: { code: "asc" }, select: { id: true, code: true, name: true, type: true, isSystem: true } });
+      if (accounts.length === 0) { await seedChartOfAccounts(company.id); accounts = await prisma.glAccount.findMany({ where: { companyId: company.id }, orderBy: { code: "asc" }, select: { id: true, code: true, name: true, type: true, isSystem: true } }); }
       return accounts;
     })(),
     prisma.user.findMany({ where: { memberships: { some: { companyId: company.id } }, isHidden: { not: true } }, orderBy: { name: "asc" }, select: { id: true, name: true }, take: 200 }),
@@ -275,6 +276,7 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
           { label: "Costs + Expenses", value: formatCurrency(totalCosts + totalExpenses), tone: "danger", hint: `${formatCurrency(totalCosts)} project costs + ${formatCurrency(totalExpenses)} operating expenses.` },
         ]}
       />
+      <DepartmentActivityFeed department="finance" />
       <OutstandingActionCard outstanding={outstanding} outstandingSaleCount={outstandingSaleCount} />
       <FinanceTabs
         overview={

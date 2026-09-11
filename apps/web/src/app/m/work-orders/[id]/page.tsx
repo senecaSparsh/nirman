@@ -1,8 +1,7 @@
 import { prisma } from "@nirman/db";
-import { toNum, scopeWhere } from "@/lib/server";
+import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
-import Link from "next/link";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import {
   MobileEmptyState,
@@ -19,6 +18,8 @@ import {
 } from "@/components/mobile/v2/detail-primitives";
 import { FileText, Wrench, IndianRupee, TrendingUp, Building } from "lucide-react";
 import { MobileWorkOrderActions } from "./MobileWorkOrderActions";
+import { MobileRaBillActions } from "./MobileRaBillActions";
+import { MobileCreateRaBillButton } from "./MobileCreateRaBillButton";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export const metadata = { title: "Work Order — Nirman" };
@@ -54,6 +55,8 @@ export default function MobileWorkOrderDetailPage({
                 grossAmount: true,
                 netPayable: true,
                 cumulativeGross: true,
+                createdById: true,
+                submittedById: true,
               },
             },
           },
@@ -70,6 +73,10 @@ export default function MobileWorkOrderDetailPage({
         }
 
         const canPay = hasPermission(role, PERM.RA_PAY);
+        const canSubmitRaBill = hasPermission(role, PERM.RA_SUBMIT);
+        const canApproveRaBill = hasPermission(role, PERM.RA_APPROVE);
+        const currentUser = await getCurrentUser();
+        const currentUserId = currentUser?.id ?? "";
         const totalWorkDone = toNum(wo.totalWorkDone);
         const totalPaid = toNum(wo.totalPaid);
         const retentionBalance = toNum(wo.retentionBalance);
@@ -210,16 +217,20 @@ export default function MobileWorkOrderDetailPage({
 
             {/* ── RA Bills ── */}
             <div>
-              <SectionHead title={`RA Bills (${wo.raBills.length})`} />
+              <div className="flex items-center justify-between mb-2">
+                <SectionHead title={`RA Bills (${wo.raBills.length})`} />
+                {canSubmitRaBill && (
+                  <MobileCreateRaBillButton workOrderId={wo.id} workOrderNumber={wo.workOrderNumber} />
+                )}
+              </div>
               {wo.raBills.length === 0 ? (
-                <MobileEmptyState icon={FileText} title="No RA bills yet" size="compact" />
+                <MobileEmptyState icon={FileText} title={canSubmitRaBill ? "No RA bills yet — tap Create RA Bill above" : "No RA bills yet"} size="compact" />
               ) : (
                 <div className="flex flex-col gap-2">
                   {wo.raBills.map((bill) => (
-                    <Link
+                    <div
                       key={bill.id}
-                      href={`/m/work-orders/${wo.id}?bill=${bill.id}`}
-                      className="rounded-[0.5rem] border p-2.5 text-m-body press"
+                      className="rounded-[0.5rem] border p-2.5 text-m-body"
                       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                     >
                       <div className="flex items-center justify-between mb-1">
@@ -249,7 +260,18 @@ export default function MobileWorkOrderDetailPage({
                           </p>
                         </div>
                       </div>
-                    </Link>
+                      <MobileRaBillActions
+                        billId={bill.id}
+                        billNumber={bill.raBillNumber}
+                        status={bill.status}
+                        netPayable={toNum(bill.netPayable)}
+                        canSubmit={canSubmitRaBill}
+                        canApprove={canApproveRaBill}
+                        canPay={canPay}
+                        isCreator={bill.createdById === currentUserId}
+                        isSubmitter={bill.submittedById === currentUserId}
+                      />
+                    </div>
                   ))}
                 </div>
               )}

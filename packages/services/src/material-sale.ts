@@ -193,9 +193,9 @@ export async function createMaterialSale(input: CreateMaterialSaleInput) {
       });
       if (!location) throw new ServiceError(`Stock location ${line.locationId} not found or does not belong to this company`, 404);
 
-      // Validate material exists
+      // Validate material exists and belongs to the active company
       const material = await tx.material.findFirst({
-        where: { id: line.materialId, deletedAt: null },
+        where: { id: line.materialId, companyId: input.companyId, deletedAt: null },
       });
       if (!material) throw new ServiceError(`Material ${line.materialId} not found or deleted`, 404);
 
@@ -401,7 +401,7 @@ export async function createMaterialSaleRequest(input: CreateMaterialSaleInput) 
       });
       if (!stockItem) throw new ServiceError(`No stock for material ${line.materialId} at location ${line.locationId}`);
 
-      const material = await tx.material.findFirst({ where: { id: line.materialId, deletedAt: null } });
+      const material = await tx.material.findFirst({ where: { id: line.materialId, companyId: input.companyId, deletedAt: null } });
       if (!material) throw new ServiceError(`Material ${line.materialId} not found`, 404);
 
       const unitCost = new Decimal(stockItem.movingAvgCost);

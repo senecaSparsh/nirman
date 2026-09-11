@@ -88,17 +88,17 @@ export async function recordStockAdjustment(
     throw new ServiceError("A reason is required for a manual stock adjustment");
   }
 
-  const material = await prisma.material.findFirst({
-    where: { id: input.materialId, deletedAt: null },
-    select: { id: true, code: true, name: true, unit: true, standardCost: true, isLotTracked: true },
-  });
-  if (!material) throw new ServiceError("Material not found or deleted", 404);
-
   const location = await prisma.stockLocation.findFirst({
     where: { id: input.locationId, deletedAt: null },
     select: { id: true, name: true, companyId: true },
   });
   if (!location) throw new ServiceError("Stock location not found or deleted", 404);
+
+  const material = await prisma.material.findFirst({
+    where: { id: input.materialId, companyId: location.companyId, deletedAt: null },
+    select: { id: true, code: true, name: true, unit: true, standardCost: true, isLotTracked: true },
+  });
+  if (!material) throw new ServiceError("Material not found or deleted", 404);
 
   const movementType = input.direction === "IN" ? "ADJUSTMENT_IN" : "ADJUSTMENT_OUT";
 

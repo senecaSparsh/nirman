@@ -98,7 +98,7 @@ export async function createGatePass(input: CreateGatePassInput) {
   // Pre-fetch material snapshots for lines that have materialId but no snapshot
   const materialIds = input.lines.filter((l) => l.materialId && !l.materialName).map((l) => l.materialId!);
   const materials = materialIds.length > 0
-    ? await prisma.material.findMany({ where: { id: { in: materialIds }, deletedAt: null }, select: { id: true, code: true, name: true, unit: true } })
+    ? await prisma.material.findMany({ where: { id: { in: materialIds }, companyId: input.companyId, deletedAt: null }, select: { id: true, code: true, name: true, unit: true } })
     : [];
   const materialMap = new Map(materials.map((m) => [m.id, m]));
 
@@ -274,6 +274,10 @@ export async function rejectGatePass(id: string, rejecterId: string, reason: str
     const gp = await tx.gatePass.findUnique({ where: { id } });
     if (!gp) throw new ServiceError("Gate pass not found", 404);
     if (gp.status !== "PENDING") throw new ServiceError(`Cannot reject gate pass in status ${gp.status}`);
+    // Prevent self-rejection — the creator cannot reject their own gate pass.
+    if (gp.createdById && gp.createdById === rejecterId) {
+      throw new ServiceError("You cannot reject a gate pass you created.", 403);
+    }
 
     const updated = await tx.gatePass.update({
       where: { id },
@@ -526,7 +530,7 @@ export async function autoCreateGatePassFromRef(
   // Pre-fetch material snapshots
   const materialIds = params.lines.filter((l) => l.materialId && !l.materialName).map((l) => l.materialId!);
   const materials = materialIds.length > 0
-    ? await tx.material.findMany({ where: { id: { in: materialIds }, deletedAt: null }, select: { id: true, code: true, name: true, unit: true } })
+    ? await tx.material.findMany({ where: { id: { in: materialIds }, companyId: params.companyId, deletedAt: null }, select: { id: true, code: true, name: true, unit: true } })
     : [];
   const materialMap = new Map(materials.map((m) => [m.id, m]));
 

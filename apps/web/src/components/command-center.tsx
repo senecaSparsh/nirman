@@ -108,7 +108,7 @@ export function CommandCenter(props: ProfileTabsProps) {
         <div>
           <div className="mb-3 flex items-baseline justify-between gap-4">
             <h3 className="text-body font-semibold text-foreground">Needs your attention</h3>
-            {blockingQueues > 0 && (
+            {blockingQueues > 0 && props.canApprove && (
               <Link
                 href="/approvals"
                 className="flex items-center gap-1 text-caption font-medium text-brand transition-opacity hover:opacity-80"
@@ -136,7 +136,7 @@ export function CommandCenter(props: ProfileTabsProps) {
       )}
 
       {/* ══ 4. Tasks ═══════════════════════════════════════════════ */}
-      <MyTasksPanel limit={5} />
+      {props.canSeeTasks && <MyTasksPanel limit={5} />}
 
       {/* ══ 5. At a glance (charts) ═════════════════════════════════ */}
       <OverviewCharts

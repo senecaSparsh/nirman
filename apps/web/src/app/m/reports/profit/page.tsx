@@ -40,7 +40,7 @@ async function MobileProfitContent() {
 
   const entries = await prisma.journalEntry.findMany({
     where: { companyId: company.id, status: "POSTED", entryDate: { gte: from } },
-    include: { lines: true },
+    include: { lines: { include: { account: { select: { code: true } } } } },
     orderBy: { entryDate: "asc" },
   });
 
@@ -64,10 +64,10 @@ async function MobileProfitContent() {
     for (const line of entry.lines) {
       const debit = toNum(line.debit);
       const credit = toNum(line.credit);
-      if (line.accountCode === SALES_REVENUE) row.revenue += credit;
-      else if (line.accountCode === COGS) row.cogs += debit;
-      else if (line.accountCode === OPERATING_EXPENSE) row.operating += debit;
-      else if (line.accountCode === SALARIES_EXPENSE) row.salaries += debit;
+      if (line.account.code === SALES_REVENUE) row.revenue += credit;
+      else if (line.account.code === COGS) row.cogs += debit;
+      else if (line.account.code === OPERATING_EXPENSE) row.operating += debit;
+      else if (line.account.code === SALARIES_EXPENSE) row.salaries += debit;
     }
   }
 

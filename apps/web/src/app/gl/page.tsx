@@ -41,7 +41,7 @@ async function GeneralLedgerContent() {
   const [tb, accounts, tallyStats, tallyConfig] = await Promise.all([
     trialBalance(company.id),
     prisma.glAccount.findMany({
-    take: 500, orderBy: { code: "asc" } }),
+    where: { companyId: company.id }, take: 500, orderBy: { code: "asc" } }),
     getTallySyncStats(company.id),
     getIntegrationConfig({ companyId: company.id, key: "TALLY" }),
   ]);

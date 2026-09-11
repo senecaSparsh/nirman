@@ -1,16 +1,20 @@
 "use client";
 
-import {useState, useEffect} from "react";
+import {useState, useEffect, useMemo} from "react";
 import { useRouter } from "next/navigation";
 import {
   Package, Send, Loader2, Plus,
-  CheckCircle2, Sparkles,
+  Sparkles,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
+import { previewMaterialCode } from "@/lib/material-code";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { required, nonNegativeNumber, numberInRange } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 import { HsnSacSearch } from "@/components/hsn-sac-search";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileStockLocationSelect } from "@/components/mobile/selectors";
 import { MobileNewCategoryDialog } from "./MobileNewCategoryDialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
@@ -18,6 +22,16 @@ interface Category {
   id: string;
   name: string;
   unit: string;
+  hsnCode?: string | null;
+  gstRate?: number | string | null | { toNumber(): number };
+}
+
+/** Normalize gstRate (which may be a Prisma Decimal) to a number. */
+function gstToNum(v: Category["gstRate"]): number {
+  if (v == null) return 0;
+  if (typeof v === "number") return v;
+  if (typeof v === "string") return Number(v) || 0;
+  return v.toNumber();
 }
 
 interface ExistingMaterial {
@@ -40,14 +54,15 @@ const COMMON_UNITS = ["NOS", "BAG", "KG", "TON", "MTR", "FEET", "SQFT", "CUM", "
 export default function MobileNewMaterialClient({
   categories,
   material,
+  locations = [],
 }: {
   categories: Category[];
   material?: ExistingMaterial;
+  locations?: { id: string; name: string; projectName: string | null }[];
 }) {
   const router = useRouter();
   const isEdit = !!material;
   const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState<{ name: string; code: string; id: string } | null>(null);
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [categoryList, setCategoryList] = useState(categories);
 
@@ -62,40 +77,54 @@ export default function MobileNewMaterialClient({
   const [standardCost, setStandardCost] = useState(material ? String(material.standardCost) : "");
   const [reorderPoint, setReorderPoint] = useState(material?.reorderPoint != null ? String(material.reorderPoint) : "");
   const [description, setDescription] = useState(material?.description ?? "");
+  // Opening stock — only for new materials (not edit)
+  const [openingQty, setOpeningQty] = useState("");
+  const [openingLocationId, setOpeningLocationId] = useState(locations[0]?.id ?? "");
+  const [openingUnitCost, setOpeningUnitCost] = useState("");
 
-  // Auto-code preview — fetch from API when category or grade changes.
-  const [codePreview, setCodePreview] = useState("");
+  // ── Inline validation ──────────────────────────────────────────
+  type MobileMaterialForm = {
+    name: string; categoryId: string; unit: string; gstRate: string;
+    standardCost: string; reorderPoint: string; openingQty: string; openingUnitCost: string;
+  };
+  const validationRules: ValidationRules<MobileMaterialForm> = {
+    name: (v) => required(v as string, "Material name"),
+    categoryId: (v) => required(v as string, "Category"),
+    unit: (v) => required(v as string, "Unit"),
+    gstRate: (v) => numberInRange(v as string, 0, 100, "GST rate"),
+    standardCost: (v) => nonNegativeNumber(v as string, "Standard cost"),
+    reorderPoint: (v) => nonNegativeNumber(v as string, "Reorder pt."),
+    openingQty: (v) => nonNegativeNumber(v as string, "Qty on hand"),
+    openingUnitCost: (v) => nonNegativeNumber(v as string, "Unit cost"),
+  };
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<MobileMaterialForm>(validationRules);
+  const formValues: MobileMaterialForm = { name, categoryId, unit, gstRate, standardCost, reorderPoint, openingQty, openingUnitCost };
+
+  // Instant client-side code preview — no API call needed.
   const selectedCategory = categoryList.find((c) => c.id === categoryId);
-  useEffect(() => {
-    if (!selectedCategory || code !== "AUTO") {
-      setCodePreview("");
-      return;
-    }
-    const url = `/api/materials/auto-code?categoryName=${encodeURIComponent(selectedCategory.name)}&grade=${encodeURIComponent(grade)}`;
-    fetch(url)
-      .then((r) => r.json())
-      .then((data: { preview?: string }) => setCodePreview(data.preview ?? ""))
-      .catch(() => setCodePreview(""));
+  const codePreview = useMemo(() => {
+    if (!selectedCategory || code !== "AUTO") return "";
+    return previewMaterialCode(selectedCategory.name, grade);
   }, [selectedCategory, grade, code]);
 
   function handleCategoryChange(newCatId: string) {
     setCategoryId(newCatId);
     const cat = categoryList.find((c) => c.id === newCatId);
-    if (cat) setUnit(cat.unit);
+    if (cat) {
+      setUnit(cat.unit);
+      // Auto-fill HSN + GST from category defaults (user can still override)
+      if (cat.hsnCode) setHsnCode(cat.hsnCode);
+      if (cat.gstRate != null) setGstRate(String(gstToNum(cat.gstRate)));
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) { toast.error("Material name is required"); return; }
-    if (!categoryId) { toast.error("Please select a category"); return; }
-    if (!unit.trim()) { toast.error("Unit is required"); return; }
+    if (!validateAll(formValues)) { toast.error("Please fix the errors in the form"); return; }
 
     const gst = Number(gstRate) || 0;
     const cost = Number(standardCost) || 0;
     const reorder = reorderPoint.trim() === "" ? null : Number(reorderPoint);
-    if (gst < 0 || gst > 100) { toast.error("GST rate must be between 0 and 100"); return; }
-    if (cost < 0) { toast.error("Standard cost cannot be negative"); return; }
-    if (reorder !== null && reorder < 0) { toast.error("Reorder point cannot be negative"); return; }
 
     setSaving(true);
     haptic(10);
@@ -112,6 +141,17 @@ export default function MobileNewMaterialClient({
         standardCost: cost,
         reorderPoint: reorder,
         description: description.trim() || null,
+        // Opening stock — only sent if qty > 0 and a location is selected
+        ...(openingQty && Number(openingQty) > 0 && openingLocationId
+          ? {
+              openingStock: {
+                locationId: openingLocationId,
+                qty: Number(openingQty),
+                unitCost: openingUnitCost ? Number(openingUnitCost) : cost,
+                reason: "Opening stock entry",
+              },
+            }
+          : {}),
       };
       const url = isEdit ? `/api/materials/${material!.id}` : "/api/materials";
       const method = isEdit ? "PATCH" : "POST";
@@ -124,62 +164,17 @@ export default function MobileNewMaterialClient({
       if (!res.ok) throw new Error(data.error ?? `Failed to ${isEdit ? "update" : "create"} material`);
 
       haptic([10, 40, 80]);
-      setSuccess({ name: data.name, code: data.code, id: data.id });
-      toast.success(`${data.name} ${isEdit ? "updated" : "created"} successfully`);
+      toast.success(`${data.name} ${isEdit ? "updated" : "created"} successfully`, {
+        description: data.code,
+      });
+      // Go straight to the material detail page — no extra success screen
+      router.push(`/m/materials/${data.id}`);
     } catch (err) {
       haptic([50, 20, 50]);
       toast.error(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setSaving(false);
     }
-  }
-
-  /* ── Success state ── */
-  if (success) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-        <div
-          className="grid place-items-center size-14 rounded-full mb-3"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
-        >
-          <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
-        </div>
-        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
-          {isEdit ? "Material Updated" : "Material Created"}
-        </p>
-        <p className="text-m-body font-mono mb-3" style={{ color: "var(--color-ink-500)" }}>
-          {success.code}
-        </p>
-        <p className="text-m-section font-semibold mb-4" style={{ color: "var(--color-ink-700)" }}>
-          {success.name}
-        </p>
-        <div className="flex flex-col gap-2">
-          <button
-            onClick={() => router.push(`/m/materials/${success.id}`)}
-            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
-            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-          >
-            View Material
-          </button>
-          <button
-            onClick={() => {
-              setSuccess(null);
-              setCode("AUTO");
-              setName("");
-              setGrade("");
-              setSpecification("");
-              setStandardCost("");
-              setReorderPoint("");
-              setDescription("");
-            }}
-            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-          >
-            Add Another
-          </button>
-        </div>
-      </div>
-    );
   }
 
   /* ── Empty categories guard — with inline create action ── */
@@ -215,6 +210,8 @@ export default function MobileNewMaterialClient({
             setCategoryList((prev) => [...prev, cat]);
             setCategoryId(cat.id);
             setUnit(cat.unit);
+            if (cat.hsnCode) setHsnCode(cat.hsnCode);
+            if (cat.gstRate != null) setGstRate(String(gstToNum(cat.gstRate)));
           }}
         />
       </div>
@@ -237,11 +234,12 @@ export default function MobileNewMaterialClient({
 
       {/* Name + Code — side by side */}
       <div className="grid grid-cols-2 gap-2">
-        <FormField label="Material name" required>
+        <FormField label="Material name" required error={errors.name}>
           <input
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => { setName(e.target.value); clearError("name"); }}
+            onBlur={() => onBlur("name", formValues)}
             placeholder="Cement OPC 53"
             autoComplete="off"
             enterKeyHint="next"
@@ -267,7 +265,7 @@ export default function MobileNewMaterialClient({
               </div>
               <button
                 type="button"
-                onClick={() => { setCode(""); setCodePreview(""); }}
+                onClick={() => { setCode(""); }}
                 className="text-m-caption font-semibold press"
                 style={{ color: "var(--color-ink-500)" }}
               >
@@ -331,7 +329,11 @@ export default function MobileNewMaterialClient({
             required
             value={categoryId}
             onChange={handleCategoryChange}
-            options={categoryList.map((c) => ({ value: c.id, label: c.name }))}
+            options={categoryList.map((c) => ({
+              value: c.id,
+              label: c.name,
+              sub: c.hsnCode ? `HSN ${c.hsnCode}${c.gstRate != null ? ` · ${gstToNum(c.gstRate)}% GST` : ""}` : undefined,
+            }))}
             renderDialog={({ open, onClose, onCreated }) => (
               <MobileNewCategoryDialog
                 open={open}
@@ -339,6 +341,8 @@ export default function MobileNewMaterialClient({
                 onCreated={(cat) => {
                   setCategoryList((prev) => [...prev, cat]);
                   setUnit(cat.unit);
+                  if (cat.hsnCode) setHsnCode(cat.hsnCode);
+                  if (cat.gstRate != null) setGstRate(String(gstToNum(cat.gstRate)));
                   onCreated(cat.id, cat.name);
                 }}
               />
@@ -375,7 +379,7 @@ export default function MobileNewMaterialClient({
             categoryName={selectedCategory?.name}
           />
         </FormField>
-        <FormField label="GST rate (%)">
+        <FormField label="GST rate (%)" error={errors.gstRate}>
           <input
             type="number"
             min="0"
@@ -383,7 +387,8 @@ export default function MobileNewMaterialClient({
             step="0.01"
             enterKeyHint="next"
             value={gstRate}
-            onChange={(e) => setGstRate(e.target.value)}
+            onChange={(e) => { setGstRate(e.target.value); clearError("gstRate"); }}
+            onBlur={() => onBlur("gstRate", formValues)}
             placeholder="0"
             className={`${inputClass} tabular-nums`}
             style={inputStyle}
@@ -392,7 +397,7 @@ export default function MobileNewMaterialClient({
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <FormField label="Std. cost (₹)">
+        <FormField label="Std. cost (₹)" error={errors.standardCost}>
           <div className="flex gap-1">
             <input
               type="number"
@@ -400,7 +405,8 @@ export default function MobileNewMaterialClient({
               step="0.01"
               enterKeyHint="next"
               value={standardCost}
-              onChange={(e) => setStandardCost(e.target.value)}
+              onChange={(e) => { setStandardCost(e.target.value); clearError("standardCost"); }}
+              onBlur={() => onBlur("standardCost", formValues)}
               placeholder="0"
               className={`${inputClass} tabular-nums flex-1`}
               style={inputStyle}
@@ -432,18 +438,26 @@ export default function MobileNewMaterialClient({
             )}
           </div>
         </FormField>
-        <FormField label="Reorder pt.">
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            enterKeyHint="next"
-            value={reorderPoint}
-            onChange={(e) => setReorderPoint(e.target.value)}
-            placeholder={`50 ${unit}`}
-            className={`${inputClass} tabular-nums`}
-            style={inputStyle}
-          />
+        <FormField label="Reorder pt." error={errors.reorderPoint}>
+          <div className="relative">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              enterKeyHint="next"
+              value={reorderPoint}
+              onChange={(e) => { setReorderPoint(e.target.value); clearError("reorderPoint"); }}
+              onBlur={() => onBlur("reorderPoint", formValues)}
+              placeholder="50"
+              className={`${inputClass} tabular-nums pr-12`}
+              style={inputStyle}
+            />
+            {unit && (
+              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-m-caption font-medium" style={{ color: "var(--color-ink-400)" }}>
+                {unit}
+              </span>
+            )}
+          </div>
         </FormField>
       </div>
 
@@ -480,6 +494,101 @@ export default function MobileNewMaterialClient({
       </FormField>
       </div>
 
+      {/* ── Opening Stock (only for new materials) ── */}
+      {!isEdit && (
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Opening Stock{" "}
+            <span className="font-normal" style={{ color: "var(--color-ink-400)" }}>— optional</span>
+          </p>
+          {locations.length === 0 ? (
+            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+              No stock locations yet. Create a warehouse or site yard first to add opening stock.
+            </p>
+          ) : (
+            <>
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+            Add stock you already have on hand. Skip if you're just cataloging.
+          </p>
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <FormField label="Qty on hand" error={errors.openingQty}>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  inputMode="decimal"
+                  enterKeyHint="next"
+                  value={openingQty}
+                  onChange={(e) => { setOpeningQty(e.target.value); clearError("openingQty"); }}
+                  onBlur={() => onBlur("openingQty", formValues)}
+                  placeholder="0"
+                  className={`${inputClass} tabular-nums pr-12`}
+                  style={inputStyle}
+                />
+                {unit && (
+                  <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-m-caption font-medium" style={{ color: "var(--color-ink-400)" }}>
+                    {unit}
+                  </span>
+                )}
+              </div>
+            </FormField>
+            <div className="pl-2">
+              <label className="block text-m-caption font-bold mb-0" style={{ color: errors.openingUnitCost ? "var(--color-stop)" : "var(--color-ink-700)" }}>
+                Unit cost
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                enterKeyHint="next"
+                value={openingUnitCost}
+                onChange={(e) => { setOpeningUnitCost(e.target.value); clearError("openingUnitCost"); }}
+                onBlur={() => onBlur("openingUnitCost", formValues)}
+                placeholder={standardCost || "0"}
+                className={`${inputClass} tabular-nums`}
+                style={inputStyle}
+              />
+              {errors.openingUnitCost && (
+                <p className="text-m-caption font-medium mt-0.5" style={{ color: "var(--color-stop)" }} role="alert">
+                  {errors.openingUnitCost}
+                </p>
+              )}
+            </div>
+          </div>
+          <div>
+            <MobileStockLocationSelect
+              label="Location"
+              value={openingLocationId}
+              onChange={(v) => setOpeningLocationId(v)}
+              options={locations.map((l) => ({
+                value: l.id,
+                label: l.name,
+                sub: l.projectName ?? undefined,
+              }))}
+              placeholder="Select location…"
+              stacked
+            />
+          </div>
+          {openingQty && Number(openingQty) > 0 && (
+            <div
+              className="flex items-baseline justify-between rounded-[0.5rem] border px-3 py-2"
+              style={{ borderColor: "color-mix(in srgb, var(--color-go) 30%, var(--color-line))", backgroundColor: "color-mix(in srgb, var(--color-go) 6%, var(--color-paper))" }}
+            >
+              <span className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                Stock value
+              </span>
+              <span className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+                {formatCurrencyCompact(Number(openingQty) * (Number(openingUnitCost) || costValue))}
+              </span>
+            </div>
+          )}
+            </>
+          )}
+        </div>
+      )}
+
       {/* ── Submit ── */}
       <button
         type="submit"
@@ -504,22 +613,29 @@ export default function MobileNewMaterialClient({
 function FormField({
   label,
   required,
+  error,
   children,
 }: {
   label: string;
   required?: boolean;
+  error?: string;
   children: React.ReactNode;
 }) {
   return (
     <div>
       <label
         className="block text-m-caption font-bold mb-0"
-        style={{ color: "var(--color-ink-700)" }}
+        style={{ color: error ? "var(--color-stop)" : "var(--color-ink-700)" }}
       >
         {label}
         {required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
       </label>
       {children}
+      {error && (
+        <p className="text-m-caption font-medium mt-0.5" style={{ color: "var(--color-stop)" }} role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

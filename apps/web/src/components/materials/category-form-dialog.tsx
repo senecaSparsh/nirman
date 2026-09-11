@@ -6,7 +6,17 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { Field } from "@/components/field";
+import { HsnSacSearch } from "@/components/hsn-sac-search";
+import { required, numberInRange, validateForm } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 import type { MaterialCategory } from "@/lib/types";
+
+type ValidationState = {
+  name: string;
+  unit: string;
+  gstRate: string;
+};
 
 const CLASS_OPTIONS: { value: string; label: string; hint: string }[] = [
   { value: "RAW_MATERIAL", label: "Raw Material", hint: "Cement, steel, brick, timber — core construction inputs" },
@@ -24,36 +34,60 @@ export function CategoryFormDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   category: MaterialCategory | null;
-  onCreated?: (entity: { id: string; label?: string }) => void;
+  onCreated?: (entity: { id: string; label?: string; unit?: string; hsnCode?: string | null; gstRate?: number | null }) => void;
 }) {
   const router = useRouter();
   const [name, setName] = useState(category?.name ?? "");
   const [unit, setUnit] = useState(category?.unit ?? "NOS");
   const [classValue, setClassValue] = useState(category?.class ?? "RAW_MATERIAL");
+  const [hsnCode, setHsnCode] = useState((category as { hsnCode?: string | null })?.hsnCode ?? "");
+  const [gstRate, setGstRate] = useState((category as { gstRate?: number | string | null })?.gstRate != null ? Number((category as { gstRate?: number | string | null })?.gstRate) : undefined);
   const [saving, setSaving] = useState(false);
   const isEdit = category != null;
+
+  // ── Inline validation ──────────────────────────────────────────
+  // Validates on blur and shows red error text under the field instantly.
+  const validationRules: ValidationRules<ValidationState> = {
+    name: (v) => required(v as string, "Category name"),
+    unit: (v) => required(v as string, "Default unit"),
+    gstRate: (v) => numberInRange(v as string, 0, 100, "GST Rate"),
+  };
+  const { errors, setErrors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<ValidationState>(validationRules);
+  const validationForm: ValidationState = { name, unit, gstRate: gstRate == null ? "" : String(gstRate) };
 
   // Sync form fields when the edit target changes or the dialog opens fresh.
   useEffect(() => {
     if (!open) return;
+    clearAll();
     setName(category?.name ?? "");
     setUnit(category?.unit ?? "NOS");
     setClassValue(category?.class ?? "RAW_MATERIAL");
+    setHsnCode((category as { hsnCode?: string | null })?.hsnCode ?? "");
+    setGstRate((category as { gstRate?: number | string | null })?.gstRate != null ? Number((category as { gstRate?: number | string | null })?.gstRate) : undefined);
   }, [open, category]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) {
-      toast.error("Category name is required");
-      return;
-    }
-    if (!unit.trim()) {
-      toast.error("Default unit is required");
+    const formErrors = validateForm(validationForm, {
+      name: (v) => required(v as string, "Category name"),
+      unit: (v) => required(v as string, "Default unit"),
+      gstRate: (v) => numberInRange(v as string, 0, 100, "GST Rate"),
+    });
+    if (Object.keys(formErrors).length > 0) {
+      const firstError = Object.values(formErrors)[0]!;
+      toast.error(firstError);
+      setErrors(formErrors);
       return;
     }
     setSaving(true);
     try {
-      const payload = { name: name.trim(), unit: unit.trim(), class: classValue };
+      const payload = {
+      name: name.trim(),
+      unit: unit.trim(),
+      class: classValue,
+      hsnCode: hsnCode.trim() || undefined,
+      gstRate: gstRate,
+    };
       const res = await fetch(
         isEdit ? `/api/material-categories/${category!.id}` : "/api/material-categories",
         {
@@ -67,7 +101,7 @@ export function CategoryFormDialog({
       toast.success(isEdit ? "Category updated" : "Category created");
       onOpenChange(false);
       if (!isEdit && onCreated) {
-        onCreated({ id: data.id, label: data.name });
+        onCreated({ id: data.id, label: data.name, unit: data.unit, hsnCode: data.hsnCode ?? null, gstRate: data.gstRate != null ? Number(data.gstRate) : null });
       } else {
         router.refresh();
       }
@@ -86,31 +120,28 @@ export function CategoryFormDialog({
       description="Categories group materials and define a default unit of measure."
     >
       <form onSubmit={onSubmit} className="space-y-3">
-        <div className="space-y-1.5">
-          <Label>
-            Name <span className="text-danger">*</span>
-          </Label>
+        <Field label="Name" required error={errors.name}>
           <Input
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => { setName(e.target.value); clearError("name"); }}
+            onBlur={() => onBlur("name", validationForm)}
+            aria-invalid={!!errors.name}
             placeholder="e.g. Cement & Binding"
             required
             autoFocus
           />
-        </div>
-        <div className="space-y-1.5">
-          <Label>
-            Default Unit <span className="text-danger">*</span>
-          </Label>
+        </Field>
+        <Field label="Default Unit" required error={errors.unit}>
           <Input
             value={unit}
-            onChange={(e) => setUnit(e.target.value)}
+            onChange={(e) => { setUnit(e.target.value); clearError("unit"); }}
+            onBlur={() => onBlur("unit", validationForm)}
+            aria-invalid={!!errors.unit}
             placeholder="BAG / KG / NOS"
             required
           />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Material Class</Label>
+        </Field>
+        <Field label="Material Class">
           <select
             value={classValue}
             onChange={(e) => setClassValue(e.target.value)}
@@ -120,7 +151,35 @@ export function CategoryFormDialog({
               <option key={opt.value} value={opt.value}>{opt.label} — {opt.hint}</option>
             ))}
           </select>
-        </div>
+        </Field>
+        <Field label="Default HSN/SAC Code">
+          <HsnSacSearch
+            value={hsnCode}
+            onCodeChange={setHsnCode}
+            onGstRateChange={(rate) => setGstRate(rate)}
+            placeholder="Search or type HSN/SAC code…"
+            materialName={name}
+          />
+          <p className="text-micro text-muted-foreground">
+            Materials created in this category will auto-fill this HSN code and GST rate.
+          </p>
+        </Field>
+        <Field label="Default GST Rate (%)" error={errors.gstRate}>
+          <Input
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            value={gstRate ?? ""}
+            onChange={(e) => { setGstRate(e.target.value === "" ? undefined : Number(e.target.value)); clearError("gstRate"); }}
+            onBlur={() => onBlur("gstRate", validationForm)}
+            aria-invalid={!!errors.gstRate}
+            placeholder="Auto-filled from HSN"
+          />
+          <p className="text-micro text-muted-foreground">
+            Override only if the HSN master rate doesn't apply. Leave blank to use the government master rate.
+          </p>
+        </Field>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel

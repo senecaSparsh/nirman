@@ -6,6 +6,7 @@ import { ServiceError } from "./errors";
 import { postPaymentReceived, postDepositReceived, postMaterialSalePayment, postJournalEntry, ACCT } from "./gl-posting";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { withSerializableTransaction } from "./transaction";
+import { syncPaymentScheduleFromPayments } from "./sale";
 
 /**
  * SMS Parser Service — auto payment entry from bank SMS notifications.
@@ -335,6 +336,8 @@ async function matchPayment(
             amount,
           });
         }
+        // Sync payment schedule items with actual payment totals
+        await syncPaymentScheduleFromPayments(tx, sale.id);
         // Recompute + update parent payment status
         const allPayments = await tx.assetSalePayment.findMany({
           where: { assetSaleId: sale.id, status: "RECEIVED" },
@@ -551,6 +554,8 @@ export async function manualMatchSms(input: ManualMatchInput) {
           amount,
         });
       }
+      // Sync payment schedule items with actual payment totals
+      await syncPaymentScheduleFromPayments(tx, input.entityId);
       // Recompute parent payment status
       const allPayments = await tx.assetSalePayment.findMany({
         where: { assetSaleId: input.entityId, status: "RECEIVED" },

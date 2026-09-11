@@ -14,9 +14,9 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
 
-  // Verify the material exists and is not deleted
+  // Verify the material exists, belongs to the active company, and is not deleted
   const material = await prisma.material.findFirst({
-    where: { id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null },
     select: { id: true, isLotTracked: true },
   });
   if (!material) {
@@ -46,9 +46,9 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
 
-  // Verify the material exists
+  // Verify the material exists and belongs to the active company
   const material = await prisma.material.findFirst({
-    where: { id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null },
     select: { id: true, isLotTracked: true, name: true, code: true },
   });
   if (!material) {

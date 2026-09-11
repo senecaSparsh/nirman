@@ -24,11 +24,17 @@ export const GET = apiHandler(async (req: NextRequest) => {
  * PUT /api/role-permissions — replace all additive permission overrides
  * for a role. Body: { role: string, permissions: string[] }.
  *
- * Only permissions in ALL_PERMISSIONS are accepted. The actor must have
- * USERS_MANAGE permission. An audit log entry is written.
+ * Only permissions in ALL_PERMISSIONS are accepted. **DEVELOPER role only** —
+ * RolePermission is a global table (no companyId), so allowing per-company
+ * admins to modify it would let one tenant alter another tenant's permission
+ * overrides. Company-specific permission customization should use the
+ * CustomRole system (which IS company-scoped). An audit log entry is written.
  */
 export const PUT = apiHandler(async (req: NextRequest) => {
   const session = await requirePermission(PERM.USERS_MANAGE);
+  if (session.role !== "DEVELOPER" && session.role !== "OWNER") {
+    return json({ error: "Only the developer/owner can modify system-level role permissions. Use Custom Roles for company-specific permission customization." }, { status: 403 });
+  }
   const company = await getCompany();
   const body = await req.json();
   const { role, permissions } = body as { role?: string; permissions?: string[] };

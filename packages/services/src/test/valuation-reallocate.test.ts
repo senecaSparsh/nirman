@@ -38,12 +38,13 @@ describe("reallocateProjectCosts — integration tests", () => {
   }
 
   /** Create a material + category for issue lines. */
-  async function createMaterial(_companyId: string) {
+  async function createMaterial(companyId: string) {
     const category = await prisma.materialCategory.create({
-      data: { name: "Construction", unit: "BAG", class: "RAW_MATERIAL" },
+      data: { companyId, name: "Construction", unit: "BAG", class: "RAW_MATERIAL" },
     });
     return prisma.material.create({
       data: {
+        companyId,
         code: `MAT-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
         name: "Cement",
         categoryId: category.id,

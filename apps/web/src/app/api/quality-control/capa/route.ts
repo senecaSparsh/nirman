@@ -16,7 +16,7 @@ const createSchema = z.object({
 
 // GET /api/quality-control/capa?ncrId=xxx
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requirePermission(PERM.QC_VIEW);
   const ncrId = req.nextUrl.searchParams.get("ncrId");
   if (!ncrId) return json({ error: "ncrId is required" }, { status: 400 });
   const capa = await getCapa(ncrId);
@@ -25,7 +25,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
 // POST /api/quality-control/capa
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.WO_MANAGE);
+  const user = await requirePermission(PERM.QC_MANAGE);
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
@@ -40,6 +40,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       userId: user.id,
     });
     revalidatePath("/quality-control");
+    revalidatePath("/m/quality-control");
     return json(capa, { status: 201 });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });

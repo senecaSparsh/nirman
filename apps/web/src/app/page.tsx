@@ -10,11 +10,13 @@ import {
   hasPermission,
   normalizeRole,
   effectivePermissions,
+  PERMISSION_MODULES,
 } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { Page } from "@/components/page";
 import { PageHeader } from "@/components/page-header";
 import { CommandCenter } from "@/components/command-center";
+import { homeWorldFor } from "@/lib/nav";
 import { OwnerFinancialDashboard, type CashPositionData, type ProjectProfitRow } from "@/components/owner-financial-dashboard";
 import {
   type QueueData,
@@ -106,17 +108,17 @@ async function CommandCenterContent() {
     }),
     prisma.material.findMany({
       take: 200,
-      where: { deletedAt: null, minStock: { not: null } },
+      where: { companyId: company.id, deletedAt: null, minStock: { not: null } },
       select: { id: true, name: true, unit: true, minStock: true,
         stockItems: { where: { location: { deletedAt: null, companyId: company.id } }, select: { qty: true } } },
     }),
     prisma.purchaseOrder.findMany({
-      where: { companyId: company.id, status: "DRAFT" },
+      where: { companyId: company.id, status: "DRAFT", createdById: { not: userId } },
       orderBy: { createdAt: "desc" }, take: 5,
       include: { supplier: { select: { name: true } } },
     }),
     prisma.materialRequisition.findMany({
-      where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED" },
+      where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: userId } },
       orderBy: { createdAt: "desc" }, take: 5,
       include: { project: { select: { name: true } }, lines: { select: { qtyRequested: true } } },
     }),
@@ -290,7 +292,7 @@ async function CommandCenterContent() {
   if (canSeeStock && lowStock.length > 0) queues.push({
     key: "low", title: "Materials below their reorder point",
     consequence: "Raise an indent before site runs out",
-    count: lowStock.length, href: "/materials", cta: "Reorder", urgency: "soon", icon: "package",
+    count: lowStock.length, href: "/materials", cta: hasPermission(role, PERM.PROCUREMENT_MANAGE) || canApproveReq ? "Reorder" : "View", urgency: "soon", icon: "package",
     items: lowStock.map((m) => ({ label: m.name, sub: `${formatNumber(m.totalQty, 0)} ${m.unit} left · need ${formatNumber(m.minStock, 0)}` })),
   });
   if (canApproveReq && approvedReqs.length > 0) queues.push({
@@ -324,7 +326,7 @@ async function CommandCenterContent() {
   if (canSeeSales && availableUnits.length > 0) queues.push({
     key: "units-sell", title: "Units ready to sell",
     consequence: "These built units are available — find buyers and close sales",
-    count: availableUnits.length, href: "/units", cta: "Sell", urgency: "soon", icon: "home",
+    count: availableUnits.length, href: "/units", cta: hasPermission(role, PERM.SALE_CREATE) ? "Sell" : "View", urgency: "soon", icon: "home",
     items: availableUnits.map((u) => ({ label: u.unitNumber, sub: u.project.name })),
   });
 
@@ -347,66 +349,45 @@ async function CommandCenterContent() {
   const perms = effectivePermissions(role);
   const isAllAccess = roleDef.permissions === "*";
 
-  // Capabilities (only the ones this role has) — pass icon as string key
+  // Capabilities — derived dynamically from PERMISSION_MODULES.
+  // For each module, show a capability badge if the user has any
+  // actionable permission (anything beyond just ".view"). Also
+  // includes role-level capabilities (manage users, assign tasks,
+  // manage workflows) which aren't part of PERMISSION_MODULES.
   const allCapabilities: { icon: string; label: string; has: boolean }[] = [
     { icon: "users", label: "Manage users", has: roleDef.canManageUsers },
     { icon: "clipboardCheck", label: "Assign tasks", has: roleDef.canAssignTasks },
     { icon: "briefcase", label: "Manage workflows", has: roleDef.canManageWorkflows },
-    { icon: "clipboardCheck", label: "Approve POs", has: hasPermission(role, PERM.PO_APPROVE) },
-    { icon: "clipboardList", label: "Approve indents", has: hasPermission(role, PERM.REQUISITION_APPROVE) },
-    { icon: "package", label: "Transfer stock", has: hasPermission(role, PERM.STOCK_TRANSFER) },
-    { icon: "package", label: "Issue stock", has: hasPermission(role, PERM.STOCK_ISSUE) },
-    { icon: "dollarSign", label: "Create sales", has: hasPermission(role, PERM.SALE_CREATE) },
-    { icon: "wallet", label: "Record expenses", has: hasPermission(role, PERM.EXPENSE_CREATE) },
-    { icon: "home", label: "Sell assets", has: hasPermission(role, PERM.ASSET_SELL) },
-    { icon: "building", label: "Partition land", has: hasPermission(role, PERM.LAND_PARTITION) },
+    // One capability badge per module where the user can do more than view
+    ...PERMISSION_MODULES.map((mod) => {
+      // "Actionable" = any permission in this module that isn't just a view permission
+      const hasActionable = mod.permissions.some((p) => {
+        if (!p.endsWith(".view")) return hasPermission(role, p);
+        return false;
+      });
+      // Use the module's icon name (lowercased to match the icon key convention)
+      return { icon: mod.icon.charAt(0).toLowerCase() + mod.icon.slice(1), label: mod.label, has: hasActionable };
+    }),
   ];
   const capabilities: Capability[] = allCapabilities.filter((c) => c.has).map(({ icon, label }) => ({ icon, label }));
 
-  // Permission matrix modules
-  const permModules: PermModule[] = [
-    { key: "projects", label: "Projects", actions: [
-      { key: "view", label: "View", has: hasPermission(role, PERM.PROJECTS_VIEW) },
-      { key: "manage", label: "Manage", has: hasPermission(role, PERM.PROJECTS_MANAGE) },
-    ]},
-    { key: "procurement", label: "Procurement", actions: [
-      { key: "view", label: "View", has: hasPermission(role, PERM.PROCUREMENT_VIEW) },
-      { key: "manage", label: "Manage", has: hasPermission(role, PERM.PROCUREMENT_MANAGE) },
-      { key: "po_approve", label: "Approve PO", has: hasPermission(role, PERM.PO_APPROVE) },
-      { key: "req_approve", label: "Approve Indent", has: hasPermission(role, PERM.REQUISITION_APPROVE) },
-    ]},
-    { key: "inventory", label: "Stock", actions: [
-      { key: "view", label: "View", has: hasPermission(role, PERM.INVENTORY_VIEW) },
-      { key: "manage", label: "Manage", has: hasPermission(role, PERM.INVENTORY_MANAGE) },
-      { key: "transfer", label: "Transfer", has: hasPermission(role, PERM.STOCK_TRANSFER) },
-      { key: "issue", label: "Issue", has: hasPermission(role, PERM.STOCK_ISSUE) },
-    ]},
-    { key: "finance", label: "Finance", actions: [
-      { key: "view", label: "View", has: hasPermission(role, PERM.FINANCE_VIEW) },
-      { key: "manage", label: "Manage", has: hasPermission(role, PERM.FINANCE_MANAGE) },
-      { key: "expense", label: "Expense", has: hasPermission(role, PERM.EXPENSE_CREATE) },
-    ]},
-    { key: "sales", label: "Sales", actions: [
-      { key: "view", label: "View", has: hasPermission(role, PERM.SALES_VIEW) },
-      { key: "manage", label: "Manage", has: hasPermission(role, PERM.SALES_MANAGE) },
-      { key: "create", label: "Create", has: hasPermission(role, PERM.SALE_CREATE) },
-    ]},
-    { key: "assets", label: "Assets", actions: [
-      { key: "view", label: "View", has: hasPermission(role, PERM.ASSETS_VIEW) },
-      { key: "manage", label: "Manage", has: hasPermission(role, PERM.ASSETS_MANAGE) },
-      { key: "sell", label: "Sell", has: hasPermission(role, PERM.ASSET_SELL) },
-      { key: "partition", label: "Partition", has: hasPermission(role, PERM.LAND_PARTITION) },
-    ]},
-    { key: "hr", label: "HR", actions: [
-      { key: "view", label: "View", has: hasPermission(role, PERM.HR_VIEW) },
-      { key: "manage", label: "Manage", has: hasPermission(role, PERM.HR_MANAGE) },
-      { key: "payroll", label: "Payroll", has: hasPermission(role, PERM.PAYROLL_VIEW) },
-      { key: "dpr", label: "DPR", has: hasPermission(role, PERM.DPR_VIEW) },
-    ]},
-    { key: "company", label: "Company", actions: [
-      { key: "manage", label: "Manage", has: hasPermission(role, PERM.COMPANY_MANAGE) },
-    ]},
-  ];
+  // Permission matrix modules — derived dynamically from PERMISSION_MODULES
+  // so any new permissions added in roles.ts automatically appear on the
+  // profile Access tab. Each permission key (e.g. "projects.view") is
+  // converted to a readable action label (e.g. "View").
+  const permModules: PermModule[] = PERMISSION_MODULES.map((mod) => ({
+    key: mod.key,
+    label: mod.label,
+    actions: mod.permissions.map((perm) => {
+      const action = perm.split(".")[1] ?? perm;
+      const label = action
+        .replace(/([A-Z])/g, " $1")     // split camelCase: manageAll → manage All
+        .replace(/([a-z])([A-Z])/g, "$1 $2")
+        .trim()
+        .replace(/\b\w/g, (c) => c.toUpperCase()); // capitalize each word
+      return { key: action, label, has: hasPermission(role, perm) };
+    }),
+  }));
 
   // ── Activity data ────────────────────────────────────────────────
   const activityCounts: ActivityCount[] = (userActivityCounts ?? []).map((g) => ({
@@ -450,6 +431,10 @@ async function CommandCenterContent() {
     headerStats.push({ label: "Queue", value: "Clear", tone: "success" as "default" });
   }
 
+  // ── Home world link ──
+  const homeWorld = homeWorldFor(role);
+  const hasHomeOverride = homeWorld.href !== "/";
+
   return (
     <Page>
       <PageHeader
@@ -457,6 +442,15 @@ async function CommandCenterContent() {
         description={`${roleDef.label} · ${company.name} · ${formatDate(now)}`}
         stats={headerStats}
       />
+
+      {hasHomeOverride && (
+        <a
+          href={homeWorld.href}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-caption font-medium text-brand hover:bg-brand/5 transition-colors"
+        >
+          Go to {homeWorld.label} →
+        </a>
+      )}
 
       {isOwnerOrAdmin && cashPosition && (
         <OwnerFinancialDashboard
@@ -479,6 +473,8 @@ async function CommandCenterContent() {
         queues={queues}
         totalQueues={totalQueues}
         blockingQueues={blockingQueues}
+        canApprove={canApprovePO || canApproveReq}
+        canSeeTasks={hasPermission(role, PERM.TASKS_VIEW)}
         canSeeProcurement={canSeeProcurement}
         canSeeStock={canSeeStock}
         procurementTrend={procurementTrend}

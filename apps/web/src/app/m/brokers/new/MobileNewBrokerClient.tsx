@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Plus, Eye } from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 import { useMobileBack } from "@/components/mobile/v2/mobile-back-button";
@@ -16,11 +16,12 @@ export function MobileNewBrokerClient({
    *  cancel calls onClose, success calls onCreated + onClose instead
    *  of router.push). */
   onClose?: () => void;
-  onCreated?: (id: string) => void;
+  onCreated?: (broker: { id: string; name: string }) => void;
 } = {}) {
   const router = useRouter();
   const goBack = useMobileBack("/m/brokers");
   const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState<{ id: string; name: string } | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [agency, setAgency] = useState("");
@@ -46,14 +47,15 @@ export function MobileNewBrokerClient({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create broker");
       haptic([10, 40, 80]);
-      toast.success("Broker added");
+      // In modal (inline) mode, call onCreated immediately and close —
+      // no success screen, the parent updates its local state.
       if (onCreated) {
-        onCreated(data.id);
+        onCreated({ id: data.id, name: name.trim() });
         onClose?.();
-      } else {
-        router.push("/m/real-estate?tab=brokers");
-        router.refresh();
+        setName(""); setPhone(""); setAgency(""); setCommission(""); setNotes("");
+        return;
       }
+      setSuccess({ id: data.id, name: name.trim() });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
@@ -66,6 +68,26 @@ export function MobileNewBrokerClient({
     backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
+
+  if (success) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+        <div className="grid place-items-center size-14 rounded-full mb-3" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}>
+          <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
+        </div>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>Broker Added</p>
+        <p className="text-m-caption font-mono mb-4" style={{ color: "var(--color-ink-700)" }}>{success.name}</p>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <button onClick={() => { if (onCreated) { onCreated({ id: success.id, name: success.name }); onClose?.(); } else { router.push("/m/real-estate?tab=brokers"); router.refresh(); } }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+            <Eye className="size-4 inline mr-1" /> View Brokers
+          </button>
+          <button onClick={() => { setSuccess(null); setName(""); setPhone(""); setAgency(""); setCommission(""); setNotes(""); router.refresh(); }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
+            <Plus className="size-4 inline mr-1" /> Add Another
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={onClose ? "" : "pb-32"}>

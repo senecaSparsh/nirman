@@ -48,9 +48,9 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     });
   }
 
-  // Fall back to the material's standard cost
-  const material = await prisma.material.findUnique({
-    where: { id },
+  // Fall back to the material's standard cost (company-scoped)
+  const material = await prisma.material.findFirst({
+    where: { id, companyId: company.id, deletedAt: null },
     select: { standardCost: true, currentCost: true },
   });
 

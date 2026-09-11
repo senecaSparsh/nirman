@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { getComparativeMatrix } from "@nirman/services";
+import { cancelQuotationRequest, getComparativeMatrix } from "@nirman/services";
 import { PERM, hasPermission } from "@/lib/roles";
 import {
   apiHandler,
@@ -61,4 +62,29 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
   });
 
   return json({ ...matrix, canApprove, canAddQuote, suppliers });
+});
+
+/**
+ * PATCH /api/quotations/[id] — cancel a quotation request.
+ * Body: { action: "cancel", reason?: string }
+ */
+export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  const { id } = await params;
+  const user = await requirePermission(PERM.QUOTATION_MANAGE);
+  const body = await req.json();
+
+  if (body?.action !== "cancel") {
+    return json({ error: "Unknown action. Use: cancel" }, { status: 400 });
+  }
+
+  try {
+    const updated = await cancelQuotationRequest(id, user.id, body.reason);
+    revalidatePath("/quotations");
+    revalidatePath("/m/quotations");
+    return json(updated);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Failed to cancel";
+    const status = (err as { status?: number })?.status ?? 400;
+    return json({ error: msg }, { status });
+  }
 });

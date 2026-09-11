@@ -100,6 +100,11 @@ const ENV_VARS: EnvVarSpec[] = [
     required: false,
     description: "Sentry DSN for error tracking (optional — Sentry disabled without it).",
   },
+  {
+    key: "GSTA_API_KEY",
+    required: false,
+    description: "gstaccelerator.in API key for HSN/GST auto-sync. If set, unknown HSN codes are auto-fetched from the API and cached. Get a free key at gstaccelerator.in/dashboard.",
+  },
 ];
 
 export interface EnvValidationResult {

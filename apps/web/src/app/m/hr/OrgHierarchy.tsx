@@ -24,6 +24,35 @@ import {
   UserCheck,
 } from "lucide-react";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import type {
+  OrgScope,
+  OrgTask,
+  OrgDpr,
+  OrgTaskSummary,
+  OrgAttendanceInfo,
+  OrgLeaveInfo,
+  OrgPersonNode,
+  OrgTeamNode,
+  OrgMemberNode,
+  OrgAssignmentGroup,
+  OrgTreeData,
+} from "@/lib/org-hierarchy-types";
+
+// Re-export types for backward compatibility — any code still importing
+// from "@/app/m/hr/OrgHierarchy" will continue to work.
+export type {
+  OrgScope,
+  OrgTask,
+  OrgDpr,
+  OrgTaskSummary,
+  OrgAttendanceInfo,
+  OrgLeaveInfo,
+  OrgPersonNode,
+  OrgTeamNode,
+  OrgMemberNode,
+  OrgAssignmentGroup,
+  OrgTreeData,
+};
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ORGANIZATION HIERARCHY — file-system tree (mirrors InventoryHierarchy)
@@ -37,135 +66,6 @@ import { MobileEmptyState } from "@/components/mobile/v2/primitives";
    ═══════════════════════════════════════════════════════════════════════════ */
 
 const INDENT_PX = 20;
-
-export interface OrgScope {
-  kind: string;
-  projectName: string | null;
-  departmentName: string | null;
-}
-
-export interface OrgTask {
-  id: string;
-  title: string;
-  status: string;
-  priority: string;
-  dueDate: string | null;
-}
-
-export interface OrgDpr {
-  id: string;
-  projectName: string;
-  date: string;
-  approvalStatus: string;
-}
-
-/** Task summary broken down by status — for the person detail card. */
-export interface OrgTaskSummary {
-  pending: number;
-  inProgress: number;
-  completed: number;
-  overdue: number;
-  dueToday: number;
-}
-
-/** Today's attendance snapshot for a person (field worker). */
-export interface OrgAttendanceInfo {
-  status: string | null; // PRESENT | ABSENT | HALF_DAY | LATE | LEAVE | null
-  projectName: string | null; // project they checked into
-  checkIn: string | null; // ISO timestamp
-  checkOut: string | null;
-}
-
-/** Leave balance snapshot. */
-export interface OrgLeaveInfo {
-  pendingRequests: number;
-  onLeaveToday: boolean;
-}
-
-export interface OrgPersonNode {
-  id: string; // UserCompany id
-  userId: string;
-  name: string;
-  email: string;
-  phone: string | null;
-  role: string;
-  roleLabel: string;
-  tier: number;
-  /** Custom hierarchy level (H1-H6) from Employee.hierarchyLevel.
-   *  Null = unassigned. When present, this drives tree depth + badge. */
-  hierarchyLevel: number | null;
-  designation: string | null;
-  employeeCode: string | null;
-  active: boolean;
-  isSelf: boolean;
-  scopes: OrgScope[];
-  openTaskCount: number;
-  openTasks: OrgTask[];
-  recentDprs: OrgDpr[];
-  /** Task counts by status — powers the task summary in the detail card. */
-  taskSummary: OrgTaskSummary;
-  /** Today's attendance (null if not a field worker or not logged). */
-  attendance: OrgAttendanceInfo | null;
-  /** Leave info — pending requests + whether on leave today. */
-  leave: OrgLeaveInfo | null;
-  reports: OrgPersonNode[];
-  /** Teams (crews) led by this person, if any. */
-  teams: OrgTeamNode[];
-  /** Total descendant count (direct + indirect reports + team members). */
-  descendantCount: number;
-  /** Whether this node has direct children (reports or teams). Computed
-   *  server-side as a primitive boolean — survives RSC serialization even
-   *  when the recursive `reports` array is lost (Turbopack bug). */
-  hasChildren: boolean;
-}
-
-/** A crew/team — a group of field workers under a supervisor. */
-export interface OrgTeamNode {
-  id: string;
-  name: string;
-  trade: string | null;
-  projectName: string | null;
-  members: OrgMemberNode[];
-}
-
-/** A field worker (Employee model, not a User). */
-export interface OrgMemberNode {
-  id: string;
-  name: string;
-  trade: string | null;
-  designation: string | null;
-  wageType: string | null;
-  dailyRate: string | null;
-  monthlySalary: string | null;
-  active: boolean;
-  activeProjectName: string | null;
-  phone: string | null;
-}
-
-export interface OrgAssignmentGroup {
-  id: string;
-  name: string;
-  kind: "PROJECT" | "DEPARTMENT";
-  people: OrgPersonNode[];
-}
-
-export interface OrgTreeData {
-  companyName: string;
-  peopleCount: number;
-  projectCount: number;
-  /** Roots of the reporting tree (memberships with no reportsTo in-company). */
-  roots: OrgPersonNode[];
-  /** People not scoped to any project or department (for the assignment view). */
-  unassigned: OrgPersonNode[];
-  /** People grouped by project (assignment view). */
-  projects: OrgAssignmentGroup[];
-  /** People grouped by department (assignment view). */
-  departments: OrgAssignmentGroup[];
-  /** Field workers not in any crew (grouped by trade). */
-  labourByTrade: { trade: string; members: OrgMemberNode[] }[];
-  /** Total count of field workers (employees). */
-  labourCount: number;
-}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MAIN COMPONENT
@@ -272,7 +172,7 @@ function ReportingTree({
           key={person.id}
           person={person}
           isLast={i === roots.length - 1 && !hasLabour}
-          depth={0}
+          depth={1}
           ancestorLast={[]}
           defaultOpen={roots.length <= 1}
         />
@@ -520,21 +420,22 @@ function PersonNode({
   ].filter(Boolean);
   const sub = subParts.length > 0 ? subParts.join(" · ") : undefined;
 
-  // ── Visual depth: use hierarchyLevel (H1→0, H2→1, …) when available
-  //    so the indentation matches the H-level badge. Fall back to the
-  //    tree-structural depth when hierarchyLevel is not set or when
-  //    we're in the assignment tree (useHierarchyDepth=false). ──
+  // ── Visual depth: map H-level to depth with gaps so sub-levels
+  //    have room. H1→1, H2→3, H3→5, H4→7, etc. This means a child
+  //    of H1 that's also H1 gets depth 2 (between H1 and H2), and
+  //    a custom role can be placed at any intermediate depth.
+  //    Never let it fall below parent_depth + 1. ──
+  const hDepth = person.hierarchyLevel != null ? person.hierarchyLevel * 2 - 1 : depth;
   const visualDepth = useHierarchyDepth && person.hierarchyLevel != null
-    ? person.hierarchyLevel - 1
+    ? Math.max(hDepth, depth)
     : depth;
 
   // ── Pad ancestorLast to match visualDepth. When there's a hierarchy
-  //    gap (e.g. parent H1 → child H3, skipping H2), the intermediate
-  //    connector levels inherit the parent's isLast so the vertical
-  //    lines continue correctly through the gap. ──
-  const lastAncestor = ancestorLast.length > 0 ? ancestorLast[ancestorLast.length - 1] : false;
+  //    gap (e.g. parent H1 → child H4), the intermediate connector
+  //    levels should draw a continuing vertical line, so we pad with
+  //    `false`. ──
   const paddedAncestorLast = ancestorLast.length < visualDepth
-    ? [...ancestorLast, ...Array(visualDepth - ancestorLast.length).fill(lastAncestor)]
+    ? [...ancestorLast, ...Array(visualDepth - ancestorLast.length).fill(false)]
     : ancestorLast.slice(0, visualDepth);
 
   // Right-side content: descendant count for folders, task count for leaves
@@ -565,7 +466,7 @@ function PersonNode({
         chevronOpen={open}
         onChevronClick={() => expandable && setOpen((o) => !o)}
         name={person.name}
-        nameHref={`/m/hr/employees`}
+        nameHref={person.employeeId ? `/m/hr/employees/${person.employeeId}` : "/m/hr/employees"}
         nameOnClick={expandable ? () => setOpen((o) => !o) : undefined}
         nameBold={person.tier <= 2}
         badge={person.isSelf ? "You" : undefined}
@@ -574,10 +475,11 @@ function PersonNode({
         sub={sub}
         right={rightContent}
         callHref={person.phone ? `tel:${person.phone}` : undefined}
+        forceFullLine={open && (hasTeams || hasReports)}
       />
 
       {open && expandable ? (
-        <PersonDetail person={person} depth={visualDepth + 1} ancestorLast={[...paddedAncestorLast, isLast]} />
+        <PersonDetail person={person} depth={visualDepth + 1} ancestorLast={[...paddedAncestorLast.slice(0, -1), isLast, false]} hasChildrenBelow={hasTeams || hasReports} />
       ) : null}
 
       {/* Teams (crews) led by this person */}
@@ -589,7 +491,7 @@ function PersonNode({
               team={team}
               isLast={i === person.teams.length - 1 && !hasReports}
               depth={visualDepth + 1}
-              ancestorLast={[...paddedAncestorLast, isLast]}
+              ancestorLast={[...paddedAncestorLast.slice(0, -1), isLast, false]}
             />
           ))}
         </div>
@@ -598,18 +500,23 @@ function PersonNode({
       {open && hasReports ? (
         <div>
           {person.reports.map((report, i) => {
-            // ── Compute child's visual depth from its hierarchyLevel ──
-            const childVisualDepth = useHierarchyDepth && report.hierarchyLevel != null
-              ? report.hierarchyLevel - 1
+            // ── Compute child is visual depth from hierarchyLevel, but
+            //    never let a child sit at the same or shallower depth as
+            //    its parent — that breaks connector lines. ──
+            const rawChildDepth = useHierarchyDepth && report.hierarchyLevel != null
+              ? report.hierarchyLevel * 2 - 1
               : visualDepth + 1;
-            // ── Pad ancestorLast for the hierarchy gap between this
-            //    node's visualDepth and the child's visualDepth. Each
-            //    intermediate level inherits this node's isLast so
-            //    vertical connector lines continue through the gap. ──
-            const gap = Math.max(0, childVisualDepth - visualDepth);
+            const childVisualDepth = Math.max(rawChildDepth, visualDepth + 1);
+            // ── Build child's ancestorLast: parent's ancestor state
+            //    (excluding parent's elbow), then parent's isLast at
+            //    the parent's level, then gap levels (always draw line),
+            //    then elbow placeholder. ──
+            const gap = Math.max(0, childVisualDepth - visualDepth - 1);
             const childAncestorLast = [
-              ...paddedAncestorLast,
-              ...Array(gap).fill(isLast),
+              ...paddedAncestorLast.slice(0, -1),
+              isLast,
+              ...Array(gap).fill(false),
+              false,
             ];
             return (
               <PersonNode
@@ -710,7 +617,7 @@ function MemberNode({
       ancestorLast={ancestorLast}
       chevron={false}
       name={member.name}
-      nameHref="/m/hr/employees"
+      nameHref={`/m/hr/employees/${member.id}`}
       nameBold={false}
       sub={sub}
       right={
@@ -741,7 +648,7 @@ function MemberNode({
      6. Recent DPRs — last 3 submitted reports
      7. Contact — email + phone
    ═══════════════════════════════════════════════════════════════════════════ */
-function PersonDetail({ person, depth, ancestorLast }: { person: OrgPersonNode; depth: number; ancestorLast: boolean[] }) {
+function PersonDetail({ person, depth, ancestorLast, hasChildrenBelow }: { person: OrgPersonNode; depth: number; ancestorLast: boolean[]; hasChildrenBelow: boolean }) {
   const ts = person.taskSummary ?? { pending: 0, inProgress: 0, completed: 0, overdue: 0, dueToday: 0 };
   const hasTaskSummary = ts.pending + ts.inProgress + ts.completed + ts.overdue + ts.dueToday > 0;
   const att = person.attendance;
@@ -757,6 +664,20 @@ function PersonDetail({ person, depth, ancestorLast }: { person: OrgPersonNode; 
         const ancestorWasLast = ancestorLast[i] ?? false;
         if (!isElbowLevel && ancestorWasLast) {
           return <div key={i} className="shrink-0" style={{ width: INDENT_PX }} />;
+        }
+        if (isElbowLevel) {
+          // At the elbow level, only draw a full vertical line if there
+          // are children (teams/reports) below the detail card. If this
+          // is a leaf person (no reports, no teams), draw a half line so
+          // the connector stops at the detail card instead of dangling.
+          return (
+            <div key={i} className="relative shrink-0" style={{ width: INDENT_PX }}>
+              <div
+                className="absolute left-1/2 -translate-x-1/2"
+                style={{ top: 0, width: 1, height: hasChildrenBelow ? undefined : "50%", bottom: hasChildrenBelow ? 0 : undefined, backgroundColor: "var(--color-line)" }}
+              />
+            </div>
+          );
         }
         return (
           <div key={i} className="relative shrink-0" style={{ width: INDENT_PX }}>
@@ -1077,6 +998,7 @@ function TreeRow({
   right,
   callHref,
   paddingTop,
+  forceFullLine,
 }: {
   depth: number;
   isLast: boolean;
@@ -1100,6 +1022,10 @@ function TreeRow({
   /** If set, renders a phone call button at the rightmost end of the row. */
   callHref?: string;
   paddingTop?: boolean;
+  /** When true, the elbow vertical line goes full height even if isLast.
+   *  Used when a person has children below (reports/teams) so the line
+   *  continues through the row to the PersonDetail and children. */
+  forceFullLine?: boolean;
 }) {
   const rowH = 24;
 
@@ -1111,8 +1037,17 @@ function TreeRow({
         const ancestorWasLast = ancestorLast[i] ?? false;
 
         if (!isElbowLevel && ancestorWasLast) {
+          // Ancestor was the last child — no more siblings below, so
+          // don't continue the vertical line downward. But still draw
+          // a half-height line from the top to the middle so this row
+          // connects to its parent above.
           return (
-            <div key={i} className="relative shrink-0" style={{ width: INDENT_PX, height: rowH }} />
+            <div key={i} className="relative shrink-0" style={{ width: INDENT_PX, height: rowH }}>
+              <div
+                className="absolute left-1/2 -translate-x-1/2"
+                style={{ top: 0, width: 1, height: rowH / 2, backgroundColor: "var(--color-line)" }}
+              />
+            </div>
           );
         }
 
@@ -1129,19 +1064,21 @@ function TreeRow({
                   style={{
                     top: 0,
                     width: 1,
-                    height: isLast ? rowH / 2 : rowH,
+                    height: (isLast && !forceFullLine) ? rowH / 2 : rowH,
                     backgroundColor: "var(--color-line)",
                   }}
                 />
-                <div
-                  className="absolute top-1/2 -translate-y-1/2"
-                  style={{
-                    left: "50%",
-                    width: INDENT_PX / 2,
-                    height: 1,
-                    backgroundColor: "var(--color-line)",
-                  }}
-                />
+                {i > 0 ? (
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2"
+                    style={{
+                      left: -INDENT_PX / 2,
+                      width: INDENT_PX,
+                      height: 1,
+                      backgroundColor: "var(--color-line)",
+                    }}
+                  />
+                ) : null}
               </>
             ) : (
               <div

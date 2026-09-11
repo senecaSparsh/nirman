@@ -96,10 +96,6 @@ function directionIcon(dir: Direction) {
 export function CallsView({
   calls: initialCalls,
   phoneNumbers,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  tags,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  canViewAll,
   canViewFullNumber,
   canCreate,
   canListenRecording,

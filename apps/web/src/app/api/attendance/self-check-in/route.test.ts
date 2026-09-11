@@ -91,11 +91,9 @@ describe("POST /api/attendance/self-check-in", () => {
   });
 
   it("returns 403 when user is not linked to the employee", async () => {
+    // SITE_ENGINEER lacks HR_MANAGE, so isManager is false → 403 (not 201)
+    setSessionUser({ role: "SITE_ENGINEER" });
     mockPrisma().employee!.findFirst.mockResolvedValue(prismaEmployee({ userId: "other-user" }));
-    // Second findFirst (for userEmployee) also returns null
-    mockPrisma().employee!.findFirst
-      .mockResolvedValueOnce(prismaEmployee({ userId: "other-user" }))
-      .mockResolvedValueOnce(null);
     const res = await POST(
       makeRequest("/api/attendance/self-check-in", {
         method: "POST",

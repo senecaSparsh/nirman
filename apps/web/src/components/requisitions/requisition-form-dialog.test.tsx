@@ -79,10 +79,10 @@ describe("RequisitionFormDialog", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it("renders Create Indent submit button", () => {
+  it("renders Create & Submit button", () => {
     render(
       <RequisitionFormDialog open onOpenChange={vi.fn()} projects={projects} phases={phases} materials={materials} suppliers={suppliers} />,
     );
-    expect(screen.getByRole("button", { name: "Create Indent" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create & Submit" })).toBeInTheDocument();
   });
 });

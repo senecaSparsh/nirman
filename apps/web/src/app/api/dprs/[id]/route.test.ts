@@ -134,7 +134,7 @@ describe("PATCH /api/dprs/[id] — approval actions", () => {
   });
 
   it("returns 404 when DPR is not found", async () => {
-    mockPrisma().dailyProgressReport!.findUnique.mockResolvedValue(null);
+    mockPrisma().dailyProgressReport!.findFirst.mockResolvedValue(null);
     const res = await PATCH(
       makeRequest("/api/dprs/nope", { method: "PATCH", body: { action: "subAdminApprove" } }),
       makeCtx("nope"),

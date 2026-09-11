@@ -1,12 +1,14 @@
 import { Suspense } from "react";
-import { prisma } from "@nirman/db";
-import { getCompany, getUserPermissions, toNum, scopeWhere } from "@/lib/server";
+import { prisma, type DprApprovalStatus } from "@nirman/db";
+import { getCompany, getUserPermissions, getCurrentUser, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { ApprovalsView } from "@/components/approvals/approvals-view";
-import type { ApprovalPORow, ApprovalReqRow } from "@/lib/types";
+import { ClaimApprovalList, type ApprovalClaimRow } from "@/components/approvals/claim-approval-list";
+import type { ExpenseCategoryRow } from "@/lib/types";
+import type { ApprovalPORow, ApprovalReqRow, ApprovalGatePassRow, ApprovalDprRow, ApprovalExpenseRow } from "@/lib/types";
 
 export const metadata = { title: "Approvals · Nirman" };
 
@@ -28,17 +30,28 @@ async function ApprovalsContent() {
   const perms = await getUserPermissions();
   const canApprovePo = perms.includes(PERM.PO_APPROVE);
   const canApproveReq = perms.includes(PERM.REQUISITION_APPROVE);
+  const canApproveGatePass = perms.includes(PERM.GATE_PASS_APPROVE);
+  const canApproveDprSubAdmin = perms.includes(PERM.DPR_APPROVE_SUB_ADMIN);
+  const canApproveDprAdmin = perms.includes(PERM.DPR_APPROVE_ADMIN);
+  const canApproveExpense = perms.includes(PERM.EXPENSE_APPROVE);
 
-  if (!canApprovePo && !canApproveReq) {
+  if (!canApprovePo && !canApproveReq && !canApproveGatePass && !canApproveDprSubAdmin && !canApproveDprAdmin && !canApproveExpense) {
     return <NoAccess what="the approval queue" />;
   }
 
   const company = await getCompany();
+  const user = await getCurrentUser();
+  const userId = user?.id ?? "";
 
-  const [purchaseOrders, requisitions] = await Promise.all([
+  // DPRs pending sub-admin approval (SUBMITTED) or admin approval (SUB_ADMIN_APPROVED)
+  const dprApprovalStatuses: DprApprovalStatus[] = [];
+  if (canApproveDprSubAdmin) dprApprovalStatuses.push("SUBMITTED");
+  if (canApproveDprAdmin) dprApprovalStatuses.push("SUB_ADMIN_APPROVED");
+
+  const [purchaseOrders, requisitions, gatePasses, dprs, expenses, pendingClaims, claimCategories] = await Promise.all([
     canApprovePo
       ? prisma.purchaseOrder.findMany({
-          where: { companyId: company.id, status: "DRAFT", createdById: { not: undefined } },
+          where: { companyId: company.id, status: "DRAFT", createdById: { not: userId } },
           orderBy: { createdAt: "desc" },
           take: 100,
           include: {
@@ -51,7 +64,7 @@ async function ApprovalsContent() {
       : [],
     canApproveReq
       ? prisma.materialRequisition.findMany({
-          where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED" },
+          where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: userId } },
           orderBy: { createdAt: "desc" },
           take: 100,
           include: {
@@ -66,12 +79,60 @@ async function ApprovalsContent() {
           },
         })
       : [],
+    canApproveGatePass
+      ? prisma.gatePass.findMany({
+          where: { companyId: company.id, status: "PENDING", createdById: { not: userId } },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+          include: {
+            lines: { select: { id: true } },
+            location: { select: { name: true } },
+            createdBy: { select: { name: true } },
+          },
+        })
+      : [],
+    dprApprovalStatuses.length > 0
+      ? prisma.dailyProgressReport.findMany({
+          where: { companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, submittedById: { not: userId } },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+          include: {
+            project: { select: { name: true } },
+            submittedBy: { select: { name: true } },
+          },
+        })
+      : [],
+    canApproveExpense
+      ? prisma.expense.findMany({
+          where: { companyId: company.id, status: "PENDING", submittedById: { not: userId } },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+          include: {
+            project: { select: { name: true } },
+            createdBy: { select: { name: true } },
+          },
+        })
+      : [],
+    canApproveExpense
+      ? prisma.expenseClaim.findMany({
+          where: { companyId: company.id, status: "SUBMITTED", claimantId: { not: userId } },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+          include: {
+            claimant: { select: { name: true } },
+            project: { select: { name: true } },
+            lines: { select: { id: true } },
+          },
+        })
+      : [],
+    canApproveExpense
+      ? prisma.expenseCategory.findMany({
+          where: { companyId: company.id, isActive: true },
+          select: { id: true, name: true, glAccountCode: true, description: true, isActive: true },
+          orderBy: { name: "asc" },
+        })
+      : [],
   ]);
-
-  // Filter out self-created items (can't approve your own)
-  const user = await import("@/lib/server").then((m) => m.requireUser());
-  const filteredPOs = purchaseOrders.filter((po) => po.createdById !== user.id);
-  const filteredReqs = requisitions.filter((r) => r.requestedById !== user.id);
 
   // ── Budget context ──
   const projectCostCache = new Map<string, number>();
@@ -128,7 +189,7 @@ async function ApprovalsContent() {
   const URGENCY_ORDER: Record<string, number> = { overdue: 0, due_today: 1, due_this_week: 2, normal: 3 };
 
   const poRows: ApprovalPORow[] = await Promise.all(
-    filteredPOs.map(async (po) => {
+    purchaseOrders.map(async (po) => {
       const spent = await getProjectSpent(po.project?.id ?? null);
       const ctx = computeBudgetContext(po.project?.totalBudget, spent, toNum(po.total));
       return {
@@ -146,6 +207,7 @@ async function ApprovalsContent() {
         createdAt: po.createdAt.toISOString(),
         expectedDate: po.expectedDate?.toISOString() ?? null,
         canApprove: canApprovePo,
+        waitingOn: "Project Director / Procurement Manager",
         ...ctx,
         urgency: computeUrgency(po.expectedDate, po.createdAt),
       };
@@ -153,7 +215,7 @@ async function ApprovalsContent() {
   );
 
   const reqRows: ApprovalReqRow[] = await Promise.all(
-    filteredReqs.map(async (r) => {
+    requisitions.map(async (r) => {
       const spent = await getProjectSpent(r.project?.id ?? null);
       const estimatedTotal = r.lines.reduce((s, l) => {
         const rate = l.lastRate ? toNum(l.lastRate) : 0;
@@ -172,6 +234,7 @@ async function ApprovalsContent() {
         neededByDate: r.neededByDate?.toISOString() ?? null,
         createdAt: r.createdAt.toISOString(),
         canApprove: canApproveReq,
+        waitingOn: "Project Director / Procurement Manager",
         ...ctx,
         urgency: computeUrgency(r.neededByDate, r.createdAt),
         lineDetails: r.lines.map((l) => ({
@@ -191,5 +254,93 @@ async function ApprovalsContent() {
   poRows.sort((a, b) => (URGENCY_ORDER[a.urgency] ?? 9) - (URGENCY_ORDER[b.urgency] ?? 9));
   reqRows.sort((a, b) => (URGENCY_ORDER[a.urgency] ?? 9) - (URGENCY_ORDER[b.urgency] ?? 9));
 
-  return <ApprovalsView purchaseOrders={poRows} requisitions={reqRows} />;
+  const gatePassRows: ApprovalGatePassRow[] = gatePasses.map((gp) => ({
+    id: gp.id,
+    gatePassNumber: gp.gatePassNumber,
+    category: gp.category,
+    locationName: gp.location.name,
+    destination: gp.destination,
+    vehicleNumber: gp.vehicleNumber,
+    driverName: gp.driverName,
+    createdByName: gp.createdBy?.name ?? null,
+    createdAt: gp.createdAt.toISOString(),
+    lineCount: gp.lines.length,
+    canApprove: canApproveGatePass,
+    waitingOn: "Store Keeper / Supervisor",
+    urgency: computeUrgency(null, gp.createdAt),
+  }));
+  gatePassRows.sort((a, b) => (URGENCY_ORDER[a.urgency] ?? 9) - (URGENCY_ORDER[b.urgency] ?? 9));
+
+  const dprRows: ApprovalDprRow[] = dprs.map((d) => ({
+    id: d.id,
+    projectName: d.project?.name ?? null,
+    submittedByName: d.submittedBy?.name ?? null,
+    createdAt: d.createdAt.toISOString(),
+    date: d.date.toISOString(),
+    approvalStatus: String(d.approvalStatus),
+    workSummary: d.workSummary,
+    progressPct: toNum(d.progressPct),
+    canApproveSubAdmin: canApproveDprSubAdmin && d.approvalStatus === "SUBMITTED",
+    canApproveAdmin: canApproveDprAdmin && d.approvalStatus === "SUB_ADMIN_APPROVED",
+    waitingOn: d.approvalStatus === "SUBMITTED" ? "Project Manager / HR Manager (Sub-Admin)" : "Project Director / Owner (Admin)",
+    urgency: computeUrgency(null, d.createdAt),
+  }));
+  dprRows.sort((a, b) => (URGENCY_ORDER[a.urgency] ?? 9) - (URGENCY_ORDER[b.urgency] ?? 9));
+
+  const expenseRows: ApprovalExpenseRow[] = expenses.map((e) => ({
+    id: e.id,
+    category: e.category,
+    categoryName: e.category,
+    amount: toNum(e.amount),
+    subtotal: toNum(e.amount),
+    cgst: 0,
+    sgst: 0,
+    igst: 0,
+    tdsAmount: 0,
+    projectName: e.project?.name ?? null,
+    payeeName: e.payeeName,
+    supplierName: null,
+    paymentMode: null,
+    receiptUrl: null,
+    submittedByName: e.createdBy?.name ?? null,
+    submittedAt: e.createdAt.toISOString(),
+    date: e.createdAt.toISOString(),
+    notes: null,
+    canApprove: canApproveExpense,
+    waitingOn: "Finance Head / Accountant",
+  }));
+
+  const claimRows: ApprovalClaimRow[] = pendingClaims.map((c) => ({
+    id: c.id,
+    claimantName: c.claimant?.name ?? "Unknown",
+    projectName: c.project?.name ?? null,
+    totalAmount: toNum(c.totalAmount),
+    lineCount: c.lines.length,
+    description: c.description,
+    submittedAt: c.submittedAt?.toISOString() ?? null,
+    canApprove: c.claimantId !== userId,
+  }));
+
+  const claimCategoryRows: ExpenseCategoryRow[] = claimCategories.map((cat) => ({
+    id: cat.id,
+    name: cat.name,
+    glAccountCode: cat.glAccountCode,
+    description: cat.description,
+    isActive: cat.isActive,
+  }));
+
+  return (
+    <div className="space-y-6">
+      <ApprovalsView
+      purchaseOrders={poRows}
+      requisitions={reqRows}
+      gatePasses={gatePassRows}
+      dprs={dprRows}
+      expenses={expenseRows}
+    />
+    {claimRows.length > 0 && (
+      <ClaimApprovalList claims={claimRows} categories={claimCategoryRows} />
+    )}
+    </div>
+  );
 }

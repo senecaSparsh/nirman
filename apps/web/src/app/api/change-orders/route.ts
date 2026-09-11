@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma, type ChangeOrderStatus } from "@nirman/db";
-import { createChangeOrder } from "@nirman/services";
+import { createChangeOrder, submitChangeOrder, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
@@ -29,6 +29,9 @@ const createSchema = z.object({
   initiatedBy: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   lines: z.array(lineSchema).min(1),
+  /** When true (default), the change order is auto-submitted for approval
+   *  right after creation — eliminates the useless manual "Submit" step. */
+  autoSubmit: z.boolean().optional().default(true),
 });
 
 // GET /api/change-orders?projectId=xxx&status=xxx
@@ -87,10 +90,25 @@ export const POST = apiHandler(async (req: NextRequest) => {
       lines: parsed.data.lines,
       userId: user.id,
     });
+
+    // Auto-submit by default — eliminates the useless manual "Submit for
+    // Approval" step. The change order goes straight to the approval queue.
+    let submitted = false;
+    let submitError: string | null = null;
+    if (parsed.data.autoSubmit !== false) {
+      try {
+        await submitChangeOrder(co.id, user.id);
+        submitted = true;
+      } catch (err) {
+        submitError = err instanceof ServiceError ? err.message : (err instanceof Error ? err.message : "Unknown error");
+        console.error("[change-orders] Auto-submit failed for", co.id, err);
+      }
+    }
+
     revalidatePath("/change-orders");
     revalidatePath("/m/change-orders");
     revalidatePath("/m/construction?tab=change-orders");
-    return json(co, { status: 201 });
+    return json({ ...co, submitted, submitError }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
   }

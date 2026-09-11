@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Hammer } from "lucide-react";
+import { ArrowLeft, Hammer, CheckCircle2, Plus, Eye } from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 import { useMobileBack } from "@/components/mobile/v2/mobile-back-button";
@@ -21,6 +21,7 @@ export function MobileNewSubcontractorClient({
   const router = useRouter();
   const goBack = useMobileBack("/m/subcontractors");
   const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState<{ id: string; name: string } | null>(null);
   const [name, setName] = useState("");
   const [trade, setTrade] = useState("");
   const [gstin, setGstin] = useState("");
@@ -48,14 +49,7 @@ export function MobileNewSubcontractorClient({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create subcontractor");
       haptic([10, 40, 80]);
-      toast.success("Subcontractor added");
-      if (onCreated) {
-        onCreated(data.id);
-        onClose?.();
-      } else {
-        router.push("/m/subcontractors");
-        router.refresh();
-      }
+      setSuccess({ id: data.id, name: name.trim() });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
@@ -68,6 +62,26 @@ export function MobileNewSubcontractorClient({
     backgroundColor: "transparent",
     color: "var(--color-ink-950)",
   };
+
+  if (success) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+        <div className="grid place-items-center size-14 rounded-full mb-3" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}>
+          <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
+        </div>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>Subcontractor Added</p>
+        <p className="text-m-caption font-mono mb-4" style={{ color: "var(--color-ink-700)" }}>{success.name}</p>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <button onClick={() => { if (onCreated) { onCreated(success.id); onClose?.(); } else { router.push("/m/subcontractors"); router.refresh(); } }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+            <Eye className="size-4 inline mr-1" /> View Subcontractors
+          </button>
+          <button onClick={() => { setSuccess(null); setName(""); setTrade(""); setGstin(""); setPhone(""); setEmail(""); setAddress(""); router.refresh(); }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
+            <Plus className="size-4 inline mr-1" /> Add Another
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={onClose ? "" : "pb-32"}>

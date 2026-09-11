@@ -1,7 +1,7 @@
 export type ValidationErrors<T> = Partial<Record<keyof T, string>>;
 
 export function required(value: string | number | null | undefined, label: string): string | undefined {
-  if (value === null || value === undefined || value === "" || (typeof value === "number" && isNaN(value))) {
+  if (value === null || value === undefined || (typeof value === "string" && value.trim() === "") || (typeof value === "number" && isNaN(value))) {
     return `${label} is required`;
   }
 }
@@ -19,6 +19,30 @@ export function positiveNumber(value: string | number, label: string): string | 
   if (isNaN(n) || n <= 0) return `${label} must be a positive number`;
 }
 
+/**
+ * Validates that a string represents a valid non-negative number (>= 0).
+ * Catches text typed into a number field (e.g. "abc" → NaN).
+ * Empty string is allowed (field is optional) — use `required` separately if needed.
+ */
+export function nonNegativeNumber(value: string | number, label: string): string | undefined {
+  if (value === "" || value === null || value === undefined) return;
+  const n = typeof value === "string" ? Number(value) : value;
+  if (isNaN(n)) return `${label} must be a number`;
+  if (n < 0) return `${label} cannot be negative`;
+}
+
+/**
+ * Validates that a string represents a valid number within [min, max].
+ * Empty string is allowed (field is optional).
+ */
+export function numberInRange(value: string | number, minVal: number, maxVal: number, label: string): string | undefined {
+  if (value === "" || value === null || value === undefined) return;
+  const n = typeof value === "string" ? Number(value) : value;
+  if (isNaN(n)) return `${label} must be a number`;
+  if (n < minVal) return `${label} must be at least ${minVal}`;
+  if (n > maxVal) return `${label} must be at most ${maxVal}`;
+}
+
 export function email(value: string): string | undefined {
   if (!value) return;
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return "Invalid email address";
@@ -34,12 +58,12 @@ export function gstin(value: string): string | undefined {
   if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(value)) return "Invalid GSTIN format";
 }
 
-export function validateForm<T>(values: T, rules: Partial<Record<keyof T, (value: T[keyof T]) => string | undefined>>): ValidationErrors<T> {
+export function validateForm<T>(values: T, rules: Partial<Record<keyof T, (value: T[keyof T], allValues: T) => string | undefined>>): ValidationErrors<T> {
   const errors: ValidationErrors<T> = {};
   for (const key in rules) {
     const rule = rules[key];
     if (rule) {
-      const error = rule(values[key]);
+      const error = rule(values[key], values);
       if (error) errors[key] = error;
     }
   }

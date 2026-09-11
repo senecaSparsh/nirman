@@ -1,4 +1,5 @@
 import { prisma } from "@nirman/db";
+import { Suspense } from "react";
 import { getCompanyGroupIds, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
@@ -11,6 +12,7 @@ import Link from "next/link";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { InventoryInteractive } from "./inventory-interactive";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 import {
   InventoryHierarchy,
   type InventoryCompanyNode,
@@ -48,6 +50,7 @@ export default function InventoryHomePage() {
       }),
       prisma.material.findMany({
         where: {
+          companyId: company.id,
           deletedAt: null,
           OR: [
             { stockItems: { some: { location: { companyId: company.id } } } },
@@ -167,8 +170,12 @@ export default function InventoryHomePage() {
         approvalsCount={approvalCount}
       />
 
+      <DepartmentActivityFeed department="inventory" />
+
       {/* ── Category tabs + quick actions (Raw Material / Real Estate) ── */}
-      <InventoryInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} />
+      <Suspense fallback={null}>
+        <InventoryInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} />
+      </Suspense>
 
       {/* ── Group inventory tree — parent → children → projects ── */}
       <InventoryHierarchy tree={inventoryTree} />

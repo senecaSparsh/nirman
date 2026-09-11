@@ -300,12 +300,16 @@ export async function rejectExpense(expenseId: string, companyId: string, reason
     if (existing.status !== "PENDING") {
       throw new ServiceError(`Only PENDING expenses can be rejected (current: ${existing.status})`, 409);
     }
+    // Prevent self-rejection — the submitter cannot reject their own expense.
+    if (userId && existing.submittedById && userId === existing.submittedById) {
+      throw new ServiceError("You cannot reject an expense you submitted.", 403);
+    }
     const updated = await tx.expense.update({
       where: { id: expenseId },
       data: {
         status: "REJECTED",
-        approvedById: userId ?? null,
-        approvedAt: new Date(),
+        rejectedById: userId ?? null,
+        rejectedAt: new Date(),
         rejectedReason: reason.trim(),
       },
     });

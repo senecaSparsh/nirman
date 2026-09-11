@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum, getCurrentUser, getEmployeeAccessScope, canManageSpecificEmployee, getCompanyGroupIds, getScopedFormOptions, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission, ROLES, type Role } from "@/lib/roles";
+import { PERM, hasPermission, ROLES, canAssignRole, canAssignCustomRole, type Role } from "@/lib/roles";
 import { MobileEmployeeDetailClient } from "./MobileEmployeeDetailClient";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import type { OnboardingEmployeeData } from "./MobileOnboardingTab";
@@ -579,16 +579,37 @@ async function MobileEmployeeDetailContent({
       : [],
   };
 
-  // Build assignable roles list (built-in + custom) for access management
+  // Build assignable roles list (built-in + custom) for access management.
+  // Filter by the actor's tier so the UI only shows roles they can actually
+  // assign — the API enforces this too, but showing unassignable roles leads
+  // to frustrating 403 errors on tap.
   const assignableRoles = [
     ...(Object.keys(ROLES) as Role[])
       .filter((r) => r !== "OWNER" && r !== "DEVELOPER")
+      .filter((r) => canAssignRole(role, r))
       .map((r) => ({ key: r, label: ROLES[r].label })),
-    ...customRoles.map((cr) => ({
-      key: `CUSTOM_${cr.key}` as string,
-      label: cr.label,
-    })),
+    ...customRoles
+      .filter((cr) => canAssignCustomRole(role, cr.tier))
+      .map((cr) => ({
+        key: cr.key, // cr.key is already "CUSTOM_..." (API auto-prefixes)
+        label: cr.label,
+      })),
   ];
+
+  // Ensure the target's current role is always in the list so the user can
+  // see what role the person currently has (shown as a checked, disabled chip).
+  // This handles the edge case where the actor can manage the user (via
+  // canManageSpecificEmployee) but can't assign the user's current role
+  // (e.g., same-tier custom role).
+  const currentRoleKey = employee.user?.role;
+  if (currentRoleKey && !assignableRoles.some((r) => r.key === currentRoleKey)) {
+    const builtIn = ROLES[currentRoleKey as Role];
+    const custom = customRoles.find((cr) => cr.key === currentRoleKey);
+    assignableRoles.push({
+      key: currentRoleKey,
+      label: builtIn?.label ?? custom?.label ?? currentRoleKey.replace(/^CUSTOM_/, "").replace(/_/g, " "),
+    });
+  }
 
   return (
     <PageContextProvider value={{

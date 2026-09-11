@@ -98,7 +98,8 @@ export function MobileWorkflowDetailClient({
       if (!res.ok) {
         toast.error(data.error ?? "Failed to run");
       } else {
-        toast.success(`Workflow run: ${data.status}`);
+        const friendlyStatus = (data.status as string | undefined)?.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) ?? "Started";
+        toast.success(`Workflow ${friendlyStatus}`);
         router.refresh();
       }
     } catch {
@@ -199,8 +200,8 @@ export function MobileWorkflowDetailClient({
           {runs.length === 0 ? (
             <MobileEmptyState
               icon={Clock}
-              title="No runs yet"
-              description="This workflow hasn't been executed yet."
+              title="No executions yet"
+              description="This workflow hasn't been run yet."
               size="compact"
             />
           ) : (
@@ -214,8 +215,8 @@ export function MobileWorkflowDetailClient({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       {RUN_STATUS_ICONS[r.status.toUpperCase()] ?? <AlertCircle className="size-3" style={{ color: "var(--color-ink-400)" }} />}
-                      <span className="text-m-label font-bold uppercase" style={{ color: "var(--color-ink-950)" }}>
-                        {r.status}
+                      <span className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
+                        {r.status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
                       </span>
                     </div>
                     <span className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>

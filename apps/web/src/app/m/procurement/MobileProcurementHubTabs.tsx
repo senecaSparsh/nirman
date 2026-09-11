@@ -69,6 +69,7 @@ export function MobileProcurementHubTabs({
   indentItems,
   indentCanCreate,
   indentCanApprove,
+  indentCurrentUserId,
   indentSubmittedCount,
   indentLoadMoreUrl,
   indentNextCursor,
@@ -83,6 +84,7 @@ export function MobileProcurementHubTabs({
   poItems,
   poCanCreate,
   poCanApprove,
+  poCurrentUserId,
   poDraftCount,
   poLoadMoreUrl,
   poNextCursor,
@@ -101,6 +103,7 @@ export function MobileProcurementHubTabs({
   indentItems: RequisitionListItem[];
   indentCanCreate: boolean;
   indentCanApprove: boolean;
+  indentCurrentUserId?: string | null;
   indentSubmittedCount: number;
   indentLoadMoreUrl?: string;
   indentNextCursor?: string | null;
@@ -115,6 +118,7 @@ export function MobileProcurementHubTabs({
   poItems: ProcurementListItem[];
   poCanCreate: boolean;
   poCanApprove: boolean;
+  poCurrentUserId?: string | null;
   poDraftCount: number;
   poLoadMoreUrl?: string;
   poNextCursor?: string | null;
@@ -207,6 +211,7 @@ export function MobileProcurementHubTabs({
             items={indentItems}
             canCreate={indentCanCreate}
             canApprove={indentCanApprove}
+            currentUserId={indentCurrentUserId}
             submittedCount={indentSubmittedCount}
             loadMoreUrl={indentLoadMoreUrl}
             nextCursor={indentNextCursor}
@@ -244,6 +249,7 @@ export function MobileProcurementHubTabs({
             items={poItems}
             canCreate={poCanCreate}
             canApprove={poCanApprove}
+            currentUserId={poCurrentUserId}
             draftCount={poDraftCount}
             loadMoreUrl={poLoadMoreUrl}
             nextCursor={poNextCursor}

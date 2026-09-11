@@ -24,7 +24,7 @@ const createSchema = z.object({
 
 // GET /api/quality-control/ncr?projectId=xxx&status=xxx&severity=xxx
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requirePermission(PERM.QC_VIEW);
   const company = await getCompany();
   const projectId = req.nextUrl.searchParams.get("projectId") ?? undefined;
   const status = req.nextUrl.searchParams.get("status") as NcrStatus | null;
@@ -45,7 +45,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
 // POST /api/quality-control/ncr
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.WO_MANAGE);
+  const user = await requirePermission(PERM.QC_MANAGE);
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
@@ -80,6 +80,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       userId: user.id,
     });
     revalidatePath("/quality-control");
+    revalidatePath("/m/quality-control");
     return json(ncr, { status: 201 });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });

@@ -98,6 +98,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     if (!body.invoiceDocumentUrl) {
       return json({ error: "invoiceDocumentUrl is required for upload-document" }, { status: 400 });
     }
+    // Verify the invoice belongs to this company before updating.
+    const existing = await prisma.supplierInvoice.findFirst({
+      where: { id, companyId: company.id },
+      select: { id: true },
+    });
+    if (!existing) {
+      return json({ error: "Supplier invoice not found" }, { status: 404 });
+    }
     const updated = await prisma.supplierInvoice.update({
       where: { id },
       data: {

@@ -278,6 +278,7 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
       totalReceived,
       receivedPct: totalOrdered > 0 ? Math.round((totalReceived / totalOrdered) * 100) : 0,
       createdAt: po.createdAt.toISOString(),
+      createdById: po.createdById,
     };
   });
 
@@ -643,6 +644,15 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
       createdAt: d.createdAt.toISOString(),
     })),
     canManageLegal: hasPermission(role, PERM.LEGAL_MANAGE),
+    canManage: hasPermission(role, PERM.PROJECTS_MANAGE),
+    canReallocate: hasPermission(role, PERM.PROJECTS_MANAGE) || hasPermission(role, PERM.FINANCE_MANAGE),
+    quickActionPerms: {
+      canCreatePO: hasPermission(role, PERM.PROCUREMENT_MANAGE),
+      canIssueMaterials: hasPermission(role, PERM.STOCK_ISSUE),
+      canManageUnits: hasPermission(role, PERM.ASSETS_MANAGE),
+      canCreateSale: hasPermission(role, PERM.SALE_CREATE),
+      canAddCost: hasPermission(role, PERM.EXPENSE_CREATE) || hasPermission(role, PERM.FINANCE_MANAGE),
+    },
   };
 
   const editInitial = {

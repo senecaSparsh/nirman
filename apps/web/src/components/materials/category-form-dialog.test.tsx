@@ -82,7 +82,7 @@ describe("CategoryFormDialog", () => {
     const onOpenChange = vi.fn();
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ id: "new-cat", name: "Steel" }),
+      json: async () => ({ id: "new-cat", name: "Steel", unit: "KG", hsnCode: "7214", gstRate: 18 }),
     });
     render(<CategoryFormDialog open onOpenChange={onOpenChange} category={null} onCreated={onCreated} />);
     fireEvent.change(screen.getByPlaceholderText("e.g. Cement & Binding"), {
@@ -90,7 +90,7 @@ describe("CategoryFormDialog", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Create category" }));
     await vi.waitFor(() => {
-      expect(onCreated).toHaveBeenCalledWith({ id: "new-cat", label: "Steel" });
+      expect(onCreated).toHaveBeenCalledWith({ id: "new-cat", label: "Steel", unit: "KG", hsnCode: "7214", gstRate: 18 });
       expect(onOpenChange).toHaveBeenCalledWith(false);
     });
   });

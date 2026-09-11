@@ -21,7 +21,7 @@ import type { StockLocationRow, StockRow } from "@/lib/types";
  * location with the dropdown. This is the enterprise pattern:
  * one dense, sortable grid instead of N separate lists.
  */
-export function OnHandTab({ stock, locations }: { stock: StockRow[]; locations: StockLocationRow[] }) {
+export function OnHandTab({ stock, locations, canManage = false }: { stock: StockRow[]; locations: StockLocationRow[]; canManage?: boolean }) {
   const router = useRouter();
   const [locationFilter, setLocationFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -126,6 +126,7 @@ export function OnHandTab({ stock, locations }: { stock: StockRow[]; locations: 
             columns={stockColumns({
               onAdjust: (r) => { setAdjustRow(r); setAdjustOpen(true); },
               onCount: (r) => { router.push(`/stock?tab=counts&materialId=${r.materialId}&locationId=${r.locationId}`); },
+              canManage,
             })}
             searchable
             searchPlaceholder="Search by code, material, location…"
@@ -175,6 +176,7 @@ export function OnHandTab({ stock, locations }: { stock: StockRow[]; locations: 
 function stockColumns(actions: {
   onAdjust: (row: StockRow) => void;
   onCount: (row: StockRow) => void;
+  canManage: boolean;
 }): Column<StockRow>[] {
   return [
   {
@@ -239,28 +241,32 @@ function stockColumns(actions: {
     sortable: false,
     render: (r) => (
       <div className="flex items-center justify-end gap-1">
-        <button
-          type="button"
-          className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
-          title="Adjust stock for this material at this location"
-          onClick={(e) => {
-            e.stopPropagation();
-            actions.onAdjust(r);
-          }}
-        >
-          <SlidersHorizontal className="size-3" /> Adjust
-        </button>
-        <button
-          type="button"
-          className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
-          title="Start a stock count for this material at this location"
-          onClick={(e) => {
-            e.stopPropagation();
-            actions.onCount(r);
-          }}
-        >
-          <ClipboardCheck className="size-3" /> Count
-        </button>
+        {actions.canManage && (
+          <button
+            type="button"
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+            title="Adjust stock for this material at this location"
+            onClick={(e) => {
+              e.stopPropagation();
+              actions.onAdjust(r);
+            }}
+          >
+            <SlidersHorizontal className="size-3" /> Adjust
+          </button>
+        )}
+        {actions.canManage && (
+          <button
+            type="button"
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+            title="Start a stock count for this material at this location"
+            onClick={(e) => {
+              e.stopPropagation();
+              actions.onCount(r);
+            }}
+          >
+            <ClipboardCheck className="size-3" /> Count
+          </button>
+        )}
       </div>
     ),
   },

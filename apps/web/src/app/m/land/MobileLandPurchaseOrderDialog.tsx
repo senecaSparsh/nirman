@@ -40,6 +40,7 @@ export function MobileLandPurchaseOrderDialog({
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const todayForReset = useTodayDate();
+  const [localSellers, setLocalSellers] = useState(sellers);
 
   const [sellerId, setSellerId] = useState("");
   const [sellerName, setSellerName] = useState("");
@@ -181,20 +182,18 @@ export function MobileLandPurchaseOrderDialog({
           <div className={sectionBoxClass} style={sectionBoxStyle}>
             <p className={sectionHeadingClass} style={sectionHeadingStyle}>Seller</p>
             <div>
-              {sellers.length > 0 ? (
-                <MobileSelectWithCreate
-                  label="Seller"
-                  required
-                  value={sellerId}
-                  onChange={(v) => {
-                    setSellerId(v);
-                    const s = sellers.find((s) => s.id === v);
-                    if (s) { setSellerName(s.name); setSellerContact(s.phone ?? ""); }
-                  }}
-                  options={sellers.map((s) => ({ value: s.id, label: s.name }))}
-                  placeholder="— Select seller —"
-                />
-              ) : null}
+              <MobileSelectWithCreate
+                label="Seller"
+                required
+                value={sellerId}
+                onChange={(v) => {
+                  setSellerId(v);
+                  const s = localSellers.find((s) => s.id === v);
+                  if (s) { setSellerName(s.name); setSellerContact(s.phone ?? ""); }
+                }}
+                options={localSellers.map((s) => ({ value: s.id, label: s.name }))}
+                placeholder="— Select seller —"
+              />
               <input
                 type="text"
                 value={sellerName}

@@ -140,7 +140,7 @@ export function StockHubView({
       </TabsList>
 
       <TabsContent value="on-hand">
-        <OnHandTab stock={stock} locations={locations} />
+        <OnHandTab stock={stock} locations={locations} canManage={permissions.canManage} />
       </TabsContent>
       <TabsContent value="movements">
         <StockMovementsView

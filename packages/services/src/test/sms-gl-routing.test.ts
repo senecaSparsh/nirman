@@ -89,14 +89,14 @@ describe("SMS GL routing fix — integration tests", () => {
     // Deposit entries: sourceId = assetSaleId
     const depositEntries = await prisma.journalEntry.findMany({
       where: { sourceType: "ASSET_SALE_DEPOSIT", sourceId: assetSaleId },
-      include: { lines: true },
+      include: { lines: { include: { account: { select: { code: true } } } } },
     });
     // Payment entries: lines have entityId = assetSaleId (on the AR line)
     const paymentEntries = await prisma.journalEntry.findMany({
       where: {
-        lines: { some: { entityId: assetSaleId, accountCode: ACCT.AR } },
+        lines: { some: { entityId: assetSaleId, account: { code: ACCT.AR } } },
       },
-      include: { lines: true },
+      include: { lines: { include: { account: { select: { code: true } } } } },
     });
     return [...depositEntries, ...paymentEntries];
   }
@@ -122,10 +122,10 @@ describe("SMS GL routing fix — integration tests", () => {
     // The deposit entry should credit CUSTOMER_DEPOSIT, not AR
     const allLines = entries.flatMap((e) => e.lines);
     const depositCredit = allLines.find(
-      (l) => l.accountCode === ACCT.CUSTOMER_DEPOSIT && l.credit.toNumber() > 0,
+      (l) => l.account.code === ACCT.CUSTOMER_DEPOSIT && l.credit.toNumber() > 0,
     );
     const arCredit = allLines.find(
-      (l) => l.accountCode === ACCT.AR && l.credit.toNumber() > 0,
+      (l) => l.account.code === ACCT.AR && l.credit.toNumber() > 0,
     );
 
     expect(depositCredit).toBeDefined();
@@ -149,10 +149,10 @@ describe("SMS GL routing fix — integration tests", () => {
     const entries = await findSaleJournalEntries(sale.id);
     const allLines = entries.flatMap((e) => e.lines);
     const depositCredit = allLines.find(
-      (l) => l.accountCode === ACCT.CUSTOMER_DEPOSIT && l.credit.toNumber() > 0,
+      (l) => l.account.code === ACCT.CUSTOMER_DEPOSIT && l.credit.toNumber() > 0,
     );
     const arCredit = allLines.find(
-      (l) => l.accountCode === ACCT.AR && l.credit.toNumber() > 0,
+      (l) => l.account.code === ACCT.AR && l.credit.toNumber() > 0,
     );
 
     expect(depositCredit).toBeDefined();
@@ -178,10 +178,10 @@ describe("SMS GL routing fix — integration tests", () => {
     const entries = await findSaleJournalEntries(sale.id);
     const allLines = entries.flatMap((e) => e.lines);
     const arCredit = allLines.find(
-      (l) => l.accountCode === ACCT.AR && l.credit.toNumber() > 0,
+      (l) => l.account.code === ACCT.AR && l.credit.toNumber() > 0,
     );
     const depositCredit = allLines.find(
-      (l) => l.accountCode === ACCT.CUSTOMER_DEPOSIT && l.credit.toNumber() > 0,
+      (l) => l.account.code === ACCT.CUSTOMER_DEPOSIT && l.credit.toNumber() > 0,
     );
 
     expect(arCredit).toBeDefined();
@@ -211,7 +211,7 @@ describe("SMS GL routing fix — integration tests", () => {
     expect(entry.totalCredit.toNumber()).toBe(750000);
 
     // Verify Dr Cash
-    const cashDebit = entry.lines.find((l) => l.accountCode === ACCT.CASH && l.debit.toNumber() > 0);
+    const cashDebit = entry.lines.find((l) => l.account.code === ACCT.CASH && l.debit.toNumber() > 0);
     expect(cashDebit).toBeDefined();
     expect(cashDebit!.debit.toNumber()).toBe(750000);
   });

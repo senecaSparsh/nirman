@@ -40,7 +40,7 @@ describe("Payroll GL Posting — integration tests", () => {
         sourceType: "PAYROLL",
         sourceId: payrollPeriodId,
       },
-      include: { lines: true },
+      include: { lines: { include: { account: { select: { code: true } } } } },
     });
   }
 
@@ -82,10 +82,10 @@ describe("Payroll GL Posting — integration tests", () => {
     // Should have 5 lines: Dr Expense, Cr Salaries Payable (net), Cr PF Payable, Cr TDS Payable, Cr Salaries Payable (other)
     expect(entry!.lines).toHaveLength(5);
 
-    const expenseLine = entry!.lines.find((l) => l.accountCode === ACCT.SALARIES_EXPENSE);
-    const netPayableLine = entry!.lines.filter((l) => l.accountCode === ACCT.SALARIES_PAYABLE);
-    const pfPayableLine = entry!.lines.find((l) => l.accountCode === ACCT.PF_PAYABLE);
-    const tdsPayableLine = entry!.lines.find((l) => l.accountCode === ACCT.TDS_PAYABLE);
+    const expenseLine = entry!.lines.find((l) => l.account.code === ACCT.SALARIES_EXPENSE);
+    const netPayableLine = entry!.lines.filter((l) => l.account.code === ACCT.SALARIES_PAYABLE);
+    const pfPayableLine = entry!.lines.find((l) => l.account.code === ACCT.PF_PAYABLE);
+    const tdsPayableLine = entry!.lines.find((l) => l.account.code === ACCT.TDS_PAYABLE);
 
     expect(expenseLine).toBeDefined();
     expect(expenseLine!.debit.toNumber()).toBe(100000);
@@ -135,8 +135,8 @@ describe("Payroll GL Posting — integration tests", () => {
     expect(entry).not.toBeNull();
     expect(entry!.lines).toHaveLength(2);
 
-    const expenseLine = entry!.lines.find((l) => l.accountCode === ACCT.SALARIES_EXPENSE);
-    const payableLine = entry!.lines.find((l) => l.accountCode === ACCT.SALARIES_PAYABLE);
+    const expenseLine = entry!.lines.find((l) => l.account.code === ACCT.SALARIES_EXPENSE);
+    const payableLine = entry!.lines.find((l) => l.account.code === ACCT.SALARIES_PAYABLE);
     expect(expenseLine).toBeDefined();
     expect(payableLine).toBeDefined();
     expect(expenseLine!.debit.toNumber()).toBe(50000);
@@ -183,7 +183,7 @@ describe("Payroll GL Posting — integration tests", () => {
     expect(entry!.totalCredit.toNumber()).toBe(80000);
 
     // Verify the two Salaries Payable lines sum to net + other = 60000 + 12000 = 72000
-    const salariesPayableLines = entry!.lines.filter((l) => l.accountCode === ACCT.SALARIES_PAYABLE);
+    const salariesPayableLines = entry!.lines.filter((l) => l.account.code === ACCT.SALARIES_PAYABLE);
     expect(salariesPayableLines).toHaveLength(2);
     const totalSalariesPayable = salariesPayableLines.reduce((s, l) => s + l.credit.toNumber(), 0);
     expect(totalSalariesPayable).toBe(72000);

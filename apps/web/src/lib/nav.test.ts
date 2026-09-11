@@ -75,16 +75,14 @@ describe("worldsFor", () => {
   });
 
   it("filters items within sections by role", () => {
-    // SALES_MANAGER sees Acquire (Land is SELLING), Procure (Quotations
-    // explicitly grants SALES_MANAGER), Construct (Projects is EVERYONE),
-    // and Sell — but not Stock (OPS/ACCOUNTANT only).
+    // SALES_MANAGER sees Acquire (Land is SELLING), Construct (Projects is EVERYONE),
+    // and Sell (Quotations grants SALES_MANAGER) — but not Stock (OPS/ACCOUNTANT only).
     const build = worldsFor(SALES_MANAGER).find((w) => w.key === "build");
     expect(build).toBeDefined();
     const sectionLabels = build!.sections.map((s) => s.label);
     expect(sectionLabels).toContain("Sell");
     expect(sectionLabels).toContain("Acquire"); // Land is SELLING
     expect(sectionLabels).toContain("Construct"); // Projects is EVERYONE
-    expect(sectionLabels).toContain("Procure"); // Quotations grants SALES_MANAGER
     expect(sectionLabels).not.toContain("Stock"); // OPS/ACCOUNTANT only
   });
 
@@ -220,8 +218,8 @@ describe("worldForPath", () => {
 // ─────────────────────────────────────────────────────────────────
 
 describe("homeWorldFor", () => {
-  it("SUPERVISOR lands in Build (site work, not HR)", () => {
-    expect(homeWorldFor(SUPERVISOR).key).toBe("build");
+  it("SUPERVISOR lands in HR (DPRs are their primary daily work)", () => {
+    expect(homeWorldFor(SUPERVISOR).key).toBe("hr");
   });
 
   it("SALES_MANAGER lands in Build", () => {
@@ -242,8 +240,8 @@ describe("homeWorldFor", () => {
     expect(homeWorldFor(ADMIN).key).toBe("today");
   });
 
-  it("PROJECT_MANAGER lands in Build", () => {
-    expect(homeWorldFor(PROJECT_MANAGER).key).toBe("build");
+  it("PROJECT_MANAGER lands in Today (overview dashboard)", () => {
+    expect(homeWorldFor(PROJECT_MANAGER).key).toBe("today");
   });
 
   it("Books world entry is /finance (not /reports)", () => {

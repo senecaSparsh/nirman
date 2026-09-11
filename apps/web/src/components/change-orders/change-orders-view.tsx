@@ -165,11 +165,16 @@ export function ChangeOrdersView({
 // ── New Change Order Dialog ──
 
 interface Line {
+  id: string;
   description: string;
   originalQty: string;
   revisedQty: string;
   unit: string;
   rate: string;
+}
+
+function makeLineId() {
+  return `line_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function NewChangeOrderDialog({
@@ -183,10 +188,9 @@ function NewChangeOrderDialog({
   projects: Project[];
   onSaved: () => void;
 }) {
-  const _router = useRouter();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    projectId: projects[0]?.id ?? "",
+    projectId: projects.find((p) => p.status !== "CANCELLED" && p.status !== "COMPLETED")?.id ?? projects[0]?.id ?? "",
     title: "",
     description: "",
     type: "MODIFICATION" as ChangeOrderType,
@@ -196,7 +200,7 @@ function NewChangeOrderDialog({
     notes: "",
   });
   const [lines, setLines] = useState<Line[]>([
-    { description: "", originalQty: "0", revisedQty: "0", unit: "", rate: "0" },
+    { id: makeLineId(), description: "", originalQty: "0", revisedQty: "0", unit: "", rate: "0" },
   ]);
 
   const costDelta = lines.reduce((sum, l) => {
@@ -213,7 +217,7 @@ function NewChangeOrderDialog({
     setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   }
   function addLine() {
-    setLines((prev) => [...prev, { description: "", originalQty: "0", revisedQty: "0", unit: "", rate: "0" }]);
+    setLines((prev) => [...prev, { id: makeLineId(), description: "", originalQty: "0", revisedQty: "0", unit: "", rate: "0" }]);
   }
   function removeLine(i: number) {
     setLines((prev) => prev.filter((_, idx) => idx !== i));
@@ -260,7 +264,15 @@ function NewChangeOrderDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create");
-      toast.success("Change order created");
+      if (data.submitted) {
+        toast.success("Change order submitted for approval");
+      } else {
+        toast.warning("Change order saved as draft", {
+          description: data.submitError
+            ? `Auto-submit failed: ${data.submitError}`
+            : "You can submit it for approval from the change order detail page.",
+        });
+      }
       onOpenChange(false);
       onSaved();
     } catch (err: unknown) {
@@ -282,7 +294,9 @@ function NewChangeOrderDialog({
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Project" required>
             <Select value={form.projectId} onChange={(e) => set("projectId", e.target.value)}>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {projects
+                .filter((p) => p.status !== "CANCELLED" && p.status !== "COMPLETED")
+                .map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </Select>
           </Field>
           <Field label="Schedule Δ (days)">
@@ -332,7 +346,7 @@ function NewChangeOrderDialog({
           </div>
           <div className="space-y-2">
             {lines.map((l, i) => (
-              <div key={i} className="grid grid-cols-[1fr_80px_80px_60px_100px_32px] gap-2 items-center">
+              <div key={l.id} className="grid grid-cols-[1fr_80px_80px_60px_100px_32px] gap-2 items-center">
                 <Input
                   value={l.description}
                   onChange={(e) => updateLine(i, { description: e.target.value })}

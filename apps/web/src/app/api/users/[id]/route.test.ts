@@ -176,4 +176,173 @@ describe("PATCH /api/users/[id]", () => {
     );
     expect(res.status).toBe(404);
   });
+
+  // ── Custom role tests ──
+  // The API stores CustomRole.key as "CUSTOM_SALES_LEAD" (auto-prefixed).
+  // The page passes cr.key directly (already prefixed). This test verifies
+  // the API correctly resolves the custom role by its stored key.
+
+  it("assigns a custom role when the actor's tier is above the custom role's tier", async () => {
+    // Actor: OWNER (tier 1). Target: SITE_ENGINEER (tier 4).
+    // Custom role: CUSTOM_SALES_LEAD at tier 4.
+    // canAssignCustomRole(OWNER, 4) → 1 < 4 → true.
+    mockPrisma().user!.findUnique.mockImplementation(async (args: any) => {
+      if (args?.where?.id === "user-owner-1") {
+        return { id: "user-owner-1", role: "OWNER", companyId: "company-1", active: true };
+      }
+      return { id: "u-target", role: "SITE_ENGINEER", active: true, name: "Jane", companyId: "company-1" };
+    });
+    mockPrisma().customRole!.findFirst.mockResolvedValue({
+      id: "cr-1",
+      key: "CUSTOM_SALES_LEAD",
+      tier: 4,
+      baseRole: "SALES_MANAGER",
+      permissions: [],
+    });
+    mockPrisma().user!.update.mockResolvedValue({
+      id: "u-target",
+      email: "jane@test.com",
+      name: "Jane",
+      role: "CUSTOM_SALES_LEAD",
+      active: true,
+      phone: null,
+      designation: null,
+      department: null,
+      employeeCode: null,
+      companyId: "company-1",
+    });
+    const res = await PATCH(
+      makeRequest("/api/users/u-target", { method: "PATCH", body: { role: "CUSTOM_SALES_LEAD" } }),
+      makeCtx("u-target"),
+    );
+    expect(res.status).toBe(200);
+    const body = await getJson<{ ok: boolean; user: { role: string } }>(res);
+    expect(body.ok).toBe(true);
+    expect(body.user.role).toBe("CUSTOM_SALES_LEAD");
+  });
+
+  it("returns 403 when assigning a custom role above the actor's tier", async () => {
+    // Actor: HR_MANAGER (tier 3). Target: SITE_ENGINEER (tier 4).
+    // Custom role: CUSTOM_DIRECTOR at tier 2.
+    // canAssignCustomRole(HR_MANAGER, 2) → 3 < 2 → false → 403.
+    setSessionUser({ role: "HR_MANAGER", id: "hr-1" });
+    mockPrisma().user!.findUnique.mockImplementation(async (args: any) => {
+      if (args?.where?.id === "hr-1") {
+        return { id: "hr-1", role: "HR_MANAGER", companyId: "company-1", active: true };
+      }
+      return { id: "u-target", role: "SITE_ENGINEER", active: true, name: "Jane", companyId: "company-1" };
+    });
+    mockPrisma().customRole!.findFirst.mockResolvedValue({
+      id: "cr-2",
+      key: "CUSTOM_DIRECTOR",
+      tier: 2,
+      baseRole: "PROJECT_DIRECTOR",
+      permissions: [],
+    });
+    const res = await PATCH(
+      makeRequest("/api/users/u-target", { method: "PATCH", body: { role: "CUSTOM_DIRECTOR" } }),
+      makeCtx("u-target"),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 403 when the custom role key is not found in the DB (e.g. double-prefixed key)", async () => {
+    // This tests the bug that was fixed: the page was sending
+    // "CUSTOM_CUSTOM_SALES_LEAD" (double-prefixed) which doesn't exist in the DB.
+    // The API should reject it with 403 (customRole.findFirst returns null).
+    mockPrisma().user!.findUnique.mockImplementation(async (args: any) => {
+      if (args?.where?.id === "user-owner-1") {
+        return { id: "user-owner-1", role: "OWNER", companyId: "company-1", active: true };
+      }
+      return { id: "u-target", role: "SITE_ENGINEER", active: true, name: "Jane", companyId: "company-1" };
+    });
+    // Simulate: custom role not found (double-prefixed key doesn't match)
+    mockPrisma().customRole!.findFirst.mockResolvedValue(null);
+    const res = await PATCH(
+      makeRequest("/api/users/u-target", { method: "PATCH", body: { role: "CUSTOM_CUSTOM_SALES_LEAD" } }),
+      makeCtx("u-target"),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 403 when a tier-3 actor tries to assign a tier-1 role (ADMIN)", async () => {
+    // Actor: HR_MANAGER (tier 3). Target: SITE_ENGINEER (tier 4).
+    // New role: ADMIN (tier 1).
+    // canAssignRole(HR_MANAGER, ADMIN) → 3 < 1 → false → 403.
+    setSessionUser({ role: "HR_MANAGER", id: "hr-1" });
+    mockPrisma().user!.findUnique.mockImplementation(async (args: any) => {
+      if (args?.where?.id === "hr-1") {
+        return { id: "hr-1", role: "HR_MANAGER", companyId: "company-1", active: true };
+      }
+      return { id: "u-target", role: "SITE_ENGINEER", active: true, name: "Jane", companyId: "company-1" };
+    });
+    const res = await PATCH(
+      makeRequest("/api/users/u-target", { method: "PATCH", body: { role: "ADMIN" } }),
+      makeCtx("u-target"),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 403 when a tier-3 actor tries to assign a tier-2 role (PROJECT_DIRECTOR)", async () => {
+    setSessionUser({ role: "HR_MANAGER", id: "hr-1" });
+    mockPrisma().user!.findUnique.mockImplementation(async (args: any) => {
+      if (args?.where?.id === "hr-1") {
+        return { id: "hr-1", role: "HR_MANAGER", companyId: "company-1", active: true };
+      }
+      return { id: "u-target", role: "SITE_ENGINEER", active: true, name: "Jane", companyId: "company-1" };
+    });
+    const res = await PATCH(
+      makeRequest("/api/users/u-target", { method: "PATCH", body: { role: "PROJECT_DIRECTOR" } }),
+      makeCtx("u-target"),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("allows a tier-3 actor (HR_MANAGER) to assign a tier-4 role (STORE_KEEPER)", async () => {
+    // canAssignRole(HR_MANAGER, STORE_KEEPER) → 3 < 4 → true.
+    setSessionUser({ role: "HR_MANAGER", id: "hr-1" });
+    mockPrisma().user!.findUnique.mockImplementation(async (args: any) => {
+      if (args?.where?.id === "hr-1") {
+        return { id: "hr-1", role: "HR_MANAGER", companyId: "company-1", active: true };
+      }
+      return { id: "u-target", role: "SITE_ENGINEER", active: true, name: "Jane", companyId: "company-1" };
+    });
+    mockPrisma().user!.update.mockResolvedValue({
+      id: "u-target",
+      email: "jane@test.com",
+      name: "Jane",
+      role: "STORE_KEEPER",
+      active: true,
+      phone: null,
+      designation: null,
+      department: null,
+      employeeCode: null,
+      companyId: "company-1",
+    });
+    const res = await PATCH(
+      makeRequest("/api/users/u-target", { method: "PATCH", body: { role: "STORE_KEEPER" } }),
+      makeCtx("u-target"),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("blocks self-role-change (tier check catches it before self-demotion guard)", async () => {
+    // Actor is ADMIN (id "admin-1"), target is the same user.
+    // canAssignRole(ADMIN, ADMIN) → same role → false → 403 from tier check.
+    // The self-demotion guard (line 125, returns 400) is belt-and-suspenders
+    // but the tier check always fires first for same-user role changes
+    // because canAssignRole returns false when actor === target role.
+    setSessionUser({ role: "ADMIN", id: "admin-1" });
+    mockPrisma().user!.findUnique.mockImplementation(async (args: any) => {
+      if (args?.where?.id === "admin-1") {
+        return { id: "admin-1", role: "ADMIN", companyId: "company-1", active: true };
+      }
+      return { id: "admin-1", role: "ADMIN", active: true, name: "Admin" };
+    });
+    const res = await PATCH(
+      makeRequest("/api/users/admin-1", { method: "PATCH", body: { role: "STORE_KEEPER" } }),
+      makeCtx("admin-1"),
+    );
+    expect(res.status).toBe(403);
+  });
 });

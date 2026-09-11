@@ -14,6 +14,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
   const companyIds = includeGroup ? await getCompanyGroupIds() : [company.id];
   const locations = await prisma.stockLocation.findMany({
+    take: 500,
     where: { companyId: { in: companyIds }, deletedAt: null },
     orderBy: [{ type: "asc" }, { name: "asc" }],
     include: {
@@ -54,18 +55,56 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  // PROJECT_SITE must reference a project; COMPANY_WAREHOUSE must not
+  // ── Scope validation based on type ──
+  // PROJECT_SITE must reference a project; all other types must NOT have a project.
   if (parsed.data.type === "PROJECT_SITE" && !parsed.data.projectId) {
     return json({ error: "A project site must be linked to a project" }, { status: 400 });
   }
-  if (parsed.data.type === "COMPANY_WAREHOUSE" && parsed.data.projectId) {
+  if (parsed.data.type !== "PROJECT_SITE" && parsed.data.projectId) {
     parsed.data.projectId = null;
   }
+
+  // ── Target company ──
+  // The owner of a parent company can create stock locations for child companies.
+  // Defaults to the current company. Must be in the company group (self or children).
+  const groupIds = await getCompanyGroupIds(company);
+  const targetCompanyId = body.targetCompanyId && body.targetCompanyId !== company.id
+    ? body.targetCompanyId
+    : company.id;
+  if (targetCompanyId !== company.id && !groupIds.includes(targetCompanyId)) {
+    return json({ error: "You can only create stock locations for your own company or its children" }, { status: 403 });
+  }
+
+  // ── Duplicate check ──
+  // Warn if a stock location with the same name already exists in the target company
+  // (case-insensitive). The user can override by passing `force: true`.
+  const force = body.force === true;
+  if (!force) {
+    const existing = await prisma.stockLocation.findFirst({
+      where: {
+        companyId: targetCompanyId,
+        deletedAt: null,
+        name: { equals: parsed.data.name, mode: "insensitive" },
+      },
+      select: { id: true, name: true, type: true, projectId: true },
+    });
+    if (existing) {
+      return json(
+        {
+          warning: "duplicate",
+          message: `A stock location named "${existing.name}" already exists${existing.type === "PROJECT_SITE" ? " (project site)" : ""}. Create anyway?`,
+          existing: { id: existing.id, name: existing.name, type: existing.type },
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   const created = await withSerializableTransaction(async (tx) => {
     const loc = await tx.stockLocation.create({
       data: {
         ...parsed.data,
-        companyId: company.id,
+        companyId: targetCompanyId,
         projectId: parsed.data.projectId ?? null,
       },
     });
@@ -74,7 +113,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       action: "STOCK_LOCATION_CREATE",
       entityType: "StockLocation",
       entityId: loc.id,
-      after: { name: loc.name, type: loc.type },
+      after: { name: loc.name, type: loc.type, projectId: loc.projectId, companyId: targetCompanyId },
     });
     return loc;
   });

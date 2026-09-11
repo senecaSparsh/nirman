@@ -96,7 +96,7 @@ export function MobileRequisitionActions({
   const [showConvert, setShowConvert] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const showSubmit = requisition.status === "DRAFT" && canManage;
+  const showSubmit = (requisition.status === "DRAFT" || requisition.status === "REJECTED") && canManage;
   const showApproveReject = requisition.status === "SUBMITTED" && canApprove;
   const canConvert = requisition.status === "APPROVED" && canManage;
   const showDelete =
@@ -106,14 +106,17 @@ export function MobileRequisitionActions({
   if (!showSubmit && !showApproveReject && !canConvert && !showDelete)
     return null;
 
-  async function act(action: "submit" | "approve" | "reject", label: string) {
+  const [showReject, setShowReject] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+
+  async function act(action: "submit" | "approve" | "reject", label: string, extra?: Record<string, unknown>) {
     haptic(10);
     setBusy(action);
     try {
       const res = await fetch(`/api/requisitions/${requisition.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, ...extra }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `Failed to ${action}`);
@@ -149,10 +152,10 @@ export function MobileRequisitionActions({
     <div className="space-y-2 px-4 pb-6 pt-3">
       {showSubmit && (
         <BarButton
-          onClick={() => act("submit", `Indent ${requisition.reqNumber} submitted`)}
+          onClick={() => act("submit", `Indent ${requisition.reqNumber} ${requisition.status === "REJECTED" ? "resubmitted" : "submitted"}`)}
           busy={busy === "submit"}
           icon={Send}
-          label="Submit for approval"
+          label={requisition.status === "REJECTED" ? "Resubmit for approval" : "Submit for approval"}
           variant="primary"
         />
       )}
@@ -167,7 +170,7 @@ export function MobileRequisitionActions({
             className="flex-1"
           />
           <BarButton
-            onClick={() => act("reject", `Indent ${requisition.reqNumber} rejected`)}
+            onClick={() => { setShowReject(true); setRejectReason(""); }}
             busy={busy === "reject"}
             icon={XCircle}
             label="Reject"
@@ -288,6 +291,75 @@ export function MobileRequisitionActions({
                     <Trash2 className="size-3.5" />
                   )}
                   {busy === "delete" ? "Deleting…" : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+      {showReject && (
+        <>
+          <div
+            className="fixed inset-0 z-50"
+            style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+            onClick={() => !busy && setShowReject(false)}
+          />
+          <div
+            className="fixed left-0 right-0 bottom-0 z-50 rounded-t-[1rem] border-t"
+            style={{
+              backgroundColor: "var(--color-paper)",
+              borderColor: "var(--color-line)",
+              paddingBottom: "max(env(safe-area-inset-bottom), 1rem)",
+            }}
+          >
+            <div className="flex justify-center pt-2 pb-1">
+              <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
+            </div>
+            <div className="flex items-center justify-between px-4 pb-2 border-b" style={{ borderColor: "var(--color-line)" }}>
+              <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Reject Indent?</p>
+              <button
+                onClick={() => setShowReject(false)}
+                disabled={busy === "reject"}
+                aria-label="Close"
+                className="touch grid place-items-center rounded-[0.5rem] text-m-body press"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                <XCircle className="size-4" />
+              </button>
+            </div>
+            <div className="px-4 py-3 flex flex-col gap-3">
+              <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
+                Provide a reason for rejecting <span className="font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>{requisition.reqNumber}</span>.
+              </p>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="e.g. Wrong quantity, duplicate request, not approved by site lead…"
+                rows={3}
+                autoFocus
+                className="w-full px-2 py-2 text-m-body outline-none border rounded-[0.5rem] resize-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+              />
+              <div className="flex flex-col gap-2 pt-1">
+                <button
+                  onClick={() => setShowReject(false)}
+                  disabled={busy === "reject"}
+                  className="flex-1 h-10 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
+                  style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    act("reject", `Indent ${requisition.reqNumber} rejected`, rejectReason.trim() ? { rejectReason: rejectReason.trim() } : undefined);
+                    setShowReject(false);
+                  }}
+                  disabled={busy === "reject"}
+                  className="flex-1 h-10 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1.5"
+                  style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
+                >
+                  {busy === "reject" ? <Loader2 className="size-3.5 animate-spin" /> : <XCircle className="size-3.5" />}
+                  {busy === "reject" ? "Rejecting…" : "Reject"}
                 </button>
               </div>
             </div>
@@ -584,7 +656,7 @@ function ConvertForm({
                   step="0.01"
                   value={lineCosts[l.materialId] ?? 0}
                   onChange={(e) =>
-                    setLineCosts((c) => ({ ...c, [l.materialId]: Number(e.target.value) }))
+                    setLineCosts((c) => ({ ...c, [l.materialId]: Number(e.target.value) || 0 }))
                   }
                   className="w-full h-9 rounded-[0.375rem] border px-2 text-right text-m-body tabular-nums outline-none"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}

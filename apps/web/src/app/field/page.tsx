@@ -43,7 +43,7 @@ async function ReceivableOrders({
   await connection();
   const { po: preselectPoId } = await searchParams;
   const role = await getUserRole();
-  if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+  if (!hasPermission(role, PERM.PROCUREMENT_VIEW) && !hasPermission(role, PERM.INVENTORY_VIEW)) {
     return <NoAccess what="field receiving" />;
   }
   const company = await getCompany();

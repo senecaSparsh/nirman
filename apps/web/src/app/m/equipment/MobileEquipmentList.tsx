@@ -95,6 +95,7 @@ export function MobileEquipmentList({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<EquipmentFilter>("ALL");
   const fab = useFabModal();
+  const router = useRouter();
 
   const filtered = useMemo(() => {
     let result = items;
@@ -137,7 +138,7 @@ export function MobileEquipmentList({
             <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="Add Equipment">
               <MobileNewEquipmentClient
                 onClose={fab.close}
-                onCreated={() => { fab.close(); window.location.reload(); }}
+                onCreated={() => { fab.close(); router.refresh(); }}
               />
             </MobileFabModal>
           </>
@@ -216,7 +217,7 @@ export function MobileEquipmentList({
           <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="Add Equipment">
             <MobileNewEquipmentClient
               onClose={fab.close}
-              onCreated={() => { fab.close(); window.location.reload(); }}
+              onCreated={() => { fab.close(); router.refresh(); }}
             />
           </MobileFabModal>
         </>

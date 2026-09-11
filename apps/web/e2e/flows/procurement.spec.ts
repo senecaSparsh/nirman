@@ -58,7 +58,10 @@ test.describe("@flow Procurement: indent → PO → GRN", () => {
     expect(submit.status(), "submit requisition").toBe(200);
 
     // ── 4. Approve the requisition ─────────────────────────────────
-    const approve = await ctx.patch(`/api/requisitions/${requisition.id}`, {
+    // Use a different role (ADMIN) for approval — self-approval is blocked
+    // by the service layer (approveRequisition checks requestedById !== approvedById).
+    const approverCtx = await api("ADMIN");
+    const approve = await approverCtx.patch(`/api/requisitions/${requisition.id}`, {
       data: { action: "approve" },
     });
     expect(approve.status(), "approve requisition").toBe(200);
@@ -101,7 +104,8 @@ test.describe("@flow Procurement: indent → PO → GRN", () => {
     expect(poData.status).toBe("DRAFT");
 
     // ── 8. Approve the PO ──────────────────────────────────────────
-    const approvePo = await ctx.patch(`/api/purchase-orders/${po.id}`, {
+    // Use the ADMIN context (different user) — self-approval is blocked.
+    const approvePo = await approverCtx.patch(`/api/purchase-orders/${po.id}`, {
       data: { action: "approve" },
     });
     expect(approvePo.status(), "approve PO").toBe(200);

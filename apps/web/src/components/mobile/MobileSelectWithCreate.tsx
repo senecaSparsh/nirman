@@ -97,7 +97,13 @@ export function MobileSelectWithCreate({
   const [showDialog, setShowDialog] = useState(false);
   const [extraOptions, setExtraOptions] = useState<{ value: string; label: string; sub?: string }[]>([]);
 
-  const allOptions = [...options, ...extraOptions];
+  // Deduplicate by value — the parent component may also add a newly created
+  // item to its own `options` list (e.g. MobileNewMaterialDialog adds a new
+  // category to `localCategories` AND we add it to `extraOptions` here).
+  // Keep the first occurrence (from `options`) so the parent's richer data wins.
+  const allOptions = [...options, ...extraOptions].filter(
+    (o, i, arr) => arr.findIndex((x) => x.value === o.value) === i,
+  );
   const selected = allOptions.find((o) => o.value === value);
 
   // Build items for SelectorModal — include a "none" option if placeholder is set

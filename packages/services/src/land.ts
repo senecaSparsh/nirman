@@ -751,11 +751,16 @@ export async function recordLandPurchaseOrder(input: LandPurchaseOrderInput) {
 
     // Post the land purchase to GL — for staged (BOOKED) purchases, only the
     // token amount is paid in cash; the balance is credited to Accounts Payable.
+    // HOWEVER, if the token is a CHEQUE, defer the cash posting until the cheque
+    // clears (clearLandPurchaseCheque posts Dr AP / Cr Cash at that point).
+    // Posting cash now for a pending cheque would double-count when it clears.
+    const isTokenCheque = input.tokenPaymentMode === "CHEQUE" && tokenAmount.gt(0);
+    const cashPaidForGl = isTokenCheque ? new Decimal(0) : tokenAmount;
     await postLandPurchase(tx, {
       companyId: input.companyId,
       landPurchaseId: landPurchase.id,
       totalCost,
-      cashPaid: tokenAmount,
+      cashPaid: cashPaidForGl,
       postedById: input.createdById,
     });
 
@@ -923,7 +928,15 @@ export async function uploadLandPurchaseDocument(input: UploadLandPurchaseDocume
       if (input.registryNo) data.registryNo = input.registryNo;
       // Registry document uploaded → transition to REGISTERED
       // (completion requires payment settlement too — done via completeLandPurchase)
-      if (lp.purchaseStage === "BOOKED" || lp.purchaseStage === "BBA_SIGNED") {
+      // BBA/ATS must be uploaded BEFORE registry — per the owner's lifecycle:
+      // Booked → BBA/ATS → Registry → Complete.
+      if (lp.purchaseStage === "BOOKED") {
+        throw new ServiceError(
+          "Cannot upload registry document before BBA/ATS. Please upload the BBA or ATS document first (the land purchase must be in BBA_SIGNED stage before registry can be uploaded).",
+          409,
+        );
+      }
+      if (lp.purchaseStage === "BBA_SIGNED") {
         data.purchaseStage = "REGISTERED";
       }
     }
@@ -968,6 +981,14 @@ export async function completeLandPurchase(input: CompleteLandPurchaseInput) {
     if (lp.deletedAt) throw new ServiceError("Land purchase is deleted");
     if (lp.purchaseStage === "COMPLETED") throw new ServiceError("Land purchase is already completed");
     if (lp.purchaseStage === "CANCELLED") throw new ServiceError("Cannot complete a cancelled purchase");
+    // BBA/ATS must be signed before completion — per the owner's lifecycle:
+    // Booked → BBA/ATS → Registry → Complete.
+    if (lp.purchaseStage === "BOOKED") {
+      throw new ServiceError(
+        "Land purchase cannot be completed from BOOKED stage. Upload the BBA/ATS document first, then the registry document.",
+        409,
+      );
+    }
 
     // Registry document is REQUIRED for completion
     const registryDocUrl = input.registryDocumentUrl ?? lp.registryDocumentUrl;
@@ -1115,7 +1136,7 @@ export async function bounceLandPurchaseCheque(paymentId: string, userId?: strin
   return withSerializableTransaction(async (tx) => {
     const payment = await tx.landPurchasePayment.findUnique({
       where: { id: paymentId },
-      include: { landPurchase: true },
+      include: { landPurchase: { include: { payments: true } } },
     });
     if (!payment) throw new ServiceError("Payment not found", 404);
     if (payment.chequeStatus !== "PENDING") {
@@ -1127,14 +1148,51 @@ export async function bounceLandPurchaseCheque(paymentId: string, userId?: strin
       data: { chequeStatus: "BOUNCED", chequeBounceReason: bounceReason ?? null },
     });
 
+    const lp = payment.landPurchase;
+
+    // If this was the token payment, reset the token fields — the token
+    // was never actually received (cheque bounced). The purchase stays
+    // BOOKED (ATS may still be signed), but the token amount is cleared.
+    if (lp.tokenAmount != null && new Decimal(lp.tokenAmount).eq(new Decimal(payment.amount))) {
+      await tx.landPurchase.update({
+        where: { id: lp.id },
+        data: {
+          tokenAmount: null,
+          tokenPaymentDate: null,
+          tokenPaymentMode: null,
+        },
+      });
+    }
+
+    // Recompute payment status based on remaining valid (non-bounced) payments.
+    // This mirrors the sale cheque bounce logic.
+    const validPayments = lp.payments.filter(
+      (p) => p.id !== paymentId && p.chequeStatus !== "BOUNCED",
+    );
+    const totalRemaining = validPayments.reduce(
+      (sum, p) => sum.plus(new Decimal(p.amount)),
+      new Decimal(0),
+    );
+
+    // If no valid payments remain and the purchase is still BOOKED, the
+    // token has effectively failed. The purchase stays BOOKED (ATS may be
+    // signed) but with no token amount. The user can re-issue a token payment.
+    // We don't revert to a pre-BOOKED state because the ATS/BBA documents
+    // may already be executed.
+
     if (userId) {
       await logAction(tx, {
         userId,
-        companyId: payment.landPurchase.companyId,
+        companyId: lp.companyId,
         action: "LAND_PURCHASE_CHEQUE_BOUNCED",
         entityType: "LandPurchasePayment",
         entityId: paymentId,
-        after: { chequeStatus: "BOUNCED", bounceReason: bounceReason ?? null },
+        after: {
+          chequeStatus: "BOUNCED",
+          bounceReason: bounceReason ?? null,
+          tokenReset: lp.tokenAmount != null && new Decimal(lp.tokenAmount).eq(new Decimal(payment.amount)),
+          remainingValidPayments: totalRemaining.toString(),
+        },
       });
     }
 

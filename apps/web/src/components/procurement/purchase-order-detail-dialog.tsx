@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRight, Check, X, Package, Printer, Link2, IndianRupee, Plus } from "lucide-react";
+import { ArrowRight, Check, X, Package, Printer, Link2, IndianRupee, Plus, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -25,15 +25,21 @@ export function PurchaseOrderDetailDialog({
   onOpenChange,
   po,
   canApprove = true,
+  canManage = false,
+  canReceiveGoods = false,
   suppliers = [],
   canManagePayments = false,
+  currentUserId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   po: PurchaseOrderRow | null;
   canApprove?: boolean;
+  canManage?: boolean;
+  canReceiveGoods?: boolean;
   suppliers?: SupplierRow[];
   canManagePayments?: boolean;
+  currentUserId?: string | null;
 }) {
   const router = useRouter();
   const [detail, setDetail] = useState<PurchaseOrderDetail | null>(null);
@@ -99,12 +105,12 @@ export function PurchaseOrderDetailDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- doAction uses latest state via closure
   }, [open, detail, canApprove, showApproveField, acting]);
 
-  async function doAction(action: "approve" | "order" | "cancel") {
+  async function doAction(action: "approve" | "order" | "cancel" | "resubmit") {
     if (!po) return;
     setActing(true);
 
     // Map action to the new status for optimistic update
-    const newStatus = action === "approve" ? "APPROVED" : action === "order" ? "ORDERED" : "CANCELLED";
+    const newStatus = action === "approve" ? "APPROVED" : action === "order" ? "ORDERED" : action === "resubmit" ? "DRAFT" : "CANCELLED";
     const prevStatus = detail?.status;
 
     const payload: Record<string, unknown> = { action };
@@ -122,8 +128,8 @@ export function PurchaseOrderDetailDialog({
         revert: () => {
           setDetail((d) => d && prevStatus ? { ...d, status: prevStatus } : d);
         },
-        successMessage: action === "order" ? "Order placed with supplier" : `PO ${action}d`,
-        successDescription: action === "order" ? "The supplier has been sent the order. Receive goods when they arrive." : undefined,
+        successMessage: action === "order" ? "Order placed with supplier" : action === "resubmit" ? `PO ${po.poNumber} resubmitted` : `PO ${action}d`,
+        successDescription: action === "order" ? "The supplier has been sent the order. Receive goods when they arrive." : action === "resubmit" ? "It's back in draft — edit if needed, then ask an approver to review." : undefined,
         successAction: action === "order" ? { label: "Receive Goods", onClick: () => setRecvOpen(true) } : undefined,
         refreshOnSuccess: false, // we re-fetch detail manually below
       });
@@ -248,27 +254,32 @@ export function PurchaseOrderDetailDialog({
 
             {/* Action buttons */}
             <div className="flex flex-wrap gap-2">
-              {detail.status === "DRAFT" && canApprove && !showApproveField && (
+              {detail.status === "DRAFT" && canApprove && po.createdById !== currentUserId && !showApproveField && (
                 <Button size="sm" onClick={() => setShowApproveField(true)} disabled={acting}>
                   <Check className="h-4 w-4" /> Approve <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">A</kbd>
                 </Button>
               )}
-              {detail.status === "APPROVED" && (
+              {detail.status === "REJECTED" && canManage && (
+                <Button size="sm" onClick={() => doAction("resubmit")} disabled={acting}>
+                  <RotateCcw className="h-4 w-4" /> Resubmit
+                </Button>
+              )}
+              {detail.status === "APPROVED" && canManage && (
                 <Button size="sm" onClick={() => doAction("order")} disabled={acting}>
                   <ArrowRight className="h-4 w-4" /> Mark as Ordered <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">O</kbd>
                 </Button>
               )}
-              {(detail.status === "ORDERED" || detail.status === "PARTIAL") && (
+              {(detail.status === "ORDERED" || detail.status === "PARTIAL") && canReceiveGoods && (
                 <Button size="sm" onClick={() => setRecvOpen(true)}>
                   <Package className="h-4 w-4" /> Receive Goods <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">R</kbd>
                 </Button>
               )}
-              {(detail.status === "ORDERED" || detail.status === "PARTIAL") && canApprove && (
+              {(detail.status === "ORDERED" || detail.status === "PARTIAL") && canManage && (
                 <Button size="sm" variant="outline" onClick={() => setAddLineOpen(true)}>
                   <Plus className="h-4 w-4" /> Add Line
                 </Button>
               )}
-              {(detail.status === "DRAFT" || detail.status === "APPROVED") && (
+              {(detail.status === "DRAFT" || detail.status === "APPROVED") && canManage && (
                 <Button size="sm" variant="outline" onClick={() => doAction("cancel")} disabled={acting} className="text-muted-foreground hover:text-danger">
                   <X className="h-4 w-4" /> Cancel PO
                 </Button>
@@ -290,7 +301,7 @@ export function PurchaseOrderDetailDialog({
             </div>
 
             {/* Inline approval notes (appears when approving) */}
-            {detail.status === "DRAFT" && canApprove && showApproveField && (
+            {detail.status === "DRAFT" && canApprove && po.createdById !== currentUserId && showApproveField && (
               <div className="flex flex-col gap-2 rounded-lg border border-border/60 p-3">
                 <label className="text-meta text-muted-foreground">Approval notes (optional)</label>
                 <textarea

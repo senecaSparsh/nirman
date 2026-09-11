@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createExpenseClaim, ServiceError } from "@nirman/services";
@@ -72,7 +72,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       userId: user.id,
     });
     revalidatePath("/expense-claims");
-    return NextResponse.json({ ok: true, id: claim.id }, { status: 201 });
+    return json({ ok: true, id: claim.id }, { status: 201 });
   } catch (err) {
     if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });
     throw err;

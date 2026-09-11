@@ -12,15 +12,16 @@
  * suppress non-IMMEDIATE notifications.
  */
 
-import { prisma } from "@nirman/db";
+import { prisma, type Prisma } from "@nirman/db";
 
 /** 27 event types across 5 workflows */
 export enum NotificationEventType {
-  // Procurement (9)
+  // Procurement (10)
   REQUISITION_SUBMITTED = "REQUISITION_SUBMITTED",
   REQUISITION_APPROVED = "REQUISITION_APPROVED",
   REQUISITION_REJECTED = "REQUISITION_REJECTED",
   REQUISITION_CONVERTED_TO_PO = "REQUISITION_CONVERTED_TO_PO",
+  PO_CREATED = "PO_CREATED",
   PO_APPROVED = "PO_APPROVED",
   PO_ORDERED = "PO_ORDERED",
   GOODS_RECEIVED = "GOODS_RECEIVED",
@@ -102,6 +103,7 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.REQUISITION_APPROVED]: "IMMEDIATE",
   [NotificationEventType.REQUISITION_REJECTED]: "IMMEDIATE",
   [NotificationEventType.REQUISITION_CONVERTED_TO_PO]: "DAILY",
+  [NotificationEventType.PO_CREATED]: "IMMEDIATE",
   [NotificationEventType.PO_APPROVED]: "IMMEDIATE",
   [NotificationEventType.PO_ORDERED]: "DAILY",
   [NotificationEventType.GOODS_RECEIVED]: "DAILY",
@@ -183,6 +185,82 @@ export interface NotificationEvent {
   variables: Record<string, string>;
   /** When the event occurred */
   timestamp: Date;
+}
+
+/**
+ * Map an entity type to the app's actual route path for that entity.
+ * The old code used `/${entityType.toLowerCase()}s/${entityId}` which
+ * produced wrong routes like `/purchaseorders/{id}` instead of
+ * `/purchase-orders/{id}`.
+ */
+const ENTITY_ROUTE_MAP: Record<string, string> = {
+  PurchaseOrder: "/purchase-orders",
+  MaterialRequisition: "/requisitions",
+  GatePass: "/gate-passes",
+  DailyProgressReport: "/hr/dprs",
+  RaBill: "/work-orders",
+  ExpenseClaim: "/expense-claims",
+  Expense: "/expenses",
+  SupplierInvoice: "/finance",
+  SupplierPayment: "/supplier-payments",
+  GoodsReceipt: "/goods-receipts",
+  MeasurementBookEntry: "/measurement-book",
+  SubcontractorWorkOrder: "/work-orders",
+  VendorQuote: "/quotations",
+  QuotationRequest: "/quotations",
+  Sale: "/sales",
+  Lead: "/leads",
+  StockMovement: "/stock",
+  MaterialIssue: "/material-issues",
+  StockTransfer: "/transfers",
+  ChangeOrder: "/change-orders",
+  NonConformanceReport: "/quality-control/ncr",
+  SafetyIncident: "/safety/incidents",
+  PayrollPeriod: "/hr/payroll",
+  LeaveRequest: "/hr/leaves",
+  LandPurchase: "/land",
+  LandParcel: "/land",
+  BuiltUnit: "/units",
+  Project: "/projects",
+  ProjectCost: "/finance",
+  AssetSale: "/sales",
+  MaterialSale: "/sales",
+  Tenancy: "/rentals",
+  Equipment: "/equipment",
+  EquipmentAssignment: "/equipment",
+  Capa: "/quality-control",
+  PettyCashFloat: "/petty-cash",
+  PettyCashTopUp: "/petty-cash",
+  RenovationProject: "/renovations",
+};
+
+/**
+ * Entity types that only have a list page (no detail page).
+ * For these, entityLink returns the list page without appending the ID.
+ */
+const LIST_ONLY_ENTITIES = new Set([
+  "Equipment",
+  "EquipmentAssignment",
+  "Capa",
+  "PettyCashFloat",
+  "PettyCashTopUp",
+  "RenovationProject",
+  "SupplierInvoice",
+  "ProjectCost",
+  "StockMovement",
+]);
+
+function entityLink(entityType?: string, entityId?: string): string | null {
+  if (!entityType || !entityId) return null;
+  const base = ENTITY_ROUTE_MAP[entityType];
+  if (base) {
+    // List-only entities: return the list page without appending the ID
+    if (LIST_ONLY_ENTITIES.has(entityType)) return base;
+    return `${base}/${entityId}`;
+  }
+  // Fallback: kebab-case the entity type
+  const kebab = entityType.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
+  return `/${kebab}s/${entityId}`;
 }
 
 /**
@@ -291,6 +369,32 @@ export async function emitNotificationEvent(event: NotificationEvent): Promise<v
           }),
         },
       });
+
+      // ── Create InAppNotification immediately if IN_APP is enabled ──
+      // The bell dropdown reads InAppNotification, not NotificationLog.
+      // Without this, the bell stays empty until the cron runs
+      // processPendingNotifications (which is not scheduled in render.yaml).
+      // Creating it here ensures the user sees the notification instantly.
+      if (channels.includes("IN_APP")) {
+        await prisma.inAppNotification.create({
+          data: {
+            companyId: event.companyId,
+            userId,
+            eventType: event.eventType,
+            title: event.eventType.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()),
+            message: renderEventMessage(event),
+            link: entityLink(event.entityType, event.entityId),
+            metadata: JSON.stringify({
+              ...event.variables,
+              entityType: event.entityType,
+              entityId: event.entityId,
+              urgency,
+            }) as Prisma.InputJsonValue,
+          },
+        }).catch(() => {
+          // Best-effort — don't fail the event bus if InAppNotification creation fails
+        });
+      }
     }
   } catch (err) {
     // Notifications are best-effort — never fail the parent transaction
@@ -321,6 +425,7 @@ export function shouldRoleReceiveEvent(role: string, eventType: NotificationEven
     NotificationEventType.REQUISITION_APPROVED,
     NotificationEventType.REQUISITION_REJECTED,
     NotificationEventType.REQUISITION_CONVERTED_TO_PO,
+    NotificationEventType.PO_CREATED,
     NotificationEventType.PO_APPROVED,
     NotificationEventType.PO_ORDERED,
     NotificationEventType.GOODS_RECEIVED,

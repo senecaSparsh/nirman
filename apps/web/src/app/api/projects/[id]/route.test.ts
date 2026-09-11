@@ -119,6 +119,8 @@ describe("PATCH /api/projects/[id]", () => {
 describe("DELETE /api/projects/[id]", () => {
   beforeEach(() => {
     setSessionUser(OWNER);
+    // The DELETE route calls prisma.project.findFirst for its own guard
+    mockPrisma().project!.findFirst.mockResolvedValue({ id: "proj-1" });
     // softDelete("Project") calls prisma.project.findUnique for the guard
     mockPrisma().project!.findUnique.mockResolvedValue(prismaProject({ status: "COMPLETED" }));
     mockPrisma().project!.update.mockResolvedValue(prismaProject({ deletedAt: new Date() }));

@@ -7,6 +7,9 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Field } from "@/components/field";
+import { required, phone, email } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 
 const SOURCES = [
   ["PORTAL", "Property portal"],
@@ -31,6 +34,38 @@ const UNIT_TYPES = [
   ["OTHER", "Other"],
 ] as const;
 
+type FormState = {
+  name: string;
+  phone: string;
+  email: string;
+  source: string;
+  priority: string;
+  projectId: string;
+  interestedUnitId: string;
+  interestedUnitType: string;
+  budgetMin: string;
+  budgetMax: string;
+  assignedToId: string;
+  nextFollowUpAt: string;
+  notes: string;
+};
+
+const emptyForm: FormState = {
+  name: "",
+  phone: "",
+  email: "",
+  source: "PORTAL",
+  priority: "MEDIUM",
+  projectId: "",
+  interestedUnitId: "",
+  interestedUnitType: "",
+  budgetMin: "",
+  budgetMax: "",
+  assignedToId: "",
+  nextFollowUpAt: "",
+  notes: "",
+};
+
 export function LeadForm({
   projects,
   units,
@@ -44,37 +79,35 @@ export function LeadForm({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    source: "PORTAL",
-    priority: "MEDIUM",
-    projectId: "",
-    interestedUnitId: "",
-    interestedUnitType: "",
-    budgetMin: "",
-    budgetMax: "",
-    assignedToId: "",
-    nextFollowUpAt: "",
-    notes: "",
-  });
+  const [form, setForm] = useState<FormState>(emptyForm);
+
+  const validationRules: ValidationRules<FormState> = {
+    name: (v) => required(v as string, "Name"),
+    phone: (v) => phone(v as string),
+    email: (v) => email(v as string),
+  };
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<FormState>(validationRules);
 
   const filteredUnits = useMemo(
     () => form.projectId ? units.filter((unit) => unit.projectId === form.projectId) : units,
     [form.projectId, units],
   );
 
-  function set(key: keyof typeof form, value: string) {
+  function set(key: keyof FormState, value: string) {
     setForm((current) => ({
       ...current,
       [key]: value,
       ...(key === "projectId" ? { interestedUnitId: "" } : {}),
     }));
+    clearError(key);
   }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (!validateAll(form)) {
+      toast.error("Please fix the errors in the form");
+      return;
+    }
     setSaving(true);
     try {
       const response = await fetch("/api/leads", {
@@ -96,21 +129,8 @@ export function LeadForm({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Failed to add lead");
       toast.success("Lead added to the pipeline");
-      setForm({
-        name: "",
-        phone: "",
-        email: "",
-        source: "PORTAL",
-        priority: "MEDIUM",
-        projectId: "",
-        interestedUnitId: "",
-        interestedUnitType: "",
-        budgetMin: "",
-        budgetMax: "",
-        assignedToId: "",
-        nextFollowUpAt: "",
-        notes: "",
-      });
+      setForm(emptyForm);
+      clearAll();
       onDone?.();
       router.refresh();
     } catch (error) {
@@ -123,21 +143,18 @@ export function LeadForm({
   return (
     <form onSubmit={submit} className="space-y-3">
       <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-        <div className="space-y-3.5">
-          <Label htmlFor="lead-name">Name *</Label>
-          <Input id="lead-name" value={form.name} onChange={(event) => set("name", event.target.value)} required />
-        </div>
-        <div className="space-y-3.5">
-          <Label htmlFor="lead-phone">Phone *</Label>
-          <Input id="lead-phone" value={form.phone} onChange={(event) => set("phone", event.target.value)} required />
-        </div>
+        <Field className="space-y-3.5" label="Name" required error={errors.name}>
+          <Input value={form.name} onChange={(event) => set("name", event.target.value)} onBlur={() => onBlur("name", form)} aria-invalid={!!errors.name} required />
+        </Field>
+        <Field className="space-y-3.5" label="Phone" required error={errors.phone}>
+          <Input value={form.phone} onChange={(event) => set("phone", event.target.value)} onBlur={() => onBlur("phone", form)} aria-invalid={!!errors.phone} required />
+        </Field>
       </div>
 
       <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-        <div className="space-y-3.5">
-          <Label htmlFor="lead-email">Email</Label>
-          <Input id="lead-email" type="email" value={form.email} onChange={(event) => set("email", event.target.value)} />
-        </div>
+        <Field className="space-y-3.5" label="Email" error={errors.email}>
+          <Input type="email" value={form.email} onChange={(event) => set("email", event.target.value)} onBlur={() => onBlur("email", form)} aria-invalid={!!errors.email} />
+        </Field>
         <div className="space-y-3.5">
           <Label htmlFor="lead-source">Source *</Label>
           <Select id="lead-source" value={form.source} onChange={(event) => set("source", event.target.value)}>

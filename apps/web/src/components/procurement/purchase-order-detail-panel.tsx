@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowRight, Check, X, Package, Printer, Link2, IndianRupee } from "lucide-react";
+import { ArrowRight, Check, X, Package, Printer, Link2, IndianRupee, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
@@ -23,13 +23,19 @@ import type { PurchaseOrderDetail, PurchaseOrderRow, SupplierRow } from "@/lib/t
 export function PurchaseOrderDetailPanel({
   po,
   canApprove = true,
+  canManage = false,
+  canReceiveGoods = false,
   suppliers = [],
   canManagePayments = false,
+  currentUserId,
 }: {
   po: PurchaseOrderRow;
   canApprove?: boolean;
+  canManage?: boolean;
+  canReceiveGoods?: boolean;
   suppliers?: SupplierRow[];
   canManagePayments?: boolean;
+  currentUserId?: string | null;
 }) {
   const router = useRouter();
   const [detail, setDetail] = useState<PurchaseOrderDetail | null>(null);
@@ -58,7 +64,7 @@ export function PurchaseOrderDetailPanel({
       .catch(() => {/* best-effort */});
   }, [po.id]);
 
-  async function doAction(action: "approve" | "order" | "cancel") {
+  async function doAction(action: "approve" | "order" | "cancel" | "resubmit") {
     setActing(true);
     try {
       const payload: Record<string, unknown> = { action };
@@ -74,6 +80,10 @@ export function PurchaseOrderDetailPanel({
         toast.success("Order placed with supplier", {
           description: "The supplier has been sent the order. Receive goods when they arrive.",
           action: { label: "Receive Goods", onClick: () => setRecvOpen(true) },
+        });
+      } else if (action === "resubmit") {
+        toast.success(`PO ${po.poNumber} resubmitted`, {
+          description: "It's back in draft — edit if needed, then ask an approver to review.",
         });
       } else {
         toast.success(`PO ${action}d`);
@@ -170,22 +180,27 @@ export function PurchaseOrderDetailPanel({
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2">
-            {detail.status === "DRAFT" && canApprove && !showApproveField && (
+            {detail.status === "DRAFT" && canApprove && po.createdById !== currentUserId && !showApproveField && (
               <Button size="sm" onClick={() => setShowApproveField(true)} disabled={acting}>
                 <Check className="h-4 w-4" /> Approve
               </Button>
             )}
-            {detail.status === "APPROVED" && (
+            {detail.status === "REJECTED" && canManage && (
+              <Button size="sm" onClick={() => doAction("resubmit")} disabled={acting}>
+                <RotateCcw className="h-4 w-4" /> Resubmit
+              </Button>
+            )}
+            {detail.status === "APPROVED" && canManage && (
               <Button size="sm" onClick={() => doAction("order")} disabled={acting}>
                 <ArrowRight className="h-4 w-4" /> Mark as Ordered
               </Button>
             )}
-            {(detail.status === "ORDERED" || detail.status === "PARTIAL") && (
+            {(detail.status === "ORDERED" || detail.status === "PARTIAL") && canReceiveGoods && (
               <Button size="sm" onClick={() => setRecvOpen(true)}>
                 <Package className="h-4 w-4" /> Receive Goods
               </Button>
             )}
-            {(detail.status === "DRAFT" || detail.status === "APPROVED") && (
+            {(detail.status === "DRAFT" || detail.status === "APPROVED") && canManage && (
               <Button size="sm" variant="outline" onClick={() => doAction("cancel")} disabled={acting} className="text-muted-foreground hover:text-danger">
                 <X className="h-4 w-4" /> Cancel PO
               </Button>
@@ -207,7 +222,7 @@ export function PurchaseOrderDetailPanel({
           </div>
 
           {/* Inline approval notes */}
-          {detail.status === "DRAFT" && canApprove && showApproveField && (
+          {detail.status === "DRAFT" && canApprove && po.createdById !== currentUserId && showApproveField && (
             <div className="flex flex-col gap-2 rounded-lg border border-border/60 p-3">
               <label className="text-meta text-muted-foreground">Approval notes (optional)</label>
               <textarea

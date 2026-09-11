@@ -125,7 +125,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       issueDate: issueDate ? new Date(issueDate) : null,
       validFrom: validFrom ? new Date(validFrom) : null,
       validTill: validTill ? new Date(validTill) : null,
-      amount: amount ? Number(amount) : null,
+      amount: amount ? String(amount) : null,
       expectedRegistryDate: expectedRegistryDate ? new Date(expectedRegistryDate) : null,
       documentUrl: documentUrl || undefined,
       documentName: documentName || undefined,

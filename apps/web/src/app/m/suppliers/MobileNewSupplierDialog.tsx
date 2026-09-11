@@ -38,6 +38,12 @@ export function MobileNewSupplierForm({
       toast.error("Supplier name is required");
       return;
     }
+    const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/;
+    const gstinVal = gstin.trim().toUpperCase();
+    if (gstinVal && !gstinRegex.test(gstinVal)) {
+      toast.error("Invalid GSTIN format (e.g., 22AAAAA0000A1Z5)");
+      return;
+    }
     setSaving(true);
     haptic(10);
     try {
@@ -46,7 +52,7 @@ export function MobileNewSupplierForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          gstin: gstin.trim() || null,
+          gstin: gstinVal || null,
           phone: phone.trim() || null,
           email: email.trim() || null,
           address: address.trim() || null,

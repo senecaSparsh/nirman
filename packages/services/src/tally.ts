@@ -386,7 +386,7 @@ export async function syncEntryToTally(
       totalDebit: entry.totalDebit,
       totalCredit: entry.totalCredit,
       lines: entry.lines.map((l) => ({
-        accountCode: l.accountCode,
+        accountCode: l.account.code,
         accountName: l.account.name,
         debit: l.debit,
         credit: l.credit,

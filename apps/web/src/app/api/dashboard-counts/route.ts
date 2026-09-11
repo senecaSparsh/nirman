@@ -58,13 +58,15 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     poTrendOrders,
   ] = await Promise.all([
     prisma.material.findMany({
-      where: { deletedAt: null, minStock: { not: null } },
+      take: 1000,
+      where: { companyId: company.id, deletedAt: null, minStock: { not: null } },
       select: { id: true, minStock: true, stockItems: { where: { location: { deletedAt: null, companyId: company.id } }, select: { qty: true } } },
     }),
     prisma.purchaseOrder.count({ where: { companyId: company.id, status: "DRAFT", ...poScope } }),
     prisma.materialRequisition.count({ where: { project: { companyId: company.id }, status: "SUBMITTED", ...reqScope } }),
     prisma.purchaseOrder.count({ where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() }, ...poScope } }),
     prisma.assetSale.findMany({
+      take: 1000,
       where: { companyId: company.id, status: "ACTIVE", ...assetSaleScope },
       select: { id: true, paymentStatus: true },
     }),
@@ -73,6 +75,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     prisma.materialRequisition.count({ where: { project: { companyId: company.id }, status: "APPROVED", ...reqScope } }),
     prisma.purchaseOrder.count({ where: { companyId: company.id, status: "APPROVED", ...poScope } }),
     prisma.purchaseOrder.findMany({
+      take: 1000,
       where: { companyId: company.id, status: { not: "CANCELLED" }, orderDate: { gte: sixMonthsAgo }, ...poScope },
       select: { orderDate: true, total: true },
       orderBy: { orderDate: "asc" },

@@ -42,19 +42,21 @@ export interface TransferItem {
 type TransferFilter = "ALL" | "PENDING" | "IN_TRANSIT" | "RECEIVED" | "CANCELLED";
 type DirectionFilter = "ALL" | "OUTGOING" | "INCOMING";
 
-const FILTERS: { label: string; value: TransferFilter }[] = [
+// Combined filter — merges direction + status into one dropdown.
+// Direction options filter by direction only; status options filter by status only.
+type CombinedFilter = TransferFilter | DirectionFilter;
+
+const COMBINED_FILTERS: { label: string; value: CombinedFilter }[] = [
   { label: "All", value: "ALL" },
+  { label: "Outgoing", value: "OUTGOING" },
+  { label: "Incoming", value: "INCOMING" },
   { label: "Pending", value: "PENDING" },
   { label: "In Transit", value: "IN_TRANSIT" },
   { label: "Received", value: "RECEIVED" },
   { label: "Cancelled", value: "CANCELLED" },
 ];
 
-const DIRECTION_FILTERS: { label: string; value: DirectionFilter }[] = [
-  { label: "All", value: "ALL" },
-  { label: "Outgoing", value: "OUTGOING" },
-  { label: "Incoming", value: "INCOMING" },
-];
+const DIRECTION_VALUES: DirectionFilter[] = ["OUTGOING", "INCOMING"];
 
 const STATUS_ICON: Record<string, typeof CheckCircle2> = {
   PENDING: Clock,
@@ -89,14 +91,18 @@ export function MobileTransfersList({
   exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<TransferFilter>("ALL");
-  const [dirFilter, setDirFilter] = useState<DirectionFilter>("ALL");
+  const [combinedFilter, setCombinedFilter] = useState<CombinedFilter>("ALL");
 
   const { items, loading, hasMore, loadMore } = usePaginatedList<TransferItem>(
     initialItems,
     loadMoreUrl ?? "",
     initialCursor ?? null,
   );
+
+  // Derive direction + status from the single combined filter
+  const isDirection = DIRECTION_VALUES.includes(combinedFilter as DirectionFilter);
+  const dirFilter: DirectionFilter = isDirection ? (combinedFilter as DirectionFilter) : "ALL";
+  const filter: TransferFilter = isDirection ? "ALL" : (combinedFilter as TransferFilter);
 
   const filtered = useMemo(() => {
     let result = items;
@@ -143,16 +149,10 @@ export function MobileTransfersList({
         action={
           <div className="flex items-center gap-1 shrink-0">
             <MobileFilterIcon
-              options={DIRECTION_FILTERS}
-              active={dirFilter}
+              options={COMBINED_FILTERS}
+              active={combinedFilter}
               defaultValue="ALL"
-              onChange={(v) => setDirFilter(v as DirectionFilter)}
-            />
-            <MobileFilterIcon
-              options={FILTERS}
-              active={filter}
-              defaultValue="ALL"
-              onChange={(v) => setFilter(v as TransferFilter)}
+              onChange={(v) => setCombinedFilter(v as CombinedFilter)}
             />
             {exportTitle && exportRows && exportColumns ? (
               <MobileExportShareIcons
@@ -164,8 +164,8 @@ export function MobileTransfersList({
             ) : null}
           </div>
         }
-        showClear={!!query || filter !== "ALL" || dirFilter !== "ALL"}
-        onClear={() => { setQuery(""); setFilter("ALL"); setDirFilter("ALL"); }}
+        showClear={!!query || combinedFilter !== "ALL"}
+        onClear={() => { setQuery(""); setCombinedFilter("ALL"); }}
       />
 
       {/* ── Orientation + next action (kept, but below search so the
@@ -178,7 +178,7 @@ export function MobileTransfersList({
       />
 
       {/* ── Result count ── */}
-      {(query || filter !== "ALL" || dirFilter !== "ALL") && filtered.length > 0 && (
+      {(query || combinedFilter !== "ALL") && filtered.length > 0 && (
         <div className="flex items-center justify-end mb-1.5">
           <span
             className="text-m-label font-semibold"
@@ -306,8 +306,8 @@ export function MobileTransfersList({
       {filtered.length === 0 && (
         <MobileEmptyState
           icon={ArrowRight}
-          title={query || filter !== "ALL" ? "No transfers found" : "No stock transfers yet"}
-          hint={query || filter !== "ALL" ? "Try a different search or filter" : canCreate ? "Tap the + button below to create your first transfer" : "Stock transfers will appear here"}
+          title={query || combinedFilter !== "ALL" ? "No transfers found" : "No stock transfers yet"}
+          hint={query || combinedFilter !== "ALL" ? "Try a different search or filter" : canCreate ? "Tap the + button below to create your first transfer" : "Stock transfers will appear here"}
         />
       )}
       {loadMoreUrl && filtered.length > 0 ? (

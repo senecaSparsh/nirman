@@ -7,6 +7,7 @@ import { AlertTriangle, FileText, Check, X, Copy, Share2, Eye, Printer, Shopping
 import { toast } from "sonner";
 import {formatNumber, formatDate, formatCurrencyCompact} from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
+import { useConfirm } from "@/lib/use-confirm";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { PageLead, NextActionCard } from "@/components/mobile/v2/guidance";
 import { SwipeableListItem } from "@/components/mobile/swipeable-item";
@@ -47,6 +48,7 @@ export type ProcurementListItem = {
   qtyOrdered: number;
   qtyReceived: number;
   isOverdue: boolean;
+  createdById?: string | null;
 };
 
 export type DirectPurchaseListItem = {
@@ -87,6 +89,7 @@ export function MobileProcurementList(props: {
   items: ProcurementListItem[];
   canCreate?: boolean;
   canApprove?: boolean;
+  currentUserId?: string | null;
   draftCount?: number;
   loadMoreUrl?: string;
   nextCursor?: string | null;
@@ -109,6 +112,7 @@ function MobileProcurementListInner({
   items: initialItems,
   canCreate,
   canApprove,
+  currentUserId,
   draftCount = 0,
   loadMoreUrl,
   nextCursor: initialCursor,
@@ -122,6 +126,7 @@ function MobileProcurementListInner({
   items: ProcurementListItem[];
   canCreate?: boolean;
   canApprove?: boolean;
+  currentUserId?: string | null;
   draftCount?: number;
   loadMoreUrl?: string;
   nextCursor?: string | null;
@@ -365,7 +370,7 @@ function MobileProcurementListInner({
           )}
           <MobileCardGrid cols={2}>
             {filtered.map((po) => (
-              <PoCard key={po.id} po={po} onAction={() => router.refresh()} />
+              <PoCard key={po.id} po={po} canApprove={canApprove} currentUserId={currentUserId} onAction={() => router.refresh()} />
             ))}
           </MobileCardGrid>
           {loadMoreUrl ? (
@@ -509,18 +514,27 @@ function DirectPurchaseCard({ dp }: { dp: DirectPurchaseListItem }) {
    ═══════════════════════════════════════════════════════════════════════════ */
 function PoCard({
   po,
+  canApprove,
+  currentUserId,
   onAction,
 }: {
   po: ProcurementListItem;
+  canApprove?: boolean;
+  currentUserId?: string | null;
   onAction?: () => void;
 }) {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const style = STATUS_STYLE[po.status] ?? STATUS_STYLE.DRAFT!;
   const isOverdue = po.isOverdue;
   const accentColor = isOverdue ? "var(--color-stop)" : style.color;
 
-  // Swipe actions for DRAFT POs (approve / cancel)
-  const canSwipe = po.status === "DRAFT";
+  // Permission + creator gate: only show approve to users who have PO_APPROVE
+  // AND did not create this PO themselves.
+  const canActOn = canApprove && po.createdById !== currentUserId;
+
+  // Swipe actions for DRAFT POs (approve / cancel) — only for approvers
+  const canSwipe = po.status === "DRAFT" && canActOn;
 
   const handleApprove = useCallback(async () => {
     haptic(10);
@@ -540,7 +554,12 @@ function PoCard({
   }, [po.id, po.poNumber, onAction]);
 
   const handleCancel = useCallback(async () => {
-    if (!window.confirm("Cancel this purchase order?")) return;
+    const ok = await confirm({
+      title: "Cancel this purchase order?",
+      confirmLabel: "Cancel PO",
+      variant: "destructive",
+    });
+    if (!ok) return;
     haptic(10);
     try {
       const res = await fetch(`/api/purchase-orders/${po.id}`, {
@@ -555,7 +574,7 @@ function PoCard({
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Action failed");
     }
-  }, [po.id, po.poNumber, onAction]);
+  }, [po.id, po.poNumber, onAction, confirm]);
 
   const swipeActions = canSwipe
     ? [
@@ -570,7 +589,7 @@ function PoCard({
 
   const contextActions: ContextAction[] = [
     { label: "View Details", icon: Eye, onPress: () => router.push(`/m/procurement/${po.id}`) },
-    ...(po.status === "DRAFT"
+    ...(po.status === "DRAFT" && canActOn
       ? [
           { label: "Approve", icon: Check, color: "var(--color-go)", onPress: handleApprove },
           { label: "Cancel", icon: X, color: "var(--color-stop)", destructive: true, onPress: handleCancel },
@@ -780,6 +799,7 @@ function PoCard({
         subtitle={po.supplierName}
         actions={contextActions}
       />
+      {confirmDialog}
     </>
   );
 }

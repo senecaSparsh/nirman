@@ -4,6 +4,7 @@ import { PERM, hasPermission } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import type { LeadRow } from "@/lib/types";
 import { MobileSalesHub } from "./MobileSalesHub";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 
 /**
  * /m/sales — Sales Collection page.
@@ -69,7 +70,7 @@ export default function MobileSalesPage() {
         const items = sales.map((s) => {
           const totalPaid = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
           const salePrice = toNum(s.salePrice);
-          const balance = salePrice - totalPaid;
+          const balance = salePrice + toNum(s.gstAmount) - totalPaid;
           const assetLabel = s.builtUnit
             ? `${s.builtUnit.unitNumber} · ${s.builtUnit.project.name}`
             : s.assetType === "LAND"
@@ -136,7 +137,9 @@ export default function MobileSalesPage() {
         const collectionPct = totalValue > 0 ? Math.round((totalCollected / totalValue) * 100) : 0;
 
         return (
-          <MobileSalesHub
+          <>
+            <DepartmentActivityFeed department="sales" />
+            <MobileSalesHub
             leads={leadRows}
             sales={items}
             stats={{ totalValue, totalCollected, totalOutstanding, outstandingCount, settledCount, collectionPct }}
@@ -152,6 +155,7 @@ export default function MobileSalesPage() {
             canCreate={canCreateSale}
             currentUserId={currentUser?.id ?? null}
           />
+        </>
         );
       }}
     </MobileListPage>

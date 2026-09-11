@@ -13,9 +13,10 @@ import {
   MobileSearchHeader,
   MobileFilterIcon,
   MobileNoResults,
-  MobileFab,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { MobileSalesFab } from "./MobileSalesFab";
+import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "./MobileChequeFields";
 
 export interface SaleItem {
   id: string;
@@ -153,7 +154,7 @@ export function MobileSalesCollection({
 
       {/* ── New sale FAB ── */}
       {canCreate && (
-        <MobileFab href="/m/sales/new" label="New sale" />
+        <MobileSalesFab />
       )}
 
       {/* ── Search + filter + export ── */}
@@ -246,6 +247,7 @@ function OutstandingCard({
   const [amount, setAmount] = useState(String(sale.balance));
   const [mode, setMode] = useState<string>("BANK_TRANSFER");
   const [reference, setReference] = useState("");
+  const [cheque, setCheque] = useState<MobileChequeState>(EMPTY_MOBILE_CHEQUE);
   const [submitting, setSubmitting] = useState(false);
 
   const meta = STATUS_META[sale.paymentStatus] ?? { color: "var(--color-ink-500)", label: sale.paymentStatus };
@@ -254,13 +256,24 @@ function OutstandingCard({
     const amt = Number(amount);
     if (!(amt > 0)) return toast.error("Enter a valid amount");
     if (amt > sale.balance) return toast.error(`Amount exceeds balance of ${formatCurrencyCompact(sale.balance)}`);
+    if (mode === "CHEQUE" && !cheque.chequeNo.trim()) return toast.error("Cheque number is required");
 
     setSubmitting(true);
     try {
       const res = await fetch(`/api/sales/${sale.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: amt, mode, reference: reference || undefined }),
+        body: JSON.stringify({
+          amount: amt,
+          mode,
+          reference: reference || undefined,
+          ...(mode === "CHEQUE" ? {
+            chequeNo: cheque.chequeNo.trim() || undefined,
+            chequeDate: cheque.chequeDate || undefined,
+            chequeBank: cheque.chequeBank.trim() || undefined,
+            chequePhotoUrl: cheque.chequePhotoUrl || undefined,
+          } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to record payment");
@@ -463,6 +476,9 @@ function OutstandingCard({
               placeholder="Cheque no, UPI ID…"
             />
           </div>
+
+          {/* Cheque fields (when mode is CHEQUE) */}
+          {mode === "CHEQUE" && <MobileChequeFields value={cheque} onChange={setCheque} />}
 
           {/* Submit */}
           <button

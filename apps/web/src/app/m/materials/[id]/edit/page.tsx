@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getUserRole } from "@/lib/server";
+import { getUserRole, getCompany } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import MobileNewMaterialClient from "../../new/MobileNewMaterialClient";
@@ -24,10 +24,11 @@ export default async function EditMaterialPage({
 
   await connection();
   const { id } = await params;
+  const company = await getCompany();
 
   const [material, categories] = await Promise.all([
     prisma.material.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, companyId: company.id, deletedAt: null },
       select: {
         id: true, code: true, name: true, grade: true, specification: true,
         categoryId: true, unit: true, hsnCode: true, gstRate: true,
@@ -35,10 +36,10 @@ export default async function EditMaterialPage({
       },
     }),
     prisma.materialCategory.findMany({
-      where: { deletedAt: null },
+      where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, unit: true },
-    }),
+      select: { id: true, name: true, unit: true, hsnCode: true, gstRate: true },
+    }).then((rows) => rows.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))),
   ]);
 
   if (!material) {

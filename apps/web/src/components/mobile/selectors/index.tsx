@@ -70,7 +70,7 @@ export function MobileSupplierSelect({ label = "Supplier", ...props }: BaseProps
 /* ── Material ── */
 export function MobileMaterialSelect(
   { label = "Material", ...props }: BaseProps & {
-    categories: { id: string; name: string; unit: string }[];
+    categories: { id: string; name: string; unit: string; hsnCode?: string | null; gstRate?: number | string | null | { toNumber(): number } }[];
   },
 ) {
   return (

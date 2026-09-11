@@ -72,17 +72,17 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
           { lines: { some: { entityId: saleId } } },
         ],
       },
-      include: { lines: true },
+      include: { lines: { include: { account: { select: { code: true } } } } },
       orderBy: { createdAt: "asc" },
     });
   }
 
   /** Sum all debits/credits for a given account across all sale entries. */
-  function sumAccount(entries: { lines: { accountCode: string; debit: Decimal; credit: Decimal }[] }[], accountCode: string) {
+  function sumAccount(entries: { lines: { account: { code: string }; debit: Decimal; credit: Decimal }[] }[], accountCode: string) {
     return entries.reduce(
       (acc, e) => {
         for (const l of e.lines) {
-          if (l.accountCode === accountCode) {
+          if (l.account.code === accountCode) {
             acc.debit = acc.debit.plus(l.debit);
             acc.credit = acc.credit.plus(l.credit);
           }

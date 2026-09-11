@@ -19,6 +19,6 @@ import PortalListingsPage from "./page";
 describe("PortalListingsPage (redirect)", () => {
   it("redirects to /units", () => {
     expect(() => PortalListingsPage()).toThrow();
-    expect(redirect).toHaveBeenCalledWith("/units");
+    expect(redirect).toHaveBeenCalledWith("/units?tab=portal");
   });
 });

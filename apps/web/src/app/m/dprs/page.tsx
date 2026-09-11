@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum, scopeWhere } from "@/lib/server";
+import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileDprsList } from "./MobileDprsList";
@@ -12,6 +12,9 @@ export default function MobileDprsPage() {
       {async ({ company, role }) => {
         const canSubmit = hasPermission(role, PERM.DPR_SUBMIT);
         const canApproveSubAdmin = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN);
+        const canApproveAdmin = hasPermission(role, PERM.DPR_APPROVE_ADMIN);
+        const currentUser = await getCurrentUser();
+        const currentUserId = currentUser?.id ?? null;
 
         const BATCH_SIZE = 40;
         const dprs = await prisma.dailyProgressReport.findMany({
@@ -20,7 +23,7 @@ export default function MobileDprsPage() {
           take: BATCH_SIZE + 1,
           include: {
             project: { select: { id: true, name: true } },
-            submittedBy: { select: { name: true } },
+            submittedBy: { select: { id: true, name: true } },
           },
         });
 
@@ -38,6 +41,7 @@ export default function MobileDprsPage() {
           projectName: d.project.name,
           projectId: d.project.id,
           submittedByName: d.submittedBy?.name ?? null,
+          submittedById: d.submittedBy?.id ?? null,
           approvalStatus: d.approvalStatus,
           progressPct: toNum(d.progressPct),
           workType: d.workType ?? null,
@@ -66,6 +70,8 @@ export default function MobileDprsPage() {
               items={serialized}
               canSubmit={canSubmit}
               canApproveSubAdmin={canApproveSubAdmin}
+              canApproveAdmin={canApproveAdmin}
+              currentUserId={currentUserId}
               submittedCount={submittedCount}
               loadMoreUrl="/api/dprs"
               nextCursor={nextCursor}
@@ -127,7 +133,7 @@ async function fetchDprFormData(companyId: string) {
       orderBy: { name: "asc" },
     }),
     prisma.material.findMany({
-      where: { deletedAt: null, stockItems: { some: { location: { companyId } } } },
+      where: { companyId, deletedAt: null, stockItems: { some: { location: { companyId } } } },
       select: { id: true, name: true, unit: true, standardCost: true },
       orderBy: { name: "asc" },
       take: 100,

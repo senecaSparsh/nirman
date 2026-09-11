@@ -10,6 +10,7 @@ import {
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { formatCurrencyCompact } from "@/lib/utils";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
+import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 
 /**
  * /m/crm — mobile CRM hub.
@@ -78,6 +79,8 @@ export default function MobileCrmPage() {
 
         return (
           <div className="flex flex-col gap-4 pb-8">
+            <DepartmentActivityFeed department="crm" />
+
             {/* ── Stats ── */}
             <div className="grid grid-cols-2 gap-2">
               <MobileStatCard label="Open Leads" value={String(openLeads)} icon={UserPlus} tone="signal" />

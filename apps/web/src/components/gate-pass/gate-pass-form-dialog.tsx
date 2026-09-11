@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { required } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 
 type MaterialOption = { id: string; code: string; name: string; unit: string };
 type LocationOption = { id: string; name: string; type: string };
@@ -17,6 +19,21 @@ type Line = {
   description: string;
   qty: string;
   unit: string;
+};
+
+type FormState = {
+  locationId: string;
+  projectId: string;
+  destination: string;
+  purpose: string;
+  notes: string;
+  vehicleNumber: string;
+  vehicleType: string;
+  driverName: string;
+  driverPhone: string;
+  transporterName: string;
+  autoSubmit: boolean;
+  lines: Line[];
 };
 
 const VEHICLE_TYPES = ["PICKUP", "TRUCK", "TRACTOR", "MINI_TRUCK", "AUTO", "OTHER"];
@@ -53,8 +70,21 @@ export function GatePassFormDialog({
     { id: crypto.randomUUID(), materialId: "", description: "", qty: "", unit: "" },
   ]);
 
+  // ── Inline validation ──────────────────────────────────────────
+  // Validates on blur and shows red error text under the field instantly.
+  const validationRules: ValidationRules<FormState> = {
+    locationId: (v) => required(v as string, "Gate / Location"),
+    lines: (v) => {
+      const ls = v as Line[];
+      const validLines = ls.filter((l) => (l.materialId || l.description) && l.qty);
+      if (validLines.length === 0) return "Add at least one line item with quantity";
+    },
+  };
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<FormState>(validationRules);
+
   useEffect(() => {
     if (open) {
+      clearAll();
       setForm({
         locationId: locations[0]?.id ?? "",
         projectId: "",
@@ -74,6 +104,7 @@ export function GatePassFormDialog({
 
   function set(key: keyof typeof form, value: string | boolean) {
     setForm((f) => ({ ...f, [key]: value }));
+    clearError(key);
   }
 
   function setLine(id: string, key: keyof Line, value: string) {
@@ -87,6 +118,7 @@ export function GatePassFormDialog({
         return { ...l, [key]: value };
       }),
     );
+    clearError("lines");
   }
 
   function addLine() {
@@ -99,15 +131,11 @@ export function GatePassFormDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.locationId) {
-      toast.error("Select a gate / location");
+    if (!validateAll({ ...form, lines })) {
+      toast.error("Please fix the errors in the form");
       return;
     }
     const validLines = lines.filter((l) => (l.materialId || l.description) && l.qty);
-    if (validLines.length === 0) {
-      toast.error("Add at least one line item with quantity");
-      return;
-    }
     setSaving(true);
     try {
       const res = await fetch("/api/gate-passes", {
@@ -159,8 +187,8 @@ export function GatePassFormDialog({
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="gp-location">Gate / Location *</Label>
-            <Select id="gp-location" value={form.locationId} onChange={(e) => set("locationId", e.target.value)} required>
+            <Label htmlFor="gp-location" className={errors.locationId ? "text-danger" : undefined}>Gate / Location *</Label>
+            <Select id="gp-location" value={form.locationId} onChange={(e) => set("locationId", e.target.value)} onBlur={() => onBlur("locationId", { ...form, lines })} aria-invalid={!!errors.locationId} required>
               <option value="">Select location</option>
               {locations.map((l) => (
                 <option key={l.id} value={l.id}>
@@ -168,6 +196,7 @@ export function GatePassFormDialog({
                 </option>
               ))}
             </Select>
+            {errors.locationId && <p className="text-caption text-danger" role="alert">{errors.locationId}</p>}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="gp-project">Project</Label>
@@ -234,6 +263,7 @@ export function GatePassFormDialog({
           <Button type="button" variant="ghost" size="sm" onClick={addLine}>
             + Add line
           </Button>
+          {errors.lines && <p className="text-caption text-danger" role="alert">{errors.lines}</p>}
         </div>
 
         {/* Vehicle details */}

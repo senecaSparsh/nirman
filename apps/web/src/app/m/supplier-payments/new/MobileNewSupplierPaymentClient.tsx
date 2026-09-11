@@ -4,11 +4,11 @@ import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Loader2, Camera, X, Send } from "lucide-react";
+import { Loader2, Camera, X, Send, CheckCircle2, Eye, Plus } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useTodayDateState } from "@/lib/use-today-date";
 import { useLongPressNav } from "@/lib/use-long-press-nav";
-import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
+import { MobileNewSupplierForm } from "@/app/m/suppliers/MobileNewSupplierDialog";
 import { SelectorModal, EnumSelect, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 
@@ -40,6 +40,7 @@ export function MobileNewSupplierPaymentClient({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState<{ id: string; amount: number; supplierName: string } | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
   const [supplierId, setSupplierId] = useState("");
   const [purchaseOrderId, setPurchaseOrderId] = useState("");
@@ -120,13 +121,7 @@ export function MobileNewSupplierPaymentClient({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Failed to record payment");
-      toast.success("Supplier payment recorded");
-      if (onCreated) {
-        onCreated();
-      } else {
-        router.push("/m/accounts?tab=payments");
-        router.refresh();
-      }
+      setSuccess({ id: data.id, amount: Number(amount), supplierName: selectedSupplier?.name ?? "Supplier" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -155,6 +150,27 @@ export function MobileNewSupplierPaymentClient({
   };
 
   const netAmount = (Number(amount) || 0) - (Number(tdsAmount) || 0);
+
+  if (success) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+        <div className="grid place-items-center size-14 rounded-full mb-3" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}>
+          <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
+        </div>
+        <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>Payment Recorded</p>
+        <p className="text-m-caption font-mono mb-1" style={{ color: "var(--color-ink-700)" }}>{formatCurrency(success.amount)}</p>
+        <p className="text-m-caption mb-4" style={{ color: "var(--color-ink-500)" }}>{success.supplierName}</p>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <button onClick={() => { if (onCreated) onCreated(); else { router.push("/m/accounts?tab=payments"); router.refresh(); } }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+            <Eye className="size-4 inline mr-1" /> View Payments
+          </button>
+          <button onClick={() => { setSuccess(null); setSupplierId(""); setPurchaseOrderId(""); setInvoiceId(""); setAmount(""); setTdsAmount(""); setTdsSection(""); setReferenceNo(""); setNotes(""); setChequePhotoUrl(""); router.refresh(); }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
+            <Plus className="size-4 inline mr-1" /> Record Another
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-32">
@@ -458,9 +474,7 @@ export function MobileNewSupplierPaymentClient({
           title="New Supplier"
           nested
         >
-          <MobileNewSupplierDialog
-            open
-            nested
+          <MobileNewSupplierForm
             onClose={() => setShowCreateSupplier(false)}
             onCreated={handleSupplierCreated}
           />

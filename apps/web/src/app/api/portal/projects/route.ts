@@ -28,7 +28,7 @@ export const GET = async (_req: NextRequest) => {
     }
 
     const projects = await prisma.project.findMany({
-      where: { id: { in: projectIds } },
+      where: { id: { in: projectIds }, deletedAt: null },
       select: {
         id: true,
         name: true,

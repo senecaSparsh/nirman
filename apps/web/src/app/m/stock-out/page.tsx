@@ -21,11 +21,12 @@ import { MobileStockOutClient } from "./MobileStockOutClient";
  * Query params:
  *   ?mode=transfer|issue  — pre-select mode
  *   ?project=<id>         — pre-select project (issue mode, deep-linked from project detail)
+ *   ?from=<id>            — pre-select source location (deep-linked from location detail)
  */
 export default function StockOutPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string; project?: string }>;
+  searchParams: Promise<{ mode?: string; project?: string; from?: string }>;
 }) {
   return (
     <MobileHubPage skeleton={<MobileSkeletonDetail sections={4} />}>
@@ -55,6 +56,7 @@ export default function StockOutPage({
             canIssue={canIssue}
             initialMode={initialMode}
             initialProjectId={params.project ?? ""}
+            initialFromLocationId={params.from ?? ""}
           />
         );
       }}

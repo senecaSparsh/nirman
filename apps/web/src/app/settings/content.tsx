@@ -3,6 +3,7 @@ import { prisma } from "@nirman/db";
 import { getCurrentUser, getCompany, getUserRole, toNum, projectScopeFilter } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { SettingsView } from "@/components/settings/settings-view";
+import { HsnMasterAdmin } from "@/components/settings/hsn-master-admin";
 import { NotificationsPanel } from "@/components/notifications/notifications-panel";
 import { NotificationPreferences } from "@/components/notifications/notification-preferences";
 import { NoAccess } from "@/components/no-access";
@@ -29,7 +30,7 @@ export async function SettingsContent() {
       take: 200,
       where: { memberships: { some: { companyId: company.id } } },
       orderBy: { name: "asc" },
-      select: { id: true, email: true, name: true, role: true, active: true, phone: true, designation: true, department: true, employeeCode: true, joiningDate: true },
+      select: { id: true, email: true, name: true, role: true, active: true, phone: true, designation: true, department: true, employeeCode: true, joiningDate: true, lockedUntil: true, failedLoginAttempts: true },
     }),
     prisma.stockLocation.findMany({
       take: 500,
@@ -156,6 +157,8 @@ export async function SettingsContent() {
         department: u.department,
         employeeCode: u.employeeCode,
         joiningDate: u.joiningDate ? u.joiningDate.toISOString().split("T")[0]! : null,
+        lockedUntil: u.lockedUntil,
+        failedLoginAttempts: u.failedLoginAttempts,
       }))}
       locations={locationRows}
       projects={projects.map((p) => ({ id: p.id, name: p.name }))}
@@ -180,6 +183,11 @@ export async function SettingsContent() {
       managers={memberships.map((m) => ({ membershipId: m.id, userId: m.userId, name: m.user.name, role: m.role }))}
       customRoles={customRoles.map((cr) => ({ id: cr.id, key: cr.key, label: cr.label, description: cr.description, baseRole: cr.baseRole, tier: cr.tier, permissions: cr.permissions }))}
     />
+      {hasPermission(role, PERM.FINANCE_MANAGE) && (
+        <div className="mt-6">
+          <HsnMasterAdmin />
+        </div>
+      )}
       {hasPermission(role, PERM.FINANCE_MANAGE) && (
         <div className="mt-6">
           <NotificationsPanel />

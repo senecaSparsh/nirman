@@ -25,7 +25,7 @@ export function MobileNewCustomerDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  onCreated: (customer: { id: string; name: string }) => void;
+  onCreated: (customer: { id: string; name: string; phone: string | null }) => void;
   /** When true, disables backdrop blur — use when opened inside another
    *  modal to avoid double-blur ("blurry inside blurry"). */
   nested?: boolean;
@@ -63,7 +63,7 @@ export function MobileNewCustomerDialog({
       haptic([10, 40, 80]);
       toast.success(`${data.name} customer created`);
       router.refresh();
-      onCreated({ id: data.id, name: data.name });
+      onCreated({ id: data.id, name: data.name, phone: data.phone ?? null });
       setName("");
       setPhone("");
       setEmail("");

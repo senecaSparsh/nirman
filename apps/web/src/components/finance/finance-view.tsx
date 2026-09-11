@@ -123,7 +123,21 @@ export function FinanceView({
         {/* ── Money Flow ──────────────────────────────────────────── */}
         <TabsContent value="flow">
           {moneyFlow.length === 0 ? (
-            <EmptyState icon={<Wallet className="h-5 w-5" />} title="No costs or expenses" description="Add project costs and company expenses to see money flow." />
+            <div className="space-y-4">
+              <EmptyState icon={<Wallet className="h-5 w-5" />} title="No costs or expenses yet" description="Add project costs and company expenses to see money flow." />
+              <div className="flex items-center justify-center gap-2">
+                {(permissions?.canManageCosts ?? false) && (
+                  <Button size="sm" variant="outline" onClick={() => { setEditingCost(null); setCostFormOpen(true); }} disabled={projects.length === 0}>
+                    <Plus className="h-3.5 w-3.5" /> Add Cost
+                  </Button>
+                )}
+                {(permissions?.canCreateExpense ?? false) && (
+                  <Button size="sm" onClick={() => { setEditingExpense(null); setExpenseFormOpen(true); }}>
+                    <Plus className="h-3.5 w-3.5" /> Add Expense
+                  </Button>
+                )}
+              </div>
+            </div>
           ) : (
             <div className="rounded-lg border border-border overflow-hidden">
               <DataTable

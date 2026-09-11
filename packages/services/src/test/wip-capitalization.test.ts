@@ -71,7 +71,7 @@ describe("WIP Capitalization — integration tests", () => {
         sourceType: "WIP_CAPITALIZATION",
         sourceId: builtUnitId,
       },
-      include: { lines: true },
+      include: { lines: { include: { account: { select: { code: true } } } } },
     });
   }
 
@@ -95,8 +95,8 @@ describe("WIP Capitalization — integration tests", () => {
     expect(entry!.lines).toHaveLength(2);
 
     // Find the debit and credit lines
-    const debitLine = entry!.lines.find((l) => l.accountCode === ACCT.UNIT_ASSET);
-    const creditLine = entry!.lines.find((l) => l.accountCode === ACCT.WIP);
+    const debitLine = entry!.lines.find((l) => l.account.code === ACCT.UNIT_ASSET);
+    const creditLine = entry!.lines.find((l) => l.account.code === ACCT.WIP);
     expect(debitLine).toBeDefined();
     expect(creditLine).toBeDefined();
 
@@ -143,7 +143,7 @@ describe("WIP Capitalization — integration tests", () => {
         sourceType: "WIP_CAPITALIZATION",
         sourceId: unit.id,
       },
-      include: { lines: true },
+      include: { lines: { include: { account: { select: { code: true } } } } },
     });
     expect(entries).toHaveLength(1);
 

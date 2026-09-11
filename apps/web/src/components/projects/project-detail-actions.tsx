@@ -13,11 +13,15 @@ export function ProjectDetailActions({
   initial,
   editOpen,
   setEditOpen,
+  canManage = false,
+  canReallocate = false,
 }: {
   projectId: string;
   initial: ProjectFormValues;
   editOpen?: boolean;
   setEditOpen?: (open: boolean) => void;
+  canManage?: boolean;
+  canReallocate?: boolean;
 }) {
   const [internalEditOpen, setInternalEditOpen] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
@@ -69,22 +73,28 @@ export function ProjectDetailActions({
 
   return (
     <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" onClick={reallocateCosts} disabled={reallocating}>
-        {reallocating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-        Reallocate Costs
-      </Button>
+      {canReallocate && (
+        <Button variant="outline" size="sm" onClick={reallocateCosts} disabled={reallocating}>
+          {reallocating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          Reallocate Costs
+        </Button>
+      )}
       <Button variant="outline" size="sm" onClick={checkMilestones} disabled={checkingMilestones}>
         {checkingMilestones ? <Loader2 className="h-4 w-4 animate-spin" /> : <Milestone className="h-4 w-4" />}
         Check Milestones
       </Button>
-      <Button variant="outline" size="sm" onClick={() => onOpenChange(true)}>
-        <Pencil className="h-4 w-4" />
-        Edit
-      </Button>
-      <Button variant="outline" size="sm" onClick={() => setDelOpen(true)}>
-        <Trash2 className="h-4 w-4" />
-        Delete
-      </Button>
+      {canManage && (
+        <Button variant="outline" size="sm" onClick={() => onOpenChange(true)}>
+          <Pencil className="h-4 w-4" />
+          Edit
+        </Button>
+      )}
+      {canManage && (
+        <Button variant="outline" size="sm" onClick={() => setDelOpen(true)}>
+          <Trash2 className="h-4 w-4" />
+          Delete
+        </Button>
+      )}
       <ProjectFormDialog open={open} onOpenChange={onOpenChange} projectId={projectId} initial={initial} />
       <DeleteConfirmDialog
         open={delOpen}

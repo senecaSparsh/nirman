@@ -10,6 +10,7 @@ import {
   requirePermission,
   approveQuotationSchema,
 } from "@/lib/server";
+import { revalidatePath } from "next/cache";
 
 /**
  * POST /api/quotations/[id]/approve — approve a quotation request and
@@ -53,6 +54,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
       selectedQuoteId: parsed.data.selectedQuoteId,
       reason: parsed.data.reason ?? undefined,
     });
+    revalidatePath("/quotations");
+    revalidatePath("/procurement");
+    revalidatePath("/m/quotations");
+    revalidatePath("/m/procurement");
+    revalidatePath("/purchase-orders");
+    revalidatePath("/approvals");
     return json({
       id: updated.id,
       status: updated.status,

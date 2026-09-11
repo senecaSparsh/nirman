@@ -124,7 +124,10 @@ describe("formatNumber", () => {
 
 describe("formatDate", () => {
   it("formats a date as DD Mon YYYY", () => {
-    expect(formatDate("2026-09-04T00:00:00Z")).toMatch(/\d{2} \w{3,5} 2026/);
+    const result = formatDate("2026-09-04T00:00:00Z");
+    expect(result).toMatch(/2026/);
+    expect(result).toMatch(/Sep/);
+    expect(result).toMatch(/04/);
   });
 
   it("returns — for null/undefined/empty", () => {

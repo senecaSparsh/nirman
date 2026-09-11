@@ -73,6 +73,10 @@ interface CreatePOInput {
   initialStatus?: "DRAFT" | "APPROVED";
   /** Who approved the PO (set when initialStatus = APPROVED). */
   approvedById?: string;
+  /** Linked quotation request — when the PO originates from an approved quotation. */
+  quotationId?: string;
+  /** Required when quotationId is absent — documents why the quotation flow was bypassed. */
+  waiverReason?: string;
   lines: {
     materialId: string;
     qtyOrdered: Decimal | number | string;
@@ -101,7 +105,25 @@ async function generatePoNumber(tx: Prisma.TransactionClient): Promise<string> {
 }
 
 export async function createPurchaseOrder(input: CreatePOInput) {
-  return withSerializableTransaction(async (tx) => createPurchaseOrderTx(tx, input));
+  const po = await withSerializableTransaction(async (tx) => createPurchaseOrderTx(tx, input));
+
+  // Emit notification (best-effort, outside the transaction) — notifies
+  // approvers that a new PO is waiting for their review.
+  if (po.status === "DRAFT") {
+    void emitNotificationEvent({
+      eventType: NotificationEventType.PO_CREATED,
+      companyId: po.companyId,
+      entityType: "PurchaseOrder",
+      entityId: po.id,
+      variables: {
+        poNumber: po.poNumber ?? po.id,
+        total: new Decimal(po.total).toFixed(2),
+      },
+      timestamp: new Date(),
+    });
+  }
+
+  return po;
 }
 
 /** Internal: creates a PO within a caller-provided transaction. */
@@ -145,7 +167,7 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
     if (input.lines.length === 0) throw new ServiceError("PO must have at least one line");
     const materialIds = input.lines.map((l) => l.materialId);
     const materials = await tx.material.findMany({
-      where: { id: { in: materialIds }, deletedAt: null },
+      where: { id: { in: materialIds }, companyId: input.companyId, deletedAt: null },
     });
     if (materials.length !== materialIds.length) {
       throw new ServiceError("One or more materials not found or deleted", 404);
@@ -223,6 +245,14 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
 
     // 5. Create PO
     const initialStatus = input.initialStatus ?? "DRAFT";
+    // Prevent auto-self-approval: if a PO is created directly in APPROVED status,
+    // the approver must be explicitly provided and must differ from the creator.
+    if (initialStatus === "APPROVED" && input.approvedById && input.createdById && input.approvedById === input.createdById) {
+      throw new ServiceError(
+        "Cannot create and approve a purchase order in one step — ask another approver to review it.",
+        403,
+      );
+    }
     const po = await tx.purchaseOrder.create({
       data: {
         poNumber: await generatePoNumber(tx),
@@ -232,7 +262,8 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
         projectId: input.projectId ?? null,
         destinationLocationId: input.destinationLocationId,
         status: initialStatus,
-        approvedById: initialStatus === "APPROVED" ? (input.approvedById ?? input.createdById) : null,
+        quotationWaiverReason: input.waiverReason ?? null,
+        approvedById: initialStatus === "APPROVED" ? input.approvedById : null,
         approvedAt: initialStatus === "APPROVED" ? new Date() : null,
         expectedDate: input.expectedDate,
         subtotal,
@@ -278,7 +309,7 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
       action: "PURCHASE_ORDER_CREATE",
       entityType: "PurchaseOrder",
       entityId: po.id,
-      after: { poNumber: po.poNumber, status: po.status, total: po.total },
+      after: { poNumber: po.poNumber, status: po.status, total: po.total, quotationWaiverReason: input.waiverReason ?? null },
     });
 
     return po;
@@ -294,6 +325,14 @@ export async function approvePurchaseOrder(
     const po = await tx.purchaseOrder.findUnique({ where: { id: poId } });
     if (!po) throw new ServiceError("PO not found", 404);
     if (po.status !== "DRAFT") throw new ServiceError(`Cannot approve PO in status ${po.status}`);
+
+    // Prevent self-approval — the creator cannot approve their own PO.
+    if (approvedById && po.createdById && approvedById === po.createdById) {
+      throw new ServiceError(
+        "You cannot approve a purchase order you created. Ask another approver to review it.",
+        403,
+      );
+    }
 
     // Enforce value-based approval routing: check the approver's role is
     // sufficient for the PO's total value. OWNER/ADMIN always pass (superusers).
@@ -394,6 +433,14 @@ export async function rejectPurchaseOrder(
     if (!po) throw new ServiceError("PO not found", 404);
     if (po.status !== "DRAFT") throw new ServiceError(`Cannot reject PO in status ${po.status}`);
 
+    // Prevent self-rejection — the creator cannot reject their own PO.
+    if (rejectedById && po.createdById && rejectedById === po.createdById) {
+      throw new ServiceError(
+        "You cannot reject a purchase order you created.",
+        403,
+      );
+    }
+
     // Enforce the same value-based approval routing as approvePurchaseOrder —
     // rejecting is an approval decision, so the rejector must be authorized.
     if (rejectorRole !== "OWNER" && rejectorRole !== "ADMIN") {
@@ -442,6 +489,39 @@ export async function rejectPurchaseOrder(
   });
 
   return result.updated;
+}
+
+/**
+ * Resubmit a rejected purchase order — transitions REJECTED → DRAFT so the
+ * creator can edit the lines and an approver can review it again.
+ */
+export async function resubmitPurchaseOrder(poId: string, userId?: string) {
+  return withSerializableTransaction(async (tx) => {
+    const po = await tx.purchaseOrder.findUnique({ where: { id: poId } });
+    if (!po) throw new ServiceError("PO not found", 404);
+    if (po.status !== "REJECTED") {
+      throw new ServiceError(`Cannot resubmit PO in status ${po.status}`, 400);
+    }
+    const updated = await tx.purchaseOrder.update({
+      where: { id: poId },
+      data: {
+        status: "DRAFT",
+        rejectedById: null,
+        rejectedAt: null,
+        rejectionReason: null,
+      },
+    });
+    await logAction(tx, {
+      userId,
+      companyId: po.companyId,
+      action: "PURCHASE_ORDER_RESUBMIT",
+      entityType: "PurchaseOrder",
+      entityId: poId,
+      before: { status: "REJECTED" },
+      after: { status: "DRAFT" },
+    });
+    return updated;
+  });
 }
 
 export async function cancelPurchaseOrder(poId: string, userId?: string) {
@@ -505,11 +585,9 @@ export async function addLineToPurchaseOrder(input: {
       throw new ServiceError(`Cannot add lines to PO in status ${po.status}`);
     }
 
-    // Validate the material exists and is not soft-deleted.
-    // (Materials are global — not company-scoped — so we don't filter by
-    // companyId here, matching the createPurchaseOrderTx validation.)
+    // Validate the material exists, belongs to the PO's company, and is not soft-deleted.
     const material = await tx.material.findFirst({
-      where: { id: input.materialId, deletedAt: null },
+      where: { id: input.materialId, companyId: po.companyId, deletedAt: null },
       select: { id: true, code: true, name: true, unit: true, gstRate: true },
     });
     if (!material) throw new ServiceError("Material not found or deleted", 404);
@@ -909,7 +987,7 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
   void (async () => {
     for (const line of input.lines) {
       try {
-        await autoFillHsnGst(line.materialId);
+        await autoFillHsnGst(line.materialId, result.po.companyId);
       } catch { /* best-effort — don't block receipt for HSN lookup failure */ }
     }
   })();

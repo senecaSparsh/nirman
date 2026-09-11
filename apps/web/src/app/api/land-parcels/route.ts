@@ -19,6 +19,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const status = searchParams.get("status");
 
   const parcels = await prisma.landParcel.findMany({
+    take: 500,
     where: {
       deletedAt: null,
       landPurchase: { companyId: company.id },
@@ -28,7 +29,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     },
     include: {
       parentParcel: { select: { id: true, number: true } },
-      children: { select: { id: true, number: true, area: true, status: true } },
+      children: { select: { id: true, number: true, area: true, status: true }, where: { deletedAt: null } },
       project: { select: { id: true, name: true } },
       landPurchase: { select: { id: true, sellerName: true } },
     },

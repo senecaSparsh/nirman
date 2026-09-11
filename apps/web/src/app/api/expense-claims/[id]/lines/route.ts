@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { addClaimLine, removeClaimLine, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
@@ -43,7 +43,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     throw err;
   }
   revalidatePath("/expense-claims");
-  return NextResponse.json({ ok: true }, { status: 201 });
+  return json({ ok: true }, { status: 201 });
 });
 
 export const DELETE = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {

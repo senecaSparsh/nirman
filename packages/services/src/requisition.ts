@@ -116,7 +116,7 @@ export async function createRequisition(input: CreateRequisitionInput) {
   // Validate materials
   const materialIds = input.lines.map((l) => l.materialId);
   const materials = await prisma.material.findMany({
-    where: { id: { in: materialIds }, deletedAt: null },
+    where: { id: { in: materialIds }, companyId: scopeCompanyId, deletedAt: null },
   });
   if (materials.length !== materialIds.length) {
     throw new ServiceError("One or more materials not found or deleted", 404);
@@ -203,10 +203,12 @@ export async function submitRequisition(reqId: string, userId?: string) {
       },
     });
     if (!req) throw new ServiceError("Indent not found", 404);
-    if (req.status !== "DRAFT") throw new ServiceError(`Cannot submit indent in status ${req.status}`);
+    if (req.status !== "DRAFT" && req.status !== "REJECTED") {
+      throw new ServiceError(`Cannot submit indent in status ${req.status}`);
+    }
     const reqCompanyId = req.project?.companyId ?? req.department?.companyId;
     if (!reqCompanyId) throw new ServiceError("Indent has no project or department", 400);
-    const updated = await tx.materialRequisition.update({ where: { id: reqId }, data: { status: "SUBMITTED" } });
+    const updated = await tx.materialRequisition.update({ where: { id: reqId }, data: { status: "SUBMITTED", submittedById: userId ?? null, submittedAt: new Date() } });
     await logAction(tx, {
       userId,
       companyId: reqCompanyId,
@@ -252,6 +254,13 @@ export async function approveRequisition(reqId: string, approvedById?: string, a
     });
     if (!req) throw new ServiceError("Indent not found", 404);
     if (req.status !== "SUBMITTED") throw new ServiceError(`Cannot approve indent in status ${req.status}`);
+    // Prevent self-approval — the requester or submitter cannot approve their own requisition.
+    if (approvedById && req.requestedById === approvedById) {
+      throw new ServiceError("You cannot approve your own indent. Ask another approver to review it.", 403);
+    }
+    if (approvedById && req.submittedById && req.submittedById === approvedById) {
+      throw new ServiceError("You cannot approve an indent you submitted. Ask another approver to review it.", 403);
+    }
     const reqCompanyId = req.project?.companyId ?? req.department?.companyId;
     if (!reqCompanyId) throw new ServiceError("Indent has no project or department", 400);
     const updated = await tx.materialRequisition.update({
@@ -366,6 +375,13 @@ export async function rejectRequisition(reqId: string, rejectedById?: string, re
     });
     if (!req) throw new ServiceError("Indent not found", 404);
     if (req.status !== "SUBMITTED") throw new ServiceError(`Cannot reject indent in status ${req.status}`);
+    // Prevent self-rejection — the requester or submitter cannot reject their own requisition.
+    if (rejectedById && req.requestedById === rejectedById) {
+      throw new ServiceError("You cannot reject your own indent.", 403);
+    }
+    if (rejectedById && req.submittedById && req.submittedById === rejectedById) {
+      throw new ServiceError("You cannot reject an indent you submitted.", 403);
+    }
     const reqCompanyId = req.project?.companyId ?? req.department?.companyId;
     if (!reqCompanyId) throw new ServiceError("Indent has no project or department", 400);
     const updated = await tx.materialRequisition.update({
@@ -416,11 +432,14 @@ interface ConvertRequisitionInput {
    *  before deciding scope (refines S_lead/D once a supplier is known). */
   distanceKm?: Decimal | number | string;
   userId?: string;
-  /** When true, the PO is created as APPROVED and immediately marked ORDERED,
-   *  skipping the two manual steps (approve + mark as ordered). This is safe
-   *  because the requisition was already approved and the winning quote was
-   *  already selected by an approver. Default: false (preserve existing behavior). */
+  /** When autoOrder is requested, the PO is created as APPROVED and immediately
+   *  marked ORDERED, skipping the two manual steps (approve + mark as ordered).
+   *  The approverId must be a different user from userId to prevent self-approval.
+   *  If approverId is omitted, the guard in createPurchaseOrderTx will block
+   *  self-approval and the PO will be created as DRAFT instead. Default: false. */
   autoOrder?: boolean;
+  /** Explicit approver ID for auto-ordered POs. Must differ from userId. */
+  approverId?: string;
 }
 
 export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
@@ -554,7 +573,13 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
       charges: poCharges,
       // When autoOrder is requested, create the PO as APPROVED so we can
       // immediately mark it ORDERED after the transaction commits.
-      ...(input.autoOrder ? { initialStatus: "APPROVED" as const, approvedById: input.userId } : {}),
+      // The approver is the user converting the requisition — this is safe
+      // ONLY if that user is different from the PO creator. Since the PO
+      // creator is also input.userId, we must NOT auto-approve if the
+      // converter is the same person. The guard in createPurchaseOrderTx
+      // will block self-approval, so autoOrder only works when a different
+      // user explicitly approved the requisition first.
+      ...(input.autoOrder ? { initialStatus: "APPROVED" as const, approvedById: input.approverId ?? input.userId } : {}),
     });
 
     // Link the PO to the winning quote (if any) + mark requisition CONVERTED

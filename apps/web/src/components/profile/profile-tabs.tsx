@@ -13,6 +13,7 @@ import {
   DollarSign,
   Home,
   ShieldCheck,
+  ShieldAlert,
   Users as UsersIcon,
   Briefcase,
   Mail,
@@ -26,6 +27,13 @@ import {
   Calendar,
   TrendingUp,
   TrendingDown,
+  HardHat,
+  ShoppingCart,
+  MapPin,
+  Calculator,
+  FileText,
+  DoorOpen,
+  CheckSquare,
   type LucideIcon,
 } from "lucide-react";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
@@ -40,9 +48,11 @@ import { EmptyState } from "@/components/empty-state";
 /**
  * Icon map — the server passes string keys (not icon components,
  * which can't cross the server/client boundary). The client resolves
- * them here. Every icon used by queues or capabilities must be listed.
+ * them here. Covers queue icons + all PERMISSION_MODULES icon names
+ * so capability badges render the correct icon for every module.
  */
 const ICONS: Record<string, LucideIcon> = {
+  // Queue icons
   truck: Truck,
   package: Package,
   clipboardList: ClipboardList,
@@ -54,6 +64,18 @@ const ICONS: Record<string, LucideIcon> = {
   activity: Activity,
   wallet: Wallet,
   building: Building2,
+  // PERMISSION_MODULES icons (camelCased to match the key convention)
+  hardHat: HardHat,
+  shoppingCart: ShoppingCart,
+  mapPin: MapPin,
+  calculator: Calculator,
+  trendingUp: TrendingUp,
+  fileText: FileText,
+  doorOpen: DoorOpen,
+  checkSquare: CheckSquare,
+  phone: Phone,
+  settings: Settings,
+  shieldAlert: ShieldAlert,
 };
 
 /**
@@ -134,6 +156,8 @@ export type ProfileTabsProps = {
   queues: QueueData[];
   totalQueues: number;
   blockingQueues: number;
+  canApprove: boolean;
+  canSeeTasks: boolean;
   // Charts
   canSeeProcurement: boolean;
   canSeeStock: boolean;
@@ -449,9 +473,11 @@ export function OverviewCharts(props: ProfileTabsProps) {
               Materials <ArrowRight className="h-3 w-3" />
             </Link>
           )}
-          <Link href="/approvals" className="flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 text-caption font-medium text-foreground transition-colors hover:bg-subtle">
-            Approvals <ArrowRight className="h-3 w-3" />
-          </Link>
+          {props.canApprove && (
+            <Link href="/approvals" className="flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 text-caption font-medium text-foreground transition-colors hover:bg-subtle">
+              Approvals <ArrowRight className="h-3 w-3" />
+            </Link>
+          )}
         </div>
       </div>
 

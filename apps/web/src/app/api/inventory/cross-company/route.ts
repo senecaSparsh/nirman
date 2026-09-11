@@ -21,7 +21,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
   // Only parent companies can see cross-company inventory
   const childCompanies = await prisma.company.findMany({
-    where: { parentCompanyId: company.id },
+    where: { parentCompanyId: company.id, deletedAt: null },
     select: { id: true, name: true },
   });
 

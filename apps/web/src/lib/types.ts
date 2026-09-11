@@ -5,6 +5,8 @@ export type MaterialCategory = {
   name: string;
   unit: string;
   class?: string;
+  hsnCode?: string | null;
+  gstRate?: number | string | null;
   _count?: { materials: number };
 };
 
@@ -129,6 +131,7 @@ export type PurchaseOrderRow = {
   totalReceived: number;
   receivedPct: number;
   createdAt: string;
+  createdById: string | null;
 };
 
 export type PurchaseOrderDetail = {
@@ -1361,6 +1364,7 @@ export type ApprovalPORow = {
   createdAt: string;
   expectedDate: string | null;
   canApprove: boolean;
+  waitingOn: string;
   // Budget context (null for COMPANY-scoped POs or projects without a budget)
   projectBudget: number | null;
   projectSpent: number | null;
@@ -1394,6 +1398,7 @@ export type ApprovalReqRow = {
   neededByDate: string | null;
   createdAt: string;
   canApprove: boolean;
+  waitingOn: string;
   // Budget context (null for projects without a budget)
   projectBudget: number | null;
   projectSpent: number | null;
@@ -1404,6 +1409,37 @@ export type ApprovalReqRow = {
   urgency: string;
   // Line-level stock/rate context for the approver
   lineDetails: ApprovalReqLineDetail[];
+};
+
+export type ApprovalGatePassRow = {
+  id: string;
+  gatePassNumber: string;
+  category: string;
+  locationName: string;
+  destination: string | null;
+  vehicleNumber: string | null;
+  driverName: string | null;
+  createdByName: string | null;
+  createdAt: string;
+  lineCount: number;
+  canApprove: boolean;
+  waitingOn: string;
+  urgency: string;
+};
+
+export type ApprovalDprRow = {
+  id: string;
+  projectName: string | null;
+  submittedByName: string | null;
+  createdAt: string;
+  date: string;
+  approvalStatus: string;
+  workSummary: string | null;
+  progressPct: number;
+  canApproveSubAdmin: boolean;
+  canApproveAdmin: boolean;
+  waitingOn: string;
+  urgency: string;
 };
 
 export type ApprovalExpenseRow = {
@@ -1426,6 +1462,7 @@ export type ApprovalExpenseRow = {
   date: string;
   notes: string | null;
   canApprove: boolean;
+  waitingOn: string;
 };
 
 

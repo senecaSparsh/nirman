@@ -97,6 +97,7 @@ export function MobileCustomersList({
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const router = useRouter();
   const fab = useFabModal();
 
   const { items, loading, hasMore, loadMore } = usePaginatedList<CustomerListItem>(
@@ -145,7 +146,7 @@ export function MobileCustomersList({
               <MobileCustomerForm
                 existingPhones={existingPhones}
                 onClose={fab.close}
-                onCreated={() => window.location.reload()}
+                onCreated={() => router.refresh()}
               />
             </MobileFabModal>
           </>
@@ -207,7 +208,7 @@ export function MobileCustomersList({
           <MobileCustomerForm
             existingPhones={existingPhones}
             onClose={fab.close}
-            onCreated={() => window.location.reload()}
+            onCreated={() => router.refresh()}
           />
         </MobileFabModal>
       ) : null}
