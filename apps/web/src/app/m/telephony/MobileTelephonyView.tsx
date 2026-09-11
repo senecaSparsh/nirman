@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Phone, Server, ShieldCheck, Cloud, Plus, Trash2, UserMinus,
   ChevronDown, ChevronUp, Loader2, CheckCircle2,
@@ -165,6 +166,7 @@ export function MobileTelephonyView({
 
 // ── Numbers Tab ──
 function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; members: Member[]; canManage: boolean }) {
+  const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [assignMemberId, setAssignMemberId] = useState("");
@@ -183,7 +185,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
       if (res.ok) {
         toast.success("Number assigned");
         haptic();
-        window.location.reload();
+        router.refresh();
       } else {
         const data = await res.json().catch(() => ({}));
         toast.error(data.error ?? "Could not assign");
@@ -207,7 +209,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
       if (res.ok) {
         toast.success("Number unassigned");
         haptic();
-        window.location.reload();
+        router.refresh();
       } else {
         toast.error("Could not unassign");
       }
@@ -231,7 +233,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
       if (res.ok) {
         toast.success("Number removed");
         haptic();
-        window.location.reload();
+        router.refresh();
       } else {
         toast.error("Could not remove");
       }
