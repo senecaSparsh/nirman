@@ -8,7 +8,7 @@ import Link from "next/link";
 
 /** Field → Me tab: my profile + field-worker shortcuts + more links. */
 const FIELD_MORE_LINKS = [
-  { label: "Daily Progress", href: "/m/hr?tab=dprs" },
+  { label: "Daily Progress", href: "/m/dprs" },
   { label: "Attendance", href: "/m/site/attendance" },
   { label: "Quotations", href: "/m/procurement?tab=quotations" },
   { label: "Stock Counts", href: "/m/stock?tab=counts" },

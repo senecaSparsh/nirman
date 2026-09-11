@@ -234,7 +234,8 @@ export function MobileCallDetailClient({
 
   async function removeTag(tagId: string) {
     try {
-      await fetch(`/api/calls/${call.id}/tags?tagId=${tagId}`, { method: "DELETE" });
+      const res = await fetch(`/api/calls/${call.id}/tags?tagId=${tagId}`, { method: "DELETE" });
+      if (!res.ok) { toast.error("Could not remove tag."); return; }
       setTags(tags.filter((t) => t.callTag.id !== tagId));
     } catch (e) {
       console.error("Failed to remove tag", e);

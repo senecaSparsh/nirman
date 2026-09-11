@@ -3003,12 +3003,15 @@ function DocumentsCard({ employee, canManage }: { employee: OnboardingEmployeeDa
     try {
       const current = employee[field];
       const newVal = current === true ? null : true;
-      await fetch(`/api/employees/${employee.id}`, {
+      const res = await fetch(`/api/employees/${employee.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [field]: newVal }),
       });
+      if (!res.ok) throw new Error("Failed to update");
       router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
       setBusy(false);
     }

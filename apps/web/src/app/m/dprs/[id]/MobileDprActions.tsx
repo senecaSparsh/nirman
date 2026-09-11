@@ -123,7 +123,7 @@ export function MobileDprActions({
       if (!res.ok) throw new Error(data.error ?? "Failed to delete");
       toast.success("DPR deleted");
       setShowDelete(false);
-      router.push("/m/hr?tab=dprs");
+      router.push("/m/dprs");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {

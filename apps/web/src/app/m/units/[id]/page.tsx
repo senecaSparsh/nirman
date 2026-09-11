@@ -246,6 +246,7 @@ export default function MobileUnitDetailPage({
             {/* ── Management actions (edit, status, valuation, delete) ── */}
             <MobileUnitActions
               unitId={unit.id}
+              projectId={unit.project.id}
               unitNumber={unit.unitNumber}
               canManage={canManage}
               currentStatus={unit.status as "PLANNED" | "UNDER_CONSTRUCTION" | "AVAILABLE" | "HOLD" | "SOLD"}

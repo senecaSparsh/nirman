@@ -72,6 +72,7 @@ const TYPE_OPTIONS: { value: UnitType; label: string }[] = [
 
 export function MobileUnitActions({
   unitId,
+  projectId,
   unitNumber,
   canManage,
   currentStatus,
@@ -89,6 +90,7 @@ export function MobileUnitActions({
   initialCurrentValuation,
 }: {
   unitId: string;
+  projectId: string;
   unitNumber: string;
   canManage: boolean;
   currentStatus: UnitStatus;
@@ -162,7 +164,7 @@ export function MobileUnitActions({
       if (!res.ok) throw new Error(data.error ?? "Failed to delete");
       toast.success("Unit archived");
       setShowDelete(false);
-      router.push(`/m/projects/${unitId}`);
+      router.push(`/m/projects/${projectId}`);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {

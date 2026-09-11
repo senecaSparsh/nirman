@@ -744,7 +744,7 @@ export function MobileReceiveDialog({
                     });
                     setLastGrnId(null);
                     setOpen(false);
-                    router.push("/m/books/finance?tab=invoices");
+                    router.push("/m/books/finance");
                   })
                   .catch((e) => {
                     toast.error(e instanceof Error ? e.message : "Failed to create invoice");

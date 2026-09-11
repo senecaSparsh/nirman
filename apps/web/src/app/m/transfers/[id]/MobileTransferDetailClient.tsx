@@ -178,11 +178,12 @@ export function MobileTransferDetailClient({
   async function switchCompany(companyId: string) {
     haptic(10);
     try {
-      await fetch("/api/company/switch", {
+      const res = await fetch("/api/company/switch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyId }),
       });
+      if (!res.ok) { toast.error("Failed to switch company"); return; }
       window.dispatchEvent(new CustomEvent("nirman-company-switched"));
       // Navigate to the transfer list instead of refreshing the detail page —
       // the detail page re-fetches heavy data and the old transfer may not
