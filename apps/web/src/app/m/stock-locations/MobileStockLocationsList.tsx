@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {MapPin, Pencil, Trash2, Loader2, Warehouse, Building2, Share2, Package, IndianRupee, FolderOpen} from "lucide-react";
@@ -13,7 +13,7 @@ import {
 } from "@/components/mobile/v2/mobile-overview-sheet";
 import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
-import { MobileFab } from "@/components/mobile/v2/scaffold";
+import { MobileFab, MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { useFabModal } from "@/lib/use-fab-modal";
@@ -63,10 +63,35 @@ export function MobileStockLocationsList({
   canManage: boolean;
 }) {
   const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"ALL" | LocationType>("ALL");
   const [editing, setEditing] = useState<LocationRow | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const fab = useFabModal();
   const [confirm, confirmDialog] = useConfirm();
+
+  const filtered = useMemo(() => {
+    let result = locations;
+    if (typeFilter !== "ALL") result = result.filter((l) => l.type === typeFilter);
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      result = result.filter(
+        (l) =>
+          l.name.toLowerCase().includes(q) ||
+          (l.projectName?.toLowerCase().includes(q) ?? false) ||
+          (l.address?.toLowerCase().includes(q) ?? false),
+      );
+    }
+    return result;
+  }, [locations, typeFilter, query]);
+
+  const TYPE_FILTER_OPTIONS: { label: string; value: "ALL" | LocationType }[] = [
+    { label: "All", value: "ALL" },
+    { label: "Warehouse", value: "COMPANY_WAREHOUSE" },
+    { label: "Central", value: "CENTRAL_WAREHOUSE" },
+    { label: "Project Site", value: "PROJECT_SITE" },
+    { label: "Department", value: "DEPARTMENT" },
+  ];
 
   async function handleDelete(loc: LocationRow) {
     if (loc.itemCount > 0) {
@@ -100,20 +125,37 @@ export function MobileStockLocationsList({
   return (
     <div>
       <div className="px-4 pt-4 pb-2">
-        <a
-          href="/m/settings"
-          className="text-m-caption font-medium"
-          style={{ color: "var(--color-ink-500)" }}
-        >
-          ← Settings
-        </a>
-        <h1 className="text-m-section font-bold mt-1" style={{ color: "var(--color-ink-950)" }}>
+        <h1 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
           Stock Locations
         </h1>
         <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
           {locations.length} location{locations.length !== 1 ? "s" : ""}
         </p>
       </div>
+
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search name, project, address…"
+        filterChips={
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            {TYPE_FILTER_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setTypeFilter(opt.value)}
+                className="px-2.5 py-1 text-m-body rounded-full border whitespace-nowrap transition-colors press"
+                style={{
+                  borderColor: typeFilter === opt.value ? "var(--color-steel)" : "var(--color-line)",
+                  backgroundColor: typeFilter === opt.value ? "color-mix(in srgb, var(--color-steel) 10%, transparent)" : "transparent",
+                  color: typeFilter === opt.value ? "var(--color-steel)" : "var(--color-ink-500)",
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       {canManage && (
         <>
@@ -138,9 +180,11 @@ export function MobileStockLocationsList({
           title="No stock locations"
           hint={canManage ? "Tap the + button to create one" : "Ask an admin to create locations"}
         />
+      ) : filtered.length === 0 ? (
+        <MobileNoResults query={query} />
       ) : (
         <div className="flex flex-col gap-2 px-4 pb-8">
-          {locations.map((loc) => (
+          {filtered.map((loc) => (
             <LocationCard
               key={loc.id}
               loc={loc}
