@@ -15,6 +15,8 @@ import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { GlPreviewPanel } from "./gl-preview-panel";
 import type { GlPreviewLine } from "@nirman/services/gl-preview";
 import type { ProjectOption, ProjectCostRow } from "@/lib/types";
+import { required, positiveNumber, validateForm } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 
 const COST_TYPES = ["LABOUR", "OVERHEAD", "EQUIPMENT", "CONTRACTOR", "PERMIT", "TRANSFER_DUTY", "OTHER"] as const;
 
@@ -59,9 +61,19 @@ export function ProjectCostFormDialog({
   const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects);
   useEffect(() => { setLocalProjects(projects); }, [projects]);
 
+  type CostFormState = typeof form;
+  const validationRules: ValidationRules<CostFormState> = {
+    projectId: (v) => required(v as string, "Project"),
+    amount: (v) => required(v as string, "Amount") ?? positiveNumber(v as string, "Amount"),
+    date: (v) => required(v as string, "Date"),
+  };
+  const { errors, setErrors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<CostFormState>(validationRules);
+
   // Reset/populate form when dialog opens
   useEffect(() => {
-    if (open && editing) {
+    if (!open) return;
+    clearAll();
+    if (editing) {
       setForm({
         projectId: editing.projectId ?? "",
         costType: (COST_TYPES.includes(editing.costType as (typeof COST_TYPES)[number]) ? editing.costType : "LABOUR") as (typeof COST_TYPES)[number],
@@ -80,6 +92,7 @@ export function ProjectCostFormDialog({
 
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+    clearError(key);
   }
 
   async function previewGl() {
@@ -108,13 +121,10 @@ export function ProjectCostFormDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.projectId) {
-      toast.error("Project is required");
-      return;
-    }
-    const amount = Number(form.amount);
-    if (!form.amount || Number.isNaN(amount) || amount <= 0) {
-      toast.error("Amount must be greater than 0");
+    const formErrors = validateForm(form, validationRules);
+    if (Object.keys(formErrors).length > 0) {
+      toast.error(Object.values(formErrors)[0]!);
+      setErrors(formErrors);
       return;
     }
     setSaving(true);
@@ -122,7 +132,7 @@ export function ProjectCostFormDialog({
       const payload = {
         projectId: form.projectId,
         costType: form.costType,
-        amount,
+        amount: Number(form.amount),
         date: form.date || null,
         vendor: form.vendor.trim() || null,
         subcontractorId: form.subcontractorId || null,
@@ -159,10 +169,12 @@ export function ProjectCostFormDialog({
     >
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="space-y-1.5">
-          <Label htmlFor="pc-project">Project *</Label>
+          <Label htmlFor="pc-project" className={errors.projectId ? "text-danger" : undefined}>Project *</Label>
           <SelectWithCreate
             value={form.projectId}
             onChange={(v) => set("projectId", v)}
+            onBlur={() => onBlur("projectId", form)}
+            aria-invalid={!!errors.projectId}
             required
             placeholder="Select project…"
             createLabel="project"
@@ -171,6 +183,7 @@ export function ProjectCostFormDialog({
               <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "", type: "RESIDENTIAL", status: "PLANNED" }]); onCreated(e); }} />
             )}
           />
+          {errors.projectId && <p className="text-caption text-danger" role="alert">{errors.projectId}</p>}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
@@ -182,7 +195,7 @@ export function ProjectCostFormDialog({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="pc-amount">Amount *</Label>
+            <Label htmlFor="pc-amount" className={errors.amount ? "text-danger" : undefined}>Amount *</Label>
             <Input
               id="pc-amount"
               type="number"
@@ -190,14 +203,18 @@ export function ProjectCostFormDialog({
               step="0.01"
               value={form.amount}
               onChange={(e) => set("amount", e.target.value)}
+              onBlur={() => onBlur("amount", form)}
+              aria-invalid={!!errors.amount}
               required
             />
+            {errors.amount && <p className="text-caption text-danger" role="alert">{errors.amount}</p>}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="pc-date">Date</Label>
-            <Input id="pc-date" type="date" value={form.date} onChange={(e) => set("date", e.target.value)} />
+            <Label htmlFor="pc-date" className={errors.date ? "text-danger" : undefined}>Date *</Label>
+            <Input id="pc-date" type="date" value={form.date} onChange={(e) => set("date", e.target.value)} onBlur={() => onBlur("date", form)} aria-invalid={!!errors.date} />
+            {errors.date && <p className="text-caption text-danger" role="alert">{errors.date}</p>}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="pc-vendor">Vendor</Label>

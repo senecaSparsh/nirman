@@ -114,13 +114,13 @@ export default function MobileDprDetailPage({
             entityType: "dpr",
             flowId: "dpr",
             status: dpr.approvalStatus,
-            label: `DPR ${dpr.date.toISOString().slice(0, 10)}`,
+            label: `DPR ${formatDate(dpr.date)}`,
             subtitle: dpr.project?.name,
             recordId: dpr.id,
             canActions,
           }}>
           <div className="pb-20">
-            <RecordRecentItem type="dpr" id={dpr.id} label={`DPR ${dpr.date.toISOString().slice(0, 10)}`} sublabel={dpr.project?.name} href={`/m/dprs/${dpr.id}`} />
+            <RecordRecentItem type="dpr" id={dpr.id} label={`DPR ${formatDate(dpr.date)}`} sublabel={dpr.project?.name} href={`/m/dprs/${dpr.id}`} />
 
             {/* ── Next action — the one thing to do, doable on this page ── */}
             {nextAction ? (

@@ -178,7 +178,7 @@ async function ConstructionWorkOrdersTab() {
       />
       {workOrders.length === 0 && (
         <MobileWorkOrdersEmptyState
-          canManage={canManage}
+          canManage={actions.canCreateWorkOrder}
           hasProjects={projects.length > 0}
           hasSubcontractors={subcontractors.length > 0}
         />
@@ -261,7 +261,7 @@ async function ConstructionChangeOrdersTab() {
         <MobileEmptyState
           icon={GitBranch}
           title="No change orders"
-          hint={canManage ? (projects.length === 0 ? "Create a project first, then track scope changes here" : "Tap + to create a change order for a project") : "Change orders will appear here"}
+          hint={(actions?.canCreateChangeOrder ?? canManage) ? (projects.length === 0 ? "Create a project first, then track scope changes here" : "Tap + to create a change order for a project") : "Change orders will appear here"}
         />
       )}
       {(actions?.canCreateChangeOrder ?? canManage) && projects.length > 0 && <MobileChangeOrdersFab projects={projects} />}
@@ -358,7 +358,7 @@ async function ConstructionQualityTab() {
         <MobileEmptyState
           icon={ClipboardCheck}
           title="No NCRs raised"
-          hint={canManage ? (projects.length === 0 ? "Create a project first, then raise NCRs for quality issues" : "Tap + to raise a Non-Conformance Report") : "NCRs will appear here"}
+          hint={(actions?.canCreateNcr ?? canManage) ? (projects.length === 0 ? "Create a project first, then raise NCRs for quality issues" : "Tap + to raise a Non-Conformance Report") : "NCRs will appear here"}
         />
       )}
       {(actions?.canCreateNcr ?? canManage) && projects.length > 0 && (
@@ -605,7 +605,7 @@ async function ConstructionBoqTab({ projectId }: { projectId?: string }) {
         Bill of Quantities Tree
       </MobileSectionTitle>
       {rows.length === 0 ? (
-        <MobileEmptyState icon={ListTree} title="No Bill of Quantities items" hint={canManage ? "Tap + to add the first section or line item" : "This project doesn't have a Bill of Quantities yet"} />
+        <MobileEmptyState icon={ListTree} title="No Bill of Quantities items" hint={(actions?.canCreateBoq ?? canManage) ? "Tap + to add the first section or line item" : "This project doesn't have a Bill of Quantities yet"} />
       ) : (
         <div className="flex flex-col gap-1.5">
           {rows.map((row) => <BoqRowCard key={row.id} row={row} />)}
@@ -702,7 +702,7 @@ async function ConstructionWbsTab({ projectId }: { projectId?: string }) {
         Work Breakdown Structure
       </MobileSectionTitle>
       {nodes.length === 0 ? (
-        <MobileEmptyState icon={ListTree} title="No WBS nodes" hint={canManage ? "Tap + to add the first node" : "This project doesn't have a WBS yet"} />
+        <MobileEmptyState icon={ListTree} title="No WBS nodes" hint={(actions?.canCreateWbs ?? canManage) ? "Tap + to add the first node" : "This project doesn't have a WBS yet"} />
       ) : (
         <div className="flex flex-col gap-1.5">{nodes.map((n) => renderNode(n, 0))}</div>
       )}

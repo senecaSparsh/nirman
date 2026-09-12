@@ -96,7 +96,7 @@ export default function MobileWorkOrdersPage() {
 
             {workOrders.length === 0 && (
               <MobileWorkOrdersEmptyState
-                canManage={canManage}
+                canManage={actions.canCreateWorkOrder}
                 hasProjects={projects.length > 0}
                 hasSubcontractors={subcontractors.length > 0}
               />

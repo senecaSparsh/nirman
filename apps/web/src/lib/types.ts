@@ -1176,6 +1176,7 @@ export type RequisitionRow = {
   quoteCount?: number;
   minQuotesRequired?: number;
   quotesWaived?: boolean;
+  hasWinningQuote?: boolean;
   lciDecision?: { recommendedScope: "COMPANY" | "PROJECT"; threshold: number } | null;
 };
 

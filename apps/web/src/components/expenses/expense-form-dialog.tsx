@@ -12,6 +12,8 @@ import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import type { ExpenseCategoryRow, ProjectOption } from "@/lib/types";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { required, positiveNumber, nonNegativeNumber, validateForm } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 
 const PAYMENT_MODES = ["CASH", "UPI", "NEFT", "BANK", "CHEQUE", "CREDIT"] as const;
 
@@ -98,8 +100,23 @@ export function ExpenseFormDialog({
 
   const isLocked = editing?.status === "PENDING" || editing?.status === "APPROVED";
 
+  type ExpenseFormState = typeof form;
+  const validationRules: ValidationRules<ExpenseFormState> = {
+    category: (v) => required(v as string, "Category"),
+    amount: (v) => (!v || Number(v) <= 0 ? "Amount must be greater than 0" : undefined),
+    date: (v) => required(v as string, "Date"),
+    subtotal: (v) => nonNegativeNumber(v as string, "Subtotal"),
+    cgst: (v) => nonNegativeNumber(v as string, "CGST"),
+    sgst: (v) => nonNegativeNumber(v as string, "SGST"),
+    igst: (v) => nonNegativeNumber(v as string, "IGST"),
+    tdsAmount: (v) => nonNegativeNumber(v as string, "TDS"),
+  };
+  const { errors, setErrors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<ExpenseFormState>(validationRules);
+
   useEffect(() => {
-    if (open && editing) {
+    if (!open) return;
+    clearAll();
+    if (editing) {
       setForm({
         projectId: editing.projectId ?? "",
         categoryId: editing.categoryId ?? "",
@@ -137,6 +154,7 @@ export function ExpenseFormDialog({
 
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+    clearError(key);
   }
 
   // When a category master is selected, sync the free-text category name.
@@ -173,17 +191,15 @@ export function ExpenseFormDialog({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (isLocked) return;
-    if (!form.category.trim()) {
-      toast.error("Category is required");
-      return;
-    }
-    const amount = Number(form.amount);
-    if (!form.amount || Number.isNaN(amount) || amount <= 0) {
-      toast.error("Amount must be greater than 0");
+    const formErrors = validateForm(form, validationRules);
+    if (Object.keys(formErrors).length > 0) {
+      toast.error(Object.values(formErrors)[0]!);
+      setErrors(formErrors);
       return;
     }
     setSaving(true);
     try {
+      const amount = Number(form.amount);
       const payload = {
         projectId: form.projectId || null,
         categoryId: form.categoryId || null,
@@ -275,26 +291,29 @@ export function ExpenseFormDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="e-category">Category *</Label>
+            <Label htmlFor="e-category" className={errors.category ? "text-danger" : undefined}>Category *</Label>
             {categories.length > 0 ? (
-              <Select id="e-category" value={form.categoryId} onChange={(e) => onCategoryChange(e.target.value)}>
+              <Select id="e-category" value={form.categoryId} onChange={(e) => onCategoryChange(e.target.value)} onBlur={() => onBlur("category", form)} aria-invalid={!!errors.category}>
                 <option value="">— Select category —</option>
                 {categories.filter((c) => c.isActive).map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </Select>
             ) : (
-              <Input id="e-category" value={form.category} onChange={(e) => set("category", e.target.value)} placeholder="e.g. Office Supplies" required />
+              <Input id="e-category" value={form.category} onChange={(e) => set("category", e.target.value)} onBlur={() => onBlur("category", form)} aria-invalid={!!errors.category} placeholder="e.g. Office Supplies" required />
             )}
             {categories.length > 0 && (
               <Input
                 value={form.category}
                 onChange={(e) => set("category", e.target.value)}
+                onBlur={() => onBlur("category", form)}
+                aria-invalid={!!errors.category}
                 placeholder="Category name (auto-filled from master, editable)"
                 className="h-8 text-[13px]"
                 required
               />
             )}
+            {errors.category && <p className="text-caption text-danger" role="alert">{errors.category}</p>}
           </div>
         </div>
 
@@ -319,30 +338,36 @@ export function ExpenseFormDialog({
         <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-2">
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="e-amount">Total Amount *</Label>
-              <Input id="e-amount" type="number" min="0" step="0.01" value={form.amount} onChange={(e) => set("amount", e.target.value)} required disabled={isLocked} />
+              <Label htmlFor="e-amount" className={errors.amount ? "text-danger" : undefined}>Total Amount *</Label>
+              <Input id="e-amount" type="number" min="0" step="0.01" value={form.amount} onChange={(e) => set("amount", e.target.value)} onBlur={() => onBlur("amount", form)} aria-invalid={!!errors.amount} required disabled={isLocked} />
+              {errors.amount && <p className="text-caption text-danger" role="alert">{errors.amount}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="e-subtotal">Subtotal (ex-tax)</Label>
-              <Input id="e-subtotal" type="number" min="0" step="0.01" value={form.subtotal} onChange={(e) => set("subtotal", e.target.value)} placeholder={String(computedSubtotal)} disabled={isLocked} />
+              <Label htmlFor="e-subtotal" className={errors.subtotal ? "text-danger" : undefined}>Subtotal (ex-tax)</Label>
+              <Input id="e-subtotal" type="number" min="0" step="0.01" value={form.subtotal} onChange={(e) => set("subtotal", e.target.value)} onBlur={() => onBlur("subtotal", form)} aria-invalid={!!errors.subtotal} placeholder={String(computedSubtotal)} disabled={isLocked} />
+              {errors.subtotal && <p className="text-caption text-danger" role="alert">{errors.subtotal}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="e-tds">TDS Deducted</Label>
-              <Input id="e-tds" type="number" min="0" step="0.01" value={form.tdsAmount} onChange={(e) => set("tdsAmount", e.target.value)} disabled={isLocked} />
+              <Label htmlFor="e-tds" className={errors.tdsAmount ? "text-danger" : undefined}>TDS Deducted</Label>
+              <Input id="e-tds" type="number" min="0" step="0.01" value={form.tdsAmount} onChange={(e) => set("tdsAmount", e.target.value)} onBlur={() => onBlur("tdsAmount", form)} aria-invalid={!!errors.tdsAmount} disabled={isLocked} />
+              {errors.tdsAmount && <p className="text-caption text-danger" role="alert">{errors.tdsAmount}</p>}
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="e-cgst">CGST</Label>
-              <Input id="e-cgst" type="number" min="0" step="0.01" value={form.cgst} onChange={(e) => set("cgst", e.target.value)} disabled={isLocked} />
+              <Label htmlFor="e-cgst" className={errors.cgst ? "text-danger" : undefined}>CGST</Label>
+              <Input id="e-cgst" type="number" min="0" step="0.01" value={form.cgst} onChange={(e) => set("cgst", e.target.value)} onBlur={() => onBlur("cgst", form)} aria-invalid={!!errors.cgst} disabled={isLocked} />
+              {errors.cgst && <p className="text-caption text-danger" role="alert">{errors.cgst}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="e-sgst">SGST</Label>
-              <Input id="e-sgst" type="number" min="0" step="0.01" value={form.sgst} onChange={(e) => set("sgst", e.target.value)} disabled={isLocked} />
+              <Label htmlFor="e-sgst" className={errors.sgst ? "text-danger" : undefined}>SGST</Label>
+              <Input id="e-sgst" type="number" min="0" step="0.01" value={form.sgst} onChange={(e) => set("sgst", e.target.value)} onBlur={() => onBlur("sgst", form)} aria-invalid={!!errors.sgst} disabled={isLocked} />
+              {errors.sgst && <p className="text-caption text-danger" role="alert">{errors.sgst}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="e-igst">IGST</Label>
-              <Input id="e-igst" type="number" min="0" step="0.01" value={form.igst} onChange={(e) => set("igst", e.target.value)} disabled={isLocked} />
+              <Label htmlFor="e-igst" className={errors.igst ? "text-danger" : undefined}>IGST</Label>
+              <Input id="e-igst" type="number" min="0" step="0.01" value={form.igst} onChange={(e) => set("igst", e.target.value)} onBlur={() => onBlur("igst", form)} aria-invalid={!!errors.igst} disabled={isLocked} />
+              {errors.igst && <p className="text-caption text-danger" role="alert">{errors.igst}</p>}
             </div>
           </div>
           <div className="text-caption text-muted-foreground">
@@ -390,8 +415,9 @@ export function ExpenseFormDialog({
         {/* Date + Receipt */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="e-date">Date</Label>
-            <Input id="e-date" type="date" value={form.date} onChange={(e) => set("date", e.target.value)} disabled={isLocked} />
+            <Label htmlFor="e-date" className={errors.date ? "text-danger" : undefined}>Date *</Label>
+            <Input id="e-date" type="date" value={form.date} onChange={(e) => set("date", e.target.value)} onBlur={() => onBlur("date", form)} aria-invalid={!!errors.date} disabled={isLocked} />
+            {errors.date && <p className="text-caption text-danger" role="alert">{errors.date}</p>}
           </div>
           <div className="space-y-1.5">
             <Label>Receipt / Bill</Label>

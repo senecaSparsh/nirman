@@ -118,7 +118,7 @@ export default function MobileBoqPage({
               <MobileEmptyState
                 icon={ListTree}
                 title="No Bill of Quantities items"
-                hint={canManage ? "Tap + to add the first section or line item" : "This project doesn't have a Bill of Quantities yet"}
+                hint={canCreateBoq ? "Tap + to add the first section or line item" : "This project doesn't have a Bill of Quantities yet"}
               />
             ) : (
               <div className="flex flex-col gap-1.5">

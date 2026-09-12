@@ -621,7 +621,7 @@ function QuickActionTile({
   label: string;
 }) {
   return (
-    <a
+    <Link
       href={href}
       className="flex flex-col items-center gap-1 rounded-[0.625rem] border p-2 text-m-body press"
       style={{
@@ -633,7 +633,7 @@ function QuickActionTile({
       <span className="text-m-caption font-semibold text-center leading-tight" style={{ color: "var(--color-ink-950)" }}>
         {label}
       </span>
-    </a>
+    </Link>
   );
 }
 

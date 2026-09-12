@@ -37,7 +37,8 @@ type EquipmentFilter =
   | "AVAILABLE"
   | "ASSIGNED"
   | "IN_MAINTENANCE"
-  | "RETIRED";
+  | "RETIRED"
+  | "SOLD";
 
 export type EquipmentItem = {
   id: string;
@@ -58,6 +59,7 @@ const FILTER_OPTIONS: { label: string; value: EquipmentFilter }[] = [
   { label: "Assigned", value: "ASSIGNED" },
   { label: "Maintenance", value: "IN_MAINTENANCE" },
   { label: "Retired", value: "RETIRED" },
+  { label: "Sold", value: "SOLD" },
 ];
 
 /**
@@ -116,6 +118,7 @@ export function MobileEquipmentList({
       ASSIGNED: 1,
       IN_MAINTENANCE: 2,
       RETIRED: 3,
+      SOLD: 4,
     };
     return [...result].sort((a, b) => {
       const so = (statusOrder[a.status] ?? 4) - (statusOrder[b.status] ?? 4);
@@ -235,15 +238,18 @@ function EquipmentCard({ e, canEdit }: { e: EquipmentItem; canEdit?: boolean }) 
   const isAssigned = e.status === "ASSIGNED";
   const isMaintenance = e.status === "IN_MAINTENANCE";
   const isRetired = e.status === "RETIRED";
+  const isSold = e.status === "SOLD";
 
-  // Accent: go=available, steel=assigned, signal=maintenance, stop=retired
+  // Accent: go=available, steel=assigned, signal=maintenance, stop=retired, ink-400=sold
   const accentColor = isRetired
     ? "var(--color-stop)"
     : isMaintenance
       ? "var(--color-signal)"
       : isAssigned
         ? "var(--color-steel)"
-        : "var(--color-go)";
+        : isSold
+          ? "var(--color-ink-400)"
+          : "var(--color-go)";
 
   const StatusIcon = isAvailable
     ? CheckCircle2
@@ -251,14 +257,18 @@ function EquipmentCard({ e, canEdit }: { e: EquipmentItem; canEdit?: boolean }) 
       ? MapPin
       : isMaintenance
         ? Settings
-        : Archive;
+        : isSold
+          ? IndianRupee
+          : Archive;
   const statusLabel = isAvailable
     ? "Available"
     : isAssigned
       ? "Assigned"
       : isMaintenance
         ? "Maint."
-        : "Retired";
+        : isSold
+          ? "Sold"
+          : "Retired";
 
   // ── Long-press overview sheet ──
   const [overviewOpen, setOverviewOpen] = useState(false);

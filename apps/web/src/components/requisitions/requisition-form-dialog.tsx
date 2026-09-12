@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
 import {formatNumber} from "@/lib/utils";
+import { required, validateForm } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 
 type ProjectOption = { id: string; name: string };
 type PhaseOption = { id: string; name: string; projectId: string };
@@ -54,6 +56,15 @@ export function RequisitionFormDialog({
   const [neededByDate, setNeededByDate] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<Line[]>([newLine()]);
+
+  // ── Inline validation ──────────────────────────────────────────
+  type ReqFormState = { projectId: string; neededByDate: string };
+  const validationRules: ValidationRules<ReqFormState> = {
+    projectId: (v) => (v ? undefined : "Select a project"),
+    neededByDate: (v) => required(v as string, "Needed By Date"),
+  };
+  const { errors, setErrors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<ReqFormState>(validationRules);
+  const formValues: ReqFormState = { projectId, neededByDate };
 
   const filteredPhases = projectId ? phases.filter((p) => p.projectId === projectId) : [];
 
@@ -152,7 +163,12 @@ export function RequisitionFormDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!projectId) return toast.error("Select a project");
+    const formErrors = validateForm(formValues, validationRules);
+    if (Object.keys(formErrors).length > 0) {
+      toast.error(Object.values(formErrors)[0]!);
+      setErrors(formErrors);
+      return;
+    }
     const validLines = lines.filter((l) => l.materialId && Number(l.qtyRequested) > 0);
     if (validLines.length === 0) return toast.error("Add at least one line item with a material and quantity");
 
@@ -213,10 +229,12 @@ export function RequisitionFormDialog({
         {/* Header fields */}
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label>Project *</Label>
+            <Label className={errors.projectId ? "text-danger" : undefined}>Project *</Label>
             <Select
               value={projectId}
-              onChange={(e) => { setProjectId(e.target.value); setPhaseId(""); }}
+              onChange={(e) => { setProjectId(e.target.value); clearError("projectId"); setPhaseId(""); }}
+              onBlur={() => onBlur("projectId", formValues)}
+              aria-invalid={!!errors.projectId}
               required
             >
               <option value="" disabled>Select project…</option>
@@ -224,6 +242,7 @@ export function RequisitionFormDialog({
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </Select>
+            {errors.projectId && <p className="text-caption text-danger" role="alert">{errors.projectId}</p>}
           </div>
           <div className="space-y-1.5">
             <Label>Phase</Label>
@@ -239,8 +258,9 @@ export function RequisitionFormDialog({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Needed By Date</Label>
-            <Input type="date" value={neededByDate} onChange={(e) => setNeededByDate(e.target.value)} />
+            <Label className={errors.neededByDate ? "text-danger" : undefined}>Needed By Date *</Label>
+            <Input type="date" value={neededByDate} onChange={(e) => { setNeededByDate(e.target.value); clearError("neededByDate"); }} onBlur={() => onBlur("neededByDate", formValues)} aria-invalid={!!errors.neededByDate} />
+            {errors.neededByDate && <p className="text-caption text-danger" role="alert">{errors.neededByDate}</p>}
           </div>
         </div>
 

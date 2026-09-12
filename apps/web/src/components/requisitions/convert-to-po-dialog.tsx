@@ -87,6 +87,11 @@ export function ConvertToPoDialog({
       if (requisition.lciDecision?.recommendedScope) {
         setScope(requisition.lciDecision.recommendedScope);
       }
+      // Pre-fill supplier from first line's preferred supplier
+      const firstPreferred = requisition.lines.find((l) => l.preferredSupplier)?.preferredSupplier;
+      if (firstPreferred) {
+        setSupplierId(firstPreferred.id);
+      }
       const prefilled: Record<string, string> = {};
       for (const line of requisition.lines) {
         if (line.lastRate && line.lastRate > 0) {
@@ -98,6 +103,20 @@ export function ConvertToPoDialog({
       setExpectedDate((cur) => cur || new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10));
     }
   }, [open, requisition]);
+
+  // Auto-select first available location when scope changes or dialog opens
+  useEffect(() => {
+    if (open && requisition) {
+      const scoped = locations.filter((l) =>
+        scope === "COMPANY" ? l.type === "COMPANY_WAREHOUSE" : l.type === "PROJECT_SITE",
+      );
+      // If current location is not in the scoped list, auto-select the first one
+      if (scoped.length > 0 && !scoped.some((l) => l.id === locationId)) {
+        setLocationId(scoped[0]!.id);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when scope or open changes
+  }, [open, scope, requisition]);
 
   function fillAllFromLastRate() {
     if (!requisition) return;
@@ -118,7 +137,11 @@ export function ConvertToPoDialog({
 
   function onScopeChange(s: "COMPANY" | "PROJECT") {
     setScope(s);
-    setLocationId("");
+    // Auto-select first available location for the new scope
+    const scoped = locations.filter((l) =>
+      s === "COMPANY" ? l.type === "COMPANY_WAREHOUSE" : l.type === "PROJECT_SITE",
+    );
+    setLocationId(scoped[0]?.id ?? "");
   }
 
   // Compute line totals + grand total

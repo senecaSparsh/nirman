@@ -138,10 +138,13 @@ function buildReqColumns(opts: {
               </Button>
             </>
           )}
-          {r.status === "APPROVED" && (
+          {r.status === "APPROVED" && (r.quotesWaived || r.hasWinningQuote) && (
             <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); opts.onConvert(r); }}>
               <ShoppingCart className="h-3 w-3" /> Convert
             </Button>
+          )}
+          {r.status === "APPROVED" && !r.quotesWaived && !r.hasWinningQuote && (
+            <span className="text-caption text-muted-foreground italic">Collect quotes</span>
           )}
           <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); opts.onPrint(r); }} title="Print">
             <Printer className="h-3 w-3" />
@@ -201,7 +204,7 @@ export function RequisitionsView({
     const reqId = searchParams.get("req");
     if (reqId) {
       const req = requisitions.find((r) => r.id === reqId);
-      if (req && req.status === "APPROVED") setConvertTarget(req);
+      if (req && req.status === "APPROVED" && (req.quotesWaived || req.hasWinningQuote)) setConvertTarget(req);
     }
   }, [searchParams, requisitions]);
 
@@ -229,6 +232,10 @@ export function RequisitionsView({
         toast.success("Indent submitted", {
           description: "It's now in the approval queue.",
           action: { label: "View Queue", onClick: () => router.push("/approvals") },
+        });
+      } else if (action === "approve") {
+        toast.success("Indent approved", {
+          description: "Collect vendor quotes — selecting a winner auto-creates the PO.",
         });
       } else {
         toast.success(`${action} successful`);
@@ -376,7 +383,7 @@ export function RequisitionsView({
                   onPrint: (r) => window.open(`/print/requisition/${r.id}`, "_blank"),
                 })}
                 onRowClick={(r) => {
-                  if (r.status === "APPROVED") setConvertTarget(r);
+                  if (r.status === "APPROVED" && (r.quotesWaived || r.hasWinningQuote)) setConvertTarget(r);
                 }}
                 searchable
                 searchPlaceholder="Search by indent no, project…"
@@ -564,10 +571,13 @@ export function RequisitionsView({
                             {r.status === "SUBMITTED" && (!canApprove || r.requestedById === currentUserId) && (
                               <span className="text-micro text-muted-foreground">Awaiting approval</span>
                             )}
-                            {r.status === "APPROVED" && (
+                            {r.status === "APPROVED" && (r.quotesWaived || r.hasWinningQuote) && (
                               <Button size="sm" className="h-7 w-full" onClick={() => setConvertTarget(r)}>
                                 <ShoppingCart className="h-3.5 w-3.5" /> Convert to PO
                               </Button>
+                            )}
+                            {r.status === "APPROVED" && !r.quotesWaived && !r.hasWinningQuote && (
+                              <span className="text-micro text-muted-foreground italic">Collect quotes to auto-create PO</span>
                             )}
                           </div>
                         </div>

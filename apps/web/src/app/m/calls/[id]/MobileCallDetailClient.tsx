@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDateTime } from "@/lib/utils";
 import {
   MobileSectionTitle,
   Badge,
@@ -94,13 +94,6 @@ function formatDuration(sec: number): string {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("en-IN", {
-    day: "2-digit", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
 }
 
 function statusTone(status: CallStatus): "go" | "stop" | "signal" | "neutral" {

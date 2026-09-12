@@ -113,14 +113,14 @@ export default function MobileQualityControlPage() {
                 icon={ClipboardCheck}
                 title="No NCRs raised"
                 hint={
-                  canManage
+                  canCreateNcr
                     ? projects.length === 0
                       ? "Create a project first, then raise NCRs for quality issues"
                       : "Tap + to raise a Non-Conformance Report"
                     : "NCRs will appear here"
                 }
                 action={
-                  canManage && projects.length === 0 ? (
+                  canCreateNcr && projects.length === 0 ? (
                     <MobileCta href="/m/real-estate?tab=projects" icon={Plus} variant="primary">Go to Projects</MobileCta>
                   ) : undefined
                 }

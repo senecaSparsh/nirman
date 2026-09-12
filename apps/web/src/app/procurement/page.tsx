@@ -330,6 +330,7 @@ async function ProcurementContent() {
     quoteCount: r.vendorQuotes.length,
     minQuotesRequired: r.minQuotesRequired,
     quotesWaived: r.quotesWaived,
+    hasWinningQuote: r.vendorQuotes.some((q) => q.status === "SELECTED"),
     lciDecision: r.lciDecision as { recommendedScope: "COMPANY" | "PROJECT"; threshold: number } | null,
   }));
 

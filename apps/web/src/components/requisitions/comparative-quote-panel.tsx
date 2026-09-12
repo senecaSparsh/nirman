@@ -103,9 +103,15 @@ export function ComparativeQuotePanel({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success("Winning quote selected", {
-        description: "Line costs will auto-fill from this quote on conversion.",
-      });
+      if (data.autoConvertedPo) {
+        toast.success(`PO ${data.autoConvertedPo.poNumber} auto-created`, {
+          description: "The purchase order was created and ordered from the supplier automatically.",
+        });
+      } else {
+        toast.success("Winning quote selected", {
+          description: "Line costs will auto-fill from this quote on conversion.",
+        });
+      }
       await fetchStatement();
       onWinnerSelected?.();
     } catch (err: unknown) {

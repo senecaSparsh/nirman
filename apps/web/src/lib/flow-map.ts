@@ -191,8 +191,8 @@ const REQUISITION_FLOW: FlowDef = {
     },
     {
       when: "APPROVED",
-      label: "Collect quotes & convert to PO",
-      reason: "Approved — gather ≥3 vendor quotes, then convert to a purchase order.",
+      label: "Collect quotes & select winner",
+      reason: "Approved — gather ≥3 vendor quotes, then select a winner to auto-create the PO.",
       action: { type: "anchor", hash: "#quotes" },
       perm: "PROCUREMENT_MANAGE",
       tone: "signal",

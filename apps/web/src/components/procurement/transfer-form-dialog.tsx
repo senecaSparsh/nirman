@@ -12,6 +12,8 @@ import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { LocationFormDialog } from "@/components/materials/location-form-dialog";
 import { formatNumber, formatCurrency } from "@/lib/utils";
+import { required, nonNegativeNumber, numberInRange, validateForm } from "@/lib/validate";
+import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 import type { AvailableStockRow, ProjectOption, StockLocationRow } from "@/lib/types";
 
 type Line = { key: string; materialId: string; materialName: string; availableQty: number; unit: string; qty: string };
@@ -50,9 +52,23 @@ export function TransferFormDialog({
   const [localLocations, setLocalLocations] = useState<StockLocationRow[]>(locations);
   useEffect(() => { setLocalLocations(locations); }, [locations]);
 
+  // ── Inline validation ──────────────────────────────────────────
+  type TransferFormState = { fromLocationId: string; toLocationId: string; freight: string; handlingFee: string; markupPct: string };
+  const validationRules: ValidationRules<TransferFormState> = {
+    fromLocationId: (v) => required(v as string, "From Location"),
+    toLocationId: (v) => required(v as string, "To Location"),
+    freight: (v) => nonNegativeNumber(v as string, "Freight"),
+    handlingFee: (v) => nonNegativeNumber(v as string, "Handling Fee"),
+    markupPct: (v) => numberInRange(v as string, 0, 100, "Markup"),
+  };
+  const { errors, setErrors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<TransferFormState>(validationRules);
+  const formValues: TransferFormState = { fromLocationId, toLocationId, freight, handlingFee, markupPct };
+
   // Apply defaults when the dialog opens
   useEffect(() => {
-    if (open && defaults?.fromLocationId) setFromLocationId(defaults.fromLocationId);
+    if (!open) return;
+    clearAll();
+    if (defaults?.fromLocationId) setFromLocationId(defaults.fromLocationId);
   }, [open, defaults]);
 
   // Fetch available stock when source location changes
@@ -159,8 +175,12 @@ export function TransferFormDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!fromLocationId) return toast.error("Select a source location");
-    if (!toLocationId) return toast.error("Select a destination location");
+    const formErrors = validateForm(formValues, validationRules);
+    if (Object.keys(formErrors).length > 0) {
+      toast.error(Object.values(formErrors)[0]!);
+      setErrors(formErrors);
+      return;
+    }
     if (fromLocationId === toLocationId) return toast.error("Source and destination must differ");
     const validLines = lines.filter((l) => l.materialId && Number(l.qty) > 0);
     if (validLines.length === 0) return toast.error("Add at least one line item");
@@ -212,10 +232,12 @@ export function TransferFormDialog({
     >
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="From Location" required>
+          <Field label="From Location" required error={errors.fromLocationId}>
             <SelectWithCreate
               value={fromLocationId}
-              onChange={(v) => { setFromLocationId(v); setLines([newLine()]); }}
+              onChange={(v) => { setFromLocationId(v); clearError("fromLocationId"); setLines([newLine()]); }}
+              onBlur={() => onBlur("fromLocationId", formValues)}
+              aria-invalid={!!errors.fromLocationId}
               required
               placeholder="Select source…"
               createLabel="location"
@@ -254,14 +276,14 @@ export function TransferFormDialog({
             Inter-company STO costs {isInterCompany ? "(applied — destination company is charged the transfer price)" : "(ignored for intra-company transfers)"}
           </p>
           <div className="grid gap-3 sm:grid-cols-3">
-            <Field label="Freight (₹)">
-              <Input type="number" step="0.01" min="0" value={freight} onChange={(e) => setFreight(e.target.value)} placeholder="0" disabled={!isInterCompany} />
+            <Field label="Freight (₹)" error={errors.freight}>
+              <Input type="number" step="0.01" min="0" value={freight} onChange={(e) => { setFreight(e.target.value); clearError("freight"); }} onBlur={() => onBlur("freight", formValues)} aria-invalid={!!errors.freight} placeholder="0" disabled={!isInterCompany} />
             </Field>
-            <Field label="Handling Fee (₹)">
-              <Input type="number" step="0.01" min="0" value={handlingFee} onChange={(e) => setHandlingFee(e.target.value)} placeholder="0" disabled={!isInterCompany} />
+            <Field label="Handling Fee (₹)" error={errors.handlingFee}>
+              <Input type="number" step="0.01" min="0" value={handlingFee} onChange={(e) => { setHandlingFee(e.target.value); clearError("handlingFee"); }} onBlur={() => onBlur("handlingFee", formValues)} aria-invalid={!!errors.handlingFee} placeholder="0" disabled={!isInterCompany} />
             </Field>
-            <Field label="Markup (%)">
-              <Input type="number" step="0.01" min="0" max="100" value={markupPct} onChange={(e) => setMarkupPct(e.target.value)} placeholder="0" disabled={!isInterCompany} />
+            <Field label="Markup (%)" error={errors.markupPct}>
+              <Input type="number" step="0.01" min="0" max="100" value={markupPct} onChange={(e) => { setMarkupPct(e.target.value); clearError("markupPct"); }} onBlur={() => onBlur("markupPct", formValues)} aria-invalid={!!errors.markupPct} placeholder="0" disabled={!isInterCompany} />
             </Field>
           </div>
         </div>

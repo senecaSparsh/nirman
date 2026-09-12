@@ -515,9 +515,9 @@ function ReqApprovalRow({ req }: { req: ApprovalReqRow }) {
       }
       if (action === "approve") {
         toast.success(`Indent ${req.reqNumber} approved`, {
-          description: "It can now be converted to a purchase order.",
+          description: "Collect vendor quotes — selecting a winner auto-creates the PO.",
           action: {
-            label: "Convert to PO",
+            label: "Collect Quotes",
             onClick: () => router.push(`/requisitions?req=${req.id}`),
           },
         });
@@ -554,7 +554,7 @@ function ReqApprovalRow({ req }: { req: ApprovalReqRow }) {
         </div>
         {done && (
           <Link href={`/requisitions?req=${req.id}`} className="text-caption text-brand hover:underline inline-flex items-center gap-1">
-            Convert to PO <ArrowRight className="h-3 w-3" />
+            Collect Quotes <ArrowRight className="h-3 w-3" />
           </Link>
         )}
       </div>

@@ -82,7 +82,7 @@ export function RequisitionDetailDialog({
       } else if (key === "r" && d.status === "SUBMITTED" && !acting && canApprove && d.requestedById !== currentUserId) {
         e.preventDefault();
         doAction("reject");
-      } else if (key === "c" && d.status === "APPROVED" && !acting) {
+      } else if (key === "c" && d.status === "APPROVED" && !acting && (d.quotes?.waived || d.quotes?.selected)) {
         e.preventDefault();
         setConvertOpen(true);
       }
@@ -221,10 +221,15 @@ export function RequisitionDetailDialog({
                   </Button>
                 </>
               )}
-              {detail.status === "APPROVED" && (
+              {detail.status === "APPROVED" && (detail.quotes?.waived || detail.quotes?.selected) && (
                 <Button size="sm" onClick={() => setConvertOpen(true)}>
                   <ShoppingCart className="h-4 w-4" /> Convert to PO <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">C</kbd>
                 </Button>
+              )}
+              {detail.status === "APPROVED" && !detail.quotes?.waived && !detail.quotes?.selected && (
+                <span className="text-caption text-muted-foreground italic self-center">
+                  Collect quotes & select a winner to auto-create the PO
+                </span>
               )}
               {detail.status === "CONVERTED" && detail.convertedPoId && (
                 <a href={`/procurement?po=${detail.convertedPoId}`} className="inline-flex">

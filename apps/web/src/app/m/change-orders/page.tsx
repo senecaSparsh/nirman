@@ -88,14 +88,14 @@ export default function MobileChangeOrdersPage() {
                 icon={GitBranch}
                 title="No change orders"
                 hint={
-                  canManage
+                  (actions?.canCreateChangeOrder ?? canManage)
                     ? projects.length === 0
                       ? "Create a project first, then track scope changes here"
                       : "Tap + to create a change order for a project"
                     : "Change orders will appear here"
                 }
                 action={
-                  canManage && projects.length === 0 ? (
+                  (actions?.canCreateChangeOrder ?? canManage) && projects.length === 0 ? (
                     <MobileCta href="/m/real-estate?tab=projects" icon={Plus} variant="primary">Go to Projects</MobileCta>
                   ) : undefined
                 }

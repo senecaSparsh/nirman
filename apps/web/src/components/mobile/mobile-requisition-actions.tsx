@@ -98,7 +98,12 @@ export function MobileRequisitionActions({
 
   const showSubmit = (requisition.status === "DRAFT" || requisition.status === "REJECTED") && canManage;
   const showApproveReject = requisition.status === "SUBMITTED" && canApprove;
-  const canConvert = requisition.status === "APPROVED" && canManage;
+  // Only show the manual convert button when quotes are waived (no winning
+  // quote to auto-convert from) or when a winning quote exists but auto-
+  // conversion failed (rare — status would normally be CONVERTED by now).
+  // For the normal case (quotes being collected), the user should collect
+  // quotes and select a winner, which auto-creates the PO.
+  const canConvert = requisition.status === "APPROVED" && canManage && (quotesWaived || winningQuote !== null);
   const showDelete =
     (requisition.status === "DRAFT" || requisition.status === "REJECTED") &&
     canManage;
@@ -399,7 +404,10 @@ function ConvertForm({
     winningQuote?.supplierId ?? lines[0]?.preferredSupplierId ?? suppliers[0]?.id ?? "",
   );
   const [scope, setScope] = useState<"COMPANY" | "PROJECT">("COMPANY");
-  const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
+  // Auto-select first location matching the default scope
+  const [locationId, setLocationId] = useState(
+    locations.find((l) => l.type === "COMPANY_WAREHOUSE")?.id ?? locations[0]?.id ?? "",
+  );
   const [expectedDate, setExpectedDate] = useState("");
   const [notes, setNotes] = useState("");
   // Pre-fill line costs from winning quote, fall back to suggestedCost

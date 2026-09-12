@@ -154,8 +154,11 @@ export default function MobileRequisitionDetailPage({
 
         // Pipeline position: Indent → Quote → PO → GRN → Issue
         const pipelineSteps: MobilePipelineStep[] = [
-          { label: "Indent", state: "current" },
-          { label: "Quote", state: quoteCount > 0 ? "done" : "pending" },
+          { label: "Indent", state: req.status === "DRAFT" ? "current" : "done" },
+          {
+            label: "Quote",
+            state: winningQuote ? "done" : quoteCount > 0 ? "current" : "pending",
+          },
           {
             label: "PO",
             state: req.convertedPoId ? "done" : "pending",
@@ -224,9 +227,9 @@ export default function MobileRequisitionDetailPage({
 
         if (req.status === "APPROVED") {
           timelineSteps.push({
-            label: quotesMet ? "Ready to convert" : "Needs quotes",
+            label: quotesMet ? "Select winning quote" : "Needs quotes",
             detail: quotesMet
-              ? "Convert to purchase order"
+              ? "Selecting a winner auto-creates the PO"
               : `${quoteCount}/${req.minQuotesRequired} vendor quotes`,
             state: "current",
           });

@@ -131,14 +131,16 @@ export function MobileEquipmentDetailClient({
   const isAssigned = equipment.status === "ASSIGNED";
   const isMaintenance = equipment.status === "IN_MAINTENANCE";
   const isRetired = equipment.status === "RETIRED";
+  const isSold = equipment.status === "SOLD";
 
   const accentColor = isRetired ? "var(--color-stop)"
     : isMaintenance ? "var(--color-signal)"
     : isAssigned ? "var(--color-steel)"
+    : isSold ? "var(--color-ink-400)"
     : "var(--color-go)";
 
-  const StatusIcon = isAvailable ? CheckCircle2 : isAssigned ? MapPin : isMaintenance ? Settings : Archive;
-  const statusLabel = isAvailable ? "Available" : isAssigned ? "Assigned" : isMaintenance ? "In Maintenance" : "Retired";
+  const StatusIcon = isAvailable ? CheckCircle2 : isAssigned ? MapPin : isMaintenance ? Settings : isSold ? IndianRupee : Archive;
+  const statusLabel = isAvailable ? "Available" : isAssigned ? "Assigned" : isMaintenance ? "In Maintenance" : isSold ? "Sold" : "Retired";
 
   const depreciation = equipment.acquisitionCost - equipment.currentValue;
   const depreciationPct = equipment.acquisitionCost > 0
@@ -373,7 +375,7 @@ export function MobileEquipmentDetailClient({
       ) : null}
 
       {/* ── Action buttons ── */}
-      {canManage && !isRetired ? (
+      {canManage && !isRetired && !isSold ? (
         <div className="flex flex-col gap-2 mt-2">
           {/* Assign (only if available) */}
           {isAvailable ? (

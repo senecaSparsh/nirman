@@ -103,7 +103,7 @@ export default function MobileRateContractsPage() {
               <MobileRateContractsEmptyState
                 hasSuppliers={suppliers.length > 0}
                 hasMaterials={materials.length > 0}
-                canManage={canManage}
+                canManage={canCreate}
                 categories={categories}
               />
             )}

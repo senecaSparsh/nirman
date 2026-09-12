@@ -281,7 +281,7 @@ function CallCard({
           {/* Right side: status + time */}
           <div className="flex flex-col items-end gap-0.5 shrink-0">
             <Badge tone={statusTone(call.status)}>
-              {call.status}
+              {call.status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
             </Badge>
             <div className="flex items-center gap-1">
               {call.recording && canListenRecording && (
