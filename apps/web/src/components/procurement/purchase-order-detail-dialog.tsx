@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRight, Check, X, Package, Printer, Link2, IndianRupee, Plus, RotateCcw } from "lucide-react";
+import { Check, X, Package, Printer, Link2, IndianRupee, Plus, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";

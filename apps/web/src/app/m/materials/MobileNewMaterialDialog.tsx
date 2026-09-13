@@ -121,6 +121,14 @@ export function MobileNewMaterialForm({
       toast.error("Unit is required");
       return;
     }
+    if (standardCost && Number(standardCost) < 0) {
+      toast.error("Standard cost must be non-negative");
+      return;
+    }
+    if (reorderPoint.trim() && Number(reorderPoint) < 0) {
+      toast.error("Reorder point must be non-negative");
+      return;
+    }
     setSaving(true);
     haptic(10);
     try {

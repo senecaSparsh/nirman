@@ -89,6 +89,7 @@ export default function MobileNotificationsPage() {
       if (Array.isArray(logRes)) setLogs(logRes);
     } catch (err) {
       console.error("Failed to load notification data:", err);
+      toast.error("Failed to load notification settings");
     } finally {
       setLoading(false);
     }

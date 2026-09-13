@@ -383,6 +383,9 @@ export function MobileStockOutClient({
         toast.error("Source and destination must be different");
         return;
       }
+      if (freight && Number(freight) < 0) { toast.error("Freight must be non-negative"); return; }
+      if (handlingFee && Number(handlingFee) < 0) { toast.error("Handling fee must be non-negative"); return; }
+      if (markupPct && Number(markupPct) < 0) { toast.error("Markup % must be non-negative"); return; }
     } else {
       if (!projectId) { toast.error("Select target project"); return; }
     }

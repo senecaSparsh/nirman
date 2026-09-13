@@ -1,5 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { Globe, IndianRupee, Home, Calendar, ExternalLink, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -18,8 +19,8 @@ export default function MobilePortalListingDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} skeletonSections={6}>
-      {async ({ id, company }) => {
+    <MobileDetailPage params={params} managePerm={PERM.SALES_MANAGE} skeletonSections={6}>
+      {async ({ id, company, canManage }) => {
         const listing = await prisma.portalListing.findFirst({
           where: { id, companyId: company.id },
           include: {
@@ -92,6 +93,7 @@ export default function MobilePortalListingDetailPage({
             <MobilePortalListingActions
               listingId={listing.id}
               status={listing.status}
+              canManage={canManage}
               title={listing.title}
               description={listing.description}
               askingPrice={toNum(listing.askingPrice)}

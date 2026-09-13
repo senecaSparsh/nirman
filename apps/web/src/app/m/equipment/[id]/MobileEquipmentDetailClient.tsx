@@ -960,6 +960,11 @@ function MaintenanceModal({
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
+    const costNum = cost ? Number(cost) : undefined;
+    if (costNum !== undefined && (Number.isNaN(costNum) || costNum < 0)) {
+      toast.error("Cost must be a non-negative number");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch("/api/equipment-maintenance", {
@@ -968,7 +973,7 @@ function MaintenanceModal({
         body: JSON.stringify({
           equipmentId,
           type,
-          cost: cost ? Number(cost) : undefined,
+          cost: costNum,
           vendor: vendor || undefined,
           notes: notes || undefined,
         }),

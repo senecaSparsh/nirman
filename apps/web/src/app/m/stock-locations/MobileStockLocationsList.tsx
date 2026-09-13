@@ -129,7 +129,9 @@ export function MobileStockLocationsList({
           Stock Locations
         </h1>
         <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-          {locations.length} location{locations.length !== 1 ? "s" : ""}
+          {typeFilter !== "ALL" || query.trim()
+            ? `${filtered.length} of ${locations.length} location${locations.length !== 1 ? "s" : ""}`
+            : `${locations.length} location${locations.length !== 1 ? "s" : ""}`}
         </p>
       </div>
 

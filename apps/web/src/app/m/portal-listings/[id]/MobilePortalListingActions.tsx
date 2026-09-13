@@ -25,6 +25,7 @@ interface ListingData {
 export function MobilePortalListingActions({
   listingId,
   status,
+  canManage,
   title,
   description,
   askingPrice,
@@ -34,6 +35,7 @@ export function MobilePortalListingActions({
 }: {
   listingId: string;
   status: string;
+  canManage: boolean;
 } & ListingData) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -49,11 +51,11 @@ export function MobilePortalListingActions({
   const [editBaths, setEditBaths] = useState(bathrooms != null ? String(bathrooms) : "");
   const [editFurnishing, setEditFurnishing] = useState(furnishing ?? "");
 
-  const canEdit = status !== "LISTED";
-  const canDelete = status === "DRAFT" || status === "SYNC_FAILED" || status === "DELISTED";
+  const canEdit = canManage && status !== "LISTED";
+  const canDelete = canManage && (status === "DRAFT" || status === "SYNC_FAILED" || status === "DELISTED");
 
-  // Hide all actions for delisted listings that can't be re-synced
-  if (status === "DELISTED" && !canDelete) return null;
+  // Hide all actions for non-managers or delisted listings that can't be re-synced
+  if (!canManage || (status === "DELISTED" && !canDelete)) return null;
 
   async function act(action: "sync" | "delist", label: string) {
     haptic(10);
@@ -155,6 +157,7 @@ export function MobilePortalListingActions({
         ) : null}
       </div>
 
+      {canManage && (
       <ActionBar>
         <div className="flex items-center gap-2">
           <button
@@ -192,6 +195,7 @@ export function MobilePortalListingActions({
           </button>
         </div>
       </ActionBar>
+      )}
 
       {/* Delist confirmation modal */}
       {showDelistConfirm ? (

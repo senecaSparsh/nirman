@@ -64,7 +64,7 @@ export function EmployeeDocuments({
         setAttachments(Array.isArray(data) ? data : []);
       }
     } catch {
-      // silent
+      toast.error("Failed to load documents");
     } finally {
       setLoading(false);
     }
@@ -90,7 +90,8 @@ export function EmployeeDocuments({
       // Step 2: Delete any existing attachment in this category (replace)
       const existing = attachments.filter((a) => a.category === category);
       for (const a of existing) {
-        await fetch(`/api/attachments/${a.id}`, { method: "DELETE" });
+        const delRes = await fetch(`/api/attachments/${a.id}`, { method: "DELETE" });
+        if (!delRes.ok) throw new Error("Failed to replace existing document");
       }
 
       // Step 3: Link the new upload as an attachment

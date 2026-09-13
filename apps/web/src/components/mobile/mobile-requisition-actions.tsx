@@ -108,11 +108,11 @@ export function MobileRequisitionActions({
     (requisition.status === "DRAFT" || requisition.status === "REJECTED") &&
     canManage;
 
-  if (!showSubmit && !showApproveReject && !canConvert && !showDelete)
-    return null;
-
   const [showReject, setShowReject] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+
+  if (!showSubmit && !showApproveReject && !canConvert && !showDelete)
+    return null;
 
   async function act(action: "submit" | "approve" | "reject", label: string, extra?: Record<string, unknown>) {
     haptic(10);
