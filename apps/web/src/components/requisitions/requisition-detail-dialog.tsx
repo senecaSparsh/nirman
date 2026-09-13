@@ -15,6 +15,7 @@ import { ConvertToPoDialog } from "./convert-to-po-dialog";
 import { AuditTrail } from "@/components/audit-trail";
 import { AttachmentList } from "@/components/attachments/attachment-list";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
+import { useConfirm } from "@/lib/use-confirm";
 import type { RequisitionDetail, RequisitionRow } from "@/lib/types";
 
 type SupplierOption = { id: string; name: string };
@@ -43,6 +44,7 @@ export function RequisitionDetailDialog({
   currentUserId?: string | null;
 }) {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const [detail, setDetail] = useState<RequisitionDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
@@ -119,7 +121,13 @@ export function RequisitionDetailDialog({
 
   async function handleDelete() {
     if (!requisition) return;
-    if (!window.confirm(`Delete indent ${requisition.reqNumber}?\n\nThis cannot be undone.`)) return;
+    const ok = await confirm({
+      title: `Delete indent ${requisition.reqNumber}?`,
+      description: "This cannot be undone.",
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
     setActing(true);
     try {
       const res = await fetch(`/api/requisitions/${requisition.id}`, { method: "DELETE" });
@@ -382,6 +390,8 @@ export function RequisitionDetailDialog({
           locations={locations}
         />
       )}
+
+      {confirmDialog}
     </>
   );
 }

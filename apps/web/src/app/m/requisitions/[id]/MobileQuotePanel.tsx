@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useConfirm } from "@/lib/use-confirm";
 import {
@@ -59,6 +60,7 @@ export function MobileQuotePanel({
   canCreate: boolean;
   onWinnerSelected?: () => void;
 }) {
+  const router = useRouter();
   const [statement, setStatement] = useState<ComparativeStatement | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -129,6 +131,7 @@ export function MobileQuotePanel({
       if (!res.ok) throw new Error(data.error);
       toast.success("Quote removed");
       await fetchStatement();
+      router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     }
@@ -152,6 +155,7 @@ export function MobileQuotePanel({
       setWaiveOpen(false);
       setWaiveReason("");
       await fetchStatement();
+      router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
@@ -558,6 +562,7 @@ export function MobileQuotePanel({
           onUploaded={() => {
             setUploadOpen(false);
             fetchStatement();
+            router.refresh();
           }}
           onClose={() => setUploadOpen(false)}
         />
@@ -571,6 +576,7 @@ export function MobileQuotePanel({
           onSaved={() => {
             setEditingQuote(null);
             fetchStatement();
+            router.refresh();
           }}
         />
       ) : null}

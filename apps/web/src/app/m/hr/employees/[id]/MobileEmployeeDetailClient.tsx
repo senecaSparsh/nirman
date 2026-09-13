@@ -1545,13 +1545,13 @@ export function MobileEmployeeDetailClient({
                           <div className="min-w-0 flex-1">
                             <p className="text-m-body font-semibold truncate" style={{ color: "var(--color-ink-950)" }}>{r.name}</p>
                             <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
-                              {r.category.replace("_", " ").toLowerCase()} · {r.quantity > 1 ? `${r.quantity} units · ` : ""}issued {new Date(r.issuedAt).toLocaleDateString()}
+                              {r.category.replace("_", " ").toLowerCase()} · {r.quantity > 1 ? `${r.quantity} units · ` : ""}issued {formatDate(r.issuedAt)}
                             </p>
                             {r.assetTag && <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>Tag: {r.assetTag}</p>}
                             {r.serialNumber && <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>S/N: {r.serialNumber}</p>}
                             {r.expectedReturnAt && (
                               <p className="text-m-caption" style={{ color: overdue ? "var(--color-stop)" : "var(--color-ink-400)" }}>
-                                {overdue ? "Overdue · " : ""}Expected: {new Date(r.expectedReturnAt).toLocaleDateString()}
+                                {overdue ? "Overdue · " : ""}Expected: {formatDate(r.expectedReturnAt)}
                               </p>
                             )}
                             {r.depositAmount != null && <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>Deposit: ₹{r.depositAmount}</p>}
@@ -1570,7 +1570,7 @@ export function MobileEmployeeDetailClient({
                     <div key={r.id} className="rounded-[0.5rem] p-2.5 opacity-60" style={{ backgroundColor: "var(--color-paper)" }}>
                       <p className="text-m-body font-semibold truncate line-through" style={{ color: "var(--color-ink-950)" }}>{r.name}</p>
                       <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
-                        {r.category.replace("_", " ").toLowerCase()} · returned {r.returnedAt ? new Date(r.returnedAt).toLocaleDateString() : "—"}
+                        {r.category.replace("_", " ").toLowerCase()} · returned {r.returnedAt ? formatDate(r.returnedAt) : "—"}
                       </p>
                       {r.conditionAtReturn && <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>Return condition: {r.conditionAtReturn}</p>}
                     </div>

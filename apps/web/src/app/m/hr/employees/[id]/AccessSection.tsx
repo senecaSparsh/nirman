@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 import { ROLES, type Role, ROLE_META } from "@/lib/roles";
 import { haptic } from "@/lib/haptic";
+import { formatDate } from "@/lib/utils";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { Button } from "@/components/mobile/v2/primitives";
 import { ScopeEditorDialog } from "@/components/settings/scope-editor-dialog";
@@ -651,7 +652,7 @@ function AccessManagementCard({
           )}
           {user.lastLoginAt && (
             <span className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
-              Last login: {new Date(user.lastLoginAt).toLocaleDateString()}
+              Last login: {formatDate(user.lastLoginAt)}
             </span>
           )}
         </div>

@@ -256,6 +256,7 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
   canCreate: boolean;
   permissions: { canManage: boolean; canSubmit: boolean; canApprove: boolean; canPay: boolean };
 }) {
+  const router = useRouter();
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(false);
@@ -331,6 +332,7 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
       }
       toast.success(`Work order ${action === "issue" ? "issued" : action === "complete" ? "marked complete" : action === "release-retention" ? "retention released" : action === "pay-advance" ? "advance paid" : "updated"}`);
       fetchWOs();
+      router.refresh();
       if (detailWO?.id === id) setDetailWO(null);
     } catch (err: unknown) {
       // Don't double-toast if we already opened the override dialog
@@ -1712,6 +1714,11 @@ function RaBillDetailDialog({
         </div>
       </Dialog>
     </Dialog>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// Enhanced RA Bill Creation Dialog — with pre-creation preview
 // of available unbilled MB entries
 // ════════════════════════════════════════════════════════════
 type PreviewData = {

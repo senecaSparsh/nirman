@@ -120,6 +120,7 @@ const PROCUREMENT_FLOW: FlowDef = {
       when: "APPROVED",
       label: "Auto-ordering…",
       reason: "Approval automatically places the order with the supplier. This status is transient.",
+      action: { type: "anchor", hash: "#receive" },
       tone: "signal",
     },
     {

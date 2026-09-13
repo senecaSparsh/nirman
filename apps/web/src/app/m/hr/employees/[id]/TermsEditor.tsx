@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Save, Link2, Copy, Check, Pencil } from "lucide-react";
 import { haptic } from "@/lib/haptic";
+import { formatDate } from "@/lib/utils";
 
 /**
  * TermsEditor — HR-editable terms & conditions with shareable acceptance link.
@@ -218,7 +219,7 @@ export function TermsEditor({
               {label} Accepted
             </p>
             <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-              Accepted on {new Date(acceptedAt).toLocaleDateString()}
+              Accepted on {formatDate(acceptedAt)}
             </p>
           </div>
         </div>

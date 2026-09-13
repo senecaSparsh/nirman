@@ -6,6 +6,7 @@ import {
   CheckCircle2, XCircle, Clock, Send, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatDateTime } from "@/lib/utils";
 import { NotificationPermissionToggle } from "@/components/mobile/notification-permission-toggle";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
@@ -467,7 +468,7 @@ function LogTab({ logs }: { logs: LogEntry[] }) {
                   {log.message}
                 </p>
                 <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
-                  {new Date(log.createdAt).toLocaleString("en-IN")}
+                  {formatDateTime(log.createdAt)}
                 </p>
               </div>
             </div>

@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { getCompanyGroupIds, getCurrentUser, getUserPermissions, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
-import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate, formatDateTime } from "@/lib/utils";
 import {
   MobileEmptyState,
   MobilePipelineStepper,
@@ -350,7 +350,7 @@ export default function MobilePoDetailPage({
                   description={po.rejectionReason ?? "No reason provided"}
                 >
                   <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-                    {new Date(po.rejectedAt).toLocaleString("en-IN")}
+                    {formatDateTime(po.rejectedAt)}
                   </p>
                 </DetailAlertBanner>
               ) : null}

@@ -852,6 +852,7 @@ function DprApprovalRow({ dpr }: { dpr: ApprovalDprRow }) {
 
   const actionLabel = dpr.canApproveAdmin ? "Admin Approve" : "Approve";
   const actionName = dpr.canApproveAdmin ? "adminApprove" : "subAdminApprove";
+  const canApprove = dpr.canApproveAdmin || dpr.canApproveSubAdmin;
 
   return (
     <div className="flex items-start justify-between gap-4 p-4">
@@ -873,14 +874,16 @@ function DprApprovalRow({ dpr }: { dpr: ApprovalDprRow }) {
           <span className="font-medium text-foreground">{dpr.waitingOn}</span>
         </div>
       </div>
-      <div className="flex shrink-0 gap-2">
-        <Button size="sm" variant="outline" disabled={acting} onClick={() => act("reject")}>
-          {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />} Reject
-        </Button>
-        <Button size="sm" disabled={acting} onClick={() => act(actionName as "subAdminApprove" | "adminApprove")}>
-          {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} {actionLabel}
-        </Button>
-      </div>
+      {canApprove && (
+        <div className="flex shrink-0 gap-2">
+          <Button size="sm" variant="outline" disabled={acting} onClick={() => act("reject")}>
+            {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />} Reject
+          </Button>
+          <Button size="sm" disabled={acting} onClick={() => act(actionName as "subAdminApprove" | "adminApprove")}>
+            {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} {actionLabel}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

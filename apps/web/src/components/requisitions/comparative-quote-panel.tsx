@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Plus, Trophy, AlertTriangle, CheckCircle2, Loader2, Trash2,
@@ -67,6 +68,7 @@ export function ComparativeQuotePanel({
   canCreate: boolean;
   onWinnerSelected?: () => void;
 }) {
+  const router = useRouter();
   const [statement, setStatement] = useState<ComparativeStatement | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -128,6 +130,7 @@ export function ComparativeQuotePanel({
       if (!res.ok) throw new Error(data.error);
       toast.success("Quote removed");
       await fetchStatement();
+      router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     }
@@ -148,6 +151,7 @@ export function ComparativeQuotePanel({
       setWaiveOpen(false);
       setWaiveReason("");
       await fetchStatement();
+      router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
@@ -772,7 +776,7 @@ export function ComparativeQuotePanel({
         requisitionLines={requisitionLines}
         suppliers={suppliers}
         materials={materials}
-        onUploaded={fetchStatement}
+        onUploaded={() => { fetchStatement(); router.refresh(); }}
       />
 
       {/* Waive dialog */}
@@ -807,7 +811,7 @@ export function ComparativeQuotePanel({
         <EditQuoteDialog
           quote={editQuote}
           onClose={() => setEditQuote(null)}
-          onSaved={() => { setEditQuote(null); fetchStatement(); }}
+          onSaved={() => { setEditQuote(null); fetchStatement(); router.refresh(); }}
         />
       )}
     </div>
