@@ -222,12 +222,15 @@ export function MobileNewChangeOrderForm({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create");
       if (data.submitted) {
-        toast.success("Change order submitted for approval");
+        toast.success("Change order submitted for approval", {
+          action: { label: "View", onClick: () => router.push(`/m/change-orders/${data.id}`) },
+        });
       } else {
         toast.warning("Change order saved as draft", {
           description: data.submitError
             ? `Auto-submit failed: ${data.submitError}`
             : "You can submit it for approval from the change order detail page.",
+          action: { label: "View", onClick: () => router.push(`/m/change-orders/${data.id}`) },
         });
       }
       onClose();

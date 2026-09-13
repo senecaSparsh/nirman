@@ -61,7 +61,7 @@ export function CustomerFormDialog({
       gstin: customer?.gstin ?? "",
       address: customer?.address ?? "",
     });
-  }, [open, customer]);
+  }, [open, customer, clearAll]);
 
   function set(key: keyof FormState, value: string) {
     setForm((f) => ({ ...f, [key]: value }));

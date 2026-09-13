@@ -146,7 +146,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     if (po?.createdById === user.id) {
       return json({ error: "You cannot approve your own purchase order. Ask another approver to review it." }, { status: 403 });
     }
-    await approvePurchaseOrder(id, user.role, user.id, body?.approvalNotes);
+    await approvePurchaseOrder(id, user.role, user.id, body?.approvalNotes, body?.autoOrder ?? true);
   } else if (action === "reject") {
     const user = await requirePermission(PERM.PO_APPROVE);
     // Prevent self-rejection — the creator cannot reject their own PO.

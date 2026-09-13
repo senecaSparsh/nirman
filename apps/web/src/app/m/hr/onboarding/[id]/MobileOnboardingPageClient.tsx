@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { MobileOnboardingTab, type OnboardingEmployeeData } from "@/app/m/hr/employees/[id]/MobileOnboardingTab";
 
@@ -25,6 +26,7 @@ export function MobileOnboardingPageClient({
   stockLocations: { id: string; name: string }[];
   departments: { id: string; name: string; active: boolean }[];
 }) {
+  const router = useRouter();
   return (
     <div className="pb-20">
       {/* ── Back header ── */}
@@ -73,7 +75,7 @@ export function MobileOnboardingPageClient({
           departments={departments}
           onEdit={() => {
             // Navigate to the employee detail page's edit sheet
-            window.location.href = `/m/hr/employees/${employee.id}`;
+            router.push(`/m/hr/employees/${employee.id}`);
           }}
         />
       </div>

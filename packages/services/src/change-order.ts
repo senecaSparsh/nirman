@@ -381,7 +381,7 @@ export async function approveChangeOrder(
   userId: string,
   clientApprovedBy?: string,
 ) {
-  return withSerializableTransaction(async (tx) => {
+  const updated = await withSerializableTransaction(async (tx) => {
     const co = await tx.changeOrder.findUnique({ where: { id } });
     if (!co) throw new ServiceError("Change order not found", 404);
     if (co.status !== "SUBMITTED") {
@@ -414,6 +414,18 @@ export async function approveChangeOrder(
 
     return updated;
   });
+
+  // Auto-implement: the approval IS the decision to change scope/budget.
+  // Apply the changes to the BOQ and project budget automatically — no
+  // separate "Implement" click needed. Best-effort: if implementation fails,
+  // the change order is still approved and can be manually implemented.
+  try {
+    await implementChangeOrder(id, userId);
+  } catch (err) {
+    console.error(`[change-order] Auto-implement failed for ${id}:`, err);
+  }
+
+  return updated;
 }
 
 export async function rejectChangeOrder(id: string, userId: string, reason: string) {

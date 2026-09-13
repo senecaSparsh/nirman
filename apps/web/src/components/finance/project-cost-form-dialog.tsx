@@ -15,7 +15,7 @@ import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { GlPreviewPanel } from "./gl-preview-panel";
 import type { GlPreviewLine } from "@nirman/services/gl-preview";
 import type { ProjectOption, ProjectCostRow } from "@/lib/types";
-import { required, positiveNumber, validateForm } from "@/lib/validate";
+import { required, positiveNumber } from "@/lib/validate";
 import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 
 const COST_TYPES = ["LABOUR", "OVERHEAD", "EQUIPMENT", "CONTRACTOR", "PERMIT", "TRANSFER_DUTY", "OTHER"] as const;
@@ -67,7 +67,7 @@ export function ProjectCostFormDialog({
     amount: (v) => required(v as string, "Amount") ?? positiveNumber(v as string, "Amount"),
     date: (v) => required(v as string, "Date"),
   };
-  const { errors, setErrors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<CostFormState>(validationRules);
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<CostFormState>(validationRules);
 
   // Reset/populate form when dialog opens
   useEffect(() => {
@@ -88,7 +88,7 @@ export function ProjectCostFormDialog({
       setForm({ projectId: defaults?.projectId ?? "", costType: "LABOUR", amount: "", date: todayISO(), vendor: "", subcontractorId: "", notes: "" });
       setReceiptPhotos([]);
     }
-  }, [open, editing, defaults]);
+  }, [open, editing, defaults, clearAll]);
 
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -121,10 +121,8 @@ export function ProjectCostFormDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const formErrors = validateForm(form, validationRules);
-    if (Object.keys(formErrors).length > 0) {
-      toast.error(Object.values(formErrors)[0]!);
-      setErrors(formErrors);
+    if (!validateAll(form)) {
+      toast.error("Please fix the errors in the form");
       return;
     }
     setSaving(true);

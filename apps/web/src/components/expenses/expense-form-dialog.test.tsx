@@ -116,7 +116,7 @@ describe("ExpenseFormDialog", () => {
       <ExpenseFormDialog open onOpenChange={vi.fn()} projects={projects} categories={categories} suppliers={suppliers} />,
     );
     fireEvent.submit(container.querySelector("form")!);
-    expect(toast.error).toHaveBeenCalledWith("Category is required");
+    expect(toast.error).toHaveBeenCalledWith("Please fix the errors in the form");
   });
 
   it("shows amount validation error when amount is 0", async () => {
@@ -129,7 +129,7 @@ describe("ExpenseFormDialog", () => {
       target: { value: "Travel" },
     });
     fireEvent.submit(container.querySelector("form")!);
-    expect(toast.error).toHaveBeenCalledWith("Amount must be greater than 0");
+    expect(toast.error).toHaveBeenCalledWith("Please fix the errors in the form");
   });
 
   it("calls onOpenChange(false) when Cancel is clicked", () => {

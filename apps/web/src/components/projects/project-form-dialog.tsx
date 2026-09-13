@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "@/components/field";
-import { required, nonNegativeNumber, numberInRange, validateForm } from "@/lib/validate";
+import { required, nonNegativeNumber, numberInRange } from "@/lib/validate";
 import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 import { cn } from "@/lib/utils";
 
@@ -105,20 +105,18 @@ export function ProjectFormDialog({
     lciThreshold: (v) => numberInRange((v ?? "") as string | number, 0, 100, "LCI Threshold"),
     atsRegistrationAmount: (v) => nonNegativeNumber((v ?? "") as string | number, "Registration Amount"),
   };
-  const { errors, setErrors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<ProjectFormValues>(validationRules);
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<ProjectFormValues>(validationRules);
 
   // Reset validation errors when the dialog opens fresh.
   useEffect(() => {
     if (!open) return;
     clearAll();
-  }, [open]);
+  }, [open, clearAll]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const formErrors = validateForm(form, validationRules);
-    if (Object.keys(formErrors).length > 0) {
-      toast.error(Object.values(formErrors)[0]!);
-      setErrors(formErrors);
+    if (!validateAll(form)) {
+      toast.error("Please fix the errors in the form");
       return;
     }
     setSaving(true);

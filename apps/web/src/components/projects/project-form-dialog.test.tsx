@@ -78,7 +78,7 @@ describe("ProjectFormDialog", () => {
     const { container } = render(<ProjectFormDialog open onOpenChange={vi.fn()} />);
     // fireEvent.submit bypasses native required validation
     fireEvent.submit(container.querySelector("form")!);
-    expect(toast.error).toHaveBeenCalledWith("Project name is required");
+    expect(toast.error).toHaveBeenCalledWith("Please fix the errors in the form");
   });
 
   it("submits successfully and calls onCreated in create mode", async () => {

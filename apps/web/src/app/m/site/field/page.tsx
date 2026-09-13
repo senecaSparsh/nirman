@@ -58,6 +58,7 @@ async function MobileFieldReceiveContent({
   const pos = await prisma.purchaseOrder.findMany({
     where: { companyId: { in: groupCompanyIds }, status: { in: ["ORDERED", "PARTIAL"] } },
     orderBy: { createdAt: "desc" },
+    take: 50,
     include: {
       supplier: { select: { id: true, name: true } },
       project: { select: { id: true, name: true } },

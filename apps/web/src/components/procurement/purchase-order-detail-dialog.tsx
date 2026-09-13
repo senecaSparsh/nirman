@@ -75,7 +75,7 @@ export function PurchaseOrderDetailDialog({
   }, [open, po, trackRecent]);
 
   // ── Single-key action mnemonics (Linear-style) ────────────────
-  // A = Approve, O = Mark as Ordered, R = Receive Goods, P = Print
+  // A = Approve & Order, R = Receive Goods, P = Print
   // Only fires when the dialog is open, detail is loaded, and the
   // user is not typing in an input/textarea/select.
   useEffect(() => {
@@ -89,9 +89,6 @@ export function PurchaseOrderDetailDialog({
       if (key === "a" && d.status === "DRAFT" && canApprove && !showApproveField) {
         e.preventDefault();
         setShowApproveField(true);
-      } else if (key === "o" && d.status === "APPROVED" && !acting) {
-        e.preventDefault();
-        doAction("order");
       } else if (key === "r" && (d.status === "ORDERED" || d.status === "PARTIAL")) {
         e.preventDefault();
         setRecvOpen(true);
@@ -110,7 +107,8 @@ export function PurchaseOrderDetailDialog({
     setActing(true);
 
     // Map action to the new status for optimistic update
-    const newStatus = action === "approve" ? "APPROVED" : action === "order" ? "ORDERED" : action === "resubmit" ? "DRAFT" : "CANCELLED";
+    // Approve now auto-orders, so the resulting status is ORDERED
+    const newStatus = action === "approve" ? "ORDERED" : action === "order" ? "ORDERED" : action === "resubmit" ? "DRAFT" : "CANCELLED";
     const prevStatus = detail?.status;
 
     const payload: Record<string, unknown> = { action };
@@ -128,9 +126,9 @@ export function PurchaseOrderDetailDialog({
         revert: () => {
           setDetail((d) => d && prevStatus ? { ...d, status: prevStatus } : d);
         },
-        successMessage: action === "order" ? "Order placed with supplier" : action === "resubmit" ? `PO ${po.poNumber} resubmitted` : `PO ${action}d`,
-        successDescription: action === "order" ? "The supplier has been sent the order. Receive goods when they arrive." : action === "resubmit" ? "It's back in draft — edit if needed, then ask an approver to review." : undefined,
-        successAction: action === "order" ? { label: "Receive Goods", onClick: () => setRecvOpen(true) } : undefined,
+        successMessage: action === "order" ? "Order placed with supplier" : action === "approve" ? `PO ${po.poNumber} approved & ordered` : action === "resubmit" ? `PO ${po.poNumber} resubmitted` : `PO ${action}d`,
+        successDescription: action === "order" || action === "approve" ? "The order has been placed with the supplier automatically. Receive goods when they arrive." : action === "resubmit" ? "It's back in draft — edit if needed, then ask an approver to review." : undefined,
+        successAction: action === "order" || action === "approve" ? { label: "Receive Goods", onClick: () => setRecvOpen(true) } : undefined,
         refreshOnSuccess: false, // we re-fetch detail manually below
       });
 
@@ -256,17 +254,12 @@ export function PurchaseOrderDetailDialog({
             <div className="flex flex-wrap gap-2">
               {detail.status === "DRAFT" && canApprove && po.createdById !== currentUserId && !showApproveField && (
                 <Button size="sm" onClick={() => setShowApproveField(true)} disabled={acting}>
-                  <Check className="h-4 w-4" /> Approve <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">A</kbd>
+                  <Check className="h-4 w-4" /> Approve & Order <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">A</kbd>
                 </Button>
               )}
               {detail.status === "REJECTED" && canManage && (
                 <Button size="sm" onClick={() => doAction("resubmit")} disabled={acting}>
                   <RotateCcw className="h-4 w-4" /> Resubmit
-                </Button>
-              )}
-              {detail.status === "APPROVED" && canManage && (
-                <Button size="sm" onClick={() => doAction("order")} disabled={acting}>
-                  <ArrowRight className="h-4 w-4" /> Mark as Ordered <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">O</kbd>
                 </Button>
               )}
               {(detail.status === "ORDERED" || detail.status === "PARTIAL") && canReceiveGoods && (
@@ -279,7 +272,7 @@ export function PurchaseOrderDetailDialog({
                   <Plus className="h-4 w-4" /> Add Line
                 </Button>
               )}
-              {(detail.status === "DRAFT" || detail.status === "APPROVED") && canManage && (
+              {(detail.status === "DRAFT" || detail.status === "ORDERED") && canManage && (
                 <Button size="sm" variant="outline" onClick={() => doAction("cancel")} disabled={acting} className="text-muted-foreground hover:text-danger">
                   <X className="h-4 w-4" /> Cancel PO
                 </Button>
@@ -314,7 +307,7 @@ export function PurchaseOrderDetailDialog({
                 <div className="flex justify-end gap-2">
                   <Button size="sm" variant="outline" onClick={() => { setShowApproveField(false); setApprovalNotes(""); }}>Cancel</Button>
                   <Button size="sm" onClick={() => doAction("approve")} disabled={acting}>
-                    {acting ? "Approving…" : "Confirm Approve"}
+                    {acting ? "Approving…" : "Confirm Approve & Order"}
                   </Button>
                 </div>
               </div>

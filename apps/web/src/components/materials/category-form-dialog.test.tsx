@@ -53,7 +53,7 @@ describe("CategoryFormDialog", () => {
       target: { value: "   " },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create category" }));
-    expect(toast.error).toHaveBeenCalledWith("Category name is required");
+    expect(toast.error).toHaveBeenCalledWith("Please fix the errors in the form");
   });
 
   it("shows validation error when unit is whitespace on submit", async () => {
@@ -67,7 +67,7 @@ describe("CategoryFormDialog", () => {
       target: { value: "   " },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create category" }));
-    expect(toast.error).toHaveBeenCalledWith("Default unit is required");
+    expect(toast.error).toHaveBeenCalledWith("Please fix the errors in the form");
   });
 
   it("calls onOpenChange(false) when Cancel is clicked", () => {

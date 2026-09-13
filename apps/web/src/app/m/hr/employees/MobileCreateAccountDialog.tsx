@@ -429,7 +429,7 @@ export function MobileCreateAccountDialog({
             </button>
             <button
               type="button"
-              onClick={() => { onClose(); window.location.href = `/m/hr/employees/${employeeId}`; }}
+              onClick={() => { onClose(); router.push(`/m/hr/employees/${employeeId}`); }}
               className="flex-1 h-11 rounded-[0.5rem] text-m-section font-bold press"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >

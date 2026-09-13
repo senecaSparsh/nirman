@@ -386,10 +386,10 @@ function POApprovalRow({ po }: { po: ApprovalPORow }) {
         throw new Error(d.error ?? `Failed to ${action} PO`);
       }
       if (action === "approve") {
-        toast.success(`PO ${po.poNumber} approved`, {
-          description: "It's ready to be ordered from the supplier.",
+        toast.success(`PO ${po.poNumber} approved & ordered`, {
+          description: "The order has been placed with the supplier automatically.",
           action: {
-            label: "Order from Supplier",
+            label: "View PO",
             onClick: () => router.push(`/procurement?po=${po.id}`),
           },
         });
@@ -426,7 +426,7 @@ function POApprovalRow({ po }: { po: ApprovalPORow }) {
         </div>
         {done && (
           <Link href={`/procurement?po=${po.id}`} className="text-caption text-brand hover:underline inline-flex items-center gap-1">
-            Order from Supplier <ArrowRight className="h-3 w-3" />
+            View PO <ArrowRight className="h-3 w-3" />
           </Link>
         )}
       </div>
@@ -708,7 +708,9 @@ function GatePassApprovalRow({ gp }: { gp: ApprovalGatePassRow }) {
         throw new Error(d.error ?? `Failed to ${action} gate pass`);
       }
       if (action === "approve") {
-        toast.success(`Gate pass ${gp.gatePassNumber} approved`);
+        toast.success(`Gate pass ${gp.gatePassNumber} approved`, {
+          action: { label: "View Gate Passes", onClick: () => router.push("/gate-passes") },
+        });
         setDone(true);
       } else {
         toast.success(`Gate pass ${gp.gatePassNumber} rejected`);
@@ -804,9 +806,15 @@ function DprApprovalRow({ dpr }: { dpr: ApprovalDprRow }) {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.error ?? `Failed to ${action} DPR`);
       }
-      toast.success(`DPR ${action.includes("approve") ? "approved" : "rejected"}`);
-      if (action.includes("approve")) setDone(true);
-      else setRejected(true);
+      if (action.includes("approve")) {
+        toast.success("DPR approved", {
+          action: { label: "View DPRs", onClick: () => router.push("/hr/dprs") },
+        });
+        setDone(true);
+      } else {
+        toast.success("DPR rejected");
+        setRejected(true);
+      }
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
@@ -896,7 +904,9 @@ function ExpenseApprovalRow({ expense }: { expense: ApprovalExpenseRow }) {
         throw new Error(d.error ?? `Failed to ${action} expense`);
       }
       if (action === "approve") {
-        toast.success(`Expense approved`);
+        toast.success(`Expense approved`, {
+          action: { label: "View Expenses", onClick: () => router.push("/expenses") },
+        });
         setDone(true);
       } else {
         toast.success(`Expense rejected`);

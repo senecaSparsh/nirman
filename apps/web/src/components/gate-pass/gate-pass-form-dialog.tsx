@@ -100,7 +100,7 @@ export function GatePassFormDialog({
       });
       setLines([{ id: crypto.randomUUID(), materialId: "", description: "", qty: "", unit: "" }]);
     }
-  }, [open, locations]);
+  }, [open, locations, clearAll]);
 
   function set(key: keyof typeof form, value: string | boolean) {
     setForm((f) => ({ ...f, [key]: value }));

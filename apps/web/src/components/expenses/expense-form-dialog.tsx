@@ -12,7 +12,7 @@ import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import type { ExpenseCategoryRow, ProjectOption } from "@/lib/types";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
-import { required, positiveNumber, nonNegativeNumber, validateForm } from "@/lib/validate";
+import { required, nonNegativeNumber } from "@/lib/validate";
 import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 
 const PAYMENT_MODES = ["CASH", "UPI", "NEFT", "BANK", "CHEQUE", "CREDIT"] as const;
@@ -111,7 +111,7 @@ export function ExpenseFormDialog({
     igst: (v) => nonNegativeNumber(v as string, "IGST"),
     tdsAmount: (v) => nonNegativeNumber(v as string, "TDS"),
   };
-  const { errors, setErrors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<ExpenseFormState>(validationRules);
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<ExpenseFormState>(validationRules);
 
   useEffect(() => {
     if (!open) return;
@@ -150,7 +150,7 @@ export function ExpenseFormDialog({
       setReceiptName(null);
       setSubmitOnSave(false);
     }
-  }, [open, editing, defaults]);
+  }, [open, editing, defaults, clearAll]);
 
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -191,10 +191,8 @@ export function ExpenseFormDialog({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (isLocked) return;
-    const formErrors = validateForm(form, validationRules);
-    if (Object.keys(formErrors).length > 0) {
-      toast.error(Object.values(formErrors)[0]!);
-      setErrors(formErrors);
+    if (!validateAll(form)) {
+      toast.error("Please fix the errors in the form");
       return;
     }
     setSaving(true);

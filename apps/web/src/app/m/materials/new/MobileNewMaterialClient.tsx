@@ -1,6 +1,6 @@
 "use client";
 
-import {useState, useEffect, useMemo} from "react";
+import {useState, useMemo} from "react";
 import { useRouter } from "next/navigation";
 import {
   Package, Send, Loader2, Plus,
@@ -97,7 +97,7 @@ export default function MobileNewMaterialClient({
     openingQty: (v) => nonNegativeNumber(v as string, "Qty on hand"),
     openingUnitCost: (v) => nonNegativeNumber(v as string, "Unit cost"),
   };
-  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<MobileMaterialForm>(validationRules);
+  const { errors, onBlur, validateAll, clearError } = useInlineValidation<MobileMaterialForm>(validationRules);
   const formValues: MobileMaterialForm = { name, categoryId, unit, gstRate, standardCost, reorderPoint, openingQty, openingUnitCost };
 
   // Instant client-side code preview — no API call needed.
@@ -508,7 +508,7 @@ export default function MobileNewMaterialClient({
           ) : (
             <>
           <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-            Add stock you already have on hand. Skip if you're just cataloging.
+            Add stock you already have on hand. Skip if you&apos;re just cataloging.
           </p>
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <FormField label="Qty on hand" error={errors.openingQty}>

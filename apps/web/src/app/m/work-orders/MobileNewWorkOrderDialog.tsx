@@ -214,7 +214,9 @@ export function MobileNewWorkOrderForm({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create work order");
       haptic([10, 40, 80]);
-      toast.success("Work order issued");
+      toast.success("Work order issued", {
+        action: { label: "View", onClick: () => router.push(`/m/work-orders/${data.id}`) },
+      });
       resetForm();
       onClose();
       router.refresh();

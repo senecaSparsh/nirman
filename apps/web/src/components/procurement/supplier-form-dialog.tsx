@@ -68,7 +68,7 @@ export function SupplierFormDialog({
       address: supplier?.address ?? "",
       leadTimeDays: supplier?.leadTimeDays != null ? String(supplier.leadTimeDays) : "",
     });
-  }, [open, supplier]);
+  }, [open, supplier, clearAll]);
 
   function set(key: keyof FormState, value: string) {
     setForm((f) => ({ ...f, [key]: value }));

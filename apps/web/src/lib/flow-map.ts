@@ -98,7 +98,7 @@ export interface FlowDef {
 const PROCUREMENT_FLOW: FlowDef = {
   id: "procurement",
   listHref: "/m/procurement",
-  listLead: "Purchase orders to suppliers. Drafts need approval, ordered POs need receiving.",
+  listLead: "Purchase orders to suppliers. Approving a draft auto-orders it. Ordered POs need receiving.",
   nodes: [
     { status: "DRAFT", label: "Draft", detailHref: "/m/procurement/{id}" },
     { status: "APPROVED", label: "Approved", detailHref: "/m/procurement/{id}" },
@@ -110,18 +110,16 @@ const PROCUREMENT_FLOW: FlowDef = {
   next: [
     {
       when: "DRAFT",
-      label: "Awaiting approval",
-      reason: "This PO is in the approval queue. An approver will review and approve it before it can be ordered.",
+      label: "Approve & order",
+      reason: "This PO is in the approval queue. The approver's decision auto-orders it from the supplier.",
       action: { type: "anchor", hash: "#approve" },
       perm: "PO_APPROVE",
       tone: "signal",
     },
     {
       when: "APPROVED",
-      label: "Send to supplier",
-      reason: "Approved — place the order so the supplier can dispatch.",
-      action: { type: "anchor", hash: "#order" },
-      perm: "PROCUREMENT_MANAGE",
+      label: "Auto-ordering…",
+      reason: "Approval automatically places the order with the supplier. This status is transient.",
       tone: "signal",
     },
     {
@@ -151,7 +149,7 @@ const PROCUREMENT_FLOW: FlowDef = {
   listNext: {
     countStatuses: ["DRAFT"],
     label: (n) => `${n} draft PO${n !== 1 ? "s" : ""} awaiting approval`,
-    reason: "Approve drafts so they can be sent to suppliers.",
+    reason: "Approve drafts — the order is placed with the supplier automatically.",
     filterChip: "DRAFT",
     perm: "PO_APPROVE",
   },
@@ -406,8 +404,8 @@ const NCR_FLOW: FlowDef = {
     },
     {
       when: "CAPA_REQUIRED",
-      label: "Create the CAPA",
-      reason: "A corrective + preventive action plan is required before closure.",
+      label: "Fill in the CAPA",
+      reason: "A draft CAPA has been auto-created — fill in root cause, corrective action, and preventive action.",
       action: { type: "anchor", hash: "#capa" },
       perm: "QC_MANAGE",
       tone: "stop",

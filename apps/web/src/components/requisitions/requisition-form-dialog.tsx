@@ -1,6 +1,6 @@
 "use client";
 
-import {useState, useMemo} from "react";
+import {useState, useMemo, useEffect} from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {Plus} from "lucide-react";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
 import {formatNumber} from "@/lib/utils";
-import { required, validateForm } from "@/lib/validate";
+import { required } from "@/lib/validate";
 import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 
 type ProjectOption = { id: string; name: string };
@@ -63,8 +63,14 @@ export function RequisitionFormDialog({
     projectId: (v) => (v ? undefined : "Select a project"),
     neededByDate: (v) => required(v as string, "Needed By Date"),
   };
-  const { errors, setErrors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<ReqFormState>(validationRules);
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<ReqFormState>(validationRules);
   const formValues: ReqFormState = { projectId, neededByDate };
+
+  // Clear validation errors when dialog opens
+  useEffect(() => {
+    if (!open) return;
+    clearAll();
+  }, [open, clearAll]);
 
   const filteredPhases = projectId ? phases.filter((p) => p.projectId === projectId) : [];
 
@@ -163,10 +169,8 @@ export function RequisitionFormDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const formErrors = validateForm(formValues, validationRules);
-    if (Object.keys(formErrors).length > 0) {
-      toast.error(Object.values(formErrors)[0]!);
-      setErrors(formErrors);
+    if (!validateAll(formValues)) {
+      toast.error("Please fix the errors in the form");
       return;
     }
     const validLines = lines.filter((l) => l.materialId && Number(l.qtyRequested) > 0);

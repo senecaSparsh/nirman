@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { HsnSacSearch } from "@/components/hsn-sac-search";
-import { required, numberInRange, validateForm } from "@/lib/validate";
+import { required, numberInRange } from "@/lib/validate";
 import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 import type { MaterialCategory } from "@/lib/types";
 
@@ -52,7 +52,7 @@ export function CategoryFormDialog({
     unit: (v) => required(v as string, "Default unit"),
     gstRate: (v) => numberInRange(v as string, 0, 100, "GST Rate"),
   };
-  const { errors, setErrors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<ValidationState>(validationRules);
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<ValidationState>(validationRules);
   const validationForm: ValidationState = { name, unit, gstRate: gstRate == null ? "" : String(gstRate) };
 
   // Sync form fields when the edit target changes or the dialog opens fresh.
@@ -64,19 +64,12 @@ export function CategoryFormDialog({
     setClassValue(category?.class ?? "RAW_MATERIAL");
     setHsnCode((category as { hsnCode?: string | null })?.hsnCode ?? "");
     setGstRate((category as { gstRate?: number | string | null })?.gstRate != null ? Number((category as { gstRate?: number | string | null })?.gstRate) : undefined);
-  }, [open, category]);
+  }, [open, category, clearAll]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const formErrors = validateForm(validationForm, {
-      name: (v) => required(v as string, "Category name"),
-      unit: (v) => required(v as string, "Default unit"),
-      gstRate: (v) => numberInRange(v as string, 0, 100, "GST Rate"),
-    });
-    if (Object.keys(formErrors).length > 0) {
-      const firstError = Object.values(formErrors)[0]!;
-      toast.error(firstError);
-      setErrors(formErrors);
+    if (!validateAll(validationForm)) {
+      toast.error("Please fix the errors in the form");
       return;
     }
     setSaving(true);
@@ -177,7 +170,7 @@ export function CategoryFormDialog({
             placeholder="Auto-filled from HSN"
           />
           <p className="text-micro text-muted-foreground">
-            Override only if the HSN master rate doesn't apply. Leave blank to use the government master rate.
+            Override only if the HSN master rate doesn&apos;t apply. Leave blank to use the government master rate.
           </p>
         </Field>
         <div className="flex justify-end gap-2 pt-2">

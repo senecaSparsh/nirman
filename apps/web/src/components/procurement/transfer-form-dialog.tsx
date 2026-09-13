@@ -12,7 +12,7 @@ import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { LocationFormDialog } from "@/components/materials/location-form-dialog";
 import { formatNumber, formatCurrency } from "@/lib/utils";
-import { required, nonNegativeNumber, numberInRange, validateForm } from "@/lib/validate";
+import { required, nonNegativeNumber, numberInRange } from "@/lib/validate";
 import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 import type { AvailableStockRow, ProjectOption, StockLocationRow } from "@/lib/types";
 
@@ -61,7 +61,7 @@ export function TransferFormDialog({
     handlingFee: (v) => nonNegativeNumber(v as string, "Handling Fee"),
     markupPct: (v) => numberInRange(v as string, 0, 100, "Markup"),
   };
-  const { errors, setErrors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<TransferFormState>(validationRules);
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<TransferFormState>(validationRules);
   const formValues: TransferFormState = { fromLocationId, toLocationId, freight, handlingFee, markupPct };
 
   // Apply defaults when the dialog opens
@@ -69,7 +69,7 @@ export function TransferFormDialog({
     if (!open) return;
     clearAll();
     if (defaults?.fromLocationId) setFromLocationId(defaults.fromLocationId);
-  }, [open, defaults]);
+  }, [open, defaults, clearAll]);
 
   // Fetch available stock when source location changes
   useEffect(() => {
@@ -175,10 +175,8 @@ export function TransferFormDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const formErrors = validateForm(formValues, validationRules);
-    if (Object.keys(formErrors).length > 0) {
-      toast.error(Object.values(formErrors)[0]!);
-      setErrors(formErrors);
+    if (!validateAll(formValues)) {
+      toast.error("Please fix the errors in the form");
       return;
     }
     if (fromLocationId === toLocationId) return toast.error("Source and destination must differ");

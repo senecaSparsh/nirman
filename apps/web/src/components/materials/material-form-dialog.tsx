@@ -10,7 +10,7 @@ import { Field } from "@/components/field";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { CategoryFormDialog } from "@/components/materials/category-form-dialog";
 import { HsnSacSearch } from "@/components/hsn-sac-search";
-import { required, nonNegativeNumber, numberInRange, validateForm } from "@/lib/validate";
+import { required, nonNegativeNumber, numberInRange } from "@/lib/validate";
 import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 import type { MaterialCategory, MaterialRow } from "@/lib/types";
 
@@ -130,7 +130,7 @@ export function MaterialFormDialog({
     bulkDiscountPct: (v) => numberInRange(v as string, 0, 100, "Bulk Discount"),
     uomConversionFactor: (v) => nonNegativeNumber(v as string, "UOM Conversion Factor"),
   };
-  const { errors, setErrors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<FormState>(validationRules);
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<FormState>(validationRules);
 
   // Sync form fields when the edit target changes or the dialog opens fresh.
   useEffect(() => {
@@ -163,7 +163,7 @@ export function MaterialFormDialog({
           }
         : empty,
     );
-  }, [open, material]);
+  }, [open, material, clearAll]);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -172,10 +172,8 @@ export function MaterialFormDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const formErrors = validateForm(form, validationRules);
-    if (Object.keys(formErrors).length > 0) {
-      toast.error(Object.values(formErrors)[0]!);
-      setErrors(formErrors);
+    if (!validateAll(form)) {
+      toast.error("Please fix the errors in the form");
       return;
     }
     setSaving(true);

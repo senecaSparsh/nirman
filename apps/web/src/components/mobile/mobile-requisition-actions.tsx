@@ -125,7 +125,17 @@ export function MobileRequisitionActions({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `Failed to ${action}`);
-      toast.success(label);
+      if (action === "submit") {
+        toast.success(label, {
+          action: { label: "View Queue", onClick: () => router.push("/m/approvals") },
+        });
+      } else if (action === "approve") {
+        toast.success("Indent approved", {
+          description: "Collect vendor quotes — selecting a winner auto-creates the PO.",
+        });
+      } else {
+        toast.success(label);
+      }
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "An error occurred");

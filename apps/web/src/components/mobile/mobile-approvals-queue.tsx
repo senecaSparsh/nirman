@@ -285,7 +285,10 @@ const visibleExpenses = expenses.filter((e) => {
  });
  const data = await res.json();
  if (!res.ok) throw new Error(data.error ?? "Failed to approve PO");
- toast.success(`PO ${po.poNumber} approved`);
+ toast.success(`PO ${po.poNumber} approved & ordered`, {
+   description: "The order has been placed with the supplier automatically.",
+   action: { label: "View PO", onClick: () => router.push(`/m/procurement/${po.id}`) },
+ });
  setPoStates((s) => ({ ...s, [po.id]: "approved" }));
  router.refresh();
  } catch (err) {
@@ -325,7 +328,10 @@ const visibleExpenses = expenses.filter((e) => {
  });
  const data = await res.json();
  if (!res.ok) throw new Error(data.error ?? "Failed to approve indent");
- toast.success(`Indent ${req.requisitionNumber} approved`);
+ toast.success(`Indent ${req.requisitionNumber} approved`, {
+   description: "Collect vendor quotes — selecting a winner auto-creates the PO.",
+   action: { label: "Collect Quotes", onClick: () => router.push(`/m/requisitions/${req.id}`) },
+ });
  setReqStates((s) => ({ ...s, [req.id]: "approved" }));
  router.refresh();
  } catch (err) {
@@ -367,7 +373,9 @@ const visibleExpenses = expenses.filter((e) => {
  });
  const data = await res.json();
  if (!res.ok) throw new Error(data.error ?? "Failed to approve DPR");
- toast.success(label);
+ toast.success(label, {
+   action: { label: "View DPRs", onClick: () => router.push("/m/hr/dprs") },
+ });
  setDprStates((s) => ({ ...s, [dpr.id]: "approved" }));
  router.refresh();
  } catch (err) {
@@ -417,7 +425,9 @@ async function confirmRejectDpr() {
  });
  const data = await res.json();
  if (!res.ok) throw new Error(data.error ?? "Failed to approve expense");
- toast.success("Expense approved");
+ toast.success("Expense approved", {
+   action: { label: "View Expenses", onClick: () => router.push("/m/expenses") },
+ });
  setExpenseStates((s) => ({ ...s, [exp.id]: "approved" }));
  router.refresh();
  } catch (err) {
@@ -467,7 +477,9 @@ async function approveGp(gp: GatePassRow) {
  });
  const data = await res.json();
  if (!res.ok) throw new Error(data.error ?? "Failed to approve gate pass");
- toast.success(`Gate pass ${gp.gatePassNumber} approved`);
+ toast.success(`Gate pass ${gp.gatePassNumber} approved`, {
+   action: { label: "View Gate Passes", onClick: () => router.push("/m/gate-passes") },
+ });
  setGpStates((s) => ({ ...s, [gp.id]: "approved" }));
  router.refresh();
  } catch (err) {

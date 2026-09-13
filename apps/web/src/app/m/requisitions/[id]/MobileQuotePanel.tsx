@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "sonner";
+import { useConfirm } from "@/lib/use-confirm";
 import {
   Plus,
   Trophy,
@@ -66,6 +67,7 @@ export function MobileQuotePanel({
   const [waiving, setWaiving] = useState(false);
   const [selectingId, setSelectingId] = useState<string | null>(null);
   const [editingQuote, setEditingQuote] = useState<VendorQuoteRow | null>(null);
+  const [confirm, confirmDialog] = useConfirm();
 
   const fetchStatement = useCallback(async () => {
     try {
@@ -114,7 +116,13 @@ export function MobileQuotePanel({
   }
 
   async function deleteQuote(quoteId: string) {
-    if (!window.confirm("Delete this quote?")) return;
+    const ok = await confirm({
+      title: "Delete this quote?",
+      description: "This will remove the quote from the requisition.",
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/quotes/${quoteId}`, { method: "DELETE" });
       const data = await res.json();
@@ -566,6 +574,7 @@ export function MobileQuotePanel({
           }}
         />
       ) : null}
+      {confirmDialog}
     </div>
   );
 }

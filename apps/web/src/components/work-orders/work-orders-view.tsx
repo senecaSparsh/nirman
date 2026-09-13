@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -882,7 +883,7 @@ function WorkOrderDetailDialog({
           onClose={() => setRaBillDetail(null)}
           canCreate={canCreate}
           permissions={permissions}
-          onAction={(action, rejectReason) => { onRaBillAction(raBillDetail.id, action, onRefresh, rejectReason); setRaBillDetail(null); }}
+          onAction={(action, rejectReason, body) => { onRaBillAction(raBillDetail.id, action, onRefresh, rejectReason, body); setRaBillDetail(null); }}
         />
       )}
 
@@ -954,13 +955,14 @@ function WorkOrderDetailDialog({
 }
 
 // ── RA Bill action helper ──
-async function onRaBillAction(id: string, action: string, onRefresh: () => void, rejectReason?: string) {
+async function onRaBillAction(id: string, action: string, onRefresh: () => void, rejectReason?: string, extraBody?: Record<string, unknown>) {
   try {
     const body: Record<string, unknown> = { action };
     if (action === "reject") {
       if (!rejectReason?.trim()) return;
       body.reason = rejectReason.trim();
     }
+    if (extraBody) Object.assign(body, extraBody);
     const res = await fetch(`/api/ra-bills/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -968,7 +970,11 @@ async function onRaBillAction(id: string, action: string, onRefresh: () => void,
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "Failed");
-    toast.success(`RA bill ${action}ed`);
+    if (action === "pay") {
+      toast.success("RA bill paid", { description: "Payment recorded and GL updated." });
+    } else {
+      toast.success(`RA bill ${action}ed`);
+    }
     onRefresh();
   } catch (err: unknown) {
     toast.error(err instanceof Error ? err.message : "Failed");
@@ -1187,6 +1193,7 @@ function WorkOrderDialog({
   projectId: string;
   onSaved: () => void;
 }) {
+  const router = useRouter();
   const [form, setForm] = useState({
     subcontractorId: "",
     workTitle: "",
@@ -1272,7 +1279,9 @@ function WorkOrderDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success(`Work order ${data.workOrderNumber} created`);
+      toast.success(`Work order ${data.workOrderNumber} created`, {
+        action: { label: "View Work Order", onClick: () => router.push(`/work-orders?wo=${data.id}`) },
+      });
       onOpenChange(false);
       setForm({ subcontractorId: "", workTitle: "", description: "", retentionPct: "5", tdsCategory: "COMPANY", advanceAmount: "0", advanceRecoveryPct: "10", defectLiabilityMonths: "12" });
       setLines([{ boqItemId: "", agreedRate: "" }]);
@@ -1395,7 +1404,7 @@ function RaBillDetailDialog({
   onClose: () => void;
   canCreate: boolean;
   permissions: { canManage: boolean; canSubmit: boolean; canApprove: boolean; canPay: boolean };
-  onAction: (action: string, rejectReason?: string) => void;
+  onAction: (action: string, rejectReason?: string, body?: Record<string, unknown>) => void;
 }) {
   const [detail, setDetail] = useState<RaBillDetailData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1403,6 +1412,9 @@ function RaBillDetailDialog({
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
+  const [paymentMode, setPaymentMode] = useState("BANK_TRANSFER");
+  const [paymentReference, setPaymentReference] = useState("");
 
   useEffect(() => {
     fetch(`/api/ra-bills/${raBillId}`)
@@ -1606,10 +1618,15 @@ function RaBillDetailDialog({
                   <Button size="sm" disabled={actionLoading} onClick={() => { setActionLoading(true); onAction("approve"); }}>
                     <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Approve
                   </Button>
+                  {canCreate && permissions.canPay && (
+                    <Button size="sm" disabled={actionLoading} onClick={() => { setActionLoading(true); onAction("approve"); setPayOpen(true); }}>
+                      <Banknote className="mr-1 h-3.5 w-3.5" /> Approve & Pay
+                    </Button>
+                  )}
                 </>
               )}
               {canCreate && permissions.canPay && detail.status === "APPROVED" && (
-                <Button size="sm" disabled={actionLoading} onClick={() => { setActionLoading(true); onAction("pay"); }}>
+                <Button size="sm" disabled={actionLoading} onClick={() => setPayOpen(true)}>
                   <Banknote className="mr-1 h-3.5 w-3.5" /> Mark as Paid
                 </Button>
               )}
@@ -1652,12 +1669,49 @@ function RaBillDetailDialog({
           </div>
         </div>
       </Dialog>
-    </Dialog>
-  );
-}
 
-// ════════════════════════════════════════════════════════════
-// Enhanced RA Bill Creation Dialog — with pre-creation preview
+      {/* ── Payment dialog (for Approve & Pay or Mark as Paid) ── */}
+      <Dialog
+        open={payOpen}
+        onOpenChange={setPayOpen}
+        title="Pay RA Bill"
+        description={detail ? `${raBillNumber} — Net payable: ${formatCurrency(detail.netPayable)}` : raBillNumber}
+        className="max-w-md"
+      >
+        <div className="space-y-3">
+          <Field label="Payment mode" required>
+            <select
+              value={paymentMode}
+              onChange={(e) => setPaymentMode(e.target.value)}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="BANK_TRANSFER">Bank Transfer</option>
+              <option value="CASH">Cash</option>
+              <option value="CHEQUE">Cheque</option>
+              <option value="UPI">UPI</option>
+            </select>
+          </Field>
+          <Field label="Payment reference (optional)">
+            <input
+              value={paymentReference}
+              onChange={(e) => setPaymentReference(e.target.value)}
+              placeholder="e.g. UTR, cheque no, transaction ID…"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setPayOpen(false)}>Cancel</Button>
+            <Button
+              type="button"
+              disabled={actionLoading}
+              onClick={() => { setActionLoading(true); onAction("pay", undefined, { paymentMode, paymentReference: paymentReference.trim() || undefined }); setPayOpen(false); setPaymentReference(""); }}
+            >
+              <Banknote className="mr-1 h-3.5 w-3.5" /> Confirm Payment
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+    </Dialog>
 // of available unbilled MB entries
 // ════════════════════════════════════════════════════════════
 type PreviewData = {

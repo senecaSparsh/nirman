@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { useTodayDate } from "@/lib/use-today-date";
+import { useConfirm } from "@/lib/use-confirm";
 
 interface CostComponent {
   id: string;
@@ -42,6 +43,7 @@ export function MobileLandCostComponentDialog({
   const router = useRouter();
   const today = useTodayDate();
   const [saving, setSaving] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
   const [form, setForm] = useState({
     label: "",
     amount: "",
@@ -134,7 +136,13 @@ export function MobileLandCostComponentDialog({
 
   async function onDelete() {
     if (!editing) return;
-    if (!window.confirm(`Delete "${editing.label}"? This reverses its GL entries and reduces the land total.`)) return;
+    const ok = await confirm({
+      title: `Delete "${editing.label}"?`,
+      description: "This reverses its GL entries and reduces the land total.",
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
     setSaving(true);
     try {
       const res = await fetch(
@@ -164,6 +172,7 @@ export function MobileLandCostComponentDialog({
   const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
+    <>
     <MobileDialog open={true} onClose={onClose} title="Cost Component">
         <p className="text-m-caption mb-3" style={{ color: "var(--color-ink-500)" }}>
           Add a one-off or recurring cost that accrues into the land&apos;s total cost over time.
@@ -331,5 +340,7 @@ export function MobileLandCostComponentDialog({
           </div>
         </form>
     </MobileDialog>
+    {confirmDialog}
+    </>
   );
 }

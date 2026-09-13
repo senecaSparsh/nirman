@@ -58,7 +58,7 @@ export function LocationFormDialog({
   useEffect(() => {
     if (!open) return;
     clearAll();
-  }, [open]);
+  }, [open, clearAll]);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));

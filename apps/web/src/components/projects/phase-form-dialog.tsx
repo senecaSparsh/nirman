@@ -82,7 +82,7 @@ export function PhaseFormDialog({
   useEffect(() => {
     if (!open) return;
     clearAll();
-  }, [open]);
+  }, [open, clearAll]);
 
   function set<K extends keyof PhaseFormValues>(key: K, value: PhaseFormValues[K]) {
     setForm((f) => ({ ...f, [key]: value }));

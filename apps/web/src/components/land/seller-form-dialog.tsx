@@ -52,7 +52,7 @@ export function SellerFormDialog({
   useEffect(() => {
     if (!open) return;
     clearAll();
-  }, [open]);
+  }, [open, clearAll]);
 
   function set<K extends keyof SellerFormValues>(key: K, value: SellerFormValues[K]) {
     setForm((f) => ({ ...f, [key]: value }));

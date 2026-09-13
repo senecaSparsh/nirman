@@ -284,7 +284,7 @@ export async function updateNcr(id: string, input: UpdateNcrInput, userId?: stri
 // ── NCR Workflow ───────────────────────────────────────────
 
 export async function reviewNcr(id: string, input: ReviewNcrInput) {
-  return withSerializableTransaction(async (tx) => {
+  const updated = await withSerializableTransaction(async (tx) => {
     const ncr = await tx.nonConformanceReport.findUnique({ where: { id } });
     if (!ncr) throw new ServiceError("NCR not found", 404);
     if (ncr.status !== "OPEN" && ncr.status !== "UNDER_REVIEW") {
@@ -314,6 +314,27 @@ export async function reviewNcr(id: string, input: ReviewNcrInput) {
 
     return updated;
   });
+
+  // Auto-create a DRAFT CAPA when the review outcome is CAPA_REQUIRED.
+  // Pre-fills with placeholder text — the user just fills in the analysis
+  // (root cause, corrective action, preventive action) rather than
+  // creating the CAPA from scratch.
+  if (input.outcome === "CAPA_REQUIRED") {
+    try {
+      await createCapa({
+        ncrId: id,
+        userId: input.userId,
+        rootCause: "To be determined — analyze the root cause of this non-conformance.",
+        correctiveAction: "To be determined — define the corrective action to fix this issue.",
+        preventiveAction: "To be determined — define the preventive action to avoid recurrence.",
+      });
+    } catch (err) {
+      // Best-effort — the NCR review is saved even if CAPA creation fails.
+      console.error(`[quality-control] Auto-create CAPA failed for NCR ${id}:`, err);
+    }
+  }
+
+  return updated;
 }
 
 export async function closeNcr(id: string, userId: string, closureNotes: string) {

@@ -320,6 +320,7 @@ export async function approvePurchaseOrder(
   approverRole: string,
   approvedById?: string,
   approvalNotes?: string,
+  autoOrder?: boolean,
 ) {
   const result = await withSerializableTransaction(async (tx) => {
     const po = await tx.purchaseOrder.findUnique({ where: { id: poId } });
@@ -350,7 +351,7 @@ export async function approvePurchaseOrder(
       }
     }
 
-    const updated = await tx.purchaseOrder.update({
+    let updated = await tx.purchaseOrder.update({
       where: { id: poId },
       data: {
         status: "APPROVED",
@@ -368,6 +369,27 @@ export async function approvePurchaseOrder(
       before: { status: po.status },
       after: { status: "APPROVED", approvedAt: updated.approvedAt },
     });
+
+    // Auto-order: if requested, immediately transition APPROVED → ORDERED
+    // in the same transaction. This eliminates the separate "Mark as Ordered"
+    // click. The approver has already decided to buy — ordering is just
+    // recording that decision was communicated to the supplier.
+    if (autoOrder) {
+      updated = await tx.purchaseOrder.update({
+        where: { id: poId },
+        data: { status: "ORDERED", orderDate: new Date() },
+      });
+      await logAction(tx, {
+        userId: approvedById,
+        companyId: po.companyId,
+        action: "PURCHASE_ORDER_ORDER",
+        entityType: "PurchaseOrder",
+        entityId: poId,
+        before: { status: "APPROVED" },
+        after: { status: "ORDERED", orderDate: updated.orderDate },
+      });
+    }
+
     return { updated, po };
   });
 

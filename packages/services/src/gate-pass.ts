@@ -245,10 +245,10 @@ export async function approveGatePass(id: string, approverId: string, notes?: st
     timestamp: new Date(),
   });
 
-  // Auto-execute the linked source transaction (if it's a MaterialIssue or MaterialSale in PENDING state).
-  // Stock Transfer and Supplier Return don't need auto-execution — their dispatch/complete
-  // functions call assertGatePassApproved() which will now pass.
-  // Uses lazy imports to avoid circular dependency (issue.ts and material-sale.ts import gate-pass.ts).
+  // Auto-execute the linked source transaction (if it's a MaterialIssue, MaterialSale,
+  // or StockTransfer in PENDING state). Supplier Return is left manual because its
+  // complete flow has additional steps (restocking decisions).
+  // Uses lazy imports to avoid circular dependency (issue.ts, material-sale.ts, transfer.ts import gate-pass.ts).
   void (async () => {
     try {
       if (result.updated.refType === "MaterialIssue" && result.updated.refId) {
@@ -257,6 +257,9 @@ export async function approveGatePass(id: string, approverId: string, notes?: st
       } else if (result.updated.refType === "MaterialSale" && result.updated.refId) {
         const { executeMaterialSale } = await import("./material-sale");
         await executeMaterialSale(result.updated.refId, approverId);
+      } else if (result.updated.refType === "StockTransfer" && result.updated.refId) {
+        const { dispatchTransfer } = await import("./transfer");
+        await dispatchTransfer(result.updated.refId, approverId);
       }
     } catch (err) {
       // Best-effort — the gate pass is approved even if auto-execution fails.

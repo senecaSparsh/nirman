@@ -103,7 +103,7 @@ describe("MaterialFormDialog", () => {
     fireEvent.change(screen.getByPlaceholderText("Cement OPC 53 Grade"), { target: { value: "Test Material" } });
     fireEvent.change(screen.getByPlaceholderText("BAG / KG / NOS / MTR"), { target: { value: "NOS" } });
     fireEvent.submit(container.querySelector("form")!);
-    expect(toast.error).toHaveBeenCalledWith("Please select a category");
+    expect(toast.error).toHaveBeenCalledWith("Please fix the errors in the form");
   });
 
   it("submits successfully and calls onCreated in create mode", async () => {

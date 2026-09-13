@@ -128,9 +128,28 @@ export function BuiltUnitFormDialog({
     [projectId, phases],
   );
 
+  // ── Inline validation ──────────────────────────────────────────
+  const validationRules: ValidationRules<FormState> = {
+    projectId: (v) => required(v as string, "Project"),
+  };
+  rows.forEach((row, i) => {
+    validationRules[`unitNumber_${i}`] = (v) => required(v as string, `Unit No. (row ${i + 1})`);
+    validationRules[`area_${i}`] = (v) => positiveNumber(v as string, `Area (row ${i + 1})`);
+    validationRules[`askingPrice_${i}`] = (v) => nonNegativeNumber(v as string, `Asking Price (row ${i + 1})`);
+  });
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<FormState>(validationRules);
+
+  const formObj: FormState = { projectId };
+  rows.forEach((r, i) => {
+    formObj[`unitNumber_${i}`] = r.unitNumber;
+    formObj[`area_${i}`] = r.area;
+    formObj[`askingPrice_${i}`] = r.askingPrice;
+  });
+
   // Apply defaults + reset when the dialog opens/closes
   useEffect(() => {
     if (open) {
+      clearAll();
       if (defaults?.projectId) setProjectId(defaults.projectId);
       setParcelId(defaults?.parcelId ?? null);
       setRows([emptyRow()]);
@@ -143,7 +162,7 @@ export function BuiltUnitFormDialog({
       setRows([emptyRow()]);
       setShowGenerator(false);
     }
-  }, [open, defaults]);
+  }, [open, defaults, clearAll]);
 
   function addRow() {
     setRows((r) => [...r, emptyRow(r[0]?.areaUnit ?? "SQFT")]);
@@ -195,23 +214,6 @@ export function BuiltUnitFormDialog({
   }, [rows]);
 
   const hasDuplicates = duplicateNumbers.size > 0;
-
-  const validationRules: ValidationRules<FormState> = {
-    projectId: (v) => required(v as string, "Project"),
-  };
-  rows.forEach((row, i) => {
-    validationRules[`unitNumber_${i}`] = (v) => required(v as string, `Unit No. (row ${i + 1})`);
-    validationRules[`area_${i}`] = (v) => positiveNumber(v as string, `Area (row ${i + 1})`);
-    validationRules[`askingPrice_${i}`] = (v) => nonNegativeNumber(v as string, `Asking Price (row ${i + 1})`);
-  });
-  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<FormState>(validationRules);
-
-  const formObj: FormState = { projectId };
-  rows.forEach((r, i) => {
-    formObj[`unitNumber_${i}`] = r.unitNumber;
-    formObj[`area_${i}`] = r.area;
-    formObj[`askingPrice_${i}`] = r.askingPrice;
-  });
 
   function generateSequential() {
     const start = parseInt(genStart) || 1;
@@ -290,8 +292,8 @@ export function BuiltUnitFormDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!projectId) {
-      toast.error("Project is required");
+    if (!validateAll(formObj)) {
+      toast.error("Please fix the errors in the form");
       return;
     }
     if (rows.length === 0) {
@@ -301,17 +303,6 @@ export function BuiltUnitFormDialog({
     if (hasDuplicates) {
       toast.error("Duplicate unit numbers within the batch — fix before saving");
       return;
-    }
-    for (let i = 0; i < rows.length; i++) {
-      const r = rows[i]!;
-      if (!r.unitNumber.trim()) {
-        toast.error(`Unit number is required for row ${i + 1}`);
-        return;
-      }
-      if (!r.area || Number(r.area) <= 0) {
-        toast.error(`Area must be > 0 for row ${i + 1}`);
-        return;
-      }
     }
 
     setSaving(true);
@@ -368,11 +359,13 @@ export function BuiltUnitFormDialog({
       <form onSubmit={onSubmit} className="space-y-4">
         {/* Project selector */}
         <div className="space-y-1.5">
-          <Label htmlFor="bu-project">Project *</Label>
+          <Label htmlFor="bu-project" className={errors.projectId ? "text-danger" : undefined}>Project *</Label>
           <SelectWithCreate
             id="bu-project"
             value={projectId}
-            onChange={setProjectId}
+            onChange={(v) => { setProjectId(v); clearError("projectId"); }}
+            onBlur={() => onBlur("projectId", formObj)}
+            aria-invalid={!!errors.projectId}
             placeholder="Select project…"
             createLabel="project"
             required
@@ -381,6 +374,7 @@ export function BuiltUnitFormDialog({
               <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "", type: "RESIDENTIAL", status: "PLANNED" }]); onCreated(e); }} />
             )}
           />
+          {errors.projectId && <p className="text-caption text-danger" role="alert">{errors.projectId}</p>}
           {projectId && projectPhases.length > 0 && (
             <p className="text-caption text-muted-foreground">
               {projectPhases.length} phase{projectPhases.length !== 1 ? "s" : ""} available — assign per unit below.

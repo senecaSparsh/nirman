@@ -248,8 +248,8 @@ export default function MobilePoDetailPage({
           // Step 3 — Ordered
           if (po.status === "APPROVED") {
             timelineSteps.push({
-              label: "Ready to order",
-              detail: canManage ? "Send to supplier" : "Awaiting order placement",
+              label: "Auto-ordering…",
+              detail: "Approval automatically places the order",
               state: "current",
             });
           } else if (po.status === "ORDERED" || po.status === "PARTIAL" || po.status === "RECEIVED") {

@@ -117,7 +117,13 @@ export function MobileChangeOrderDetailClient({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success(`Change order ${action}ed`);
+      if (action === "approve") {
+        toast.success("Change order approved & implemented", {
+          description: "The BOQ and project budget have been updated automatically.",
+        });
+      } else {
+        toast.success(`Change order ${action}ed`);
+      }
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -331,7 +337,7 @@ export function MobileChangeOrderDetailClient({
               onClick={() => setShowApprove(true)}
               loading={false}
               icon={Check}
-              label="Approve"
+              label="Approve & Implement"
               variant="go"
             />
           )}
@@ -340,7 +346,7 @@ export function MobileChangeOrderDetailClient({
               onClick={() => doAction("approve")}
               loading={acting === "approve"}
               icon={Check}
-              label="Approve"
+              label="Approve & Implement"
               variant="go"
             />
           )}
@@ -354,13 +360,9 @@ export function MobileChangeOrderDetailClient({
             />
           )}
           {co.status === "APPROVED" && (
-            <ActionButton
-              onClick={() => doAction("implement")}
-              loading={acting === "implement"}
-              icon={Play}
-              label="Implement (Apply to BOQ)"
-              variant="primary"
-            />
+            <span className="text-m-caption italic" style={{ color: "var(--color-ink-500)" }}>
+              Auto-implementing…
+            </span>
           )}
           {(co.status === "DRAFT" || co.status === "REJECTED") && (
             <ActionButton
@@ -453,7 +455,7 @@ export function MobileChangeOrderDetailClient({
               style={{ backgroundColor: "var(--color-go)", color: "var(--color-ink-950)" }}
             >
               {acting === "approve" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-              Confirm Approval
+              Confirm Approval & Implement
             </button>
           </div>
         </MobileDialog>

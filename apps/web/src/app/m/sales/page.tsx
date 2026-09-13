@@ -42,6 +42,7 @@ export default function MobileSalesPage() {
           prisma.lead.findMany({
             where: {...await scopeWhere("Lead"),  companyId: company.id, deletedAt: null },
             orderBy: [{ nextFollowUpAt: "asc" }, { createdAt: "desc" }],
+            take: 50,
             include: {
               project: { select: { id: true, name: true } },
               interestedUnit: { select: { id: true, unitNumber: true } },
@@ -58,6 +59,7 @@ export default function MobileSalesPage() {
           prisma.builtUnit.findMany({
             where: {...await scopeWhere("BuiltUnit"),  deletedAt: null, status: { in: ["AVAILABLE", "HOLD"] }, project: { companyId: company.id, deletedAt: null } },
             orderBy: [{ project: { name: "asc" } }, { unitNumber: "asc" }],
+            take: 100,
             select: { id: true, unitNumber: true, unitType: true, projectId: true, project: { select: { name: true } } },
           }),
           prisma.userCompany.findMany({

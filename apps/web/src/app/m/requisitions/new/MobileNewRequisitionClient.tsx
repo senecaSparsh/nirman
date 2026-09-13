@@ -172,7 +172,9 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
       const result = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(result.error ?? "Failed to create indent");
       if (result.submitted) {
-        toast.success(`Indent ${result.reqNumber ?? "created"} submitted for approval`);
+        toast.success(`Indent ${result.reqNumber ?? "created"} submitted for approval`, {
+          action: { label: "View Indent", onClick: () => router.push(`/m/requisitions/${result.id}`) },
+        });
       } else {
         toast.warning(
           `Indent ${result.reqNumber ?? "created"} saved as draft`,
@@ -180,6 +182,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
             description: result.submitError
               ? `Auto-submit failed: ${result.submitError}`
               : "You can submit it for approval from the indent list.",
+            action: { label: "View Indent", onClick: () => router.push(`/m/requisitions/${result.id}`) },
           },
         );
       }

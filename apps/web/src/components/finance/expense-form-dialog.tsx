@@ -14,7 +14,7 @@ import { GlPreviewPanel } from "./gl-preview-panel";
 import type { GlPreviewLine } from "@nirman/services/gl-preview";
 import type { ProjectOption } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
-import { required, positiveNumber, validateForm } from "@/lib/validate";
+import { required, positiveNumber } from "@/lib/validate";
 import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 
 const COMMON_CATEGORIES = [
@@ -77,7 +77,7 @@ export function ExpenseFormDialog({
     amount: (v) => required(v as string, "Amount") ?? positiveNumber(v as string, "Amount"),
     date: (v) => required(v as string, "Date"),
   };
-  const { errors, setErrors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<ExpenseFormState>(validationRules);
+  const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<ExpenseFormState>(validationRules);
 
   // Fetch project budget info when a project is selected
   const [projectBudget, setProjectBudget] = useState<{ budget: number; spent: number } | null>(null);
@@ -110,7 +110,7 @@ export function ExpenseFormDialog({
     } else if (open && !editing) {
       setForm({ projectId: defaults?.projectId ?? "", category: "", amount: "", date: todayISO(), notes: "" });
     }
-  }, [open, editing, defaults]);
+  }, [open, editing, defaults, clearAll]);
 
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -143,10 +143,8 @@ export function ExpenseFormDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const formErrors = validateForm(form, validationRules);
-    if (Object.keys(formErrors).length > 0) {
-      toast.error(Object.values(formErrors)[0]!);
-      setErrors(formErrors);
+    if (!validateAll(form)) {
+      toast.error("Please fix the errors in the form");
       return;
     }
     setSaving(true);

@@ -27,7 +27,7 @@ import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCrea
 import { MobileProjectSelect, MobileStockLocationSelect, MobileEmployeeSelect } from "@/components/mobile/selectors";
 import { toast } from "sonner";
 import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
-import { CreateAccountDialog } from "@/components/hr/create-account-dialog";
+import { MobileCreateAccountDialog as CreateAccountDialog } from "../MobileCreateAccountDialog";
 import { type OnboardingEmployeeData } from "./MobileOnboardingTab";
 import { OnboardingModal } from "./OnboardingModal";
 import { EmployeeDocuments } from "./EmployeeDocuments";

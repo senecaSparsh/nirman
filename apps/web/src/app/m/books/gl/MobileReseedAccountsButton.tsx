@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { DatabaseZap, Loader2 } from "lucide-react";
+import { useConfirm } from "@/lib/use-confirm";
 
 /**
  * Button to re-seed the chart of accounts via POST /api/gl/accounts.
@@ -12,9 +13,15 @@ import { DatabaseZap, Loader2 } from "lucide-react";
 export function MobileReseedAccountsButton() {
   const router = useRouter();
   const [seeding, setSeeding] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
 
   async function handleReseed() {
-    if (!window.confirm("Re-seed the chart of accounts?\n\nThis is an idempotent upsert — existing accounts are preserved.")) return;
+    const ok = await confirm({
+      title: "Re-seed the chart of accounts?",
+      description: "This is an idempotent upsert — existing accounts are preserved.",
+      confirmLabel: "Re-seed",
+    });
+    if (!ok) return;
     setSeeding(true);
     try {
       const res = await fetch("/api/gl/accounts", { method: "POST" });
@@ -30,6 +37,7 @@ export function MobileReseedAccountsButton() {
   }
 
   return (
+    <>
     <button
       onClick={handleReseed}
       disabled={seeding}
@@ -43,5 +51,7 @@ export function MobileReseedAccountsButton() {
       {seeding ? <Loader2 className="size-3.5 animate-spin" /> : <DatabaseZap className="size-3.5" />}
       Re-seed
     </button>
+    {confirmDialog}
+    </>
   );
 }

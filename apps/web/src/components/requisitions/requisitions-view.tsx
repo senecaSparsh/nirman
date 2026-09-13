@@ -809,7 +809,9 @@ function RequisitionFormDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success(`Indent ${data.reqNumber ?? ""} created`);
+      toast.success(`Indent ${data.reqNumber ?? ""} created`, {
+        action: { label: "View Indent", onClick: () => router.push(`/requisitions?req=${data.id}`) },
+      });
       onOpenChange(false);
       setForm({ projectId: "", phaseId: "", neededByDate: "", notes: "" });
       setLines([{ id: crypto.randomUUID(), materialId: "", qty: "", notes: "", preferredSupplierId: "", stockLoading: false, currentStock: null, stockUnit: null }]);
@@ -1000,7 +1002,9 @@ function ConvertDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success(`PO created: ${data.poNumber}`);
+      toast.success(`PO created: ${data.poNumber}`, {
+        action: { label: "View PO", onClick: () => router.push(`/procurement?po=${data.poId}`) },
+      });
       onOpenChange(false);
       router.refresh();
     } catch (err: unknown) {

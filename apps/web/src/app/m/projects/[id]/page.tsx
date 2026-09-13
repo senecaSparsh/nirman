@@ -72,6 +72,7 @@ export default function MobileProjectDetailPage({
       prisma.builtUnit.findMany({
         where: {...await scopeWhere("BuiltUnit"),  projectId: id, deletedAt: null },
         orderBy: { unitNumber: "asc" },
+        take: 200,
         select: {
           id: true, unitNumber: true, unitType: true, status: true,
           area: true, areaUnit: true, floor: true, wing: true,
@@ -118,6 +119,7 @@ export default function MobileProjectDetailPage({
       prisma.legalDocument.findMany({
         where: { projectId: id, companyId: company.id, deletedAt: null },
         orderBy: [{ type: "asc" }, { createdAt: "desc" }],
+        take: 50,
       }),
     ]);
 

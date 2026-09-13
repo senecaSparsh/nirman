@@ -67,7 +67,7 @@ describe("RequisitionFormDialog", () => {
       <RequisitionFormDialog open onOpenChange={vi.fn()} projects={projects} phases={phases} materials={materials} suppliers={suppliers} />,
     );
     fireEvent.submit(container.querySelector("form")!);
-    expect(toast.error).toHaveBeenCalledWith("Select a project");
+    expect(toast.error).toHaveBeenCalledWith("Please fix the errors in the form");
   });
 
   it("calls onOpenChange(false) when Cancel is clicked", () => {

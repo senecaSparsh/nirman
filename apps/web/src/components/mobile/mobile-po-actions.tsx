@@ -62,9 +62,10 @@ export function MobilePoActions({
     endpoint: `/api/purchase-orders/${po.id}`,
     method: "PATCH",
     body: { action: "approve" },
-    optimisticUpdate: () => setVisibleStatus("APPROVED"),
+    optimisticUpdate: () => setVisibleStatus("ORDERED"),
     revert: () => setVisibleStatus("DRAFT"),
-    successMessage: `PO ${po.poNumber} approved`,
+    successMessage: `PO ${po.poNumber} approved & ordered`,
+    successDescription: "The order has been placed with the supplier automatically.",
     hapticOnSuccess: [10, 30, 10],
   });
 
@@ -107,8 +108,10 @@ export function MobilePoActions({
   // frustrating tap-then-error round-trip on mobile.
   const isOwnPo = !!currentUserId && po.createdById === currentUserId;
   const showApprove = visibleStatus === "DRAFT" && canApprove && !isOwnPo;
+  // APPROVED is now transient — approval auto-orders. Keep the order button
+  // as a fallback only for POs that were approved before this change.
   const showOrder = visibleStatus === "APPROVED" && canManage;
-  const showCancel = (visibleStatus === "DRAFT" || visibleStatus === "APPROVED") && canManage;
+  const showCancel = (visibleStatus === "DRAFT" || visibleStatus === "ORDERED") && canManage;
   const showResubmit = visibleStatus === "REJECTED" && canManage;
   const canAddLine =
     (visibleStatus === "ORDERED" || visibleStatus === "PARTIAL") && canManage;
@@ -128,7 +131,7 @@ export function MobilePoActions({
               onClick={() => approveAction.execute()}
               busy={approveAction.isPending}
               icon={CheckCircle2}
-              label="Approve"
+              label="Approve & Order"
               variant="primary"
               className="flex-1"
             />
@@ -148,7 +151,7 @@ export function MobilePoActions({
                 onClick={() => approveAction.execute()}
                 busy={approveAction.isPending}
                 icon={CheckCircle2}
-                label="Approve"
+                label="Approve & Order"
                 variant="primary"
               />
             )}

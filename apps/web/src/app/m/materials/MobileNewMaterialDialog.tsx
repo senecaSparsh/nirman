@@ -530,7 +530,7 @@ export function MobileNewMaterialForm({
             ) : (
               <>
                 <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                  Add stock you already have on hand. Skip if you're just cataloging.
+                  Add stock you already have on hand. Skip if you&apos;re just cataloging.
                 </p>
                 <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>

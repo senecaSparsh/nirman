@@ -54,7 +54,7 @@ export function EquipmentFormDialog({
 
   useEffect(() => {
     if (open) clearAll();
-  }, [open]);
+  }, [open, clearAll]);
 
   function set(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));

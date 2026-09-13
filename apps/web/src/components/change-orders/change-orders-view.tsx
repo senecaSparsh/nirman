@@ -188,6 +188,7 @@ function NewChangeOrderDialog({
   projects: Project[];
   onSaved: () => void;
 }) {
+  const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     projectId: projects.find((p) => p.status !== "CANCELLED" && p.status !== "COMPLETED")?.id ?? projects[0]?.id ?? "",
@@ -265,12 +266,15 @@ function NewChangeOrderDialog({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create");
       if (data.submitted) {
-        toast.success("Change order submitted for approval");
+        toast.success("Change order submitted for approval", {
+          action: { label: "View Change Order", onClick: () => router.push(`/change-orders/${data.id}`) },
+        });
       } else {
         toast.warning("Change order saved as draft", {
           description: data.submitError
             ? `Auto-submit failed: ${data.submitError}`
             : "You can submit it for approval from the change order detail page.",
+          action: { label: "View Change Order", onClick: () => router.push(`/change-orders/${data.id}`) },
         });
       }
       onOpenChange(false);

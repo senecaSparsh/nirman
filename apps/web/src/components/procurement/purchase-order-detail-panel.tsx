@@ -81,6 +81,11 @@ export function PurchaseOrderDetailPanel({
           description: "The supplier has been sent the order. Receive goods when they arrive.",
           action: { label: "Receive Goods", onClick: () => setRecvOpen(true) },
         });
+      } else if (action === "approve") {
+        toast.success(`PO ${po.poNumber} approved & ordered`, {
+          description: "The order has been placed with the supplier automatically.",
+          action: { label: "Receive Goods", onClick: () => setRecvOpen(true) },
+        });
       } else if (action === "resubmit") {
         toast.success(`PO ${po.poNumber} resubmitted`, {
           description: "It's back in draft — edit if needed, then ask an approver to review.",
@@ -182,7 +187,7 @@ export function PurchaseOrderDetailPanel({
           <div className="flex flex-wrap gap-2">
             {detail.status === "DRAFT" && canApprove && po.createdById !== currentUserId && !showApproveField && (
               <Button size="sm" onClick={() => setShowApproveField(true)} disabled={acting}>
-                <Check className="h-4 w-4" /> Approve
+                <Check className="h-4 w-4" /> Approve & Order
               </Button>
             )}
             {detail.status === "REJECTED" && canManage && (
@@ -190,17 +195,12 @@ export function PurchaseOrderDetailPanel({
                 <RotateCcw className="h-4 w-4" /> Resubmit
               </Button>
             )}
-            {detail.status === "APPROVED" && canManage && (
-              <Button size="sm" onClick={() => doAction("order")} disabled={acting}>
-                <ArrowRight className="h-4 w-4" /> Mark as Ordered
-              </Button>
-            )}
             {(detail.status === "ORDERED" || detail.status === "PARTIAL") && canReceiveGoods && (
               <Button size="sm" onClick={() => setRecvOpen(true)}>
                 <Package className="h-4 w-4" /> Receive Goods
               </Button>
             )}
-            {(detail.status === "DRAFT" || detail.status === "APPROVED") && canManage && (
+            {(detail.status === "DRAFT" || detail.status === "ORDERED") && canManage && (
               <Button size="sm" variant="outline" onClick={() => doAction("cancel")} disabled={acting} className="text-muted-foreground hover:text-danger">
                 <X className="h-4 w-4" /> Cancel PO
               </Button>

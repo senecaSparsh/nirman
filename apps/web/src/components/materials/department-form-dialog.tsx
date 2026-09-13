@@ -63,7 +63,7 @@ export function DepartmentFormDialog({
           }
         : { code: "", name: "", description: "", active: true },
     );
-  }, [open, department]);
+  }, [open, department, clearAll]);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));

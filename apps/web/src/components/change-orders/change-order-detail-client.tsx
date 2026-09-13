@@ -94,7 +94,13 @@ export function ChangeOrderDetailClient({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success(`Change order ${action}ed`);
+      if (action === "approve") {
+        toast.success("Change order approved & implemented", {
+          description: "The BOQ and project budget have been updated automatically.",
+        });
+      } else {
+        toast.success(`Change order ${action}ed`);
+      }
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -225,7 +231,7 @@ export function ChangeOrderDetailClient({
                 disabled={acting === "approve"}
               >
                 {acting === "approve" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
-                Approve
+                Approve & Implement
               </Button>
               <Button variant="destructive" onClick={() => setShowReject(true)}>
                 <X className="mr-1 h-4 w-4" /> Reject
@@ -233,10 +239,7 @@ export function ChangeOrderDetailClient({
             </>
           )}
           {co.status === "APPROVED" && (
-            <Button onClick={() => doAction("implement")} disabled={acting === "implement"}>
-              {acting === "implement" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Play className="mr-1 h-4 w-4" />}
-              Implement (Apply to BOQ)
-            </Button>
+            <span className="text-caption text-muted-foreground italic">Auto-implementing…</span>
           )}
           {(co.status === "DRAFT" || co.status === "REJECTED") && (
             <Button variant="outline" onClick={() => doAction("cancel")} disabled={acting === "cancel"}>
@@ -327,7 +330,7 @@ export function ChangeOrderDetailClient({
                 disabled={acting === "approve"}
               >
                 {acting === "approve" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
-                Confirm Approval
+                Confirm Approval & Implement
               </Button>
             </div>
           </div>
