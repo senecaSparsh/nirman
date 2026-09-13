@@ -1757,9 +1757,9 @@ function PayrollHistoryRow({ p, canManagePayroll, _employeeId }: { p: PayrollIte
               Ref: {p.paymentReference}
             </p>
           )}
-          {p.paymentDate && (
+          {(p.paymentDate || paid) && (
             <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
-              Paid: {formatDate(p.paymentDate)}
+              Paid: {p.paymentDate ? formatDate(p.paymentDate) : formatDate(new Date())}
             </p>
           )}
         </div>
@@ -1767,7 +1767,7 @@ function PayrollHistoryRow({ p, canManagePayroll, _employeeId }: { p: PayrollIte
           <span className="text-m-body font-bold tnum" style={{ color: "var(--color-ink-950)" }}>
             {formatCurrency(p.netPay)}
           </span>
-          <MobileStatusBadge status={p.status} label={PAYROLL_LABELS[p.status] ?? p.status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())} />
+          <MobileStatusBadge status={isPaid ? "PAID" : p.status} label={isPaid ? "Paid" : (PAYROLL_LABELS[p.status] ?? p.status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()))} />
         </div>
       </div>
 
@@ -1881,8 +1881,9 @@ function PhoneStatusDialog({
   const [syncing, setSyncing] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [showVerify, setShowVerify] = useState(false);
+  const [localVerified, setLocalVerified] = useState(user.phoneVerified === true);
 
-  const isVerified = user.phoneVerified === true;
+  const isVerified = localVerified;
   const isSynced = !!user.phoneSyncedAt;
 
   async function sendOtp() {
@@ -1927,6 +1928,7 @@ function PhoneStatusDialog({
       if (!res.ok) throw new Error(data.error ?? "Verification failed");
       haptic([10, 40, 80]);
       toast.success(data.message ?? "Phone verified");
+      setLocalVerified(true);
       if (data.syncedWithTwilio) {
         toast.success("Also synced with Twilio");
       } else {
