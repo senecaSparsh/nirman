@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { BookOpen, Loader2 } from "lucide-react";
@@ -79,21 +80,14 @@ export function ExpenseFormDialog({
   };
   const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<ExpenseFormState>(validationRules);
 
-  // Fetch project budget info when a project is selected
-  const [projectBudget, setProjectBudget] = useState<{ budget: number; spent: number } | null>(null);
-  useEffect(() => {
-    if (!form.projectId) { setProjectBudget(null); return; }
-    fetch(`/api/projects/${form.projectId}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.totalBudget != null) {
-          setProjectBudget({ budget: d.totalBudget, spent: d.totalProjectCost ?? 0 });
-        } else {
-          setProjectBudget(null);
-        }
-      })
-      .catch(() => setProjectBudget(null));
-  }, [form.projectId]);
+  // Project budget info when a project is selected (cached per project).
+  const { data: projectData } = useFetch<{ totalBudget?: number | null; totalProjectCost?: number | null }>(
+    form.projectId ? `/api/projects/${form.projectId}` : null,
+  );
+  const projectBudget =
+    projectData?.totalBudget != null
+      ? { budget: projectData.totalBudget, spent: projectData.totalProjectCost ?? 0 }
+      : null;
 
   // Reset/populate form when dialog opens
   useEffect(() => {

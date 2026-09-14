@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
@@ -3547,33 +3548,23 @@ function OffboardSubTab({
   );
 }
 
+type SalaryHistoryEntry = {
+  id: string;
+  components: Array<{ type: string; amount: number; frequency: string; isDeduction: boolean }>;
+  totalCtc: number | null;
+  effectiveFrom: string;
+  changeReason: string | null;
+  changedByName: string;
+  createdAt: string;
+};
+
 /* ─── Salary History Timeline ─── */
 function SalaryHistoryTimeline({ employeeId }: { employeeId: string }) {
-  const [history, setHistory] = useState<Array<{
-    id: string;
-    components: Array<{ type: string; amount: number; frequency: string; isDeduction: boolean }>;
-    totalCtc: number | null;
-    effectiveFrom: string;
-    changeReason: string | null;
-    changedByName: string;
-    createdAt: string;
-  }> | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: historyData, loading } = useFetch<{ history?: SalaryHistoryEntry[] }>(
+    `/api/employees/${employeeId}/salary-history`,
+  );
+  const history = Array.isArray(historyData?.history) ? historyData.history : null;
   const [expanded, setExpanded] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/employees/${employeeId}/salary-history`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (!cancelled && Array.isArray(data.history)) {
-          setHistory(data.history);
-        }
-      })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [employeeId]);
 
   if (loading) {
     return (

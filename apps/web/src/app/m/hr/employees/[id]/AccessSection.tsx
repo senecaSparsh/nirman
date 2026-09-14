@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import {
   Shield,
@@ -943,22 +944,12 @@ function ChangePhoneDialog({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [availableNumbers, setAvailableNumbers] = useState<
+  const { data: nums } = useFetch<
     { id: string; phoneNumber: string; label: string | null; department: string | null; status: string }[]
-  >([]);
+  >("/api/telephony/numbers/available");
+  const availableNumbers = nums ?? [];
   const [selectedPhoneId, setSelectedPhoneId] = useState<string>("");
   const [newPhone, setNewPhone] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/telephony/numbers/available")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((nums: { id: string; phoneNumber: string; label: string | null; department: string | null; status: string }[]) => {
-        if (!cancelled) setAvailableNumbers(nums);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
 
   async function handleSubmit() {
     const phoneToAssign = selectedPhoneId

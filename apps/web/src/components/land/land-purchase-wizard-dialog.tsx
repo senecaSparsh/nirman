@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -112,7 +113,6 @@ export function LandPurchaseWizardDialog({
   const [localSellers, setLocalSellers] = useState<SellerOption[]>(sellers);
   // Step 4: post-creation legal/permissions setup
   const [createdLandPurchaseId, setCreatedLandPurchaseId] = useState<string | null>(null);
-  const [createdLegalDocs, setCreatedLegalDocs] = useState<LegalDocRow[]>([]);
   useEffect(() => { setLocalProjects(projects); }, [projects]);
   useEffect(() => { setLocalSellers(sellers); }, [sellers]);
 
@@ -174,19 +174,14 @@ export function LandPurchaseWizardDialog({
       setDocumentUrl(null);
       setDocumentName("");
       setCreatedLandPurchaseId(null);
-      setCreatedLegalDocs([]);
     }
   }, [open]);
 
-  // Fetch legal docs for the newly created land purchase when step 4 is shown
-  useEffect(() => {
-    if (step === 4 && createdLandPurchaseId) {
-      fetch(`/api/legal-documents?landPurchaseId=${createdLandPurchaseId}`)
-        .then((r) => r.json())
-        .then((d) => { if (Array.isArray(d)) setCreatedLegalDocs(d); })
-        .catch(() => {});
-    }
-  }, [step, createdLandPurchaseId]);
+  // Legal docs for the newly created land purchase — fetched once it exists.
+  const { data: legalDocsData } = useFetch<LegalDocRow[]>(
+    createdLandPurchaseId ? `/api/legal-documents?landPurchaseId=${createdLandPurchaseId}` : null,
+  );
+  const createdLegalDocs = Array.isArray(legalDocsData) ? legalDocsData : [];
 
   function setLandField(key: keyof typeof land, value: string) {
     setLand((f) => ({ ...f, [key]: value }));

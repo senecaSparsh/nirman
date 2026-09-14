@@ -1,6 +1,7 @@
 "use client";
 
-import { type ComponentProps, Fragment, useState, useEffect } from "react";
+import { type ComponentProps, Fragment, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useSearchParams } from "next/navigation";
 import { useTabParam } from "@/lib/use-tab-param";
 import { formatCurrency } from "@/lib/utils";
@@ -197,40 +198,31 @@ export function StockHubView({
  * Cross-Company tab — aggregated stock across child companies.
  * Fetches from /api/inventory/cross-company (parent-only).
  * ════════════════════════════════════════════════════════════ */
+type CrossCompanyData = {
+  companies: { id: string; name: string }[];
+  materials: {
+    materialId: string;
+    materialName: string;
+    materialCode: string | null;
+    unit: string;
+    categoryName: string | null;
+    totalQty: number;
+    totalValue: number;
+    companies: { companyId: string; companyName: string; qty: number; value: number }[];
+  }[];
+  summary: { totalMaterials: number; totalValue: number; totalQty: number };
+};
+
 function CrossCompanyTab() {
-  const [data, setData] = useState<{
-    companies: { id: string; name: string }[];
-    materials: {
-      materialId: string;
-      materialName: string;
-      materialCode: string | null;
-      unit: string;
-      categoryName: string | null;
-      totalQty: number;
-      totalValue: number;
-      companies: { companyId: string; companyName: string; qty: number; value: number }[];
-    }[];
-    summary: { totalMaterials: number; totalValue: number; totalQty: number };
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (search) params.set("search", search);
-    fetch(`/api/inventory/cross-company?${params.toString()}`)
-      .then(async (r) => {
-        const json = await r.json();
-        if (!r.ok) throw new Error(json.error ?? "Failed to load");
-        return json;
-      })
-      .then((d) => setData(d))
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load"))
-      .finally(() => setLoading(false));
-  }, [search]);
+  const params = new URLSearchParams();
+  if (search) params.set("search", search);
+  const { data, loading, error } = useFetch<CrossCompanyData>(
+    `/api/inventory/cross-company?${params.toString()}`,
+  );
+
 
   if (loading) {
     return (

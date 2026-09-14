@@ -158,10 +158,10 @@ export function MobileProcurementHubTabs({
   // Open the quotation form when ?new=1 is in the URL (deep-link from
   // /m/quotations/new redirect) — no FAB rect in this case
   useEffect(() => {
-    if (searchParams.get("new") === "1" && tab === "quotations") {
+    if (searchParams.get("new") === "1" && tab === "quotations" && quotationCanCreate) {
       setShowForm("quotations");
     }
-  }, [searchParams, tab]);
+  }, [searchParams, tab, quotationCanCreate]);
 
   const openForm = useCallback((which: TabValue, e?: React.MouseEvent) => {
     // Toggle: if this form is already open, close it (FAB acts as ×)

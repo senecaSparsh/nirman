@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter, useSearchParams } from "next/navigation";
 import { X, FileText, Trophy, ChevronRight, Loader2 } from "lucide-react";
 import { formatCurrencyCompact } from "@/lib/utils";
@@ -359,27 +360,120 @@ function QuotationAnalysisOverlay({
   onClose: () => void;
   onChanged: () => void;
 }) {
-  const [payload, setPayload] = useState<{
-    request: Parameters<typeof MobileQuotationDetail>[0]["request"];
-    lines: Parameters<typeof MobileQuotationDetail>[0]["lines"];
-    quotes: Parameters<typeof MobileQuotationDetail>[0]["quotes"];
-    suppliers: Parameters<typeof MobileQuotationDetail>[0]["suppliers"];
-  } | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  type EmbedMaterial = {
+    materialId: string;
+    materialName: string;
+    materialCode: string;
+    unit: string;
+    qtyRequired: number;
+    hsnCode: string | null;
+    gstRate: number;
+    lastRate: {
+      unitCost: number;
+      poNumber: string;
+      poDate: string;
+      supplierName: string;
+      projectName: string | null;
+    } | null;
+    allQuotesAboveLastRate: boolean;
+    minVariancePct: number | null;
+    quotes: Array<{
+      quoteId: string;
+      qty: number;
+      unitPrice: number;
+      gstRate: number;
+      gstAmount: number;
+      discountPerUnit: number;
+      packingPerUnit: number;
+      freightPerUnit: number;
+      loadingPerUnit: number;
+      insurancePerUnit: number;
+      handlingPerUnit: number;
+      buyerTransportPerUnit: number;
+      taxableValuePerUnit: number;
+      unitLandedCost: number;
+      lineSubtotal: number;
+      lineTotal: number;
+    }>;
+  };
+  type EmbedQuote = {
+    id: string;
+    supplierId: string;
+    supplierName: string;
+    supplierPhone: string | null;
+    supplierGstin: string | null;
+    fileUrl: string | null;
+    fileName: string | null;
+    quoteSource: string;
+    sourceNote: string | null;
+    isCheapest: boolean;
+    isSelected: boolean;
+    subtotal: number;
+    gstTotal: number;
+    freightTotal: number;
+    handlingTotal: number;
+    discountTotal: number;
+    packingTotal: number;
+    loadingTotal: number;
+    insuranceTotal: number;
+    landedTotal: number;
+    buyerTransportTotal: number;
+    validUntil: string | null;
+    paymentTerms: string | null;
+    deliveryTerms: string | null;
+    deliveryTermsType:
+      | "DELIVERED_SITE"
+      | "EX_WORKS"
+      | "FOR_STATION"
+      | "CUSTOM"
+      | null;
+    leadTimeDays: number | null;
+    warranty: string | null;
+    notes: string | null;
+    createdAt: string;
+    isExpired: boolean;
+    daysUntilExpiry: number | null;
+  };
+  type EmbedResponse = {
+    id: string;
+    requestNumber: string;
+    title: string;
+    status: string;
+    minQuotesRequired: number;
+    notes: string | null;
+    projectName: string | null;
+    requiredByDate?: string | null;
+    workActivity?: string | null;
+    submittedByName: string;
+    approvedByName: string | null;
+    approvedAt: string | null;
+    approvalReason: string | null;
+    selectedQuoteId: string | null;
+    createdAt: string;
+    canApprove?: boolean;
+    canAddQuote?: boolean;
+    cheapestQuoteId: string | null;
+    convertedPo?: { id: string; poNumber: string; status: string; total?: number } | null;
+    isUrgent?: boolean;
+    daysUntilRequired?: number | null;
+    materials?: EmbedMaterial[];
+    quotes?: EmbedQuote[];
+    suppliers?: Parameters<typeof MobileQuotationDetail>[0]["suppliers"];
+  };
 
-  useEffect(() => {
-    let cancelled = false;
-    setPayload(null);
-    setError(null);
-    fetch(`/api/quotations/${id}?embed=1`)
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Failed to load quotation");
-        return data;
-      })
-      .then((data) => {
-        if (cancelled) return;
-        setPayload({
+  const { data, error } = useFetch<EmbedResponse | null>(
+    `/api/quotations/${id}?embed=1`,
+  );
+
+  type DetailProps = Parameters<typeof MobileQuotationDetail>[0];
+  const payload = useMemo<{
+    request: DetailProps["request"];
+    lines: DetailProps["lines"];
+    quotes: DetailProps["quotes"];
+    suppliers: DetailProps["suppliers"];
+  } | null>(() => {
+    if (!data) return null;
+    return {
           request: {
             id: data.id,
             requestNumber: data.requestNumber,
@@ -524,20 +618,12 @@ function QuotationAnalysisOverlay({
                     };
                   },
                 )
-                .filter(Boolean),
+                .filter((x): x is NonNullable<typeof x> => x != null),
             }),
           ),
           suppliers: data.suppliers ?? [],
-        });
-      })
-      .catch((err: unknown) => {
-        if (!cancelled)
-          setError(err instanceof Error ? err.message : "Failed to load");
-      });
-    return () => {
-      cancelled = true;
     };
-  }, [id]);
+  }, [data]);
 
   return (
     <div

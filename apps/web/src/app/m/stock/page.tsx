@@ -71,9 +71,9 @@ export default function MobileStockPage({
               },
               orderBy: { dispatchedAt: "desc" },
             }),
-            // Material categories for inline material creation (global table, not company-scoped)
+            // Material categories for inline material creation (company-scoped)
             prisma.materialCategory.findMany({
-              where: { deletedAt: null },
+              where: { deletedAt: null, companyId: company.id },
               select: { id: true, name: true, unit: true, hsnCode: true, gstRate: true },
               orderBy: { name: "asc" },
             }).then((rows) => rows.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))),
@@ -195,7 +195,7 @@ export default function MobileStockPage({
             : [],
           // ── Ledger: categories ──
           prisma.materialCategory.findMany({
-            where: { deletedAt: null },
+            where: { deletedAt: null, companyId: company.id },
             select: { id: true, name: true, unit: true, hsnCode: true, gstRate: true },
             orderBy: { name: "asc" },
           }).then((rows) => rows.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))),

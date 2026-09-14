@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { BookOpen } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -33,27 +34,15 @@ export function GlPreviewDialog({
   const balanced = Math.abs(totalDebit - totalCredit) < 0.01;
 
   // Fetch current account balances to show resulting balances
-  const [currentBalances, setCurrentBalances] = useState<Record<string, number>>({});
-  const [loadingBalances, setLoadingBalances] = useState(false);
-
-  useEffect(() => {
-    if (!open || lines.length === 0) return;
-    const _codes = [...new Set(lines.map((l) => l.accountCode))];
-    setLoadingBalances(true);
-    fetch("/api/gl/trial-balance")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.accounts) {
-          const map: Record<string, number> = {};
-          for (const a of data.accounts) {
-            map[a.code] = Number(a.balance);
-          }
-          setCurrentBalances(map);
-        }
-      })
-      .catch(() => { /* balances are nice-to-have, not critical */ })
-      .finally(() => setLoadingBalances(false));
-  }, [open, lines]);
+  const { data: tbData, loading: loadingBalances } = useFetch<{ accounts?: { code: string; balance: number }[] }>(
+    "/api/gl/trial-balance",
+    { skip: !open || lines.length === 0 },
+  );
+  const currentBalances = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const a of tbData?.accounts ?? []) map[a.code] = Number(a.balance);
+    return map;
+  }, [tbData]);
 
   // Compute resulting balance = current + debit - credit
   function resultingBalance(code: string, debit: number, credit: number): number | null {

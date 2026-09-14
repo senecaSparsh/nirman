@@ -11,7 +11,7 @@ import {
   type Role,
 } from "@/lib/roles";
 import { logAction, resolveUserScope, ServiceError } from "@nirman/services";
-import { normalizePhone } from "@/lib/phone-otp";
+import { normalizePhoneForLookup } from "@/lib/phone-otp";
 import { getBackpressureStats, trackRequest } from "@/lib/backpressure";
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { cached as withCache } from "@/lib/server-cache";
@@ -1466,15 +1466,24 @@ async function getDevBypassUser() {
     (await headers()).get("x-test-user") ??
     (await cookies()).get("x-test-user")?.value;
   if (testUser || testRole) {
-    const normalized = testUser ? normalizePhone(testUser) : null;
+    // Match all stored phoneNormalized variants (10-digit vs 91-prefixed) —
+    // the same normalization the real sign-in path uses.
+    const phoneVariants = testUser ? normalizePhoneForLookup(testUser) : null;
     const u = await prisma.user.findFirst({
       where: testUser
-        ? { OR: [{ email: testUser }, { phoneNormalized: normalized ?? "" }, { phone: testUser }] }
+        ? { OR: [{ email: testUser }, { phoneNormalized: { in: phoneVariants ?? [] } }, { phone: testUser }] }
         : { role: testRole },
       select: { id: true, email: true, name: true, role: true, companyId: true },
     });
     if (u) {
       return { id: u.id, email: u.email, name: u.name, role: u.role ?? "ADMIN", companyId: u.companyId };
+    }
+    // An explicit x-test-user that matches NOBODY must not silently fall back
+    // to the first OWNER — that's a privilege-escalation bug that makes
+    // negative permission tests run as a superuser and falsely pass. Fail
+    // closed so the test/developer sees the miss immediately.
+    if (testUser) {
+      throw new Error(`[dev-bypass] x-test-user "${testUser}" matched no user — refusing to fall back to a privileged account`);
     }
   }
 

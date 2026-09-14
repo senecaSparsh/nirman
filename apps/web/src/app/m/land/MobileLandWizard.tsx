@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import {
   X,
@@ -133,7 +134,7 @@ export function MobileLandWizard({
   const [createdLandPurchaseId, setCreatedLandPurchaseId] = useState<
     string | null
   >(null);
-  const [createdLegalDocs, setCreatedLegalDocs] = useState<LegalDocRow[]>([]);
+
   const [localSellers, setLocalSellers] = useState(sellers);
   useEffect(() => {
     setLocalProjects(projects);
@@ -235,21 +236,14 @@ export function MobileLandWizard({
       setDocumentUrl(null);
       setDocumentName("");
       setCreatedLandPurchaseId(null);
-      setCreatedLegalDocs([]);
     }
   }, [open]);
 
-  // Fetch legal docs for the newly created land purchase when step 4 is shown
-  useEffect(() => {
-    if (step === 4 && createdLandPurchaseId) {
-      fetch(`/api/legal-documents?landPurchaseId=${createdLandPurchaseId}`)
-        .then((r) => r.json())
-        .then((d) => {
-          if (Array.isArray(d)) setCreatedLegalDocs(d);
-        })
-        .catch(() => {});
-    }
-  }, [step, createdLandPurchaseId]);
+  // Legal docs for the newly created land purchase — fetched once it exists.
+  const { data: legalDocsData } = useFetch<LegalDocRow[]>(
+    createdLandPurchaseId ? `/api/legal-documents?landPurchaseId=${createdLandPurchaseId}` : null,
+  );
+  const createdLegalDocs = Array.isArray(legalDocsData) ? legalDocsData : [];
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import {
   Building2, MapPin, Users, Network, Shield,
@@ -359,25 +360,8 @@ function LocationsOverview({ data, canManage }: { data: CompanyProfileData; canM
 // ── Fetch-on-demand overview (employees, suppliers, customers) ──
 
 function useFetchList<T>(url: string | null): { items: T[]; loading: boolean; error: string | null } {
-  const [items, setItems] = React.useState<T[]>([]);
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  React.useEffect(() => {
-    if (!url) return;
-    setLoading(true);
-    setError(null);
-    fetch(url)
-      .then(async (r) => {
-        if (!r.ok) {
-          const j = await r.json().catch(() => ({}));
-          throw new Error(j.error ?? "Failed to load");
-        }
-        return r.json();
-      })
-      .then((d) => { setItems(Array.isArray(d) ? d : (d.items ?? [])); })
-      .catch((e) => { setError(e instanceof Error ? e.message : "Failed"); })
-      .finally(() => setLoading(false));
-  }, [url]);
+  const { data, loading, error } = useFetch<T[] | { items?: T[] }>(url);
+  const items = Array.isArray(data) ? data : (data?.items ?? []);
   return { items, loading, error };
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Copy, Check, Loader2, GitMerge } from "lucide-react";
@@ -43,40 +44,27 @@ export function LeadDedupDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [groups, setGroups] = useState<DuplicateGroup[]>([]);
+  const { data: dedupData, loading } = useFetch<{ duplicates?: DuplicateGroup[] }>(
+    "/api/leads/dedup",
+    { skip: !open },
+  );
+  const [mergedKeys, setMergedKeys] = useState<Set<string>>(new Set());
+  const groups = (dedupData?.duplicates ?? []).filter((g) => !mergedKeys.has(g.key));
   const [keepIds, setKeepIds] = useState<Record<string, string>>({});
   const [merging, setMerging] = useState<string | null>(null);
 
+  // Default: keep the lead with the most activities in each group.
   useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      try {
-        const res = await fetch("/api/leads/dedup");
-        if (!cancelled && res.ok) {
-          const data = await res.json();
-          setGroups(data.duplicates ?? []);
-          // Default: keep the lead with the most activities in each group
-          const defaults: Record<string, string> = {};
-          for (const g of data.duplicates ?? []) {
-            const best = g.leads.reduce((a: DuplicateLead, b: DuplicateLead) =>
-              b.activityCount > a.activityCount ? b : a,
-            );
-            defaults[g.key] = best.id;
-          }
-          setKeepIds(defaults);
-        }
-      } catch {
-        /* ignore */
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+    if (!dedupData?.duplicates) return;
+    const defaults: Record<string, string> = {};
+    for (const g of dedupData.duplicates) {
+      const best = g.leads.reduce((a: DuplicateLead, b: DuplicateLead) =>
+        b.activityCount > a.activityCount ? b : a,
+      );
+      defaults[g.key] = best.id;
     }
-    load();
-    return () => { cancelled = true; };
-  }, [open]);
+    setKeepIds(defaults);
+  }, [dedupData]);
 
   async function mergeGroup(group: DuplicateGroup) {
     const keepId = keepIds[group.key];
@@ -94,7 +82,7 @@ export function LeadDedupDialog({
       if (!res.ok) throw new Error(data.error ?? "Failed to merge");
       toast.success(`Merged ${deleteIds.length} duplicate lead${deleteIds.length === 1 ? "" : "s"}`);
       // Remove this group from the list
-      setGroups((prev) => prev.filter((g) => g.key !== group.key));
+      setMergedKeys((prev) => new Set(prev).add(group.key));
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to merge");

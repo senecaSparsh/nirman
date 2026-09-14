@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -100,12 +101,22 @@ export default function MobileNewMaterialSaleClient({
 } = {}) {
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();
-  const [customers, setCustomers] = useState<CustomerItem[]>([]);
+  // ── Options: customers + locations + materials + projects + recent sales ──
+  const custQ = useFetch<CustomerItem[]>("/api/customers");
+  const locQ = useFetch<LocationItem[]>("/api/stock-locations");
+  const matQ = useFetch<{ rows?: MaterialItem[] }>("/api/materials");
+  const projQ = useFetch<ProjectItem[]>("/api/projects");
+  const salesQ = useFetch<{ lines?: { materialId?: string; unitPrice?: number }[]; items?: { materialId?: string; unitPrice?: number }[] }[]>(
+    "/api/material-sales?limit=20",
+  );
+  const loading = custQ.loading || locQ.loading || matQ.loading || projQ.loading || salesQ.loading;
+  const customers = custQ.data ?? [];
+  const materials = matQ.data?.rows ?? [];
+  // Locations + projects stay in local state so create-dialogs can append.
   const [locations, setLocations] = useState<LocationItem[]>([]);
-  const [materials, setMaterials] = useState<MaterialItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
 
-  const [loading, setLoading] = useState(true);
+
   const [submitting, setSubmitting] = useState(false);
 
   // ── Smart defaults: last-known prices + last-used payment mode ──
@@ -143,77 +154,63 @@ export default function MobileNewMaterialSaleClient({
   const { getDefault, recordDefaults } = useSmartDefaults("material-sale");
   const [defaultsApplied, setDefaultsApplied] = useState(false);
 
+  // ── Seed defaults once options arrive ──
+  const seededRef = useRef(false);
   useEffect(() => {
-    let cancelled = false;
-    async function loadData() {
-      try {
-        const [custRes, locRes, matRes, projRes, salesRes] = await Promise.all([
-          fetch("/api/customers").then((r) => (r.ok ? r.json() : [])),
-          fetch("/api/stock-locations").then((r) => (r.ok ? r.json() : [])),
-          fetch("/api/materials").then((r) => (r.ok ? r.json() : { rows: [] })),
-          fetch("/api/projects").then((r) => (r.ok ? r.json() : [])),
-          fetch("/api/material-sales?limit=20").then((r) =>
-            r.ok ? r.json() : [],
-          ),
-        ]);
-        if (cancelled) return;
-        if (Array.isArray(custRes)) {
-          setCustomers(custRes);
-          if (custRes.length > 0) {
-            // Smart default: last-used customer (if no draft)
-            const defCustomer = getDefault("customerId");
-            if (!hasDraft && defCustomer && custRes.some((c) => c.id === defCustomer)) {
-              setCustomerId(defCustomer);
-              setDefaultsApplied(true);
-            } else {
-              setCustomerId(custRes[0].id);
-            }
-          }
-        }
-        if (Array.isArray(locRes)) {
-          setLocations(locRes);
-          if (locRes.length > 0 && matRes?.rows?.length > 0) {
-            setLines([
-              {
-                materialId: matRes.rows[0].id,
-                locationId: locRes[0].id,
-                qty: "",
-                unitPrice: "",
-              },
-            ]);
-          }
-        }
-        if (matRes?.rows) setMaterials(matRes.rows);
-        if (Array.isArray(projRes)) setProjects(projRes);
-
-        // ── Build last-known price map from recent sales ──
-        if (Array.isArray(salesRes)) {
-          const priceMap: Record<string, number> = {};
-          // Sales are newest-first; iterate to keep the most recent price per material
-          for (const sale of salesRes) {
-            const lines = sale.lines ?? sale.items ?? [];
-            for (const line of lines) {
-              if (
-                line.materialId &&
-                line.unitPrice &&
-                !priceMap[line.materialId]
-              ) {
-                priceMap[line.materialId] = Number(line.unitPrice);
-              }
-            }
-          }
-          if (!cancelled && Object.keys(priceMap).length > 0) {
-            setLastPrices(priceMap);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load form options:", err);
-      } finally {
-        if (!cancelled) setLoading(false);
+    if (seededRef.current || custQ.loading || locQ.loading || matQ.loading) return;
+    seededRef.current = true;
+    const custRes = custQ.data ?? [];
+    if (custRes.length > 0) {
+      // Smart default: last-used customer (if no draft)
+      const defCustomer = getDefault("customerId");
+      if (!hasDraft && defCustomer && custRes.some((c) => c.id === defCustomer)) {
+        setCustomerId(defCustomer);
+        setDefaultsApplied(true);
+      } else {
+        setCustomerId(custRes[0]!.id);
       }
     }
-    loadData();
+    const locRes = locQ.data ?? [];
+    const mats = matQ.data?.rows ?? [];
+    setLocations(locRes);
+    setProjects(projQ.data ?? []);
+    if (locRes.length > 0 && mats.length > 0) {
+      setLines([
+        {
+          materialId: mats[0]!.id,
+          locationId: locRes[0]!.id,
+          qty: "",
+          unitPrice: "",
+        },
+      ]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot seed
+  }, [custQ.loading, locQ.loading, matQ.loading]);
 
+  // ── Last-known price map from recent sales ──
+  useEffect(() => {
+    const salesRes = salesQ.data;
+    if (!Array.isArray(salesRes)) return;
+    const priceMap: Record<string, number> = {};
+    // Sales are newest-first; iterate to keep the most recent price per material
+    for (const sale of salesRes) {
+      const saleLines = sale.lines ?? sale.items ?? [];
+      for (const line of saleLines) {
+        if (
+          line.materialId &&
+          line.unitPrice &&
+          !priceMap[line.materialId]
+        ) {
+          priceMap[line.materialId] = Number(line.unitPrice);
+        }
+      }
+    }
+    if (Object.keys(priceMap).length > 0) {
+      setLastPrices(priceMap);
+    }
+  }, [salesQ.data]);
+
+  useEffect(() => {
     // ── Read last-used payment mode from localStorage ──
     try {
       const savedMode = localStorage.getItem(
@@ -227,11 +224,6 @@ export default function MobileNewMaterialSaleClient({
     } catch {
       // localStorage may be blocked — ignore
     }
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load on mount only
   }, []);
 
   // ── Auto-save draft whenever form state changes (debounced 2s) ──

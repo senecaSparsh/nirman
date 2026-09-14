@@ -81,7 +81,7 @@ export default function MobileRequisitionDetailPage({
 
         const [suppliers, locations] = await Promise.all([
           prisma.supplier.findMany({
-            where: { deletedAt: null },
+            where: { deletedAt: null, companyId: company.id },
             select: { id: true, name: true },
             orderBy: { name: "asc" },
           }),

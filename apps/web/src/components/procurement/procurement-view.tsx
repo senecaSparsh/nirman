@@ -1023,7 +1023,7 @@ export function QuotationsTab({
       <EmptyState
         icon={<FileText className="h-5 w-5" />}
         title="No quotation requests yet"
-        description="Quotation requests are created from the mobile app by the site team. They'll appear here once created."
+        description="Quotation requests are created from the mobile app by the project or procurement manager. They'll appear here once created."
       />
     );
   }
@@ -1073,7 +1073,7 @@ export function QuotationsTab({
   return (
     <div className="space-y-3">
       <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
-        Quotation requests are created and managed on mobile (the site team collects quotes from suppliers).
+        Quotation requests are created and managed on mobile (the project or procurement manager collects quotes from suppliers).
         This tab gives you an overview. Approval is done by the submitter&apos;s direct reporting manager.
       </div>
       <DataTable data={requests} columns={columns} />

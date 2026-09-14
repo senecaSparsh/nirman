@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, XCircle, Truck, Loader2, Plus, X, IndianRupee, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
@@ -510,38 +511,26 @@ function MobileAddLineDialog({
   onClose: () => void;
   onAdded: () => void;
 }) {
+  const { data: matsData } = useFetch<{ rows?: { id: string; name: string; code: string; unit: string }[] }>("/api/materials");
   const [materials, setMaterials] = useState<{ id: string; name: string; code: string; unit: string }[]>([]);
-  const [categories, setCategories] = useState<{ id: string; name: string; unit: string; hsnCode?: string | null; gstRate?: number | string | null }[]>([]);
+  useEffect(() => {
+    if (matsData?.rows && materials.length === 0) setMaterials(matsData.rows);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seed only; create-dialog appends
+  }, [matsData]);
+  const { data: catsData } = useFetch<{ id: string; name: string; unit: string; hsnCode?: string | null; gstRate?: number | string | null }[]>(
+    "/api/material-categories",
+  );
+  const categories = catsData ?? [];
   const [materialId, setMaterialId] = useState("");
   const [qty, setQty] = useState("");
   const [unitCost, setUnitCost] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Seed the first material once options arrive.
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const [matRes, catRes] = await Promise.all([
-          fetch("/api/materials"),
-          fetch("/api/material-categories"),
-        ]);
-        if (!cancelled && matRes.ok) {
-          const data = await matRes.json();
-          const rows = data?.rows ?? [];
-          setMaterials(rows);
-          if (rows.length > 0) setMaterialId(rows[0].id);
-        }
-        if (!cancelled && catRes.ok) {
-          const cats = await catRes.json();
-          setCategories(Array.isArray(cats) ? cats : []);
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-    load();
-    return () => { cancelled = true; };
-  }, []);
+    if (!materialId && materials.length > 0) setMaterialId(materials[0]!.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seed default only
+  }, [materials]);
 
   const lineTotal = (Number(qty) || 0) * (Number(unitCost) || 0);
 

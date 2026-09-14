@@ -66,7 +66,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
             },
           }),
           prisma.customer.findMany({
-            where: { deletedAt: null },
+            where: { deletedAt: null, companyId: company.id },
             orderBy: { name: "asc" },
             select: { id: true, name: true },
           }),

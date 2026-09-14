@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle, ShieldCheck } from "lucide-react";
 import { homeWorldFor } from "@/lib/nav";
+import { useFetch } from "@/lib/use-fetch";
 
 /**
  * Consent page — blocking screen shown when a staff member hasn't accepted
@@ -20,28 +21,22 @@ import { homeWorldFor } from "@/lib/nav";
  */
 export default function ConsentPage() {
   const router = useRouter();
-  const [policy, setPolicy] = useState<{ id: string; version: number; policyText: string } | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error: fetchError } = useFetch<{ policy?: { id: string; version: number; policyText: string } | null }>(
+    "/api/telephony/consent",
+  );
+  const policy = data?.policy ?? null;
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/telephony/consent")
-      .then((r) => r.json())
-      .then((data) => {
-        if (!data.policy) {
-          // No policy — nothing to accept, go home
-          router.replace("/");
-          return;
-        }
-        setPolicy(data.policy);
-        setLoading(false);
-      })
-      .catch(() => {
-        setError("Could not load the consent policy. Please try again.");
-        setLoading(false);
-      });
-  }, [router]);
+    if (!loading && data && !data.policy) {
+      // No policy — nothing to accept, go home
+      router.replace("/");
+    }
+  }, [data, loading, router]);
+  useEffect(() => {
+    if (fetchError) setError("Could not load the consent policy. Please try again.");
+  }, [fetchError]);
 
   async function handleAccept() {
     setAccepting(true);

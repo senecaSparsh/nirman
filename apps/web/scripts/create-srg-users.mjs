@@ -385,10 +385,10 @@ async function main() {
           designation: u.designation,
           department: u.department,
           companyId, // ensure default company is set
-          // Backfill login fields when the found record came from an older
-          // path that never set them (e.g. phoneNormalized null → the user
-          // could never sign in by phone).
-          phoneNormalized: user.phoneNormalized ?? phone10,
+          // Canonicalize phoneNormalized to the 10-digit form — older paths
+          // stored a 91-prefixed 12-digit variant which breaks lookups that
+          // expect the canonical form (e.g. dev-bypass x-test-user, OTP).
+          phoneNormalized: phone10,
           phone: phoneDisplay,
         },
       });

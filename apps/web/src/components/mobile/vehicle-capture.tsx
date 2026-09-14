@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import Image from "next/image";
 import {Camera, X, Loader2, Plus} from "lucide-react";
 import { toast } from "sonner";
@@ -61,8 +62,13 @@ export function VehicleCapture({
   onChange: (v: VehicleData) => void;
   compact?: boolean;
 }) {
+  const { data: vehiclesData, loading: loadingVehicles } = useFetch<VehicleListItem[]>("/api/vehicles");
   const [vehicles, setVehicles] = useState<VehicleListItem[]>([]);
-  const [loadingVehicles, setLoadingVehicles] = useState(false);
+  // Seed once fetched; local state also holds locally-created vehicles.
+  useEffect(() => {
+    if (vehiclesData && vehicles.length === 0) setVehicles(vehiclesData);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seed only
+  }, [vehiclesData]);
   const [showPicker, setShowPicker] = useState(false);
   const [showCreateVehicle, setShowCreateVehicle] = useState(false);
   const [newVehicleNumber, setNewVehicleNumber] = useState("");
@@ -70,19 +76,7 @@ export function VehicleCapture({
   const [showCreateType, setShowCreateType] = useState(false);
   const [customType, setCustomType] = useState("");
 
-  // Fetch all vehicles for the company (for the selector modal)
-  useEffect(() => {
-    let cancelled = false;
-    setLoadingVehicles(true);
-    fetch("/api/vehicles")
-      .then((r) => r.ok ? r.json() : [])
-      .then((data: VehicleListItem[]) => {
-        if (!cancelled) setVehicles(data);
-      })
-      .catch(() => { /* non-fatal */ })
-      .finally(() => { if (!cancelled) setLoadingVehicles(false); });
-    return () => { cancelled = true; };
-  }, []);
+
 
   function selectVehicle(v: VehicleListItem) {
     haptic(5);

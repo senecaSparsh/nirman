@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import {
   Plus, Trash2, Loader2,
@@ -48,11 +49,17 @@ interface ScrapLine {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function MobileNewScrapGenerationClient({ onClose, onCreated }: { onClose?: () => void; onCreated?: (id: string) => void } = {}) {
   const router = useRouter();
+  // Options: locations + materials + projects (parallel, cached). Local state
+  // mirrors them so create-dialogs can append freshly created rows.
+  const locQ = useFetch<LocationItem[]>("/api/stock-locations?group=true");
+  const matQ = useFetch<{ rows?: MaterialItem[] }>("/api/materials");
+  const projQ = useFetch<ProjectItem[]>("/api/projects");
+  const loading = locQ.loading || matQ.loading || projQ.loading;
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
 
-  const [loading, setLoading] = useState(true);
+
   const [submitting, setSubmitting] = useState(false);
 
   // Form state
@@ -93,36 +100,19 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
     }
   }, [draft, hasDraft, draftRestored]);
 
-  // Load options
+  // Seed defaults once options arrive.
+  const seededRef = useRef(false);
   useEffect(() => {
-    let cancelled = false;
-    async function loadData() {
-      try {
-        const [locRes, projRes, matRes] = await Promise.all([
-          fetch("/api/stock-locations?group=true").then((r) => (r.ok ? r.json() : [])),
-          fetch("/api/projects").then((r) => (r.ok ? r.json() : [])),
-          fetch("/api/materials").then((r) => (r.ok ? r.json() : { rows: [] })),
-        ]);
-        if (cancelled) return;
-        if (Array.isArray(locRes)) {
-          setLocations(locRes);
-          if (locRes.length > 0) setToLocationId(locRes[0].id);
-        }
-        if (Array.isArray(projRes)) setProjects(projRes);
-        const mats = matRes?.rows ?? [];
-        if (mats.length > 0) {
-          setMaterials(mats);
-          setLines([{ materialId: "", qty: "", unitCost: "" }]);
-        }
-      } catch (err) {
-        console.error("Failed to load form options:", err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    loadData();
-    return () => { cancelled = true; };
-  }, []);
+    if (seededRef.current || locQ.loading || matQ.loading || projQ.loading) return;
+    seededRef.current = true;
+    setLocations(locQ.data ?? []);
+    setProjects(projQ.data ?? []);
+    const mats = matQ.data?.rows ?? [];
+    setMaterials(mats);
+    if (locQ.data && locQ.data.length > 0 && !toLocationId) setToLocationId(locQ.data[0]!.id);
+    if (mats.length > 0) setLines([{ materialId: "", qty: "", unitCost: "" }]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot seed
+  }, [locQ.loading, matQ.loading, projQ.loading]);
 
   const handleAddLine = () => {
     setLines([...lines, { materialId: "", qty: "", unitCost: "" }]);

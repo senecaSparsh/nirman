@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
@@ -69,7 +70,7 @@ export function MobileNewNcrForm({
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [attachments, setAttachments] = useState<{ url: string; fileName?: string }[]>([]);
-  const [boqOptions, setBoqOptions] = useState<{ id: string; label: string }[]>([]);
+
   const [form, setForm] = useState({
     projectId: projects[0]?.id ?? "",
     title: "",
@@ -85,21 +86,14 @@ export function MobileNewNcrForm({
 
   const wbsOptions = useWbsOptions(form.projectId || null);
 
-  // Fetch BOQ tree when the project changes.
-  useEffect(() => {
-    if (!form.projectId) { setBoqOptions([]); return; }
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await globalThis.fetch(`/api/boq/tree?projectId=${form.projectId}`);
-        const data = await res.json();
-        if (!cancelled) setBoqOptions(flattenBoq(Array.isArray(data?.tree) ? data.tree : []));
-      } catch {
-        if (!cancelled) setBoqOptions([]);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [form.projectId]);
+  // BOQ tree for the selected project (cached per project).
+  const { data: boqTree } = useFetch<{ tree?: unknown[] }>(
+    form.projectId ? `/api/boq/tree?projectId=${form.projectId}` : null,
+  );
+  const boqOptions = useMemo(
+    () => flattenBoq(Array.isArray(boqTree?.tree) ? boqTree.tree : []),
+    [boqTree],
+  );
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));

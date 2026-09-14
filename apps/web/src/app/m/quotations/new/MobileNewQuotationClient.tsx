@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Loader2, Check, Search, X, Package, MapPin, Warehouse, Building2, HardHat, CheckCircle2, Eye } from "lucide-react";
 import { toast } from "sonner";
@@ -54,7 +55,7 @@ export function MobileNewQuotationClient({
   const [requiredByDate, setRequiredByDate] = useState("");
   const [workActivity, setWorkActivity] = useState("");
   const [destinationLocationId, setDestinationLocationId] = useState("");
-  const [locationGroups, setLocationGroups] = useState<LocationGroup[]>([]);
+
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [lines, setLines] = useState<LineItem[]>([]);
   const [showMaterialPicker, setShowMaterialPicker] = useState(false);
@@ -63,13 +64,9 @@ export function MobileNewQuotationClient({
   const [extraMaterials, setExtraMaterials] = useState<Material[]>([]);
   const lineCounter = useRef(0);
 
-  // Fetch stock locations in the company group (parent + self + children).
-  useEffect(() => {
-    fetch("/api/quotations/locations")
-      .then((r) => r.json())
-      .then((data: LocationGroup[]) => setLocationGroups(data))
-      .catch(() => {});
-  }, []);
+  // Stock locations in the company group (parent + self + children) — cached.
+  const { data: locData } = useFetch<LocationGroup[]>("/api/quotations/locations");
+  const locationGroups = useMemo(() => locData ?? [], [locData]);
 
   const selectedLocation = useMemo(() => {
     const found = locationGroups

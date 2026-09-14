@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { useFetch } from "@/lib/use-fetch";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Loader2, AlertCircle, Building2, Phone, Mail, Fingerprint, Eye, EyeOff, ArrowUp } from "lucide-react";
@@ -101,16 +102,12 @@ function SignInForm() {
 
   // Check if this is a fresh deploy (no users yet) — if so, redirect
   // to /sign-up so the first owner can set up their company.
+  const { data: bootstrap } = useFetch<{ needsBootstrap?: boolean }>("/api/auth/bootstrap");
   useEffect(() => {
-    fetch("/api/auth/bootstrap")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.needsBootstrap) {
-          router.replace("/sign-up");
-        }
-      })
-      .catch(() => {});
-  }, [router]);
+    if (bootstrap?.needsBootstrap) {
+      router.replace("/sign-up");
+    }
+  }, [bootstrap, router]);
 
   // ── Restore saved credentials if "Remember me" was checked previously ──
   useEffect(() => {

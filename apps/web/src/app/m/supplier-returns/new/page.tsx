@@ -29,7 +29,7 @@ export default function MobileNewSupplierReturnPage() {
             orderBy: { name: "asc" },
           }),
           prisma.material.findMany({
-            where: { deletedAt: null },
+            where: { deletedAt: null, companyId: company.id },
             select: { id: true, name: true, code: true, unit: true },
             orderBy: { name: "asc" },
           }),
@@ -40,7 +40,7 @@ export default function MobileNewSupplierReturnPage() {
             take: 100,
           }),
           prisma.materialCategory.findMany({
-            where: { deletedAt: null },
+            where: { deletedAt: null, companyId: company.id },
             select: { id: true, name: true, unit: true, hsnCode: true, gstRate: true },
             orderBy: { name: "asc" },
           }).then((rows) => rows.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))),

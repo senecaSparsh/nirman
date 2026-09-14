@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { formatNumber, formatCurrency } from "@/lib/utils";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
+import { useFetch } from "@/lib/use-fetch";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
@@ -196,6 +197,15 @@ export function MobileReceiveDialog({
   // Track whether auto-fill has run, so we don't overwrite user edits
   const autoFilledRef = useRef({ vehicle: false, gateEntry: false });
 
+  // Auto-fill sources — fetched lazily when the dialog opens in receive mode.
+  const { data: lastGrn } = useFetch<{
+    vehicleNumber?: string; vehicleType?: string; driverName?: string;
+    driverPhone?: string; transporterName?: string;
+  } | null>(open && mode === "receive" ? `/api/suppliers/${supplierId}/last-grn` : null);
+  const { data: nextSlip, error: nextSlipError } = useFetch<{ unloadingSlipNo?: string } | null>(
+    open && mode === "receive" ? `/api/gate-entry/next?locationId=${locationId}` : null,
+  );
+
   useEffect(() => {
     if (!open) return;
     // Reset auto-fill tracking on each open
@@ -216,41 +226,35 @@ export function MobileReceiveDialog({
     // 3. Auto-capture GPS (silent — user sees the green check appear)
     autoCaptureGps();
 
-    // 4. Auto-fill vehicle/driver from supplier's last GRN (receive mode only)
-    if (mode === "receive") {
-      fetch(`/api/suppliers/${supplierId}/last-grn`)
-        .then((r) => r.ok ? r.json() : null)
-        .then((data) => {
-          if (!data || autoFilledRef.current.vehicle) return;
-          autoFilledRef.current.vehicle = true;
-          if (data.vehicleNumber) setVehicleNumber(data.vehicleNumber);
-          if (data.vehicleType) setVehicleType(data.vehicleType);
-          if (data.driverName) setDriverName(data.driverName);
-          if (data.driverPhone) setDriverPhone(data.driverPhone);
-          if (data.transporterName) setTransporterName(data.transporterName);
-        })
-        .catch(() => { /* silent — not critical */ });
-
-      // 5. Auto-generate sequential unloading slip number from DB
-      //    Gate pass no. is NOT auto-generated — it comes from the supplier's document.
-      if (!autoFilledRef.current.gateEntry) {
-        autoFilledRef.current.gateEntry = true;
-        fetch(`/api/gate-entry/next?locationId=${locationId}`)
-          .then((r) => r.ok ? r.json() : null)
-          .then((data) => {
-            if (data?.unloadingSlipNo) setUnloadingSlipNo(data.unloadingSlipNo);
-          })
-          .catch(() => {
-            const now = new Date();
-            const ts = String(now.getTime()).slice(-6);
-            setUnloadingSlipNo(`US-${now.getFullYear()}-${ts}`);
-          });
-      }
-    }
-
     // NOTE: Package count is NOT auto-filled — it's too material-specific
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // 4. Auto-fill vehicle/driver from supplier's last GRN once it arrives.
+  useEffect(() => {
+    if (!lastGrn || autoFilledRef.current.vehicle) return;
+    autoFilledRef.current.vehicle = true;
+    if (lastGrn.vehicleNumber) setVehicleNumber(lastGrn.vehicleNumber);
+    if (lastGrn.vehicleType) setVehicleType(lastGrn.vehicleType);
+    if (lastGrn.driverName) setDriverName(lastGrn.driverName);
+    if (lastGrn.driverPhone) setDriverPhone(lastGrn.driverPhone);
+    if (lastGrn.transporterName) setTransporterName(lastGrn.transporterName);
+  }, [lastGrn]);
+
+  // 5. Auto-generate sequential unloading slip number once it arrives.
+  //    Gate pass no. is NOT auto-generated — it comes from the supplier's document.
+  useEffect(() => {
+    if (autoFilledRef.current.gateEntry) return;
+    if (nextSlip?.unloadingSlipNo) {
+      autoFilledRef.current.gateEntry = true;
+      setUnloadingSlipNo(nextSlip.unloadingSlipNo);
+    } else if (nextSlipError) {
+      autoFilledRef.current.gateEntry = true;
+      const now = new Date();
+      const ts = String(now.getTime()).slice(-6);
+      setUnloadingSlipNo(`US-${now.getFullYear()}-${ts}`);
+    }
+  }, [nextSlip, nextSlipError]);
 
   function setQty(lineId: string, qty: string) {
     setReceipts((r) => ({ ...r, [lineId]: qty }));

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Building2, FileText } from "lucide-react";
 import type { PortalCustomer } from "@/lib/portal-auth";
 import { EmptyState } from "@/components/empty-state";
+import { useFetch } from "@/lib/use-fetch";
 
 interface PortalSale {
   id: string;
@@ -79,24 +80,13 @@ interface PortalProject {
 
 export function PortalDashboard({ customer }: { customer: PortalCustomer }) {
   const router = useRouter();
-  const [sales, setSales] = useState<PortalSale[]>([]);
-  const [projects, setProjects] = useState<PortalProject[]>([]);
-  const [loading, setLoading] = useState(true);
+  const salesQ = useFetch<{ sales?: PortalSale[] }>("/api/portal/sales");
+  const projectsQ = useFetch<{ projects?: PortalProject[] }>("/api/portal/projects");
+  const sales = salesQ.data?.sales ?? [];
+  const projects = projectsQ.data?.projects ?? [];
+  const loading = salesQ.loading || projectsQ.loading;
   const [selectedSale, setSelectedSale] = useState<PortalSale | null>(null);
   const [tab, setTab] = useState<"bookings" | "construction">("bookings");
-
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/portal/sales").then((r) => r.json()),
-      fetch("/api/portal/projects").then((r) => r.json()),
-    ])
-      .then(([salesData, projectsData]) => {
-        setSales(salesData.sales ?? []);
-        setProjects(projectsData.projects ?? []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
 
   async function logout() {
     await fetch("/api/portal/auth/logout", { method: "POST" });

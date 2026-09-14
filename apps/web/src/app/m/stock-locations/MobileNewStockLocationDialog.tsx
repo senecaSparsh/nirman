@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
@@ -34,29 +35,24 @@ export function MobileNewStockLocationForm({
   const [saving, setSaving] = useState(false);
   const [dupWarning, setDupWarning] = useState<string | null>(null);
 
-  // Fetch company group (self + children) for the company selector
-  const [companies, setCompanies] = useState<{ id: string; name: string; isCurrent: boolean }[]>([]);
+  // Company group (self + children) for the company selector — cached.
+  const { data: currentCompany } = useFetch<{ id: string; name: string } | null>("/api/company");
+  const { data: allCompanies } = useFetch<{ id: string; name: string; parentCompanyId?: string | null }[] | null>("/api/companies");
+  const companies = useMemo(() => {
+    if (!currentCompany?.id) return [];
+    const children = Array.isArray(allCompanies)
+      ? allCompanies.filter((c) => c.parentCompanyId === currentCompany.id)
+      : [];
+    return [
+      { id: currentCompany.id, name: currentCompany.name, isCurrent: true },
+      ...children.map((c) => ({ id: c.id, name: c.name, isCurrent: false })),
+    ];
+  }, [currentCompany, allCompanies]);
   const [targetCompanyId, setTargetCompanyId] = useState("");
   useEffect(() => {
-    // Fetch current company + all companies (for child company selection)
-    Promise.all([
-      fetch("/api/company").then((r) => r.ok ? r.json() : null).catch(() => null),
-      fetch("/api/companies").then((r) => r.ok ? r.json() : null).catch(() => null),
-    ]).then(([current, all]) => {
-      if (current?.id) {
-        setTargetCompanyId(current.id);
-        // Build the company group: current company + its children
-        const children = Array.isArray(all)
-          ? all.filter((c: { parentCompanyId?: string | null }) => c.parentCompanyId === current.id)
-          : [];
-        const group = [
-          { id: current.id, name: current.name, isCurrent: true },
-          ...children.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name, isCurrent: false })),
-        ];
-        setCompanies(group);
-      }
-    });
-  }, []);
+    if (currentCompany?.id && !targetCompanyId) setTargetCompanyId(currentCompany.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seed once
+  }, [currentCompany]);
 
   // Whether this type needs a project selector
   const needsProject = type === "PROJECT_SITE";

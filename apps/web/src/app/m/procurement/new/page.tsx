@@ -28,7 +28,7 @@ export default function MobileNewProcurementPage() {
             orderBy: { name: "asc" },
           }),
           prisma.material.findMany({
-            where: { deletedAt: null },
+            where: { deletedAt: null, companyId: company.id },
             select: { id: true, name: true, code: true, unit: true, gstRate: true, barcode: true },
             orderBy: { name: "asc" },
           }),
@@ -38,7 +38,7 @@ export default function MobileNewProcurementPage() {
             orderBy: { name: "asc" },
           }),
           prisma.materialCategory.findMany({
-            where: { deletedAt: null },
+            where: { deletedAt: null, companyId: company.id },
             select: { id: true, name: true, unit: true, hsnCode: true, gstRate: true },
             orderBy: { name: "asc" },
           }).then((rows) => rows.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))),

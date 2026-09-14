@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { Plus, Loader2, X, FileText, IndianRupee } from "lucide-react";
 import { toast } from "sonner";
@@ -43,28 +44,17 @@ export function MobileCreateRaBillButton({
   workOrderNumber: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [preview, setPreview] = useState<PreviewData | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
+  const { data: previewData, loading: previewLoading } = useFetch<PreviewData & { error?: string } | null>(
+    open && workOrderId ? `/api/ra-bills?preview=unbilled&workOrderId=${workOrderId}` : null,
+  );
+  const preview = previewData && !previewData.error ? previewData : null;
   const [periodFrom, setPeriodFrom] = useState("");
   const [periodTo, setPeriodTo] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const router = useRouter();
 
-  // Fetch preview when sheet opens
-  useEffect(() => {
-    if (!open || !workOrderId) return;
-    setPreviewLoading(true);
-    setPreview(null);
-    fetch(`/api/ra-bills?preview=unbilled&workOrderId=${workOrderId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.error) throw new Error(data.error);
-        setPreview(data);
-      })
- .catch(() => setPreview(null))
-      .finally(() => setPreviewLoading(false));
-  }, [open, workOrderId]);
+
 
   async function handleSubmit() {
     if (!periodFrom || !periodTo) {

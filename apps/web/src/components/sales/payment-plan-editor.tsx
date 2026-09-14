@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { Plus, Trash2, CalendarClock, Wand2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
@@ -45,36 +46,25 @@ export function PaymentPlanEditor({
   projectId?: string;
 }) {
   const totalCollectible = salePrice + gstAmount;
-  const [wbsNodes, setWbsNodes] = useState<WbsNodeOption[]>([]);
-  const [loadingWbs, setLoadingWbs] = useState(false);
-
-  // Fetch WBS milestone nodes when CLP is selected and we have a project
-  useEffect(() => {
-    if (scheduleType !== "CLP" || !projectId) {
-      setWbsNodes([]);
-      return;
-    }
-    setLoadingWbs(true);
-    fetch(`/api/wbs/nodes?projectId=${encodeURIComponent(projectId)}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          // Flatten the tree and pick milestone-type nodes (or all leaf nodes)
-          const flat: WbsNodeOption[] = [];
-          function walk(nodes: WbsNodeOption[]) {
-            for (const n of nodes) {
-              if (n.type === "MILESTONE" || n.type === "ACTIVITY") {
-                flat.push(n);
-              }
-            }
-          }
-          walk(data);
-          setWbsNodes(flat.length > 0 ? flat : data);
+  // WBS milestone nodes when CLP is selected and we have a project.
+  const { data: wbsData, loading: loadingWbs } = useFetch<WbsNodeOption[]>(
+    scheduleType === "CLP" && projectId
+      ? `/api/wbs/nodes?projectId=${encodeURIComponent(projectId)}`
+      : null,
+  );
+  const wbsNodes = useMemo(() => {
+    if (!Array.isArray(wbsData)) return [];
+    const flat: WbsNodeOption[] = [];
+    function walk(nodes: WbsNodeOption[]) {
+      for (const n of nodes) {
+        if (n.type === "MILESTONE" || n.type === "ACTIVITY") {
+          flat.push(n);
         }
-      })
-      .catch(() => setWbsNodes([]))
-      .finally(() => setLoadingWbs(false));
-  }, [scheduleType, projectId]);
+      }
+    }
+    walk(wbsData);
+    return flat.length > 0 ? flat : wbsData;
+  }, [wbsData]);
 
   function update(index: number, field: keyof PaymentPlanItem, value: string) {
     const next = [...items];

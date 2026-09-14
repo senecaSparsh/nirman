@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import {
   Wallet,
@@ -45,18 +46,13 @@ const COST_ROWS: { label: string; key: keyof ProfitCenter }[] = [
 export function MobileProfitCenterClient({ projects }: { projects: ProjectOption[] }) {
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [pc, setPc] = useState<ProfitCenter | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { data: pc, loading, error: pcError } = useFetch<ProfitCenter | null>(
+    projectId ? `/api/profit-center?projectId=${projectId}` : null,
+  );
 
   useEffect(() => {
-    if (!projectId) return;
-    setLoading(true);
-    fetch(`/api/profit-center?projectId=${projectId}`)
-      .then((r) => r.json())
-      .then(setPc)
-      .catch(() => toast.error("Failed to load profit center"))
-      .finally(() => setLoading(false));
-  }, [projectId]);
+    if (pcError) toast.error("Failed to load profit center");
+  }, [pcError]);
 
   const selectedProject = projects.find((p) => p.id === projectId);
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import {
   Plus, Trash2, Loader2, CheckCircle2,
@@ -53,18 +54,17 @@ export default function MobileNewStockCountClient({ onClose, onCreated }: { onCl
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();
   const submitLongPress = useLongPressNav("/m/stock?tab=counts", "Stock counts list");
-  const [locations, setLocations] = useState<LocationItem[]>([]);
-  const [loading, setLoading] = useState(true);
+
   const [submitting, setSubmitting] = useState(false);
 
   const [locationId, setLocationId] = useState("");
-  const [stock, setStock] = useState<StockItem[]>([]);
+
   const [lines, setLines] = useState<CountLine[]>([]);
   const [notes, setNotes] = useState("");
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showMaterialModal, setShowMaterialModal] = useState(false);
   const [showNewLocationDialog, setShowNewLocationDialog] = useState(false);
-  const [stockLoading, setStockLoading] = useState(false);
+
 
   const [success, setSuccess] = useState<{ id: string } | null>(null);
 
@@ -76,69 +76,49 @@ export default function MobileNewStockCountClient({ onClose, onCreated }: { onCl
   const [draftRestored, setDraftRestored] = useState(false);
   const pendingDraftLinesRef = useRef<StockCountDraftLine[] | null>(null);
 
-  // Load locations
+  // Locations (cached) — first becomes the default.
+  const { data: locData, loading } = useFetch<LocationItem[]>("/api/stock-locations");
+  const [extraLocations, setExtraLocations] = useState<LocationItem[]>([]);
+  const locations = useMemo(
+    () => [
+      ...(Array.isArray(locData) ? locData : []),
+      ...extraLocations.filter((x) => !locData?.some((l) => l.id === x.id)),
+    ],
+    [locData, extraLocations],
+  );
   useEffect(() => {
-    let cancelled = false;
-    async function loadLocations() {
-      try {
-        const res = await fetch("/api/stock-locations");
-        const data = await res.ok ? await res.json() : [];
-        if (cancelled) return;
-        if (Array.isArray(data)) {
-          setLocations(data);
-          if (data.length > 0) setLocationId(data[0].id);
-        }
-      } catch (err) {
-        console.error("Failed to load locations:", err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    loadLocations();
-    return () => { cancelled = true; };
-  }, []);
+    if (locations.length > 0 && !locationId) setLocationId(locations[0]!.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seed default only
+  }, [locations]);
 
-  // Load stock when location changes
+  // Stock at the selected location (cached per location).
+  const { data: stockData, loading: stockLoading } = useFetch<StockItem[]>(
+    locationId ? `/api/stock/available?locationId=${locationId}` : null,
+  );
+  const stock = useMemo(() => (Array.isArray(stockData) ? stockData : []), [stockData]);
+
+  // Rebuild count lines whenever fresh stock arrives — merge pending draft lines.
   useEffect(() => {
-    if (!locationId) return;
-    let cancelled = false;
-    setStockLoading((prev) => (prev ? prev : true));
-    async function loadStock() {
-      try {
-        const res = await fetch(`/api/stock/available?locationId=${locationId}`);
-        const data = await res.ok ? await res.json() : [];
-        if (cancelled) return;
-        if (Array.isArray(data)) {
-          setStock(data);
-          // Pre-fill lines with all materials at this location, counted qty empty
-          const newLines = data.map((item: StockItem) => ({
-            materialId: item.materialId,
-            materialName: item.materialName,
-            materialCode: item.materialCode,
-            unit: item.unit,
-            systemQty: item.qty,
-            countedQty: "",
-          }));
-          // If restoring a draft, merge saved counted quantities after stock reload
-          const pending = pendingDraftLinesRef.current;
-          if (pending) {
-            for (const line of newLines) {
-              const dl = pending.find((d) => d.materialId === line.materialId);
-              if (dl) line.countedQty = dl.countedQty;
-            }
-            pendingDraftLinesRef.current = null;
-          }
-          setLines(newLines);
-        }
-      } catch (err) {
-        console.error("Failed to load stock:", err);
-      } finally {
-        if (!cancelled) setStockLoading(false);
+    if (!stockData) return;
+    const newLines = stock.map((item) => ({
+      materialId: item.materialId,
+      materialName: item.materialName,
+      materialCode: item.materialCode,
+      unit: item.unit,
+      systemQty: item.qty,
+      countedQty: "",
+    }));
+    const pending = pendingDraftLinesRef.current;
+    if (pending) {
+      for (const line of newLines) {
+        const dl = pending.find((d) => d.materialId === line.materialId);
+        if (dl) line.countedQty = dl.countedQty;
       }
+      pendingDraftLinesRef.current = null;
     }
-    loadStock();
-    return () => { cancelled = true; };
-  }, [locationId]);
+    setLines(newLines);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rebuild only on new stock data
+  }, [stockData]);
 
   // Auto-save draft
   useEffect(() => {
@@ -642,7 +622,7 @@ export default function MobileNewStockCountClient({ onClose, onCreated }: { onCl
         projects={[]}
         nested
         onCreated={(l) => {
-          setLocations((prev) => prev.some((x) => x.id === l.id) ? prev : [...prev, { id: l.id, name: l.name, type: l.type }]);
+          setExtraLocations((prev) => prev.some((x) => x.id === l.id) ? prev : [...prev, { id: l.id, name: l.name, type: l.type }]);
           setLocationId(l.id);
           setShowNewLocationDialog(false);
           setShowLocationModal(false);

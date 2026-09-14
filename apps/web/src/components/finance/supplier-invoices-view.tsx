@@ -654,7 +654,7 @@ function SupplierInvoiceFormDialog({
   // Invoice lines for three-way matching — auto-filled from PO when selected
   type InvLine = { materialId: string; materialName: string; unit: string; quantity: string; unitPrice: string; gstRate: string };
   const [invLines, setInvLines] = useState<InvLine[]>([]);
-  const [poLinesLoading, setPoLinesLoading] = useState(false);
+
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [docFile, setDocFile] = useState<{ url: string; name: string } | null>(null);
 
@@ -677,33 +677,29 @@ function SupplierInvoiceFormDialog({
   }, [open]);
 
   // When a PO is selected, fetch its lines and auto-fill invoice lines
+  type PoLine = { materialId: string; materialName: string; unit: string | null; qtyOrdered: number; unitCost: number; gstRate: number };
+  const { data: poDetail, loading: poLinesLoading } = useFetch<{ lines?: PoLine[] }>(
+    form.purchaseOrderId ? `/api/purchase-orders/${form.purchaseOrderId}` : null,
+  );
   useEffect(() => {
     if (!form.purchaseOrderId) {
       setInvLines([]);
       return;
     }
-    setPoLinesLoading(true);
-    fetch(`/api/purchase-orders/${form.purchaseOrderId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.lines) {
-          setInvLines(data.lines.map((l: { materialId: string; materialName: string; unit: string | null; qtyOrdered: number; unitCost: number; gstRate: number }) => ({
-            materialId: l.materialId,
-            materialName: l.materialName,
-            unit: l.unit ?? "",
-            quantity: String(l.qtyOrdered),
-            unitPrice: String(l.unitCost),
-            gstRate: String(l.gstRate),
-          })));
-          // Auto-fill subtotal from lines
-          const sub = data.lines.reduce((s: number, l: { qtyOrdered: number; unitCost: number }) => s + l.qtyOrdered * l.unitCost, 0);
-          const gst = data.lines.reduce((s: number, l: { qtyOrdered: number; unitCost: number; gstRate: number }) => s + l.qtyOrdered * l.unitCost * (l.gstRate / 100), 0);
-          setForm((f) => ({ ...f, subtotal: sub.toFixed(2), gstAmount: gst.toFixed(2), totalAmount: (sub + gst).toFixed(2) }));
-        }
-      })
-      .catch(() => { /* best-effort */ })
-      .finally(() => setPoLinesLoading(false));
-  }, [form.purchaseOrderId]);
+    if (!poDetail?.lines) return;
+    setInvLines(poDetail.lines.map((l) => ({
+      materialId: l.materialId,
+      materialName: l.materialName,
+      unit: l.unit ?? "",
+      quantity: String(l.qtyOrdered),
+      unitPrice: String(l.unitCost),
+      gstRate: String(l.gstRate),
+    })));
+    // Auto-fill subtotal from lines
+    const sub = poDetail.lines.reduce((s, l) => s + l.qtyOrdered * l.unitCost, 0);
+    const gst = poDetail.lines.reduce((s, l) => s + l.qtyOrdered * l.unitCost * (l.gstRate / 100), 0);
+    setForm((f) => ({ ...f, subtotal: sub.toFixed(2), gstAmount: gst.toFixed(2), totalAmount: (sub + gst).toFixed(2) }));
+  }, [poDetail, form.purchaseOrderId]);
 
   // Filter POs by selected supplier
   const filteredPos = form.supplierId

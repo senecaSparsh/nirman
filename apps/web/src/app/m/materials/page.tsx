@@ -51,7 +51,7 @@ export default function MobileMaterialsPage({
 
         const categories = actions.canCreateMaterial
           ? (await prisma.materialCategory.findMany({
-              where: { deletedAt: null },
+              where: { deletedAt: null, companyId: company.id },
               orderBy: { name: "asc" },
               select: { id: true, name: true, unit: true, hsnCode: true, gstRate: true },
             })).map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))
