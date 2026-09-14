@@ -7,6 +7,7 @@ vi.mock("sonner", () => ({
 }));
 
 import { SaleDetailDialog } from "./sale-detail-dialog";
+import { clearFetchCache } from "@/lib/use-fetch";
 import type { AssetSaleRow } from "@/lib/types";
 
 function makeSale(overrides: Partial<AssetSaleRow> = {}): AssetSaleRow {
@@ -98,11 +99,24 @@ function makeSale(overrides: Partial<AssetSaleRow> = {}): AssetSaleRow {
 }
 
 describe("SaleDetailDialog", () => {
+  // The detail the component fetches — configurable per-test so the fetched
+  // detail can match the sale variant under test (the component prefers
+  // fetched detailData over the `sale` prop).
+  let fetchSale = makeSale();
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ ...makeSale(), payments: [] }),
+    clearFetchCache(); // memoryCache persists across tests — isolate each run
+    fetchSale = makeSale();
+    // Route by URL — the sale detail returns the sale object; list endpoints
+    // (attachments, etc.) return empty arrays so child components don't
+    // receive a non-array shape.
+    global.fetch = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const isList = url.includes("/api/attachments") || url.includes("/api/payment-schedules");
+      return {
+        ok: true,
+        json: async () => (isList ? [] : { ...fetchSale, payments: [] }),
+      } as Response;
     });
   });
 
@@ -118,8 +132,10 @@ describe("SaleDetailDialog", () => {
 
   it("renders asset label and customer name in description", () => {
     render(<SaleDetailDialog open onOpenChange={vi.fn()} sale={makeSale()} />);
-    expect(screen.getByText(/Unit 101/)).toBeInTheDocument();
-    expect(screen.getByText(/John Doe/)).toBeInTheDocument();
+    // The asset label + customer appear in both the description line and the
+    // clickable unit link — assert at least one of each is present.
+    expect(screen.getAllByText(/Unit 101/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/John Doe/).length).toBeGreaterThan(0);
   });
 
   it("shows loading state initially then loads detail", async () => {
@@ -141,6 +157,7 @@ describe("SaleDetailDialog", () => {
   });
 
   it("does not show Record Deposit for completed sale", async () => {
+    fetchSale = makeSale({ saleStage: "COMPLETED", status: "ACTIVE", balanceDue: 0 });
     render(
       <SaleDetailDialog
         open

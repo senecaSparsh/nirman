@@ -207,6 +207,12 @@ async function dbFactory() {
           this.clientVersion = clientVersion;
         }
       },
+      // Raw-SQL helpers used by $queryRaw routes. Content doesn't matter
+      // (the $queryRaw call itself is mocked) — they just must be callable.
+      join: (values: unknown[]) => values,
+      raw: (s: string) => s,
+      empty: { __empty: true },
+      sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
     },
   };
 }

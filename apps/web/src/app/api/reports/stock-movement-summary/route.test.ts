@@ -14,7 +14,9 @@ const ACCOUNTANT = { role: "ACCOUNTANT" as const };
 describe("GET /api/reports/stock-movement-summary", () => {
   beforeEach(() => {
     setSessionUser(OWNER);
-    mockPrisma().stockMovement!.findMany.mockResolvedValue([]);
+    // The route aggregates movements via $queryRaw (not findMany) — mock the
+    // six raw queries in call order plus the live stockLocationItem fetch.
+    mockPrisma().$queryRaw.mockReset().mockResolvedValue([]);
     mockPrisma().stockLocationItem!.findMany.mockResolvedValue([]);
   });
 
@@ -31,30 +33,23 @@ describe("GET /api/reports/stock-movement-summary", () => {
   });
 
   it("computes opening, received, and issued from stock movements", async () => {
-    // inBefore: 2 movements with qty=100, unitCost=50 → openingIn = 10000
-    // outBefore: 1 movement with qty=50, unitCost=50 → openingOut = 2500
-    // inPeriod: 1 movement with qty=200, unitCost=50 → received = 10000
-    // outPeriod: 1 movement with qty=100, unitCost=50 → issued = 5000
-    mockPrisma().stockMovement!.findMany
-      .mockResolvedValueOnce([{ qty: 100, unitCost: 50, toLocationId: "loc-1", materialId: "m-1" }]) // inBefore
-      .mockResolvedValueOnce([{ qty: 50, unitCost: 50, fromLocationId: "loc-1", materialId: "m-1" }]) // outBefore
-      .mockResolvedValueOnce([{ // inPeriod
-        qty: 200, unitCost: 50, toLocationId: "loc-1", materialId: "m-1",
-        material: { id: "m-1", code: "STL", name: "Steel", unit: "KG", category: { name: "Steel" } },
-        toLocation: { id: "loc-1", name: "Warehouse", type: "COMPANY_WAREHOUSE" },
-      }])
-      .mockResolvedValueOnce([{ // outPeriod
-        qty: 100, unitCost: 50, fromLocationId: "loc-1", materialId: "m-1",
-        material: { id: "m-1", code: "STL", name: "Steel", unit: "KG", category: { name: "Steel" } },
-        fromLocation: { id: "loc-1", name: "Warehouse", type: "COMPANY_WAREHOUSE" },
-      }]);
+    // Six $queryRaw calls run in Promise.all order:
+    //   1 openingIn, 2 openingOut, 3 inByLocation, 4 outByLocation,
+    //   5 inByCategory, 6 outByCategory
+    mockPrisma().$queryRaw
+      .mockResolvedValueOnce([{ total: 5000 }]) // openingIn: 100*50
+      .mockResolvedValueOnce([{ total: 2500 }]) // openingOut: 50*50
+      .mockResolvedValueOnce([{ id: "loc-1", name: "Warehouse", type: "COMPANY_WAREHOUSE", received: 10000 }]) // inByLocation: 200*50
+      .mockResolvedValueOnce([{ id: "loc-1", name: "Warehouse", type: "COMPANY_WAREHOUSE", issued: 5000 }])   // outByLocation: 100*50
+      .mockResolvedValueOnce([{ categoryName: "Steel", received: 10000 }]) // inByCategory
+      .mockResolvedValueOnce([{ categoryName: "Steel", issued: 5000 }]);   // outByCategory
     mockPrisma().stockLocationItem!.findMany.mockResolvedValue([
       { qty: 150, movingAvgCost: 50, location: { id: "loc-1", name: "Warehouse", type: "COMPANY_WAREHOUSE" }, material: { id: "m-1", code: "STL", name: "Steel", unit: "KG", category: { name: "Steel" } } },
     ]);
     const res = await GET(makeRequest("/api/reports/stock-movement-summary"), {});
     expect(res.status).toBe(200);
     const body = await getJson<{ opening: number; received: number; issued: number; balance: number }>(res);
-    // opening = 100*50 - 50*50 = 5000 - 2500 = 2500
+    // opening = 5000 - 2500 = 2500
     expect(body.opening).toBe(2500);
     // received = 200*50 = 10000
     expect(body.received).toBe(10000);

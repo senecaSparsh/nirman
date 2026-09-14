@@ -7,6 +7,7 @@ vi.mock("sonner", () => ({
 }));
 
 import { BudgetVarianceView } from "./budget-variance-view";
+import { clearFetchCache } from "@/lib/use-fetch";
 
 const projects = [{ id: "p1", name: "Tower One" }];
 
@@ -25,6 +26,7 @@ const varianceData = {
 describe("BudgetVarianceView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearFetchCache(); // memoryCache persists across tests — isolate each run
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => varianceData,
