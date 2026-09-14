@@ -159,7 +159,7 @@ export function DetailProgress({
       </div>
       <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--color-concrete)" }}>
         <div
-          className="h-full rounded-full transition-all"
+          className="h-full rounded-full transition-[width]"
           style={{ width: `${clamped}%`, backgroundColor: fillColor }}
         />
       </div>

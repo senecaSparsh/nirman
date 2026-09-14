@@ -6,6 +6,7 @@ import {
   approveExpenseClaim,
   rejectExpenseClaim,
   payExpenseClaim,
+  canAutoApprove,
   ServiceError,
 } from "@nirman/services";
 import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere } from "@/lib/server";
@@ -87,9 +88,15 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     if (d.action === "submit") {
       const user = await requirePermission(PERM.EXPENSE_CREATE);
       await submitExpenseClaim(id, company.id, user.id);
+      // Tier-1 creators (OWNER/ADMIN) auto-approve — no higher approver exists
+      // above them, so submitting their own claim completes it. Everyone else's
+      // claim stays SUBMITTED for another approver.
+      if (canAutoApprove(user.role)) {
+        await approveExpenseClaim(id, company.id, user.id, user.role);
+      }
     } else if (d.action === "approve") {
       const user = await requirePermission(PERM.EXPENSE_APPROVE);
-      await approveExpenseClaim(id, company.id, user.id);
+      await approveExpenseClaim(id, company.id, user.id, user.role);
     } else if (d.action === "reject") {
       const user = await requirePermission(PERM.EXPENSE_APPROVE);
       if (!d.rejectionReason?.trim() && !d.reason?.trim()) return json({ error: "A rejection reason is required" }, { status: 400 });

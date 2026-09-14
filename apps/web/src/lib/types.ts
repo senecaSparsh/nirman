@@ -1223,9 +1223,11 @@ export type VendorQuoteRow = {
   supplierId: string;
   supplierName: string;
   supplierPhone: string | null;
-  fileUrl: string;
-  fileName: string;
-  mimeType: string;
+  fileUrl: string | null;
+  fileName: string | null;
+  mimeType: string | null;
+  quoteSource: "DOCUMENT" | "EMAIL" | "VERBAL" | "WHATSAPP" | "LETTER" | "EXCEL";
+  sourceNote: string | null;
   landedTotal: number;
   validUntil: string | null;
   isCheapest: boolean;
@@ -1290,6 +1292,13 @@ export type ComparativeStatement = {
   selectedQuoteId: string | null;
   nonRejectedCount: number;
   gateSatisfied: boolean;
+  lastRateByMaterial: Record<string, {
+    unitCost: number;
+    poNumber: string;
+    poDate: string;
+    supplierName: string;
+    projectName: string | null;
+  }>;
 };
 
 // ───────────────────────────────────────────────────────────
@@ -1464,6 +1473,22 @@ export type ApprovalExpenseRow = {
   notes: string | null;
   canApprove: boolean;
   waitingOn: string;
+};
+
+export type ApprovalRaBillRow = {
+  id: string;
+  raBillNumber: string;
+  workOrderNumber: string | null;
+  projectName: string | null;
+  grossAmount: number;
+  netPayable: number;
+  periodFrom: string;
+  periodTo: string;
+  submittedByName: string | null;
+  createdAt: string;
+  canApprove: boolean;
+  waitingOn: string;
+  urgency: string;
 };
 
 

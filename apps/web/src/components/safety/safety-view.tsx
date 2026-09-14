@@ -8,7 +8,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
-import {cn, formatDate} from "@/lib/utils";
+import { localDateISO, cn, formatDate } from "@/lib/utils";
 import { statusBadgeVariant } from "@/components/page";
 import { AlertTriangle, ShieldAlert, ClipboardCheck, Plus, Search, Loader2 } from "lucide-react";
 import { computeRiskLevel } from "@nirman/services/safety";
@@ -252,7 +252,7 @@ function NewIncidentDialog({ open, onOpenChange, projects, onSaved }: { open: bo
   const [attachments, setAttachments] = useState<{ url: string; fileName?: string }[]>([]);
   const [form, setForm] = useState({
     projectId: projects[0]?.id ?? "", title: "", description: "", type: "ACCIDENT" as IncidentType, severity: "FIRST_AID" as IncidentSeverity,
-    incidentDate: new Date().toISOString().slice(0, 10), incidentTime: "", location: "", peopleInvolved: "",
+    incidentDate: localDateISO(), incidentTime: "", location: "", peopleInvolved: "",
     injuredCount: "0", fatalities: "0", propertyDamageEstimate: "",
   });
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) { setForm((f) => ({ ...f, [k]: v })); }
@@ -399,7 +399,7 @@ function NewHazardDialog({ open, onOpenChange, projects, onSaved }: { open: bool
 
 function NewInspectionDialog({ open, onOpenChange, projects, onSaved }: { open: boolean; onOpenChange: (o: boolean) => void; projects: Project[]; onSaved: () => void }) {
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ projectId: projects[0]?.id ?? "", title: "", scheduledDate: new Date().toISOString().slice(0, 10), inspectorName: "" });
+  const [form, setForm] = useState({ projectId: projects[0]?.id ?? "", title: "", scheduledDate: localDateISO(), inspectorName: "" });
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) { setForm((f) => ({ ...f, [k]: v })); }
 
   async function onSubmit(e: React.FormEvent) {

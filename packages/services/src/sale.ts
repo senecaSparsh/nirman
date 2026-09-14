@@ -1,6 +1,6 @@
 import { prisma, type Prisma, type AssetType } from "@nirman/db";
 import Decimal from "decimal.js";
-import { nextSequenceNumber } from "./sequence";
+import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
 import {
@@ -109,10 +109,10 @@ export function computePropertyTds(
   return null;
 }
 
-async function generateSaleNumber(tx: Prisma.TransactionClient): Promise<string> {
+async function generateSaleNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `SAL-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `SAL-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
@@ -367,7 +367,7 @@ export async function sellAsset(input: SellAssetInput) {
 
     const sale = await tx.assetSale.create({
       data: {
-        saleNumber: await generateSaleNumber(tx),
+        saleNumber: await generateSaleNumber(tx, input.companyId),
         assetType: input.assetType,
         landParcelId,
         builtUnitId,
@@ -1879,9 +1879,13 @@ export async function uploadSaleDocument(input: UploadSaleDocumentInput) {
     if (input.documentType === "ATS") {
       data.atsDocumentUrl = input.documentUrl;
       data.atsDocumentName = input.documentName ?? null;
+      // Auto-stamp the ATS execution date if not already set
+      if (!sale.atsDate) data.atsDate = new Date();
     } else if (input.documentType === "BBA") {
       data.bbaDocumentUrl = input.documentUrl;
       data.bbaDocumentName = input.documentName ?? null;
+      // Auto-stamp the BBA execution date if not already set
+      if (!sale.bbaDate) data.bbaDate = new Date();
     } else if (input.documentType === "REGISTRY") {
       data.registryDocumentUrl = input.documentUrl;
       data.registryDocumentName = input.documentName ?? null;

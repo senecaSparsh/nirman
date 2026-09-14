@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { cn, formatNumber, formatCurrency } from "@/lib/utils";
+import { cn, formatNumber, formatCurrency, formatDateTime } from "@/lib/utils";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import type { QueuedOperation } from "@/lib/offline/queue";
 import { VehicleCapture, type VehicleData } from "@/components/mobile/vehicle-capture";
@@ -532,8 +532,8 @@ function QueuePanel({ queue }: { queue: QueuedOperation[] }) {
                   {op.kind === "goods-receipt" ? "Goods Receipt" : op.kind}
                 </div>
                 <div className="text-muted-foreground">
-                  {new Date(op.createdAt).toLocaleString()}
-                  {op.attempts > 0 && ` · ${op.attempts} attempt(s)`}
+                  {formatDateTime(op.createdAt)}
+                  {op.attempts > 0 && ` · ${op.attempts} attempt${op.attempts === 1 ? "" : "s"}`}
                 </div>
                 {op.error && <div className="mt-0.5 text-danger">{op.error}</div>}
               </div>

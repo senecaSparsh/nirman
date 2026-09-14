@@ -1,10 +1,9 @@
 import { prisma, type Prisma } from "@nirman/db";
-import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
-import { nextSequenceNumber } from "./sequence";
+import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 
 /**
  * Quality Control Service — Non-Conformance Reports (NCR) and
@@ -141,14 +140,14 @@ export function isCapaTransitionAllowed(from: CapaStatus, to: CapaStatus): boole
 async function generateNcrNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `NCR-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `NCR-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
 async function generateCapaNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `CAPA-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `CAPA-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 

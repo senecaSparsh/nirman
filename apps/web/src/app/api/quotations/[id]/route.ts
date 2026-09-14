@@ -7,7 +7,6 @@ import {
   apiHandler,
   getCompany,
   getCompanyGroupIds,
-  getCurrentUserMembership,
   getUserRole,
   json,
   requirePermission,
@@ -25,7 +24,6 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
   const company = await getCompany();
   const groupCompanyIds = await getCompanyGroupIds(company);
   const role = await getUserRole();
-  const membership = await getCurrentUserMembership();
 
   const request = await prisma.quotationRequest.findFirst({
     where: { id, companyId: { in: groupCompanyIds }, ...await scopeWhere("Quotation", {}) },
@@ -39,19 +37,13 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
 
   const matrix = await getComparativeMatrix(id);
 
-  let canApprove = false;
   const closed = request.status === "APPROVED" || request.status === "CLOSED" || request.status === "CANCELLED";
-  if (membership && !closed) {
-    const submitterMembership = await prisma.userCompany.findUnique({
-      where: { id: request.submittedByUserCompanyId },
-      select: { reportsToUserCompanyId: true, userId: true },
-    });
-    if (submitterMembership?.reportsToUserCompanyId === null) {
-      canApprove = user.id === submitterMembership.userId;
-    } else if (submitterMembership?.reportsToUserCompanyId === membership.id) {
-      canApprove = true;
-    }
-  }
+  const canApprove = hasPermission(role, PERM.QUOTATION_MANAGE) && !closed
+    ? user.id !== (await prisma.userCompany.findUnique({
+        where: { id: request.submittedByUserCompanyId },
+        select: { userId: true },
+      }))?.userId
+    : false;
 
   const canAddQuote = hasPermission(role, PERM.QUOTATION_MANAGE) && !closed;
 

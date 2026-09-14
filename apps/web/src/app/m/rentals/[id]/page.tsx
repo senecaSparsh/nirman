@@ -57,7 +57,7 @@ export default function MobileRentalDetailPage({
             : null,
         ]);
 
-        const assetLabel = unit?.unitNumber ?? parcel ? `Parcel ${parcel?.number}` : "—";
+        const assetLabel = unit?.unitNumber ?? (parcel ? `Parcel ${parcel.number}` : "—");
         const assetType = tenancy.assetType;
         const assetArea = unit ? toNum(unit.area) : parcel ? toNum(parcel.area) : null;
         const assetAreaUnit = unit?.areaUnit ?? parcel?.areaUnit ?? null;

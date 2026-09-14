@@ -99,6 +99,71 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
     ? membership.reportsTo.user.designation
     : null;
 
+  // ── Worker self-service — payslip, leaves, attendance. Only fetched when
+  // an Employee record exists (owners/admins without one skip the queries).
+  let hr: MePageInitial["hr"] = null;
+  if (employee) {
+    const now = new Date();
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const [payslip, leaves, presentDays] = await Promise.all([
+      // Latest PAID payslip — what the worker actually got last.
+      prisma.payrollLine.findFirst({
+        where: { employeeId: employee.id, payrollPeriod: { status: "PAID" } },
+        orderBy: { payrollPeriod: { year: "desc" } },
+        select: {
+          daysWorked: true,
+          grossPay: true,
+          netPay: true,
+          deductions: true,
+          pf: true,
+          esi: true,
+          tax: true,
+          payrollPeriod: { select: { month: true, year: true } },
+        },
+      }).then((l) => (l ? l : null)),
+      // Recent leave requests — status is the "did the office respond" answer.
+      prisma.leaveRequest.findMany({
+        where: { employeeId: employee.id },
+        orderBy: { createdAt: "desc" },
+        take: 4,
+        select: { id: true, type: true, startDate: true, endDate: true, days: true, status: true },
+      }),
+      // Days present this calendar month.
+      prisma.workerAttendance.count({
+        where: {
+          employeeId: employee.id,
+          date: { gte: monthStart },
+          status: { in: ["PRESENT", "HALF_DAY", "PAID_LEAVE", "OVERTIME", "LATE"] },
+        },
+      }),
+    ]);
+    hr = {
+      payslip: payslip
+        ? {
+            month: payslip.payrollPeriod.month,
+            year: payslip.payrollPeriod.year,
+            daysWorked: Number(payslip.daysWorked),
+            grossPay: Number(payslip.grossPay),
+            netPay: Number(payslip.netPay),
+            deductions:
+              Number(payslip.deductions) +
+              Number(payslip.pf) +
+              Number(payslip.esi) +
+              Number(payslip.tax),
+          }
+        : null,
+      leaves: leaves.map((l) => ({
+        id: l.id,
+        type: l.type,
+        startDate: l.startDate.toISOString().slice(0, 10),
+        endDate: l.endDate.toISOString().slice(0, 10),
+        days: Number(l.days),
+        status: l.status,
+      })),
+      presentDaysThisMonth: presentDays,
+    };
+  }
+
   return {
     name: user.name,
     role,
@@ -138,5 +203,6 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
           isComplete: employee.onboardingComplete === true,
         }
       : null,
+    hr,
   };
 }

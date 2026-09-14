@@ -62,7 +62,7 @@ interface Stats {
 type Filter = "all" | "active" | "pending" | "overdue" | "expiring";
 
 const STATUS_META: Record<string, { color: string; label: string }> = {
-  ACTIVE: { color: "var(--color-go)", label: "Active" },
+  ACTIVE: { color: "var(--color-steel)", label: "Active" },
   PENDING: { color: "var(--color-signal)", label: "Pending" },
   EXPIRED: { color: "var(--color-stop)", label: "Expired" },
   TERMINATED: { color: "var(--color-stop)", label: "Terminated" },

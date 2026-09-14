@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/empty-state";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { IssueMaterialsDialog } from "./issue-materials-dialog";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { localDateISO, formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { downloadCSV, downloadExcel } from "@/lib/export";
 import type { ProjectOption, StockLocationRow, StockMovementRow, DepartmentOption } from "@/lib/types";
 
@@ -95,7 +95,7 @@ export function StockMovementsView({
       {/* Export CSV (icon-only) */}
       <div className="group relative">
         <button
-          onClick={() => downloadCSV(`stock-movements-${new Date().toISOString().slice(0,10)}.csv`, filtered as unknown as Record<string, unknown>[], [
+          onClick={() => downloadCSV(`stock-movements-${localDateISO()}.csv`, filtered as unknown as Record<string, unknown>[], [
             { key: "timestamp", label: "Date", format: (v) => formatDate(String(v)) },
             { key: "movementLabel", label: "Type" },
             { key: "materialName", label: "Material" },

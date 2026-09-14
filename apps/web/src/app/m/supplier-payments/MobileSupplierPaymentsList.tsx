@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Banknote, Share2, Hash, Calendar, Building2, IndianRupee, CreditCard, FileText } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Banknote, Share2, Hash, Calendar, Building2, IndianRupee, CreditCard, FileText, Eye } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 import { useLongPress } from "@/lib/use-long-press";
@@ -12,7 +13,6 @@ import {
 import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import {
   MobileSearchHeader,
-  MobileCardGrid,
   MobileNoResults,
   MobileSummaryStrip,
   type SummaryStat,
@@ -24,6 +24,8 @@ export type SupplierPaymentListItem = {
   id: string;
   paymentNumber: string;
   supplierName: string;
+  supplierId: string;
+  poId: string | null;
   poNumber: string | null;
   invoiceNumber: string | null;
   amount: number;
@@ -35,12 +37,14 @@ export function MobileSupplierPaymentsList({
   items: initialItems,
   totalAmount,
   canManage,
+  canViewProcurement,
   loadMoreUrl,
   initialCursor,
 }: {
   items: SupplierPaymentListItem[];
   totalAmount: number;
   canManage?: boolean;
+  canViewProcurement?: boolean;
   loadMoreUrl?: string;
   initialCursor?: string | null;
 }) {
@@ -87,11 +91,11 @@ export function MobileSupplierPaymentsList({
         placeholder="Search payments…"
       />
       <MobileSummaryStrip stats={stats} />
-      <MobileCardGrid>
+      <div className="flex flex-col gap-2.5 px-1">
         {filtered.map((p) => (
-          <SupplierPaymentCard key={p.id} p={p} />
+          <SupplierPaymentCard key={p.id} p={p} canViewProcurement={canViewProcurement} />
         ))}
-      </MobileCardGrid>
+      </div>
       {filtered.length === 0 && <MobileNoResults query={query} />}
       {loadMoreUrl ? (
         <MobileLoadMore
@@ -106,7 +110,8 @@ export function MobileSupplierPaymentsList({
 }
 
 /* ─── Supplier payment card — long-press opens overview sheet ─── */
-function SupplierPaymentCard({ p }: { p: SupplierPaymentListItem }) {
+function SupplierPaymentCard({ p, canViewProcurement }: { p: SupplierPaymentListItem; canViewProcurement?: boolean }) {
+  const router = useRouter();
   // ── Long-press overview sheet (data already in the list item — no fetch) ──
   const [overviewOpen, setOverviewOpen] = useState(false);
   const [pressPoint, setPressPoint] = useState<{ x: number; y: number } | null>(null);
@@ -125,6 +130,20 @@ function SupplierPaymentCard({ p }: { p: SupplierPaymentListItem }) {
   ];
 
   const overviewActions: ContextAction[] = [
+    ...(p.poId && canViewProcurement
+      ? [{
+          label: "View PO",
+          icon: Eye,
+          onPress: () => router.push(`/m/procurement/${p.poId}`),
+        }]
+      : []),
+    ...(canViewProcurement
+      ? [{
+          label: "View Supplier",
+          icon: Building2,
+          onPress: () => router.push(`/m/suppliers/${p.supplierId}`),
+        }]
+      : []),
     {
       label: "Share",
       icon: Share2,

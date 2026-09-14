@@ -134,6 +134,7 @@ export function MobileNewNcrForm({
       toast.success("NCR raised");
       onClose();
       router.refresh();
+      if (data.id) router.push(`/m/quality-control/ncr/${data.id}`);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
@@ -142,8 +143,6 @@ export function MobileNewNcrForm({
   }
 
   const inputStyle = { borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" };
-  const labelClass = "block text-m-caption font-bold mb-0";
-  const labelStyle = { color: "var(--color-ink-700)" };
 
   return (
     <div className="flex flex-col gap-3">
@@ -186,17 +185,14 @@ export function MobileNewNcrForm({
 
       {/* Description */}
       <SectionCard title="Description">
-        <div>
-          <label className={labelClass} style={labelStyle}>Description</label>
-          <textarea
-            value={form.description}
-            onChange={(e) => set("description", e.target.value)}
-            rows={3}
-            placeholder="What is non-conforming? Be specific…"
-            className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
-            style={inputStyle}
-          />
-        </div>
+        <textarea
+          value={form.description}
+          onChange={(e) => set("description", e.target.value)}
+          rows={3}
+          placeholder="What is non-conforming? Be specific…"
+          className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
+          style={inputStyle}
+        />
       </SectionCard>
 
       {/* Location & Linkage */}

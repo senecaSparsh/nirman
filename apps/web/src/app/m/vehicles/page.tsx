@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import {Truck, Search, User, X, ChevronRight, Loader2, RefreshCw} from "lucide-react";
+import {Truck, User, X, ChevronRight, Loader2, RefreshCw} from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
-import { MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileNoResults, MobileSearchHeader } from "@/components/mobile/v2/scaffold";
 import { usePermissions } from "@/lib/permissions";
 import { PERM } from "@/lib/roles";
 import { MobileVehiclesFab } from "./MobileVehiclesFab";
@@ -76,40 +76,25 @@ export default function MobileVehiclesPage() {
 
   return (
     <div className="min-h-screen pb-20" style={{ backgroundColor: "var(--color-paper)" }}>
-      {/* Header */}
-      <div className="sticky top-0 z-10 border-b px-4 py-3" style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}>
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-m-section font-bold flex items-center gap-2" style={{ color: "var(--color-ink-950)" }}>
-            <Truck className="size-4" style={{ color: "var(--color-steel)" }} />
-            Vehicles
-          </h1>
-          <div className="flex items-center gap-2">
-            <span className="text-m-caption font-semibold" style={{ color: "var(--color-steel)" }}>
-              {vehicles.length} total
-            </span>
-            <button
-              onClick={() => loadVehicles()}
-              disabled={loading}
-              className="p-1 press"
-              aria-label="Refresh"
-            >
-              <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} style={{ color: "var(--color-steel)" }} />
-            </button>
-          </div>
-        </div>
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5" style={{ color: "var(--color-ink-400)" }} />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by vehicle number…"
-            className="w-full h-7 pl-8 pr-3 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-            style={{ backgroundColor: "transparent" }}
-          />
-        </div>
-      </div>
+      <MobileSearchHeader
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Search by vehicle number…"
+        resultCount={`${vehicles.length} total`}
+        action={
+          <button
+            onClick={() => loadVehicles()}
+            disabled={loading}
+            className="grid place-items-center size-8 rounded-[0.5rem] border press"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+            aria-label="Refresh"
+          >
+            <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} style={{ color: "var(--color-ink-500)" }} />
+          </button>
+        }
+        showClear={!!query}
+        onClear={() => setQuery("")}
+      />
 
       {/* List */}
       {loading ? (

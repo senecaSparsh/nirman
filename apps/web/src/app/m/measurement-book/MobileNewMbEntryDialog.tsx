@@ -202,24 +202,26 @@ export function MobileNewMbEntryDialog({
               </div>
             </div>
 
-            {/* Description */}
-            <UnderlineInput
-              label="Description"
-              required
-              value={form.description}
-              onChange={(v) => set("description", v)}
-              placeholder="e.g. PCC for foundation, 1st floor slab casting"
-              enterKeyHint="next"
-            />
-
-            {/* Location Ref */}
-            <UnderlineInput
-              label="Location Reference (optional)"
-              value={form.locationRef}
-              onChange={(v) => set("locationRef", v)}
-              placeholder="e.g. Grid A-3, Wing B, Plot 7"
-              enterKeyHint="done"
-            />
+            {/* Description + Location Ref */}
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <UnderlineInput
+                label="Description"
+                required
+                value={form.description}
+                onChange={(v) => set("description", v)}
+                placeholder="e.g. PCC for foundation"
+                enterKeyHint="next"
+              />
+              <div className="pl-2">
+                <UnderlineInput
+                  label="Location Ref (optional)"
+                  value={form.locationRef}
+                  onChange={(v) => set("locationRef", v)}
+                  placeholder="e.g. Grid A-3, Wing B"
+                  enterKeyHint="done"
+                />
+              </div>
+            </div>
           </SectionCard>
 
           {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}

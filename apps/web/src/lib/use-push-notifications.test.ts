@@ -85,8 +85,20 @@ describe("usePushNotifications", () => {
     });
   });
 
-  it("requestPermission: granted → subscribes + posts to server", async () => {
-    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true } as Response);
+  it("requestPermission: granted → fetches VAPID key, subscribes with it + posts to server", async () => {
+    const sub = makePushSubscription();
+    const reg = makeServiceWorkerRegistration(sub);
+    Object.defineProperty(navigator, "serviceWorker", {
+      value: { ready: Promise.resolve(reg) },
+      configurable: true,
+    });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: string) =>
+      Promise.resolve(
+        url === "/api/notifications/vapid-public-key"
+          ? ({ ok: true, json: async () => ({ publicKey: "BAxOcGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6MTIzNDU2Nzg5MA" }) } as Response)
+          : ({ ok: true } as Response),
+      ),
+    );
     const { result } = renderHook(() => usePushNotifications());
 
     await act(async () => {
@@ -96,10 +108,32 @@ describe("usePushNotifications", () => {
     expect(result.current.permission).toBe("granted");
     expect(result.current.subscribed).toBe(true);
     expect(result.current.loading).toBe(false);
+    expect(globalThis.fetch).toHaveBeenCalledWith("/api/notifications/vapid-public-key");
+    // VAPID key must reach pushManager.subscribe — Chrome refuses without it
+    expect(reg.pushManager.subscribe).toHaveBeenCalledWith(
+      expect.objectContaining({ applicationServerKey: expect.any(Uint8Array) }),
+    );
     expect(globalThis.fetch).toHaveBeenCalledWith(
       "/api/notifications/subscribe",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("requestPermission: granted → subscribes without key when VAPID not configured", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: string) =>
+      Promise.resolve(
+        url === "/api/notifications/vapid-public-key"
+          ? ({ ok: false, status: 404 } as Response)
+          : ({ ok: true } as Response),
+      ),
+    );
+    const { result } = renderHook(() => usePushNotifications());
+
+    await act(async () => {
+      await result.current.requestPermission();
+    });
+
+    expect(result.current.subscribed).toBe(true);
   });
 
   it("requestPermission: denied → does not subscribe", async () => {

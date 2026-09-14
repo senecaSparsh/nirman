@@ -34,9 +34,9 @@ export type WorkflowListItem = {
 };
 
 const STATUS_STYLES: Record<string, { color: string; bg: string; label: string }> = {
-  ACTIVE: { color: "var(--color-go)", bg: "color-mix(in srgb, var(--color-go) 10%, transparent)", label: "Active" },
+  ACTIVE: { color: "var(--color-steel)", bg: "color-mix(in srgb, var(--color-steel) 10%, transparent)", label: "Active" },
   DRAFT: { color: "var(--color-ink-500)", bg: "var(--color-paper-2)", label: "Draft" },
-  PAUSED: { color: "var(--color-warning, #f59e0b)", bg: "color-mix(in srgb, var(--color-warning, #f59e0b) 10%, transparent)", label: "Paused" },
+  PAUSED: { color: "var(--color-signal-dark)", bg: "color-mix(in srgb, var(--color-signal) 10%, transparent)", label: "Paused" },
   ARCHIVED: { color: "var(--color-ink-400)", bg: "var(--color-paper-2)", label: "Archived" },
 };
 
@@ -219,7 +219,7 @@ export function MobileWorkflowsList({
                     <button
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDelTarget(w); }}
                       className="flex items-center gap-1 px-2 py-1 rounded-[0.375rem] text-m-caption font-medium press"
-                      style={{ color: "var(--color-danger, #ef4444)" }}
+                      style={{ color: "var(--color-stop)" }}
                     >
                       <Trash2 className="size-3" /> Delete
                     </button>
@@ -283,7 +283,7 @@ export function MobileWorkflowsList({
                 onClick={() => handleDelete(delTarget.id)}
                 disabled={deleting}
                 className="px-4 h-10 rounded-[0.5rem] text-m-section font-bold flex items-center gap-1.5 press"
-                style={{ backgroundColor: "var(--color-danger, #ef4444)", color: "var(--color-paper)" }}
+                style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
               >
                 {deleting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
                 {deleting ? "Deleting…" : "Delete"}

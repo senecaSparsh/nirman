@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Loader2, ChevronDown } from "lucide-react";
 
 /**
@@ -94,6 +94,21 @@ export function usePaginatedList<T>(
   const [cursor, setCursor] = useState<string | null>(initialCursor);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(initialCursor !== null);
+
+  // Re-sync when the server sends new data (router.refresh() creates a new
+  // array reference). Without this, a newly created record never appears in
+  // the list — the hook keeps the stale snapshot from first mount.
+  const prevRef = useRef(initialItems);
+  const prevCursorRef = useRef(initialCursor);
+  useEffect(() => {
+    if (initialItems !== prevRef.current || initialCursor !== prevCursorRef.current) {
+      prevRef.current = initialItems;
+      prevCursorRef.current = initialCursor;
+      setItems(initialItems);
+      setCursor(initialCursor);
+      setHasMore(initialCursor !== null);
+    }
+  }, [initialItems, initialCursor]);
 
   const loadMore = useCallback(async () => {
     if (!cursor || loading) return;

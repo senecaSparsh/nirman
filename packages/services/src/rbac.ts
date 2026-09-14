@@ -1,6 +1,5 @@
-import { prisma, type Prisma } from "@nirman/db";
+import { prisma } from "@nirman/db";
 import { logAction } from "./audit";
-import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
 
 /**
@@ -248,6 +247,23 @@ const SVC_ROLE_TIER: Record<string, number> = {
 
 function svcRoleTier(role: string): number {
   return SVC_ROLE_TIER[role] ?? 5;
+}
+
+/**
+ * Whether a creator's own authority is sufficient to auto-approve what they
+ * just created — i.e. they sit at the top of the approval hierarchy and no
+ * higher reviewer exists to defer to.
+ *
+ * True only for tier-1 roles (OWNER / ADMIN / DEVELOPER). A middle manager or
+ * staff member may hold *approval permission* over other people's records, but
+ * their own creations still go through a second pair of eyes — the whole point
+ * of the approval gate is that approver ≠ creator. At tier 1 there is no one
+ * above the creator, so requiring a second approver is pure friction (and a
+ * deadlock in single-owner companies). Auto-approving there removes that
+ * friction while preserving separation of duties for everyone else.
+ */
+export function canAutoApprove(role: string | null | undefined): boolean {
+  return role === "OWNER" || role === "ADMIN" || role === "DEVELOPER";
 }
 
 /** Exported for unit testing — mirrors canAssignRole in the web app's roles.ts. */

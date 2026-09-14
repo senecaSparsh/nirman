@@ -12,7 +12,6 @@ import {
   Loader2,
   RefreshCw,
   WifiOff,
-  Wifi,
   MoreVertical,
   Search,
 } from "lucide-react";
@@ -25,7 +24,9 @@ import { NavSheet } from "@/components/mobile/v2/nav-sheet";
 import { TabSwitcher } from "@/components/mobile/v2/tab-switcher";
 import { VoiceAgentButton } from "@/components/mobile/v2/voice-agent-button";
 import { MobileGlobalSearch } from "@/components/mobile/v2/mobile-global-search";
+import { NotificationBell } from "@/components/notification-bell";
 import { useCompanySwitch } from "@/lib/use-company-switch";
+import { badgeCountUrl, badgeCountFrom } from "@/lib/nav-badges";
 import { useRecentPages } from "@/lib/use-nav-preferences";
 import { usePageContext } from "@/components/mobile/v2/page-context";
 import { useDeviceTierWithCaps } from "@/lib/device-tier-client";
@@ -219,11 +220,11 @@ export function MobileShellV2({
     let cancelled = false;
     Promise.all(
       badgeEndpoints.map(({ path, endpoint }) =>
-        fetch(endpoint)
-          .then((r) => (r.ok ? r.json() : []))
+        fetch(badgeCountUrl(endpoint))
+          .then((r) => (r.ok ? r.json() : null))
           .then((data) => ({
             href: path,
-            count: Array.isArray(data) ? data.length : 0,
+            count: badgeCountFrom(data),
           }))
           .catch(() => ({ href: path, count: 0 })),
       ),
@@ -790,12 +791,16 @@ function MobileShellInner({
             {/* Voice agent — tap to speak, no popup */}
             <VoiceAgentButton />
 
-            {/* Online/offline indicator */}
+            {/* In-app notifications — "your leave was approved", task
+                assignments, etc. Self-fetches every 30s. This is the
+                field user's "office replied" channel. */}
+            <NotificationBell />
+
+            {/* Online/offline — only surfaces when connectivity is lost.
+                A green "online" icon every second of the day is noise. */}
             {isOffline ? (
               <WifiOff className="size-3.5" style={{ color: "var(--color-stop)" }} />
-            ) : (
-              <Wifi className="size-3.5" style={{ color: "var(--color-go)" }} />
-            )}
+            ) : null}
 
             {/* Pending sync badge */}
             {offlineQueueCount > 0 ? (

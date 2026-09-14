@@ -207,9 +207,9 @@ function SaleCard({
       >
         <span
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.375rem]"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-warn) 10%, transparent)" }}
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)" }}
         >
-          <Wallet className="h-4 w-4" style={{ color: "var(--color-warn)" }} />
+          <Wallet className="h-4 w-4" style={{ color: "var(--color-signal-dark)" }} />
         </span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>{sale.customerName}</div>
@@ -219,7 +219,7 @@ function SaleCard({
         </div>
         <MobileStatusBadge status={sale.paymentStatus} />
         <div className="shrink-0 text-right">
-          <div className="text-m-caption font-medium tnum" style={{ color: "var(--color-warn)" }}>{formatCurrency(sale.balance)}</div>
+          <div className="text-m-caption font-medium tnum" style={{ color: "var(--color-signal-dark)" }}>{formatCurrency(sale.balance)}</div>
           <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>due</div>
         </div>
         {expanded ? (
@@ -247,7 +247,7 @@ function SaleCard({
             </div>
             <div className="flex justify-between border-t pt-1.5 font-semibold" style={{ borderColor: "var(--color-line)" }}>
               <span style={{ color: "var(--color-ink-950)" }}>Balance</span>
-              <span className="tnum" style={{ color: "var(--color-warn)" }}>{formatCurrency(sale.balance)}</span>
+              <span className="tnum" style={{ color: "var(--color-signal-dark)" }}>{formatCurrency(sale.balance)}</span>
             </div>
           </div>
 

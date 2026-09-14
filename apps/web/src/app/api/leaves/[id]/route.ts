@@ -28,6 +28,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       approvedById: user.id,
       approve: parsed.data.approve,
       rejectedReason: parsed.data.rejectedReason ?? undefined,
+      actorRole: user.role,
     });
     return json({ ok: true, id: leave.id, status: leave.status });
   } catch (err: unknown) {

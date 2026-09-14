@@ -29,6 +29,9 @@ export default function MobileStockCountDetailPage({
               include: { material: { select: { id: true, name: true, unit: true, code: true } } },
               orderBy: { material: { name: "asc" } },
             },
+            createdBy: { select: { name: true } },
+            confirmedBy: { select: { name: true } },
+            reconciledBy: { select: { name: true } },
           },
         });
 
@@ -57,6 +60,11 @@ export default function MobileStockCountDetailPage({
           countDate: count.countDate.toISOString(),
           createdAt: count.createdAt.toISOString(),
           notes: count.notes,
+          createdByName: count.createdBy?.name ?? null,
+          confirmedByName: count.confirmedBy?.name ?? null,
+          confirmedAt: count.confirmedAt?.toISOString() ?? null,
+          reconciledByName: count.reconciledBy?.name ?? null,
+          reconciledAt: count.reconciledAt?.toISOString() ?? null,
           location: {
             id: count.location.id,
             name: count.location.name,

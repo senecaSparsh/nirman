@@ -6,7 +6,7 @@ import { postSupplierReturn } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { assertGatePassApproved, autoCreateGatePassFromRef } from "./gate-pass";
 import { withSerializableTransaction } from "./transaction";
-import { nextSequenceNumber } from "./sequence";
+import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 
 /**
  * Supplier Return Service — return defective/excess materials to suppliers.
@@ -62,10 +62,10 @@ export function isSupplierReturnTransitionAllowed(
   return allowed[from]?.includes(to) ?? false;
 }
 
-async function generateReturnNumber(tx: Prisma.TransactionClient): Promise<string> {
+async function generateReturnNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `RET-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `RET-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
@@ -116,7 +116,7 @@ export async function createSupplierReturn(input: CreateSupplierReturnInput) {
   return withSerializableTransaction(async (tx) => {
     const ret = await tx.supplierReturn.create({
       data: {
-        returnNumber: await generateReturnNumber(tx),
+        returnNumber: await generateReturnNumber(tx, input.companyId),
         supplierId: input.supplierId,
         companyId: input.companyId,
         purchaseOrderId: input.purchaseOrderId,

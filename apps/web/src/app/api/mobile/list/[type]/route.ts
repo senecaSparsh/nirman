@@ -267,7 +267,14 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
     case "requisitions": {
       await requirePermission(PERM.PROCUREMENT_VIEW);
       const reqs = await prisma.materialRequisition.findMany({
-        where: { project: { companyId: { in: groupCompanyIds } }, ...cursorFilter, ...reqScope },
+        where: {
+          OR: [
+            { project: { companyId: { in: groupCompanyIds } } },
+            { department: { companyId: { in: groupCompanyIds } } },
+          ],
+          ...cursorFilter,
+          ...reqScope,
+        },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: BATCH_SIZE + 1,
         include: {
@@ -613,7 +620,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
         take: BATCH_SIZE + 1,
         include: {
           supplier: { select: { id: true, name: true } },
-          purchaseOrder: { select: { poNumber: true } },
+          purchaseOrder: { select: { id: true, poNumber: true } },
           invoice: { select: { invoiceNumber: true } },
         },
       });
@@ -623,6 +630,8 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
         id: p.id,
         paymentNumber: p.paymentNumber,
         supplierName: p.supplier.name,
+        supplierId: p.supplier.id,
+        poId: p.purchaseOrder?.id ?? null,
         poNumber: p.purchaseOrder?.poNumber ?? null,
         invoiceNumber: p.invoice?.invoiceNumber ?? null,
         amount: toNum(p.amount),

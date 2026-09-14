@@ -266,7 +266,7 @@ function ActionCardShell({
       </div>
       <span
         className="shrink-0 inline-flex items-center gap-1 rounded-[0.5rem] px-3 h-9 text-m-section font-bold text-m-body press"
-        style={{ backgroundColor: accent, color: tone === "signal" ? "var(--color-ink-950)" : "#fff" }}
+        style={{ backgroundColor: accent, color: tone === "signal" ? "var(--color-ink-950)" : "var(--color-paper)" }}
       >
         {actionVerb}
         <ArrowRight className="size-3.5" />

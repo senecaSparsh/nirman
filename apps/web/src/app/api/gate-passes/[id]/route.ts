@@ -7,6 +7,7 @@ import {
   resubmitGatePass,
   confirmExit,
   cancelGatePass,
+  canAutoApprove,
 } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -53,6 +54,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const { id } = await params;
   const body = await req.json();
   const action = body?.action;
+  let execWarning: string | null = null;
 
   // Verify company membership for all actions
   const company = await getCompany();
@@ -65,9 +67,21 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (action === "submit") {
     const user = await requirePermission(PERM.GATE_PASS_CREATE);
     await submitGatePass(id, user.id);
+    // Tier-1 creators (OWNER/ADMIN) auto-approve — the gate-pass checkpoint is
+    // a control against unauthorized material removal; an owner asserting it
+    // should leave IS the authorization. Lower tiers wait for an approver.
+    if (canAutoApprove(user.role)) {
+      await approveGatePass(id, user.id, undefined, user.role);
+    }
   } else if (action === "approve") {
     const user = await requirePermission(PERM.GATE_PASS_APPROVE);
-    await approveGatePass(id, user.id, body?.notes);
+    const approved = await approveGatePass(id, user.id, body?.notes, user.role);
+    // Surface auto-execution failure (e.g. insufficient stock) — the pass is
+    // approved but the linked transaction couldn't run, which the approver
+    // needs to see rather than discover later at the gate.
+    if (approved?.executionError) {
+      execWarning = approved.executionError;
+    }
   } else if (action === "reject") {
     const user = await requirePermission(PERM.GATE_PASS_APPROVE);
     if (!body?.reason?.trim()) return json({ error: "Rejection reason is required" }, { status: 400 });
@@ -90,7 +104,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   revalidatePath("/gate-passes");
   revalidatePath("/m/gate-pass");
-  return json({ ok: true });
+  return json({ ok: true, ...(execWarning ? { executionWarning: execWarning } : {}) });
 });
 
 /**

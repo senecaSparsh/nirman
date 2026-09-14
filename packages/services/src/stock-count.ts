@@ -76,6 +76,7 @@ export async function createStockCount(input: CreateStockCountInput) {
         locationId: input.locationId,
         notes: input.notes,
         status: "DRAFT",
+        createdById: input.userId,
         lines: {
           create: input.lines.map((l) => {
             const counted = new Decimal(l.countedQty);
@@ -131,7 +132,14 @@ export async function confirmStockCount(countId: string, userId?: string) {
     const count = await tx.stockCount.findUnique({ where: { id: countId } });
     if (!count) throw new ServiceError("Stock count not found", 404);
     if (count.status !== "DRAFT") throw new ServiceError(`Cannot confirm count in status ${count.status}`);
-    const updated = await tx.stockCount.update({ where: { id: countId }, data: { status: "COUNTED" } });
+    const updated = await tx.stockCount.update({
+      where: { id: countId },
+      data: {
+        status: "COUNTED",
+        confirmedById: userId,
+        confirmedAt: new Date(),
+      },
+    });
     await logAction(tx, {
       userId,
       action: "STOCK_COUNT_CONFIRM",
@@ -246,7 +254,14 @@ export async function reconcileStockCount(countId: string, userId?: string) {
       });
     }
 
-    const updated = await tx.stockCount.update({ where: { id: countId }, data: { status: "RECONCILED" } });
+    const updated = await tx.stockCount.update({
+      where: { id: countId },
+      data: {
+        status: "RECONCILED",
+        reconciledById: userId,
+        reconciledAt: new Date(),
+      },
+    });
     await logAction(tx, {
       userId,
       action: "STOCK_COUNT_RECONCILE",

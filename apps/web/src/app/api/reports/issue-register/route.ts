@@ -40,6 +40,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       project: { select: { name: true } },
     },
     orderBy: { issueDate: "asc" },
+    take: 5000,
   });
 
   const rows = issues.map((issue, i) => {

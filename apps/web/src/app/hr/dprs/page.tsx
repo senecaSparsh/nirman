@@ -4,6 +4,7 @@ import { prisma } from "@nirman/db";
 import { listWorkTypes } from "@nirman/services";
 import { getCompany, getCurrentUser, toNum, getUserRole, getUserScope, scopeWhere, getScopedFormOptions } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { canAutoApprove } from "@nirman/services";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
 import { DprsView } from "@/components/hr/dprs-view";
@@ -32,6 +33,7 @@ async function DprsContent() {
     canSubmit: hasPermission(role, PERM.DPR_SUBMIT),
     canSubAdminApprove: hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN),
     canAdminApprove: hasPermission(role, PERM.DPR_APPROVE_ADMIN),
+    canSelfApprove: canAutoApprove(role),
   };
 
   const currentUser = await getCurrentUser();

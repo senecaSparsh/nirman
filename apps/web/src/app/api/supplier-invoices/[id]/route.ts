@@ -130,6 +130,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       userId: user.id,
       action: body.action,
       notes: body.notes,
+      actorRole: user.role,
     });
 
     revalidatePath("/supplier-invoices");

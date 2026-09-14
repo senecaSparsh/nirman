@@ -88,7 +88,7 @@ export default function MobileEquipmentPage() {
                   { key: "assignedProjectName", label: "Assigned To" },
                 ] as MobileColumnSpec[]
               }
-              exportSummary={`${equipment.length} items · ${formatCurrencyCompact(totalValue)} total value`}
+              exportSummary={`${equipment.length} item${equipment.length === 1 ? "" : "s"} · ${formatCurrencyCompact(totalValue)} total value`}
             />
             {actions.canCreateEquipment && <MobileEquipmentFab />}
           </div>

@@ -6,6 +6,7 @@ import {
   markAllNotificationsRead,
 } from "@nirman/services";
 import { apiHandler, json, requireUser } from "@/lib/server";
+import { invalidateCache } from "@/lib/server-cache";
 
 // GET /api/notifications/in-app — list notifications + unread count for the current user
 export const GET = apiHandler(async (_req: NextRequest) => {
@@ -27,6 +28,11 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     })),
     unreadCount,
   });
+}, {
+  // Polled every 30s by the notification bell in every shell — serve
+  // repeat hits from memory for 10s. PATCH invalidates the tag so the
+  // badge count updates immediately after marking read.
+  cache: { tag: "notifications", ttlMs: 10_000 },
 });
 
 // PATCH /api/notifications/in-app — mark as read (single or all)
@@ -36,11 +42,13 @@ export const PATCH = apiHandler(async (req: NextRequest) => {
 
   if (body.markAll === true) {
     await markAllNotificationsRead(user.id);
+    invalidateCache("notifications");
     return json({ ok: true });
   }
 
   if (body.id) {
     await markNotificationRead(body.id);
+    invalidateCache("notifications");
     return json({ ok: true });
   }
 

@@ -30,6 +30,8 @@ import {
   UserCircle,
   Users,
   GitBranch,
+  Wallet,
+  CalendarOff,
 } from "lucide-react";
 import { useSession, signOut as authSignOut, authClient } from "@/lib/auth-client";
 import { useFieldMode } from "@/lib/field-mode";
@@ -98,6 +100,27 @@ export interface MePageInitial {
   reportsToDesignation: string | null;
   /** Onboarding progress from the Employee record (null if no Employee linked). */
   onboarding: OnboardingProgress | null;
+  /** Worker self-service — payslip + leave history + attendance.
+   *  Null when the user has no linked Employee record. */
+  hr: {
+    payslip: {
+      month: number;
+      year: number;
+      daysWorked: number;
+      grossPay: number;
+      netPay: number;
+      deductions: number;
+    } | null;
+    leaves: {
+      id: string;
+      type: string;
+      startDate: string;
+      endDate: string;
+      days: number;
+      status: string;
+    }[];
+    presentDaysThisMonth: number;
+  } | null;
 }
 
 export function MePageClient({ initial }: { initial: MePageInitial | null }) {
@@ -557,6 +580,103 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
           />
         );
       })()}
+
+      {/* ── My Pay & Leave — the two questions every worker asks:
+          "kitna paisa aaya" (latest payslip) + "kitni chhutti" (leave
+          status). Only rendered when an Employee record exists. ── */}
+      {initial?.hr ? (
+        <>
+          <MobileSectionTitle>My Pay</MobileSectionTitle>
+          <div className="mb-4">
+            <Card className="p-4">
+              {initial.hr.payslip ? (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                      {new Date(initial.hr.payslip.year, initial.hr.payslip.month - 1).toLocaleString("en-IN", { month: "long", year: "numeric" })}
+                    </p>
+                    <span className="rounded-full px-2 py-0.5 text-m-caption font-bold" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)", color: "var(--color-go)" }}>
+                      Paid
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-1 mb-1.5">
+                    <Wallet className="size-4 self-center" style={{ color: "var(--color-go)" }} />
+                    <span className="text-m-title font-extrabold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                      ₹{initial.hr.payslip.netPay.toLocaleString("en-IN")}
+                    </span>
+                    <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>net pay</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 pt-2" style={{ borderTop: "1px solid var(--color-line)" }}>
+                    <div>
+                      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Days worked</p>
+                      <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{initial.hr.payslip.daysWorked}</p>
+                    </div>
+                    <div>
+                      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Gross</p>
+                      <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>₹{initial.hr.payslip.grossPay.toLocaleString("en-IN")}</p>
+                    </div>
+                    <div>
+                      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Deductions</p>
+                      <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>−₹{initial.hr.payslip.deductions.toLocaleString("en-IN")}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
+                  No payslip yet — your salary will appear here after payroll runs.
+                </p>
+              )}
+              <p className="text-m-caption mt-2" style={{ color: "var(--color-ink-500)" }}>
+                Present this month: <span className="font-bold" style={{ color: "var(--color-ink-950)" }}>{initial.hr.presentDaysThisMonth} days</span>
+              </p>
+            </Card>
+          </div>
+
+          <MobileSectionTitle>My Leaves</MobileSectionTitle>
+          <div className="mb-4">
+            <Card className="p-4">
+              {initial.hr.leaves.length === 0 ? (
+                <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
+                  No leave requests yet. Apply from HR → Leaves.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {initial.hr.leaves.map((l) => (
+                    <div key={l.id} className="flex items-center gap-2.5">
+                      <CalendarOff className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                          {l.type.charAt(0) + l.type.slice(1).toLowerCase()} · {l.days} day{l.days === 1 ? "" : "s"}
+                        </p>
+                        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                          {formatDate(l.startDate)}{l.startDate !== l.endDate ? ` → ${formatDate(l.endDate)}` : ""}
+                        </p>
+                      </div>
+                      <span
+                        className="rounded-full px-2 py-0.5 text-m-caption font-bold shrink-0"
+                        style={{
+                          backgroundColor: l.status === "APPROVED"
+                            ? "color-mix(in srgb, var(--color-go) 12%, transparent)"
+                            : l.status === "REJECTED" || l.status === "CANCELLED"
+                              ? "color-mix(in srgb, var(--color-stop) 12%, transparent)"
+                              : "color-mix(in srgb, var(--color-signal) 12%, transparent)",
+                          color: l.status === "APPROVED"
+                            ? "var(--color-go)"
+                            : l.status === "REJECTED" || l.status === "CANCELLED"
+                              ? "var(--color-stop)"
+                              : "var(--color-signal-dark)",
+                        }}
+                      >
+                        {l.status.charAt(0) + l.status.slice(1).toLowerCase()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+        </>
+      ) : null}
 
       {/* ── Password change ────────────────────────────────────────── */}
       <div className="mb-4">

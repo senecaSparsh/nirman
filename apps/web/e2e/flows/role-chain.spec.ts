@@ -112,8 +112,8 @@ test.describe("@flow Role-chain: self-approval prevention + cross-role handoff",
     const createRes = await creatorCtx.post("/api/purchase-orders", {
       data: {
         supplierId: data.supplier.id,
-        procurementScope: "COMPANY",
-        destinationLocationId: data.stockLocation.id,
+        procurementScope: "PROJECT",
+        destinationLocationId: data.projectStockLocation.id,
         projectId: data.project.id,
         lines: [
           {

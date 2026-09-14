@@ -2,6 +2,7 @@ import { prisma, type LeaveType } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { canAutoApprove } from "./rbac";
 import { withSerializableTransaction } from "./transaction";
 
 /**
@@ -18,12 +19,16 @@ import { withSerializableTransaction } from "./transaction";
 export function computeLeaveDays(start: Date, end: Date): Decimal {
   if (end < start) return new Decimal(0);
   let count = new Decimal(0);
-  const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  const last = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  // Walk UTC calendar days — inputs are UTC-midnight @db.Date values, so
+  // getUTCDay()/setUTCDate() keep the weekday and the calendar date aligned
+  // regardless of server timezone (local getDay() can shift the weekday when
+  // the server isn't in UTC).
+  const cur = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+  const last = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
   while (cur <= last) {
-    const dow = cur.getDay(); // 0=Sun, 6=Sat
+    const dow = cur.getUTCDay(); // 0=Sun, 6=Sat
     if (dow !== 0 && dow !== 6) count = count.plus(1);
-    cur.setDate(cur.getDate() + 1);
+    cur.setUTCDate(cur.getUTCDate() + 1);
   }
   return count;
 }
@@ -50,9 +55,12 @@ export async function createLeaveRequest(input: CreateLeaveInput) {
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
       throw new ServiceError("Invalid start or end date");
     }
-    // Zero out time for date-only comparison
-    const s = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-    const e = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+    // Use UTC date construction — startDate/endDate land in @db.Date columns
+    // which must be UTC-midnight Date objects. `new Date(y, m, d)` (local
+    // midnight) shifts the stored date back one day in timezones ahead of
+    // UTC (e.g. IST = UTC+5:30), so a "Sep 20" input would persist as Sep 19.
+    const s = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
+    const e = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()));
     if (e < s) throw new ServiceError("End date cannot be before start date");
 
     const days = computeLeaveDays(s, e);
@@ -90,6 +98,8 @@ export interface ApproveLeaveInput {
   approvedById: string;
   approve: boolean; // true = APPROVED, false = REJECTED
   rejectedReason?: string;
+  /** Actor's role — tier-1 (OWNER/ADMIN) may approve their own leave. */
+  actorRole?: string;
 }
 
 /**
@@ -116,8 +126,10 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
     if (leave.status !== "PENDING") {
       throw new ServiceError(`Cannot ${input.approve ? "approve" : "reject"} a leave in status ${leave.status}`);
     }
-    // Self-approval guard: prevent users from approving their own leave requests
-    if (input.approve && leave.employee.userId && leave.employee.userId === input.approvedById) {
+    // Self-approval guard: prevent users from approving their own leave
+    // requests — unless they're a tier-1 role (OWNER/ADMIN), where no higher
+    // approver exists to defer to.
+    if (input.approve && leave.employee.userId && leave.employee.userId === input.approvedById && !canAutoApprove(input.actorRole)) {
       throw new ServiceError("You cannot approve your own leave request");
     }
 
@@ -148,8 +160,11 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
       //    same calendar year and compare against the annual entitlement.
       const entitlement = ANNUAL_LEAVE_ENTITLEMENT[leave.type] ?? 0;
       if (entitlement > 0) {
-        const yearStart = new Date(leave.startDate.getFullYear(), 0, 1);
-        const yearEnd = new Date(leave.startDate.getFullYear(), 11, 31, 23, 59, 59);
+        // leave.startDate is a UTC-midnight @db.Date — use UTC year so the
+        // balance bucket matches the stored calendar date regardless of
+        // server timezone.
+        const yearStart = new Date(Date.UTC(leave.startDate.getUTCFullYear(), 0, 1));
+        const yearEnd = new Date(Date.UTC(leave.startDate.getUTCFullYear(), 11, 31, 23, 59, 59));
         const approvedSameType = await tx.leaveRequest.findMany({
           where: {
             employeeId: leave.employeeId,

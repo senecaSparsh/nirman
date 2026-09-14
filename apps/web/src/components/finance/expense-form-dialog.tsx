@@ -13,7 +13,7 @@ import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { GlPreviewPanel } from "./gl-preview-panel";
 import type { GlPreviewLine } from "@nirman/services/gl-preview";
 import type { ProjectOption } from "@/lib/types";
-import { formatCurrency } from "@/lib/utils";
+import { localDateISO, formatCurrency } from "@/lib/utils";
 import { required, positiveNumber } from "@/lib/validate";
 import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 
@@ -36,7 +36,7 @@ const COMMON_CATEGORIES = [
 ];
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateISO();
 }
 
 export function ExpenseFormDialog({

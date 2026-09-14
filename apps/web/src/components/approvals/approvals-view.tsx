@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { Page, Section, StatusPill, Toolbar, ToolbarCount } from "@/components/page";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
-import type { ApprovalPORow, ApprovalReqRow, ApprovalGatePassRow, ApprovalDprRow, ApprovalExpenseRow } from "@/lib/types";
+import type { ApprovalPORow, ApprovalReqRow, ApprovalGatePassRow, ApprovalDprRow, ApprovalExpenseRow, ApprovalRaBillRow } from "@/lib/types";
 
 // ── Urgency badge ──────────────────────────────────────────────
 
@@ -129,12 +129,14 @@ export function ApprovalsView({
   gatePasses = [],
   dprs = [],
   expenses = [],
+  raBills = [],
 }: {
   purchaseOrders: ApprovalPORow[];
   requisitions: ApprovalReqRow[];
   gatePasses?: ApprovalGatePassRow[];
   dprs?: ApprovalDprRow[];
   expenses?: ApprovalExpenseRow[];
+  raBills?: ApprovalRaBillRow[];
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -236,7 +238,7 @@ export function ApprovalsView({
   }, [expenses, query]);
 
   const empty = filteredPOs.length === 0 && filteredReqs.length === 0 && filteredGatePasses.length === 0 && filteredDprs.length === 0 && filteredExpenses.length === 0;
-  const totalCount = purchaseOrders.length + requisitions.length + gatePasses.length + dprs.length + expenses.length;
+  const totalCount = purchaseOrders.length + requisitions.length + gatePasses.length + dprs.length + expenses.length + raBills.length;
 
   if (totalCount === 0) {
     return (
@@ -357,6 +359,16 @@ export function ApprovalsView({
               <div className="divide-y divide-border">
                 {filteredExpenses.map((e) => (
                   <ExpenseApprovalRow key={e.id} expense={e} />
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {raBills.length > 0 && (
+            <Section title="RA Bills" action={<Badge variant="muted">{raBills.length}</Badge>}>
+              <div className="divide-y divide-border">
+                {raBills.map((b) => (
+                  <RaBillApprovalRow key={b.id} raBill={b} />
                 ))}
               </div>
             </Section>
@@ -884,6 +896,114 @@ function DprApprovalRow({ dpr }: { dpr: ApprovalDprRow }) {
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+function RaBillApprovalRow({ raBill }: { raBill: ApprovalRaBillRow }) {
+  const router = useRouter();
+  const [acting, setActing] = useState(false);
+  const [done, setDone] = useState(false);
+  const [rejected, setRejected] = useState(false);
+
+  async function act(action: "approve" | "reject") {
+    setActing(true);
+    try {
+      const res = await fetch(`/api/ra-bills/${raBill.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error ?? `Failed to ${action} RA bill`);
+      }
+      if (action === "approve") {
+        toast.success("RA bill approved", {
+          description: "Work order cumulative totals updated + GL posted.",
+          action: { label: "View Work Orders", onClick: () => router.push("/work-orders") },
+        });
+        setDone(true);
+      } else {
+        toast.success("RA bill rejected");
+        setRejected(true);
+      }
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setActing(false);
+    }
+  }
+
+  if (done || rejected) {
+    return (
+      <div className="flex items-center justify-between gap-4 p-4 bg-subtle/50">
+        <div className="flex items-center gap-2 text-body text-muted-foreground">
+          {done ? (
+            <>
+              <Check className="h-4 w-4 text-success" />
+              <span className="font-medium text-foreground">{raBill.raBillNumber}</span>
+              approved
+            </>
+          ) : (
+            <>
+              <X className="h-4 w-4 text-danger" />
+              <span className="font-medium text-foreground">{raBill.raBillNumber}</span>
+              rejected
+            </>
+          )}
+        </div>
+        {done && (
+          <Link href="/work-orders" className="text-caption text-brand hover:underline inline-flex items-center gap-1">
+            View Work Orders <ArrowRight className="h-3 w-3" />
+          </Link>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start justify-between gap-4 p-4">
+      <div className="min-w-0 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-body font-semibold text-foreground">{raBill.raBillNumber}</span>
+          {raBill.workOrderNumber && (
+            <span className="text-caption text-muted-foreground">· {raBill.workOrderNumber}</span>
+          )}
+        </div>
+        <div className="text-caption text-muted-foreground">
+          {raBill.projectName ?? ""}
+          {raBill.submittedByName ? ` · raised by ${raBill.submittedByName}` : ""}
+        </div>
+        <div className="text-caption text-muted-foreground">
+          Period {formatDate(raBill.periodFrom)} → {formatDate(raBill.periodTo)}
+        </div>
+        <div className="text-caption">
+          <span className="text-muted-foreground">Waiting on: </span>
+          <span className="font-medium text-foreground">{raBill.waitingOn}</span>
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <div className="text-right">
+          <div className="text-body font-semibold tnum text-foreground">
+            {formatCurrency(raBill.netPayable)}
+          </div>
+          <div className="text-caption text-muted-foreground tnum">
+            Gross {formatCurrency(raBill.grossAmount)}
+          </div>
+        </div>
+        {raBill.canApprove && (
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" disabled={acting} onClick={() => act("reject")}>
+              {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />} Reject
+            </Button>
+            <Button size="sm" disabled={acting} onClick={() => act("approve")}>
+              {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

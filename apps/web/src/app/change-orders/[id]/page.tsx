@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { notFound } from "next/navigation";
-import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
+import { getCompany, getUserRole, toNum, scopeWhere, getCurrentUser } from "@/lib/server";
+import { canAutoApprove } from "@nirman/services";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
@@ -27,6 +28,7 @@ async function CoDetailContent({ id }: { id: string }) {
   const company = await getCompany();
   const role = await getUserRole();
   const canManage = hasPermission(role, PERM.WO_MANAGE);
+  const currentUser = await getCurrentUser();
 
   if (!hasPermission(role, PERM.ASSETS_VIEW)) {
     return <NoAccess what="change order" />;
@@ -76,6 +78,7 @@ async function CoDetailContent({ id }: { id: string }) {
     approvedAt: co.approvedAt?.toISOString() ?? null,
     implementedAt: co.implementedAt?.toISOString() ?? null,
     submittedByName: co.submittedBy?.name ?? null,
+    submittedById: co.submittedBy?.id ?? null,
     approvedByName: co.approvedBy?.name ?? null,
     implementedByName: co.implementedBy?.name ?? null,
     lines: co.lines.map((l) => ({
@@ -100,7 +103,7 @@ async function CoDetailContent({ id }: { id: string }) {
         title={co.title}
         description={`${co.changeOrderNo} · ${co.project.name}`}
       />
-      <ChangeOrderDetailClient co={serialized} canManage={canManage} />
+      <ChangeOrderDetailClient co={serialized} canManage={canManage} currentUserId={currentUser?.id ?? null} canSelfApprove={canAutoApprove(role)} />
     </>
   );
 }

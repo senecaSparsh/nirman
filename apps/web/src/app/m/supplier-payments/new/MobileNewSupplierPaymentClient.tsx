@@ -57,7 +57,7 @@ export function MobileNewSupplierPaymentClient({
   const fileRef = useRef<HTMLInputElement>(null);
   const [modal, setModal] = useState<"supplier" | "po" | "invoice" | null>(null);
   const [showCreateSupplier, setShowCreateSupplier] = useState(false);
-  const submitLongPress = useLongPressNav("/m/accounts?tab=payments", "Payments list");
+  const submitLongPress = useLongPressNav("/m/supplier-payments", "Payments list");
 
   const selectedSupplier = suppliers.find((s) => s.id === supplierId);
 
@@ -160,11 +160,11 @@ export function MobileNewSupplierPaymentClient({
         <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>Payment Recorded</p>
         <p className="text-m-caption font-mono mb-1" style={{ color: "var(--color-ink-700)" }}>{formatCurrency(success.amount)}</p>
         <p className="text-m-caption mb-4" style={{ color: "var(--color-ink-500)" }}>{success.supplierName}</p>
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          <button onClick={() => { if (onCreated) onCreated(); else { router.push("/m/accounts?tab=payments"); router.refresh(); } }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+        <div className="flex gap-3 w-full max-w-xs">
+          <button onClick={() => { if (onCreated) onCreated(); else { router.push("/m/supplier-payments"); router.refresh(); } }} className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
             <Eye className="size-4 inline mr-1" /> View Payments
           </button>
-          <button onClick={() => { setSuccess(null); setSupplierId(""); setPurchaseOrderId(""); setInvoiceId(""); setAmount(""); setTdsAmount(""); setTdsSection(""); setReferenceNo(""); setNotes(""); setChequePhotoUrl(""); router.refresh(); }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
+          <button onClick={() => { setSuccess(null); setSupplierId(""); setPurchaseOrderId(""); setInvoiceId(""); setAmount(""); setTdsAmount(""); setTdsSection(""); setReferenceNo(""); setNotes(""); setChequePhotoUrl(""); router.refresh(); }} className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
             <Plus className="size-4 inline mr-1" /> Record Another
           </button>
         </div>

@@ -91,7 +91,7 @@ export function MobileStandardConsumptionActions({
   return (
     <>
       {/* Action buttons */}
-      <div className="flex flex-col gap-2">
+      <div className="flex gap-2">
         <button
           onClick={() => setShowEdit(true)}
           className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
@@ -215,7 +215,7 @@ export function MobileStandardConsumptionActions({
               <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
                 This will permanently delete this standard consumption benchmark. This cannot be undone.
               </p>
-              <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
                 <button onClick={() => setShowDelete(false)} disabled={deleting} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Cancel</button>
                 <button onClick={del} disabled={deleting} className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1" style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}>
                   {deleting ? <Loader2 className="size-3.5 animate-spin" /> : "Delete"}

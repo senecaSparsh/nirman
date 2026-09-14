@@ -12,9 +12,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { GlPreviewPanel } from "@/components/finance/gl-preview-panel";
 import type { GlPreviewLine } from "@nirman/services/gl-preview";
 import type { LandCostComponentRow } from "@/lib/types";
+import { localDateISO } from "@/lib/utils";
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateISO();
 }
 
 const INTERVAL_LABELS: Record<string, string> = {

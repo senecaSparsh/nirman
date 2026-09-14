@@ -10,6 +10,7 @@ import { Input, Select } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { ChequeFields, EMPTY_CHEQUE, type ChequeFormState } from "@/components/sales/cheque-fields";
 import { formatCurrency } from "@/lib/utils";
+import { useTodayDateState } from "@/lib/use-today-date";
 import { required, positiveNumber } from "@/lib/validate";
 import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 
@@ -38,7 +39,7 @@ export function MaterialSalePaymentFormDialog({
 }) {
   const router = useRouter();
   const [amount, setAmount] = useState("");
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
+  const [paymentDate, setPaymentDate] = useTodayDateState();
   const [paymentMode, setPaymentMode] = useState("BANK");
   const [referenceNo, setReferenceNo] = useState("");
   const [notes, setNotes] = useState("");

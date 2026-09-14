@@ -4,6 +4,7 @@ import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { postSupplierInvoice } from "./gl-posting";
 import { withSerializableTransaction } from "./transaction";
+import { canAutoApprove } from "./rbac";
 
 /**
  * Supplier Invoice Service — three-way matching before paying suppliers.
@@ -342,12 +343,25 @@ export async function approveSupplierInvoice(input: {
   userId: string;
   action: "approve" | "reject";
   notes?: string;
+  /** The actor's role — tier-1 roles may approve an invoice they received. */
+  actorRole?: string;
 }) {
   return withSerializableTransaction(async (tx) => {
     const existing = await tx.supplierInvoice.findFirst({
       where: { id: input.invoiceId, companyId: input.companyId },
     });
     if (!existing) throw new ServiceError("Supplier invoice not found", 404);
+
+    // Prevent self-approval — the receiver cannot approve an invoice they
+    // recorded — unless a tier-1 role (OWNER/ADMIN), where no higher approver exists.
+    if (
+      input.action === "approve" &&
+      existing.receivedById &&
+      existing.receivedById === input.userId &&
+      !canAutoApprove(input.actorRole)
+    ) {
+      throw new ServiceError("You cannot approve an invoice you received. Ask another approver to review it.", 403);
+    }
 
     if (input.action === "approve") {
       // Determine if this is a services invoice (no GRN) or goods invoice.

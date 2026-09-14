@@ -20,7 +20,7 @@ describe("GET /api/portal/me", () => {
 
   it("returns 401 when not logged in", async () => {
     mockGetPortalCustomer.mockResolvedValue(null);
-    const res = await GET(makeRequest("/api/portal/me"));
+    const res = await GET(makeRequest("/api/portal/me"), {});
     expect(res.status).toBe(401);
   });
 
@@ -33,7 +33,7 @@ describe("GET /api/portal/me", () => {
       companyId: "co-1",
       companyName: "Test Co",
     });
-    const res = await GET(makeRequest("/api/portal/me"));
+    const res = await GET(makeRequest("/api/portal/me"), {});
     expect(res.status).toBe(200);
     const body = await getJson<{ customer: { id: string; name: string } }>(res);
     expect(body.customer.id).toBe("cust-1");

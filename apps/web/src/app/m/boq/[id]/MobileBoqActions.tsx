@@ -134,7 +134,7 @@ export function MobileBoqEditDialog({
               Item Details
             </p>
             {/* Serial No + Description */}
-            <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div className="grid grid-cols-3 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
               <div>
                 <label className={labelClass} style={labelStyle}>
                   Serial No. <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -168,7 +168,7 @@ export function MobileBoqEditDialog({
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                 Line Item Specs
               </p>
-              <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div className="grid grid-cols-3 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className={labelClass} style={labelStyle}>
                     Unit <span style={{ color: "var(--color-stop)" }}>*</span>
@@ -334,7 +334,7 @@ export function MobileBoqDeleteConfirm({
             </p>
           </div>
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex gap-2">
           <button
             onClick={onClose}
             disabled={deleteAction.isPending}

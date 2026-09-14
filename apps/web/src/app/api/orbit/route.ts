@@ -771,7 +771,12 @@ async function getMaterialIssueChildren(parentId: string, companyId: string, par
     ? { projectId: parentId }
     : parentType === "builtUnit"
       ? { builtUnitId: parentId }
-      : { project: { companyId } };
+      : {
+          OR: [
+            { project: { companyId } },
+            { department: { companyId } },
+          ],
+        };
   const items = await prisma.materialIssue.findMany({
     where,
     select: {

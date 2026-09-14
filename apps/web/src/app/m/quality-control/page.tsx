@@ -25,7 +25,7 @@ export default function MobileQualityControlPage() {
       {async ({ company, canManage }) => {
         const actions = await getActionPermissions();
         const canCreateNcr = actions?.canCreateNcr ?? canManage;
-        const [ncrs, projects, subcontractors] = await Promise.all([
+        const [ncrs, projects, subcontractors, pendingInspections] = await Promise.all([
           prisma.nonConformanceReport.findMany({
             where: {...await scopeWhere("NonConformanceReport"),  companyId: company.id },
             orderBy: { createdAt: "desc" },
@@ -50,6 +50,15 @@ export default function MobileQualityControlPage() {
                 select: { id: true, name: true, trade: true },
               })
             : [],
+          prisma.goodsReceipt.findMany({
+            where: { inspectionStatus: "PENDING", location: { companyId: company.id } },
+            orderBy: { receiptDate: "desc" },
+            take: 20,
+            include: {
+              purchaseOrder: { select: { id: true, poNumber: true, supplier: { select: { name: true } } } },
+              _count: { select: { lines: true } },
+            },
+          }),
         ]);
 
         const open = ncrs.filter((n) => n.status === "OPEN" || n.status === "UNDER_REVIEW").length;
@@ -81,6 +90,38 @@ export default function MobileQualityControlPage() {
               <MobileStatCard label="CAPA Req" value={String(capaRequired)} icon={ClipboardCheck} tone={capaRequired > 0 ? "signal" : "neutral"} />
               <MobileStatCard label="Closed" value={String(closed)} icon={ClipboardCheck} tone={closed > 0 ? "go" : "neutral"} />
             </div>
+
+            {/* ── Pending material inspections (GRN awaiting QC) ── */}
+            {pendingInspections.length > 0 && (
+              <div className="mb-4">
+                <p className="text-m-section font-extrabold tracking-tight mb-2" style={{ color: "var(--color-ink-950)" }}>
+                  Pending Inspections ({pendingInspections.length})
+                </p>
+                <div className="space-y-1.5">
+                  {pendingInspections.map((grn) => (
+                    <a
+                      key={grn.id}
+                      href={`/m/procurement/${grn.purchaseOrder.id}`}
+                      className="flex items-center gap-2 rounded-[0.5rem] border p-2 press"
+                      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                    >
+                      <ClipboardCheck className="size-3.5 shrink-0" style={{ color: "var(--color-signal)" }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-m-body font-semibold truncate" style={{ color: "var(--color-ink-950)" }}>
+                          {grn.purchaseOrder.poNumber}
+                        </p>
+                        <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
+                          {grn.purchaseOrder.supplier?.name ?? "Unknown"} · {grn._count.lines} line{grn._count.lines !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                      <span className="text-m-caption font-bold shrink-0" style={{ color: "var(--color-signal)" }}>
+                        Inspect
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* ── Orientation: what is this page + what to do next ── */}
             <PageLead flow="ncr" />

@@ -230,12 +230,12 @@ export function SaleDetailDialog({
 
   // Cancel is allowed for PENDING and DEPOSIT_RECEIVED stages (not COMPLETED)
   const canCancel = !isCancelled && !isCompleted && canManage;
-  // Record Deposit: only for PENDING sales (no deposit yet)
-  const canRecordDeposit = isPending && !isCancelled && canManage;
+  // Record Deposit: for PENDING and DEPOSIT_RECEIVED sales (service allows any non-COMPLETED stage)
+  const canRecordDeposit = !isCancelled && !isCompleted && canManage;
   // Complete Sale: only for sales with a deposit (DEPOSIT_RECEIVED)
   const canCompleteSale = hasDeposit && !isCancelled && canManage;
-  // Record Payment: for completed sales with balance due, or deposit sales
-  const canRecordPayment = !isCancelled && cur.balanceDue > 0 && !isPending && canManage;
+  // Record Payment: only for COMPLETED sales with balance due (service rejects non-COMPLETED)
+  const canRecordPayment = !isCancelled && cur.balanceDue > 0 && isCompleted && canManage;
 
   return (
     <>

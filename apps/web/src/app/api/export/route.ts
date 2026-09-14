@@ -23,6 +23,7 @@ import {
 } from "@nirman/services";
 import { PERM, hasPermission } from "@/lib/roles";
 import { apiHandler, getCompany, json, toNum, requireUser, getUserRole, scopeWhere, projectScopeFilter } from "@/lib/server";
+import { localDateISO } from "@/lib/utils";
 
 /**
  * GET /api/export?type=<report>&format=xlsx|csv
@@ -88,7 +89,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const toDate = to ? new Date(to) : now;
   toDate.setHours(23, 59, 59, 999);
 
-  const filenameBase = `${type}-${new Date().toISOString().slice(0, 10)}`;
+  const filenameBase = `${type}-${localDateISO()}`;
   const companyName = company.name;
 
   // ── Fetch data and build sheets per type ──

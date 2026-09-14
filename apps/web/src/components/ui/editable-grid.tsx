@@ -512,18 +512,20 @@ export function EditableGrid<R extends Record<string, unknown>>({
                     ) : (
                       <div
                         className={cn(
-                          "h-8 px-2 flex items-center text-body cursor-cell rounded-sm transition-colors",
+                          "h-8 px-2 flex items-center text-body cursor-cell rounded-sm transition-colors whitespace-nowrap overflow-hidden",
                           isRight && "justify-end",
                           isSelected && "bg-accent ring-1 ring-inset ring-foreground/20",
                           hasError && "text-danger",
                           val == null || val === "" ? "text-muted-foreground/40" : "",
                         )}
                       >
-                        {val != null && val !== ""
-                          ? col.format
-                            ? col.format(val as string | number)
-                            : String(val)
-                          : col.placeholder ?? ""}
+                        <span className="min-w-0 truncate">
+                          {val != null && val !== ""
+                            ? col.format
+                              ? col.format(val as string | number)
+                              : String(val)
+                            : col.placeholder ?? ""}
+                        </span>
                       </div>
                     )}
                   </td>

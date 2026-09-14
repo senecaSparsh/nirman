@@ -66,7 +66,13 @@ export async function MaterialDetailContent({ params }: { params: Promise<{ id: 
     prisma.materialRequisitionLine.findMany({
       where: {
         materialId: id,
-        requisition: { status: { in: ["DRAFT", "SUBMITTED", "APPROVED"] }, project: { companyId: company.id } },
+        requisition: {
+          status: { in: ["DRAFT", "SUBMITTED", "APPROVED"] },
+          OR: [
+            { project: { companyId: company.id } },
+            { department: { companyId: company.id } },
+          ],
+        },
       },
       include: {
         requisition: {
@@ -87,7 +93,15 @@ export async function MaterialDetailContent({ params }: { params: Promise<{ id: 
 
     // Recent material issue lines for this material
     prisma.materialIssueLine.findMany({
-      where: { materialId: id, materialIssue: { project: { companyId: company.id } } },
+      where: {
+        materialId: id,
+        materialIssue: {
+          OR: [
+            { project: { companyId: company.id } },
+            { department: { companyId: company.id } },
+          ],
+        },
+      },
       include: {
         materialIssue: {
           select: {

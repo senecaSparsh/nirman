@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -110,6 +110,20 @@ export function MobileMaterialSaleDetailClient({
   const [showPayment, setShowPayment] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // NextActionCard deep-link: `#payment` opens the payment modal directly
+  // so the "Record a payment" card is a one-tap action, not just a scroll.
+  useEffect(() => {
+    const check = () => {
+      if (window.location.hash === "#payment") {
+        setShowPayment(true);
+        history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
+    };
+    check();
+    window.addEventListener("hashchange", check);
+    return () => window.removeEventListener("hashchange", check);
+  }, []);
 
   // Payment form state
   const [payAmount, setPayAmount] = useState("");
@@ -312,8 +326,10 @@ export function MobileMaterialSaleDetailClient({
         ) : null}
       </div>
 
-      {/* ── Quick actions ── */}
-      <div className="grid grid-cols-3 gap-1.5 mb-2">
+      {/* ── Quick actions ── `id="payment"` is the NextActionCard anchor
+          target — scrolls to the action row (and the hash listener below
+          opens the payment modal directly). */}
+      <div id="payment" className="grid grid-cols-3 gap-1.5 mb-2">
         {customer?.phone ? (
           <a
             href={`tel:${customer.phone}`}
@@ -585,7 +601,7 @@ export function MobileMaterialSaleDetailClient({
           <p className="text-m-body mb-3" style={{ color: "var(--color-ink-700)" }}>
             Cancel sale <span className="font-mono font-bold">{saleNumber}</span>? Stock will be reversed. This cannot be undone.
           </p>
-          <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
             <button
               onClick={() => setShowCancel(false)}
               className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold text-m-body press"
@@ -652,7 +668,7 @@ export function MobileMaterialSaleDetailClient({
               </FormField>
               {payMode === "CHEQUE" && <MobileChequeFields value={payCheque} onChange={setPayCheque} />}
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setShowPayment(false)}

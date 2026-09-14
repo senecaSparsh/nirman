@@ -33,6 +33,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       id,
       OR: [
         { requisition: { project: { companyId: company.id } } },
+        { requisition: { department: { companyId: company.id } } },
         { quotationRequest: { companyId: company.id } },
       ],
     },

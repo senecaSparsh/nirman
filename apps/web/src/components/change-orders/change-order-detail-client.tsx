@@ -37,6 +37,7 @@ interface ChangeOrderDetail {
   approvedAt: string | null;
   implementedAt: string | null;
   submittedByName: string | null;
+  submittedById?: string | null;
   approvedByName: string | null;
   implementedByName: string | null;
   lines: Array<{
@@ -72,9 +73,14 @@ const STATUS_TONES: Record<string, "default" | "warning" | "success" | "danger">
 export function ChangeOrderDetailClient({
   co,
   canManage,
+  currentUserId,
+  canSelfApprove,
 }: {
   co: ChangeOrderDetail;
   canManage: boolean;
+  currentUserId?: string | null;
+  /** Tier-1 approvers (OWNER/ADMIN) may approve their own change order. */
+  canSelfApprove?: boolean;
 }) {
   const router = useRouter();
   const [confirm, confirmDialog] = useConfirm();
@@ -223,7 +229,7 @@ export function ChangeOrderDetailClient({
               Submit for Approval
             </Button>
           )}
-          {co.status === "SUBMITTED" && (
+          {co.status === "SUBMITTED" && (co.submittedById !== currentUserId || canSelfApprove) && (
             <>
               <Button
                 variant="default"

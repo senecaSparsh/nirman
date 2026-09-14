@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { Receipt, Printer, FileText, Building2, User, SearchX } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -51,21 +52,16 @@ function currentFY(): string {
 
 export function TdsCertificatesView() {
   const [fy, setFy] = useState(currentFY());
-  const [subcontractors, setSubcontractors] = useState<TdsSubcontractor[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error, retry: fetchList } = useFetch<{ subcontractors?: TdsSubcontractor[] }>(
+    `/api/subcontractors/tds-certificates?fy=${fy}`,
+  );
+  const subcontractors = data?.subcontractors ?? [];
   const [selected, setSelected] = useState<TdsCertificate | null>(null);
   const [certLoading, setCertLoading] = useState(false);
 
-  const fetchList = useCallback(() => {
-    setLoading(true);
-    fetch(`/api/subcontractors/tds-certificates?fy=${fy}`)
-      .then((r) => r.json())
-      .then((data) => setSubcontractors(data?.subcontractors ?? []))
-      .catch(() => toast.error("Failed to load TDS data"))
-      .finally(() => setLoading(false));
-  }, [fy]);
-
-  useEffect(() => { fetchList(); }, [fetchList]);
+  useEffect(() => {
+    if (error) toast.error("Failed to load TDS data");
+  }, [error]);
 
   function openCertificate(subId: string) {
     setCertLoading(true);

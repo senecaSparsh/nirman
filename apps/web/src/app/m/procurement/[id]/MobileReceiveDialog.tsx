@@ -711,12 +711,12 @@ export function MobileReceiveDialog({
             Stock updated · PO is now <span className="font-semibold">{lastNewStatus}</span>
           </p>
 
-          <div className="w-full mt-6 space-y-2">
+          <div className="w-full mt-6 flex gap-2">
             <a
               href={`/print/goods-receipt/${lastGrnId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-m-section font-bold text-m-body press transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-m-section font-bold text-m-body press transition-colors"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               <Printer className="size-4" />
@@ -750,7 +750,7 @@ export function MobileReceiveDialog({
                     toast.error(e instanceof Error ? e.message : "Failed to create invoice");
                   });
               }}
-              className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-body font-bold border-2 text-m-body press"
+              className="flex-1 flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-body font-bold border-2 text-m-body press"
               style={{ borderColor: "var(--color-line)", color: "var(--color-ink-950)", backgroundColor: "transparent" }}
             >
               <FileText className="size-3.5" />
@@ -759,7 +759,7 @@ export function MobileReceiveDialog({
             <button
               type="button"
               onClick={() => { setLastGrnId(null); setOpen(false); router.refresh(); }}
-              className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-body font-semibold text-m-body press"
+              className="flex-1 flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-body font-semibold text-m-body press"
               style={{ color: "var(--color-steel)" }}
             >
               Done
@@ -772,11 +772,11 @@ export function MobileReceiveDialog({
 
   if (!open) {
     return (
-      <div className="space-y-2">
+      <div className="flex gap-2">
         <button
           type="button"
           onClick={() => { haptic(5); setMode("receive"); setOpen(true); }}
-          className="w-full flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-m-section font-bold text-m-body press transition-colors"
+          className="flex-1 flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-m-section font-bold text-m-body press transition-colors"
           style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           <ScanLine className="size-4" />
@@ -785,7 +785,7 @@ export function MobileReceiveDialog({
         <button
           type="button"
           onClick={() => { haptic(5); setMode("reject"); setOpen(true); }}
-          className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-2 text-m-body font-bold border-2 text-m-body press"
+          className="flex-1 flex items-center justify-center gap-2 rounded-[0.5rem] py-2 text-m-body font-bold border-2 text-m-body press"
           style={{ borderColor: "var(--color-stop)", color: "var(--color-stop)", backgroundColor: "transparent" }}
         >
           <XCircle className="size-3.5" />
@@ -898,6 +898,19 @@ export function MobileReceiveDialog({
                     style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)", color: "var(--color-go)" }}
                   >
                     <CheckCircle2 className="size-2.5" /> Receive Full
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptic(10);
+                      const allPassed: Record<string, string> = {};
+                      lines.forEach((l) => { allPassed[l.id] = "PASSED"; });
+                      setLineInspection(allPassed);
+                    }}
+                    className="flex items-center gap-1 text-m-caption font-bold text-m-body press rounded-[0.25rem] px-1.5 py-0.5"
+                    style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)", color: "var(--color-go)" }}
+                  >
+                    <CheckCircle2 className="size-2.5" /> All Passed
                   </button>
                   <button
                     type="button"
@@ -1055,7 +1068,7 @@ export function MobileReceiveDialog({
 
                         {/* Lot-tracked fields: expiry + manufacturing date (only for lot-tracked materials) */}
                         {l.isLotTracked ? (
-                          <div className="grid grid-cols-2 gap-1.5 mb-1">
+                          <div className="grid grid-cols-2 gap-2 mb-1">
                             <div>
                               <label className="text-m-caption font-semibold uppercase tracking-wide block mb-0.5" style={{ color: "var(--color-ink-500)" }}>Expiry</label>
                               <input
@@ -1132,7 +1145,7 @@ export function MobileReceiveDialog({
               </p>
               {needsVehicleFields ? (
                 <>
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="grid grid-cols-2 gap-2">
                     <SelectField label="Delivery Mode" value={deliveryMode} onChange={setDeliveryMode} options={DELIVERY_MODES} required />
                     <SelectField label="Vehicle Type" value={vehicleType} onChange={setVehicleType} options={VEHICLE_TYPES} required />
                   </div>
@@ -1142,7 +1155,7 @@ export function MobileReceiveDialog({
                     <TextField label="Phone" value={driverPhone} onChange={setDriverPhone} placeholder="98765" />
                   </div>
                   {deliveryMode === "THIRD_PARTY" ? (
-                    <div className="grid grid-cols-2 gap-1.5">
+                    <div className="grid grid-cols-2 gap-2">
                       <TextField label="Transporter" value={transporterName} onChange={setTransporterName} placeholder="ABC Transport" />
                       <TextField label="LR Number" value={lrNumber} onChange={setLrNumber} placeholder="Lorry receipt" required mono />
                     </div>
@@ -1236,11 +1249,11 @@ export function MobileReceiveDialog({
                 <TextField label="Package" value={packageCount} onChange={setPackageCount} placeholder="0" />
               </div>
               {/* Unloading details — where goods were unloaded + any damage during unloading */}
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-2 gap-2">
                 <TextField label="Unload At" value={unloadingLocation} onChange={setUnloadingLocation} placeholder="Bay / yard / shed" />
                 <TextField label="Unload Notes" value={unloadingRemarks} onChange={setUnloadingRemarks} placeholder="Stacking / damage" />
               </div>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-2 gap-2">
                 <TextField label="Invoice No." value={invoiceNumber} onChange={setInvoiceNumber} placeholder="If with goods" mono />
                 <TextField label="E-Way Bill" value={ewayBillNumber} onChange={setEwayBillNumber} placeholder="GST e-way" mono />
               </div>
@@ -1271,7 +1284,7 @@ export function MobileReceiveDialog({
             <div className="px-3 pb-3 space-y-1.5 border-t pt-3" style={{ borderColor: "var(--color-line)" }}>
               <p className="text-m-caption font-bold uppercase tracking-wide mb-1" style={{ color: "var(--color-steel)" }}>Remarks</p>
               <TextField label="Receipt Remarks" value={receiptNotes} onChange={setReceiptNotes} placeholder="Vehicle / challan details" />
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-2 gap-2">
                 <TextField label="Shortage" value={shortageRemarks} onChange={(v) => { shortageEditedRef.current = true; setShortageRemarks(v); }} placeholder="If any shortage" />
                 <TextField label="Damage" value={damageRemarks} onChange={setDamageRemarks} placeholder="If any damage" />
               </div>

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum, scopeWhere } from "@/lib/server";
+import { canAutoApprove } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -12,12 +13,17 @@ import { PERM } from "@/lib/roles";
  * Each item includes budget context (project budget, spent-to-date,
  * remaining, utilization %) so approvers can make informed decisions.
  */
-export const GET = apiHandler(async (_req: NextRequest) => {
+export const GET = apiHandler(async (req: NextRequest) => {
   const user = await requireUser();
   const perms = await getUserPermissions();
   const canApprovePo = perms.includes(PERM.PO_APPROVE);
   const canApproveReq = perms.includes(PERM.REQUISITION_APPROVE);
   const canApproveGatePass = perms.includes(PERM.GATE_PASS_APPROVE);
+  // countOnly — used by nav badges: return just the total pending count
+  // instead of the full lists with budget context (the shell only needs
+  // the number, and the full response returns an object whose .length
+  // the badge fetcher can't read anyway).
+  const countOnly = new URL(req.url).searchParams.get("countOnly") === "1";
   if (!canApprovePo && !canApproveReq && !canApproveGatePass) {
     // Return an empty result instead of 403 — this endpoint is also used
     // as a badge endpoint by the nav system, which fetches it for all
@@ -25,17 +31,41 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     // console error for users who can see the link but lack approval
     // permissions. An empty array is the correct semantic: "nothing
     // pending for you to approve."
-    return json({ purchaseOrders: [], requisitions: [], gatePasses: [] });
+    return countOnly
+      ? json({ count: 0 })
+      : json({ purchaseOrders: [], requisitions: [], gatePasses: [] });
   }
   const company = await getCompany();
+
+  // Tier-1 roles (OWNER/ADMIN) may approve their own submissions — the
+  // service layer allows it, so the queue must show them. Everyone else
+  // only sees items created by other users.
+  const selfFilter = canAutoApprove(user.role) ? {} : { not: user.id };
 
   // Pre-compute scope filters for scoped models
   const reqScope = await scopeWhere("MaterialRequisition", {});
   const gpScope = await scopeWhere("GatePass", {});
 
+  if (countOnly) {
+    const [poCount, reqCount, gpCount] = await Promise.all([
+      prisma.purchaseOrder.count({
+        where: { companyId: company.id, status: "DRAFT", createdById: selfFilter },
+      }),
+      prisma.materialRequisition.count({
+        where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: selfFilter, ...reqScope },
+      }),
+      canApproveGatePass
+        ? prisma.gatePass.count({
+            where: { companyId: company.id, status: "PENDING", createdById: selfFilter, ...gpScope },
+          })
+        : Promise.resolve(0),
+    ]);
+    return json({ count: poCount + reqCount + gpCount });
+  }
+
   const [purchaseOrders, requisitions, gatePasses] = await Promise.all([
     prisma.purchaseOrder.findMany({
-      where: { companyId: company.id, status: "DRAFT", createdById: { not: user.id } },
+      where: { companyId: company.id, status: "DRAFT", createdById: selfFilter },
       orderBy: { createdAt: "desc" },
       take: 100,
       include: {
@@ -46,7 +76,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       },
     }),
     prisma.materialRequisition.findMany({
-      where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: user.id }, ...reqScope },
+      where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: selfFilter, ...reqScope },
       orderBy: { createdAt: "desc" },
       take: 100,
       include: {
@@ -62,7 +92,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     }),
     canApproveGatePass
       ? prisma.gatePass.findMany({
-          where: { companyId: company.id, status: "PENDING", createdById: { not: user.id }, ...gpScope },
+          where: { companyId: company.id, status: "PENDING", createdById: selfFilter, ...gpScope },
           orderBy: { createdAt: "desc" },
           take: 100,
           include: {

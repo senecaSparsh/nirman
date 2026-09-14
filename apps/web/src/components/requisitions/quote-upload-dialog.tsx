@@ -48,6 +48,8 @@ export function QuoteUploadDialog({
   const [fileUrl, setFileUrl] = useState("");
   const [fileName, setFileName] = useState("");
   const [mimeType, setMimeType] = useState("");
+  const [quoteSource, setQuoteSource] = useState<"DOCUMENT" | "EMAIL" | "VERBAL" | "WHATSAPP" | "LETTER" | "EXCEL">("DOCUMENT");
+  const [sourceNote, setSourceNote] = useState("");
   const [landedTotal, setLandedTotal] = useState("");
   const [validUntil, setValidUntil] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
@@ -68,6 +70,7 @@ export function QuoteUploadDialog({
   const [deliveryTermsNote, setDeliveryTermsNote] = useState("");
 
   const needsBuyerTransport = deliveryTermsType === "EX_WORKS" || deliveryTermsType === "FOR_STATION";
+  const isDocumentSource = quoteSource === "DOCUMENT" || quoteSource === "EMAIL" || quoteSource === "LETTER" || quoteSource === "EXCEL";
 
   const computedTotal = requisitionLines.reduce((sum, l) => {
     const price = Number(linePrices[l.materialId] ?? 0);
@@ -114,7 +117,8 @@ export function QuoteUploadDialog({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!supplierId) return toast.error("Select a supplier");
-    if (!fileUrl) return toast.error("Upload a quote file (PDF/image)");
+    if (isDocumentSource && !fileUrl) return toast.error("Upload a quote file (PDF/image)");
+    if (!isDocumentSource && !sourceNote.trim()) return toast.error("Add a source note for non-document quotes");
     if (!paymentTerms.trim()) return toast.error("Payment terms are required (e.g. '30 days credit')");
     if (!leadTimeDays || Number(leadTimeDays) < 0) return toast.error("Lead time (days) is required");
     if (!landedTotal && computedTotal === 0) return toast.error("Enter the landed total or line prices");
@@ -141,9 +145,11 @@ export function QuoteUploadDialog({
         body: JSON.stringify({
           requisitionId,
           supplierId,
-          fileUrl,
-          fileName,
-          mimeType,
+          fileUrl: fileUrl || undefined,
+          fileName: fileName || undefined,
+          mimeType: mimeType || undefined,
+          quoteSource,
+          sourceNote: sourceNote.trim() || undefined,
           landedTotal: landedTotal ? total : undefined, // let server compute if not overridden
           validUntil: validUntil || null,
           notes: notes.trim() || null,
@@ -161,7 +167,7 @@ export function QuoteUploadDialog({
         description: `${reqNumber} — ${suppliers.find((s) => s.id === supplierId)?.name}`,
       });
       // Reset
-      setSupplierId(""); clearFile(); setLandedTotal(""); setValidUntil(""); setPaymentTerms(""); setLeadTimeDays(""); setWarranty(""); setNotes("");
+      setSupplierId(""); clearFile(); setQuoteSource("DOCUMENT"); setSourceNote(""); setLandedTotal(""); setValidUntil(""); setPaymentTerms(""); setLeadTimeDays(""); setWarranty(""); setNotes("");
       setLinePrices({}); setLineFreight({}); setLineLoading({}); setLinePacking({}); setLineInsurance({}); setLineDiscount({}); setLineBuyerTransport({});
       setShowLandedCost(false); setDeliveryTermsType("DELIVERED_SITE"); setDeliveryTermsNote("");
       onUploaded?.();
@@ -182,7 +188,7 @@ export function QuoteUploadDialog({
       className="max-w-2xl"
     >
       <form onSubmit={onSubmit} className="space-y-3">
-        {/* Supplier + file upload */}
+        {/* Supplier + quote source + file upload */}
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label>Supplier *</Label>
@@ -198,6 +204,37 @@ export function QuoteUploadDialog({
               )}
             />
           </div>
+          <div className="space-y-1.5">
+            <Label>Quote Source *</Label>
+            <Select
+              value={quoteSource}
+              onChange={(e) => setQuoteSource(e.target.value as "DOCUMENT" | "EMAIL" | "VERBAL" | "WHATSAPP" | "LETTER" | "EXCEL")}
+            >
+              <option value="DOCUMENT">Document (file upload)</option>
+              <option value="EMAIL">Email</option>
+              <option value="WHATSAPP">WhatsApp</option>
+              <option value="VERBAL">Verbal</option>
+              <option value="LETTER">Letter</option>
+              <option value="EXCEL">Excel</option>
+            </Select>
+          </div>
+        </div>
+
+        {/* Source note for non-document sources */}
+        {!isDocumentSource ? (
+          <div className="space-y-1.5">
+            <Label>Source Note *</Label>
+            <Input
+              type="text"
+              value={sourceNote}
+              onChange={(e) => setSourceNote(e.target.value)}
+              placeholder={`e.g. "Verbal quote from Ramesh (Ambuja) on 15-Aug-2026 over phone"`}
+            />
+          </div>
+        ) : null}
+
+        {/* File upload — only for document-based sources */}
+        {isDocumentSource ? (
           <div className="space-y-1.5">
             <Label>Quote File (PDF/Image) *</Label>
             {fileUrl ? (
@@ -217,7 +254,7 @@ export function QuoteUploadDialog({
               </label>
             )}
           </div>
-        </div>
+        ) : null}
 
         {/* Per-line prices */}
         <div className="space-y-2">

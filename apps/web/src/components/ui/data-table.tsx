@@ -21,7 +21,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { cn, formatDate } from "@/lib/utils";
+import { localDateISO, cn, formatDate } from "@/lib/utils";
 
 /**
  * ═══════════════════════════════════════════════════════════════════
@@ -565,7 +565,7 @@ export function DataTable<T>({
     const blob = new Blob([`${head}\n${body}`], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `${exportFileName ?? "export"}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `${exportFileName ?? "export"}-${localDateISO()}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
   }, [visibleColumns, sorted, valueOf, exportFileName]);

@@ -44,6 +44,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       },
       qty: { gt: 0 },
     },
+    take: 2000,
     include: {
       material: {
         select: {

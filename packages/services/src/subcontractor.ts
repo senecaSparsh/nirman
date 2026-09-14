@@ -4,8 +4,9 @@ import { logAction } from "./audit";
 import { postRaBillApproval, postJournalEntry, ACCT } from "./gl-posting";
 import { reallocateProjectCosts } from "./valuation";
 import { ServiceError } from "./errors";
+import { canAutoApprove } from "./rbac";
 import { withSerializableTransaction } from "./transaction";
-import { nextSequenceNumber } from "./sequence";
+import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 
 /**
  * Subcontractor Management + RA Bills + TDS Service.
@@ -42,10 +43,10 @@ function normalizePaymentMode(mode?: string): PaymentMode {
 
 // ── Work Order ─────────────────────────────────────────────
 
-async function generateWorkOrderNumber(tx: Prisma.TransactionClient): Promise<string> {
+async function generateWorkOrderNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `WO-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `WO-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
@@ -110,7 +111,7 @@ export async function createWorkOrder(input: CreateWorkOrderInput) {
     const tdsCategory = input.tdsCategory ?? "COMPANY";
     const tdsPct = tdsCategory === "INDIVIDUAL" ? new Decimal(1) : new Decimal(2);
 
-    const workOrderNumber = await generateWorkOrderNumber(tx);
+    const workOrderNumber = await generateWorkOrderNumber(tx, input.companyId);
 
     const wo = await tx.subcontractorWorkOrder.create({
       data: {
@@ -285,10 +286,10 @@ export async function completeWorkOrder(id: string, userId?: string) {
 
 // ── RA Bill ────────────────────────────────────────────────
 
-async function generateRaBillNumber(tx: Prisma.TransactionClient): Promise<string> {
+async function generateRaBillNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `RA-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `RA-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
@@ -324,7 +325,7 @@ export async function createRaBill(input: CreateRaBillInput) {
       throw new ServiceError(`Cannot create RA bill for work order in status ${wo.status}`, 400);
     }
 
-    const raBillNumber = await generateRaBillNumber(tx);
+    const raBillNumber = await generateRaBillNumber(tx, wo.companyId);
 
     // Get approved MB entries for this work order's BOQ items that haven't been billed yet
     const boqItemIds = wo.lines.map((l) => l.boqItemId);
@@ -517,7 +518,7 @@ export async function createRaBill(input: CreateRaBillInput) {
   });
 }
 
-export async function approveRaBill(id: string, approvedById: string) {
+export async function approveRaBill(id: string, approvedById: string, actorRole?: string) {
   return withSerializableTransaction(async (tx) => {
     const bill = await tx.raBill.findUnique({
       where: { id },
@@ -527,12 +528,15 @@ export async function approveRaBill(id: string, approvedById: string) {
     if (bill.status !== "SUBMITTED") {
       throw new ServiceError(`Cannot approve RA bill in status ${bill.status} (must be SUBMITTED)`, 400);
     }
-    // Prevent self-approval — the creator/submitter cannot approve their own RA bill.
-    if (bill.createdById && bill.createdById === approvedById) {
-      throw new ServiceError("You cannot approve an RA bill you created. Ask another approver to review it.", 403);
-    }
-    if (bill.submittedById && bill.submittedById === approvedById) {
-      throw new ServiceError("You cannot approve an RA bill you submitted. Ask another approver to review it.", 403);
+    // Prevent self-approval — the creator/submitter cannot approve their own RA
+    // bill, unless a tier-1 role (OWNER/ADMIN) where no higher approver exists.
+    if (!canAutoApprove(actorRole)) {
+      if (bill.createdById && bill.createdById === approvedById) {
+        throw new ServiceError("You cannot approve an RA bill you created. Ask another approver to review it.", 403);
+      }
+      if (bill.submittedById && bill.submittedById === approvedById) {
+        throw new ServiceError("You cannot approve an RA bill you submitted. Ask another approver to review it.", 403);
+      }
     }
 
     const updated = await tx.raBill.update({

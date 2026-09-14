@@ -34,6 +34,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
   const tasks = await prisma.task.findMany({
     where,
+    take: 500,
     orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
     include: {
       assignedTo: { select: { id: true, name: true, email: true, role: true } },

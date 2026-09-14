@@ -9,7 +9,8 @@ import {
   getExpenseBudgetVariance,
   type ExpenseBudgetVariance,
 } from "@nirman/services";
-import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
+import { getCompany, getUserRole, toNum, scopeWhere, getCurrentUser } from "@/lib/server";
+import { canAutoApprove } from "@nirman/services";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
@@ -47,6 +48,7 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
   const { tab } = await searchParams;
   const role = await getUserRole();
   const company = await getCompany();
+  const currentUser = await getCurrentUser();
 
   if (!hasPermission(role, PERM.FINANCE_VIEW)) {
     return (
@@ -294,7 +296,8 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
           <SupplierInvoicesView
             suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
             purchaseOrders={purchaseOrders.map((p) => ({ id: p.id, poNumber: p.poNumber, supplierId: p.supplierId }))}
-            permissions={{ canManage: hasPermission(role, PERM.FINANCE_MANAGE) }}
+            permissions={{ canManage: hasPermission(role, PERM.FINANCE_MANAGE), canSelfApprove: canAutoApprove(role) }}
+            currentUserId={currentUser?.id ?? null}
           />
         }
         expenses={
@@ -304,7 +307,8 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
             projects={projectOptions}
             suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
             glAccounts={glAccountOptions}
-            permissions={{ canCreate: hasPermission(role, PERM.EXPENSE_CREATE), canApprove: hasPermission(role, PERM.EXPENSE_APPROVE), canManage: hasPermission(role, PERM.FINANCE_MANAGE), canView: true }}
+            permissions={{ canCreate: hasPermission(role, PERM.EXPENSE_CREATE), canApprove: hasPermission(role, PERM.EXPENSE_APPROVE), canManage: hasPermission(role, PERM.FINANCE_MANAGE), canView: true, canSelfApprove: canAutoApprove(role) }}
+            currentUserId={currentUser?.id ?? null}
           />
         }
         claims={
@@ -320,7 +324,8 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
             employees={employeeOptions}
             projects={projectOptions}
             categories={categoryRows}
-            permissions={{ canCreate: hasPermission(role, PERM.EXPENSE_CREATE), canApprove: hasPermission(role, PERM.EXPENSE_APPROVE), canManage: hasPermission(role, PERM.FINANCE_MANAGE) }}
+            permissions={{ canCreate: hasPermission(role, PERM.EXPENSE_CREATE), canApprove: hasPermission(role, PERM.EXPENSE_APPROVE), canManage: hasPermission(role, PERM.FINANCE_MANAGE), canSelfApprove: canAutoApprove(role) }}
+            currentUserId={currentUser?.id ?? null}
           />
         }
         pettyCash={

@@ -53,6 +53,7 @@
 import { randomBytes, scrypt } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { writeFileSync } from "node:fs";
 
 // ── Resolve the Prisma client path relative to this script ──
 // In the container, this script is at /app/apps/web/scripts/create-srg-users.mjs
@@ -145,6 +146,7 @@ function generatePassword() {
 // ═══════════════════════════════════════════════════════════════════════
 
 const COMPANY_NAME = "SRG REALCON";
+const COMPANY_CODE = "SRG";
 
 /**
  * Users in creation order (H1 first so reportsTo targets exist).
@@ -272,7 +274,7 @@ async function main() {
   //    it provisions once, then silently no-ops forever. ──
   const existingCompany = await prisma.company.findFirst({
     where: { name: COMPANY_NAME, deletedAt: null },
-    select: { id: true },
+    select: { id: true, code: true },
   });
   if (existingCompany) {
     // Count users with memberships in this company whose phone matches one
@@ -302,11 +304,19 @@ async function main() {
     company = await prisma.company.create({
       data: {
         name: COMPANY_NAME,
+        code: COMPANY_CODE,
         businessType: "Real Estate Development",
         currency: "INR",
       },
     });
     console.log(`  CREATED: ${company.name} (id: ${company.id})`);
+  }
+  // Ensure the company code is set — it scopes document numbers into a
+  // per-company series (e.g. PO-SRG-260914-0001) instead of sharing the
+  // global sequence with every other company on this deployment.
+  if (!company.code) {
+    await prisma.company.update({ where: { id: company.id }, data: { code: COMPANY_CODE } });
+    console.log(`  Set company code: ${COMPANY_CODE}`);
   }
   const companyId = company.id;
 
@@ -329,9 +339,18 @@ async function main() {
     console.log(`\n  [${u.key}] ${u.name} (${u.role}, H${u.hierarchyLevel}) — ${phoneDisplay}`);
 
     // ── 2a. Find or create User ──
+    // Match on phoneNormalized OR the phone-derived email — a user created by
+    // an older provisioning path (or the admin UI) may have the email but a
+    // missing/different phoneNormalized. Matching only by phone would hit the
+    // email unique constraint on create and crash the whole script mid-loop.
     let user = await prisma.user.findFirst({
-      where: { phoneNormalized: phone10, active: true },
-      select: { id: true, name: true, email: true, role: true },
+      where: {
+        OR: [
+          { phoneNormalized: phone10, active: true },
+          { email },
+        ],
+      },
+      select: { id: true, name: true, email: true, role: true, phoneNormalized: true },
     });
 
     let password = null;
@@ -366,6 +385,11 @@ async function main() {
           designation: u.designation,
           department: u.department,
           companyId, // ensure default company is set
+          // Backfill login fields when the found record came from an older
+          // path that never set them (e.g. phoneNormalized null → the user
+          // could never sign in by phone).
+          phoneNormalized: user.phoneNormalized ?? phone10,
+          phone: phoneDisplay,
         },
       });
     }
@@ -609,6 +633,39 @@ async function main() {
   console.log("    • H4: Mani Singh reports to Manish Kumar (Accounts Head)");
   console.log("    • H4: Yash Saxena reports to Anurag Garg (Civil Head)");
   console.log("");
+
+  // ── Persist credentials to the persistent volume ──
+  // Deploy logs on Coolify rotate and vanish — if the operator misses the
+  // table above, every generated password (including the owner's) is
+  // unrecoverable, and nobody can sign in to reset them. Write a copy to
+  // the storage volume root — deliberately OUTSIDE UPLOAD_DIR, whose
+  // contents are served via /api/uploads. Operator copies it off the VPS,
+  // then deletes the file.
+  try {
+    const uploadsDir = process.env.UPLOAD_DIR || join(process.cwd(), "storage", "uploads");
+    const credFile = join(dirname(uploadsDir), "srg-credentials.txt");
+    const lines = [
+      `SRG REALCON — first-login credentials`,
+      `Generated: ${new Date().toISOString()}`,
+      ``,
+      `Sign in: open the app → Phone tab → 10-digit number (no +91) → password.`,
+      ``,
+      ...results.map(
+        (r) =>
+          `${r.name.padEnd(18)} ${r.phoneForLogin}  ${r.password ?? "(existing account — password unchanged by this run)"}`,
+      ),
+      ``,
+      `DELETE THIS FILE after distributing credentials.`,
+    ];
+    writeFileSync(credFile, lines.join("\n"), { mode: 0o600 });
+    console.log(`  Credentials saved to ${credFile}`);
+    console.log(`  (persistent volume — copy it out, then delete the file)`);
+    console.log("");
+  } catch (err) {
+    console.log(`  (could not write credentials file: ${err.message} — copy from the table above)`);
+    console.log("");
+  }
+
   console.log("═══════════════════════════════════════════════════════════════");
 }
 

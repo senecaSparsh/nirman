@@ -670,7 +670,7 @@ export function MobileCreateAccountDialog({
                 permissions are included automatically — these are additive
                 overrides.
               </p>
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-2 gap-2">
                 {PERMISSION_MODULES.map((mod) => (
                   <ModuleChip
                     key={mod.key}
@@ -684,7 +684,7 @@ export function MobileCreateAccountDialog({
 
             {/* ── Access Scope ── */}
             <SectionCard title="Access Scope">
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1.5">
                 {(["COMPANY", "PROJECT", "DEPARTMENT"] as const).map((st) => (
                   <SegToggle
                     key={st}

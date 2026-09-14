@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { autoCompleteOnboarding } from "@nirman/services";
-import { apiHandler, json, assertCanManageEmployee } from "@/lib/server";
+import { apiHandler, json } from "@/lib/server";
 
 /**
  * POST /api/employees/[id]/accept-agreement — public endpoint for employee
@@ -37,12 +37,6 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     return json({ error: "Agreement has not been issued yet" }, { status: 400 });
   }
 
-  try {
-    await assertCanManageEmployee(id, employee.companyId);
-  } catch (err) {
-    return json({ error: err instanceof Error ? err.message : "Hierarchy violation" }, { status: 403 });
-  }
-
   await prisma.employee.update({
     where: { id },
     data: {
@@ -60,4 +54,4 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     revalidatePath("/m/hr/onboarding");
 
   return json({ ok: true, message: "Agreement accepted successfully" });
-});
+}, { skipSession: true });

@@ -5,7 +5,7 @@ import { postJournalEntry, ACCT } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { autoSyncEntryToTally } from "./auto-sync";
 import { withSerializableTransaction } from "./transaction";
-import { nextSequenceNumber } from "./sequence";
+import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 
 /**
  * Supplier Payment Service — recording money paid out to suppliers.
@@ -50,12 +50,12 @@ export function wouldExceedPoTotal(
 }
 
 // Generate payment number: SP-YYMMDD-NNNN
-async function generatePaymentNumber(tx: Prisma.TransactionClient): Promise<string> {
+async function generatePaymentNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const today = new Date();
   const yy = String(today.getFullYear()).slice(2);
   const mm = String(today.getMonth() + 1).padStart(2, "0");
   const dd = String(today.getDate()).padStart(2, "0");
-  const prefix = `SP-${yy}${mm}${dd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `SP-${yy}${mm}${dd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
@@ -165,7 +165,7 @@ export async function createSupplierPayment(input: {
     }
 
     // 3. Generate payment number
-    const paymentNumber = await generatePaymentNumber(tx);
+    const paymentNumber = await generatePaymentNumber(tx, input.companyId);
 
     // 4. Create the payment record
     const payment = await tx.supplierPayment.create({

@@ -28,6 +28,8 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   const canApproveReq = perms.includes(PERM.REQUISITION_APPROVE);
   const canApproveGp = perms.includes(PERM.GATE_PASS_APPROVE);
   const canApproveDpr = perms.includes(PERM.DPR_APPROVE_SUB_ADMIN) || perms.includes(PERM.DPR_APPROVE_ADMIN);
+  const canApproveExpense = perms.includes(PERM.EXPENSE_APPROVE);
+  const canApproveRa = perms.includes(PERM.RA_APPROVE);
   const canViewInventory = perms.includes(PERM.INVENTORY_VIEW);
   const canViewFinance = perms.includes(PERM.FINANCE_VIEW);
 
@@ -41,30 +43,47 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   const dprScope = await scopeWhere("DailyProgressReport", {});
 
   // ── 1. Approvals waiting on YOU ──
-  const [poCount, reqCount, gpCount, dprCount] = await Promise.all([
+  // Mirrors /m/approvals: permission-gated per type AND excludes items the
+  // current user created/submitted — you can't approve your own work, so
+  // counting it here would show a number with nothing actionable behind it.
+  const [poCount, reqCount, gpCount, dprCount, expenseCount, claimCount, raCount] = await Promise.all([
     canApprovePo
-      ? prisma.purchaseOrder.count({ where: { companyId: company.id, status: "DRAFT" } })
+      ? prisma.purchaseOrder.count({ where: { companyId: company.id, status: "DRAFT", createdById: { not: user.id } } })
       : 0,
     canApproveReq
       ? prisma.materialRequisition.count({
-          where: { project: { companyId: company.id }, status: "SUBMITTED", ...reqScope },
+          where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: user.id }, ...reqScope },
         })
       : 0,
     canApproveGp
-      ? prisma.gatePass.count({ where: { companyId: company.id, status: "PENDING", ...gpScope } })
+      ? prisma.gatePass.count({ where: { companyId: company.id, status: "PENDING", submittedById: { not: user.id }, ...gpScope } })
       : 0,
     canApproveDpr
       ? prisma.dailyProgressReport.count({
           where: {
             project: { companyId: company.id },
-            approvalStatus: "SUBMITTED",
+            approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] },
+            submittedById: { not: user.id },
             ...dprScope,
           },
         })
       : 0,
+    canApproveExpense
+      ? prisma.expense.count({ where: { companyId: company.id, status: "PENDING", submittedById: { not: user.id } } })
+      : 0,
+    canApproveExpense
+      ? prisma.expenseClaim.count({
+          where: { companyId: company.id, status: "SUBMITTED", claimantId: { not: user.id }, ...await scopeWhere("ExpenseClaim", {}) },
+        })
+      : 0,
+    canApproveRa
+      ? prisma.raBill.count({
+          where: { companyId: company.id, status: "SUBMITTED", createdById: { not: user.id }, submittedById: { not: user.id } },
+        })
+      : 0,
   ]);
 
-  const approvalsTotal = poCount + reqCount + gpCount + dprCount;
+  const approvalsTotal = poCount + reqCount + gpCount + dprCount + expenseCount + claimCount + raCount;
 
   // ── 2. Low-stock alerts (triggered overnight) ──
   let lowStock: Array<{ materialId: string; materialName: string; materialCode: string; qty: number; unit: string; reorderPoint: number | null }> = [];
@@ -229,11 +248,16 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       reqCount,
       gpCount,
       dprCount,
+      expenseCount,
+      claimCount,
+      raCount,
       total: approvalsTotal,
       canApprovePo,
       canApproveReq,
       canApproveGp,
       canApproveDpr,
+      canApproveExpense,
+      canApproveRa,
     },
     lowStock,
     deliveriesToday,

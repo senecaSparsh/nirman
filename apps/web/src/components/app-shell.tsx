@@ -26,6 +26,7 @@ import {
   type World,
   type NavLink,
 } from "@/lib/nav";
+import { badgeCountUrl, badgeCountFrom } from "@/lib/nav-badges";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 // Heavy client-only components — lazy-loaded with ssr:false so they
@@ -33,7 +34,6 @@ import dynamic from "next/dynamic";
 const CommandPalette = dynamic(() => import("@/components/command-palette").then(m => m.CommandPalette), { ssr: false });
 const AssistantChat = dynamic(() => import("@/components/mobile/assistant/assistant-chat").then(m => m.AssistantChat), { ssr: false });
 import { CompanySwitcher } from "@/components/company-switcher";
-import { AlertBell } from "@/components/alert-bell";
 import { NotificationBell } from "@/components/notification-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CurrencyToggle } from "@/components/currency-toggle";
@@ -88,7 +88,15 @@ function isAuthRoute(pathname: string): boolean {
     pathname === "/forgot-password" ||
     pathname.startsWith("/forgot-password/") ||
     pathname === "/reset-password" ||
-    pathname.startsWith("/reset-password/")
+    pathname.startsWith("/reset-password/") ||
+    // Customer portal is a public surface — the internal shell (sidebar,
+    // briefing badge, staff nav) must never wrap it.
+    pathname === "/portal" ||
+    pathname.startsWith("/portal/") ||
+    // Public token-auth pages (offer acceptance, agreement signing) —
+    // the token IS the auth; no internal shell may wrap them.
+    pathname === "/accept" ||
+    pathname.startsWith("/accept/")
   );
 }
 
@@ -135,9 +143,9 @@ export function AppShell({
       const items = badgeLinksFor(role);
       const results = await Promise.all(
         items.map((item) =>
-          fetch(item.badge!.endpoint)
-            .then((r) => (r.ok ? r.json() : []))
-            .then((data) => ({ href: item.href, count: Array.isArray(data) ? data.length : 0 }))
+          fetch(badgeCountUrl(item.badge!.endpoint))
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => ({ href: item.href, count: badgeCountFrom(data) }))
             .catch(() => ({ href: item.href, count: 0 })),
         ),
       );
@@ -331,7 +339,7 @@ export function AppShell({
       .flatMap((s) => s.items)
       .reduce((sum, i) => sum + (badgeCounts[i.href] ?? 0), 0);
 
-  // ── Build alert items for the AlertBell ───────────────────────
+  // ── Build alert items for the notification bell's "Needs attention" ──
   // Map each badge link to an urgency level based on its href.
   const alertItems = badgeLinksFor(userRole)
     .filter((link) => (badgeCounts[link.href] ?? 0) > 0)
@@ -533,8 +541,7 @@ export function AppShell({
               <span className="hidden sm:inline">Search or jump to…</span>
               <kbd className="kbd ml-auto hidden sm:inline-flex">⌘K</kbd>
             </button>
-            <AlertBell items={alertItems} />
-            <NotificationBell />
+            <NotificationBell alertItems={alertItems} />
             <CurrencyToggle tone="surface" />
             <ThemeToggle tone="surface" />
             <span aria-hidden className="mx-0.5 h-5 w-px bg-border" />
@@ -699,8 +706,6 @@ function WorldRail({
       )}
 
       <div className="mt-1.5 flex flex-col items-center gap-1.5">
-        <CurrencyToggle />
-        <ThemeToggle />
         <button
           onClick={() => authSignOut().catch(() => {}).finally(() => { window.location.href = "/sign-in"; })}
           className="flex size-8 items-center justify-center rounded-md text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
@@ -710,7 +715,7 @@ function WorldRail({
           <LogOut className="size-4" />
         </button>
         <Link
-          href="/"
+          href="/me"
           className={cn(
             "flex size-8 items-center justify-center rounded-full bg-sidebar-accent text-[10px] font-bold",
             "text-sidebar-foreground ring-1 ring-inset ring-white/10 transition-colors hover:bg-brand hover:text-brand-foreground",

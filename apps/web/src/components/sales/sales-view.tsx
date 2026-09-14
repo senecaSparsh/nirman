@@ -18,7 +18,7 @@ import { BbaPipelineBoard } from "./bba-pipeline-board";
 import { CustomerFormDialog } from "./customer-form-dialog";
 import { SmsView, type SmsRow } from "@/components/sms/sms-view";
 import { WorkflowStrip } from "@/components/workflow-strip";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { localDateISO, formatCurrency, formatDate } from "@/lib/utils";
 import { downloadCSV, downloadExcel } from "@/lib/export";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 import type { AssetSaleRow, CustomerRow, LeadRow } from "@/lib/types";
@@ -448,7 +448,7 @@ function SalesTab({
       </div>
       <div className="group relative">
         <button
-          onClick={() => downloadCSV(`sales-${new Date().toISOString().slice(0,10)}.csv`, filtered as unknown as Record<string, unknown>[], [
+          onClick={() => downloadCSV(`sales-${localDateISO()}.csv`, filtered as unknown as Record<string, unknown>[], [
             { key: "saleNumber", label: "Sale No." },
             { key: "assetType", label: "Asset Type" },
             { key: "landParcelNumber", label: "Land Parcel" },

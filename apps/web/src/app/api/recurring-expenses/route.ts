@@ -26,6 +26,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   const items = await prisma.recurringExpense.findMany({
     where: { companyId: company.id, ...await scopeWhere("RecurringExpense", {}) },
     orderBy: { nextRunDate: "asc" },
+    take: 300,
     include: {
       project: { select: { id: true, name: true } },
       categoryMaster: { select: { id: true, name: true } },

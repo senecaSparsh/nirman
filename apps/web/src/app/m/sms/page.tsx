@@ -3,6 +3,8 @@ import { toNum, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileSmsIngest } from "./MobileSmsIngest";
+import { MobileSmsMatchSheet } from "./MobileSmsMatchSheet";
+import { Suspense } from "react";
 import { formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {MessageSquare, Link2, Check, AlertCircle} from "lucide-react";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
@@ -39,18 +41,14 @@ export default function MobileSmsPage() {
 
         return (
           <div className="space-y-3 p-3">
-            {/* Header */}
-            <div className="flex items-center gap-2 mb-1">
-              <MessageSquare className="size-4" style={{ color: "var(--color-ink-600)" }} />
-              <h1 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-                Bank SMS
-              </h1>
+            {/* Header actions — page title lives in the shell nav */}
+            <div className="flex items-center justify-end mb-1">
               {(actions?.canCreateSms ?? canManage) && <MobileSmsIngest />}
             </div>
 
             {/* Stats */}
             <div
-              className="grid grid-cols-3 gap-2 rounded-[0.75rem] border p-3"
+              className="grid grid-cols-3 gap-1.5 rounded-[0.75rem] border p-3"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
             >
               <div>
@@ -171,6 +169,11 @@ export default function MobileSmsPage() {
                 })}
               </div>
             )}
+
+            {/* Match sheet — opens on ?match=<smsId> from the "Match to sale" link */}
+            <Suspense fallback={null}>
+              <MobileSmsMatchSheet />
+            </Suspense>
           </div>
         );
       }}

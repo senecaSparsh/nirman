@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import {
   Building2,
@@ -63,17 +64,11 @@ type RealEstateInventoryData = {
 };
 
 export function RealEstateInventoryView() {
-  const [data, setData] = useState<RealEstateInventoryData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error } = useFetch<RealEstateInventoryData>("/api/real-estate-inventory");
 
   useEffect(() => {
-    setLoading(true);
-    fetch("/api/real-estate-inventory")
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => toast.error("Failed to load real estate inventory"))
-      .finally(() => setLoading(false));
-  }, []);
+    if (error) toast.error("Failed to load real estate inventory");
+  }, [error]);
 
   if (loading && !data) {
     return <PageLoading label="Loading real estate inventory…" variant="default" />;

@@ -38,7 +38,7 @@ export function TallySyncButton({
       const pushed = data.push?.synced ?? 0;
       const failed = data.push?.failed ?? 0;
       if (pushed > 0 && failed === 0) {
-        toast.success(`Tally synced · ${pushed} entries pushed`);
+        toast.success(`Tally synced · ${pushed} ${pushed === 1 ? "entry" : "entries"} pushed`);
       } else if (pushed > 0 && failed > 0) {
         toast.warning(`Synced ${pushed}, ${failed} failed`);
       } else {
@@ -55,7 +55,7 @@ export function TallySyncButton({
     <button
       onClick={sync}
       disabled={syncing}
-      className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[0.625rem] border-2 px-3 py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+      className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-[0.625rem] border px-2 text-m-label font-semibold text-m-body press whitespace-nowrap disabled:opacity-50"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)" }}
     >
       <RefreshCw className={`size-3.5 ${syncing ? "animate-spin" : ""}`} />

@@ -176,6 +176,8 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
           updateStatus={updateStatus}
         />
       ) : (
+        // No tasks at all → one global empty state below; skip per-section empties.
+        tasks.length > 0 &&
         sections.map(({ status, label, icon: Icon, tone }) => {
           const items = byStatus(status);
           return (

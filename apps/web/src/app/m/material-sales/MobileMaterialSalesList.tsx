@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
+import { useUrlFilter } from "@/lib/use-url-filter";
+import { PERM } from "@/lib/roles";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { TrendingUp, Eye, Copy, Share2, IndianRupee, Calendar, User, Hash, Package } from "lucide-react";
@@ -58,12 +60,33 @@ const FILTER_OPTIONS: { label: string; value: SaleFilter }[] = [
  * Material sales list — "what did we sell, and did we get paid?"
  * Procurement-style cards in a 2-col grid with payment status accent.
  */
-export function MobileMaterialSalesList({
+export function MobileMaterialSalesList(props: {
+  items: MaterialSaleItem[];
+  totalRevenue: number;
+  totalProfit: number;
+  pendingCount: number;
+  pendingSaleCount?: number;
+  canCreate: boolean;
+  loadMoreUrl?: string;
+  nextCursor?: string | null;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
+}) {
+  // Suspense — useUrlFilter/useSearchParams requires it
+  return (
+    <Suspense fallback={null}>
+      <MobileMaterialSalesListInner {...props} />
+    </Suspense>
+  );
+}
+
+function MobileMaterialSalesListInner({
   items: initialItems,
   totalRevenue,
   totalProfit,
   pendingCount,
-  pendingSaleCount = 0,
   canCreate,
   loadMoreUrl,
   nextCursor: initialCursor,
@@ -86,7 +109,7 @@ export function MobileMaterialSalesList({
   exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<SaleFilter>("ALL");
+  const [filter, setFilter] = useUrlFilter<SaleFilter>("status", "ALL");
   const router = useRouter();
 
   const { items, loading, hasMore, loadMore } = usePaginatedList<MaterialSaleItem>(
@@ -144,8 +167,8 @@ export function MobileMaterialSalesList({
       <PageLead flow="materialSale" />
       <NextActionCard
         flow="materialSale"
-        count={pendingSaleCount}
-        can={(perm) => perm === "SALE_CREATE" ? canCreate : false}
+        count={pendingCount}
+        can={(perm) => perm === PERM.SALE_CREATE ? canCreate : false}
       />
 
       {/* ── Sticky search header ── */}

@@ -171,7 +171,7 @@ export function MobileNewBoqItemDialog({
               <label className={labelClass} style={labelStyle}>
                 Item Type
               </label>
-              <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div className="grid grid-cols-3 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 {(Object.keys(TYPE_LABELS) as BoqItemType[]).map((t) => (
                   <button
                     key={t}
@@ -274,7 +274,7 @@ export function MobileNewBoqItemDialog({
                 )}
 
                 {/* Unit + Qty + Rate */}
-                <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                <div className="grid grid-cols-3 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <UnderlineInput
                     label="Unit"
                     value={form.unit}

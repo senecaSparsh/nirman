@@ -973,7 +973,10 @@ async function onRaBillAction(id: string, action: string, onRefresh: () => void,
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "Failed");
     if (action === "pay") {
-      toast.success("RA bill paid", { description: "Payment recorded and GL updated." });
+      toast.success("RA bill paid", {
+        description: "Payment recorded and GL updated.",
+        action: { label: "View GL", onClick: () => window.open("/gl", "_blank") },
+      });
     } else {
       toast.success(`RA bill ${action}ed`);
     }

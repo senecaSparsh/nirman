@@ -121,7 +121,7 @@ export async function assignEquipment(input: AssignEquipmentInput) {
       entityId: assignment.id,
       after: { equipmentId: input.equipmentId, locationId: input.locationId, projectId: input.projectId ?? null, status: "ACTIVE" },
     });
-    return { assignment, companyId: equipment.companyId };
+    return { assignment, companyId: equipment.companyId, equipmentName: equipment.name };
   });
 
   void emitNotificationEvent({
@@ -129,7 +129,8 @@ export async function assignEquipment(input: AssignEquipmentInput) {
     companyId: result.companyId,
     entityType: "EquipmentAssignment",
     entityId: result.assignment.id,
-    variables: { equipmentId: input.equipmentId, locationId: input.locationId },
+    variables: { equipmentId: input.equipmentId, equipmentName: result.equipmentName, locationId: input.locationId },
+    excludeIds: [input.userId],
     timestamp: new Date(),
   });
   return result.assignment;
@@ -349,6 +350,7 @@ export async function retireEquipment(equipmentId: string, userId?: string) {
     entityType: "Equipment",
     entityId: equipmentId,
     variables: { equipmentId, name: result.updated.name },
+    excludeIds: [userId],
     timestamp: new Date(),
   });
   return result.updated;
@@ -453,7 +455,7 @@ export async function sellEquipment(
     companyId: result.companyId,
     entityType: "Equipment",
     entityId: equipmentId,
-    variables: { equipmentId, salePrice: result.salePrice.toFixed(2), buyerName: input.buyerName ?? "" },
+    variables: { equipmentId, equipmentName: result.updated.name, salePrice: result.salePrice.toFixed(2), buyerName: input.buyerName ?? "" },
     timestamp: new Date(),
   });
   return result.updated;

@@ -285,7 +285,7 @@ export function MobileRequisitionActions({
                 </span>
                 . This action cannot be undone.
               </p>
-              <div className="flex flex-col gap-2 pt-1">
+              <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
                   disabled={busy === "delete"}
@@ -355,7 +355,7 @@ export function MobileRequisitionActions({
                 className="w-full px-2 py-2 text-m-body outline-none border rounded-[0.5rem] resize-none"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
               />
-              <div className="flex flex-col gap-2 pt-1">
+              <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => setShowReject(false)}
                   disabled={busy === "reject"}
@@ -483,9 +483,9 @@ function ConvertForm({
           style={{ borderColor: "var(--color-go)", backgroundColor: "var(--color-go-wash)" }}
         >
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="size-5 shrink-0" style={{ color: "var(--color-go-dark)" }} />
+            <CheckCircle2 className="size-5 shrink-0" style={{ color: "var(--color-go)" }} />
             <div className="flex-1">
-              <p className="text-m-section font-bold" style={{ color: "var(--color-go-dark)" }}>
+              <p className="text-m-section font-bold" style={{ color: "var(--color-go)" }}>
                 PO {convertResult.poNumber} created
               </p>
               <p className="text-m-caption" style={{ color: "var(--color-ink-600)" }}>
@@ -520,7 +520,7 @@ function ConvertForm({
         className="flex items-center gap-2 rounded-[0.5rem] px-2.5 py-2 text-m-label font-semibold"
         style={{
           backgroundColor: gateSatisfied ? "var(--color-go-wash)" : "var(--color-signal-wash)",
-          color: gateSatisfied ? "var(--color-go-dark)" : "var(--color-signal-dark)",
+          color: gateSatisfied ? "var(--color-go)" : "var(--color-signal-dark)",
         }}
       >
         {gateSatisfied ? (

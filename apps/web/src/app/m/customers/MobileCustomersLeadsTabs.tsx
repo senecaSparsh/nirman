@@ -48,7 +48,7 @@ export function MobileCustomersLeadsTabs({
     <div>
       {/* Tab toggle */}
       <div
-        className="sticky top-0 z-20 grid grid-cols-2 gap-1 p-1"
+        className="sticky top-0 z-20 grid grid-cols-2 gap-2 p-1"
         style={{
           backgroundColor: "var(--color-paper)",
           borderBottom: "1px solid var(--color-line)",

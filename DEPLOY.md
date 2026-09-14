@@ -1,111 +1,112 @@
-# Deploying Nirman Inventory OS to Render
+# Deploying Nirman Inventory OS — SRG REALCON (Coolify / Docker)
 
-## Prerequisites
+This is the production path. The app deploys as a single Docker container (see
+`Dockerfile`) on a Coolify-managed VPS. On every container start,
+`apps/web/scripts/docker-entrypoint.sh` runs:
 
-1. A [Render](https://render.com) account
-2. A GitHub repo with this code pushed to it
-3. The app builds and runs locally (verified with `pnpm build` + `pnpm start`)
+```
+prisma migrate deploy        → applies pending migrations (safe, ordered)
+SEED_DEMO_DATA check         → warns + skips if accidentally set (never runs)
+node scripts/create-srg-users.mjs   → SRG REALCON company + 7 accounts (idempotent)
+node --import tsx scripts/seed-prod.ts  → chart of accounts for every company
+exec scripts/start-with-recovery.mjs    → production server + self-healing
+```
 
-## One-time setup (5 minutes)
+The production database starts **clean** — no demo companies, no mock data.
+SRG REALCON provisioning is the first real data. The demo seed is never run.
 
-### 1. Push to GitHub
+## Environment variables (set in Coolify)
+
+Required — the app exits at startup if any are missing:
+
+| Key                   | Value                                                                      |
+| --------------------- | -------------------------------------------------------------------------- |
+| `DATABASE_URL`        | Postgres connection string (include `connection_limit=20&pool_timeout=10`) |
+| `DIRECT_URL`          | Non-pooled Postgres URL for migrations (usually same as DATABASE_URL)      |
+| `BETTER_AUTH_SECRET`  | Random 64-char hex — `openssl rand -hex 32`                                |
+| `BETTER_AUTH_URL`     | `https://<your-domain>`                                                    |
+| `NEXT_PUBLIC_APP_URL` | `https://<your-domain>` (same as above)                                    |
+
+Never set: `AUTH_BYPASS` (the app refuses to boot if it's `true` in production),
+`NEXT_PUBLIC_AUTH_BYPASS`, `SEED_DEMO_DATA`.
+
+Recommended:
+
+| Key                                        | Why                                                                           |
+| ------------------------------------------ | ----------------------------------------------------------------------------- |
+| `CRON_SECRET`                              | Daily 2am UTC backups + cron reminders (`POST /api/cron/*`)                   |
+| `UPLOAD_DIR`                               | Defaults to `/app/storage/uploads` — mount a Coolify volume at `/app/storage` |
+| `SENTRY_DSN`                               | Error tracking                                                                |
+| `INTEGRATION_ENCRYPTION_KEY`               | AES-256 key if integrations are configured                                    |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` | Telephony features (optional)                                                 |
+
+## First deploy — what to watch for
+
+1. In Coolify deploy logs, find the **credential table** printed by
+   `create-srg-users.mjs` — 7 phone numbers + generated 16-char passwords.
+   **Copy these before the log rotates.** The same table is also written to
+   `<volume>/srg-credentials.txt` (mode 0600, next to `uploads/` on the
+   persistent volume) — copy it off the VPS, then delete the file.
+2. Confirm `✓ Migrations complete`, `✓ SRG provisioning check complete`,
+   `✓ Seed complete` all appear.
+3. Hit `https://<your-domain>/api/health` — should return 200.
+
+## SRG REALCON accounts
+
+| Name          | Role                | Hierarchy | Phone (login id) |
+| ------------- | ------------------- | --------- | ---------------- |
+| Vardaan Kumar | OWNER               | H1        | 7017988293       |
+| Sanjeev Kumar | ADMIN               | H1        | 9412230391       |
+| Anurag Garg   | PROJECT_DIRECTOR    | H2        | 7302920202       |
+| Manish Kumar  | FINANCE_HEAD        | H3        | 7302920201       |
+| Raviraj Singh | PROCUREMENT_MANAGER | H3        | 9520002752       |
+| Mani Singh    | SALES_MANAGER       | H4        | 7302920203       |
+| Yash Saxena   | SITE_ENGINEER       | H4        | 7302920205       |
+
+**Sign-in:** open the app → **Phone** tab (default) → enter the 10-digit
+number (no `+91`) → the generated password. No forced password change on
+first login — distribute credentials directly to each person.
+
+Passwords are **never reset** by re-running the script. To reset one, use the
+admin UI (Team settings → reset password) as the owner/admin.
+
+## Re-running provisioning manually
+
+The script is idempotent — it creates only what's missing and can be run any
+time (e.g. after a partial failure):
 
 ```bash
-git remote add origin https://github.com/yourusername/nirman-inventory.git
-git push -u origin main
+# On the VPS, inside the web container
+docker exec -it <container> node /app/apps/web/scripts/create-srg-users.mjs
 ```
 
-### 2. Create a new Blueprint on Render
+If it exits `0`, state is fully provisioned. If it fails, the entrypoint
+prints a loud warning box — the app still starts, but fix and re-run.
 
-1. Go to https://dashboard.render.com → **New** → **Blueprint**
-2. Select your GitHub repo
-3. Render will read `render.yaml` and create:
-   - A PostgreSQL database (`nirman-db`)
-   - A web service (`nirman-inventory`)
+## Restarts and re-deploys
 
-### 3. Set environment variables
+Everything in the entrypoint is safe to repeat: migrations only apply pending
+files, provisioning skips existing records, the chart-of-accounts seed upserts.
+A redeploy or restart will not duplicate data or reset passwords.
 
-In the Render dashboard, go to the **nirman-inventory** web service → **Environment**:
+## Backups
 
-| Key | Value | How |
-|-----|-------|-----|
-| `BETTER_AUTH_SECRET` | (random 64-char hex) | Run `openssl rand -hex 32` locally, paste it |
-| `BETTER_AUTH_URL` | `https://your-app.onrender.com` | Your Render URL (shown after first deploy) |
-| `NEXT_PUBLIC_APP_URL` | `https://your-app.onrender.com` | Same as above |
-| `SEED_PASSWORD` | (a strong password) | This is the password for demo users |
-
-> `DATABASE_URL` is automatically wired from the Postgres service — don't set it manually.
-
-### 4. Deploy
-
-Click **Create Blueprint**. Render will:
-1. Install dependencies (`pnpm install`)
-2. Build the app (`pnpm build`) — this also generates the Prisma client
-3. Before starting: run migrations (`prisma migrate deploy`), seed demo data, set passwords
-4. Start the server (`next start`)
-
-First deploy takes ~5 minutes. Watch the logs for "Production seed complete."
-
-### 5. Sign in
-
-Once deployed, go to `https://your-app.onrender.com/sign-in`:
-
-| Email | Role | Password |
-|-------|------|----------|
-| amit@nirman.in | OWNER (full access) | your SEED_PASSWORD |
-| anita@nirman.in | ADMIN | your SEED_PASSWORD |
-| sneha@nirman.in | MANAGER | your SEED_PASSWORD |
-| ravi@nirman.in | SUPERVISOR | your SEED_PASSWORD |
-| priya@nirman.in | ACCOUNTANT | your SEED_PASSWORD |
-| karan@nirman.in | SALES | your SEED_PASSWORD |
-
-The OWNER account (Amit) has access to everything — that's the one the owner should use.
-
-## What happens automatically on every deploy
-
-```
-pnpm install
-  → postinstall: prisma generate (creates the DB client)
-pnpm build
-  → turbo build → next build (compiles the app)
-preDeploy:
-  → prisma migrate deploy (applies any new migrations)
-  → pnpm seed (creates demo company, users, projects, materials, stock, etc.)
-  → pnpm seed:prod (sets passwords on demo users)
-pnpm start
-  → next start (production server)
-```
-
-The seed is idempotent — it upserts master data and wipes/recreates transactional data.
-Re-running it on every deploy is safe and keeps the demo dataset fresh.
-
-## Going to real production (beyond demo)
-
-When you're ready to use this with real data (not demo):
-
-1. **Remove the seed from `preDeployCommand`** in `render.yaml` — comment out the `seed` and `seed:prod` lines
-2. **Create a real owner account** — sign up via the sign-in page with a real email and strong password
-3. **Delete demo users** — after confirming your real account works, remove the demo users from the database
-4. **Set a strong `SEED_PASSWORD`** or remove it entirely if you've removed the seed step
-5. **Upgrade the database plan** — the free Postgres on Render expires after 90 days; use a paid plan for production
+`POST /api/cron/backup` (requires `CRON_SECRET` header) exports all company
+data into the `BackupRecord` table, 30-day retention. Wire it to a daily cron
+(Coolify scheduled task or external cron hitting the endpoint).
 
 ## Troubleshooting
 
-### "Base URL is not set" warning
-Make sure `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL` are set to your Render URL (with `https://`).
-
-### Sign-in doesn't work after deploy
-Check the deploy logs for "Production seed complete." If the seed failed, the demo users won't have passwords. You can manually re-run it:
-```bash
-# In the Render shell (Dashboard → your service → Shell)
-cd apps/web && pnpm seed:prod
-```
-
-### Database connection errors
-Verify `DATABASE_URL` is set (it should be automatic from the Postgres service). Check that the database is in the same region as the web service.
-
-### Migrations fail
-If `prisma migrate deploy` fails, check that the database is empty (fresh Render Postgres) or that previous migrations were applied. You can check migration status:
-```bash
-cd packages/db && npx prisma migrate status
-```
+- **Deploy fails at migrations** — check `migrate:status`; the wrapper
+  (`packages/db/scripts/migrate-deploy.mjs`) self-heals databases previously
+  synced via `db push`, but a genuinely conflicting schema needs manual review.
+- **"Chart of accounts is not seeded"** — `seed-prod.ts` runs after
+  provisioning every boot; if you see this error, check the startup logs for a
+  seed failure.
+- **A user can't sign in** — verify the phone is the 10-digit login id above;
+  check the account isn't locked (5 failed attempts → 30-min lockout, settable
+  per company); confirm `failedLoginAttempts`/`lockedUntil` on the User row.
+- **Missing accounts after first deploy** — re-run the provisioning command
+  above; it only fills in what's missing.
+- **Old `render.yaml`** — the Render config still exists for reference but is
+  not the production path; ignore it for the SRG deploy.

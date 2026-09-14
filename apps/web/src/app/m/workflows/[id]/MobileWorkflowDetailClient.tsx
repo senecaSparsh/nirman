@@ -45,15 +45,15 @@ export type WorkflowRunRow = {
 };
 
 const STATUS_STYLES: Record<string, { color: string; bg: string; label: string }> = {
-  ACTIVE: { color: "var(--color-go)", bg: "color-mix(in srgb, var(--color-go) 10%, transparent)", label: "Active" },
+  ACTIVE: { color: "var(--color-steel)", bg: "color-mix(in srgb, var(--color-steel) 10%, transparent)", label: "Active" },
   DRAFT: { color: "var(--color-ink-500)", bg: "var(--color-paper-2)", label: "Draft" },
-  PAUSED: { color: "var(--color-warning, #f59e0b)", bg: "color-mix(in srgb, var(--color-warning, #f59e0b) 10%, transparent)", label: "Paused" },
+  PAUSED: { color: "var(--color-signal-dark)", bg: "color-mix(in srgb, var(--color-signal) 10%, transparent)", label: "Paused" },
   ARCHIVED: { color: "var(--color-ink-400)", bg: "var(--color-paper-2)", label: "Archived" },
 };
 
 const RUN_STATUS_ICONS: Record<string, React.ReactNode> = {
   COMPLETED: <CheckCircle className="size-3" style={{ color: "var(--color-go)" }} />,
-  FAILED: <XCircle className="size-3" style={{ color: "var(--color-danger, #ef4444)" }} />,
+  FAILED: <XCircle className="size-3" style={{ color: "var(--color-stop)" }} />,
   RUNNING: <Loader2 className="size-3 animate-spin" style={{ color: "var(--color-steel)" }} />,
   PENDING: <Clock className="size-3" style={{ color: "var(--color-ink-400)" }} />,
 };
@@ -171,11 +171,11 @@ export function MobileWorkflowDetailClient({
 
         {/* Actions */}
         {canManage && (
-          <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
             <button
               onClick={handleRun}
               disabled={running}
-              className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 press"
+              className="flex-1 h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 press"
               style={{ backgroundColor: "var(--color-steel)", color: "var(--color-paper)" }}
             >
               {running ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
@@ -185,7 +185,7 @@ export function MobileWorkflowDetailClient({
               onClick={() => setConfirmDelete(true)}
               disabled={deleting}
               className="h-11 px-4 rounded-[0.5rem] text-m-section font-bold flex items-center gap-1.5 press"
-              style={{ backgroundColor: "color-mix(in srgb, var(--color-danger, #ef4444) 10%, transparent)", color: "var(--color-danger, #ef4444)" }}
+              style={{ backgroundColor: "color-mix(in srgb, var(--color-stop) 10%, transparent)", color: "var(--color-stop)" }}
             >
               <Trash2 className="size-4" />
             </button>
@@ -224,7 +224,7 @@ export function MobileWorkflowDetailClient({
                     </span>
                   </div>
                   {r.error && (
-                    <p className="text-m-caption mt-1 line-clamp-2" style={{ color: "var(--color-danger, #ef4444)" }}>
+                    <p className="text-m-caption mt-1 line-clamp-2" style={{ color: "var(--color-stop)" }}>
                       {r.error}
                     </p>
                   )}
@@ -258,7 +258,7 @@ export function MobileWorkflowDetailClient({
                 onClick={handleDelete}
                 disabled={deleting}
                 className="px-4 h-10 rounded-[0.5rem] text-m-section font-bold flex items-center gap-1.5 press"
-                style={{ backgroundColor: "var(--color-danger, #ef4444)", color: "var(--color-paper)" }}
+                style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
               >
                 {deleting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
                 {deleting ? "Deleting…" : "Delete"}

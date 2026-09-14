@@ -3,9 +3,10 @@ import type { Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { canAutoApprove } from "./rbac";
 import { withSerializableTransaction } from "./transaction";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
-import { nextSequenceNumber } from "./sequence";
+import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 
 /**
  * Gate Pass Service — outbound gate pass with approval workflow.
@@ -44,10 +45,10 @@ export function isGatePassTransitionAllowed(from: string, to: string): boolean {
 }
 
 /** Generate a unique gate pass number: GP-YYMMDD-NNNN */
-async function generateGatePassNumber(tx: Prisma.TransactionClient): Promise<string> {
+async function generateGatePassNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `GP-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `GP-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
@@ -103,7 +104,7 @@ export async function createGatePass(input: CreateGatePassInput) {
   const materialMap = new Map(materials.map((m) => [m.id, m]));
 
   const result = await withSerializableTransaction(async (tx) => {
-    const gatePassNumber = await generateGatePassNumber(tx);
+    const gatePassNumber = await generateGatePassNumber(tx, input.companyId);
 
     const gatePass = await tx.gatePass.create({
       data: {
@@ -208,13 +209,14 @@ export async function submitGatePass(id: string, userId: string) {
 }
 
 /** Approve a PENDING gate pass → APPROVED */
-export async function approveGatePass(id: string, approverId: string, notes?: string) {
+export async function approveGatePass(id: string, approverId: string, notes?: string, actorRole?: string) {
   const result = await withSerializableTransaction(async (tx) => {
     const gp = await tx.gatePass.findUnique({ where: { id } });
     if (!gp) throw new ServiceError("Gate pass not found", 404);
     if (gp.status !== "PENDING") throw new ServiceError(`Cannot approve gate pass in status ${gp.status}`);
-    // Prevent self-approval
-    if (gp.createdById && gp.createdById === approverId) {
+    // Prevent self-approval — unless a tier-1 role (OWNER/ADMIN), where no
+    // higher approver exists above the creator.
+    if (gp.createdById && gp.createdById === approverId && !canAutoApprove(actorRole)) {
       throw new ServiceError("Cannot approve your own gate pass");
     }
 
@@ -242,6 +244,8 @@ export async function approveGatePass(id: string, approverId: string, notes?: st
     entityType: "GatePass",
     entityId: id,
     variables: { gatePassNumber: result.updated.gatePassNumber },
+    extraRecipientIds: [result.updated.createdById],
+    excludeIds: [approverId],
     timestamp: new Date(),
   });
 
@@ -249,26 +253,29 @@ export async function approveGatePass(id: string, approverId: string, notes?: st
   // or StockTransfer in PENDING state). Supplier Return is left manual because its
   // complete flow has additional steps (restocking decisions).
   // Uses lazy imports to avoid circular dependency (issue.ts, material-sale.ts, transfer.ts import gate-pass.ts).
-  void (async () => {
-    try {
-      if (result.updated.refType === "MaterialIssue" && result.updated.refId) {
-        const { executeMaterialIssue } = await import("./issue");
-        await executeMaterialIssue(result.updated.refId, approverId);
-      } else if (result.updated.refType === "MaterialSale" && result.updated.refId) {
-        const { executeMaterialSale } = await import("./material-sale");
-        await executeMaterialSale(result.updated.refId, approverId);
-      } else if (result.updated.refType === "StockTransfer" && result.updated.refId) {
-        const { dispatchTransfer } = await import("./transfer");
-        await dispatchTransfer(result.updated.refId, approverId);
-      }
-    } catch (err) {
-      // Best-effort — the gate pass is approved even if auto-execution fails.
-      // The user can manually execute from the gate pass detail dialog.
-      console.error(`[gate-pass] Auto-execution failed for ${result.updated.refType} ${result.updated.refId}:`, err);
+  // Awaited so a failure is reported back to the caller — a gate pass showing
+  // "Approved" whose linked issue silently stays PENDING (e.g. insufficient
+  // stock) would let a gate guard wave through material that never moved.
+  let executionError: string | null = null;
+  try {
+    if (result.updated.refType === "MaterialIssue" && result.updated.refId) {
+      const { executeMaterialIssue } = await import("./issue");
+      await executeMaterialIssue(result.updated.refId, approverId);
+    } else if (result.updated.refType === "MaterialSale" && result.updated.refId) {
+      const { executeMaterialSale } = await import("./material-sale");
+      await executeMaterialSale(result.updated.refId, approverId);
+    } else if (result.updated.refType === "StockTransfer" && result.updated.refId) {
+      const { dispatchTransfer } = await import("./transfer");
+      await dispatchTransfer(result.updated.refId, approverId);
     }
-  })();
+  } catch (err) {
+    // The gate pass is still approved even if auto-execution fails — but the
+    // failure is surfaced to the caller instead of being logged-and-lost.
+    executionError = err instanceof Error ? err.message : "Auto-execution failed";
+    console.error(`[gate-pass] Auto-execution failed for ${result.updated.refType} ${result.updated.refId}:`, err);
+  }
 
-  return result.updated;
+  return { ...result.updated, executionError };
 }
 
 /** Reject a PENDING gate pass → REJECTED. Also cancels linked PENDING issue/sale. */
@@ -319,6 +326,8 @@ export async function rejectGatePass(id: string, rejecterId: string, reason: str
     entityType: "GatePass",
     entityId: id,
     variables: { gatePassNumber: result.updated.gatePassNumber, reason },
+    extraRecipientIds: [result.updated.createdById],
+    excludeIds: [rejecterId],
     timestamp: new Date(),
   });
 
@@ -425,6 +434,8 @@ export async function confirmExit(id: string, securityId: string, exitDetails: C
     entityType: "GatePass",
     entityId: id,
     variables: { gatePassNumber: result.updated.gatePassNumber },
+    extraRecipientIds: [result.updated.createdById],
+    excludeIds: [securityId],
     timestamp: new Date(),
   });
 
@@ -528,7 +539,7 @@ export async function autoCreateGatePassFromRef(
     createdById?: string;
   },
 ) {
-  const gatePassNumber = await generateGatePassNumber(tx);
+  const gatePassNumber = await generateGatePassNumber(tx, params.companyId);
 
   // Pre-fetch material snapshots
   const materialIds = params.lines.filter((l) => l.materialId && !l.materialName).map((l) => l.materialId!);

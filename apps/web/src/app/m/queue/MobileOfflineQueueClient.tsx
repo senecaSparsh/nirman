@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   RefreshCw, Loader2, WifiOff, CheckCircle2, XCircle, AlertTriangle,
   Package, Send, ShoppingCart, ArrowRightLeft, ClipboardCheck, Undo2, Trash2,
+  Users, FileText,
 } from "lucide-react";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { formatRelativeTime } from "@/lib/utils";
@@ -23,6 +24,8 @@ const KIND_LABELS: Record<QueuedOperation["kind"], { label: string; icon: typeof
   "stock-count": { label: "Stock Inventory", icon: ClipboardCheck },
   "supplier-return": { label: "Supplier Return", icon: Undo2 },
   "purchase-order": { label: "Purchase Order", icon: ShoppingCart },
+  "attendance": { label: "Attendance", icon: Users },
+  "dpr": { label: "Daily Report", icon: FileText },
 };
 
 const STATUS_STYLES: Record<string, { color: string; icon: typeof CheckCircle2; label: string }> = {
@@ -56,19 +59,14 @@ export function MobileOfflineQueueClient() {
 
   return (
     <div className="space-y-4 p-4">
-      {/* Header */}
-      <div>
-        <h1 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-          Offline Queue
-        </h1>
-        <p className="text-m-body mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-          {pending > 0
-            ? `${pending} operation${pending > 1 ? "s" : ""} waiting to sync`
-            : online
-              ? "All caught up — no pending operations"
-              : "You're offline. Operations will sync when back online."}
-        </p>
-      </div>
+      {/* Status caption — page title lives in the shell nav */}
+      <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
+        {pending > 0
+          ? `${pending} operation${pending > 1 ? "s" : ""} waiting to sync`
+          : online
+            ? "All caught up — no pending operations"
+            : "You're offline. Operations will sync when back online."}
+      </p>
 
       {/* Status bar */}
       <div

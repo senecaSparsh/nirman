@@ -7,6 +7,38 @@ import {
   Loader2,
   ChevronRight,
   ExternalLink,
+  type LucideIcon,
+  ArrowLeftRight,
+  Award,
+  Banknote,
+  Building,
+  Building2,
+  Calendar,
+  ClipboardCheck,
+  ClipboardList,
+  Contact,
+  DoorOpen,
+  FileSignature,
+  FileText,
+  Filter,
+  Globe,
+  HardHat,
+  Inbox,
+  Key,
+  Link2,
+  Map,
+  MapPin,
+  Package,
+  Receipt,
+  ShoppingCart,
+  Split,
+  Trash2,
+  Truck,
+  User,
+  Users,
+  Wallet,
+  Warehouse,
+  Wrench,
 } from "lucide-react";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
@@ -65,75 +97,75 @@ interface BreadcrumbStep {
   title: string;
 }
 
-const TYPE_ICONS: Record<string, string> = {
-  company: "🏢",
-  project: "🏗️",
-  builtUnit: "🏠",
-  landParcel: "📐",
-  landPurchase: "📐",
-  assetSale: "💰",
-  department: "🏭",
-  stockLocation: "📦",
-  employee: "👷",
-  equipment: "🔧",
-  requisition: "📋",
-  purchaseOrder: "🛒",
-  materialIssue: "📤",
-  dpr: "📊",
-  portalListing: "🌐",
-  payment: "💵",
-  partition: "✂️",
-  supplier: "🚚",
-  customer: "🤝",
-  vehicle: "🚛",
-  subcontractor: "👷‍♂️",
-  expense: "💸",
-  lead: "🎯",
-  task: "✅",
-  scrapGeneration: "♻️",
-  stockTransfer: "🔄",
-  projectPhase: "📅",
-  equipmentAssignment: "⚙️",
-  crew: "👥",
-  tenancy: "🔑",
-  saleExpense: "🧾",
-  saleTerm: "📜",
+const TYPE_ICONS: Record<string, LucideIcon> = {
+  company: Building2,
+  project: HardHat,
+  builtUnit: DoorOpen,
+  landParcel: Map,
+  landPurchase: Map,
+  assetSale: ShoppingCart,
+  department: Building,
+  stockLocation: Warehouse,
+  employee: User,
+  equipment: Wrench,
+  requisition: Inbox,
+  purchaseOrder: FileText,
+  materialIssue: Package,
+  dpr: ClipboardList,
+  portalListing: Globe,
+  payment: Banknote,
+  partition: Split,
+  supplier: Building2,
+  customer: Contact,
+  vehicle: Truck,
+  subcontractor: Award,
+  expense: Wallet,
+  lead: Filter,
+  task: ClipboardCheck,
+  scrapGeneration: Trash2,
+  stockTransfer: ArrowLeftRight,
+  projectPhase: Calendar,
+  equipmentAssignment: Link2,
+  crew: Users,
+  tenancy: Key,
+  saleExpense: Receipt,
+  saleTerm: FileSignature,
 };
 
-const CATEGORY_ICONS: Record<string, string> = {
-  projects: "🏗️",
-  land: "📐",
-  departments: "🏭",
-  inventory: "📦",
-  hr: "👷",
-  equipment: "🔧",
-  builtUnits: "🏠",
-  landParcels: "📐",
-  requisitions: "📋",
-  purchaseOrders: "🛒",
-  materialIssues: "📤",
-  dprs: "📊",
-  sales: "💰",
-  portalListings: "🌐",
-  payments: "💵",
-  subParcels: "📐",
-  partitions: "✂️",
-  suppliers: "🚚",
-  customers: "🤝",
-  vehicles: "🚛",
-  subcontractors: "👷‍♂️",
-  expenses: "💸",
-  leads: "🎯",
-  tasks: "✅",
-  scrapGenerations: "♻️",
-  stockTransfers: "🔄",
-  projectPhases: "📅",
-  equipmentAssignments: "⚙️",
-  crews: "👥",
-  tenancies: "🔑",
-  saleExpenses: "🧾",
-  saleTerms: "📜",
-  companies: "🏢",
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  projects: HardHat,
+  land: Map,
+  departments: Building,
+  inventory: Warehouse,
+  hr: Users,
+  equipment: Wrench,
+  builtUnits: DoorOpen,
+  landParcels: Map,
+  requisitions: Inbox,
+  purchaseOrders: FileText,
+  materialIssues: Package,
+  dprs: ClipboardList,
+  sales: ShoppingCart,
+  portalListings: Globe,
+  payments: Banknote,
+  subParcels: Map,
+  partitions: Split,
+  suppliers: Building2,
+  customers: Contact,
+  vehicles: Truck,
+  subcontractors: Award,
+  expenses: Wallet,
+  leads: Filter,
+  tasks: ClipboardCheck,
+  scrapGenerations: Trash2,
+  stockTransfers: ArrowLeftRight,
+  projectPhases: Calendar,
+  equipmentAssignments: Link2,
+  crews: Users,
+  tenancies: Key,
+  saleExpenses: Receipt,
+  saleTerms: FileSignature,
+  companies: Building2,
 };
 
 export interface OrbitNavigatorProps {
@@ -270,7 +302,12 @@ export function OrbitNavigator({
 
   const orbitChips = node?.orbits ?? [];
   const chipCount = orbitChips.length;
-  const radiusPercent = 42;
+  // Ring geometry: radius as % of box width; the box is slightly taller
+  // than wide (aspect 1/1.06) so bottom-row labels get a margin.
+  const radiusPercent = 39;
+  const CENTER_Y = 46;
+  const W_TO_H = 100 / 108;
+  const chipSize = chipCount > 14 ? "2rem" : chipCount > 10 ? "2.25rem" : "2.5rem";
 
   const content = (
     <>
@@ -313,7 +350,7 @@ export function OrbitNavigator({
                         : "var(--color-ink-500)",
                   }}
                 >
-                  {TYPE_ICONS[step.type] ?? "📍"}
+                  {(() => { const CrumbIcon = TYPE_ICONS[step.type] ?? MapPin; return <CrumbIcon className="size-3.5" />; })()}
                 </button>
               </React.Fragment>
             ))}
@@ -342,21 +379,27 @@ export function OrbitNavigator({
             />
           </div>
         ) : node ? (
-          <div className="flex flex-col items-center px-4 pt-5 pb-8">
-            {/* ── Orbit ring (center card + circular chips) ── */}
+          <div className="flex flex-col items-center px-2 pt-4 pb-8">
+            {/* ── Orbit ring (center card + circular chips) ──
+                Geometry: the ring uses the full content width. Each chip's
+                CIRCLE is anchored exactly on the ring (the label hangs below
+                as an absolutely-positioned caption so it never shifts the
+                anchor). Count rides as a corner badge — one visual unit
+                per node keeps the ring readable at 12+ chips. */}
             <div
               className="relative w-full"
-              style={{ maxWidth: "20rem", aspectRatio: "1 / 1" }}
+              style={{ maxWidth: "23rem", aspectRatio: "1 / 1.08" }}
             >
               {/* Orbit chips in a ring — fade + scale behind when card is expanded */}
               {chipCount > 0 ? (
                 <>
-                  {/* Faint connecting circle */}
+                  {/* Orbit track — a single hairline circle the nodes sit on */}
                   <div
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed transition-all duration-300"
+                    className="absolute left-1/2 -translate-x-1/2 rounded-full border transition-all duration-300"
                     style={{
+                      top: `${CENTER_Y}%`,
                       width: `${radiusPercent * 2}%`,
-                      height: `${radiusPercent * 2}%`,
+                      aspectRatio: "1 / 1",
                       borderColor: "var(--color-line)",
                       opacity: cardExpanded ? 0 : 1,
                       transform: cardExpanded
@@ -370,58 +413,84 @@ export function OrbitNavigator({
                       (chipCount === 1 ? -90 : -90 + (360 / chipCount) * i) *
                       (Math.PI / 180);
                     const x = 50 + radiusPercent * Math.cos(angle);
-                    const y = 50 + radiusPercent * Math.sin(angle);
+                    const y = CENTER_Y + radiusPercent * W_TO_H * Math.sin(angle);
                     const isActive = activeChip === chip.id;
                     const isEmpty = chip.count === 0;
+                    // Labels point away from the center card: chips in the
+                    // upper half get their label above the node, lower half
+                    // below. Stops upper-diagonal labels from slipping under
+                    // the center card's edge.
+                    const labelAbove = Math.sin(angle) < -0.15;
 
                     return (
                       <button
                         key={chip.id}
                         onClick={() => handleChipTap(chip)}
                         disabled={isEmpty || cardExpanded}
-                        className="absolute z-20 flex flex-col items-center gap-0.5 text-m-body press transition-all duration-300"
+                        title={chip.label}
+                        className="absolute z-20 text-m-body transition-all duration-300"
                         style={{
                           left: `${x}%`,
                           top: `${y}%`,
                           transform: cardExpanded
                             ? "translate(-50%, -50%) scale(0.3)"
                             : "translate(-50%, -50%)",
-                          opacity: cardExpanded ? 0 : isEmpty ? 0.35 : 1,
+                          opacity: cardExpanded ? 0 : 1,
                           pointerEvents: cardExpanded ? "none" : "auto",
                         }}
                       >
+                        {/* Entrance wrapper — scale+fade stagger; keeps the
+                            button's positioning transform untouched. */}
                         <div
-                          className="grid place-items-center rounded-full border-2 transition-all"
-                          style={{
-                            width: isActive ? "3rem" : "2.5rem",
-                            height: isActive ? "3rem" : "2.5rem",
-                            borderColor: isActive
-                              ? "var(--color-ink-950)"
-                              : "var(--color-line)",
-                            backgroundColor: isActive
-                              ? "var(--color-concrete)"
-                              : "var(--color-paper)",
-                            boxShadow: isActive
-                              ? "0 2px 8px rgba(0,0,0,0.12)"
-                              : "none",
-                          }}
+                          className="orbit-node-in relative"
+                          style={{ animationDelay: `${i * 30}ms` }}
                         >
-                          <span className="text-m-section leading-none">
-                            {CATEGORY_ICONS[chip.id] ?? "📍"}
+                          {/* Node circle — anchored exactly on the ring */}
+                          <div
+                            className="press relative grid place-items-center rounded-full border transition-all"
+                            style={{
+                              width: chipSize,
+                              height: chipSize,
+                              borderColor: isActive
+                                ? "var(--color-ink-950)"
+                                : "var(--color-line)",
+                              backgroundColor: isActive
+                                ? "var(--color-concrete)"
+                                : "var(--color-paper)",
+                              boxShadow: isActive
+                                ? "0 2px 8px rgba(0,0,0,0.14)"
+                                : "0 1px 2px rgba(0,0,0,0.05)",
+                              transform: isActive ? "scale(1.12)" : undefined,
+                            }}
+                          >
+                            {(() => { const ChipIcon = CATEGORY_ICONS[chip.id] ?? MapPin; return <ChipIcon className="size-4" style={{ color: isEmpty ? "var(--color-ink-300)" : "var(--color-ink-700)" }} />; })()}
+                            {/* Count — corner badge, always readable */}
+                            <span
+                              className="absolute -top-1.5 -right-1.5 grid place-items-center min-w-4 h-4 rounded-full px-1 text-m-micro font-bold tabular-nums"
+                              style={{
+                                backgroundColor: isEmpty
+                                  ? "var(--color-concrete)"
+                                  : "var(--color-ink-950)",
+                                color: isEmpty
+                                  ? "var(--color-ink-500)"
+                                  : "var(--color-paper)",
+                              }}
+                            >
+                              {chip.count > 99 ? "99" : chip.count}
+                            </span>
+                          </div>
+                          {/* Label — radially outward, never moves the anchor */}
+                          <span
+                            className={`absolute left-1/2 -translate-x-1/2 w-16 text-center text-m-caption font-semibold leading-tight truncate ${labelAbove ? "bottom-full mb-1" : "top-full mt-1"}`}
+                            style={{
+                              color: isEmpty
+                                ? "var(--color-ink-300)"
+                                : "var(--color-ink-950)",
+                            }}
+                          >
+                            {chip.label}
                           </span>
                         </div>
-                        <span
-                          className="text-m-caption font-bold text-center leading-tight whitespace-nowrap"
-                          style={{ color: "var(--color-ink-950)" }}
-                        >
-                          {chip.label}
-                        </span>
-                        <span
-                          className="text-m-caption font-semibold tabular-nums"
-                          style={{ color: "var(--color-ink-500)" }}
-                        >
-                          {chip.count}
-                        </span>
                       </button>
                     );
                   })}
@@ -430,8 +499,9 @@ export function OrbitNavigator({
 
               {/* Center card — expands to fill orbit area when tapped */}
               <div
-                className="absolute top-1/2 left-1/2 z-30 transition-all duration-300"
+                className="absolute left-1/2 z-30 transition-all duration-300"
                 style={{
+                  top: `${CENTER_Y}%`,
                   width: cardExpanded ? "100%" : "46%",
                   height: cardExpanded ? "100%" : "auto",
                   transform: "translate(-50%, -50%)",
@@ -498,7 +568,7 @@ export function OrbitNavigator({
                     />
                   </div>
                 ) : children && children.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="grid grid-cols-2 gap-2">
                     {children.map((child) => (
                       <ChildCard
                         key={child.id}
@@ -558,7 +628,7 @@ function CenterCard({
   node: OrbitNode;
   expanded?: boolean;
 }) {
-  const icon = TYPE_ICONS[node.type] ?? "📍";
+  const Icon = TYPE_ICONS[node.type] ?? MapPin;
   return (
     <div
       className="w-full rounded-[0.75rem] border-2 p-2.5 text-center"
@@ -569,9 +639,9 @@ function CenterCard({
     >
       <div
         className="grid place-items-center w-10 h-10 rounded-[0.5rem] mx-auto mb-1 text-m-section"
-        style={{ backgroundColor: "var(--color-concrete)" }}
+        style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
       >
-        {icon}
+        <Icon className="size-5" />
       </div>
       <p
         className="font-bold text-m-body leading-tight line-clamp-2"
@@ -645,7 +715,7 @@ function ChildCard({
   child: ChildEntity;
   onDrillDown: () => void;
 }) {
-  const icon = TYPE_ICONS[child.type] ?? "📍";
+  const Icon = TYPE_ICONS[child.type] ?? MapPin;
   return (
     <div
       className="flex flex-col rounded-[0.5rem] border p-2 text-m-body press"
@@ -656,8 +726,8 @@ function ChildCard({
     >
       {/* Top row: icon + title + actions */}
       <div className="flex items-start gap-1.5">
-        <span className="text-m-section leading-none shrink-0 mt-0.5">
-          {icon}
+        <span className="shrink-0 mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+          <Icon className="size-4" />
         </span>
         <button
           onClick={onDrillDown}

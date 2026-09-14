@@ -65,17 +65,17 @@ interface LeadData {
 
 const STAGE_META: Record<string, { color: string; label: string }> = {
   NEW: { color: "var(--color-steel)", label: "New" },
-  CONTACTED: { color: "var(--color-info)", label: "Contacted" },
-  SITE_VISIT: { color: "var(--color-info)", label: "Site Visit" },
-  NEGOTIATION: { color: "var(--color-warn)", label: "Negotiation" },
+  CONTACTED: { color: "var(--color-steel)", label: "Contacted" },
+  SITE_VISIT: { color: "var(--color-steel)", label: "Site Visit" },
+  NEGOTIATION: { color: "var(--color-signal-dark)", label: "Negotiation" },
   BOOKED: { color: "var(--color-go)", label: "Booked" },
   LOST: { color: "var(--color-stop)", label: "Lost" },
 };
 
 const PRIORITY_META: Record<string, { color: string; label: string }> = {
   LOW: { color: "var(--color-steel)", label: "Low" },
-  MEDIUM: { color: "var(--color-info)", label: "Medium" },
-  HIGH: { color: "var(--color-warn)", label: "High" },
+  MEDIUM: { color: "var(--color-steel)", label: "Medium" },
+  HIGH: { color: "var(--color-signal-dark)", label: "High" },
   HOT: { color: "var(--color-stop)", label: "Hot" },
 };
 
@@ -253,12 +253,12 @@ export function MobileLeadDetailClient({
 
       {/* ── Stage progression + convert ── */}
       {canManage && !isLost && !isConverted ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex gap-2">
           {canConvert ? (
             <button
               onClick={convertToCustomer}
               disabled={converting}
-              className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] py-2.5 text-m-body font-bold text-m-body press disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-body font-bold text-m-body press disabled:opacity-50"
               style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
             >
               {converting ? <Loader2 className="size-3.5 animate-spin" /> : <UserRoundCheck className="size-3.5" />}
@@ -272,7 +272,7 @@ export function MobileLeadDetailClient({
                 setLostReason("");
                 setShowStageSheet(true);
               }}
-              className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] border py-2 text-m-label font-bold text-m-body press"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] border py-2 text-m-label font-bold text-m-body press"
               style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
             >
               <TrendingUp className="size-3" />
@@ -426,7 +426,7 @@ export function MobileLeadDetailClient({
                       </p>
                     ) : null}
                     {a.nextFollowUpAt ? (
-                      <p className="text-m-caption mt-1 flex items-center gap-0.5" style={{ color: "var(--color-warn)" }}>
+                      <p className="text-m-caption mt-1 flex items-center gap-0.5" style={{ color: "var(--color-signal-dark)" }}>
                         <Calendar className="size-2.5" />
                         Follow up: {formatDate(a.nextFollowUpAt)}
                       </p>
@@ -487,7 +487,7 @@ export function MobileLeadDetailClient({
                   </div>
                 ) : null}
               </div>
-              <div className="flex flex-col gap-2 pt-1">
+              <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => setShowStageSheet(false)}
                   disabled={movingStage}

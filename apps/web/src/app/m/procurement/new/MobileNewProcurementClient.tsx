@@ -335,7 +335,7 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
             ? "Will be submitted as DRAFT when back online."
             : "An approver has been notified. You'll be notified once it's approved."}
         </p>
-        <div className="flex flex-col gap-3">
+        <div className="flex gap-3">
           {!isQueued && success.poId ? (
             <button
               onClick={() => {
@@ -345,7 +345,7 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
                   router.push(`/m/procurement/${success.poId}`);
                 }
               }}
-              className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
+              className="flex-1 rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               View {success.poNumber}
@@ -360,7 +360,7 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
                 router.push("/m/procurement");
               }
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
+            className="flex-1 rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View All POs
@@ -373,7 +373,7 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
               setNotes("");
               setExpectedDate("");
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
+            className="flex-1 rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
           >
             Create Another
@@ -725,7 +725,7 @@ function PoForm({
                     required
                   />
 
-                  <div className="grid grid-cols-2 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                     <div>
                       <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                         Qty{mat ? ` (${mat.unit})` : ""}
@@ -764,7 +764,7 @@ function PoForm({
                   </div>
 
                   {/* GST Rate + Line Total (side by side) */}
-                  <div className="grid grid-cols-2 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                     <div>
                       <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                         GST %
@@ -831,7 +831,7 @@ function PoForm({
                 className="rounded-[0.5rem] border p-2 flex flex-col gap-2"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               >
-                <div className="grid grid-cols-2 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
                     <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                       Heading

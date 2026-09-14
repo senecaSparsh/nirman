@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
+import { useUrlFilter } from "@/lib/use-url-filter";
+import { PERM } from "@/lib/roles";
 import Link from "next/link";
 import {
   ArrowRight, Package,
@@ -65,7 +67,28 @@ const STATUS_ICON: Record<string, typeof CheckCircle2> = {
   CANCELLED: AlertTriangle,
 };
 
-export function MobileTransfersList({
+export function MobileTransfersList(props: {
+  items: TransferItem[];
+  canCreate: boolean;
+  canTransfer?: boolean;
+  inTransitCount?: number;
+  currentCompanyId: string;
+  loadMoreUrl?: string;
+  nextCursor?: string | null;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
+}) {
+  // Suspense — useUrlFilter/useSearchParams requires it
+  return (
+    <Suspense fallback={null}>
+      <MobileTransfersListInner {...props} />
+    </Suspense>
+  );
+}
+
+function MobileTransfersListInner({
   items: initialItems,
   canCreate,
   canTransfer,
@@ -91,7 +114,7 @@ export function MobileTransfersList({
   exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
-  const [combinedFilter, setCombinedFilter] = useState<CombinedFilter>("ALL");
+  const [combinedFilter, setCombinedFilter] = useUrlFilter<CombinedFilter>("status", "ALL");
 
   const { items, loading, hasMore, loadMore } = usePaginatedList<TransferItem>(
     initialItems,
@@ -174,7 +197,7 @@ export function MobileTransfersList({
       <NextActionCard
         flow="stockTransfer"
         count={inTransitCount}
-        can={(perm) => perm === "STOCK_TRANSFER" ? !!canTransfer : false}
+        can={(perm) => perm === PERM.STOCK_TRANSFER ? !!canTransfer : false}
       />
 
       {/* ── Result count ── */}

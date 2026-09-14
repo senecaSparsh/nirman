@@ -50,6 +50,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       reportingLocationId: e.reportingLocationId,
       reportingLocationName: e.reportingLocation?.name ?? null,
       hierarchyLevel: e.hierarchyLevel,
+      userId: e.userId,
     })),
   );
 });

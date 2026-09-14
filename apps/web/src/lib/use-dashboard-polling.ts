@@ -39,10 +39,19 @@ export function useDashboardPolling(): DashboardCounts | null {
 
   useEffect(() => {
     let active = true;
+    let controller: AbortController | null = null;
 
     async function fetchCounts() {
+      // Skip the tick entirely when the tab is backgrounded or the device
+      // is offline — a hidden tab polling every 30s wastes DB connections
+      // and battery on field devices (matches the SWR isPaused policy).
+      if (document.hidden) return;
+      if (typeof navigator !== "undefined" && !navigator.onLine) return;
+
+      controller?.abort();
+      controller = new AbortController();
       try {
-        const res = await fetch("/api/dashboard-counts");
+        const res = await fetch("/api/dashboard-counts", { signal: controller.signal });
         if (!res.ok) return;
         const data = await res.json();
         if (active && data) setCounts(data as DashboardCounts);
@@ -55,9 +64,18 @@ export function useDashboardPolling(): DashboardCounts | null {
     fetchCounts();
     const interval = setInterval(fetchCounts, POLL_INTERVAL);
 
+    // Refetch the moment the user returns to the tab so they never stare
+    // at counts that are a full poll-interval stale.
+    const onVisible = () => {
+      if (!document.hidden) void fetchCounts();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
       active = false;
+      controller?.abort();
       clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 

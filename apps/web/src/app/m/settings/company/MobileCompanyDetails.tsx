@@ -90,6 +90,7 @@ export function MobileCompanyDetails({
         roleOptions={roleOptions}
         assignable={assignable}
       />
+      <PhonePoolSection data={data} canManageTelephony={permissions.canManageTelephony} />
       {data.parentName || data.siblings.length > 0 ? (
         <HierarchySection data={data} />
       ) : null}
@@ -256,6 +257,11 @@ function MembersOverview({ data, canManage }: { data: CompanyProfileData; canMan
           <div className="min-w-0 flex-1">
             <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>{m.name}</p>
             <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>{m.email}</p>
+            {m.phone && (
+              <p className="text-m-caption truncate flex items-center gap-1" style={{ color: "var(--color-ink-500)" }}>
+                <Phone className="size-2.5" /> {m.phone}
+              </p>
+            )}
           </div>
           <Badge tone="neutral" className="shrink-0">{ROLE_META[m.role as Role]?.label ?? m.role}</Badge>
         </div>
@@ -334,7 +340,7 @@ function LocationsOverview({ data, canManage }: { data: CompanyProfileData; canM
             <Badge tone="neutral" className="shrink-0">{LOCATION_TYPE_LABELS[l.type] ?? l.type}</Badge>
           </div>
           <div className="flex items-center gap-3 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-            <span className="tabular-nums">{l.itemCount} items</span>
+            <span className="tabular-nums">{l.itemCount} item{l.itemCount === 1 ? "" : "s"}</span>
             <span className="ml-auto tabular-nums font-bold" style={{ color: "var(--color-ink-950)" }}>
               {formatCurrency(l.stockValue, data.currency)}
             </span>
@@ -774,6 +780,11 @@ function MembersSection({
                     <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                       {m.email}
                     </p>
+                    {m.phone && (
+                      <p className="text-m-caption truncate flex items-center gap-1" style={{ color: "var(--color-ink-500)" }}>
+                        <Phone className="size-2.5" /> {m.phone}
+                      </p>
+                    )}
                   </div>
                   {canManage && canAssignRole(actorRole, m.role) ? (
                     <EnumSelect
@@ -822,6 +833,143 @@ function MembersSection({
         </div>
       )}
       {confirmDialog}
+    </CollapsibleSection>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Phone Pool section — company-owned numbers and assignment status
+// ───────────────────────────────────────────────────────────────
+
+function PhonePoolSection({ data, canManageTelephony }: { data: CompanyProfileData; canManageTelephony: boolean }) {
+  const router = useRouter();
+  const assigned = data.phonePool.filter((p) => p.assignedToUserId);
+  const available = data.phonePool.filter((p) => !p.assignedToUserId && p.status !== "INACTIVE");
+  const [showAdd, setShowAdd] = React.useState(false);
+  const [addPhone, setAddPhone] = React.useState("");
+  const [addLabel, setAddLabel] = React.useState("");
+  const [addDept, setAddDept] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+
+  async function handleAddNumber() {
+    if (!addPhone.trim()) { toast.error("Phone number is required"); return; }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/telephony/numbers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phoneNumber: addPhone.trim(),
+          label: addLabel.trim() || null,
+          department: addDept.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to add number");
+      toast.success(`Added ${addPhone.trim()} to phone pool`);
+      setShowAdd(false);
+      setAddPhone(""); setAddLabel(""); setAddDept("");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add number");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <CollapsibleSection title="Phone Pool" icon={Phone} count={data.phonePool.length}>
+      <p className="text-m-caption pb-2" style={{ color: "var(--color-ink-500)" }}>
+        Company-owned numbers assigned to staff for login and call recording. When an employee leaves, their number is recycled back here.
+      </p>
+      <div className="flex items-center gap-1.5 flex-wrap mb-2">
+        <span className="text-m-caption font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)", color: "var(--color-go)" }}>
+          {assigned.length} assigned
+        </span>
+        <span className="text-m-caption font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)", color: "var(--color-signal-dark)" }}>
+          {available.length} available
+        </span>
+        {canManageTelephony && (
+          <button
+            type="button"
+            onClick={() => setShowAdd(true)}
+            className="ml-auto flex items-center gap-1 text-m-caption font-bold px-2 py-1 rounded-[0.375rem] press"
+            style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)", color: "var(--color-signal-dark)" }}
+          >
+            <Plus className="size-3" /> Add Number
+          </button>
+        )}
+      </div>
+      {data.phonePool.length === 0 ? (
+        <p className="text-m-caption text-center py-4" style={{ color: "var(--color-ink-400)" }}>
+          No company phone numbers yet.{canManageTelephony ? " Tap \"Add Number\" to register a number." : " Numbers appear here once added."}
+        </p>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {data.phonePool.map((p) => (
+            <div
+              key={p.id}
+              className="rounded-[0.5rem] border p-2.5 flex items-center gap-2"
+              style={{ borderColor: "var(--color-line)" }}
+            >
+              <div className="grid place-items-center size-7 rounded-full shrink-0" style={{ backgroundColor: "var(--color-concrete)" }}>
+                <Phone className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                  {p.phoneNumber}
+                </p>
+                <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
+                  {p.assignedToName ? `→ ${p.assignedToName}` : (p.label ?? p.department ?? "Unassigned")}
+                </p>
+              </div>
+              {p.assignedToUserId ? (
+                <span className="text-micro font-bold px-1.5 py-0.5 rounded-full shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)", color: "var(--color-go)" }}>
+                  In use
+                </span>
+              ) : p.status === "RECYCLED" ? (
+                <span className="text-micro font-bold px-1.5 py-0.5 rounded-full shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)", color: "var(--color-signal-dark)" }}>
+                  Available
+                </span>
+              ) : (
+                <span className="text-micro font-bold px-1.5 py-0.5 rounded-full shrink-0" style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}>
+                  {p.status}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Add Number dialog ── */}
+      {showAdd && (
+        <MobileDialog open onClose={() => setShowAdd(false)} title="Add Company Number">
+          <div className="space-y-3 px-4 pb-4">
+            <UnderlineInput label="Phone Number *" value={addPhone} onChange={setAddPhone} placeholder="+91 98xxx xxxxx" />
+            <UnderlineInput label="Label" value={addLabel} onChange={setAddLabel} placeholder="e.g. Sales Line, Site Office" />
+            <UnderlineInput label="Department" value={addDept} onChange={setAddDept} placeholder="e.g. Sales, HR, Site" />
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowAdd(false)}
+                className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-semibold press"
+                style={{ borderColor: "var(--color-line)", color: "var(--color-ink-600)" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddNumber}
+                disabled={saving}
+                className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-white press disabled:opacity-50"
+                style={{ backgroundColor: "var(--color-signal-dark)" }}
+              >
+                {saving ? "Adding…" : "Add Number"}
+              </button>
+            </div>
+          </div>
+        </MobileDialog>
+      )}
     </CollapsibleSection>
   );
 }
@@ -920,13 +1068,18 @@ function ChildCompaniesSection({ data, canManage }: { data: CompanyProfileData; 
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
       toast.success("Child company created");
-      // Switch to the new company so the user lands inside it
-      await fetch("/api/company/switch", {
+      // Switch to the new company so the user lands inside it. Only fire the
+      // company-switched event if the switch actually succeeded — otherwise the
+      // shell would show the new company while the session still points at the
+      // old one (a wrong-company state).
+      const switchRes = await fetch("/api/company/switch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyId: json.id }),
-      }).catch(() => {});
-      window.dispatchEvent(new CustomEvent("nirman-company-switched"));
+      }).catch(() => null);
+      if (switchRes?.ok) {
+        window.dispatchEvent(new CustomEvent("nirman-company-switched"));
+      }
       setCreating(false);
       setForm({ name: "", businessType: "", currency: "INR" });
       router.refresh();
@@ -1099,7 +1252,7 @@ function LocationsSection({ data, canManage }: { data: CompanyProfileData; canMa
               </div>
               <div className="flex items-center gap-3 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 {l.projectName && <span>{l.projectName}</span>}
-                <span className="ml-auto tabular-nums">{l.itemCount} items</span>
+                <span className="ml-auto tabular-nums">{l.itemCount} item{l.itemCount === 1 ? "" : "s"}</span>
                 <span className="tabular-nums font-bold" style={{ color: "var(--color-ink-950)" }}>
                   {formatCurrency(l.stockValue, data.currency)}
                 </span>

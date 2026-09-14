@@ -9,7 +9,7 @@ import { Input, Select, Label, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
-import { formatCurrency } from "@/lib/utils";
+import { localDateISO, formatCurrency } from "@/lib/utils";
 import type { ProjectOption } from "@/lib/types";
 
 type BuiltUnitType = "BHK_1" | "BHK_2" | "BHK_3" | "BHK_4" | "SHOP" | "OFFICE" | "WAREHOUSE_UNIT" | "VILLA" | "OTHER";
@@ -93,7 +93,7 @@ export function PurchaseUnitDialog({
   useEffect(() => {
     if (open) {
       setProjectId(projects[0]?.id ?? "");
-      setPurchaseDate(new Date().toISOString().slice(0, 10));
+      setPurchaseDate(localDateISO());
       setNotes("");
       setRows([emptyRow()]);
       setShowGenerator(false);

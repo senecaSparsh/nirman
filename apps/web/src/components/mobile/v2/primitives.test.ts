@@ -12,11 +12,11 @@ describe("mobileStatusColor", () => {
   });
 
   it("returns active color for APPROVED (base variant)", () => {
-    expect(mobileStatusColor("APPROVED")).toBe("var(--color-signal)");
+    expect(mobileStatusColor("APPROVED")).toBe("var(--color-steel)");
   });
 
   it("returns waiting color for PENDING (base variant)", () => {
-    expect(mobileStatusColor("PENDING")).toBe("var(--color-steel)");
+    expect(mobileStatusColor("PENDING")).toBe("var(--color-signal)");
   });
 
   it("returns good color for COMPLETED (base variant)", () => {
@@ -33,13 +33,13 @@ describe("mobileStatusColor", () => {
 
   it("returns wash variant colors", () => {
     expect(mobileStatusColor("DRAFT", "wash")).toBe("var(--color-concrete)");
-    expect(mobileStatusColor("APPROVED", "wash")).toBe("var(--color-signal-wash)");
+    expect(mobileStatusColor("APPROVED", "wash")).toBe("var(--color-steel-wash)");
     expect(mobileStatusColor("COMPLETED", "wash")).toBe("var(--color-go-wash)");
   });
 
   it("returns dark variant colors", () => {
     expect(mobileStatusColor("DRAFT", "dark")).toBe("var(--color-ink-700)");
-    expect(mobileStatusColor("APPROVED", "dark")).toBe("var(--color-signal-dark)");
+    expect(mobileStatusColor("APPROVED", "dark")).toBe("var(--color-steel)");
     expect(mobileStatusColor("COMPLETED", "dark")).toBe("var(--color-go)");
   });
 

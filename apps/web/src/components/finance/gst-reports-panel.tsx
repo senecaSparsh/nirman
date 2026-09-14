@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
+import { useTodayDateState } from "@/lib/use-today-date";
 
 export function GstReportsPanel() {
   const [from, setFrom] = useState(() => {
@@ -14,7 +15,7 @@ export function GstReportsPanel() {
     d.setMonth(d.getMonth() - 3);
     return d.toISOString().slice(0, 10);
   });
-  const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
+  const [to, setTo] = useTodayDateState();
   const [loading, setLoading] = useState<"gstr1" | "gstr3b" | null>(null);
   const [gstr1, setGstr1] = useState<null | {
     totalTaxableValue: number;

@@ -170,6 +170,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       ...await scopeWhere("RaBill"),
     },
     orderBy: { billDate: "desc" },
+    take: 300,
     include: {
       workOrder: { select: { id: true, workOrderNumber: true, workTitle: true, subcontractorId: true, subcontractor: { select: { name: true } } } },
       project: { select: { id: true, name: true } },

@@ -9,7 +9,10 @@
 
 import { prisma } from "@nirman/db";
 import { sendNotification, renderTemplate, createInAppNotification } from "./notifications";
-import { EVENT_URGENCY, NotificationEventType } from "./notification-event-bus";
+import { parseNotificationMetadata, isQuietHour, getIstHour } from "./notification-event-bus";
+
+// Re-exported for existing consumers/tests — the canonical home is the event bus.
+export { isQuietHour, getIstHour } from "./notification-event-bus";
 
 /**
  * Process all PENDING notifications — flush them to their respective
@@ -29,7 +32,7 @@ export async function processPendingNotifications(): Promise<{
   // Batch fetch all needed templates (avoids N+1 — one query instead of N×channels)
   const templateKeys = new Set<string>();
   for (const log of pending) {
-    const metadata = JSON.parse((log.metadata as string) || "{}") as Record<string, unknown>;
+    const metadata = parseNotificationMetadata(log.metadata);
     const channels: string[] = (metadata.channels as string[]) ?? ["IN_APP"];
     for (const channel of channels) {
       if (channel !== "IN_APP" && log.companyId) {
@@ -71,7 +74,7 @@ export async function processPendingNotifications(): Promise<{
 
   for (const log of pending) {
     try {
-      const metadata = JSON.parse((log.metadata as string) || "{}") as Record<string, unknown>;
+      const metadata = parseNotificationMetadata(log.metadata);
       const channels: string[] = (metadata.channels as string[]) ?? ["IN_APP"];
       const urgency = (metadata.urgency as string) ?? "DAILY";
 
@@ -86,7 +89,7 @@ export async function processPendingNotifications(): Promise<{
         // Cannot resolve recipient — mark as failed to avoid reprocessing
         await prisma.notificationLog.update({
           where: { id: log.id },
-          data: { status: "FAILED", error: "Could not resolve user contact info" },
+          data: { status: "FAILED", errorMessage: "Could not resolve user contact info", error: "Could not resolve user contact info" },
         }).catch(() => {});
         failed++;
         continue;
@@ -95,13 +98,29 @@ export async function processPendingNotifications(): Promise<{
       // Send via each enabled channel
       for (const channel of channels) {
         if (channel === "IN_APP") {
+          // The event bus creates the bell entry immediately at emit time, so
+          // IN_APP only appears in `channels` on rows written before that change
+          // — dedupe against an existing bell entry to avoid a double.
+          const existing = await prisma.inAppNotification.findFirst({
+            where: {
+              userId: log.recipient,
+              eventType: log.eventType,
+              message: log.message,
+              createdAt: { gte: new Date(log.createdAt.getTime() - 10 * 60 * 1000) },
+            },
+            select: { id: true },
+          }).catch(() => null);
+          if (existing) continue;
           // Create an InAppNotification record so the notification bell
           // dropdown can surface it via /api/notifications/in-app
           await createInAppNotification({
             companyId: log.companyId,
             userId: log.recipient,
             eventType: log.eventType,
-            title: (metadata.title as string) ?? log.eventType.replace(/_/g, " ").toLowerCase(),
+            title: (metadata.title as string) ?? log.eventType
+              .replace(/_/g, " ")
+              .toLowerCase()
+              .replace(/\b\w/g, (c) => c.toUpperCase()),
             message: log.message,
             link: (metadata.link as string) ?? undefined,
             metadata: metadata as Record<string, unknown>,
@@ -153,31 +172,13 @@ export async function processPendingNotifications(): Promise<{
       console.error(`[notification-handlers] Failed to send notification ${log.id}:`, err);
       await prisma.notificationLog.update({
         where: { id: log.id },
-        data: { status: "FAILED", error: String(err) },
+        data: { status: "FAILED", errorMessage: String(err), error: String(err) },
       }).catch(() => {});
       failed++;
     }
   }
 
   return { processed: pending.length, sent, failed };
-}
-
-/**
- * Compute the IST hour (0-23.999...) from a UTC date.
- * Pure function — no DB access, no `new Date()` side effect.
- *
- * IST = UTC + 5:30. The result is wrapped to [0, 24).
- */
-export function getIstHour(date: Date): number {
-  return (date.getUTCHours() + 5 + 30 / 60) % 24;
-}
-
-/**
- * Check if an IST hour falls within quiet hours (10 PM - 7 AM IST).
- * Pure function — no DB access.
- */
-export function isQuietHour(istHour: number): boolean {
-  return istHour >= 22 || istHour < 7;
 }
 
 /** Check if current time is within quiet hours (10 PM - 7 AM IST) */

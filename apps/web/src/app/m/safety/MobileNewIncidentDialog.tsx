@@ -174,7 +174,7 @@ export function MobileNewIncidentForm({ onClose, projects }: { onClose: () => vo
           onChange={(v) => set("peopleInvolved", v)}
           placeholder="Names or description"
         />
-        <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+        <div className="grid grid-cols-3 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <UnderlineInput
             label="Injured"
             value={form.injuredCount}

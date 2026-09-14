@@ -284,7 +284,7 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>People Involved</label>
                 <input value={editForm.peopleInvolved} onChange={(e) => setEditForm((f) => ({ ...f, peopleInvolved: e.target.value }))} placeholder="Names of people involved" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1.5">
                 <div>
                   <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Injured</label>
                   <input type="number" min={0} value={editForm.injuredCount} onChange={(e) => setEditForm((f) => ({ ...f, injuredCount: e.target.value }))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />

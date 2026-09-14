@@ -24,13 +24,14 @@ export type LeaveListItem = {
   days: number;
 };
 
-type LeaveFilter = "ALL" | "PENDING" | "APPROVED" | "REJECTED";
+type LeaveFilter = "ALL" | "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
 
 const FILTER_CHIPS: { label: string; value: LeaveFilter }[] = [
   { label: "All", value: "ALL" },
   { label: "Pending", value: "PENDING" },
   { label: "Approved", value: "APPROVED" },
   { label: "Rejected", value: "REJECTED" },
+  { label: "Cancelled", value: "CANCELLED" },
 ];
 
 const LEAVE_TYPE_LABELS: Record<string, string> = {

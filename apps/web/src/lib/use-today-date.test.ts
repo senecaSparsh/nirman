@@ -10,9 +10,13 @@ describe("useTodayDate", () => {
     expect(result.current).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
-  it("returns the correct date matching new Date().toISOString().slice(0,10)", () => {
+  it("returns the correct local date (not UTC — localDateISO)", () => {
     const { result } = renderHook(() => useTodayDate());
-    const expected = new Date().toISOString().slice(0, 10);
+    // The hook returns the LOCAL calendar date via localDateISO(). Comparing
+    // to toISOString() (UTC) fails whenever local and UTC dates differ — e.g.
+    // IST (UTC+5:30) is already on the next day while UTC is still yesterday.
+    const now = new Date();
+    const expected = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     expect(result.current).toBe(expected);
   });
 

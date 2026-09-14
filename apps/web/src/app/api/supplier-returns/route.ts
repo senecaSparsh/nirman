@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { SupplierReturnStatus } from "@nirman/db";
-import { createSupplierReturn, recordVehicleTrip, ServiceError } from "@nirman/services";
+import { createSupplierReturn, submitSupplierReturn, recordVehicleTrip, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission, supplierReturnSchema, toNum } from "@/lib/server";
 
@@ -18,6 +18,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       ...(status ? { status: status as SupplierReturnStatus } : {}),
     },
     orderBy: { createdAt: "desc" },
+    take: 300,
     include: {
       supplier: { select: { name: true } },
       location: { select: { name: true } },
@@ -87,6 +88,21 @@ export const POST = apiHandler(async (req: NextRequest) => {
       })),
     });
 
+    // Auto-submit by default — DRAFT→SUBMITTED carries no approval semantics
+    // (submitSupplierReturn is a pure status flip), so a separate click is
+    // ceremony. Pass autoSubmit:false to intentionally keep a draft.
+    let submitted = false;
+    let submitError: string | null = null;
+    if (parsed.data.autoSubmit !== false) {
+      try {
+        await submitSupplierReturn(ret.id, user.id);
+        submitted = true;
+      } catch (err) {
+        submitError = err instanceof ServiceError ? err.message : (err instanceof Error ? err.message : "Unknown error");
+        console.error("[supplier-returns] Auto-submit failed for", ret.id, err);
+      }
+    }
+
     // Log the vehicle trip
     if (parsed.data.vehicleNumber) {
       await recordVehicleTrip({
@@ -105,7 +121,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
     revalidatePath("/supplier-returns");
     revalidatePath("/m/suppliers");
-    return json({ ok: true, id: ret.id, returnNumber: ret.returnNumber }, { status: 201 });
+    return json({ ok: true, id: ret.id, returnNumber: ret.returnNumber, submitted, submitError }, { status: 201 });
   } catch (err: unknown) {
     if (err instanceof ServiceError) {
       return json({ error: err.message }, { status: err.status ?? 400 });

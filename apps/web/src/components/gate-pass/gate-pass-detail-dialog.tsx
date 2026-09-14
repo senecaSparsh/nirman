@@ -52,12 +52,14 @@ export function GatePassDetailDialog({
   gatePass,
   onClose,
   permissions,
+  currentUserId,
   onAction,
   actionLoading,
 }: {
   gatePass: GatePassRow;
   onClose: () => void;
-  permissions: { canCreate: boolean; canApprove: boolean; canExit: boolean; canManage: boolean };
+  permissions: { canCreate: boolean; canApprove: boolean; canExit: boolean; canManage: boolean; canSelfApprove?: boolean };
+  currentUserId?: string | null;
   onAction: (id: string, action: string, body?: Record<string, unknown>) => void;
   actionLoading: boolean;
 }) {
@@ -215,7 +217,7 @@ export function GatePassDetailDialog({
               </Button>
             )}
 
-            {gatePass.status === "PENDING" && permissions.canApprove && (
+            {gatePass.status === "PENDING" && permissions.canApprove && (gatePass.createdById !== currentUserId || permissions.canSelfApprove) && (
               <>
                 <Button size="sm" variant="outline" disabled={actionLoading} onClick={() => setRejectOpen(true)}>
                   <XCircle className="mr-1 h-3.5 w-3.5" /> Reject

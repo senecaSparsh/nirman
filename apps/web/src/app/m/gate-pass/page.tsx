@@ -1,9 +1,10 @@
 import { prisma } from "@nirman/db";
-import { toNum, scopeWhere, projectScopeFilter } from "@/lib/server";
+import { toNum, scopeWhere, projectScopeFilter, getCurrentUser } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { canAutoApprove } from "@nirman/services";
 import {ShieldCheck, Truck, Clock, CheckCircle, XCircle} from "lucide-react";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
-import { MobileSectionTitle, MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
+import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
 import { MobileGatePassList, MobileGatePassFormDialog } from "./MobileGatePassList";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
@@ -13,6 +14,7 @@ export default function MobileGatePassPage() {
   return (
     <MobileListPage>
       {async ({ company, role }) => {
+        const currentUser = await getCurrentUser();
         const canExit = hasPermission(role, PERM.GATE_PASS_EXIT);
         const canApprove = hasPermission(role, PERM.GATE_PASS_APPROVE);
         const canCreate = hasPermission(role, PERM.GATE_PASS_CREATE);
@@ -79,6 +81,7 @@ export default function MobileGatePassPage() {
           approvedAt: gp.approvedAt?.toISOString() ?? null,
           exitedAt: gp.exitedAt?.toISOString() ?? null,
           approvedByName: gp.approvedBy?.name ?? null,
+          createdById: gp.createdById,
           createdByName: gp.createdBy?.name ?? null,
           submittedByName: gp.submittedBy?.name ?? null,
           rejectedByName: gp.rejectedBy?.name ?? null,
@@ -97,14 +100,11 @@ export default function MobileGatePassPage() {
 
         return (
           <div className="space-y-4 p-3">
-            <MobileSectionTitle>Gate Pass</MobileSectionTitle>
-            <p className="text-m-caption -mt-2" style={{ color: "var(--color-ink-500)" }}>Items cannot leave the gate until approved</p>
-
             {canCreate && (
               <MobileGatePassFormDialog locations={locations} projects={projects} />
             )}
 
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 gap-1.5">
               <MobileStatCard
                 icon={Clock}
                 label="Pending"
@@ -140,7 +140,9 @@ export default function MobileGatePassPage() {
             ) : (
               <MobileGatePassList
                 gatePasses={rows}
+                currentUserId={currentUser?.id ?? ""}
                 canApprove={canApprove}
+                canSelfApprove={canAutoApprove(role)}
                 canExit={canExit}
                 canCreate={canCreate}
                 canManage={canManage}

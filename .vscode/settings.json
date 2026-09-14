@@ -1,0 +1,8 @@
+{
+  // Tailwind v4 uses @theme/@utility/@custom-variant at-rules that the
+  // built-in CSS linter doesn't know — they're valid, compiled by
+  // @tailwindcss/postcss. Silence the false "Unknown at rule" warnings.
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+  "less.lint.unknownAtRules": "ignore"
+}

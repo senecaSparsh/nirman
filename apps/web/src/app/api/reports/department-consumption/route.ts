@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere } from "@/lib/server";
+import { Prisma, prisma } from "@nirman/db";
+import { apiHandler, getCompany, getUserScope, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -18,79 +18,81 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const from = searchParams.get("from");
   const to = searchParams.get("to");
 
-  const dateFilter: { issueDate?: { gte?: Date; lte?: Date } } = {};
-  if (from) dateFilter.issueDate = { ...dateFilter.issueDate, gte: new Date(from) };
+  // Aggregate in the database — one GROUP BY over MaterialIssueLine
+  // instead of hydrating every issue + lines + material into JS.
+  // Same filters as before: company via Department, departmentId set,
+  // optional issueDate range, and the viewer's data scope.
+  const conditions = [
+    Prisma.sql`d."companyId" = ${company.id}`,
+    Prisma.sql`d."deletedAt" IS NULL`,
+    Prisma.sql`i."departmentId" IS NOT NULL`,
+  ];
+  if (from) conditions.push(Prisma.sql`i."issueDate" >= ${new Date(from)}`);
   if (to) {
     // inclusive end-of-day
     const end = new Date(to);
     end.setHours(23, 59, 59, 999);
-    dateFilter.issueDate = { ...dateFilter.issueDate, lte: end };
+    conditions.push(Prisma.sql`i."issueDate" <= ${end}`);
   }
 
-  const issues = await prisma.materialIssue.findMany({
-    where: {
-      department: { companyId: company.id, deletedAt: null },
-      departmentId: { not: null },
-      ...dateFilter,
-      ...await scopeWhere("MaterialIssue", {}),
-    },
-    include: {
-      department: { select: { id: true, code: true, name: true } },
-      lines: {
-        include: {
-          material: {
-            select: { id: true, code: true, name: true, unit: true, category: { select: { name: true } } },
-          },
-        },
-      },
-    },
-    orderBy: { issueDate: "asc" },
-  });
+  // Same scope semantics as scopeWhere("MaterialIssue"):
+  // DEPARTMENT → i.departmentId IN, PROJECT → i.projectId IN, COMPANY → none.
+  const scope = await getUserScope();
+  if (scope.scopeType === "DEPARTMENT" && scope.departmentIds.length > 0) {
+    conditions.push(Prisma.sql`i."departmentId" IN (${Prisma.join(scope.departmentIds)})`);
+  } else if (scope.scopeType === "PROJECT" && scope.projectIds.length > 0) {
+    conditions.push(Prisma.sql`i."projectId" IN (${Prisma.join(scope.projectIds)})`);
+  }
 
-  // Aggregate by department × material
-  type Cell = { qty: number; cost: number };
-  const byDepartment = new Map<string, { code: string; name: string; total: number; materials: Map<string, { code: string; name: string; unit: string; categoryName: string; cell: Cell }> }>();
+  const rows = await prisma.$queryRaw<{
+    deptId: string;
+    deptCode: string;
+    deptName: string;
+    materialCode: string;
+    materialName: string;
+    unit: string;
+    categoryName: string;
+    qty: number;
+    cost: number;
+  }[]>`
+    SELECT
+      d.id AS "deptId", d.code AS "deptCode", d.name AS "deptName",
+      m.code AS "materialCode", m.name AS "materialName", m.unit,
+      c.name AS "categoryName",
+      SUM(l.qty)::float8 AS qty,
+      SUM(l.qty * l."unitCost")::float8 AS cost
+    FROM "MaterialIssueLine" l
+    JOIN "MaterialIssue" i ON i.id = l."materialIssueId"
+    JOIN "Department" d ON d.id = i."departmentId"
+    JOIN "Material" m ON m.id = l."materialId"
+    JOIN "MaterialCategory" c ON c.id = m."categoryId"
+    WHERE ${Prisma.join(conditions, " AND ")}
+    GROUP BY d.id, d.code, d.name, m.id, m.code, m.name, m.unit, c.name
+  `;
+
+  // Fold the aggregated rows into the response shape
+  const byDepartment = new Map<string, { code: string; name: string; total: number; materials: { code: string; name: string; unit: string; categoryName: string; qty: number; cost: number }[] }>();
   let grandTotal = 0;
 
-  for (const issue of issues) {
-    const dept = issue.department!;
-    if (!byDepartment.has(dept.id)) {
-      byDepartment.set(dept.id, { code: dept.code, name: dept.name, total: 0, materials: new Map() });
+  for (const r of rows) {
+    let dept = byDepartment.get(r.deptId);
+    if (!dept) {
+      dept = { code: r.deptCode, name: r.deptName, total: 0, materials: [] };
+      byDepartment.set(r.deptId, dept);
     }
-    const deptRow = byDepartment.get(dept.id)!;
-    for (const line of issue.lines) {
-      const mat = line.material;
-      if (!deptRow.materials.has(mat.id)) {
-        deptRow.materials.set(mat.id, {
-          code: mat.code,
-          name: mat.name,
-          unit: mat.unit,
-          categoryName: mat.category.name,
-          cell: { qty: 0, cost: 0 },
-        });
-      }
-      const entry = deptRow.materials.get(mat.id)!;
-      entry.cell.qty += toNum(line.qty);
-      entry.cell.cost += toNum(line.qty) * toNum(line.unitCost);
-      deptRow.total += toNum(line.qty) * toNum(line.unitCost);
-      grandTotal += toNum(line.qty) * toNum(line.unitCost);
-    }
+    dept.materials.push({
+      code: r.materialCode,
+      name: r.materialName,
+      unit: r.unit,
+      categoryName: r.categoryName,
+      qty: r.qty,
+      cost: r.cost,
+    });
+    dept.total += r.cost;
+    grandTotal += r.cost;
   }
 
   const departments = Array.from(byDepartment.values())
-    .map((d) => ({
-      code: d.code,
-      name: d.name,
-      total: d.total,
-      materials: Array.from(d.materials.values()).map((m) => ({
-        code: m.code,
-        name: m.name,
-        unit: m.unit,
-        categoryName: m.categoryName,
-        qty: m.cell.qty,
-        cost: m.cell.cost,
-      })),
-    }))
     .sort((a, b) => b.total - a.total);
 
   return json({ from: from ?? null, to: to ?? null, departments, grandTotal });

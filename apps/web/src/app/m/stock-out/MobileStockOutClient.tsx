@@ -432,8 +432,8 @@ export function MobileStockOutClient({
         haptic([10, 40, 80]);
         clearDraft();
         setSuccess({ id: data.id, number: "transfer" });
-        toast.success("Transfer draft created", {
-          description: "Dispatch it from the transfer detail page to move stock.",
+        toast.success("Transfer created", {
+          description: "A gate pass has been auto-generated — it will auto-dispatch once approved.",
         });
       } else {
         // ── Issue submit ──
@@ -555,7 +555,7 @@ export function MobileStockOutClient({
             : isGatePass
               ? "Awaiting gate pass approval before items can leave."
               : isTransfer
-                ? "Draft created — dispatch it from the transfer detail page to move stock."
+                ? "Gate pass generated — it will auto-dispatch once approved."
                 : "Materials have been issued to the project."}
         </p>
         <div className="flex gap-1 flex-wrap justify-center">
@@ -565,20 +565,29 @@ export function MobileStockOutClient({
               className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
-              Dispatch This Transfer
+              View Transfer
             </button>
           ) : null}
           {!isQueued && !isGatePass && !isTransfer && success.id ? (
-            <a
-              href={`/print/issue/${success.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-            >
-              <Printer className="size-3.5 inline mr-1" />
-              Print Issue Slip
-            </a>
+            <>
+              <button
+                onClick={() => router.push(`/m/material-issues/${success.id}`)}
+                className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
+                style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+              >
+                View Issue
+              </button>
+              <a
+                href={`/print/issue/${success.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
+                style={{ backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)", border: "1px solid var(--color-line)" }}
+              >
+                <Printer className="size-3.5 inline mr-1" />
+                Print
+              </a>
+            </>
           ) : null}
           {isGatePass ? (
             <a
@@ -654,7 +663,7 @@ export function MobileStockOutClient({
       <div className="pb-32 space-y-3">
         {/* ══════ SECTION: MODE ══════ */}
         {(canTransfer && canIssue) ? (
-          <div className="grid grid-cols-2 gap-1">
+          <div className="grid grid-cols-2 gap-2">
             {/* Transfer mode card */}
             <div className="relative">
               {/* Info chip on top-left border — expands to "i Hold for list" */}
@@ -837,7 +846,7 @@ export function MobileStockOutClient({
                 </div>
 
                 {/* Inter-company STO charges */}
-                <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                <div className="grid grid-cols-3 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
                     <label className={labelClass} style={labelStyle}>
                       Freight

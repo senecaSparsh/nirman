@@ -36,6 +36,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       project: { select: { id: true, name: true } },
     },
     orderBy: [{ companyId: "asc" }, { type: "asc" }, { name: "asc" }],
+    take: 500,
   });
 
   // Fetch all companies in the group for name + hierarchy info.

@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Recycle, Zap, Hand, Eye, Share2, Calendar, Package, Boxes, IndianRupee, MapPin } from "lucide-react";
+import { Recycle, Zap, Hand, Eye, Share2, Calendar, Package, Boxes, IndianRupee, MapPin, User } from "lucide-react";
 import {formatCurrency, formatCurrencyCompact, formatDate} from "@/lib/utils";
 import { toast } from "sonner";
 import { useLongPress } from "@/lib/use-long-press";
@@ -31,6 +31,7 @@ export type ScrapGenerationItem = {
   notes: string | null;
   toLocationName: string;
   projectName: string | null;
+  createdByName: string | null;
   isAuto: boolean;
   lineCount: number;
   totalValue: number;
@@ -168,6 +169,7 @@ function ScrapCard({ sc }: { sc: ScrapGenerationItem }) {
   const overviewRows: OverviewRow[] = [
     { icon: SourceIcon, label: "Status", value: sc.isAuto ? "Auto" : "Manual", valueColor: accentColor },
     { icon: Calendar, label: "Date", value: formatDate(sc.generationDate) },
+    ...(sc.createdByName ? [{ icon: User, label: "Created By", value: sc.createdByName }] : []),
     { icon: Package, label: "Material", value: materialText },
     { icon: Boxes, label: "Quantity", value: `${sc.lineCount} item${sc.lineCount !== 1 ? "s" : ""}` },
     { icon: IndianRupee, label: "Expected Amount", value: formatCurrency(sc.totalValue) },

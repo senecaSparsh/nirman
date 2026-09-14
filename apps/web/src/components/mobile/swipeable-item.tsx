@@ -11,8 +11,8 @@ import { useSwipeAction, type SwipeAction } from "@/lib/use-swipe";
  * Usage:
  *   <SwipeableListItem
  *     actions={[
- *       { label: "Approve", color: "#16a34a", onPress: () => doApprove() },
- *       { label: "Reject", color: "#ef4444", onPress: () => doReject() },
+ *       { label: "Approve", color: "var(--color-go)", onPress: () => doApprove() },
+ *       { label: "Reject", color: "var(--color-stop)", onPress: () => doReject() },
  *     ]}
  *   >
  *     <div className="…your item content…">…</div>
@@ -50,7 +50,7 @@ export function SwipeableListItem({
             style={{
               width: `${actionWidth}px`,
               backgroundColor: action.color,
-              color: action.textColor ?? "#fff",
+              color: action.textColor ?? "var(--color-paper)",
             }}
           >
             {action.label}

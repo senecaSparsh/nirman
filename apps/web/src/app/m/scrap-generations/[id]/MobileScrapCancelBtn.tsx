@@ -51,7 +51,7 @@ export function MobileScrapCancelBtn({ scrapId, scrapNumber }: { scrapId: string
               <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
                 This will reverse the stock addition and GL entries for scrap <span className="font-mono font-bold">{scrapNumber}</span>. The scrap materials will be removed from the destination location. This cannot be undone.
               </p>
-              <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
                 <button
                   onClick={() => setShow(false)}
                   disabled={cancelling}

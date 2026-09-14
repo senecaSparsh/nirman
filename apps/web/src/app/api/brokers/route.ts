@@ -10,6 +10,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   const brokers = await prisma.broker.findMany({
     where: { deletedAt: null, companyId: company.id },
     orderBy: { name: "asc" },
+    take: 500,
     select: {
       id: true,
       name: true,

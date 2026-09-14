@@ -2,8 +2,9 @@ import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { canAutoApprove } from "./rbac";
 import { withSerializableTransaction } from "./transaction";
-import { nextSequenceNumber } from "./sequence";
+import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 
 /**
  * BOQ (Bill of Quantities) + WBS (Work Breakdown Structure) +
@@ -526,10 +527,10 @@ export async function getWbsTree(projectId: string) {
 
 // ── Measurement Book (MB) ──────────────────────────────────
 
-async function generateMbNumber(tx: Prisma.TransactionClient): Promise<string> {
+async function generateMbNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `MB-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `MB-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
@@ -594,7 +595,7 @@ export async function createMbEntry(input: CreateMbEntryInput) {
       }
     }
 
-    const mbNumber = await generateMbNumber(tx);
+    const mbNumber = await generateMbNumber(tx, project.companyId);
 
     const entry = await tx.measurementBookEntry.create({
       data: {
@@ -627,15 +628,16 @@ export async function createMbEntry(input: CreateMbEntryInput) {
   });
 }
 
-export async function verifyMbEntry(id: string, verifiedById: string) {
+export async function verifyMbEntry(id: string, verifiedById: string, actorRole?: string) {
   return withSerializableTransaction(async (tx) => {
     const entry = await tx.measurementBookEntry.findUnique({ where: { id } });
     if (!entry) throw new ServiceError("MB entry not found", 404);
     if (entry.status !== "DRAFT") {
       throw new ServiceError(`Cannot verify entry in status ${entry.status}`, 400);
     }
-    // Prevent self-verification — the measurer cannot verify their own entry.
-    if (entry.measuredById && entry.measuredById === verifiedById) {
+    // Prevent self-verification — the measurer cannot verify their own entry,
+    // unless a tier-1 role (OWNER/ADMIN) where no higher verifier exists.
+    if (entry.measuredById && entry.measuredById === verifiedById && !canAutoApprove(actorRole)) {
       throw new ServiceError("You cannot verify an MB entry you measured. Ask another verifier to review it.", 403);
     }
 
@@ -656,15 +658,16 @@ export async function verifyMbEntry(id: string, verifiedById: string) {
   });
 }
 
-export async function approveMbEntry(id: string, approvedById: string) {
+export async function approveMbEntry(id: string, approvedById: string, actorRole?: string) {
   return withSerializableTransaction(async (tx) => {
     const entry = await tx.measurementBookEntry.findUnique({ where: { id } });
     if (!entry) throw new ServiceError("MB entry not found", 404);
     if (entry.status !== "VERIFIED") {
       throw new ServiceError(`Cannot approve entry in status ${entry.status} (must be VERIFIED first)`, 400);
     }
-    // Prevent self-approval — the measurer cannot approve their own entry.
-    if (entry.measuredById && entry.measuredById === approvedById) {
+    // Prevent self-approval — the measurer cannot approve their own entry,
+    // unless a tier-1 role (OWNER/ADMIN) where no higher approver exists.
+    if (entry.measuredById && entry.measuredById === approvedById && !canAutoApprove(actorRole)) {
       throw new ServiceError("You cannot approve an MB entry you measured. Ask another approver to review it.", 403);
     }
 

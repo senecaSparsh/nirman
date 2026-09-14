@@ -12,7 +12,7 @@ import { MobileFab } from "@/components/mobile/v2/scaffold";
  */
 export default function MobileExpenseClaimsPage() {
   return (
-    <MobileListPage>
+    <MobileListPage perm={PERM.FINANCE_VIEW}>
       {async ({ company, role }) => {
         const canApprove = hasPermission(role, PERM.EXPENSE_APPROVE);
         const canCreate = hasPermission(role, PERM.EXPENSE_CREATE);

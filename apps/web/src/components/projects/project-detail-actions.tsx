@@ -90,7 +90,12 @@ export function ProjectDetailActions({
         </Button>
       )}
       {canManage && (
-        <Button variant="outline" size="sm" onClick={() => setDelOpen(true)}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setDelOpen(true)}
+          className="text-muted-foreground hover:border-danger/40 hover:text-danger"
+        >
           <Trash2 className="h-4 w-4" />
           Delete
         </Button>

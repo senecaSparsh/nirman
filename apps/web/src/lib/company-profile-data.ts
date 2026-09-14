@@ -130,8 +130,8 @@ export async function loadCompanyProfileData(companyId: string): Promise<{
     take: 200,
   });
 
-  // ── Audit logs + backups ──
-  const [auditLogs, backups] = await Promise.all([
+  // ── Audit logs + backups + phone pool ──
+  const [auditLogs, backups, phonePool] = await Promise.all([
     prisma.auditLog.findMany({
       where: { companyId },
       orderBy: { timestamp: "desc" },
@@ -143,6 +143,16 @@ export async function loadCompanyProfileData(companyId: string): Promise<{
       orderBy: { createdAt: "desc" },
       take: 50,
       select: { id: true, sizeBytes: true, createdAt: true },
+    }),
+    prisma.companyPhone.findMany({
+      where: { companyId, deletedAt: null },
+      orderBy: [{ status: "asc" }, { acquiredAt: "desc" }],
+      take: 100,
+      select: {
+        id: true, phoneNumber: true, numberType: true, label: true,
+        department: true, status: true, assignedToUserId: true,
+        assignedTo: { select: { id: true, name: true } },
+      },
     }),
   ]);
 
@@ -237,6 +247,13 @@ export async function loadCompanyProfileData(companyId: string): Promise<{
     })),
     // ── Projects ──
     projects: projects.map((p) => ({ id: p.id, name: p.name, status: p.status })),
+    // ── Phone pool ──
+    phonePool: phonePool.map((p) => ({
+      id: p.id, phoneNumber: p.phoneNumber, numberType: p.numberType,
+      label: p.label, department: p.department, status: p.status,
+      assignedToUserId: p.assignedToUserId,
+      assignedToName: p.assignedTo?.name ?? null,
+    })),
     // ── Audit ──
     auditLogs: auditLogs.map((l) => ({
       id: l.id, action: l.action, entityType: l.entityType, entityId: l.entityId,

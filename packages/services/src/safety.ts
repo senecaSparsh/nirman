@@ -2,7 +2,7 @@ import { prisma, type Prisma } from "@nirman/db";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
-import { nextSequenceNumber } from "./sequence";
+import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 
 /**
  * Safety Management Service — incidents, hazards, and inspections.
@@ -103,24 +103,24 @@ export function computeRiskLevel(likelihood: number, severity: number): HazardRi
 
 // ── Number generation ──────────────────────────────────────
 
-async function genIncidentNumber(tx: Prisma.TransactionClient, _companyId: string): Promise<string> {
+async function genIncidentNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `INC-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `INC-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
-async function genHazardNumber(tx: Prisma.TransactionClient, _companyId: string): Promise<string> {
+async function genHazardNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `HZD-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `HZD-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
-async function genInspectionNumber(tx: Prisma.TransactionClient, _companyId: string): Promise<string> {
+async function genInspectionNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `INS-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `INS-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 

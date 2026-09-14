@@ -15,6 +15,16 @@ import { useState, useEffect, useCallback } from "react";
 
 type PermissionState = "default" | "granted" | "denied" | "unsupported";
 
+/** Convert a base64url VAPID public key to the Uint8Array pushManager wants. */
+function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
+  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+  const b64 = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(b64);
+  const out = new Uint8Array(new ArrayBuffer(raw.length));
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
 export function usePushNotifications() {
   const [permission, setPermission] = useState<PermissionState>("default");
   const [subscribed, setSubscribed] = useState(false);
@@ -46,17 +56,24 @@ export function usePushNotifications() {
       setPermission(result as PermissionState);
 
       if (result === "granted") {
-        // Subscribe to push via the service worker
+        // Subscribe to push via the service worker. Chrome/Android REQUIRE a
+        // VAPID applicationServerKey — fetch the server's public key first.
+        // If push isn't configured server-side (404), subscribe anyway without
+        // a key (Firefox allows it); Chrome will throw and we stay unsubscribed.
         if ("serviceWorker" in navigator) {
           const reg = await navigator.serviceWorker.ready;
-          // Try to subscribe with a dummy VAPID key — in production this
-          // would come from the server. For now, we just register for
-          // local notifications (shown by the SW on push events).
           try {
+            const vapidRes = await fetch("/api/notifications/vapid-public-key").catch(() => null);
+            const vapidKey = vapidRes?.ok
+              ? ((await vapidRes.json()) as { publicKey?: string }).publicKey
+              : undefined;
+
+            const applicationServerKey: BufferSource | undefined = vapidKey
+              ? (urlBase64ToUint8Array(vapidKey) as unknown as Uint8Array<ArrayBuffer>)
+              : undefined;
             const sub = await reg.pushManager.subscribe({
               userVisibleOnly: true,
-              // VAPID public key — replace with real key when server-side push is configured
-              applicationServerKey: undefined,
+              applicationServerKey,
             });
             setSubscribed(true);
 

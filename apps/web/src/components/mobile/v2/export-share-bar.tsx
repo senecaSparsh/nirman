@@ -8,6 +8,7 @@ import {
   FileText,
   Check,
 } from "lucide-react";
+import { localDateISO } from "@/lib/utils";
 
 /**
  * MobileExportShareBar — sticky action bar for downloading and sharing
@@ -170,7 +171,7 @@ export function MobileExportShareBar({
   const [shared, setShared] = React.useState(false);
   const [showMenu, setShowMenu] = React.useState(false);
 
-  const filename = `${title.toLowerCase().replace(/\s+/g, "-")}-${new Date().toISOString().slice(0, 10)}.csv`;
+  const filename = `${title.toLowerCase().replace(/\s+/g, "-")}-${localDateISO()}.csv`;
 
   async function handleCSV() {
     downloadCSVFile(filename, rows, columns);
@@ -200,7 +201,7 @@ export function MobileExportShareBar({
       const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
       link.download =
         filenameMatch?.[1] ??
-        `${exportType}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        `${exportType}-${localDateISO()}.xlsx`;
       link.style.display = "none";
       document.body.appendChild(link);
       link.click();
@@ -384,7 +385,7 @@ export function MobileExportShareIcons({
   const [shared, setShared] = React.useState(false);
   const [showMenu, setShowMenu] = React.useState(false);
 
-  const filename = `${title.toLowerCase().replace(/\s+/g, "-")}-${new Date().toISOString().slice(0, 10)}.csv`;
+  const filename = `${title.toLowerCase().replace(/\s+/g, "-")}-${localDateISO()}.csv`;
 
   async function handleCSV() {
     downloadCSVFile(filename, rows, columns);
@@ -414,7 +415,7 @@ export function MobileExportShareIcons({
       const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
       link.download =
         filenameMatch?.[1] ??
-        `${exportType}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        `${exportType}-${localDateISO()}.xlsx`;
       link.style.display = "none";
       document.body.appendChild(link);
       link.click();

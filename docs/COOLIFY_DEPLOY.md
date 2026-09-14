@@ -105,6 +105,7 @@ In Coolify → your service → **Environment Variables**, set these:
 | `BETTER_AUTH_SECRET`  | (random 32+ chars)              | Generate on the VPS: `openssl rand -base64 32` |
 | `POSTGRES_PASSWORD`   | (strong password)               | For the Postgres container                     |
 | `CRON_SECRET`         | (random string)                 | Protects `/api/cron/*` endpoints               |
+| `SCHEDULER_SECRET`    | (random string)                 | Protects `/api/workflow-scheduler`             |
 
 ### Optional
 
@@ -187,8 +188,9 @@ Click **Deploy** in Coolify. The build takes ~5–10 minutes on a 6 vCPU VPS:
 On container start:
 
 1. `prisma migrate deploy` (applies pending migrations)
-2. `seed:prod` (chart of accounts + demo user passwords — idempotent, safe every deploy)
-3. `start-with-recovery.mjs` (wraps `next start` with auto-restart + health checks)
+2. `seed:prod` (chart of accounts — structural data, idempotent, safe every deploy)
+3. `create-srg-users.mjs` (SRG REALCON company + 7 team accounts — idempotent)
+4. `start-with-recovery.mjs` (wraps `next start` with auto-restart + health checks)
 
 Watch the logs in Coolify → **Logs**. You should see:
 
@@ -198,6 +200,8 @@ Watch the logs in Coolify → **Logs**. You should see:
 ✓ Migrations complete
 ── Running production seed ──
 ✓ Seed complete
+── SRG REALCON user provisioning ──
+✓ SRG provisioning check complete
 ── Starting Next.js production server ──
 ```
 
@@ -205,54 +209,59 @@ Once healthy, visit `https://nirman.yourdomain.com/api/health` — should return
 
 ---
 
-## Step 6.5 — First deploy: load demo data
+## Step 6.5 — First deploy: SRG REALCON accounts + credentials
 
-On the very first deploy, the database has the schema + chart of accounts but
-**no users or business data** (the demo seed is not run automatically because
-it wipes transactional data on every run).
+The production database starts **clean** — no demo data. The first and only
+data added is the **SRG REALCON** company and its 7 team accounts, created
+automatically by `create-srg-users.mjs` on first container start.
 
-To load the demo dataset (company, users, projects, stock, suppliers, etc.):
+**Copy the password table from the first deploy's logs.** Each user gets a
+unique random 16-character password printed ONCE to stdout (Coolify →
+web service → Logs). The script never resets or re-prints passwords on
+later runs — if the table is lost, an admin must reset passwords from
+Team settings (or re-run the script manually inside the container).
 
-1. In Coolify → your web service → **Environment Variables**
-2. Set `SEED_DEMO_DATA=true`
-3. Click **Deploy** (restarts the container)
-4. Watch the logs — you'll see "Running demo seed" + "Demo seed complete"
-5. **Immediately** set `SEED_DEMO_DATA=false` (or delete the variable)
-6. Click **Deploy** again
+Sign-in is phone + password:
 
-If you forget step 5, every container restart will wipe all user-entered data
-and replace it with the demo dataset. The entrypoint prints a warning when
-`SEED_DEMO_DATA=true` is active.
+| Name          | Role             | Phone      |
+| ------------- | ---------------- | ---------- |
+| Vardaan Kumar | OWNER (H1)       | 7017988293 |
+| Sanjeev Kumar | ADMIN (H1)       | 9412230391 |
+| Anurag Garg   | PROJECT_DIRECTOR | 7302920202 |
+| Manish Kumar  | FINANCE_HEAD     | 7302920201 |
+| Raviraj Singh | PROCUREMENT_MGR  | 9520002752 |
+| Mani Singh    | SALES_MANAGER    | 7302920203 |
+| Yash Saxena   | SITE_ENGINEER    | 7302920205 |
 
-After the demo seed, sign in with:
+> **Do NOT set `SEED_DEMO_DATA`.** The demo seed is hard-blocked in
+> production — it would wipe real data. The SRG script is the only
+> provisioning that runs.
 
+Manual re-run (e.g. to add a missed user), inside the web container:
+
+```bash
+docker exec -it <web-container> node /app/apps/web/scripts/create-srg-users.mjs
 ```
-amit@nirman.in / <SEED_PASSWORD>   (OWNER — full access)
-anita@nirman.in / <SEED_PASSWORD>  (ADMIN)
-sneha@nirman.in / <SEED_PASSWORD>  (MANAGER)
-ravi@nirman.in / <SEED_PASSWORD>   (SUPERVISOR)
-priya@nirman.in / <SEED_PASSWORD>  (ACCOUNTANT)
-karan@nirman.in / <SEED_PASSWORD>  (SALES)
-```
-
-> **For a clean production deploy** (no demo data): skip this step entirely.
-> Create your real company + users through the app's onboarding flow instead.
 
 ---
 
-## Step 7 — Set up the daily backup cron
+## Step 7 — Cron jobs run automatically (scheduler sidecar)
 
-The app has a built-in backup endpoint (`POST /api/cron/backup`) that exports
-all data to the `BackupRecord` table with 30-day retention. Set up a daily
-trigger:
+`docker-compose.prod.yml` includes a `scheduler` service — a tiny Alpine
+container that curls the app's cron endpoints on a timer over the internal
+network. **No Coolify Scheduled Tasks are needed.** It runs:
 
-1. In Coolify → your web service → **Scheduled Tasks** → **Add**
-2. Command:
-   ```
-   curl -fsS -X POST -H "x-cron-secret: $CRON_SECRET" http://localhost:3000/api/cron/backup || echo "backup failed"
-   ```
-3. Schedule: `0 2 * * *` (daily at 2:00 AM UTC = 7:30 AM IST)
-4. This runs inside the web container, so `localhost:3000` works
+| Endpoint                  | Cadence      | Purpose                                 |
+| ------------------------- | ------------ | --------------------------------------- |
+| `/api/cron/reminders`     | every 15 min | Payment/rent/doc reminders, notif flush |
+| `/api/workflow-scheduler` | every 5 min  | Due scheduled workflows                 |
+| `/api/cron/backup`        | daily        | `BackupRecord` export, 30-day retention |
+| `/api/cron/hsn-seed`      | weekly       | HSN/GST master re-seed                  |
+
+It only needs `CRON_SECRET` and `SCHEDULER_SECRET` in the env vars (Step 4)
+— both must match the values the `web` service uses (the compose file wires
+this automatically). Check its logs in Coolify under the `scheduler`
+service; `[scheduler] FAIL` lines mean a secret is missing or web is down.
 
 ---
 

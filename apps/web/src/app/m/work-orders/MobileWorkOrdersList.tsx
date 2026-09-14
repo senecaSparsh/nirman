@@ -27,13 +27,16 @@ export type WorkOrderListItem = {
   advanceAmount: number | null;
 };
 
-type WOFilter = "ALL" | "DRAFT" | "ACTIVE" | "COMPLETED";
+type WOFilter = "ALL" | "DRAFT" | "ISSUED" | "ACTIVE" | "COMPLETED" | "CLOSED" | "CANCELLED";
 
 const FILTER_CHIPS: { label: string; value: WOFilter }[] = [
   { label: "All", value: "ALL" },
   { label: "Draft", value: "DRAFT" },
+  { label: "Issued", value: "ISSUED" },
   { label: "Active", value: "ACTIVE" },
   { label: "Completed", value: "COMPLETED" },
+  { label: "Closed", value: "CLOSED" },
+  { label: "Cancelled", value: "CANCELLED" },
 ];
 
 export function MobileWorkOrdersList({

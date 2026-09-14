@@ -194,7 +194,7 @@ export default function MobileNotificationsPage() {
       {/* Stats banner */}
       {stats ? (
         <div
-          className="rounded-[0.625rem] border p-3 grid grid-cols-4 gap-2"
+          className="rounded-[0.625rem] border p-3 grid grid-cols-4 gap-1.5"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <StatBox label="Total" value={stats.total} color="var(--color-ink-950)" />
@@ -215,15 +215,18 @@ export default function MobileNotificationsPage() {
       </button>
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-[0.5rem] p-1" style={{ backgroundColor: "var(--color-concrete)" }}>
+      <div
+        className="flex gap-1 rounded-[0.625rem] border p-1"
+        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
+      >
         {(["preferences", "templates", "log"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className="flex-1 rounded-[0.375rem] py-2 text-m-label font-bold uppercase tracking-wide text-m-body press transition-colors"
+            className="flex-1 rounded-[0.5rem] py-2 text-m-label font-bold uppercase tracking-wide press transition-colors"
             style={{
-              backgroundColor: tab === t ? "var(--color-paper)" : "transparent",
-              color: tab === t ? "var(--color-ink-950)" : "var(--color-ink-500)",
+              backgroundColor: tab === t ? "var(--color-ink-950)" : "transparent",
+              color: tab === t ? "var(--color-paper)" : "var(--color-ink-500)",
             }}
           >
             {t === "preferences" ? "My Prefs" : t === "templates" ? "Templates" : "Log"}

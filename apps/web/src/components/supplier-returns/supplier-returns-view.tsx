@@ -214,7 +214,11 @@ function SupplierReturnFormDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create return");
-      toast.success(`Return ${data.returnNumber} created`);
+      toast.success(
+        data.submitted
+          ? `Return ${data.returnNumber} submitted — goods can now leave`
+          : `Return ${data.returnNumber} saved as draft`,
+      );
       onOpenChange(false);
       setSupplierId(""); setLocationId(""); setNotes("");
       setVehicleNumber(""); setDriverName(""); setDriverPhone("");

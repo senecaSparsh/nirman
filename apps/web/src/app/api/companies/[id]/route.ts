@@ -34,6 +34,9 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 
 const companyUpdateSchema = z.object({
   name: z.string().min(1, "Name is required").optional(),
+  // Short code used in document numbers (e.g. "SRG" → PO-SRG-260914-0001).
+  // Letters/digits only; stored uppercase. Uniqueness enforced by the DB.
+  code: z.string().trim().min(1).max(10).regex(/^[A-Za-z0-9]+$/, "Code must be letters/digits only").optional().nullable(),
   gstin: z.string().optional().nullable(),
   pan: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
@@ -104,12 +107,21 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     if (!parent) return json({ error: "Parent company not found" }, { status: 400 });
   }
 
-  const updated = await prisma.company.update({
-    where: { id },
-    data,
-    select: { id: true, name: true },
-  });
-  return json(updated);
+  if (data.code) data.code = data.code.toUpperCase();
+
+  try {
+    const updated = await prisma.company.update({
+      where: { id },
+      data,
+      select: { id: true, name: true, code: true },
+    });
+    return json(updated);
+  } catch (err) {
+    if (err instanceof Error && "code" in err && (err as { code?: string }).code === "P2002") {
+      return json({ error: "That code is already used by another company" }, { status: 409 });
+    }
+    throw err;
+  }
 });
 
 /**

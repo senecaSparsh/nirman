@@ -17,6 +17,7 @@ import { EmptyState } from "@/components/empty-state";
 export type CompanyRow = {
   id: string;
   name: string;
+  code: string | null;
   gstin: string | null;
   pan: string | null;
   address: string | null;
@@ -69,6 +70,7 @@ export function CompaniesManager({
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({
     name: "",
+    code: "",
     businessType: "",
     parentCompanyId: "",
     currency: "INR",
@@ -95,6 +97,7 @@ export function CompaniesManager({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: form.name.trim(),
+          code: form.code.trim() || null,
           businessType: form.businessType.trim() || null,
           parentCompanyId: form.parentCompanyId || null,
           currency: form.currency,
@@ -107,7 +110,7 @@ export function CompaniesManager({
       if (!res.ok) throw new Error(data.error ?? "Failed to create company");
       toast.success("Company created");
       setCreating(false);
-      setForm({ name: "", businessType: "", parentCompanyId: "", currency: "INR", gstin: "", pan: "", address: "" });
+      setForm({ name: "", code: "", businessType: "", parentCompanyId: "", currency: "INR", gstin: "", pan: "", address: "" });
       router.refresh();
     } catch (err: unknown) {
       toast.error((err instanceof Error ? err.message : "Failed"));
@@ -440,6 +443,11 @@ export function CompaniesManager({
               <div className="space-y-1.5">
                 <Label>Business Type</Label>
                 <Input value={form.businessType} onChange={(e) => setForm((f) => ({ ...f, businessType: e.target.value }))} placeholder="Rice Milling & Export, Real Estate…" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Document Code</Label>
+                <Input value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) }))} placeholder="e.g. SRG → PO-SRG-260914-0001" />
+                <p className="text-caption text-muted-foreground">Used in document numbers so each entity keeps its own series (needed for GST invoice continuity). Leave blank to share the global series.</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">

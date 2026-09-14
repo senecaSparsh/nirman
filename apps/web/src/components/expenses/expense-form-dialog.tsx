@@ -11,14 +11,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import type { ExpenseCategoryRow, ProjectOption } from "@/lib/types";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { localDateISO, formatCurrency, formatDate, cn } from "@/lib/utils";
 import { required, nonNegativeNumber } from "@/lib/validate";
 import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 
 const PAYMENT_MODES = ["CASH", "UPI", "NEFT", "BANK", "CHEQUE", "CREDIT"] as const;
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateISO();
 }
 
 export interface ExpenseFormValues {

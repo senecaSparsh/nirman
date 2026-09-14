@@ -51,7 +51,7 @@ export const MoneyInput = React.forwardRef<
           "disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground",
           "aria-[invalid=true]:border-danger aria-[invalid=true]:ring-danger/20",
           "h-11 text-[14px] sm:h-8 sm:text-[13px]",
-          showSymbol ? "pl-8 pr-3 sm:pl-7 sm:pr-2.5" : "px-3 sm:px-2.5",
+          showSymbol ? "pl-8 pr-3 sm:pl-7" : "px-3",
           className,
         )}
         {...props}

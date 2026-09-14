@@ -173,7 +173,7 @@ export function EmployeeDocuments({
                   style={{
                     backgroundColor: hasDoc
                       ? "color-mix(in srgb, var(--color-go) 15%, transparent)"
-                      : "var(--color-ink-100)",
+                      : "var(--color-concrete)",
                   }}
                 >
                   {isUploading ? (
@@ -194,7 +194,7 @@ export function EmployeeDocuments({
                       <span
                         className="text-micro font-bold px-1 py-0.5 rounded"
                         style={{
-                          backgroundColor: "var(--color-ink-100)",
+                          backgroundColor: "var(--color-concrete)",
                           color: "var(--color-ink-500)",
                         }}
                       >
@@ -233,7 +233,7 @@ export function EmployeeDocuments({
                     <button
                       onClick={() => handleDelete(firstDoc.id, docType.category)}
                       className="grid place-items-center size-7 rounded-full press"
-                      style={{ backgroundColor: "var(--color-ink-100)" }}
+                      style={{ backgroundColor: "var(--color-concrete)" }}
                       title="Remove"
                     >
                       <X className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
@@ -242,7 +242,7 @@ export function EmployeeDocuments({
                   <label
                     className={`grid place-items-center size-7 rounded-full press ${isUploading ? "opacity-50 pointer-events-none" : ""}`}
                     style={{
-                      backgroundColor: hasDoc ? "var(--color-ink-100)" : "var(--color-ink-950)",
+                      backgroundColor: hasDoc ? "var(--color-concrete)" : "var(--color-ink-950)",
                     }}
                     title={hasDoc ? "Replace" : "Upload"}
                   >

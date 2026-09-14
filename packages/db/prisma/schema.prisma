@@ -21,6 +21,12 @@ datasource db {
 model Company {
   id        String   @id @default(cuid())
   name      String
+  // Short code used in document numbers (e.g. "SRG" → PO-SRG-260914-0001).
+  // Optional: companies without a code share the global series. Once set,
+  // that company gets its own contiguous, globally-unique numbering series —
+  // required for per-entity GST invoice continuity when a group runs
+  // multiple GSTINs on one deployment.
+  code      String?  @unique
   gstin     String?
   pan       String?
   address   String?
@@ -877,6 +883,10 @@ model User {
   createdLegalDocuments LegalDocument[]         @relation("LegalDocCreatedBy")
   uploadedFiles     Upload[]                   @relation("UploadUploader")
   createdEntityAttachments EntityAttachment[]   @relation("EntityAttachmentCreatedBy")
+  // ── Stock Count — creator, confirmer, reconciler ──
+  createdStockCounts    StockCount[]            @relation("StockCountCreator")
+  confirmedStockCounts  StockCount[]            @relation("StockCountConfirmer")
+  reconciledStockCounts StockCount[]            @relation("StockCountReconciler")
   // ── Expenses module — approval + claim + petty cash + recurring ──
   submittedExpenses      Expense[]              @relation("ExpenseSubmitter")
   approvedExpenses       Expense[]              @relation("ExpenseApprover")
@@ -2538,11 +2548,21 @@ model StockCount {
   status      StockCountStatus @default(DRAFT)
   notes       String?
   createdAt   DateTime         @default(now())
+  confirmedAt DateTime?
+  reconciledAt DateTime?
 
-  location StockLocation      @relation(fields: [locationId], references: [id])
+  createdById    String?
+  confirmedById  String?
+  reconciledById String?
+
+  location    StockLocation      @relation(fields: [locationId], references: [id])
+  createdBy   User?              @relation("StockCountCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  confirmedBy User?              @relation("StockCountConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull)
+  reconciledBy User?             @relation("StockCountReconciler", fields: [reconciledById], references: [id], onDelete: SetNull)
   lines   StockCountLine[]
 
   @@index([locationId])
+  @@index([createdById])
 }
 
 model StockCountLine {

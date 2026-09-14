@@ -111,7 +111,7 @@ export default function PulsePage() {
         return (
           <div>
             {/* ── KPI strip — 4 tiles ──────────────────────────────────── */}
-            <div className="grid grid-cols-2 gap-1.5 mb-4">
+            <div className="grid grid-cols-2 gap-2 mb-4">
               <MobileStatCard
                 label="Portfolio"
                 value={formatCurrencyCompact(toNum(portfolio.totalPortfolioValue))}
@@ -170,7 +170,7 @@ export default function PulsePage() {
             <div className="flex gap-2 mb-4">
               <Link
                 href="/m/sales/new"
-                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[0.625rem] border-2 px-3 py-2.5 text-m-section font-bold text-m-body press"
+                className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-[0.625rem] border px-2 text-m-label font-semibold text-m-body press whitespace-nowrap"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)" }}
               >
                 <Plus className="size-3.5" />
@@ -178,27 +178,28 @@ export default function PulsePage() {
               </Link>
               <Link
                 href="/m/procurement?tab=indents"
-                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[0.625rem] border-2 px-3 py-2.5 text-m-section font-bold text-m-body press"
+                className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-[0.625rem] border px-2 text-m-label font-semibold text-m-body press whitespace-nowrap"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)" }}
               >
                 <ShoppingCart className="size-3.5" />
-                New Requisition
+                Requisition
               </Link>
               <TallySyncButton pendingCount={tallyStats.pending} />
             </div>
 
             {/* ── Project health — top 5, drills down ──────────────────── */}
-            <MobileSectionTitle>
-              <div className="flex items-center justify-between">
-                <span>Project health</span>
+            <MobileSectionTitle
+              right={
                 <Link
                   href="/m/real-estate?tab=projects"
-                  className="text-m-caption font-bold text-m-body press"
-                  style={{ color: "var(--color-signal-dark)" }}
+                  className="text-m-label font-semibold text-m-body press"
+                  style={{ color: "var(--color-ink-500)" }}
                 >
                   View all
                 </Link>
-              </div>
+              }
+            >
+              Project health
             </MobileSectionTitle>
             {topProjects.length === 0 ? (
               <MobileEmptyState
@@ -211,12 +212,13 @@ export default function PulsePage() {
                 {topProjects.map((p) => {
                   const budget = toNum(p.totalBudget);
                   const cost = toNum(p.totalCost);
-                  const variancePct =
-                    budget > 0 ? ((cost - budget) / budget) * 100 : 0;
+                  // Show budget UTILISATION, not signed variance — "94% used"
+                  // reads correctly at a glance; "-94.2%" looked like a loss.
+                  const usedPct = budget > 0 ? (cost / budget) * 100 : 0;
                   const tone =
-                    variancePct > 10
+                    usedPct > 110
                       ? "danger"
-                      : variancePct > 0
+                      : usedPct > 100
                         ? "warning"
                         : "success";
                   return (
@@ -228,7 +230,7 @@ export default function PulsePage() {
                       subtitle={`${formatCurrencyCompact(cost)} spent · ${formatNumber(p.soldUnits, 0)}/${formatNumber(p.unitCount, 0)} sold`}
                       meta={
                         budget > 0
-                          ? `${variancePct >= 0 ? "+" : ""}${formatNumber(variancePct, 1)}%`
+                          ? `${formatNumber(usedPct, 0)}% used`
                           : undefined
                       }
                       tone={tone}

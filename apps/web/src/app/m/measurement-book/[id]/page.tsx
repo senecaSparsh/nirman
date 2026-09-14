@@ -1,6 +1,7 @@
 import { prisma } from "@nirman/db";
-import { toNum, scopeWhere } from "@/lib/server";
+import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
+import { canAutoApprove } from "@nirman/services";
 import {formatCurrencyCompact, formatDate, formatNumber} from "@/lib/utils";
 import {
   MobileEmptyState,
@@ -65,8 +66,13 @@ export default function MobileMbDetailPage({
         const variance = estimatedQty != null ? cumulativeQty - estimatedQty : null;
         const variancePct = estimatedQty != null && estimatedQty > 0 ? (variance! / estimatedQty) * 100 : null;
 
-        const canVerify = hasPermission(role, PERM.MB_VERIFY);
-        const canApprove = hasPermission(role, PERM.MB_APPROVE);
+        const currentUser = await getCurrentUser();
+        // Hide verify/approve from the measurer — self-verification/approval is
+        // blocked server-side — unless a tier-1 approver (OWNER/ADMIN), where
+        // no higher reviewer exists.
+        const isSelfMeasured = entry.measuredById === currentUser?.id;
+        const canVerify = hasPermission(role, PERM.MB_VERIFY) && (!isSelfMeasured || canAutoApprove(role));
+        const canApprove = hasPermission(role, PERM.MB_APPROVE) && (!isSelfMeasured || canAutoApprove(role));
 
         const varianceEntries = [
           { label: "Estimated Qty", value: `${formatNumber(estimatedQty!, 3)} ${entry.boqItem.unit ?? ""}` },

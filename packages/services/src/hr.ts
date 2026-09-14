@@ -4,21 +4,22 @@ import { logAction } from "./audit";
 import { postPayroll, postPayrollPayment } from "./gl-posting";
 import { runDprVarianceAnalysis } from "./standard-consumption";
 import { ServiceError } from "./errors";
+import { canAutoApprove } from "./rbac";
 import { reallocateProjectCosts } from "./valuation";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { recordMovement, withStockTransaction } from "./stock-ledger";
 import { postMaterialIssue } from "./gl-posting";
 import { withSerializableTransaction } from "./transaction";
-import { nextSequenceNumber } from "./sequence";
+import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 
 /**
  * Generate the next SA-YYMMDD-NNNN slip number for a DPR-generated material issue.
  * Called inside a transaction so the count is consistent.
  */
-async function generateDprIssueNumber(tx: Prisma.TransactionClient): Promise<string> {
+async function generateDprIssueNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `SA-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `SA-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
@@ -1706,15 +1707,16 @@ export async function deleteDpr(dprId: string, userId?: string) {
 //   SUBMITTED → SUB_ADMIN_APPROVED → APPROVED
 //   (any pre-final stage can be REJECTED)
 
-export async function subAdminApproveDpr(dprId: string, approverId: string, notes?: string) {
+export async function subAdminApproveDpr(dprId: string, approverId: string, notes?: string, actorRole?: string) {
   const { updated, companyId } = await withSerializableTransaction(async (tx) => {
     const dpr = await tx.dailyProgressReport.findUnique({ where: { id: dprId } });
     if (!dpr) throw new HrError("DPR not found", 404);
     if (dpr.approvalStatus !== "SUBMITTED") {
       throw new HrError(`DPR must be in SUBMITTED status to approve (current: ${dpr.approvalStatus})`, 409);
     }
-    // Prevent self-approval — the submitter cannot approve their own DPR.
-    if (dpr.submittedById === approverId) {
+    // Prevent self-approval — the submitter cannot approve their own DPR,
+    // unless a tier-1 role (OWNER/ADMIN) where no higher approver exists.
+    if (dpr.submittedById === approverId && !canAutoApprove(actorRole)) {
       throw new HrError("You cannot approve your own DPR. Ask another approver to review it.", 403);
     }
     const updated = await tx.dailyProgressReport.update({
@@ -1742,21 +1744,24 @@ export async function subAdminApproveDpr(dprId: string, approverId: string, note
     entityType: "DailyProgressReport",
     entityId: dprId,
     variables: { dprId, notes: notes ?? "" },
+    extraRecipientIds: [updated.submittedById],
+    excludeIds: [approverId],
     timestamp: new Date(),
   });
 
   return updated;
 }
 
-export async function adminApproveDpr(dprId: string, approverId: string, notes?: string) {
+export async function adminApproveDpr(dprId: string, approverId: string, notes?: string, actorRole?: string) {
   const { updated, companyId } = await withSerializableTransaction(async (tx) => {
     const dpr = await tx.dailyProgressReport.findUnique({ where: { id: dprId } });
     if (!dpr) throw new HrError("DPR not found", 404);
     if (dpr.approvalStatus !== "SUB_ADMIN_APPROVED") {
       throw new HrError(`DPR must be Sub-Admin approved first (current: ${dpr.approvalStatus})`, 409);
     }
-    // Prevent self-approval — the submitter cannot approve their own DPR.
-    if (dpr.submittedById === approverId) {
+    // Prevent self-approval — the submitter cannot approve their own DPR,
+    // unless a tier-1 role (OWNER/ADMIN) where no higher approver exists.
+    if (dpr.submittedById === approverId && !canAutoApprove(actorRole)) {
       throw new HrError("You cannot approve your own DPR. Ask another admin to review it.", 403);
     }
     const updated = await tx.dailyProgressReport.update({
@@ -1784,6 +1789,8 @@ export async function adminApproveDpr(dprId: string, approverId: string, notes?:
     entityType: "DailyProgressReport",
     entityId: dprId,
     variables: { dprId, notes: notes ?? "" },
+    extraRecipientIds: [updated.submittedById],
+    excludeIds: [approverId],
     timestamp: new Date(),
   });
 
@@ -1827,6 +1834,8 @@ export async function rejectDpr(dprId: string, rejecterId: string, reason: strin
     entityType: "DailyProgressReport",
     entityId: dprId,
     variables: { dprId, reason },
+    extraRecipientIds: [updated.submittedById],
+    excludeIds: [rejecterId],
     timestamp: new Date(),
   });
 
@@ -2300,7 +2309,7 @@ export async function generateMaterialIssueFromDPR(
 
     const materialIssue = await tx.materialIssue.create({
       data: {
-        issueNumber: await generateDprIssueNumber(tx),
+        issueNumber: await generateDprIssueNumber(tx, dpr.project.companyId),
         projectId: dpr.projectId,
         fromLocationId: siteLocation.id,
         sourceDprId: dprId,

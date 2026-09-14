@@ -25,8 +25,9 @@ import {
   Crown,
   Download,
   ExternalLink,
+  Trash2,
 } from "lucide-react";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { localDateISO, formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { downloadCSV } from "@/lib/export";
 import { useConfirm } from "@/lib/use-confirm";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
@@ -389,6 +390,7 @@ export function MobileQuotationDetail({
           expandedMaterial={expandedMaterial}
           onToggleMaterial={(id) => setExpandedMaterial(expandedMaterial === id ? null : id)}
           canEdit={request.canAddQuote}
+          onChanged={onChanged}
         />
       ) : null}
 
@@ -520,6 +522,7 @@ function ComparativeSheet({
   expandedMaterial,
   onToggleMaterial,
   canEdit,
+  onChanged,
 }: {
   lines: RequestLine[];
   quotes: Quote[];
@@ -529,6 +532,7 @@ function ComparativeSheet({
   expandedMaterial: string | null;
   onToggleMaterial: (id: string) => void;
   canEdit: boolean;
+  onChanged?: () => void;
 }) {
   // ── Local quotes state for seamless (no-refresh) updates ──
   // Syncs from props but is updated optimistically after each inline edit.
@@ -547,9 +551,30 @@ function ComparativeSheet({
   const [editingTerm, setEditingTerm] = useState<{ quoteId: string; field: string } | null>(null);
   const [cellValue, setCellValue] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [deletingQuoteId, setDeletingQuoteId] = useState<string | null>(null);
   // Ref to track current cell value for immediate access in keydown handlers (avoids stale closure)
   const cellValueRef = useRef<string>("");
   const syncCellValue = (v: string) => { cellValueRef.current = v; setCellValue(v); };
+
+  // ── Delete a quote from the request ──
+  async function onDeleteQuote(quoteId: string) {
+    const ok = window.confirm("Delete this quote? This will remove the quote from the comparison.");
+    if (!ok) return;
+    setDeletingQuoteId(quoteId);
+    try {
+      const res = await fetch(`/api/quotes/${quoteId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to delete quote");
+      toast.success("Quote removed");
+      // Optimistically remove from local state
+      setLocalQuotes((prev) => prev.filter((q) => q.id !== quoteId));
+      onChanged?.();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete quote");
+    } finally {
+      setDeletingQuoteId(null);
+    }
+  }
 
   const materialMatrix = useMemo(() => {
     return lines.map((line) => {
@@ -1047,7 +1072,7 @@ function ComparativeSheet({
                             onBlur={() => { if (cellValueRef.current && cellValueRef.current !== "__custom") saveTermCell(q.id, "paymentTerms", cellValueRef.current); else setEditingTerm(null); }}
                             disabled={saving}
                             className="w-full bg-transparent text-center outline-none font-semibold"
-                            style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "#1e293b" }}
+                            style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "var(--color-ink-950)" }}
                           />
                         ) : (
                           <select
@@ -1062,7 +1087,7 @@ function ComparativeSheet({
                             onBlur={() => { if (cellValueRef.current && cellValueRef.current !== "__custom") saveTermCell(q.id, "paymentTerms", cellValueRef.current); else setEditingTerm(null); }}
                             disabled={saving}
                             className="w-full bg-transparent text-center outline-none font-semibold"
-                            style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "#1e293b" }}
+                            style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "var(--color-ink-950)" }}
                           >
                             {PAYMENT_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt === "Advance payment" ? "Adv" : opt.replace(" days credit", "d cr")}</option>)}
                             {!isKnownOption && display !== "—" && <option value="__custom">{display}</option>}
@@ -1100,7 +1125,7 @@ function ComparativeSheet({
                           onChange={(e) => { syncCellValue(e.target.value); saveTermCell(q.id, "deliveryTermsType", e.target.value); }}
                           onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); setEditingTerm(null); } }}
                           className="w-full bg-transparent text-center outline-none font-semibold"
-                          style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "#1e293b" }}
+                          style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "var(--color-ink-950)" }}
                         >
                           <option value="DELIVERED_SITE">Delivered</option>
                           <option value="EX_WORKS">Ex-Works</option>
@@ -1146,7 +1171,7 @@ function ComparativeSheet({
                           onBlur={(e) => { syncCellValue(e.target.value); saveTermCell(q.id, "leadTimeDays", cellValueRef.current); }}
                           disabled={saving}
                           className="w-full bg-transparent text-center outline-none font-semibold"
-                          style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "#1e293b" }}
+                          style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "var(--color-ink-950)" }}
                         />
                       ) : (
                         <span style={{ color: "var(--color-ink-600)" }}>{q.leadTimeDays != null ? `${q.leadTimeDays}d` : "—"}</span>
@@ -1189,7 +1214,7 @@ function ComparativeSheet({
                             onBlur={() => { if (cellValueRef.current && cellValueRef.current !== "__custom") saveTermCell(q.id, "warranty", cellValueRef.current); else setEditingTerm(null); }}
                             disabled={saving}
                             className="w-full bg-transparent text-center outline-none font-semibold"
-                            style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "#1e293b" }}
+                            style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "var(--color-ink-950)" }}
                           />
                         ) : (
                           <select
@@ -1204,7 +1229,7 @@ function ComparativeSheet({
                             onBlur={() => { if (cellValueRef.current && cellValueRef.current !== "__custom") saveTermCell(q.id, "warranty", cellValueRef.current); else setEditingTerm(null); }}
                             disabled={saving}
                             className="w-full bg-transparent text-center outline-none font-semibold"
-                            style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "#1e293b" }}
+                            style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "var(--color-ink-950)" }}
                           >
                             {WARRANTY_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt === "No warranty" ? "None" : opt.replace(" months", "mo")}</option>)}
                             {!isKnownOption && w !== "—" && <option value="__custom">{w}</option>}
@@ -1241,11 +1266,11 @@ function ComparativeSheet({
                           onChange={(e) => { syncCellValue(e.target.value); saveTermCell(q.id, "validUntil", e.target.value); }}
                           onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); setEditingTerm(null); } }}
                           className="w-full bg-transparent text-center outline-none font-bold"
-                          style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "#1e293b", minHeight: "20px" }}
+                          style={{ fontSize: `${batchFs.sub}px`, border: "none", color: "var(--color-ink-950)", minHeight: "20px" }}
                         />
                       ) : q.validUntil ? (
                         <span className="flex flex-col items-center leading-tight">
-                          <span className="font-bold" style={{ color: "#1e293b" }}>{fmtDateShort(q.validUntil)}</span>
+                          <span className="font-bold" style={{ color: "var(--color-ink-950)" }}>{fmtDateShort(q.validUntil)}</span>
                           {q.isExpired ? <span className="font-bold" style={{ fontSize: `${batchFs.micro}px`, color: "var(--color-stop)" }}>expired</span> : q.daysUntilExpiry !== null ? <span className={`font-semibold ${q.daysUntilExpiry <= 7 ? "" : ""}`} style={{ fontSize: `${batchFs.micro}px`, color: q.daysUntilExpiry <= 7 ? "var(--color-signal)" : "var(--color-ink-500)" }}>{q.daysUntilExpiry}d left</span> : null}
                         </span>
                       ) : <span style={{ color: "var(--color-ink-400)" }}>—</span>}
@@ -1292,6 +1317,41 @@ function ComparativeSheet({
                   </td>
                 ))}
               </tr>
+
+              {/* Delete quote row — only for non-selected quotes, only if canEdit */}
+              {canEdit ? (
+                <tr>
+                  <td className="border px-1.5 py-0.5 font-semibold uppercase tracking-wide overflow-hidden" style={{ fontSize: `${batchFs.sub}px`, backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}>
+                    Actions
+                  </td>
+                  {batch.map((q) => (
+                    <td
+                      key={q.id}
+                      className="border px-1 py-0.5 text-center overflow-hidden"
+                      style={{ fontSize: `${batchFs.sub}px` }}
+                    >
+                      {q.id === selectedQuoteId ? (
+                        <span style={{ color: "var(--color-ink-400)", fontSize: `${batchFs.micro}px` }}>locked</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteQuote(q.id)}
+                          disabled={deletingQuoteId === q.id}
+                          className="inline-flex items-center gap-0.5 font-semibold press disabled:opacity-50"
+                          style={{ fontSize: `${batchFs.sub}px`, color: "var(--color-stop)" }}
+                        >
+                          {deletingQuoteId === q.id ? (
+                            <Loader2 className="animate-spin" style={{ width: batchFs.sub + 1, height: batchFs.sub + 1 }} />
+                          ) : (
+                            <Trash2 style={{ width: batchFs.sub + 1, height: batchFs.sub + 1 }} />
+                          )}
+                          Delete
+                        </button>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
@@ -1350,7 +1410,7 @@ function ComparativeSheet({
       { key: "Material", label: "Material" },
       ...supplierNames.map((s) => ({ key: s, label: s })),
     ];
-    downloadCSV(`comparative-statement-${new Date().toISOString().slice(0, 10)}.csv`, rows, columns);
+    downloadCSV(`comparative-statement-${localDateISO()}.csv`, rows, columns);
   }
 
   return (
@@ -1527,7 +1587,7 @@ function MatSection({
                       }}
                       disabled={saving}
                       className="w-full bg-transparent text-right tabular-nums outline-none font-semibold"
-                      style={{ fontSize: `${fs.sub}px`, border: "none", color: "#1e293b" }}
+                      style={{ fontSize: `${fs.sub}px`, border: "none", color: "var(--color-ink-950)" }}
                     />
                   </td>
                 );
@@ -2029,7 +2089,7 @@ function AddQuoteDialog({
                   style={{
                     borderColor: quoteSource === opt.value ? "var(--color-steel)" : "var(--color-line)",
                     backgroundColor: quoteSource === opt.value ? "var(--color-steel-wash)" : "var(--color-paper)",
-                    color: quoteSource === opt.value ? "var(--color-steel-dark)" : "var(--color-ink-700)",
+                    color: quoteSource === opt.value ? "var(--color-steel)" : "var(--color-ink-700)",
                   }}
                 >
                   {opt.label}
@@ -2228,7 +2288,7 @@ function AddQuoteDialog({
                   </div>
                 </div>
                 {/* Rate — the only field shown by default */}
-                <div className="grid grid-cols-2 gap-1.5 items-end">
+                <div className="grid grid-cols-2 gap-2 items-end">
                   <div>
                     <label className="block text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Rate/{l.unit} <span style={{ color: "var(--color-stop)" }}>*</span></label>
                     <input
@@ -2252,7 +2312,7 @@ function AddQuoteDialog({
                     style={{
                       borderColor: isExpanded || hasCosts ? "var(--color-steel)" : "var(--color-line)",
                       backgroundColor: isExpanded || hasCosts ? "var(--color-steel-wash)" : "var(--color-paper)",
-                      color: isExpanded || hasCosts ? "var(--color-steel-dark)" : "var(--color-ink-500)",
+                      color: isExpanded || hasCosts ? "var(--color-steel)" : "var(--color-ink-500)",
                     }}
                   >
                     {isExpanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}

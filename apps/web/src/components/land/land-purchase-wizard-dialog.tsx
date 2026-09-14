@@ -16,7 +16,7 @@ import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { SellerFormDialog } from "@/components/land/seller-form-dialog";
 import { LegalDocsSection, type LegalDocRow } from "@/components/legal/legal-docs-section";
-import { formatCurrency, formatNumber, cn } from "@/lib/utils";
+import { localDateISO, formatCurrency, formatNumber, cn } from "@/lib/utils";
 import type { ProjectOption } from "@/lib/types";
 
 interface SellerOption { id: string; name: string; phone?: string | null; }
@@ -230,12 +230,13 @@ export function LandPurchaseWizardDialog({
   const areaDiff = totalAreaNum - sectionsAreaSum;
   const areaValid = mode === "WHOLE" ? true : Math.abs(areaDiff) < 0.001;
 
-  // Cost preview (PRO_RATA by area)
-  const totalCostNum = Number(land.totalCost) || 0;
+  // Cost preview (PRO_RATA by area). Uses calculatedTotal (base + duties +
+  // charges) — land.totalCost is never populated by this form; the API
+  // receives calculatedTotal as totalCost.
   function sectionCost(sec: SectionForm): number {
     const a = Number(sec.area) || 0;
     if (sectionsAreaSum <= 0) return 0;
-    return (totalCostNum * a) / sectionsAreaSum;
+    return (calculatedTotal * a) / sectionsAreaSum;
   }
 
   // ── Cost breakup auto-calculation ──
@@ -542,7 +543,9 @@ export function LandPurchaseWizardDialog({
               value={land.sellerId}
               onChange={(v) => {
                 const s = localSellers.find((x) => x.id === v);
-                setLand((f) => ({ ...f, sellerId: v, sellerName: s?.name ?? "", sellerContact: s?.phone ?? "" }));
+                // A seller just created via the inline dialog is auto-selected before
+                // setLocalSellers has flushed — preserve the name it already set.
+                setLand((f) => ({ ...f, sellerId: v, sellerName: s?.name ?? f.sellerName, sellerContact: s?.phone ?? f.sellerContact }));
               }}
               options={localSellers.map((s) => ({ value: s.id, label: s.phone ? `${s.name} (${s.phone})` : s.name }))}
               placeholder="Select a seller…"
@@ -775,7 +778,7 @@ export function LandPurchaseWizardDialog({
                   variant="ghost"
                   size="sm"
                   className="h-7 px-2 text-caption"
-                  onClick={() => setExtraCosts((c) => [...c, { label: "", amount: "", frequency: "ONE_TIME", interval: "YEARLY", startDate: new Date().toISOString().slice(0, 10), occurrences: "" }])}
+                  onClick={() => setExtraCosts((c) => [...c, { label: "", amount: "", frequency: "ONE_TIME", interval: "YEARLY", startDate: localDateISO(), occurrences: "" }])}
                 >
                   <Plus className="mr-1 h-3.5 w-3.5" /> Add
                 </Button>

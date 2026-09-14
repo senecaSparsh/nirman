@@ -121,10 +121,10 @@ export function MobileNewSupplierClient({
         <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>
           {success.name}
         </p>
-        <div className="flex flex-col gap-2">
+        <div className="flex gap-2">
           <button
             onClick={() => router.push(`/m/suppliers/${success.id}`)}
-            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
+            className="flex-1 rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View {success.name}
@@ -134,7 +134,7 @@ export function MobileNewSupplierClient({
               setSuccess(null);
               setForm({ name: "", gstin: "", phone: "", email: "", address: "", leadTimeDays: "" });
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
+            className="flex-1 rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           >
             Add Another

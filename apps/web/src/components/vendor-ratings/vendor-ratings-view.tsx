@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { PageLoading } from "@/components/page-loading";
@@ -21,16 +22,12 @@ type Ranking = {
 };
 
 export function VendorRatingsView() {
-  const [rankings, setRankings] = useState<Ranking[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error } = useFetch<Ranking[]>("/api/vendor-ratings");
+  const rankings = data ?? [];
 
   useEffect(() => {
-    fetch("/api/vendor-ratings")
-      .then((r) => r.json())
-      .then((data) => setRankings(data ?? []))
-      .catch(() => toast.error("Failed to load vendor ratings"))
-      .finally(() => setLoading(false));
-  }, []);
+    if (error) toast.error("Failed to load vendor ratings");
+  }, [error]);
 
   if (loading) return <PageLoading label="Loading vendor ratings…" variant="default" />;
 

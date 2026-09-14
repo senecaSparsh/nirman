@@ -233,7 +233,7 @@ export function MobileNewProjectDialog({
       {/* ── Main fields — one big border box ── */}
       <SectionCard title="Project Details">
           {/* Name + Type (Name takes 2/3, Type 1/3) */}
-          <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+          <div className="grid grid-cols-3 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div className="col-span-2">
               {/* Name has onKeyDown Enter handler — stays inline */}
               <label className={labelClass} style={labelStyle}>
@@ -499,7 +499,7 @@ export function MobileNewProjectDialog({
                 </button>
               </div>
               {form.isATS && (
-                <div className="grid grid-cols-2 gap-1 pt-0.5">
+                <div className="grid grid-cols-2 gap-2 pt-0.5">
                   <UnderlineInput
                     label="Reg. Amount (₹)"
                     value={form.atsRegistrationAmount}

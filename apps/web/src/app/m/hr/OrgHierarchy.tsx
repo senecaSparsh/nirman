@@ -754,7 +754,7 @@ function PersonDetail({ person, depth, ancestorLast, hasChildrenBelow }: { perso
             {ts.completed > 0 ? (
               <span
                 className="inline-flex items-center gap-0.5 rounded px-1.5 py-px text-m-caption font-semibold"
-                style={{ backgroundColor: "var(--color-go-wash)", color: "var(--color-go-dark)" }}
+                style={{ backgroundColor: "var(--color-go-wash)", color: "var(--color-go)" }}
               >
                 <CheckCircle2 className="size-2" />
                 {ts.completed} done
@@ -817,7 +817,7 @@ function PersonDetail({ person, depth, ancestorLast, hasChildrenBelow }: { perso
                       : "var(--color-concrete)",
                 color:
                   att.status === "PRESENT" || att.status === "OVERTIME"
-                    ? "var(--color-go-dark)"
+                    ? "var(--color-go)"
                     : att.status === "ABSENT"
                       ? "var(--color-stop)"
                       : "var(--color-ink-700)",
@@ -1147,8 +1147,8 @@ function TreeRow({
             <span
               className="ml-0.5 inline-block rounded text-[0.45rem] font-bold uppercase whitespace-nowrap shrink-0 align-top"
               style={{
-                backgroundColor: "rgba(59, 130, 246, 0.12)",
-                color: "#2563eb",
+                backgroundColor: "var(--color-steel-wash)",
+                color: "var(--color-steel)",
                 padding: "0 2px",
                 lineHeight: 1.1,
                 verticalAlign: "top",
@@ -1198,8 +1198,8 @@ function TreeRow({
             <span
               className="ml-0.5 inline-block rounded text-[0.45rem] font-bold uppercase whitespace-nowrap shrink-0 align-top"
               style={{
-                backgroundColor: "rgba(59, 130, 246, 0.12)",
-                color: "#2563eb",
+                backgroundColor: "var(--color-steel-wash)",
+                color: "var(--color-steel)",
                 padding: "0 2px",
                 lineHeight: 1.1,
                 verticalAlign: "top",

@@ -48,8 +48,28 @@ interface UseFetchResult<T> {
 
 const RETRY_DELAYS = [500, 1500, 3000];
 
-// Simple in-memory cache (survives navigation, cleared on page reload)
+// Simple in-memory cache (survives navigation, cleared on page reload).
+// Bounded at MAX_CACHE_ENTRIES — without a bound, a long session
+// accumulates every API response ever fetched in device memory.
 const memoryCache = new Map<string, { data: unknown; timestamp: number }>();
+const MAX_CACHE_ENTRIES = 100;
+
+// The cache is keyed by URL only — not user/company — so a company switch
+// would briefly serve the previous tenant's data until revalidation.
+// Drop everything when the switch event fires. Sign-out needs no listener:
+// it hard-redirects, which drops the whole JS heap.
+if (typeof window !== "undefined") {
+  window.addEventListener("nirman-company-switched", () => memoryCache.clear());
+}
+
+function cacheSet(url: string, data: unknown) {
+  if (memoryCache.size >= MAX_CACHE_ENTRIES && !memoryCache.has(url)) {
+    // Map iterates in insertion order — evict the oldest-inserted key.
+    const oldest = memoryCache.keys().next().value;
+    if (oldest !== undefined) memoryCache.delete(oldest);
+  }
+  memoryCache.set(url, { data, timestamp: Date.now() });
+}
 
 export function useFetch<T = unknown>(
   url: string | null,
@@ -103,7 +123,7 @@ export function useFetch<T = unknown>(
 
       // Update cache
       if (!noCache) {
-        memoryCache.set(url, { data: json, timestamp: Date.now() });
+        cacheSet(url, json);
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;

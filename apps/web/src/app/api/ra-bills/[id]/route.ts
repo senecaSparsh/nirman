@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { submitRaBill, approveRaBill, rejectRaBill, payRaBill, ServiceError } from "@nirman/services";
+import { submitRaBill, approveRaBill, rejectRaBill, payRaBill, canAutoApprove, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -76,12 +76,19 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   try {
     if (action === "submit") {
       const bill = await submitRaBill(id, user.id);
+      // Tier-1 creators (OWNER/ADMIN) auto-approve — no higher approver exists.
+      if (canAutoApprove(user.role)) {
+        const approved = await approveRaBill(id, user.id, user.role);
+        revalidatePath("/finance");
+        revalidatePath("/m/accounts");
+        return json(approved);
+      }
       revalidatePath("/finance");
       revalidatePath("/m/accounts");
       return json(bill);
     }
     if (action === "approve") {
-      const bill = await approveRaBill(id, user.id);
+      const bill = await approveRaBill(id, user.id, user.role);
       revalidatePath("/finance");
       revalidatePath("/m/accounts");
       return json(bill);

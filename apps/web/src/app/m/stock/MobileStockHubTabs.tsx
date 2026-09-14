@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ScrollText, ArrowLeftRight, ClipboardCheck, Recycle, Package } from "lucide-react";
 import { useTabParam } from "@/lib/use-tab-param";
@@ -11,7 +12,6 @@ import { useFabModal } from "@/lib/use-fab-modal";
 import { formatNumber, formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import MobileNewStockCountClient from "../stock-counts/new/MobileNewStockCountClient";
 import MobileNewScrapGenerationClient from "../scrap-generations/new/MobileNewScrapGenerationClient";
-import { MobileStockOutClient } from "../stock-out/MobileStockOutClient";
 import { MobileStockMovementsList, type StockLocation, type StockMovementItem, type MaterialStockItem } from "./MobileStockMovementsList";
 import { MobileTransfersList, type TransferItem } from "../transfers/MobileTransfersList";
 import { MobileStockCountsList, type StockCountItem } from "../stock-counts/MobileStockCountsList";
@@ -110,16 +110,15 @@ export function MobileStockHubTabs({
   onHandLowCount: number;
 }) {
   const [tab, setTab] = useTabParam(TABS, "on-hand");
+  const router = useRouter();
   const countFab = useFabModal();
   const scrapFab = useFabModal();
-  const transferFab = useFabModal();
 
   // Close any open form when the tab changes — the FAB for the previous
   // tab unmounts, so the modal would be orphaned without this.
   useEffect(() => {
     countFab.close();
     scrapFab.close();
-    transferFab.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
@@ -181,9 +180,6 @@ export function MobileStockHubTabs({
             exportColumns={transfersExportColumns}
             exportSummary={`${transfersItems.length} transfers`}
           />
-          {transfersCanCreate && (
-            <MobileFab onClick={transferFab.toggle} isOpen={transferFab.isOpen} label="New stock transfer" />
-          )}
         </>
       )}
 
@@ -226,7 +222,7 @@ export function MobileStockHubTabs({
       >
         <MobileNewStockCountClient
           onClose={countFab.close}
-          onCreated={() => countFab.close()}
+          onCreated={(id) => { countFab.close(); router.push(`/m/stock-counts/${id}`); }}
         />
       </MobileFabModal>
 
@@ -242,21 +238,15 @@ export function MobileStockHubTabs({
         />
       </MobileFabModal>
 
-      <MobileFabModal
-        open={transferFab.isOpen}
-        onClose={transferFab.close}
-        originRect={transferFab.originRect}
-        title="New Stock Transfer"
-      >
-        <MobileStockOutClient
-          canTransfer
-          canIssue={false}
-          initialMode="transfer"
-          initialProjectId=""
-          initialFromLocationId=""
-          onClose={transferFab.close}
+      {/* Transfer FAB redirects to the full-page form — the stock-out client
+          uses fixed-position sticky bars that conflict with modal layout. */}
+      {tab === "transfers" && transfersCanCreate && (
+        <MobileFab
+          onClick={() => router.push("/m/stock-out?mode=transfer")}
+          isOpen={false}
+          label="New stock transfer"
         />
-      </MobileFabModal>
+      )}
     </div>
   );
 }
@@ -288,7 +278,7 @@ function MobileOnHandList({
   return (
     <div>
       {/* ── Summary strip ── */}
-      <div className="grid grid-cols-3 gap-2 px-4 pt-3 pb-2">
+      <div className="grid grid-cols-3 gap-1.5 px-4 pt-3 pb-2">
         <div className="rounded-[0.5rem] border p-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Items</p>
           <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{items.length}</p>
@@ -354,6 +344,12 @@ function MobileOnHandList({
                   <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                     {m.code} · {m.categoryName} · {m.locations.length} loc
                   </p>
+                  {m.locations.length > 1 ? (
+                    <p className="text-m-caption truncate mt-0.5" style={{ color: "var(--color-ink-400)" }}>
+                      {m.locations.slice(0, 3).map((l) => `${l.name}: ${formatNumber(l.qty, 0)}`).join(" · ")}
+                      {m.locations.length > 3 ? ` +${m.locations.length - 3}` : ""}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-m-body font-bold tabular-nums" style={{ color: m.isOut ? "var(--color-stop)" : m.isLow ? "var(--color-signal-dark)" : "var(--color-ink-950)" }}>

@@ -100,15 +100,20 @@ export function winningLineCosts(
 export interface CreateVendorQuoteInput {
   requisitionId: string;
   supplierId: string;
-  fileUrl: string;
-  fileName: string;
-  mimeType: string;
+  fileUrl?: string;
+  fileName?: string;
+  mimeType?: string;
+  quoteSource?: "DOCUMENT" | "EMAIL" | "VERBAL" | "WHATSAPP" | "LETTER" | "EXCEL";
+  sourceNote?: string;
   landedTotal?: Decimal | number | string; // optional — auto-computed from lines if not provided
   validUntil?: Date;
   notes?: string;
   submittedById?: string;
   deliveryTermsType?: "DELIVERED_SITE" | "EX_WORKS" | "FOR_STATION" | "CUSTOM";
   deliveryTerms?: string; // legacy free-text
+  paymentTerms?: string;
+  leadTimeDays?: number | null;
+  warranty?: string;
   lines: {
     materialId: string;
     qty: Decimal | number | string;
@@ -213,6 +218,8 @@ export async function createVendorQuote(input: CreateVendorQuoteInput) {
         fileUrl: input.fileUrl,
         fileName: input.fileName,
         mimeType: input.mimeType,
+        quoteSource: (input.quoteSource ?? "DOCUMENT") as "DOCUMENT" | "EMAIL" | "VERBAL" | "WHATSAPP" | "LETTER" | "EXCEL",
+        sourceNote: input.sourceNote ?? null,
         landedTotal,
         subtotal: totals.subtotal,
         gstTotal: totals.gstTotal,
@@ -225,6 +232,9 @@ export async function createVendorQuote(input: CreateVendorQuoteInput) {
         buyerTransportTotal: totals.buyerTransportTotal,
         deliveryTermsType: (input.deliveryTermsType ?? "DELIVERED_SITE") as "DELIVERED_SITE" | "EX_WORKS" | "FOR_STATION" | "CUSTOM",
         deliveryTerms: input.deliveryTerms ?? null,
+        paymentTerms: input.paymentTerms ?? null,
+        leadTimeDays: input.leadTimeDays ?? null,
+        warranty: input.warranty ?? null,
         validUntil: input.validUntil,
         notes: input.notes,
         submittedById: input.submittedById,
@@ -275,6 +285,11 @@ export async function createVendorQuote(input: CreateVendorQuoteInput) {
 
 export interface UpdateVendorQuoteInput {
   quoteId: string;
+  fileUrl?: string | null;
+  fileName?: string | null;
+  mimeType?: string | null;
+  quoteSource?: "DOCUMENT" | "EMAIL" | "VERBAL" | "WHATSAPP" | "LETTER" | "EXCEL";
+  sourceNote?: string | null;
   landedTotal?: Decimal | number | string;
   validUntil?: Date | null;
   notes?: string | null;
@@ -400,6 +415,11 @@ export async function updateVendorQuote(input: UpdateVendorQuoteInput) {
     if (input.paymentTerms !== undefined) data.paymentTerms = input.paymentTerms;
     if (input.leadTimeDays !== undefined) data.leadTimeDays = input.leadTimeDays;
     if (input.warranty !== undefined) data.warranty = input.warranty;
+    if (input.fileUrl !== undefined) data.fileUrl = input.fileUrl;
+    if (input.fileName !== undefined) data.fileName = input.fileName;
+    if (input.mimeType !== undefined) data.mimeType = input.mimeType;
+    if (input.quoteSource !== undefined) data.quoteSource = input.quoteSource;
+    if (input.sourceNote !== undefined) data.sourceNote = input.sourceNote;
 
     const updated = await tx.vendorQuote.update({
       where: { id: input.quoteId },
@@ -569,6 +589,7 @@ export async function getComparativeStatement(requisitionId: string) {
       quotesWaived: true,
       quotesWaivedReason: true,
       quotesLockedAt: true,
+      lines: { select: { materialId: true } },
     },
   });
   if (!req) throw new ServiceError("Indent not found", 404);
@@ -585,6 +606,40 @@ export async function getComparativeStatement(requisitionId: string) {
     },
     orderBy: { landedTotal: "asc" },
   });
+
+  // ── Last-rate benchmark: for each material, find the most recent PO line ──
+  // Same cartel detection as the standalone quotation request flow.
+  const materialIds = req.lines.map((l) => l.materialId);
+  const lastRateMap = new Map<string, { unitCost: number; poNumber: string; poDate: string; supplierName: string; projectName: string | null }>();
+  if (materialIds.length > 0) {
+    const lastPoLines = await prisma.purchaseOrderLine.findMany({
+      where: { materialId: { in: materialIds } },
+      include: {
+        purchaseOrder: {
+          select: {
+            poNumber: true,
+            orderDate: true,
+            status: true,
+            supplier: { select: { name: true } },
+            project: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { purchaseOrder: { orderDate: "desc" } },
+      take: 100,
+    });
+    for (const pol of lastPoLines) {
+      if (lastRateMap.has(pol.materialId)) continue;
+      if (pol.purchaseOrder.status === "CANCELLED") continue;
+      lastRateMap.set(pol.materialId, {
+        unitCost: pol.unitCost.toNumber(),
+        poNumber: pol.purchaseOrder.poNumber,
+        poDate: pol.purchaseOrder.orderDate.toISOString(),
+        supplierName: pol.purchaseOrder.supplier.name,
+        projectName: pol.purchaseOrder.project?.name ?? null,
+      });
+    }
+  }
 
   const totals: QuoteTotal[] = quotes.map((q) => ({
     id: q.id,
@@ -608,6 +663,7 @@ export async function getComparativeStatement(requisitionId: string) {
     selectedQuoteId: selectedQuote?.id ?? null,
     nonRejectedCount,
     gateSatisfied,
+    lastRateByMaterial: Object.fromEntries(lastRateMap),
   };
 }
 
@@ -701,7 +757,12 @@ export async function getPurchaserPerformance(
   const quotes: QuoteWithRelations[] = await prisma.vendorQuote.findMany({
     where: {
       createdAt: dateFilter,
-      requisition: { project: { companyId } },
+      requisition: {
+        OR: [
+          { project: { companyId } },
+          { department: { companyId } },
+        ],
+      },
     },
     include: {
       submittedBy: { select: { id: true, name: true, email: true, role: true } },

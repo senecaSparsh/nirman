@@ -167,6 +167,7 @@ export async function SettingsContent() {
       companies={companies.map((c) => ({
         id: c.id,
         name: c.name,
+        code: c.code,
         gstin: c.gstin,
         pan: c.pan,
         address: c.address,

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@nirman/db";
 import { getCurrentUser, getUserPermissions, toNum, scopeWhere, getActionPermissions } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { canAutoApprove } from "@nirman/services";
 import { formatNumber, formatDate, formatCurrency } from "@/lib/utils";
 import { FileText } from "lucide-react";
 import { MobileEmptyState, MobilePipelineStepper, type MobilePipelineStep, ActionBar } from "@/components/mobile/v2/primitives";
@@ -74,7 +75,9 @@ export default function MobileRequisitionDetailPage({
           );
         }
 
-        const canApprove = hasPermission(role, PERM.REQUISITION_APPROVE) && req.requestedById !== (await getCurrentUser())?.id;
+        // Tier-1 creators (OWNER/ADMIN) may approve their own indent — no higher approver.
+        const currentUserId2 = (await getCurrentUser())?.id;
+        const canApprove = hasPermission(role, PERM.REQUISITION_APPROVE) && (req.requestedById !== currentUserId2 || canAutoApprove(role));
 
         const [suppliers, locations] = await Promise.all([
           prisma.supplier.findMany({
@@ -168,7 +171,16 @@ export default function MobileRequisitionDetailPage({
           { label: "Issue", state: "pending" },
         ];
 
-        const nextAction = resolveNextAction("requisition", req.status, role, overrides);
+        // Suppress the approve card when the viewer requested this indent —
+        // self-approval is blocked server-side, so the card would 403.
+        const currentUser = await getCurrentUser();
+        const isSelfCreated = req.requestedById === currentUser?.id || req.submittedById === currentUser?.id;
+        let nextAction = resolveNextAction("requisition", req.status, role, overrides);
+        // For a self-created SUBMITTED indent, suppress the approve card unless
+        // the viewer is tier-1 (OWNER/ADMIN) — they CAN self-approve.
+        if (isSelfCreated && req.status === "SUBMITTED" && nextAction?.perm === PERM.REQUISITION_APPROVE && !canAutoApprove(role)) {
+          nextAction = undefined;
+        }
 
         // Permissions to announce to the NavSheet's Next Step resolver
         const canActions: string[] = [];
@@ -312,7 +324,7 @@ export default function MobileRequisitionDetailPage({
                   Items
                 </p>
                 <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
-                  {lines.length} lines · {formatNumber(totalItems, 0)} units
+                  {lines.length} line{lines.length === 1 ? "" : "s"} · {formatNumber(totalItems, 0)} unit{totalItems === 1 ? "" : "s"}
                 </span>
               </div>
               <div
@@ -352,6 +364,8 @@ export default function MobileRequisitionDetailPage({
                 Shown when the requisition is APPROVED (quotes collection phase)
                 or when quotes already exist. Inline — no redirection. */}
             {req.status === "APPROVED" || quoteCount > 0 ? (
+              // `id="quotes"` is the NextActionCard anchor target
+              <div id="quotes">
               <MobileQuotePanel
                 requisitionId={req.id}
                 reqNumber={req.reqNumber}
@@ -366,6 +380,7 @@ export default function MobileRequisitionDetailPage({
                 canApprove={canApprove}
                 canCreate={canCreatePo}
               />
+              </div>
             ) : null}
 
             {/* ── Notes block ── */}
@@ -389,7 +404,10 @@ export default function MobileRequisitionDetailPage({
 
             <AttachmentList entityType="MaterialRequisition" entityId={req.id} />
 
-            {/* ── Sticky bottom action bar ── */}
+            {/* ── Sticky bottom action bar ── `id`s are the NextActionCard
+                anchor targets: #submit (draft→submit) and #approve (submitted→approve). */}
+            <div id="submit" />
+            <div id="approve">
             <ActionBar>
                 <MobileRequisitionActions
                   requisition={reqPayload}
@@ -404,6 +422,7 @@ export default function MobileRequisitionDetailPage({
                   winningQuote={winningQuoteData}
                 />
             </ActionBar>
+            </div>
           </div>
           </PageContextProvider>
         );

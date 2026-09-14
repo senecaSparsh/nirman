@@ -242,7 +242,7 @@ export function MobileNewUnitForm({
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       {/* Mode toggle — Single vs Generate Multiple */}
       <div
-        className="grid grid-cols-2 gap-1 rounded-[0.5rem] p-1"
+        className="grid grid-cols-2 gap-2 rounded-[0.5rem] p-1"
         style={{ backgroundColor: "var(--color-concrete)" }}
       >
         <button

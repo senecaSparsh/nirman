@@ -15,8 +15,9 @@ import { FeedbackDialog } from "./feedback-dialog";
  * clicked, it opens the FeedbackDialog which auto-captures a screenshot
  * and lets the user write feedback + record a voice note.
  *
- * The button is positioned bottom-right on desktop, and bottom-right
- * above the mobile tab bar on mobile. It's hidden on auth/print pages.
+ * The button is positioned bottom-left above the tab bar on mobile, and
+ * bottom-right under the assistant FAB on desktop. It's hidden on
+ * auth/print pages.
  *
  * For the DEVELOPER role, a small badge shows the count of
  * unread (NEW) feedback entries — clicking the badge navigates to the
@@ -46,7 +47,13 @@ export function FeedbackButton() {
 
   return (
     <>
-      <div data-feedback-button className="fixed z-40 flex flex-col items-start gap-2 no-print" style={{ left: "1rem", bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)" }}>
+      {/* Mobile: bottom-left, above the tab bar. Desktop (lg+): bottom-right,
+          under the assistant FAB — left-1rem would sit on top of the world
+          rail's avatar/sign-out cluster. */}
+      <div
+        data-feedback-button
+        className="fixed z-40 flex flex-col items-start gap-2 no-print left-4 bottom-[calc(3.5rem+max(env(safe-area-inset-bottom),0px)+0.75rem)] lg:left-auto lg:right-4 lg:bottom-4 lg:items-end"
+      >
         {/* Feedback inbox badge for developer/owner/admin */}
         {unreadCount > 0 && (
           <a

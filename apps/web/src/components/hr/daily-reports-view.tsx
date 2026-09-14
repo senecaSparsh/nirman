@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { formatDate } from "@/lib/utils";
+import { localDateISO, formatDate } from "@/lib/utils";
+import { useTodayDateState } from "@/lib/use-today-date";
 
 export type DailyReportRow = {
   id: string;
@@ -45,7 +46,7 @@ export function DailyReportsView({
   const [delTarget, setDelTarget] = useState<DailyReportRow | null>(null);
 
   const [fProject, setFProject] = useState("");
-  const [fDate, setFDate] = useState(new Date().toISOString().slice(0, 10));
+  const [fDate, setFDate] = useTodayDateState();
   const [fAttendance, setFAttendance] = useState("");
   const [fWorkDone, setFWorkDone] = useState("");
   const [fMaterial, setFMaterial] = useState("");
@@ -55,7 +56,7 @@ export function DailyReportsView({
 
   function openCreate() {
     setEditTarget(null);
-    setFProject(""); setFDate(new Date().toISOString().slice(0, 10));
+    setFProject(""); setFDate(localDateISO());
     setFAttendance(""); setFWorkDone(""); setFMaterial(""); setFEquipment(""); setFDelay(""); setFRemarks("");
     setFormOpen(true);
   }

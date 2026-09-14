@@ -34,6 +34,7 @@ export default function MobileScrapDetailPage({
             toLocation: { select: { id: true, name: true, type: true } },
             project: { select: { id: true, name: true } },
             sourceMaterial: { select: { id: true, name: true, code: true } },
+            createdBy: { select: { name: true } },
             dprAutoScrap: { select: { id: true } },
             lines: {
               include: { material: { select: { id: true, name: true, unit: true, code: true } } },
@@ -103,6 +104,7 @@ export default function MobileScrapDetailPage({
               entries={[
                 { label: "Destination", value: <Link href={`/m/stock?locationId=${scrap.toLocation.id}`} className="underline underline-offset-2 press">{scrap.toLocation.name}</Link> },
                 { label: "Date", value: formatDate(scrap.generationDate), mono: true },
+                ...(scrap.createdBy ? [{ label: "Created By", value: scrap.createdBy.name as ReactNode }] : []),
                 ...(scrap.project ? [{ label: "Project", value: <Link href={`/m/projects/${scrap.project.id}`} className="underline underline-offset-2 press">{scrap.project.name}</Link> as ReactNode }] : []),
                 ...(scrap.sourceMaterial ? [{ label: "Source", value: <Link href={`/m/materials/${scrap.sourceMaterial.id}`} className="underline underline-offset-2 press">{scrap.sourceMaterial.name}</Link> as ReactNode }] : []),
                 ...(scrap.notes ? [{ label: "Notes", value: scrap.notes as ReactNode }] : []),

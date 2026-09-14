@@ -47,7 +47,7 @@ export function MobileRateContractCancelBtn({ contractId, contractNumber }: { co
               <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
                 This will cancel rate contract <span className="font-mono font-bold">{contractNumber}</span>. Future purchase orders will not be able to reference this contract. This cannot be undone.
               </p>
-              <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
                 <button onClick={() => setShow(false)} disabled={cancelling} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Keep</button>
                 <button onClick={handleCancel} disabled={cancelling} className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1" style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}>
                   {cancelling ? <Loader2 className="size-3.5 animate-spin" /> : "Cancel Contract"}

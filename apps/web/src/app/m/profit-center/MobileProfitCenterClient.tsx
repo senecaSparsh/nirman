@@ -77,12 +77,6 @@ export function MobileProfitCenterClient({ projects }: { projects: ProjectOption
         className="sticky top-0 z-10 border-b px-4 py-3"
         style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
       >
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-m-section font-bold flex items-center gap-2" style={{ color: "var(--color-ink-950)" }}>
-            <Wallet className="size-4" style={{ color: "var(--color-steel)" }} />
-            Profit Center
-          </h1>
-        </div>
         {/* Project selector */}
         <button
           onClick={() => setPickerOpen(!pickerOpen)}
@@ -138,13 +132,13 @@ export function MobileProfitCenterClient({ projects }: { projects: ProjectOption
               label="Total Cost"
               value={formatCurrencyCompact(pc.totalCost)}
               sub={`${formatCurrencyCompact(pc.costPerSqft)}/sqft`}
-              icon={<TrendingDown className="size-3.5" style={{ color: "var(--color-danger, #ef4444)" }} />}
+              icon={<TrendingDown className="size-3.5" style={{ color: "var(--color-stop)" }} />}
             />
             <SummaryCard
               label="Gross Profit"
               value={formatCurrencyCompact(pc.grossProfit)}
               sub={`Margin: ${pc.marginPct.toFixed(1)}%`}
-              icon={<Wallet className={cn("size-3.5", pc.grossProfit >= 0 ? "" : "")} style={{ color: pc.grossProfit >= 0 ? "var(--color-go)" : "var(--color-danger, #ef4444)" }} />}
+              icon={<Wallet className={cn("size-3.5", pc.grossProfit >= 0 ? "" : "")} style={{ color: pc.grossProfit >= 0 ? "var(--color-go)" : "var(--color-stop)" }} />}
               highlight={pc.grossProfit >= 0 ? "positive" : "negative"}
             />
             <SummaryCard
@@ -206,8 +200,8 @@ export function MobileProfitCenterClient({ projects }: { projects: ProjectOption
           <div
             className="rounded-[0.625rem] border p-3"
             style={{
-              borderColor: pc.grossProfit >= 0 ? "color-mix(in srgb, var(--color-go) 30%, transparent)" : "color-mix(in srgb, var(--color-danger, #ef4444) 30%, transparent)",
-              backgroundColor: pc.grossProfit >= 0 ? "color-mix(in srgb, var(--color-go) 5%, transparent)" : "color-mix(in srgb, var(--color-danger, #ef4444) 5%, transparent)",
+              borderColor: pc.grossProfit >= 0 ? "color-mix(in srgb, var(--color-go) 30%, transparent)" : "color-mix(in srgb, var(--color-stop) 30%, transparent)",
+              backgroundColor: pc.grossProfit >= 0 ? "color-mix(in srgb, var(--color-go) 5%, transparent)" : "color-mix(in srgb, var(--color-stop) 5%, transparent)",
             }}
           >
             <div className="flex items-center justify-between">
@@ -226,7 +220,7 @@ export function MobileProfitCenterClient({ projects }: { projects: ProjectOption
               <span className="text-m-section" style={{ color: "var(--color-ink-400)" }}>=</span>
               <span
                 className="text-m-section font-bold tabular-nums"
-                style={{ color: pc.grossProfit >= 0 ? "var(--color-go)" : "var(--color-danger, #ef4444)" }}
+                style={{ color: pc.grossProfit >= 0 ? "var(--color-go)" : "var(--color-stop)" }}
               >
                 {formatCurrencyCompact(pc.grossProfit)}
               </span>
@@ -262,7 +256,7 @@ function SummaryCard({
     highlight === "positive"
       ? "color-mix(in srgb, var(--color-go) 30%, transparent)"
       : highlight === "negative"
-        ? "color-mix(in srgb, var(--color-danger, #ef4444) 30%, transparent)"
+        ? "color-mix(in srgb, var(--color-stop) 30%, transparent)"
         : "var(--color-line)";
 
   return (
@@ -283,7 +277,7 @@ function SummaryCard({
             highlight === "positive"
               ? "var(--color-go)"
               : highlight === "negative"
-                ? "var(--color-danger, #ef4444)"
+                ? "var(--color-stop)"
                 : "var(--color-ink-950)",
         }}
       >

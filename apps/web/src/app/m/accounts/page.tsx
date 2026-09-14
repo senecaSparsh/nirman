@@ -616,6 +616,7 @@ async function AccountsPettyCashTab() {
   const role = await getUserRole();
   if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
   const canManage = hasPermission(role, PERM.FINANCE_MANAGE);
+  const canSpend = hasPermission(role, PERM.EXPENSE_CREATE);
 
   const floats = await prisma.pettyCashFloat.findMany({
     where: {...await scopeWhere("PettyCashFloat"),  companyId: company.id },
@@ -627,10 +628,12 @@ async function AccountsPettyCashTab() {
     },
   });
 
+  const currentUser = await getCurrentUser();
   const rows: PettyCashFloatListItem[] = floats.map((f) => ({
     id: f.id,
     name: f.name,
     projectName: f.project?.name ?? null,
+    custodianId: f.custodianId,
     custodianName: f.custodian?.name ?? null,
     floatAmount: toNum(f.floatAmount),
     topUpTotal: toNum(f.topUpTotal),
@@ -639,6 +642,7 @@ async function AccountsPettyCashTab() {
     lastTopUpDate: f.topUps[0]?.date.toISOString() ?? null,
   }));
 
+  // floatAmount is the running balance (already net of top-ups + spends)
   const totalBalance = rows.reduce((s, f) => s + f.floatAmount, 0);
   const totalTopUps = rows.reduce((s, f) => s + f.topUpTotal, 0);
 
@@ -648,6 +652,8 @@ async function AccountsPettyCashTab() {
       totalBalance={totalBalance}
       totalTopUps={totalTopUps}
       canManage={canManage}
+      canSpend={canSpend}
+      currentUserId={currentUser?.id ?? null}
     />
   );
 }
@@ -658,6 +664,7 @@ async function AccountsPaymentsTab() {
   const role = await getUserRole();
   if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
   const canManage = hasPermission(role, PERM.FINANCE_MANAGE);
+  const canViewProcurement = hasPermission(role, PERM.PROCUREMENT_VIEW);
 
   const BATCH_SIZE = 40;
   const payments = await prisma.supplierPayment.findMany({
@@ -666,7 +673,7 @@ async function AccountsPaymentsTab() {
     take: BATCH_SIZE + 1,
     include: {
       supplier: { select: { id: true, name: true } },
-      purchaseOrder: { select: { poNumber: true } },
+      purchaseOrder: { select: { id: true, poNumber: true } },
       invoice: { select: { invoiceNumber: true } },
     },
   });
@@ -682,6 +689,8 @@ async function AccountsPaymentsTab() {
     id: p.id,
     paymentNumber: p.paymentNumber,
     supplierName: p.supplier.name,
+    supplierId: p.supplier.id,
+    poId: p.purchaseOrder?.id ?? null,
     poNumber: p.purchaseOrder?.poNumber ?? null,
     invoiceNumber: p.invoice?.invoiceNumber ?? null,
     amount: toNum(p.amount),
@@ -696,6 +705,7 @@ async function AccountsPaymentsTab() {
       items={rows}
       totalAmount={totalAmount}
       canManage={canManage}
+      canViewProcurement={canViewProcurement}
       loadMoreUrl="/api/mobile/list/supplier-payments"
       initialCursor={nextCursor}
     />
@@ -804,7 +814,7 @@ async function AccountsGlTab() {
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-1.5 mb-4">
+      <div className="grid grid-cols-2 gap-2 mb-4">
         <MobileStatCard label="Total Debit" value={formatCurrencyCompact(totalDebit)} icon={BookOpen} />
         <MobileStatCard label="Total Credit" value={formatCurrencyCompact(totalCredit)} icon={BookOpen} tone="go" />
       </div>

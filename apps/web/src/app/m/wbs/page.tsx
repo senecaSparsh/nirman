@@ -258,7 +258,7 @@ function WbsNodeRow({ node, depth }: { node: WbsTreeNode; depth: number }) {
           }}
         >
           <div
-            className="h-full rounded-full transition-all"
+            className="h-full rounded-full transition-[width]"
             style={{
               width: `${Math.min(progress, 100)}%`,
               backgroundColor: progressColor,

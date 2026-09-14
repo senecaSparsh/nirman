@@ -5,11 +5,12 @@ import { withSerializableTransaction } from "./transaction";
 import { logAction } from "./audit";
 import { postPurchaseReceipt } from "./gl-posting";
 import { getApprovalRouting } from "./procurement-advanced";
+import { canAutoApprove } from "./rbac";
 import { ServiceError } from "./errors";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { autoSyncEntryToTally } from "./auto-sync";
 import { autoFillHsnGst } from "./material-service";
-import { nextSequenceNumber } from "./sequence";
+import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 
 /**
  * Haversine distance between two lat/lng points in metres.
@@ -73,6 +74,9 @@ interface CreatePOInput {
   initialStatus?: "DRAFT" | "APPROVED";
   /** Who approved the PO (set when initialStatus = APPROVED). */
   approvedById?: string;
+  /** Role of the creator — tier-1 roles (OWNER/ADMIN) may create a PO already
+   *  APPROVED (auto-approve), since no higher approver exists above them. */
+  creatorRole?: string;
   /** Linked quotation request — when the PO originates from an approved quotation. */
   quotationId?: string;
   /** Required when quotationId is absent — documents why the quotation flow was bypassed. */
@@ -97,10 +101,10 @@ interface CreatePOInput {
   }[];
 }
 
-async function generatePoNumber(tx: Prisma.TransactionClient): Promise<string> {
+async function generatePoNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `PO-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `PO-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
@@ -246,8 +250,11 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
     // 5. Create PO
     const initialStatus = input.initialStatus ?? "DRAFT";
     // Prevent auto-self-approval: if a PO is created directly in APPROVED status,
-    // the approver must be explicitly provided and must differ from the creator.
-    if (initialStatus === "APPROVED" && input.approvedById && input.createdById && input.approvedById === input.createdById) {
+    // the approver must be explicitly provided and must differ from the creator —
+    // UNLESS the creator is a tier-1 role (OWNER/ADMIN/DEVELOPER). At the top of
+    // the hierarchy no higher approver exists, so a tier-1 creator's own
+    // authority auto-approves (this is what lets an owner's PO skip the queue).
+    if (initialStatus === "APPROVED" && input.approvedById && input.createdById && input.approvedById === input.createdById && !canAutoApprove(input.creatorRole)) {
       throw new ServiceError(
         "Cannot create and approve a purchase order in one step — ask another approver to review it.",
         403,
@@ -255,7 +262,7 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
     }
     const po = await tx.purchaseOrder.create({
       data: {
-        poNumber: await generatePoNumber(tx),
+        poNumber: await generatePoNumber(tx, input.companyId),
         supplierId: input.supplierId,
         procurementScope: input.procurementScope,
         companyId: input.companyId,
@@ -327,8 +334,12 @@ export async function approvePurchaseOrder(
     if (!po) throw new ServiceError("PO not found", 404);
     if (po.status !== "DRAFT") throw new ServiceError(`Cannot approve PO in status ${po.status}`);
 
-    // Prevent self-approval — the creator cannot approve their own PO.
-    if (approvedById && po.createdById && approvedById === po.createdById) {
+    // Prevent self-approval — the creator cannot approve their own PO — unless
+    // the approver is a tier-1 role (OWNER/ADMIN/DEVELOPER). The separation-of-
+    // duties check exists to stop a staff member approving their own request;
+    // at the top of the hierarchy there is no superior to defer to, so a
+    // tier-1 approver may approve their own PO.
+    if (approvedById && po.createdById && approvedById === po.createdById && !canAutoApprove(approverRole)) {
       throw new ServiceError(
         "You cannot approve a purchase order you created. Ask another approver to review it.",
         403,

@@ -10,6 +10,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ROLE_LIST, ROLES, assignableRoles } from "@/lib/roles";
 import type { DepartmentRow } from "@/lib/types";
+import { useTodayDateState } from "@/lib/use-today-date";
 
 type ProjectOption = { id: string; name: string };
 
@@ -52,7 +53,7 @@ export function CreateUserDialog({
   const [employeeCode, setEmployeeCode] = useState("");
   const [designation, setDesignation] = useState("");
   const [department, setDepartment] = useState("");
-  const [joiningDate, setJoiningDate] = useState(new Date().toISOString().split("T")[0] ?? "");
+  const [joiningDate, setJoiningDate] = useTodayDateState();
 
   // Step 2: Scope
   const [scopeType, setScopeType] = useState<"COMPANY" | "DEPARTMENT" | "PROJECT">("COMPANY");

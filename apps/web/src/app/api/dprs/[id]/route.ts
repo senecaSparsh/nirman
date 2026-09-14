@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { submitDPR, deleteDpr, subAdminApproveDpr, adminApproveDpr, rejectDpr, resubmitDpr, sendNotification, markDprCostPosted, generateMaterialIssueFromDPR } from "@nirman/services";
+import { submitDPR, deleteDpr, subAdminApproveDpr, adminApproveDpr, rejectDpr, resubmitDpr, sendNotification, markDprCostPosted, generateMaterialIssueFromDPR, canAutoApprove } from "@nirman/services";
 import { apiHandler, getCompany, json, dprSchema, requirePermission, requireUser, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 
@@ -92,7 +92,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (body.action === "subAdminApprove") {
     const user = await requirePermission(PERM.DPR_APPROVE_SUB_ADMIN);
     try {
-      await subAdminApproveDpr(id, user.id, body.notes);
+      await subAdminApproveDpr(id, user.id, body.notes, user.role);
       // Notify the DPR submitter that their DPR was sub-admin approved
       try {
         const dpr = await prisma.dailyProgressReport.findFirst({
@@ -123,7 +123,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (body.action === "adminApprove") {
     const user = await requirePermission(PERM.DPR_APPROVE_ADMIN);
     try {
-      await adminApproveDpr(id, user.id, body.notes);
+      await adminApproveDpr(id, user.id, body.notes, user.role);
       // Notify the DPR submitter that their DPR was fully approved
       try {
         const dpr = await prisma.dailyProgressReport.findFirst({
@@ -246,6 +246,12 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       })),
       userId: user.id,
     });
+    // Tier-1 resubmission auto-approves both stages — the resubmitter is the
+    // top of the approval hierarchy, so there's no higher reviewer to wait on.
+    if (canAutoApprove(user.role)) {
+      await subAdminApproveDpr(dpr.id, user.id, undefined, user.role);
+      await adminApproveDpr(dpr.id, user.id, undefined, user.role);
+    }
     revalidatePath("/m/dprs");
     revalidatePath("/m/hr?tab=dprs");
     return json({ ok: true, id: dpr.id });

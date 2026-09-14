@@ -225,9 +225,9 @@ const AREA_UNIT_SHORT: Record<string, string> = {
 const STATUS_META: Record<string, { color: string; label: string; icon: typeof CheckCircle2 }> = {
   AVAILABLE: { color: "var(--color-go)", label: "Available", icon: CheckCircle2 },
   HOLD: { color: "var(--color-signal)", label: "Hold", icon: PauseCircle },
-  PARTITIONED: { color: "var(--color-steel)", label: "Partitioned", icon: Split },
+  PARTITIONED: { color: "var(--color-ink-500)", label: "Partitioned", icon: Split },
   RESERVED: { color: "var(--color-signal)", label: "Reserved", icon: Tag },
-  SOLD: { color: "var(--color-stop)", label: "Sold", icon: DollarSign },
+  SOLD: { color: "var(--color-go)", label: "Sold", icon: DollarSign },
   RENTED: { color: "var(--color-steel)", label: "Rented", icon: KeyRound },
 };
 
@@ -531,7 +531,7 @@ export function MobileLandDetailClient({
             {isRegistered && (
               <span
                 className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-full"
-                style={{ color: "var(--color-primary, var(--color-ink-700))", backgroundColor: "color-mix(in srgb, var(--color-primary, var(--color-ink-700)) 12%, transparent)" }}
+                style={{ color: "var(--color-ink-700)", backgroundColor: "var(--color-concrete)" }}
               >
                 Registered
               </span>
@@ -571,7 +571,7 @@ export function MobileLandDetailClient({
               </button>
             )}
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-1.5">
             <div>
               <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Total</p>
               <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatCurrencyCompact(totalCost)}</p>
@@ -589,7 +589,7 @@ export function MobileLandDetailClient({
           {totalCost > 0 && (
             <div className="mt-1.5 h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--color-line)" }}>
               <div
-                className="h-full rounded-full transition-all"
+                className="h-full rounded-full transition-[width]"
                 style={{ width: `${Math.min(100, (totalPaid / totalCost) * 100)}%`, backgroundColor: "var(--color-go)" }}
               />
             </div>
@@ -808,7 +808,7 @@ export function MobileLandDetailClient({
             </div>
 
             {/* Field grid — Date / Area / Cost / Type all in one row, centered */}
-            <div className="grid grid-cols-4 gap-1 mt-1.5 pt-1.5 border-t text-center" style={{ borderColor: "var(--color-line)" }}>
+            <div className="grid grid-cols-4 gap-1.5 mt-1.5 pt-1.5 border-t text-center" style={{ borderColor: "var(--color-line)" }}>
               <div className="min-w-0">
                 <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                   <Calendar className="size-2 inline mr-0.5" />Date
@@ -1037,7 +1037,7 @@ export function MobileLandDetailClient({
 
       {/* ── KPI banner — 4 values ── */}
       <div
-        className="grid grid-cols-4 gap-0 rounded-[0.5rem] border mb-3 overflow-hidden"
+        className="grid grid-cols-4 gap-1.5 rounded-[0.5rem] border mb-3 overflow-hidden"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <KpiCell
@@ -1065,31 +1065,29 @@ export function MobileLandDetailClient({
       {/* ── View toggle: Parcels vs Built Units ── */}
       {hasBuiltUnits ? (
         <div
-          className="flex rounded-[0.5rem] border mb-3 overflow-hidden"
-          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+          className="flex gap-1 rounded-[0.625rem] border p-1 mb-3"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <button
             onClick={() => setView("parcels")}
-            className="flex-1 flex items-center justify-center gap-1.5 h-8 text-m-label font-bold transition-colors text-m-body press"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[0.5rem] text-m-body font-bold transition-colors press"
             style={{
-              backgroundColor: view === "parcels" ? "var(--color-paper)" : "transparent",
-              color: view === "parcels" ? "var(--color-ink-950)" : "var(--color-ink-500)",
-              boxShadow: view === "parcels" ? "inset 0 -2px 0 var(--color-ink-950)" : "none",
+              backgroundColor: view === "parcels" ? "var(--color-ink-950)" : "transparent",
+              color: view === "parcels" ? "var(--color-paper)" : "var(--color-ink-500)",
             }}
           >
-            <Layers className="size-3" />
+            <Layers className="size-3.5" />
             Parcels ({sortedParcels.length})
           </button>
           <button
             onClick={() => setView("units")}
-            className="flex-1 flex items-center justify-center gap-1.5 h-8 text-m-label font-bold transition-colors text-m-body press"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[0.5rem] text-m-body font-bold transition-colors press"
             style={{
-              backgroundColor: view === "units" ? "var(--color-paper)" : "transparent",
-              color: view === "units" ? "var(--color-ink-950)" : "var(--color-ink-500)",
-              boxShadow: view === "units" ? "inset 0 -2px 0 var(--color-ink-950)" : "none",
+              backgroundColor: view === "units" ? "var(--color-ink-950)" : "transparent",
+              color: view === "units" ? "var(--color-paper)" : "var(--color-ink-500)",
             }}
           >
-            <Home className="size-3" />
+            <Home className="size-3.5" />
             Built Units ({sortedUnits.length})
           </button>
         </div>
@@ -1473,7 +1471,7 @@ export function MobileLandDetailClient({
       {showPayment ? (
         <LandModal onClose={() => setShowPayment(false)} title="Record Payment">
           <form onSubmit={handlePayment} className="flex flex-col gap-3">
-            <div className="grid grid-cols-3 gap-2 rounded-[0.375rem] border p-2" style={{ borderColor: "var(--color-line)" }}>
+            <div className="grid grid-cols-3 gap-1.5 rounded-[0.375rem] border p-2" style={{ borderColor: "var(--color-line)" }}>
               <div>
                 <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Total</p>
                 <p className="text-m-label font-bold tabular-nums">{formatCurrencyCompact(totalCost)}</p>
@@ -1528,7 +1526,7 @@ export function MobileLandDetailClient({
               </div>
               {payMode === "CHEQUE" && <MobileChequeFields value={payCheque} onChange={setPayCheque} />}
             </div>
-            <div className="flex flex-col gap-2 pt-1">
+            <div className="flex gap-2 pt-1">
               <button type="button" onClick={() => setShowPayment(false)}
                 className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold text-m-body press"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>
@@ -1596,7 +1594,7 @@ export function MobileLandDetailClient({
                 </label>
               )}
             </div>
-            <div className="flex flex-col gap-2 pt-1">
+            <div className="flex gap-2 pt-1">
               <button type="button" onClick={() => setShowComplete(false)}
                 className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold text-m-body press"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>
@@ -2705,7 +2703,7 @@ function DeleteSheet({
         title={`Parcel ${parcel.number} will be permanently deleted.`}
         description="Only available for AVAILABLE or HOLD parcels with no sales."
       />
-      <div className="flex flex-col gap-2">
+      <div className="flex gap-2">
         <button
           onClick={onClose}
           disabled={acting}
@@ -3022,7 +3020,7 @@ function LandPaymentScheduleModal({
           </div>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex gap-2">
           <button
             onClick={onClose}
             className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold text-m-body press"

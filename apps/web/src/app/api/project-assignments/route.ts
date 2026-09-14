@@ -22,6 +22,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       project: { select: { id: true, name: true } },
     },
     orderBy: { assignedAt: "desc" },
+    take: 300,
   });
 
   return json(

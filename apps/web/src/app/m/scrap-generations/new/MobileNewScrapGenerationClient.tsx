@@ -207,7 +207,7 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
         <p className="text-m-section font-bold tabular-nums mb-4" style={{ color: "var(--color-go)" }}>
           {formatCurrency(success.totalValue)}
         </p>
-        <div className="flex flex-col gap-3">
+        <div className="flex gap-3">
           <button
             onClick={() => {
               if (onCreated) {
@@ -217,7 +217,7 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
                 router.push("/m/stock?tab=scrap");
               }
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
+            className="flex-1 rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View All Scrap
@@ -229,7 +229,7 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
               setNotes("");
               setDraftRestored(true);
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
+            className="flex-1 rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
           >
             Add Another
@@ -293,7 +293,7 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
           />
 
           {/* ── Project + Source material side-by-side ── */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             <MobileSelectWithCreate
               label="Project"
               value={projectId}

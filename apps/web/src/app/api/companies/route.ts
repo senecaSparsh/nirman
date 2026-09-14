@@ -7,6 +7,8 @@ import { z } from "zod";
 
 const companyCreateSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  // Short code used in document numbers (e.g. "SRG" → PO-SRG-260914-0001).
+  code: z.string().trim().min(1).max(10).regex(/^[A-Za-z0-9]+$/, "Code must be letters/digits only").optional().nullable(),
   gstin: z.string().optional().nullable(),
   pan: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
@@ -43,6 +45,7 @@ export const GET = apiHandler(async () => {
     companies.map((c) => ({
       id: c.id,
       name: c.name,
+      code: c.code,
       gstin: c.gstin,
       pan: c.pan,
       address: c.address,
@@ -81,22 +84,31 @@ export const POST = apiHandler(async (req: NextRequest) => {
     }
   }
 
-  const created = await prisma.company.create({
-    data: {
-      name: data.name,
-      gstin: data.gstin ?? null,
-      pan: data.pan ?? null,
-      address: data.address ?? null,
-      currency: data.currency,
-      businessType: data.businessType ?? null,
-      parentCompanyId: data.parentCompanyId ?? null,
-      // The creator becomes an OWNER of the new company.
-      // Skip only in dev-bypass mode where the user is the synthetic "dev" fallback.
-      userMemberships:
-        process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production" && user.id === "dev" ? undefined : { create: { userId: user.id, role: "OWNER" } },
-    },
-    select: { id: true, name: true },
-  });
+  let created;
+  try {
+    created = await prisma.company.create({
+      data: {
+        name: data.name,
+        code: data.code ? data.code.toUpperCase() : null,
+        gstin: data.gstin ?? null,
+        pan: data.pan ?? null,
+        address: data.address ?? null,
+        currency: data.currency,
+        businessType: data.businessType ?? null,
+        parentCompanyId: data.parentCompanyId ?? null,
+        // The creator becomes an OWNER of the new company.
+        // Skip only in dev-bypass mode where the user is the synthetic "dev" fallback.
+        userMemberships:
+          process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production" && user.id === "dev" ? undefined : { create: { userId: user.id, role: "OWNER" } },
+      },
+      select: { id: true, name: true },
+    });
+  } catch (err) {
+    if (err instanceof Error && "code" in err && (err as { code?: string }).code === "P2002") {
+      return json({ error: "That code is already used by another company" }, { status: 409 });
+    }
+    throw err;
+  }
 
   // Seed default construction categories for the new company.
   // Non-throwing — if this fails, the company is still usable; the user

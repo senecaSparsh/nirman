@@ -33,6 +33,7 @@ export function RequisitionDetailDialog({
   suppliers,
   locations,
   canApprove,
+  canSelfApprove,
   currentUserId,
 }: {
   open: boolean;
@@ -41,6 +42,8 @@ export function RequisitionDetailDialog({
   suppliers: SupplierOption[];
   locations: LocationOption[];
   canApprove?: boolean;
+  /** Tier-1 viewers (OWNER/ADMIN) may approve their own indent. */
+  canSelfApprove?: boolean;
   currentUserId?: string | null;
 }) {
   const router = useRouter();
@@ -78,10 +81,10 @@ export function RequisitionDetailDialog({
       if (key === "s" && (d.status === "DRAFT" || d.status === "REJECTED") && !acting) {
         e.preventDefault();
         doAction("submit");
-      } else if (key === "a" && d.status === "SUBMITTED" && !acting && canApprove && d.requestedById !== currentUserId) {
+      } else if (key === "a" && d.status === "SUBMITTED" && !acting && canApprove && (d.requestedById !== currentUserId || canSelfApprove)) {
         e.preventDefault();
         doAction("approve");
-      } else if (key === "r" && d.status === "SUBMITTED" && !acting && canApprove && d.requestedById !== currentUserId) {
+      } else if (key === "r" && d.status === "SUBMITTED" && !acting && canApprove && (d.requestedById !== currentUserId || canSelfApprove)) {
         e.preventDefault();
         doAction("reject");
       } else if (key === "c" && d.status === "APPROVED" && !acting && (d.quotes?.waived || d.quotes?.selected)) {
@@ -219,7 +222,7 @@ export function RequisitionDetailDialog({
                   <ArrowRight className="h-4 w-4" /> Resubmit
                 </Button>
               )}
-              {detail.status === "SUBMITTED" && canApprove && detail.requestedById !== currentUserId && (
+              {detail.status === "SUBMITTED" && canApprove && (detail.requestedById !== currentUserId || canSelfApprove) && (
                 <>
                   <Button size="sm" onClick={() => doAction("approve")} disabled={acting}>
                     <Check className="h-4 w-4" /> Approve <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">A</kbd>

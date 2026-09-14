@@ -42,6 +42,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         supplier: { select: { name: true } },
       },
       orderBy: { billDate: "asc" },
+      take: 5000,
     }),
     prisma.supplierReturn.findMany({
       where: {
@@ -54,6 +55,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         lines: { select: { qty: true, unitCost: true } },
       },
       orderBy: { returnDate: "asc" },
+      take: 5000,
     }),
   ]);
 

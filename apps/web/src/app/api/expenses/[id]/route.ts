@@ -5,6 +5,7 @@ import {
   updateExpense,
   submitExpense,
   approveExpense,
+  canAutoApprove,
   rejectExpense,
   deleteExpense,
   ServiceError,
@@ -113,8 +114,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       where: { id, companyId: company.id, ...await scopeWhere("Expense") },
     });
     if (!existing) return json({ error: "Expense not found or out of scope" }, { status: 404 });
+    let autoApproved = false;
     try {
       await submitExpense(id, company.id, user.id);
+      // Tier-1 creators (OWNER/ADMIN) auto-approve — no higher approver exists.
+      if (canAutoApprove(user.role)) {
+        await approveExpense(id, company.id, user.id, { actorRole: user.role });
+        autoApproved = true;
+      }
     } catch (err) {
       if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });
       throw err;
@@ -123,18 +130,19 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     revalidatePath("/m/expenses");
     revalidatePath("/m/accounts?tab=expenses");
     revalidatePath("/approvals");
-    return json({ ok: true, status: "PENDING" });
+    return json({ ok: true, status: autoApproved ? "APPROVED" : "PENDING" });
   }
   if (d.action === "approve") {
     const user = await requirePermission(PERM.EXPENSE_APPROVE);
     const company = await getCompany();
     const existing = await prisma.expense.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("Expense") } });
     if (!existing) return json({ error: "Expense not found or out of scope" }, { status: 404 });
-    if (existing.createdById === user.id || existing.submittedById === user.id) {
+    // Tier-1 roles (OWNER/ADMIN) may approve their own expense — no higher approver exists.
+    if ((existing.createdById === user.id || existing.submittedById === user.id) && !canAutoApprove(user.role)) {
       return json({ error: "You cannot approve your own expense" }, { status: 403 });
     }
     try {
-      await approveExpense(id, company.id, user.id, { allowBudgetOverrun: d.allowBudgetOverrun === true });
+      await approveExpense(id, company.id, user.id, { allowBudgetOverrun: d.allowBudgetOverrun === true, actorRole: user.role });
     } catch (err) {
       if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });
       throw err;

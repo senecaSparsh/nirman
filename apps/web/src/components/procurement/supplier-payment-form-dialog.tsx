@@ -11,6 +11,7 @@ import { Field } from "@/components/field";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { SupplierFormDialog } from "@/components/procurement/supplier-form-dialog";
 import { formatCurrency } from "@/lib/utils";
+import { useTodayDateState } from "@/lib/use-today-date";
 import { required, positiveNumber, type ValidationErrors } from "@/lib/validate";
 import type { SupplierRow } from "@/lib/types";
 
@@ -31,6 +32,7 @@ export function SupplierPaymentFormDialog({
   purchaseOrderNumber,
   defaultSupplierId,
   defaultAmount,
+  onSuccess,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -40,6 +42,7 @@ export function SupplierPaymentFormDialog({
   purchaseOrderNumber?: string;
   defaultSupplierId?: string;
   defaultAmount?: number;
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
   const [supplierId, setSupplierId] = useState(defaultSupplierId ?? "");
@@ -48,7 +51,7 @@ export function SupplierPaymentFormDialog({
   const [amount, setAmount] = useState(defaultAmount ? String(defaultAmount) : "");
   const [tdsAmount, setTdsAmount] = useState("");
   const [tdsSection, setTdsSection] = useState("");
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
+  const [paymentDate, setPaymentDate] = useTodayDateState();
   const [paymentMode, setPaymentMode] = useState("BANK");
   const [referenceNo, setReferenceNo] = useState("");
   const [notes, setNotes] = useState("");
@@ -143,8 +146,14 @@ export function SupplierPaymentFormDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to record payment");
-      toast.success(`Payment ${data.paymentNumber} recorded`);
+      toast.success(`Payment ${data.paymentNumber} recorded`, {
+        action: data.id ? {
+          label: "Print Voucher",
+          onClick: () => window.open(`/print/supplier-payment/${data.id}`, "_blank"),
+        } : undefined,
+      });
       onOpenChange(false);
+      onSuccess?.();
       // Reset form
       setAmount(""); setReferenceNo(""); setNotes("");
       router.refresh();

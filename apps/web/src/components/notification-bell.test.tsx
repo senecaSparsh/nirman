@@ -20,7 +20,7 @@ describe("NotificationBell", () => {
       json: async () => ({ notifications: [], unreadCount: 0 }),
     } as Response);
     render(<NotificationBell />);
-    expect(screen.getByRole("button", { name: /In-app notifications/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Notifications$/ })).toBeInTheDocument();
   });
 
   it("shows unread count badge when there are unread notifications", async () => {
@@ -76,10 +76,9 @@ describe("NotificationBell", () => {
     await waitFor(() => {
       expect(screen.getByText("1")).toBeInTheDocument();
     });
-    await user.click(screen.getByRole("button", { name: /In-app notifications/ }));
+    await user.click(screen.getByRole("button", { name: /Notifications/ }));
     // The dropdown content renders after the state update — use findByText to wait.
-    expect(await screen.findByText(/My Notifications/, undefined, { timeout: 3000 })).toBeInTheDocument();
-    expect(screen.getByText("New task")).toBeInTheDocument();
+    expect(await screen.findByText("New task", undefined, { timeout: 3000 })).toBeInTheDocument();
   });
 
   it("shows empty state when no notifications", async () => {
@@ -88,8 +87,27 @@ describe("NotificationBell", () => {
       json: async () => ({ notifications: [], unreadCount: 0 }),
     } as Response);
     const { user } = render(<NotificationBell />);
-    await user.click(screen.getByRole("button", { name: /In-app notifications/ }));
-    expect(screen.getByText("No notifications yet")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Notifications/ }));
+    expect(screen.getByText("All clear — nothing needs you")).toBeInTheDocument();
+  });
+
+  it("shows the Needs attention section when alert items are passed", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ notifications: [], unreadCount: 0 }),
+    } as Response);
+    const { user } = render(
+      <NotificationBell
+        alertItems={[
+          { href: "/approvals", label: "approvals waiting", count: 2, urgency: "blocking" },
+        ]}
+      />,
+    );
+    // Alert count is folded into the badge total.
+    await waitFor(() => expect(screen.getByText("2")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: /Notifications/ }));
+    expect(screen.getByText("Needs attention")).toBeInTheDocument();
+    expect(screen.getByText(/2 approvals waiting/)).toBeInTheDocument();
   });
 
   it("shows Mark all read button when there are unread notifications", async () => {
@@ -106,7 +124,7 @@ describe("NotificationBell", () => {
     await waitFor(() => {
       expect(screen.getByText("1")).toBeInTheDocument();
     });
-    await user.click(screen.getByRole("button", { name: /In-app notifications/ }));
+    await user.click(screen.getByRole("button", { name: /Notifications/ }));
     expect(screen.getByText("Mark all read")).toBeInTheDocument();
   });
 });

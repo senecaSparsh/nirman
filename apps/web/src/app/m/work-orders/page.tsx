@@ -18,7 +18,7 @@ import { MobileWorkOrdersEmptyState } from "./MobileWorkOrdersEmptyState";
 export default function MobileWorkOrdersPage() {
   return (
     <MobileListPage managePerm={PERM.ASSETS_MANAGE}>
-      {async ({ company, canManage }) => {
+      {async ({ company }) => {
         // Scope-aware action permissions (for FAB gating)
         const actions = await getActionPermissions();
         const [workOrders, projects, subcontractors] = await Promise.all([

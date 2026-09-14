@@ -98,7 +98,7 @@ async function SiteStockContent() {
       exportTitle="Site Stock"
       exportRows={serializedLocations as unknown as Record<string, unknown>[]}
       exportColumns={exportColumns}
-      exportSummary={`${serializedLocations.length} locations · ${totalItems} items`}
+      exportSummary={`${serializedLocations.length} location${serializedLocations.length === 1 ? "" : "s"} · ${totalItems} item${totalItems === 1 ? "" : "s"}`}
     />
   );
 }

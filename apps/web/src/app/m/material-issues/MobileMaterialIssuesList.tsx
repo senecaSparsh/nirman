@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
+import { useUrlFilter } from "@/lib/use-url-filter";
 import { Package } from "lucide-react";
 import {
   MobileRow,
   MobileStatusBadge,
-  MobileEmptyState,
+
 } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import { formatCurrency } from "@/lib/utils";
@@ -24,22 +25,37 @@ export type MaterialIssueListItem = {
   createdAt: string;
 };
 
-const STATUS_FILTERS = ["ALL", "DRAFT", "SUBMITTED", "APPROVED", "REJECTED"] as const;
+// Must match the real MaterialIssueStatus enum — PENDING (awaiting gate
+// pass) / COMPLETED / CANCELLED. The flow map's "PENDING" filter chip also
+// lands here via ?status=PENDING.
+const STATUS_FILTERS = ["ALL", "PENDING", "COMPLETED", "CANCELLED"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 
 const STATUS_LABELS: Record<StatusFilter, string> = {
   ALL: "All",
-  DRAFT: "Draft",
-  SUBMITTED: "Submitted",
-  APPROVED: "Approved",
-  REJECTED: "Rejected",
+  PENDING: "Pending",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
 };
 
 /**
  * Client component for the paginated material issues list.
  * Renders the issue rows and a "Load More" button at the bottom.
  */
-export function MobileMaterialIssuesList({
+export function MobileMaterialIssuesList(props: {
+  initialItems: MaterialIssueListItem[];
+  loadMoreUrl?: string;
+  initialCursor?: string | null;
+}) {
+  // Suspense — useUrlFilter/useSearchParams requires it
+  return (
+    <Suspense fallback={null}>
+      <MobileMaterialIssuesListInner {...props} />
+    </Suspense>
+  );
+}
+
+function MobileMaterialIssuesListInner({
   initialItems,
   loadMoreUrl,
   initialCursor,
@@ -55,7 +71,7 @@ export function MobileMaterialIssuesList({
   );
 
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [statusFilter, setStatusFilter] = useUrlFilter<StatusFilter>("status", "ALL");
 
   const filtered = useMemo(() => {
     let result = items;
@@ -73,15 +89,8 @@ export function MobileMaterialIssuesList({
     return result;
   }, [items, statusFilter, query]);
 
-  if (items.length === 0) {
-    return (
-      <MobileEmptyState
-        icon={Package}
-        title="No material issues yet"
-        description="Stock issued to projects or departments will appear here."
-      />
-    );
-  }
+  // Parent page renders its own empty state with an "Issue Materials" CTA.
+  if (items.length === 0) return null;
 
   return (
     <>
@@ -118,10 +127,10 @@ export function MobileMaterialIssuesList({
               issue.projectName ??
               issue.departmentName ??
               "—";
-            const meta = `${new Date(issue.date).toLocaleDateString("en-IN", {
+            const metaSub = `${new Date(issue.date).toLocaleDateString("en-IN", {
               day: "2-digit",
               month: "short",
-             timeZone: "Asia/Kolkata" })} · ${issue.lineCount} item${issue.lineCount === 1 ? "" : "s"} · ${formatCurrency(issue.totalValue)}`;
+             timeZone: "Asia/Kolkata" })} · ${issue.lineCount} item${issue.lineCount === 1 ? "" : "s"}`;
             return (
               <MobileRow
                 key={issue.id}
@@ -129,7 +138,8 @@ export function MobileMaterialIssuesList({
                 icon={Package}
                 title={issue.issueNumber ?? "Issue"}
                 subtitle={target}
-                meta={meta}
+                meta={formatCurrency(issue.totalValue)}
+                metaSub={metaSub}
                 badge={
                   <MobileStatusBadge status={issue.status} />
                 }

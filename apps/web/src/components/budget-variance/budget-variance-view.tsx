@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import { Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -53,18 +54,13 @@ const SOURCE_LABEL: Record<VarianceItem["source"], string> = {
 
 export function BudgetVarianceView({ projects }: { projects: Project[] }) {
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
-  const [data, setData] = useState<VarianceData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { data, loading, error } = useFetch<VarianceData>(
+    projectId ? `/api/budget-variance?projectId=${projectId}` : null,
+  );
 
   useEffect(() => {
-    if (!projectId) return;
-    setLoading(true);
-    fetch(`/api/budget-variance?projectId=${projectId}`)
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => toast.error("Failed to load budget variance"))
-      .finally(() => setLoading(false));
-  }, [projectId]);
+    if (error) toast.error("Failed to load budget variance");
+  }, [error]);
 
   if (projects.length === 0) {
     return <EmptyState icon={<BarChart3 />} title="No projects" description="Create a project with a BOQ to see budget variance." />;

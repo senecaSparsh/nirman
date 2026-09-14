@@ -112,13 +112,18 @@ export function MobileNewCompanyForm({
       haptic([10, 40, 80]);
       toast.success(`${data.name} created`);
 
-      // Switch to the new company so the user lands inside it
-      await fetch("/api/company/switch", {
+      // Switch to the new company so the user lands inside it. Only fire the
+      // company-switched event if the switch actually succeeded — otherwise the
+      // shell would show the new company while the session still points at the
+      // old one (a wrong-company state).
+      const switchRes = await fetch("/api/company/switch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyId: data.id }),
-      }).catch(() => {});
-      window.dispatchEvent(new CustomEvent("nirman-company-switched"));
+      }).catch(() => null);
+      if (switchRes?.ok) {
+        window.dispatchEvent(new CustomEvent("nirman-company-switched"));
+      }
 
       if (onCreated) {
         onCreated({ id: data.id, name: data.name });
@@ -179,7 +184,7 @@ export function MobileNewCompanyForm({
         ) : null}
 
         {/* Business type + Currency */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           <EnumSelect
             label="Business Type"
             value={form.businessType}
@@ -199,7 +204,7 @@ export function MobileNewCompanyForm({
       {/* Tax & Address */}
       <SectionCard title="Tax & Address">
         {/* GSTIN + PAN — toUpperCase, stay inline */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           <div>
             <label className={labelClass} style={labelStyle}>
               GSTIN

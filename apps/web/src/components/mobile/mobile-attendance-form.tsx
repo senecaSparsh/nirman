@@ -4,9 +4,10 @@ import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Users, CheckCircle2, Search, ChevronDown, ChevronRight, CheckCheck, Loader2, MapPin, X, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
-import { formatCurrencyCompact } from "@/lib/utils";
+import { formatCurrencyCompact, localDateISO } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { useDrafts } from "@/lib/offline/use-drafts";
+import { enqueue } from "@/lib/offline/queue";
 import { DraftBanner } from "@/components/mobile/draft-banner";
 import { useSmartDefaults } from "@/lib/use-smart-defaults";
 import { useNearestProject } from "@/lib/use-nearest-project";
@@ -61,7 +62,7 @@ export function MobileAttendanceForm({
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
-  const today = new Date().toISOString().split("T")[0];
+  const today = localDateISO();
   const { getDefault, recordDefaults } = useSmartDefaults("attendance");
   const { nearestProjectId, nearestProjectName, distanceMeters, loading: gpsLoading, request: requestGps } = useNearestProject();
   const [fProject, setFProject] = useState("");
@@ -249,6 +250,23 @@ export function MobileAttendanceForm({
       clearDraft();
       router.push("/m/site");
     } catch (err) {
+      // Offline: attendance is upsert-safe ([employeeId,date] unique), so
+      // queue it for background sync instead of losing the submission.
+      const isOffline = !navigator.onLine || err instanceof TypeError;
+      if (isOffline) {
+        try {
+          await enqueue("attendance", { date: today, projectId: fProject || null, records: recordList });
+          haptic([10, 40, 80]);
+          toast.success(`Saved offline — ${employees.length} workers will sync when you're back online`, {
+            action: { label: "View queue", onClick: () => router.push("/m/queue") },
+          });
+          clearDraft();
+          router.push("/m/site");
+          return;
+        } catch {
+          // Queue write failed — fall through to the generic error.
+        }
+      }
       haptic([50, 20, 50]);
       toast.error(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -382,11 +400,12 @@ export function MobileAttendanceForm({
           </div>
         </div>
         {/* GPS capture for site check-in */}
+        <div className="flex gap-2">
         <button
           type="button"
           onClick={captureGps}
           disabled={gpsFetching}
-          className="flex w-full items-center justify-center gap-2 rounded-[0.5rem] border-2 py-2.5 text-m-body font-bold text-m-body press disabled:opacity-50"
+          className="flex flex-1 items-center justify-center gap-2 rounded-[0.5rem] border-2 py-2.5 text-m-body font-bold text-m-body press disabled:opacity-50"
           style={
             gps
               ? { borderColor: "color-mix(in srgb, var(--color-go) 40%, transparent)", backgroundColor: "color-mix(in srgb, var(--color-go) 8%, transparent)", color: "var(--color-go)" }
@@ -408,7 +427,7 @@ export function MobileAttendanceForm({
         {stats.present < stats.total && (
           <button
             onClick={markAllPresent}
-            className="flex w-full items-center justify-center gap-2 rounded-[0.5rem] border-2 py-2.5 text-m-body font-bold text-m-body press"
+            className="flex flex-1 items-center justify-center gap-2 rounded-[0.5rem] border-2 py-2.5 text-m-body font-bold text-m-body press"
             style={{
               borderColor: "color-mix(in srgb, var(--color-go) 30%, transparent)",
               backgroundColor: "color-mix(in srgb, var(--color-go) 5%, transparent)",
@@ -419,6 +438,7 @@ export function MobileAttendanceForm({
             Mark all present
           </button>
         )}
+        </div>
       </div>
 
       {/* ── Worker list ─────────────────────────────────────── */}
@@ -482,7 +502,7 @@ export function MobileAttendanceForm({
 
                 {/* Expanded detail — check in/out, hours */}
                 {isOpen && (
-                  <div className="mt-2.5 grid grid-cols-3 gap-2">
+                  <div className="mt-2.5 grid grid-cols-3 gap-1.5">
                     <div>
                       <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>In</label>
                       <input

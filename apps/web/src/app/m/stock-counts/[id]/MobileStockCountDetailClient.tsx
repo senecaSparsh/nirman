@@ -34,6 +34,11 @@ interface CountData {
   countDate: string;
   createdAt: string;
   notes: string | null;
+  createdByName: string | null;
+  confirmedByName: string | null;
+  confirmedAt: string | null;
+  reconciledByName: string | null;
+  reconciledAt: string | null;
   location: { id: string; name: string; type: string };
   totalVariance: number;
   itemsWithVariance: number;
@@ -158,6 +163,15 @@ export function MobileStockCountDetailClient({
         ]}
       />
 
+      {/* ── Audit trail ── */}
+      <DetailKeyValueCard
+        entries={[
+          ...(count.createdByName ? [{ label: "Created By", value: count.createdByName }] : []),
+          ...(count.confirmedByName ? [{ label: "Confirmed By", value: `${count.confirmedByName}${count.confirmedAt ? ` · ${formatDate(count.confirmedAt)}` : ""}` }] : []),
+          ...(count.reconciledByName ? [{ label: "Reconciled By", value: `${count.reconciledByName}${count.reconciledAt ? ` · ${formatDate(count.reconciledAt)}` : ""}` }] : []),
+        ]}
+      />
+
       <AttachmentList entityType="StockCount" entityId={count.id} />
 
       {/* ── Line items ── */}
@@ -234,12 +248,12 @@ export function MobileStockCountDetailClient({
 
       {/* ── Action buttons ── */}
       {canManage && (isDraft || isCounted) ? (
-        <div className="flex flex-col gap-2 mt-4">
+        <div className="flex gap-2 mt-4">
           {isDraft ? (
             <button
               onClick={() => handleAction("confirm")}
               disabled={acting !== null}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               {acting === "confirm" ? (
@@ -257,7 +271,7 @@ export function MobileStockCountDetailClient({
             <button
               onClick={() => handleAction("reconcile")}
               disabled={acting !== null}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               {acting === "reconcile" ? (
@@ -276,7 +290,7 @@ export function MobileStockCountDetailClient({
             <button
               onClick={() => setShowDelete(true)}
               disabled={acting !== null}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press disabled:opacity-50"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-stop)" }}
             >
               <Trash2 className="size-3.5" />
@@ -304,7 +318,7 @@ export function MobileStockCountDetailClient({
               <p className="text-m-body mb-3" style={{ color: "var(--color-ink-500)" }}>
                 This will permanently delete the draft stock inventory for {count.location.name}. This action cannot be undone.
               </p>
-              <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
                 <button
                   onClick={() => setShowDelete(false)}
                   className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press"

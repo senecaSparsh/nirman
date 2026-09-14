@@ -174,7 +174,7 @@ export function AreaSeries({
   );
 }
 
-export type PieDatum = { label: string; value: number };
+export type PieDatum = { label: string; value: number; /** Optional slice colour — defaults to the stage palette by index. */ color?: string };
 
 export function PieSeries({
   data,
@@ -201,8 +201,8 @@ export function PieSeries({
           innerRadius={showLegend ? 40 : 50}
           paddingAngle={2}
         >
-          {data.map((_, i) => (
-            <Cell key={i} fill={STAGE_COLORS[i % STAGE_COLORS.length]} />
+          {data.map((d, i) => (
+            <Cell key={i} fill={d.color ?? STAGE_COLORS[i % STAGE_COLORS.length]} />
           ))}
         </Pie>
         <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [fmt(v), ""]} />

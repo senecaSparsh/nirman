@@ -192,7 +192,7 @@ export function MobileEditProjectDialog({
             </div>
 
             {/* Type + Status */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <EnumSelect
                   label="Type"
@@ -234,7 +234,7 @@ export function MobileEditProjectDialog({
             </div>
 
             {/* Dates */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className={labelClass} style={labelStyle}>
                   Start Date
@@ -262,7 +262,7 @@ export function MobileEditProjectDialog({
             </div>
 
             {/* Budget + Area */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className={labelClass} style={labelStyle}>
                   Budget (₹)
@@ -322,7 +322,7 @@ export function MobileEditProjectDialog({
                 Mandatory for projects &gt; 500 sqm or &gt; 8 units.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className={labelClass} style={labelStyle}>
                   RERA Number
@@ -349,7 +349,7 @@ export function MobileEditProjectDialog({
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className={labelClass} style={labelStyle}>
                   Validity Date

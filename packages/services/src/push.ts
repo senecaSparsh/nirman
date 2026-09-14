@@ -100,8 +100,10 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
 }
 
 /**
- * Send a push notification to all users in a company who have a specific permission.
- * Useful for broadcasting approval requests to all approvers.
+ * Send a push notification to all active push subscriptions in a company.
+ * NOTE: the permission parameter is currently ignored — this broadcasts to
+ * every subscribed user in the company. For targeted sends use
+ * `sendPushToUser` (which is what the event bus calls per recipient).
  */
 export async function sendPushToApprovers(
   companyId: string,

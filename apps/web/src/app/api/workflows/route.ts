@@ -15,6 +15,7 @@ export const GET = apiHandler(async () => {
   const workflows = await prisma.workflow.findMany({
     where: { companyId: company.id, deletedAt: null },
     orderBy: { createdAt: "desc" },
+    take: 200,
     include: {
       _count: { select: { runs: true, schedules: true } },
       schedules: { where: { enabled: true }, select: { id: true, nextRunAt: true, cron: true, intervalM: true } },

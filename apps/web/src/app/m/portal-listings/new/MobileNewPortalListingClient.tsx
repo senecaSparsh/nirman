@@ -126,11 +126,11 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
         <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>Listing Created</p>
         <p className="text-m-caption font-mono mb-1" style={{ color: "var(--color-ink-700)" }}>{success.title}</p>
         <p className="text-m-caption mb-4" style={{ color: "var(--color-ink-500)" }}>Sync it to the portal from the listings page.</p>
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          <button onClick={() => { router.push("/m/portal-listings"); router.refresh(); }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+        <div className="flex gap-3 w-full max-w-xs">
+          <button onClick={() => { router.push("/m/portal-listings"); router.refresh(); }} className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
             <Eye className="size-4 inline mr-1" /> View Listings
           </button>
-          <button onClick={() => { setSuccess(null); setForm({ builtUnitId: "", portalName: "99acres", title: "", description: "", askingPrice: "", bedrooms: "", bathrooms: "", furnishing: "" }); setPhotos([]); router.refresh(); }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
+          <button onClick={() => { setSuccess(null); setForm({ builtUnitId: "", portalName: "99acres", title: "", description: "", askingPrice: "", bedrooms: "", bathrooms: "", furnishing: "" }); setPhotos([]); router.refresh(); }} className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
             <Plus className="size-4 inline mr-1" /> Create Another
           </button>
         </div>
@@ -202,22 +202,33 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
               style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
             />
           </div>
-
-          <UnderlineInput
-            label="Asking Price (₹)"
-            required
-            type="number"
-            min={1}
-            step="any"
-            value={form.askingPrice}
-            onChange={(v) => set("askingPrice", v)}
-            placeholder="0"
-            inputMode="numeric"
-          />
         </SectionCard>
 
         {/* Property Specs */}
         <SectionCard title="Property Specs">
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <UnderlineInput
+              label="Asking Price (₹)"
+              required
+              type="number"
+              min={1}
+              step="any"
+              value={form.askingPrice}
+              onChange={(v) => set("askingPrice", v)}
+              placeholder="0"
+              inputMode="numeric"
+            />
+            <div className="pl-2">
+              <UnderlineInput
+                label="Furnishing"
+                value={form.furnishing}
+                onChange={(v) => set("furnishing", v)}
+                placeholder="Semi-furnished…"
+                enterKeyHint="done"
+              />
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <UnderlineInput
               label="Bedrooms"
@@ -242,14 +253,6 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
               />
             </div>
           </div>
-
-          <UnderlineInput
-            label="Furnishing"
-            value={form.furnishing}
-            onChange={(v) => set("furnishing", v)}
-            placeholder="e.g. Semi-furnished, Unfurnished"
-            enterKeyHint="done"
-          />
         </SectionCard>
 
         {/* Photos */}

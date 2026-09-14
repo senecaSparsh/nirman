@@ -48,6 +48,14 @@
 
 ## Conventions
 
+- **Button groups are horizontal**: wherever 2–3 buttons appear together they sit in a
+  row — `flex gap-2` (or `flex flex-wrap gap-2` for content-width chips / >2 buttons),
+  never `flex flex-col` / `space-y-*` on a pure button container. Give each button
+  `flex-1` so they split the width evenly (replace `w-full` / the `fullWidth` prop with
+  `className="flex-1"`). If the buttons share a container with other content (form
+  fields, paragraphs), wrap just the button run in `<div className="flex gap-2">`.
+  Exceptions: mutually-exclusive conditional buttons (only one renders), full-width
+  list/card action rows, and a primary CTA above a text-link toggle.
 - **Self-healing dev server**: `pnpm dev` runs through a wrapper
   (`apps/web/scripts/dev-with-recovery.mjs`) that eliminates manual cache-clearing
   cycles. Three recovery layers: (1) **stdout monitoring** — watches for Turbopack
@@ -206,6 +214,15 @@ msg)` that returns 504 on timeout. Applied to `/api/cron/backup` (120s) and
   delete these — set `deletedAt = now()`. All queries MUST filter `deletedAt: null` unless explicitly
   querying archived records. Transactional records (StockMovement, GoodsReceipt, etc.) are already
   immutable — no soft delete needed.
+- **Aggregation belongs in the DB**: reports/summaries MUST use `groupBy`/`_sum`/`aggregate` or
+  `$queryRaw` with `SUM(...)` — never `findMany` history into JS and `.reduce()` over it (grows
+  linearly with company history; OOMs the 512MB tier). Reference: `api/reports/stock-movement-summary`
+  - `department-consumption` (raw SQL), `profit-loss`/`balance-sheet` (`groupBy`). Every list endpoint
+    MUST be bounded — `take:` + cursor pagination (`parseCursorParams`/`buildCursorResponse`), or a
+    hard cap (200–500 transactional, ≤5000 registers). Badges use `?countOnly=1` → `.count()` —
+    see `src/lib/nav-badges.ts`. Hot polled GETs opt into the in-memory response cache via
+    `apiHandler(fn, { cache: { tag, ttlMs } })` + `invalidateCache(tag)` on mutations. Client-side
+    mount-loads use `useFetch` (SWR cache, retry, abort, tenant-safe) — not raw `fetch`+`useEffect`.
 - **Mobile navigation / adding a `/m` route**: `apps/web/src/lib/route-manifest.ts` is the SINGLE
   SOURCE OF TRUTH for mobile navigation. Creating `app/m/<path>/page.tsx` REQUIRES adding a matching
   `RouteEntry` — `route-manifest.test.ts` (36 guards, runs in CI) fails the build if you do one

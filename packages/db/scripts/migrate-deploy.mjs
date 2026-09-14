@@ -20,6 +20,7 @@
  */
 
 import { spawn } from "node:child_process";
+import { readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -82,6 +83,20 @@ async function main() {
     result = await runCommand(["prisma", "migrate", "deploy"], "migrate deploy");
 
     if (result.code === 0) break; // success
+
+    // P3005 "schema is not empty" — the DB was created via `db push` (no
+    // `_prisma_migrations` table) but already has the schema. Baseline it:
+    // mark the initial migration as applied, then continue. The `db push`
+    // safety net below will reconcile any residual drift.
+    if (result.output.includes("P3005")) {
+      const baseline = readdirSync(join(DB_DIR, "prisma/migrations"))
+        .filter((d) => /^\d/.test(d))
+        .sort()[0];
+      if (!baseline) break;
+      console.log(`[migrate:deploy] DB has schema but no migration history — baselining '${baseline}' as applied`);
+      await runCommand(["prisma", "migrate", "resolve", "--applied", baseline], "baseline resolve");
+      continue;
+    }
 
     const hasP3018 = result.output.includes("P3018");
     const hasP3009 = result.output.includes("P3009");

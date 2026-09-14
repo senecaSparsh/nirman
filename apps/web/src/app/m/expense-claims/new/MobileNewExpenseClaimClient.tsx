@@ -69,7 +69,7 @@ export function MobileNewExpenseClaimClient({
   const [showCreateEmployee, setShowCreateEmployee] = useState(false);
   const [extraProjects, setExtraProjects] = useState<Project[]>([]);
   const [extraEmployees, setExtraEmployees] = useState<Employee[]>([]);
-  const [categoryModalLine, setCategoryModalLine] = useState<number | null>(null);
+
   const submitLongPress = useLongPressNav("/m/expense-claims", "Expense claims");
   const { getDefault, recordDefaults } = useSmartDefaults("expense-claim");
   const [defaultsApplied, setDefaultsApplied] = useState(false);
@@ -230,13 +230,6 @@ export function MobileNewExpenseClaimClient({
     setModal(null);
   };
 
-  const handleCategorySelect = (catId: string, catName: string) => {
-    if (categoryModalLine !== null) {
-      updateLine(categoryModalLine, { categoryId: catId, category: catName });
-    }
-    setCategoryModalLine(null);
-  };
-
   const activeCategories = categories.filter((c) => c.isActive);
 
   if (success) {
@@ -256,11 +249,11 @@ export function MobileNewExpenseClaimClient({
             ? "It's now in the approval queue for a manager to review."
             : "Submit it for approval from the claim detail page."}
         </p>
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          <button onClick={() => { if (onCreated) onCreated(success.id); else { router.push(`/m/expense-claims/${success.id}`); router.refresh(); } }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+        <div className="flex gap-3 w-full max-w-xs">
+          <button onClick={() => { if (onCreated) onCreated(success.id); else { router.push(`/m/expense-claims/${success.id}`); router.refresh(); } }} className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
             <Eye className="size-4 inline mr-1" /> View Claim
           </button>
-          <button onClick={() => { setSuccess(null); setDescription(""); setLines([emptyLine(today)]); setExtraProjects([]); setExtraEmployees([]); router.refresh(); }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
+          <button onClick={() => { setSuccess(null); setDescription(""); setLines([emptyLine(today)]); setExtraProjects([]); setExtraEmployees([]); router.refresh(); }} className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
             <Plus className="size-4 inline mr-1" /> Create Another
           </button>
         </div>
@@ -273,18 +266,21 @@ export function MobileNewExpenseClaimClient({
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {/* ══════ SECTION: CLAIM DETAILS ══════ */}
         <SectionCard title="Claim Details">
-          <SelectorCardInline
-            label="Claimant"
-            value={selectedClaimant?.name}
-            required
-            onClick={() => setModal("claimant")}
-          />
-
-          <SelectorCardInline
-            label="Project (optional)"
-            value={selectedProject?.name}
-            onClick={() => setModal("project")}
-          />
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <SelectorCardInline
+              label="Claimant"
+              value={selectedClaimant?.name}
+              required
+              onClick={() => setModal("claimant")}
+            />
+            <div className="pl-2">
+              <SelectorCardInline
+                label="Project (optional)"
+                value={selectedProject?.name}
+                onClick={() => setModal("project")}
+              />
+            </div>
+          </div>
           {selectedProject && <SmartDefaultsBadge />}
 
           <div>
@@ -310,23 +306,36 @@ export function MobileNewExpenseClaimClient({
               className="rounded-[0.5rem] border p-3 mb-2"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
             >
-              {/* Category selector */}
+              {/* Category — free text with suggestions. categoryId links when
+                  the text matches a known category; plain text is allowed so a
+                  company with no categories set up can still file claims. */}
               <div className="mb-2">
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Category <span style={{ color: "var(--color-stop)" }}>*</span>
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setCategoryModalLine(idx)}
-                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors text-left press"
+                <input
+                  type="text"
+                  list={`claim-categories-${idx}`}
+                  value={line.category}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    const match = activeCategories.find((c) => c.name.toLowerCase() === v.toLowerCase());
+                    updateLine(idx, { category: v, categoryId: match?.id ?? "" });
+                  }}
+                  placeholder="e.g. Travel, Materials, Food"
+                  enterKeyHint="next"
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
                   style={{
                     borderColor: "var(--color-line)",
                     backgroundColor: "transparent",
-                    color: line.category ? "var(--color-ink-950)" : "var(--color-ink-500)",
+                    color: "var(--color-ink-950)",
                   }}
-                >
-                  <span className="truncate block">{line.category || "— Select —"}</span>
-                </button>
+                />
+                <datalist id={`claim-categories-${idx}`}>
+                  {activeCategories.map((c) => (
+                    <option key={c.id} value={c.name} />
+                  ))}
+                </datalist>
               </div>
 
               {/* Amount + Date */}
@@ -516,19 +525,6 @@ export function MobileNewExpenseClaimClient({
           createLabel="Create new project"
         />
       ) : null}
-
-      {categoryModalLine !== null && (
-        <SelectorModal
-          title="Select Category"
-          items={activeCategories.map((c) => ({ id: c.id, label: c.name }))}
-          selectedId={lines[categoryModalLine]?.categoryId ?? ""}
-          onSelect={(id) => {
-            const cat = categories.find((c) => c.id === id);
-            handleCategorySelect(id, cat?.name ?? "");
-          }}
-          onClose={() => setCategoryModalLine(null)}
-        />
-      )}
 
       {/* ══════ INLINE CREATE PROJECT DIALOG ══════ */}
       {showCreateProject ? (

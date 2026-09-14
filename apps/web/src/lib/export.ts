@@ -1,3 +1,4 @@
+import { localDateISO } from "@/lib/utils";
 /**
  * CSV export utility — converts an array of row objects into a CSV
  * string and triggers a browser download. Used by data tables across
@@ -104,7 +105,7 @@ export async function downloadExcel(
   const disposition = res.headers.get("Content-Disposition") ?? "";
   const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
   const ext = params?.format === "csv" ? "csv" : "xlsx";
-  link.download = filenameMatch?.[1] ?? `${type}-${new Date().toISOString().slice(0, 10)}.${ext}`;
+  link.download = filenameMatch?.[1] ?? `${type}-${localDateISO()}.${ext}`;
   link.style.display = "none";
   document.body.appendChild(link);
   link.click();

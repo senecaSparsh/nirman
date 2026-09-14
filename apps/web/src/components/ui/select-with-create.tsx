@@ -110,7 +110,7 @@ export function SelectWithCreate({
           disabled={disabled}
           aria-invalid={ariaInvalid}
           className={cn(
-            "w-full h-11 appearance-none bg-none pl-3 pr-8 text-[14px] sm:h-8 sm:pl-2.5 sm:pr-7 sm:text-[13px]",
+            "w-full h-11 appearance-none bg-none pl-3 pr-8 text-[14px] sm:h-8 sm:text-[13px]",
             "rounded-md border border-input bg-card text-foreground",
             "transition-[border-color,box-shadow] duration-100",
             "placeholder:text-faint hover:border-border-strong",

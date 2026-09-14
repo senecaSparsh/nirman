@@ -9,6 +9,7 @@ import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 import { MobileProjectSelect } from "@/components/mobile/selectors";
 import { useTodayDate } from "@/lib/use-today-date";
+import { localDateISO } from "@/lib/utils";
 
 /**
  * MobileNewInspectionForm — form content for scheduling an inspection.
@@ -43,7 +44,7 @@ export function MobileNewInspectionForm({
     setForm({
       projectId: projects[0]?.id ?? "",
       title: "",
-      scheduledDate: today || new Date().toISOString().slice(0, 10),
+      scheduledDate: today || localDateISO(),
       inspectorName: "",
     });
   }, [projects, today]);

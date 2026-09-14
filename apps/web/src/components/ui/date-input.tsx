@@ -42,7 +42,8 @@ export const DateInput = React.forwardRef<
         "focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20",
         "disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground",
         "aria-[invalid=true]:border-danger aria-[invalid=true]:ring-danger/20",
-        "h-11 px-3 text-[14px] sm:h-8 sm:px-2.5 sm:text-[13px]",
+        // No sm: horizontal padding — see note on fieldSize in input.tsx.
+        "h-11 px-3 text-[14px] sm:h-8 sm:text-[13px]",
         className,
       )}
       {...props}

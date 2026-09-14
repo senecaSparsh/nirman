@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { prisma, type DprApprovalStatus } from "@nirman/db";
 import { getCompany, getUserPermissions, getCurrentUser, toNum, scopeWhere } from "@/lib/server";
+import { canAutoApprove } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
@@ -8,7 +9,7 @@ import { NoAccess } from "@/components/no-access";
 import { ApprovalsView } from "@/components/approvals/approvals-view";
 import { ClaimApprovalList, type ApprovalClaimRow } from "@/components/approvals/claim-approval-list";
 import type { ExpenseCategoryRow } from "@/lib/types";
-import type { ApprovalPORow, ApprovalReqRow, ApprovalGatePassRow, ApprovalDprRow, ApprovalExpenseRow } from "@/lib/types";
+import type { ApprovalPORow, ApprovalReqRow, ApprovalGatePassRow, ApprovalDprRow, ApprovalExpenseRow, ApprovalRaBillRow } from "@/lib/types";
 
 export const metadata = { title: "Approvals · Nirman" };
 
@@ -34,24 +35,29 @@ async function ApprovalsContent() {
   const canApproveDprSubAdmin = perms.includes(PERM.DPR_APPROVE_SUB_ADMIN);
   const canApproveDprAdmin = perms.includes(PERM.DPR_APPROVE_ADMIN);
   const canApproveExpense = perms.includes(PERM.EXPENSE_APPROVE);
+  const canApproveRaBill = perms.includes(PERM.RA_APPROVE);
 
-  if (!canApprovePo && !canApproveReq && !canApproveGatePass && !canApproveDprSubAdmin && !canApproveDprAdmin && !canApproveExpense) {
+  if (!canApprovePo && !canApproveReq && !canApproveGatePass && !canApproveDprSubAdmin && !canApproveDprAdmin && !canApproveExpense && !canApproveRaBill) {
     return <NoAccess what="the approval queue" />;
   }
 
   const company = await getCompany();
   const user = await getCurrentUser();
   const userId = user?.id ?? "";
+  // Tier-1 approvers (OWNER/ADMIN) may approve their own creations — no higher
+  // approver exists — so their own pending items still appear in the queue.
+  // Everyone else's own items are hidden (they can't self-approve anyway).
+  const hideSelf = !canAutoApprove(user?.role);
 
   // DPRs pending sub-admin approval (SUBMITTED) or admin approval (SUB_ADMIN_APPROVED)
   const dprApprovalStatuses: DprApprovalStatus[] = [];
   if (canApproveDprSubAdmin) dprApprovalStatuses.push("SUBMITTED");
   if (canApproveDprAdmin) dprApprovalStatuses.push("SUB_ADMIN_APPROVED");
 
-  const [purchaseOrders, requisitions, gatePasses, dprs, expenses, pendingClaims, claimCategories] = await Promise.all([
+  const [purchaseOrders, requisitions, gatePasses, dprs, expenses, pendingClaims, claimCategories, raBills] = await Promise.all([
     canApprovePo
       ? prisma.purchaseOrder.findMany({
-          where: { companyId: company.id, status: "DRAFT", createdById: { not: userId } },
+          where: { companyId: company.id, status: "DRAFT", createdById: hideSelf ? { not: userId } : undefined },
           orderBy: { createdAt: "desc" },
           take: 100,
           include: {
@@ -64,7 +70,7 @@ async function ApprovalsContent() {
       : [],
     canApproveReq
       ? prisma.materialRequisition.findMany({
-          where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: userId } },
+          where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED", requestedById: hideSelf ? { not: userId } : undefined },
           orderBy: { createdAt: "desc" },
           take: 100,
           include: {
@@ -81,7 +87,7 @@ async function ApprovalsContent() {
       : [],
     canApproveGatePass
       ? prisma.gatePass.findMany({
-          where: { companyId: company.id, status: "PENDING", createdById: { not: userId } },
+          where: { companyId: company.id, status: "PENDING", createdById: hideSelf ? { not: userId } : undefined },
           orderBy: { createdAt: "desc" },
           take: 50,
           include: {
@@ -93,7 +99,7 @@ async function ApprovalsContent() {
       : [],
     dprApprovalStatuses.length > 0
       ? prisma.dailyProgressReport.findMany({
-          where: { companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, submittedById: { not: userId } },
+          where: { companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, submittedById: hideSelf ? { not: userId } : undefined },
           orderBy: { createdAt: "desc" },
           take: 50,
           include: {
@@ -104,7 +110,7 @@ async function ApprovalsContent() {
       : [],
     canApproveExpense
       ? prisma.expense.findMany({
-          where: { companyId: company.id, status: "PENDING", submittedById: { not: userId } },
+          where: { companyId: company.id, status: "PENDING", submittedById: hideSelf ? { not: userId } : undefined },
           orderBy: { createdAt: "desc" },
           take: 50,
           include: {
@@ -115,7 +121,7 @@ async function ApprovalsContent() {
       : [],
     canApproveExpense
       ? prisma.expenseClaim.findMany({
-          where: { companyId: company.id, status: "SUBMITTED", claimantId: { not: userId } },
+          where: { companyId: company.id, status: "SUBMITTED", claimantId: hideSelf ? { not: userId } : undefined },
           orderBy: { createdAt: "desc" },
           take: 50,
           include: {
@@ -130,6 +136,18 @@ async function ApprovalsContent() {
           where: { companyId: company.id, isActive: true },
           select: { id: true, name: true, glAccountCode: true, description: true, isActive: true },
           orderBy: { name: "asc" },
+        })
+      : [],
+    canApproveRaBill
+      ? prisma.raBill.findMany({
+          where: { companyId: company.id, status: "SUBMITTED", createdById: hideSelf ? { not: userId } : undefined, submittedById: hideSelf ? { not: userId } : undefined },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+          include: {
+            project: { select: { name: true } },
+            workOrder: { select: { workOrderNumber: true } },
+            submittedBy: { select: { name: true } },
+          },
         })
       : [],
   ]);
@@ -318,7 +336,8 @@ async function ApprovalsContent() {
     lineCount: c.lines.length,
     description: c.description,
     submittedAt: c.submittedAt?.toISOString() ?? null,
-    canApprove: c.claimantId !== userId,
+    // Tier-1 approvers may approve their own claim — no higher reviewer exists.
+    canApprove: c.claimantId !== userId || canAutoApprove(user?.role),
   }));
 
   const claimCategoryRows: ExpenseCategoryRow[] = claimCategories.map((cat) => ({
@@ -329,6 +348,23 @@ async function ApprovalsContent() {
     isActive: cat.isActive,
   }));
 
+  const raBillRows: ApprovalRaBillRow[] = raBills.map((b) => ({
+    id: b.id,
+    raBillNumber: b.raBillNumber,
+    workOrderNumber: b.workOrder?.workOrderNumber ?? null,
+    projectName: b.project?.name ?? null,
+    grossAmount: toNum(b.grossAmount),
+    netPayable: toNum(b.netPayable),
+    periodFrom: b.periodFrom.toISOString(),
+    periodTo: b.periodTo.toISOString(),
+    submittedByName: b.submittedBy?.name ?? null,
+    createdAt: b.createdAt.toISOString(),
+    canApprove: canApproveRaBill,
+    waitingOn: "Engineer-in-Charge / Project Manager",
+    urgency: computeUrgency(null, b.createdAt),
+  }));
+  raBillRows.sort((a, b) => (URGENCY_ORDER[a.urgency] ?? 9) - (URGENCY_ORDER[b.urgency] ?? 9));
+
   return (
     <div className="space-y-6">
       <ApprovalsView
@@ -337,6 +373,7 @@ async function ApprovalsContent() {
       gatePasses={gatePassRows}
       dprs={dprRows}
       expenses={expenseRows}
+      raBills={raBillRows}
     />
     {claimRows.length > 0 && (
       <ClaimApprovalList claims={claimRows} categories={claimCategoryRows} />

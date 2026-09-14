@@ -29,6 +29,7 @@ export function MobileDprActions({
   costPosted,
   submittedById,
   currentUserId,
+  canSelfApprove,
 }: {
   dprId: string;
   status: string;
@@ -40,6 +41,8 @@ export function MobileDprActions({
   costPosted: boolean;
   submittedById?: string | null;
   currentUserId?: string | null;
+  /** Tier-1 viewers (OWNER/ADMIN) may approve their own DPR. */
+  canSelfApprove?: boolean;
 }) {
   const router = useRouter();
   const [visibleStatus, setVisibleStatus] = useState(status);
@@ -89,9 +92,12 @@ export function MobileDprActions({
   });
 
   // Creator gate: don't show approve/reject to the person who submitted the DPR
-  const isOwnDpr = submittedById !== currentUserId;
-  const showSubAdmin = visibleStatus === "SUBMITTED" && canApproveSubAdmin && isOwnDpr;
-  const showAdmin = visibleStatus === "SUB_ADMIN_APPROVED" && canApproveAdmin && isOwnDpr;
+  const isOwnDpr = submittedById === currentUserId;
+  // Self-approval: hidden from the submitter unless they're a tier-1 approver
+  // (OWNER/ADMIN), where no higher reviewer exists above the creator.
+  const hideForSelf = isOwnDpr && !canSelfApprove;
+  const showSubAdmin = visibleStatus === "SUBMITTED" && canApproveSubAdmin && !hideForSelf;
+  const showAdmin = visibleStatus === "SUB_ADMIN_APPROVED" && canApproveAdmin && !hideForSelf;
   const showResubmit = visibleStatus === "REJECTED" && canResubmit;
   const showMarkCost = canMarkCostPosted && visibleStatus === "APPROVED" && !costPosted;
   const canDelete = canManage;
@@ -173,6 +179,10 @@ export function MobileDprActions({
       ) : null}
 
       {hasApprovalActions ? (
+        // The `id` matches the NextActionCard anchor for the current status:
+        // #subAdminApprove / #adminApprove / #resubmit — the card scrolls the
+        // real action button into view.
+        <div id={showResubmit ? "resubmit" : isSubAdmin ? "subAdminApprove" : "adminApprove"}>
         <ActionBar>
           <div className="flex items-center gap-2">
           {showResubmit ? (
@@ -231,6 +241,7 @@ export function MobileDprActions({
           )}
           </div>
         </ActionBar>
+        </div>
       ) : null}
 
       {/* Reject confirmation modal */}

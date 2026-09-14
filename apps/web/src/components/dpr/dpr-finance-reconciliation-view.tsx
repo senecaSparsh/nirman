@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,32 +30,19 @@ type ReconciliationRow = {
 };
 
 export function DprFinanceReconciliationView() {
-  const [data, setData] = useState<ReconciliationRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  useEffect(() => {
-    fetchReconciliation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch on mount
-  }, []);
+  const params = new URLSearchParams();
+  if (startDate) params.set("startDate", startDate);
+  if (endDate) params.set("endDate", endDate);
+  const { data, loading, error, retry: fetchReconciliation } = useFetch<ReconciliationRow[]>(
+    `/api/dprs/finance-reconciliation?${params}`,
+  );
 
-  async function fetchReconciliation() {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (startDate) params.set("startDate", startDate);
-      if (endDate) params.set("endDate", endDate);
-      const res = await fetch(`/api/dprs/finance-reconciliation?${params}`);
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Failed to load");
-      setData(json);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to load reconciliation");
-    } finally {
-      setLoading(false);
-    }
-  }
+  useEffect(() => {
+    if (error) toast.error(error);
+  }, [error]);
 
   async function markPosted(dprId: string) {
     try {
@@ -71,7 +59,7 @@ export function DprFinanceReconciliationView() {
     }
   }
 
-  const totals = data.reduce(
+  const totals = (data ?? []).reduce(
     (acc, r) => {
       acc.dprTotal += Number(r.dprTotalCost);
       acc.postedTotal += Number(r.postedTotal);
@@ -124,7 +112,7 @@ export function DprFinanceReconciliationView() {
       </div>
 
       {/* Reconciliation table */}
-      {data.length === 0 && !loading ? (
+      {(data ?? []).length === 0 && !loading ? (
         <EmptyState
           icon={<FileText className="h-5 w-5" />}
           title="No DPRs in this date range"
@@ -146,7 +134,7 @@ export function DprFinanceReconciliationView() {
               </TR>
             </THead>
             <TBody>
-              {data.map((r) => (
+              {(data ?? []).map((r) => (
                 <TR key={r.dprId}>
                   <TD className="text-caption tnum">{r.date}</TD>
                   <TD className="font-medium">{r.projectName}</TD>

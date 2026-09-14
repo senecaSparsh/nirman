@@ -81,6 +81,8 @@ services:
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
       SEED_PASSWORD: ${SEED_PASSWORD:-nirman123}
       CRON_SECRET: ${CRON_SECRET}
+      # Guards POST /api/workflow-scheduler (due scheduled workflows).
+      SCHEDULER_SECRET: ${SCHEDULER_SECRET:-}
       # ── Sentry (optional — leave empty to disable) ──
       SENTRY_DSN: ${SENTRY_DSN:-}
       NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
@@ -111,6 +113,31 @@ services:
       timeout: 10s
       retries: 3
       start_period: 90s
+
+  # ── Scheduler — internal cron caller ─────────────────────────────────
+  # Coolify/Docker has no platform cron. This sidecar curls the app's cron
+  # endpoints on a timer over the internal network (never exposed publicly):
+  #   /api/cron/reminders      every 15 min  (payment/rent/doc reminders)
+  #   /api/workflow-scheduler  every 5 min   (due scheduled workflows)
+  #   /api/cron/backup         daily         (BackupRecord export)
+  #   /api/cron/hsn-seed       weekly        (HSN/GST master re-seed)
+  # Requires CRON_SECRET + SCHEDULER_SECRET in Coolify env (same values the
+  # web service uses).
+  scheduler:
+    image: alpine:3.20
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - default
+    environment:
+      APP_URL: http://web:3000
+      CRON_SECRET: ${CRON_SECRET}
+      SCHEDULER_SECRET: ${SCHEDULER_SECRET:-}
+    volumes:
+      - ./apps/web/scripts/scheduler.sh:/scheduler.sh:ro
+    command: ["sh", "/scheduler.sh"]
 
 networks:
   # The `coolify` network is created by Coolify and shared with the Traefik

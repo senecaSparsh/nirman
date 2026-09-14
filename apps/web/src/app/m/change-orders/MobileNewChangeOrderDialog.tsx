@@ -424,7 +424,7 @@ export function MobileNewChangeOrderForm({
                 className="w-full h-8 rounded-[0.375rem] border px-2 text-m-label"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               />
-              <div className="grid grid-cols-4 gap-1">
+              <div className="grid grid-cols-4 gap-1.5">
                 <input
                   type="number"
                   value={l.originalQty}

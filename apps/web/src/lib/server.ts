@@ -11,6 +11,7 @@ import {
   type Role,
 } from "@/lib/roles";
 import { logAction, resolveUserScope, ServiceError } from "@nirman/services";
+import { normalizePhone } from "@/lib/phone-otp";
 import { getBackpressureStats, trackRequest } from "@/lib/backpressure";
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { cached as withCache } from "@/lib/server-cache";
@@ -1165,7 +1166,10 @@ export const requisitionLineSchema = z.object({
 });
 
 export const requisitionSchema = z.object({
-  projectId: z.string().min(1, "Project is required"),
+  // Consumption target — exactly one of projectId / departmentId must be set
+  // (department-scoped indents are cost-centre requisitions, e.g. the rice mill).
+  projectId: z.string().min(1).optional().nullable(),
+  departmentId: z.string().min(1).optional().nullable(),
   phaseId: z.string().optional().nullable(),
   neededByDate: z.string().optional().nullable().refine((v) => !v || !isNaN(new Date(v).getTime()), "Invalid date"),
   notes: z.string().optional().nullable(),
@@ -1174,7 +1178,10 @@ export const requisitionSchema = z.object({
    *  after creation — eliminates the useless manual "Submit for Approval"
    *  step. Set to false to save as a draft instead. */
   autoSubmit: z.boolean().optional().default(true),
-});
+}).refine(
+  (data) => (data.projectId ? !data.departmentId : !!data.departmentId),
+  { message: "Specify either a project or a department (cost centre) — not both, not neither.", path: ["projectId"] },
+);
 
 // ── Subcontractor ──
 export const subcontractorSchema = z.object({
@@ -1379,6 +1386,10 @@ export const supplierReturnSchema = z.object({
   driverPhone: z.string().max(20).optional(),
   notes: z.string().optional().nullable(),
   lines: z.array(supplierReturnLineSchema).min(1, "At least one line is required"),
+  /** When true (default), the return is submitted right after creation —
+   *  the DRAFT→SUBMITTED transition carries no approval semantics, so
+   *  requiring a second click is pure ceremony. Set false to keep a draft. */
+  autoSubmit: z.boolean().optional().default(true),
 });
 
 // ── Tasks ──
@@ -1442,12 +1453,24 @@ export function json(body: unknown, init?: ResponseInit) {
 let _devUser: { id: string; email: string; name: string; role: string; companyId: string | null } | null = null;
 
 async function getDevBypassUser() {
-  // Test-only: allow switching roles via x-test-role header (dev bypass mode only).
-  // This enables RBAC testing without spinning up real auth sessions per role.
-  const testRole = (await headers()).get("x-test-role");
-  if (testRole) {
+  // Test-only: allow switching roles via x-test-role header OR cookie (dev
+  // bypass mode only). The header covers API/CLI callers; the cookie lets a
+  // real browser drive the UI as a specific role (document.cookie) without
+  // spinning up real auth sessions per role.
+  const testRole =
+    (await headers()).get("x-test-role") ??
+    (await cookies()).get("x-test-role")?.value;
+  // Optional: pin to a specific user (email or 10-digit phone) so browser tests
+  // land in the right company/scope, not just the first user of that role.
+  const testUser =
+    (await headers()).get("x-test-user") ??
+    (await cookies()).get("x-test-user")?.value;
+  if (testUser || testRole) {
+    const normalized = testUser ? normalizePhone(testUser) : null;
     const u = await prisma.user.findFirst({
-      where: { role: testRole },
+      where: testUser
+        ? { OR: [{ email: testUser }, { phoneNormalized: normalized ?? "" }, { phone: testUser }] }
+        : { role: testRole },
       select: { id: true, email: true, name: true, role: true, companyId: true },
     });
     if (u) {
@@ -1742,6 +1765,9 @@ export async function scopeWhere(
     ProjectPhase:         { project: "projectId" },
     ProjectCost:          { project: "projectId" },
     ProjectAssignment:    { project: "projectId" },
+    // The project entity itself — project-scoped users see only their assigned
+    // projects in lists/pickers (filter by the project's own id).
+    Project:              { project: "id" },
     BuiltUnit:            { project: "projectId" },
     Tenancy:              { project: "projectId" },
     // Procurement

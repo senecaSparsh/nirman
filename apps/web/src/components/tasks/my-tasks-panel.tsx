@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -72,29 +73,11 @@ function dueDateStatus(dueDateRaw: string | null): { label: string; color: strin
 export function MyTasksPanel({ limit }: { limit?: number }) {
   const router = useRouter();
   const { userId, canAssignTasks } = usePermissions();
-  const [tasks, setTasks] = useState<MyTask[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: tasksData, loading, retry: fetchTasks } = useFetch<MyTask[]>("/api/my-tasks");
+  const tasks = tasksData ?? [];
   const [updating, setUpdating] = useState<string | null>(null);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [drawerTaskId, setDrawerTaskId] = useState<string | null>(null);
-
-  const fetchTasks = useCallback(async () => {
-    try {
-      const res = await fetch("/api/my-tasks");
-      if (res.ok) {
-        const data = await res.json();
-        setTasks(Array.isArray(data) ? data : []);
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
 
   const updateStatus = async (taskId: string, status: string) => {
     setUpdating(taskId);

@@ -230,7 +230,7 @@ export default function MobileNewSupplierReturnClient({
             </p>
           </>
         )}
-        <div className="flex flex-col gap-3">
+        <div className="flex gap-3">
           {!isQueued && success.returnId ? (
             <button
               onClick={() => {
@@ -240,7 +240,7 @@ export default function MobileNewSupplierReturnClient({
                   router.push(`/m/supplier-returns/${success.returnId}`);
                 }
               }}
-              className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
+              className="flex-1 rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               View {success.returnNumber}
@@ -255,7 +255,7 @@ export default function MobileNewSupplierReturnClient({
                 router.push("/m/procurement?tab=returns");
               }
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
+            className="flex-1 rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View All Returns
@@ -268,7 +268,7 @@ export default function MobileNewSupplierReturnClient({
               setPurchaseOrderId("");
               setVehicle({ vehicleNumber: "", vehicleType: "" });
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
+            className="flex-1 rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
           >
             Create Another
@@ -605,7 +605,7 @@ function ReturnForm({
                 />
 
                 {/* Qty + Unit Cost (side by side) */}
-                <div className="grid grid-cols-2 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
                     <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                       Qty{mat ? ` (${mat.unit})` : ""}
@@ -639,7 +639,7 @@ function ReturnForm({
                 </div>
 
                 {/* Reason + Credit (side by side) */}
-                <div className="grid grid-cols-2 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
                     <EnumSelect
                       label="Reason"

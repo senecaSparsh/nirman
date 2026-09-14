@@ -49,12 +49,14 @@ export function ExpenseClaimsView({
   projects,
   categories,
   permissions,
+  currentUserId,
 }: {
   claims: ClaimRow[];
   employees: { id: string; name: string }[];
   projects: ProjectOption[];
   categories: ExpenseCategoryRow[];
-  permissions: { canCreate: boolean; canApprove: boolean; canManage: boolean };
+  permissions: { canCreate: boolean; canApprove: boolean; canManage: boolean; canSelfApprove?: boolean };
+  currentUserId?: string | null;
 }) {
   const router = useRouter();
   const [createOpen, setCreateOpen] = useState(false);
@@ -88,6 +90,25 @@ export function ExpenseClaimsView({
       toast.success("Claim created — add expense lines to it");
       setCreateOpen(false);
       setCreateForm({ claimantId: "", projectId: "", description: "" });
+      // Open the new claim directly so lines can be added without hunting
+      // for it in the list — one continuous flow instead of three round-trips.
+      setDetailOpen({
+        id: data.id,
+        claimantId: createForm.claimantId,
+        claimantName: "",
+        projectId: createForm.projectId || null,
+        projectName: null,
+        status: "DRAFT",
+        totalAmount: 0,
+        description: createForm.description || null,
+        submittedAt: null,
+        approvedAt: null,
+        paidAt: null,
+        paymentMode: null,
+        referenceNo: null,
+        lineCount: 0,
+        createdAt: new Date().toISOString(),
+      });
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Create failed");
@@ -221,7 +242,9 @@ export function ExpenseClaimsView({
                     {actionLoading === `${c.id}-submit` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                   </button>
                 )}
-                {c.status === "SUBMITTED" && permissions.canApprove && (
+                {/* Hide Approve from the claimant — self-approval is blocked server-side —
+                    unless a tier-1 approver (OWNER/ADMIN), where no higher reviewer exists. */}
+                {c.status === "SUBMITTED" && permissions.canApprove && (c.claimantId !== currentUserId || permissions.canSelfApprove) && (
                   <>
                     <button
                       type="button"

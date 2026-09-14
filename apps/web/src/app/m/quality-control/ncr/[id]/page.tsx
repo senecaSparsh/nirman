@@ -113,6 +113,7 @@ async function MobileNcrDetailContent({ id }: { id: string }) {
       label: ncr.ncrNumber,
       subtitle: ncr.project.name,
       recordId: ncr.id,
+      canActions: canManage ? [PERM.QC_MANAGE] : [],
     }}>
       <MobileNcrDetailClient ncr={serialized} canManage={canManage} />
     </PageContextProvider>

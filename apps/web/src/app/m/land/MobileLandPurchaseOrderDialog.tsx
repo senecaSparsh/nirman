@@ -6,7 +6,7 @@ import { Loader2, Trash2, Plus, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../sales/MobileChequeFields";
 import { MobileDocUploader } from "../MobileDocUploader";
-import { formatCurrency } from "@/lib/utils";
+import { localDateISO, formatCurrency } from "@/lib/utils";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
@@ -40,7 +40,7 @@ export function MobileLandPurchaseOrderDialog({
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const todayForReset = useTodayDate();
-  const [localSellers, setLocalSellers] = useState(sellers);
+  const localSellers = sellers;
 
   const [sellerId, setSellerId] = useState("");
   const [sellerName, setSellerName] = useState("");
@@ -70,7 +70,7 @@ export function MobileLandPurchaseOrderDialog({
 
   function reset() {
     setSellerId(""); setSellerName(""); setSellerContact(""); setProjectId("");
-    setPurchaseDate(todayForReset || new Date().toISOString().slice(0, 10));
+    setPurchaseDate(todayForReset || localDateISO());
     setTotalArea(""); setAreaUnit("SQFT"); setTotalCost(""); setRegistryNo(""); setLocation("");
     setTokenAmount(""); setTokenPaymentMode("BANK_TRANSFER"); setTokenCheque(EMPTY_MOBILE_CHEQUE);
     setAtsDocUrl(""); setAtsDocName("");
@@ -242,7 +242,7 @@ export function MobileLandPurchaseOrderDialog({
                 required
               />
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-1.5">
               <div className="col-span-2">
                 <label className={labelClass} style={labelStyle}>Total Area *</label>
                 <input
@@ -454,7 +454,7 @@ export function MobileLandPurchaseOrderDialog({
               borderColor: "var(--color-line)",
             }}
           >
-            <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={onClose}

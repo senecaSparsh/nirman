@@ -8,8 +8,9 @@ import { haptic } from "@/lib/haptic";
 import { SearchableMaterialPicker } from "@/components/mobile/searchable-material-picker";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { useDrafts } from "@/lib/offline/use-drafts";
+import { enqueue } from "@/lib/offline/queue";
 import { DraftBanner } from "@/components/mobile/draft-banner";
-import { formatRelativeTime } from "@/lib/utils";
+import { formatRelativeTime, localDateISO } from "@/lib/utils";
 import { useSmartDefaults } from "@/lib/use-smart-defaults";
 import { useNearestProject } from "@/lib/use-nearest-project";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
@@ -108,7 +109,6 @@ export function MobileDprForm({
   materials,
   existingDprsByProject,
   yesterdayDprsByProject,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onClose,
   onCreated,
 }: {
@@ -128,7 +128,7 @@ export function MobileDprForm({
   const { getDefault, recordDefaults } = useSmartDefaults("dpr");
   const { nearestProjectId, nearestProjectName, distanceMeters, loading: gpsLoading, request: requestGps } = useNearestProject();
 
-  const today = new Date().toISOString().split("T")[0] ?? "";
+  const today = localDateISO();
   const [fProject, setFProject] = useState("");
   const [fDate, setFDate] = useState(today);
   const [fWorkType, setFWorkType] = useState(getDefault("workType") ?? "Foundation");
@@ -263,16 +263,50 @@ export function MobileDprForm({
       );
     } else {
       setEditingDprId(null);
+      // Preserve user-entered fields — only reset to defaults if the form
+      // is still empty (initial project selection). If the user already
+      // typed a summary, don't wipe it just because they switched projects.
+      if (!fWorkSummary.trim()) {
+        setFWeather("");
+        setFProgress("");
+        setFBlockers("");
+        setFTomorrow("");
+        setFNotes("");
+        setFPhotos([]);
+        setMaterialLines([]);
+        setLaborLines([]);
+      }
       setFDate(today);
-      setFWeather("");
-      setFWorkSummary("");
-      setFProgress("");
-      setFBlockers("");
-      setFTomorrow("");
-      setFNotes("");
-      setFPhotos([]);
-      setMaterialLines([]);
-      setLaborLines([]);
+      // Auto-pull today's attendance for new DPRs — supervisors often forget
+      // to tap the manual "Attendance" button, leaving labor lines empty.
+      if (projectId) {
+        autoPullAttendance(projectId);
+      }
+    }
+  }
+
+  // Auto-pull attendance silently (no error toast if it fails — best-effort)
+  async function autoPullAttendance(projectId: string) {
+    try {
+      const res = await fetch(`/api/attendance?date=${today}&projectId=${projectId}`);
+      const data = await res.json();
+      if (!res.ok) return;
+      const records = Array.isArray(data) ? data : data.items ?? [];
+      const pulled: LaborLine[] = records
+        .filter((r: { status?: string; checkInAt?: string | null }) => r.status === "PRESENT" || r.status === "HALF_DAY" || r.checkInAt)
+        .map((r: { employeeId: string | null; employeeName?: string; trade?: string | null; status?: string; hoursWorked?: number | null }) => ({
+          employeeId: r.employeeId ?? "",
+          crewId: "",
+          hoursWorked: r.hoursWorked ? String(r.hoursWorked) : r.status === "HALF_DAY" ? "4" : "8",
+          taskDescription: r.trade?.trim() || "Site work",
+        }));
+      if (pulled.length > 0) {
+        setLaborLines(pulled);
+        haptic(20);
+        toast.success(`Auto-filled ${pulled.length} worker${pulled.length > 1 ? "s" : ""} from today's attendance`);
+      }
+    } catch {
+      // Silent — best-effort, don't block DPR creation
     }
   }
 
@@ -544,8 +578,51 @@ export function MobileDprForm({
       recordDefaults({ project: fProject, workType: fWorkType, weather: fWeather });
       clearDraft();
       onCreated?.();
-      router.push("/m/site");
+      // If we're in a modal (onClose provided), close it and stay on the list.
+      // Otherwise (standalone page), navigate to the site dashboard.
+      if (onClose) {
+        onClose();
+      } else {
+        router.push("/m/site");
+      }
     } catch (err) {
+      // Offline: the DPR body is upsert-safe ([projectId,date] unique), so
+      // queue it for background sync instead of losing the submission.
+      const isOffline = !navigator.onLine || err instanceof TypeError;
+      if (isOffline) {
+        try {
+          await enqueue("dpr", {
+            projectId: fProject,
+            date: fDate,
+            weather: fWeather || null,
+            workSummary: fWorkSummary,
+            workType: fWorkType || null,
+            workQty: fWorkQty ? Number(fWorkQty) : null,
+            workUnit: fWorkUnit || null,
+            progressPct: fProgress ? Number(fProgress) : null,
+            blockers: fBlockers || null,
+            tomorrowPlan: fTomorrow || null,
+            notes: fNotes || null,
+            photoUrls: fPhotos.map((p) => p.url),
+            materialLines: materialLines
+              .filter((l) => l.materialId && Number(l.qty) > 0)
+              .map((l) => ({ materialId: l.materialId, qty: Number(l.qty), unitCost: Number(l.unitCost) || 0 })),
+            laborLines: laborLines
+              .filter((l) => (l.employeeId || l.crewId) && Number(l.hoursWorked) > 0 && l.taskDescription)
+              .map((l) => ({ employeeId: l.employeeId || null, crewId: l.crewId || null, hoursWorked: Number(l.hoursWorked), taskDescription: l.taskDescription })),
+          });
+          haptic([10, 40, 80]);
+          toast.success("Saved offline — will sync when you're back online", {
+            action: { label: "View queue", onClick: () => router.push("/m/queue") },
+          });
+          clearDraft();
+          onCreated?.();
+          if (onClose) onClose(); else router.push("/m/site");
+          return;
+        } catch {
+          // Queue write failed — fall through to the generic error.
+        }
+      }
       haptic([50, 20, 50]);
       toast.error(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -801,7 +878,7 @@ export function MobileDprForm({
                   } : m));
                 }}
               />
-              <div className="grid grid-cols-2 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Qty" value={l.qty} onChange={(e) => setMaterialLines(materialLines.map((m, i) => i === idx ? { ...m, qty: e.target.value } : m))} className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={inputStyle} />
                 <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Unit cost" value={l.unitCost} onChange={(e) => setMaterialLines(materialLines.map((m, i) => i === idx ? { ...m, unitCost: e.target.value } : m))} className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={inputStyle} />
               </div>
@@ -841,7 +918,7 @@ export function MobileDprForm({
             Labour utilised
           </h3>
           <div className="flex items-center gap-1.5">
-            {fProject && !editingDprId && (
+            {fProject && (
               <button
                 type="button"
                 onClick={pullTodaysAttendance}
@@ -903,7 +980,7 @@ export function MobileDprForm({
                 placeholder="Or crew…"
                 compact
               />
-              <div className="grid grid-cols-2 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Hours" value={l.hoursWorked} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, hoursWorked: e.target.value } : m))} className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={inputStyle} />
                 <input placeholder="Task description" value={l.taskDescription} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, taskDescription: e.target.value } : m))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={inputStyle} />
               </div>
@@ -913,9 +990,7 @@ export function MobileDprForm({
       </div>
 
       <SectionCard title="Notes">
-        <FormField label="Notes">
-          <textarea value={fNotes} onChange={(e) => setFNotes(e.target.value)} rows={1} placeholder="Additional notes…" className="w-full px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
-        </FormField>
+        <textarea value={fNotes} onChange={(e) => setFNotes(e.target.value)} rows={1} placeholder="Additional notes…" className="w-full px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
       </SectionCard>
 
       <div>

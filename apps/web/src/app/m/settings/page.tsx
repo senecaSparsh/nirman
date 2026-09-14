@@ -238,8 +238,8 @@ export default function SettingsPage() {
                   <MobileRow
                     href="/m/permissions"
                     icon={Shield}
-                    title="Permission matrix"
-                    subtitle="Role-based access control"
+                    title="Legal documents"
+                    subtitle="NOCs, permissions, certificates across projects & land"
                     meta="View"
                   />
                   <MobileRow

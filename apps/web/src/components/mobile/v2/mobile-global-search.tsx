@@ -289,7 +289,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
           style={{
             color: "var(--color-ink-500)",
             borderColor: "var(--color-line)",
-            backgroundColor: "var(--color-surface)",
+            backgroundColor: "var(--color-concrete)",
           }}
         >
           {totalResults} result{totalResults !== 1 ? "s" : ""} across {grouped.length} categor{grouped.length !== 1 ? "ies" : "y"}
@@ -340,7 +340,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
                 >
                   <div
                     className="shrink-0 flex items-center justify-center size-8 rounded-[0.625rem]"
-                    style={{ backgroundColor: "var(--color-surface)" }}
+                    style={{ backgroundColor: "var(--color-concrete)" }}
                   >
                     <Icon className="size-4" style={{ color: "var(--color-ink-500)" }} />
                   </div>
@@ -386,12 +386,12 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
                       onClick={() => handleSelect(item)}
                       className="text-m-body press w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
                       style={{
-                        backgroundColor: isActive ? "var(--color-surface)" : "transparent",
+                        backgroundColor: isActive ? "var(--color-concrete)" : "transparent",
                       }}
                     >
                       <div
                         className="shrink-0 flex items-center justify-center size-8 rounded-[0.625rem]"
-                        style={{ backgroundColor: "var(--color-surface)" }}
+                        style={{ backgroundColor: "var(--color-concrete)" }}
                       >
                         <Icon className="size-4" style={{ color: "var(--color-ink-500)" }} />
                       </div>
@@ -415,7 +415,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
                         <span
                           className="shrink-0 text-m-caption font-semibold px-1.5 py-0.5 rounded uppercase"
                           style={{
-                            backgroundColor: "var(--color-surface)",
+                            backgroundColor: "var(--color-concrete)",
                             color: "var(--color-ink-500)",
                           }}
                         >
@@ -460,7 +460,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
                 >
                   <div
                     className="shrink-0 flex items-center justify-center size-8 rounded-[0.625rem]"
-                    style={{ backgroundColor: "var(--color-surface)" }}
+                    style={{ backgroundColor: "var(--color-concrete)" }}
                   >
                     <Icon className="size-4" style={{ color: "var(--color-ink-500)" }} />
                   </div>

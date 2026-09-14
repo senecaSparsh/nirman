@@ -171,6 +171,34 @@ export async function createEmployeeAccount(input: CreateEmployeeAccountInput) {
       );
     }
 
+    // ── Enforce the "company number = login" invariant ──
+    // When an existing pool number is assigned at onboarding, the login phone
+    // MUST be that number — otherwise the pool would show "In use" while the
+    // user actually logs in with a different (personal) number, which is
+    // exactly the divergence this model is designed to prevent.
+    if (input.companyPhoneId) {
+      const poolPhone = await tx.companyPhone.findFirst({
+        where: { id: input.companyPhoneId, companyId: input.companyId, deletedAt: null },
+        select: { phoneNormalized: true },
+      });
+      if (poolPhone && poolPhone.phoneNormalized !== normalizedPhone) {
+        throw new HrError(
+          "The assigned company number must be the employee's login phone — they are the same number.",
+          400,
+        );
+      }
+    }
+
+    // Same invariant for a brand-new number: the number being registered +
+    // assigned must be the login phone (a CompanyPhone is created for it and
+    // assigned to this user — it cannot differ from `phone`).
+    if (input.newPhoneNumber && normalizePhone(input.newPhoneNumber) !== normalizedPhone) {
+      throw new HrError(
+        "The new company number being added is the employee's login phone — they are the same number.",
+        400,
+      );
+    }
+
     let userId: string;
 
     if (existingUser) {
@@ -472,6 +500,24 @@ export async function assignPhoneToEmployee(input: AssignPhoneToEmployeeInput) {
     }
     if (!employee.user.active) throw new HrError("The linked account is deactivated", 400);
 
+    // Release the number this user currently carries (if it's a different one)
+    // — a phone change hands the old number back to the pool, it doesn't stay
+    // assigned. Reassigning the same number is a no-op and must not recycle it.
+    const currentPhone = await tx.companyPhone.findFirst({
+      where: { assignedToUserId: employee.userId, companyId: input.companyId, deletedAt: null },
+      select: { id: true },
+    });
+    if (currentPhone && currentPhone.id !== input.companyPhoneId) {
+      await tx.phoneAssignment.updateMany({
+        where: { companyPhoneId: currentPhone.id, returnedAt: null },
+        data: { returnedAt: new Date(), reason: "Replaced by a new number" },
+      });
+      await tx.companyPhone.update({
+        where: { id: currentPhone.id },
+        data: { assignedToUserId: null, assignedAt: null, status: "RECYCLED" },
+      });
+    }
+
     let companyPhoneId: string;
 
     if (input.companyPhoneId) {
@@ -501,13 +547,41 @@ export async function assignPhoneToEmployee(input: AssignPhoneToEmployeeInput) {
       throw new HrError("Either companyPhoneId or newPhoneNumber is required", 400);
     }
 
+    // Keep the login phone in step with the assigned company number — the
+    // number the employee carries IS their login, so a phone change must move
+    // their login too (otherwise they'd sign in with the old, now-recycled
+    // number while carrying a different assigned one).
+    const assignedPhone = await tx.companyPhone.findUnique({
+      where: { id: companyPhoneId },
+      select: { phoneNumber: true, phoneNormalized: true },
+    });
+    if (assignedPhone) {
+      // The new number becomes the login — make sure it isn't already another
+      // active user's login credential.
+      const loginTaken = await tx.user.findFirst({
+        where: { phoneNormalized: assignedPhone.phoneNormalized, active: true, id: { not: employee.userId } },
+        select: { name: true },
+      });
+      if (loginTaken) {
+        throw new HrError(
+          `${assignedPhone.phoneNumber} is already ${loginTaken.name}'s login number — it can't be reassigned.`,
+          409,
+        );
+      }
+      await tx.user.update({
+        where: { id: employee.userId },
+        data: { phone: assignedPhone.phoneNumber, phoneNormalized: assignedPhone.phoneNormalized },
+      });
+      await syncEmployeeUserFields(tx, input.employeeId, employee.userId);
+    }
+
     await logAction(tx, {
       userId: input.actorUserId,
       companyId: input.companyId,
       action: "EMPLOYEE_PHONE_ASSIGN",
       entityType: "Employee",
       entityId: input.employeeId,
-      after: { companyPhoneId },
+      after: { companyPhoneId, loginPhone: assignedPhone?.phoneNumber ?? null },
     });
 
     return { employeeId: input.employeeId, companyPhoneId };

@@ -19,6 +19,7 @@ import {
 import { formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { useAutoScroll } from "@/lib/use-auto-scroll";
+import { useFetch } from "@/lib/use-fetch";
 
 type BriefingData = {
   date: string;
@@ -33,6 +34,11 @@ type BriefingData = {
     canApproveReq: boolean;
     canApproveGp: boolean;
     canApproveDpr: boolean;
+    canApproveExpense: boolean;
+    canApproveRa: boolean;
+    expenseCount: number;
+    claimCount: number;
+    raCount: number;
   };
   lowStock: Array<{ materialId: string; materialName: string; materialCode: string; qty: number; unit: string; reorderPoint: number | null }>;
   deliveriesToday: Array<{ poNumber: string; supplierName: string; projectName: string | null; total: number }>;
@@ -49,34 +55,21 @@ type BriefingData = {
  * Field workers see their attendance + DPR + tasks instead.
  */
 export function MorningBriefing() {
-  const [data, setData] = useState<BriefingData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, isValidating, retry } = useFetch<BriefingData>("/api/briefing");
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchBriefing = useCallback(async (isRefresh = false) => {
+  const fetchBriefing = useCallback((isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
       haptic(10);
-    } else {
-      setLoading(true);
     }
-    try {
-      const res = await fetch("/api/briefing");
-      const json = await res.json();
-      if (res.ok) {
-        setData(json);
-      }
-    } catch {
-      // silent fail
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+    retry();
+  }, [retry]);
 
+  // Clear the refresh spinner once revalidation settles.
   useEffect(() => {
-    fetchBriefing();
-  }, [fetchBriefing]);
+    if (!isValidating) setRefreshing(false);
+  }, [isValidating]);
 
   if (loading) {
     return (
@@ -122,13 +115,22 @@ export function MorningBriefing() {
         data.approvals.canApproveDpr && data.approvals.dprCount > 0
           ? { label: `${data.approvals.dprCount} DPR${data.approvals.dprCount === 1 ? "" : "s"}`, href: "/m/pulse/approvals" }
           : null,
+        data.approvals.canApproveExpense && (data.approvals.expenseCount ?? 0) > 0
+          ? { label: `${data.approvals.expenseCount} Expense${data.approvals.expenseCount === 1 ? "" : "s"}`, href: "/m/pulse/approvals" }
+          : null,
+        data.approvals.canApproveExpense && (data.approvals.claimCount ?? 0) > 0
+          ? { label: `${data.approvals.claimCount} Expense Claim${data.approvals.claimCount === 1 ? "" : "s"}`, href: "/m/pulse/approvals" }
+          : null,
+        data.approvals.canApproveRa && (data.approvals.raCount ?? 0) > 0
+          ? { label: `${data.approvals.raCount} RA Bill${data.approvals.raCount === 1 ? "" : "s"}`, href: "/m/pulse/approvals" }
+          : null,
       ].filter(Boolean) as { label: string; href: string }[],
     });
   }
   if (data.lowStock.length > 0) {
     managerCards.push({
       icon: PackageX,
-      iconBg: "#d97706",
+      iconBg: "var(--color-signal-dark)",
       title: "Low stock alerts",
       count: data.lowStock.length,
       href: "/m/inventory",
@@ -141,7 +143,7 @@ export function MorningBriefing() {
   if (data.deliveriesToday.length > 0) {
     managerCards.push({
       icon: Truck,
-      iconBg: "#2d5a8c",
+      iconBg: "var(--color-steel)",
       title: "Deliveries expected today",
       count: data.deliveriesToday.length,
       href: "/m/procurement",
@@ -154,7 +156,7 @@ export function MorningBriefing() {
   if (data.paymentsDue.length > 0) {
     managerCards.push({
       icon: CalendarClock,
-      iconBg: "#b91c1c",
+      iconBg: "var(--color-stop)",
       title: "Payments overdue",
       count: data.paymentsDue.length,
       href: "/m/accounts?tab=payments",

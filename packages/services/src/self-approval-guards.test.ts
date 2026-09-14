@@ -139,6 +139,53 @@ describe("approveRequisition — self-approval guard", () => {
       expect((err as ServiceError).status).toBe(403);
     }
   });
+
+  // ── Tier-1 self-approval exception ──
+  // A tier-1 role (OWNER/ADMIN) may approve their own submission — there is no
+  // higher approver above them, so routing through a second reviewer is pure
+  // friction (and a deadlock when the owner is the only admin). Passing the
+  // actor's role as `actorRole` opts into this; without it the guard stays strict.
+  it.each(["OWNER", "ADMIN"] as const)(
+    "allows self-approval for tier-1 role %s",
+    async (role) => {
+      const tx = makeMockTx({
+        materialRequisition: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: "req-1",
+            status: "SUBMITTED",
+            requestedById: "user-1",
+            project: { companyId: "c1" },
+            department: null,
+          }),
+        },
+      });
+      runWithTx(tx);
+      await expect(
+        approveRequisition("req-1", "user-1", undefined, role),
+      ).resolves.toBeDefined();
+    },
+  );
+
+  it.each(["PROJECT_MANAGER", "SUPERVISOR", "SITE_ENGINEER"] as const)(
+    "still blocks self-approval for non-tier-1 role %s",
+    async (role) => {
+      const tx = makeMockTx({
+        materialRequisition: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: "req-1",
+            status: "SUBMITTED",
+            requestedById: "user-1",
+            project: { companyId: "c1" },
+            department: null,
+          }),
+        },
+      });
+      runWithTx(tx);
+      await expect(
+        approveRequisition("req-1", "user-1", undefined, role),
+      ).rejects.toThrow("You cannot approve your own indent");
+    },
+  );
 });
 
 describe("rejectRequisition — self-rejection guard", () => {

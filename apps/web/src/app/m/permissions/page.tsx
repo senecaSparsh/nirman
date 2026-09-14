@@ -11,6 +11,7 @@ import {
   MobilePermissionsList,
   type MobilePermissionRow,
 } from "./MobilePermissionsList";
+import { MobilePermissionsFab } from "./MobilePermissionsFab";
 import { ShieldCheck, AlertTriangle, Clock, CheckCircle2, FileText } from "lucide-react";
 
 export const metadata = { title: "Permissions & Legal — Nirman" };
@@ -26,15 +27,33 @@ export default function MobilePermissionsPage() {
   return (
     <MobileListPage perm={PERM.ASSETS_VIEW} what="permissions & legal documents" permission={PERM.ASSETS_VIEW} managePerm={PERM.LEGAL_MANAGE} skeletonRows={8}>
       {async ({ company, canManage }) => {
-        // Fetch all legal documents for this company, with project + land names
-        const docs = await prisma.legalDocument.findMany({
-          where: { companyId: company.id, deletedAt: null },
-          orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-          include: {
-            project: { select: { id: true, name: true } },
-            landPurchase: { select: { id: true, sellerName: true, location: true } },
-          },
-        });
+        // Fetch all legal documents for this company, with project + land names.
+        // Also fetch the linkable entities (projects + land parcels) for the
+        // create form — a legal doc must be linked to one of them.
+        const [docs, projects, landPurchases] = await Promise.all([
+          prisma.legalDocument.findMany({
+            where: { companyId: company.id, deletedAt: null },
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+            include: {
+              project: { select: { id: true, name: true } },
+              landPurchase: { select: { id: true, sellerName: true, location: true } },
+            },
+          }),
+          canManage
+            ? prisma.project.findMany({
+                where: { companyId: company.id, deletedAt: null },
+                orderBy: { name: "asc" },
+                select: { id: true, name: true },
+              })
+            : [],
+          canManage
+            ? prisma.landPurchase.findMany({
+                where: { companyId: company.id, deletedAt: null },
+                orderBy: { createdAt: "desc" },
+                select: { id: true, sellerName: true, location: true },
+              })
+            : [],
+        ]);
 
         const rows: MobilePermissionRow[] = docs.map((d) => ({
           id: d.id,
@@ -65,7 +84,7 @@ export default function MobilePermissionsPage() {
         return (
           <div>
             {/* ── Summary stats ── */}
-            <div className="grid grid-cols-2 gap-1.5 mb-4">
+            <div className="grid grid-cols-2 gap-2 mb-4">
               <MobileStatCard
                 label="Total Docs"
                 value={String(total)}
@@ -108,6 +127,10 @@ export default function MobilePermissionsPage() {
               />
             ) : (
               <MobilePermissionsList docs={rows} canManage={canManage} />
+            )}
+
+            {canManage && (projects.length > 0 || landPurchases.length > 0) && (
+              <MobilePermissionsFab projects={projects} landPurchases={landPurchases} />
             )}
           </div>
         );

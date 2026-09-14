@@ -466,7 +466,7 @@ export function MobileEmployeeDetailClient({
             ) : (
               <span
                 className="flex items-center gap-0.5 text-m-label font-bold px-1.5 py-0.5 rounded-full"
-                style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-500)" }}
+                style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}
               >
                 <AlertCircle className="size-2.5" /> Unverified
               </span>
@@ -481,7 +481,7 @@ export function MobileEmployeeDetailClient({
             ) : (
               <span
                 className="flex items-center gap-0.5 text-m-label font-bold px-1.5 py-0.5 rounded-full"
-                style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-500)" }}
+                style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}
               >
                 <XCircle className="size-2.5" /> Not Synced
               </span>
@@ -524,7 +524,7 @@ export function MobileEmployeeDetailClient({
                     style={
                       employee.user?.phoneVerified === true
                         ? { backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)", color: "var(--color-go)" }
-                        : { backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-500)" }
+                        : { backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }
                     }
                   >
                     {employee.user?.phoneVerified === true ? <CheckCircle2 className="size-2.5" /> : <AlertCircle className="size-2.5" />}
@@ -536,7 +536,7 @@ export function MobileEmployeeDetailClient({
                     style={
                       employee.user?.phoneSyncedAt
                         ? { backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)", color: "var(--color-go)" }
-                        : { backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-500)" }
+                        : { backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }
                     }
                   >
                     {employee.user?.phoneSyncedAt ? <ShieldCheck className="size-2.5" /> : <XCircle className="size-2.5" />}
@@ -601,7 +601,7 @@ export function MobileEmployeeDetailClient({
             <div className="flex items-center gap-2 mb-2">
               <div
                 className="grid place-items-center size-7 rounded-full shrink-0"
-                style={{ backgroundColor: "var(--color-ink-100)" }}
+                style={{ backgroundColor: "var(--color-concrete)" }}
               >
                 <ArrowUp className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
               </div>
@@ -643,7 +643,7 @@ export function MobileEmployeeDetailClient({
               {!editingReportsTo && employee.reportsTo && (
                 <span
                   className="text-m-caption px-1.5 py-0.5 rounded-[0.25rem] shrink-0"
-                  style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-700)" }}
+                  style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
                 >
                   {employee.reportsTo.designation ?? employee.reportsTo.role?.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) ?? "—"}
                 </span>
@@ -684,7 +684,7 @@ export function MobileEmployeeDetailClient({
                 <div className="flex items-center gap-2 mb-1.5">
                   <div
                     className="grid place-items-center size-7 rounded-full shrink-0"
-                    style={{ backgroundColor: "var(--color-ink-100)" }}
+                    style={{ backgroundColor: "var(--color-concrete)" }}
                   >
                     <ArrowDown className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
                   </div>
@@ -702,7 +702,7 @@ export function MobileEmployeeDetailClient({
                       <span className="text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>{r.name}</span>
                       <span
                         className="text-m-caption px-1.5 py-0.5 rounded-[0.25rem] shrink-0"
-                        style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-700)" }}
+                        style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
                       >
                         {r.designation ?? r.role?.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) ?? "—"}
                       </span>
@@ -719,6 +719,11 @@ export function MobileEmployeeDetailClient({
         <AccessSection
           employeeId={employee.id}
           employeeName={employee.name}
+          employeePhone={employee.phone ?? employee.user?.phone ?? null}
+          employeeEmail={employee.email ?? employee.user?.email ?? null}
+          employeeDesignation={employee.designation}
+          employeeHierarchyLevel={employee.hierarchyLevel}
+          actorRole={actorRole}
           user={employee.user}
           canManageUsers={canManageUsers ?? false}
           isSelf={!!currentUserId && !!employee.user && currentUserId === employee.user.id}
@@ -774,7 +779,7 @@ export function MobileEmployeeDetailClient({
                     style={{
                       backgroundColor: isComplete
                         ? "color-mix(in srgb, var(--color-go) 15%, transparent)"
-                        : pct > 0 ? "color-mix(in srgb, var(--color-signal) 15%, transparent)" : "var(--color-ink-100)",
+                        : pct > 0 ? "color-mix(in srgb, var(--color-signal) 15%, transparent)" : "var(--color-concrete)",
                     }}
                   >
                     {isComplete ? (
@@ -806,7 +811,7 @@ export function MobileEmployeeDetailClient({
               <div className="px-3 pb-3">
                 <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "var(--color-concrete)" }}>
                   <div
-                    className="h-full rounded-full transition-all duration-500"
+                    className="h-full rounded-full transition-[width] duration-300"
                     style={{
                       width: `${isComplete ? 100 : pct}%`,
                       backgroundColor: isComplete || pct === 100 ? "var(--color-go)" : "var(--color-signal)",
@@ -843,7 +848,7 @@ export function MobileEmployeeDetailClient({
               <div className="flex items-center justify-between mb-1">
                 <div
                   className="grid place-items-center size-6 rounded-full shrink-0"
-                  style={{ backgroundColor: issued ? "color-mix(in srgb, var(--color-go) 15%, transparent)" : "var(--color-ink-100)" }}
+                  style={{ backgroundColor: issued ? "color-mix(in srgb, var(--color-go) 15%, transparent)" : "var(--color-concrete)" }}
                 >
                   <FileText className="size-3" style={{ color: issued ? "var(--color-go)" : "var(--color-ink-400)" }} />
                 </div>
@@ -877,7 +882,7 @@ export function MobileEmployeeDetailClient({
               <div className="flex items-center justify-between mb-1">
                 <div
                   className="grid place-items-center size-6 rounded-full shrink-0"
-                  style={{ backgroundColor: issued ? "color-mix(in srgb, var(--color-go) 15%, transparent)" : "var(--color-ink-100)" }}
+                  style={{ backgroundColor: issued ? "color-mix(in srgb, var(--color-go) 15%, transparent)" : "var(--color-concrete)" }}
                 >
                   <FileText className="size-3" style={{ color: issued ? "var(--color-go)" : "var(--color-ink-400)" }} />
                 </div>
@@ -910,7 +915,7 @@ export function MobileEmployeeDetailClient({
               <div className="flex items-center justify-between mb-1">
                 <div
                   className="grid place-items-center size-6 rounded-full shrink-0"
-                  style={{ backgroundColor: issued ? "color-mix(in srgb, var(--color-go) 15%, transparent)" : "var(--color-ink-100)" }}
+                  style={{ backgroundColor: issued ? "color-mix(in srgb, var(--color-go) 15%, transparent)" : "var(--color-concrete)" }}
                 >
                   <FileText className="size-3" style={{ color: issued ? "var(--color-go)" : "var(--color-ink-400)" }} />
                 </div>
@@ -943,7 +948,7 @@ export function MobileEmployeeDetailClient({
               <div className="flex items-center justify-between mb-1">
                 <div
                   className="grid place-items-center size-6 rounded-full shrink-0"
-                  style={{ backgroundColor: issued ? "color-mix(in srgb, var(--color-go) 15%, transparent)" : "var(--color-ink-100)" }}
+                  style={{ backgroundColor: issued ? "color-mix(in srgb, var(--color-go) 15%, transparent)" : "var(--color-concrete)" }}
                 >
                   <IdCard className="size-3" style={{ color: issued ? "var(--color-go)" : "var(--color-ink-400)" }} />
                 </div>
@@ -972,7 +977,7 @@ export function MobileEmployeeDetailClient({
           <div className="flex items-center justify-between mb-1">
             <div
               className="grid place-items-center size-6 rounded-full shrink-0"
-              style={{ backgroundColor: employee.autoDepositEnabled ? "color-mix(in srgb, var(--color-go) 15%, transparent)" : "var(--color-ink-100)" }}
+              style={{ backgroundColor: employee.autoDepositEnabled ? "color-mix(in srgb, var(--color-go) 15%, transparent)" : "var(--color-concrete)" }}
             >
               <Wallet className="size-3" style={{ color: employee.autoDepositEnabled ? "var(--color-go)" : "var(--color-ink-400)" }} />
             </div>
@@ -999,7 +1004,7 @@ export function MobileEmployeeDetailClient({
           <div className="flex items-center justify-between mb-1">
             <div
               className="grid place-items-center size-6 rounded-full shrink-0"
-              style={{ backgroundColor: "var(--color-ink-100)" }}
+              style={{ backgroundColor: "var(--color-concrete)" }}
             >
               <FolderOpen className="size-3" style={{ color: "var(--color-ink-500)" }} />
             </div>
@@ -1060,7 +1065,7 @@ export function MobileEmployeeDetailClient({
           <div className="flex items-center justify-between mb-1">
             <div
               className="grid place-items-center size-6 rounded-full shrink-0"
-              style={{ backgroundColor: employee.attendances.length > 0 ? "color-mix(in srgb, var(--color-go) 15%, transparent)" : "var(--color-ink-100)" }}
+              style={{ backgroundColor: employee.attendances.length > 0 ? "color-mix(in srgb, var(--color-go) 15%, transparent)" : "var(--color-concrete)" }}
             >
               <Clock className="size-3" style={{ color: employee.attendances.length > 0 ? "var(--color-go)" : "var(--color-ink-400)" }} />
             </div>
@@ -1081,7 +1086,7 @@ export function MobileEmployeeDetailClient({
           <div className="flex items-center justify-between mb-1">
             <div
               className="grid place-items-center size-6 rounded-full shrink-0"
-              style={{ backgroundColor: employee.payrollHistory.length > 0 ? "color-mix(in srgb, var(--color-go) 15%, transparent)" : "var(--color-ink-100)" }}
+              style={{ backgroundColor: employee.payrollHistory.length > 0 ? "color-mix(in srgb, var(--color-go) 15%, transparent)" : "var(--color-concrete)" }}
             >
               <Wallet className="size-3" style={{ color: employee.payrollHistory.length > 0 ? "var(--color-go)" : "var(--color-ink-400)" }} />
             </div>
@@ -1102,7 +1107,7 @@ export function MobileEmployeeDetailClient({
           <div className="flex items-center justify-between mb-1">
             <div
               className="grid place-items-center size-6 rounded-full shrink-0"
-              style={{ backgroundColor: employee.tasks.length > 0 ? "color-mix(in srgb, var(--color-signal) 15%, transparent)" : "var(--color-ink-100)" }}
+              style={{ backgroundColor: employee.tasks.length > 0 ? "color-mix(in srgb, var(--color-signal) 15%, transparent)" : "var(--color-concrete)" }}
             >
               <ListChecks className="size-3" style={{ color: employee.tasks.length > 0 ? "var(--color-signal-dark)" : "var(--color-ink-400)" }} />
             </div>
@@ -1123,7 +1128,7 @@ export function MobileEmployeeDetailClient({
           <div className="flex items-center justify-between mb-1">
             <div
               className="grid place-items-center size-6 rounded-full shrink-0"
-              style={{ backgroundColor: employee.dprHistory.length > 0 ? "color-mix(in srgb, var(--color-go) 15%, transparent)" : "var(--color-ink-100)" }}
+              style={{ backgroundColor: employee.dprHistory.length > 0 ? "color-mix(in srgb, var(--color-go) 15%, transparent)" : "var(--color-concrete)" }}
             >
               <FileText className="size-3" style={{ color: employee.dprHistory.length > 0 ? "var(--color-go)" : "var(--color-ink-400)" }} />
             </div>
@@ -1144,7 +1149,7 @@ export function MobileEmployeeDetailClient({
           <div className="flex items-center justify-between mb-1">
             <div
               className="grid place-items-center size-6 rounded-full shrink-0"
-              style={{ backgroundColor: employee.leaveHistory.length > 0 ? "color-mix(in srgb, var(--color-signal) 15%, transparent)" : "var(--color-ink-100)" }}
+              style={{ backgroundColor: employee.leaveHistory.length > 0 ? "color-mix(in srgb, var(--color-signal) 15%, transparent)" : "var(--color-concrete)" }}
             >
               <CalendarOff className="size-3" style={{ color: employee.leaveHistory.length > 0 ? "var(--color-signal-dark)" : "var(--color-ink-400)" }} />
             </div>
@@ -1315,7 +1320,7 @@ export function MobileEmployeeDetailClient({
                 ) : (
                   <span
                     className="inline-flex items-center gap-0.5 text-m-label font-bold px-1.5 py-0.5 rounded-full"
-                    style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-500)" }}
+                    style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}
                   >
                     <Clock className="size-2.5" /> No data
                   </span>
@@ -1627,7 +1632,7 @@ export function MobileEmployeeDetailClient({
               <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>
                 Archive {employee.name}? Attendance, payroll, and DPR history are preserved.
               </p>
-              <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
                 <button
                   onClick={handleDelete}
                   disabled={deleting}
@@ -1992,7 +1997,7 @@ function PhoneStatusDialog({
             style={
               isVerified
                 ? { backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)", color: "var(--color-go)" }
-                : { backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-500)" }
+                : { backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }
             }
           >
             {isVerified ? <CheckCircle2 className="size-3" /> : <AlertCircle className="size-3" />}
@@ -2003,7 +2008,7 @@ function PhoneStatusDialog({
             style={
               isSynced
                 ? { backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)", color: "var(--color-go)" }
-                : { backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-500)" }
+                : { backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }
             }
           >
             {isSynced ? <ShieldCheck className="size-3" /> : <XCircle className="size-3" />}
@@ -2181,7 +2186,7 @@ function AddToCompanyChip({ employeeId, companies }: { employeeId: string; compa
                   {c.parentCompanyId === null && (
                     <span
                       className="text-m-caption px-1 rounded-full"
-                      style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-500)" }}
+                      style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}
                     >
                       Parent
                     </span>
@@ -2493,7 +2498,7 @@ function EmployeeEditSheet({
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 pt-1">
+          <div className="flex gap-2 pt-1">
             <button
               onClick={onClose}
               disabled={saving}

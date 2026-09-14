@@ -397,7 +397,11 @@ describe("G6 — navigation never shows a dead end", () => {
    * So the universal set is an allowlist, not an accident.
    */
   it("only genuinely universal routes are ungated", () => {
-    const UNIVERSAL = ["/m/home", "/m/me", "/m/queue", "/m/settings"];
+    // "/m/approvals" is a per-user surface — it self-gates server-side to a
+    // "No access" empty state for non-approvers, so no single module perm can
+    // gate it (it aggregates po/requisition/gate-pass/dpr/expense/ra/leave
+    // approvals, each with its own perm). Deliberately universal.
+    const UNIVERSAL = ["/m/approvals", "/m/home", "/m/me", "/m/queue", "/m/settings"];
     // Redirect stubs need no gate of their own — whatever they redirect to
     // enforces one, and G4 already guarantees they are never an Up target.
     const ungated = ROUTES

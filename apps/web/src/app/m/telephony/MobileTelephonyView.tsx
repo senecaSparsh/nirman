@@ -300,7 +300,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
             {expanded && (
               <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--color-line)" }}>
                 {/* Stats row */}
-                <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="grid grid-cols-3 gap-1.5 mb-3">
                   <div>
                     <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Type</p>
                     <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-900)" }}>
@@ -948,12 +948,12 @@ TWILIO_AUTH_TOKEN=xxx...`}
       )}
 
       {/* Sync actions */}
-      <div className="space-y-2">
-        <Button variant="signal" size="lg" fullWidth onClick={syncNumbers} disabled={syncing}>
+      <div className="flex gap-2">
+        <Button variant="signal" size="lg" className="flex-1" onClick={syncNumbers} disabled={syncing}>
           {syncing ? <Loader2 className="size-4 animate-spin" /> : <Cloud className="size-4" />}
           Sync Numbers + Webhooks
         </Button>
-        <Button variant="secondary" size="lg" fullWidth onClick={syncCalls} disabled={syncing}>
+        <Button variant="secondary" size="lg" className="flex-1" onClick={syncCalls} disabled={syncing}>
           {syncing ? <Loader2 className="size-4 animate-spin" /> : <PhoneIncoming className="size-4" />}
           Sync Recent Calls
         </Button>

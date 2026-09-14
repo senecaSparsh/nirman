@@ -453,7 +453,7 @@ function DeleteConfirm({
             title="This customer will be permanently deleted."
             description="Only possible if they have no active sales."
           />
-          <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
             <button
               onClick={onClose}
               disabled={acting}

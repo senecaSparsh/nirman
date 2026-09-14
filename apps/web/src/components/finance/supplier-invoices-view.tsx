@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, FileText, RefreshCw, Check, X, AlertTriangle, SearchX, IndianRupee, Upload, Loader2 } from "lucide-react";
@@ -14,7 +15,7 @@ import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { SupplierFormDialog } from "@/components/procurement/supplier-form-dialog";
 import { SupplierPaymentFormDialog } from "@/components/procurement/supplier-payment-form-dialog";
 import { HsnSacSearch } from "@/components/hsn-sac-search";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { localDateISO, formatCurrency, formatDate, cn } from "@/lib/utils";
 import type { SupplierRow } from "@/lib/types";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -143,35 +144,24 @@ export function SupplierInvoicesView({
   suppliers,
   purchaseOrders,
   permissions,
+  currentUserId,
 }: {
   suppliers: SupplierOption[];
   purchaseOrders: PoOption[];
-  permissions: { canManage: boolean };
+  permissions: { canManage: boolean; canSelfApprove?: boolean };
+  currentUserId?: string | null;
 }) {
   const router = useRouter();
-  const [invoices, setInvoices] = useState<SupplierInvoiceRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error, retry: fetchInvoices } = useFetch<SupplierInvoiceRow[]>("/api/supplier-invoices");
+  const invoices = data ?? [];
   const [formOpen, setFormOpen] = useState(false);
   const [detail, setDetail] = useState<InvoiceDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const fetchInvoices = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/supplier-invoices");
-      const data = await res.json();
-      if (res.ok) setInvoices(data);
-    } catch {
-      toast.error("Failed to load supplier invoices");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    fetchInvoices();
-  }, [fetchInvoices]);
+    if (error) toast.error("Failed to load supplier invoices");
+  }, [error]);
 
   async function openDetail(invoice: SupplierInvoiceRow) {
     setDetailLoading(true);
@@ -361,6 +351,8 @@ export function SupplierInvoicesView({
           <InvoiceDetailContent
             detail={detail}
             canManage={permissions.canManage}
+            currentUserId={currentUserId}
+            canSelfApprove={permissions.canSelfApprove}
             actionLoading={actionLoading}
             onAction={handleAction}
             suppliers={suppliers}
@@ -376,17 +368,24 @@ export function SupplierInvoicesView({
 function InvoiceDetailContent({
   detail,
   canManage,
+  currentUserId,
+  canSelfApprove,
   actionLoading,
   onAction,
   suppliers,
 }: {
   detail: InvoiceDetail;
   canManage: boolean;
+  currentUserId?: string | null;
+  canSelfApprove?: boolean;
   actionLoading: boolean;
   onAction: (action: "approve" | "reject") => void;
   suppliers: SupplierOption[];
 }) {
-  const canApprove = detail.status === "PENDING" || detail.status === "MATCHED" || detail.status === "DISPUTED";
+  // Hide approve/reject from the receiver — self-approval is blocked
+  // server-side — unless a tier-1 approver (OWNER/ADMIN).
+  const isSelfReceived = detail.receivedBy?.id === currentUserId;
+  const canApprove = (detail.status === "PENDING" || detail.status === "MATCHED" || detail.status === "DISPUTED") && (!isSelfReceived || canSelfApprove);
   const canPay = canManage && (detail.status === "APPROVED" || detail.status === "PAID");
   const [showPayment, setShowPayment] = useState(false);
   return (
@@ -645,7 +644,7 @@ function SupplierInvoiceFormDialog({
     invoiceNumber: "",
     supplierId: "",
     purchaseOrderId: "",
-    invoiceDate: new Date().toISOString().slice(0, 10),
+    invoiceDate: localDateISO(),
     dueDate: "",
     subtotal: "",
     gstAmount: "",
@@ -665,7 +664,7 @@ function SupplierInvoiceFormDialog({
         invoiceNumber: "",
         supplierId: "",
         purchaseOrderId: "",
-        invoiceDate: new Date().toISOString().slice(0, 10),
+        invoiceDate: localDateISO(),
         dueDate: "",
         subtotal: "",
         gstAmount: "",

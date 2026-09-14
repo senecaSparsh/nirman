@@ -160,7 +160,7 @@ export function ClaimApprovalList({ claims, categories }: { claims: ApprovalClai
           open={rejecting !== null}
           onOpenChange={(o) => !o && setRejecting(null)}
           title={`Reject claim — ${rejecting.claimantName}`}
-          description={`${formatCurrency(rejecting.totalAmount)} · ${rejecting.lineCount} line(s)`}
+          description={`${formatCurrency(rejecting.totalAmount)} · ${rejecting.lineCount} ${rejecting.lineCount === 1 ? "line" : "lines"}`}
           className="max-w-md"
         >
           <div className="space-y-3">

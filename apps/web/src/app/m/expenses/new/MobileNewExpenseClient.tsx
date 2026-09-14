@@ -6,7 +6,6 @@ import { Loader2, Send, Save, IndianRupee, CheckCircle2, Plus, Eye } from "lucid
 import { toast } from "sonner";
 import { useTodayDateState } from "@/lib/use-today-date";
 import { SectionCard, SelectorModal, EnumSelect } from "@/components/mobile/v2/form-primitives";
-import { MobilePageHeader } from "@/components/mobile/v2/primitives";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
@@ -113,7 +112,7 @@ export function MobileNewExpenseClient({
               ? "It's now in the approval queue for a manager to review."
               : "You can submit it for approval from the expense list."}
           </p>
-          <div className="flex flex-col gap-3 w-full max-w-xs">
+          <div className="flex gap-3 w-full max-w-xs">
             <button
               onClick={() => {
                 // Reset form for another expense
@@ -124,99 +123,110 @@ export function MobileNewExpenseClient({
                 setExtraProjects([]); setExtraSuppliers([]);
                 router.refresh();
               }}
-              className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95"
+              className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               <Plus className="size-4 inline mr-1" /> Add Another
             </button>
             <button
-              onClick={() => router.push("/m/expenses")}
-              className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95"
+              onClick={() => router.push(`/m/expenses/${success.id}`)}
+              className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95"
               style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
             >
-              <Eye className="size-4 inline mr-1" /> View Expenses
+              <Eye className="size-4 inline mr-1" /> View Expense
             </button>
           </div>
         </div>
       ) : (
       <>
-      <MobilePageHeader title="New Expense" subtitle="Record what was spent" />
       <div className="px-3 py-3 flex flex-col gap-3">
-        {/* Project selector */}
+        {/* Category + Amount — the essentials, side by side */}
+        <SectionCard title="Expense">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <span className={labelClass} style={labelStyle}>Category *</span>
+              {categories.length > 0 ? (
+                <button
+                  onClick={() => setModal("category")}
+                  className="w-full text-left h-9 px-2 flex items-center border-b transition-colors"
+                  style={{ borderColor: "var(--color-line)" }}
+                >
+                  <span className="text-m-body truncate" style={{ color: category ? "var(--color-ink-950)" : "var(--color-ink-500)" }}>
+                    {category || "Select…"}
+                  </span>
+                </button>
+              ) : (
+                <input
+                  value={category}
+                  onChange={(e) => { setCategory(e.target.value); setCategoryId(""); }}
+                  placeholder="e.g. Transport, Fuel"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              )}
+            </div>
+            <div>
+              <span className={labelClass} style={labelStyle}>Amount (₹) *</span>
+              <div
+                className="flex items-center gap-1.5 h-9 px-2 border-b transition-colors focus-within:border-b-2"
+                style={{ borderColor: "var(--color-line)" }}
+              >
+                <IndianRupee className="size-3.5 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  inputMode="numeric"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0"
+                  className="w-full min-w-0 h-full text-m-body outline-none bg-transparent tnum"
+                  style={{ color: "var(--color-ink-950)" }}
+                />
+              </div>
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* Project */}
         <SectionCard title="Project">
           <button
             onClick={() => setModal("project")}
-            className="w-full text-left"
+            className="w-full text-left h-9 px-2 flex items-center border-b transition-colors"
+            style={{ borderColor: "var(--color-line)" }}
           >
-            <span className={labelClass} style={labelStyle}>Project (optional)</span>
-            <span className="text-m-body" style={{ color: projectId ? "var(--color-ink-950)" : "var(--color-ink-500)" }}>
+            <span className="text-m-body truncate" style={{ color: projectId ? "var(--color-ink-950)" : "var(--color-ink-500)" }}>
               {[...projects, ...extraProjects].filter((p, i, arr) => arr.findIndex((x) => x.id === p.id) === i).find((p) => p.id === projectId)?.name ?? "Select project…"}
             </span>
           </button>
         </SectionCard>
 
-        {/* Category */}
-        <SectionCard title="Category">
-          {categories.length > 0 ? (
-            <button onClick={() => setModal("category")} className="w-full text-left">
-              <span className={labelClass} style={labelStyle}>Category *</span>
-              <span className="text-m-body" style={{ color: category ? "var(--color-ink-950)" : "var(--color-ink-500)" }}>
-                {category || "Select category…"}
-              </span>
-            </button>
-          ) : (
+        {/* Payee + Supplier — who was paid, side by side */}
+        <SectionCard title="Party">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <span className={labelClass} style={labelStyle}>Category *</span>
+              <span className={labelClass} style={labelStyle}>Payee</span>
               <input
-                value={category}
-                onChange={(e) => { setCategory(e.target.value); setCategoryId(""); }}
-                placeholder="e.g. Transportation, Fuel"
+                value={payeeName}
+                onChange={(e) => setPayeeName(e.target.value)}
+                placeholder="Who was paid?"
                 className={inputClass}
                 style={inputStyle}
               />
             </div>
-          )}
-        </SectionCard>
-
-        {/* Amount */}
-        <SectionCard title="Amount">
-          <span className={labelClass} style={labelStyle}>Amount (₹) *</span>
-          <div className="flex items-center gap-2">
-            <IndianRupee className="size-4" style={{ color: "var(--color-ink-500)" }} />
-            <input
-              type="number"
-              min="0"
-              step="any"
-              inputMode="numeric"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0"
-              className={inputClass}
-              style={inputStyle}
-            />
+            <div>
+              <span className={labelClass} style={labelStyle}>Supplier</span>
+              <button
+                onClick={() => setModal("supplier")}
+                className="w-full text-left h-9 px-2 flex items-center border-b transition-colors"
+                style={{ borderColor: "var(--color-line)" }}
+              >
+                <span className="text-m-body truncate" style={{ color: supplierId ? "var(--color-ink-950)" : "var(--color-ink-500)" }}>
+                  {[...suppliers, ...extraSuppliers].filter((s, i, arr) => arr.findIndex((x) => x.id === s.id) === i).find((s) => s.id === supplierId)?.name ?? "Select…"}
+                </span>
+              </button>
+            </div>
           </div>
-        </SectionCard>
-
-        {/* Payee */}
-        <SectionCard title="Payee">
-          <span className={labelClass} style={labelStyle}>Payee (optional)</span>
-          <input
-            value={payeeName}
-            onChange={(e) => setPayeeName(e.target.value)}
-            placeholder="Who was paid?"
-            className={inputClass}
-            style={inputStyle}
-          />
-        </SectionCard>
-
-        {/* Supplier */}
-        <SectionCard title="Supplier">
-          <button onClick={() => setModal("supplier")} className="w-full text-left">
-            <span className={labelClass} style={labelStyle}>Supplier (optional)</span>
-            <span className="text-m-body" style={{ color: supplierId ? "var(--color-ink-950)" : "var(--color-ink-500)" }}>
-              {[...suppliers, ...extraSuppliers].filter((s, i, arr) => arr.findIndex((x) => x.id === s.id) === i).find((s) => s.id === supplierId)?.name ?? "Select supplier…"}
-            </span>
-          </button>
         </SectionCard>
 
         {/* Payment mode + date */}
@@ -247,23 +257,20 @@ export function MobileNewExpenseClient({
               />
             </div>
           </div>
-        </SectionCard>
-
-        {/* Reference */}
-        <SectionCard title="Reference">
-          <span className={labelClass} style={labelStyle}>Reference No. (optional)</span>
-          <input
-            value={referenceNo}
-            onChange={(e) => setReferenceNo(e.target.value)}
-            placeholder="UTR / Cheque no."
-            className={inputClass}
-            style={inputStyle}
-          />
+          <div>
+            <span className={labelClass} style={labelStyle}>Reference No.</span>
+            <input
+              value={referenceNo}
+              onChange={(e) => setReferenceNo(e.target.value)}
+              placeholder="UTR / Cheque no."
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
         </SectionCard>
 
         {/* Notes */}
         <SectionCard title="Notes">
-          <span className={labelClass} style={labelStyle}>Notes (optional)</span>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}

@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog } from "@/components/ui/dialog";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/empty-state";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { localDateISO, formatCurrency, formatDate } from "@/lib/utils";
 import type { ProjectOption, ExpenseCategoryRow } from "@/lib/types";
 
 type RecurringRow = {
@@ -61,7 +61,7 @@ export function RecurringExpensesView({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     projectId: "", categoryId: "", category: "", amount: "", frequency: "MONTHLY",
-    startDate: new Date().toISOString().slice(0, 10), endDate: "",
+    startDate: localDateISO(), endDate: "",
     payeeName: "", supplierId: "", paymentMode: "", notes: "",
   });
 
@@ -93,7 +93,7 @@ export function RecurringExpensesView({
       if (!res.ok) throw new Error(data.error ?? "Failed to create");
       toast.success("Recurring expense created");
       setCreateOpen(false);
-      setForm({ projectId: "", categoryId: "", category: "", amount: "", frequency: "MONTHLY", startDate: new Date().toISOString().slice(0, 10), endDate: "", payeeName: "", supplierId: "", paymentMode: "", notes: "" });
+      setForm({ projectId: "", categoryId: "", category: "", amount: "", frequency: "MONTHLY", startDate: localDateISO(), endDate: "", payeeName: "", supplierId: "", paymentMode: "", notes: "" });
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Create failed");

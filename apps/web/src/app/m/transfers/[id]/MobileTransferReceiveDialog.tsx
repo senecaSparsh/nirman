@@ -353,15 +353,15 @@ export function MobileTransferReceiveDialog({
         </div>
 
         {/* Footer */}
-        <div className="border-t p-3 space-y-2" style={{ borderColor: "var(--color-line)" }}>
-          <button type="button" onClick={confirmReceive} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press" style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}>
+        <div className="border-t p-3 flex gap-2" style={{ borderColor: "var(--color-line)" }}>
+          <button type="button" onClick={confirmReceive} disabled={submitting} className="flex-1 flex items-center justify-center gap-2 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press" style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}>
             {submitting ? (<><div className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />Receiving…</>) : (<><CheckCircle2 className="size-4" />Confirm — update stock</>)}
           </button>
           <button
             type="button"
             onClick={() => { haptic(10); setShowReturn(true); }}
             disabled={submitting}
-            className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-body font-bold text-m-body press"
+            className="flex-1 flex items-center justify-center gap-2 rounded-[0.5rem] py-2.5 text-m-body font-bold text-m-body press"
             style={{ backgroundColor: "transparent", color: "var(--color-stop)", border: "1px solid var(--color-stop)" }}
           >
             <RotateCcw className="size-3.5" />

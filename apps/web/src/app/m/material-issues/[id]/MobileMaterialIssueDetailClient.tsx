@@ -113,10 +113,10 @@ export function MobileMaterialIssueDetailClient({
   async function handleExecute() {
     setExecuting(true);
     try {
-      const res = await fetch(`/api/issue-materials`, {
+      const res = await fetch(`/api/issue-materials/${issueId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "execute", issueId }),
+        body: JSON.stringify({ action: "execute" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to execute");
@@ -164,8 +164,9 @@ export function MobileMaterialIssueDetailClient({
 
       <AttachmentList entityType="MaterialIssue" entityId={issue.id} />
 
-      {/* ── Print + Execute + Cancel actions ── */}
-      <div className="flex gap-2">
+      {/* ── Print + Execute + Cancel actions ── `id="approve"` is the
+          NextActionCard anchor target for PENDING issues. */}
+      <div id="approve" className="flex gap-2">
         {issue.issueNumber ? (
           <a
             href={`/print/issue/${issue.id}`}
@@ -332,7 +333,7 @@ export function MobileMaterialIssueDetailClient({
               <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
                 This will reverse the stock issue, restore materials to the source location, and reverse GL entries. This cannot be undone.
               </p>
-              <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
                 <button
                   onClick={() => setShowCancel(false)}
                   disabled={cancelling}

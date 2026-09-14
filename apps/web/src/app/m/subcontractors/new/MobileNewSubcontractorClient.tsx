@@ -71,11 +71,11 @@ export function MobileNewSubcontractorClient({
         </div>
         <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>Subcontractor Added</p>
         <p className="text-m-caption font-mono mb-4" style={{ color: "var(--color-ink-700)" }}>{success.name}</p>
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          <button onClick={() => { if (onCreated) { onCreated(success.id); onClose?.(); } else { router.push("/m/subcontractors"); router.refresh(); } }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+        <div className="flex gap-3 w-full max-w-xs">
+          <button onClick={() => { if (onCreated) { onCreated(success.id); onClose?.(); } else { router.push("/m/subcontractors"); router.refresh(); } }} className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
             <Eye className="size-4 inline mr-1" /> View Subcontractors
           </button>
-          <button onClick={() => { setSuccess(null); setName(""); setTrade(""); setGstin(""); setPhone(""); setEmail(""); setAddress(""); router.refresh(); }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
+          <button onClick={() => { setSuccess(null); setName(""); setTrade(""); setGstin(""); setPhone(""); setEmail(""); setAddress(""); router.refresh(); }} className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
             <Plus className="size-4 inline mr-1" /> Add Another
           </button>
         </div>
@@ -111,8 +111,8 @@ export function MobileNewSubcontractorClient({
       )}
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
-        {/* Identity */}
-        <SectionCard title="Identity">
+        {/* Identity + Trade & Tax */}
+        <SectionCard title="Details">
           <UnderlineInput
             label="Name"
             value={name}
@@ -121,10 +121,7 @@ export function MobileNewSubcontractorClient({
             required
             autoFocus
           />
-        </SectionCard>
 
-        {/* Trade & Tax */}
-        <SectionCard title="Trade & Tax">
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <UnderlineInput
               label="Trade"
@@ -165,10 +162,6 @@ export function MobileNewSubcontractorClient({
               />
             </div>
           </div>
-        </SectionCard>
-
-        {/* Address */}
-        <SectionCard title="Address">
           <div>
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Address

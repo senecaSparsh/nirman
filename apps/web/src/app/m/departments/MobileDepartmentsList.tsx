@@ -228,7 +228,7 @@ function DepartmentCard({ d }: { d: DepartmentListItem }) {
           <span
             className="text-m-caption font-semibold px-1.5 py-0.5 rounded-[0.25rem]"
             style={{
-              backgroundColor: d.active ? "var(--color-go-faint, color-mix(in srgb, var(--color-go) 10%, transparent))" : "var(--color-paper-2)",
+              backgroundColor: d.active ? "var(--color-go-wash)" : "var(--color-paper-2)",
               color: d.active ? "var(--color-go)" : "var(--color-ink-500)",
             }}
           >

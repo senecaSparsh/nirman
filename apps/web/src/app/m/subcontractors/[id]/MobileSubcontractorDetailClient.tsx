@@ -559,7 +559,7 @@ function SubcontractorEditSheet({
               <textarea rows={1} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Office address…" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
             </div>
           </div>
-          <div className="flex flex-col gap-2 pt-1">
+          <div className="flex gap-2 pt-1">
             <button
               onClick={onClose}
               disabled={saving}

@@ -996,14 +996,16 @@ function ProfileSidebar({
                     onChanged={onRoleChanged}
                   />
                 )}
-                {canManageAccess && (
-                  <Button variant="outline" size="sm" className="w-full" onClick={onManageAccess}>
-                    <Shield className="h-3.5 w-3.5" /> Manage Access
+                <div className="flex gap-2">
+                  {canManageAccess && (
+                    <Button variant="outline" size="sm" className="flex-1" onClick={onManageAccess}>
+                      <Shield className="h-3.5 w-3.5" /> Manage Access
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" className="flex-1 text-destructive" onClick={onTerminate}>
+                    <Ban className="h-3.5 w-3.5" /> Terminate
                   </Button>
-                )}
-                <Button variant="outline" size="sm" className="w-full text-destructive" onClick={onTerminate}>
-                  <Ban className="h-3.5 w-3.5" /> Terminate Employee
-                </Button>
+                </div>
               </div>
             )}
           </>
@@ -1040,10 +1042,10 @@ function ProfileSidebar({
               <SidebarRow icon={Briefcase} label="Type" value={employee.employmentType.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())} />
             )}
             {canManage && employee.active && (
-              <div className="py-2 space-y-1.5">
+              <div className="py-2 flex flex-wrap gap-1.5">
                 <button
                   onClick={() => docViewer.openDoc(`/print/employment-agreement/${employee.id}`, "Employment Agreement")}
-                  className="flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-caption font-medium text-foreground hover:bg-muted transition-colors w-full"
+                  className="flex flex-1 min-w-[8rem] items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-caption font-medium text-foreground hover:bg-muted transition-colors"
                 >
                   <FileText className="h-3.5 w-3.5" /> View / Print Agreement
                 </button>
@@ -1051,7 +1053,7 @@ function ProfileSidebar({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full"
+                    className="flex-1 min-w-[8rem]"
                     onClick={onConfirmAgreement}
                   >
                     <CheckCircle2 className="h-3.5 w-3.5" /> Confirm Agreement
@@ -1061,7 +1063,7 @@ function ProfileSidebar({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full"
+                    className="flex-1 min-w-[8rem]"
                     onClick={onGenerateAgreement}
                   >
                     <FileText className="h-3.5 w-3.5" /> Generate Agreement
@@ -1071,7 +1073,7 @@ function ProfileSidebar({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-full text-muted-foreground"
+                    className="flex-1 min-w-[8rem] text-muted-foreground"
                     onClick={onGenerateAgreement}
                   >
                     <RefreshCw className="h-3.5 w-3.5" /> Regenerate (terms changed)
@@ -1086,11 +1088,11 @@ function ProfileSidebar({
               No employment agreement.<br />Generate one to formalize terms.
             </p>
             {canManage && employee.active && (
-              <div className="space-y-1.5">
-                <Button size="sm" className="w-full" onClick={onGenerateAndConfirm}>
+              <div className="flex gap-1.5">
+                <Button size="sm" className="flex-1" onClick={onGenerateAndConfirm}>
                   <CheckCircle2 className="h-3.5 w-3.5" /> Generate &amp; Confirm
                 </Button>
-                <Button variant="outline" size="sm" className="w-full" onClick={onGenerateAgreement}>
+                <Button variant="outline" size="sm" className="flex-1" onClick={onGenerateAgreement}>
                   <FileText className="h-3.5 w-3.5" /> Generate Only
                 </Button>
               </div>

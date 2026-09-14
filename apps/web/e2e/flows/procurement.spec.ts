@@ -42,7 +42,11 @@ test.describe("@flow Procurement: indent → PO → GRN", () => {
     const reqDetail = await ctx.get(`/api/requisitions/${created.id}`);
     expect(reqDetail.status()).toBe(200);
     const requisition = await reqDetail.json();
-    expect(requisition.status).toBe("DRAFT");
+    // Requisitions auto-submit on create (autoSubmit defaults true) — the
+    // "Submit for Approval" ceremony was removed platform-wide. A tier-1
+    // creator (OWNER here) additionally auto-approves since no higher
+    // approver exists; lower-tier creators land in SUBMITTED.
+    expect(["SUBMITTED", "APPROVED"]).toContain(requisition.status);
     test.info().annotations.push({ type: "requisitionId", description: requisition.id });
 
     // ── 2. Verify requisition appears in the UI ────────────────────
@@ -51,20 +55,17 @@ test.describe("@flow Procurement: indent → PO → GRN", () => {
     // The requisition number should appear somewhere on the page.
     await expect(page.getByText(requisition.reqNumber).first()).toBeVisible({ timeout: 15_000 });
 
-    // ── 3. Submit the requisition ──────────────────────────────────
-    const submit = await ctx.patch(`/api/requisitions/${requisition.id}`, {
-      data: { action: "submit" },
-    });
-    expect(submit.status(), "submit requisition").toBe(200);
-
-    // ── 4. Approve the requisition ─────────────────────────────────
-    // Use a different role (ADMIN) for approval — self-approval is blocked
-    // by the service layer (approveRequisition checks requestedById !== approvedById).
+    // ── 3. Approve the requisition ─────────────────────────────────
+    // If the tier-1 creator already auto-approved, skip straight to convert.
+    // Otherwise a different role (ADMIN) approves — self-approval is blocked
+    // by the service layer (requestedById !== approvedById).
     const approverCtx = await api("ADMIN");
-    const approve = await approverCtx.patch(`/api/requisitions/${requisition.id}`, {
-      data: { action: "approve" },
-    });
-    expect(approve.status(), "approve requisition").toBe(200);
+    if (requisition.status === "SUBMITTED") {
+      const approve = await approverCtx.patch(`/api/requisitions/${requisition.id}`, {
+        data: { action: "approve" },
+      });
+      expect(approve.status(), "approve requisition").toBe(200);
+    }
 
     // ── 5. Waive the quote requirement (3 quotes normally required) ─
     const waive = await ctx.patch(`/api/requisitions/${requisition.id}`, {
@@ -101,20 +102,22 @@ test.describe("@flow Procurement: indent → PO → GRN", () => {
     const poData = await poDetail.json();
     expect(poData.lines.length).toBeGreaterThan(0);
     const lineId = poData.lines[0].id;
-    expect(poData.status).toBe("DRAFT");
+    // Freshly converted POs start DRAFT (or already ORDERED if the creator
+    // is tier-1 and approve auto-orders via autoOrder default).
+    expect(["DRAFT", "SUBMITTED", "ORDERED"]).toContain(poData.status);
 
     // ── 8. Approve the PO ──────────────────────────────────────────
     // Use the ADMIN context (different user) — self-approval is blocked.
+    // Approve auto-orders the PO (autoOrder defaults true).
     const approvePo = await approverCtx.patch(`/api/purchase-orders/${po.id}`, {
       data: { action: "approve" },
     });
     expect(approvePo.status(), "approve PO").toBe(200);
 
-    // ── 9. Order the PO ────────────────────────────────────────────
-    const orderPo = await ctx.patch(`/api/purchase-orders/${po.id}`, {
-      data: { action: "order" },
-    });
-    expect(orderPo.status(), "order PO").toBe(200);
+    // ── 9. Verify the PO is ORDERED (approve auto-orders) ──────────
+    const poOrdered = await ctx.get(`/api/purchase-orders/${po.id}`);
+    const poOrderedData = await poOrdered.json();
+    expect(poOrderedData.status, "approve should auto-order the PO").toBe("ORDERED");
 
     // ── 10. Receive goods (GRN) ────────────────────────────────────
     const receive = await ctx.post(`/api/purchase-orders/${po.id}/receive`, {

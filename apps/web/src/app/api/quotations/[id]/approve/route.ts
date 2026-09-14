@@ -16,14 +16,14 @@ import { revalidatePath } from "next/cache";
  * POST /api/quotations/[id]/approve — approve a quotation request and
  * select the winning quote.
  *
- * ENFORCEMENT: only the submitter's DIRECT REPORTING MANAGER (one level
- * up via UserCompany.reportsToUserCompanyId) can approve. The service
- * layer enforces this — the API just passes the approver's membership ID.
+ * ENFORCEMENT: requires QUOTATION_MANAGE permission. The service layer
+ * prevents self-approval (approver ≠ submitter). Org-chart hierarchy
+ * is used for notification routing only, not as an approval gate.
  */
-export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.QUOTATION_VIEW);
+export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  const user = await requirePermission(PERM.QUOTATION_MANAGE);
   const company = await getCompany();
-  const { id } = { id: new URL(req.url).pathname.split("/").slice(-2, -1)[0]! };
+  const { id } = await params;
 
   // Verify the request belongs to the current company.
   const request = await prisma.quotationRequest.findFirst({
@@ -53,6 +53,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       approverUserId: user.id,
       selectedQuoteId: parsed.data.selectedQuoteId,
       reason: parsed.data.reason ?? undefined,
+      approverRole: user.role,
     });
     revalidatePath("/quotations");
     revalidatePath("/procurement");
@@ -75,7 +76,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to approve";
-    const status = message.includes("not found") ? 404 : message.includes("only") || message.includes("manager") ? 403 : 400;
+    const status = message.includes("not found") ? 404 : message.includes("cannot approve") || message.includes("own") ? 403 : 400;
     return json({ error: message }, { status });
   }
 });

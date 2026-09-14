@@ -11,6 +11,7 @@ import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCrea
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { localDateISO } from "@/lib/utils";
 
 interface ReportType {
   id: string;
@@ -93,7 +94,7 @@ export default function MobileExportPage() {
       const disposition = res.headers.get("content-disposition");
       const filename = disposition
         ? disposition.match(/filename="?([^"]+)"?/)?.[1]
-        : `${selected}-${new Date().toISOString().slice(0, 10)}.${format === "csv" ? "csv" : "xlsx"}`;
+        : `${selected}-${localDateISO()}.${format === "csv" ? "csv" : "xlsx"}`;
       a.download = filename ?? `${selected}.xlsx`;
       document.body.appendChild(a);
       a.click();

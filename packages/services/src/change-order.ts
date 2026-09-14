@@ -3,7 +3,8 @@ import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
-import { nextSequenceNumber } from "./sequence";
+import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
+import { canAutoApprove } from "./rbac";
 
 /**
  * Change Order Service — formal modifications to project scope, BOQ, budget, or schedule.
@@ -100,7 +101,7 @@ async function generateChangeOrderNumber(
 ): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `CO-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `CO-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
@@ -380,12 +381,19 @@ export async function approveChangeOrder(
   id: string,
   userId: string,
   clientApprovedBy?: string,
+  actorRole?: string,
 ) {
   const updated = await withSerializableTransaction(async (tx) => {
     const co = await tx.changeOrder.findUnique({ where: { id } });
     if (!co) throw new ServiceError("Change order not found", 404);
     if (co.status !== "SUBMITTED") {
       throw new ServiceError(`Cannot approve change order in ${co.status} status`, 400);
+    }
+
+    // Prevent self-approval — the submitter cannot approve their own change
+    // order — unless a tier-1 role (OWNER/ADMIN), where no higher approver exists.
+    if (co.submittedById && co.submittedById === userId && !canAutoApprove(actorRole)) {
+      throw new ServiceError("You cannot approve a change order you submitted. Ask another approver to review it.", 403);
     }
 
     // If client approval is required, clientApprovedBy must be provided

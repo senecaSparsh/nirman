@@ -16,6 +16,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   let accounts = await prisma.glAccount.findMany({
     where: { companyId: company.id },
     orderBy: { code: "asc" },
+    take: 1000,
     select: { id: true, code: true, name: true, type: true, isSystem: true, description: true },
   });
   if (accounts.length === 0) {
@@ -23,7 +24,8 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     accounts = await prisma.glAccount.findMany({
       where: { companyId: company.id },
       orderBy: { code: "asc" },
-      select: { id: true, code: true, name: true, type: true, isSystem: true, description: true },
+      take: 1000,
+    select: { id: true, code: true, name: true, type: true, isSystem: true, description: true },
     });
   }
   return json(accounts);
@@ -41,6 +43,7 @@ export const POST = apiHandler(async (_req: NextRequest) => {
   const accounts = await prisma.glAccount.findMany({
     where: { companyId: company.id },
     orderBy: { code: "asc" },
+    take: 1000,
     select: { id: true, code: true, name: true, type: true, isSystem: true, description: true },
   });
   return json({ ok: true, count: accounts.length });

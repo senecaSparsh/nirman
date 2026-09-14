@@ -90,7 +90,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
           revalidatePath("/change-orders");
           revalidatePath("/m/change-orders");
     revalidatePath("/m/construction?tab=change-orders");
-          return json(await approveChangeOrder(id, user.id, parsed.data.clientApprovedBy));
+          return json(await approveChangeOrder(id, user.id, parsed.data.clientApprovedBy, user.role));
         case "reject":
           if (!parsed.data.reason) return json({ error: "Rejection reason is required" }, { status: 400 });
           revalidatePath("/change-orders");

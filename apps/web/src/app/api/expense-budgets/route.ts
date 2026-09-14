@@ -23,6 +23,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     prisma.expenseBudget.findMany({
       where: { companyId: company.id, ...await scopeWhere("ExpenseBudget", {}) },
       orderBy: { periodStart: "desc" },
+      take: 300,
       include: {
         project: { select: { id: true, name: true } },
         categoryMaster: { select: { id: true, name: true } },

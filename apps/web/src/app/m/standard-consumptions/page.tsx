@@ -61,7 +61,7 @@ export default function MobileStandardConsumptionsPage() {
 
         return (
           <div>
-            <div className="grid grid-cols-2 gap-1.5 mb-4">
+            <div className="grid grid-cols-2 gap-2 mb-4">
               <MobileStatCard label="Benchmarks" value={String(benchmarks.length)} icon={Beaker} />
               <MobileStatCard label="Work Types" value={String(workTypes.length)} icon={Beaker} tone="neutral" />
             </div>

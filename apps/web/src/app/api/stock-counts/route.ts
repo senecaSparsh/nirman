@@ -16,6 +16,9 @@ export const GET = apiHandler(async () => {
     include: {
       location: { select: { id: true, name: true, type: true } },
       lines: { include: { material: { select: { code: true, name: true, unit: true } } } },
+      createdBy: { select: { name: true } },
+      confirmedBy: { select: { name: true } },
+      reconciledBy: { select: { name: true } },
     },
   });
   return json(
@@ -28,6 +31,11 @@ export const GET = apiHandler(async () => {
       countDate: c.countDate.toISOString(),
       notes: c.notes,
       createdAt: c.createdAt.toISOString(),
+      createdByName: c.createdBy?.name ?? null,
+      confirmedByName: c.confirmedBy?.name ?? null,
+      confirmedAt: c.confirmedAt?.toISOString() ?? null,
+      reconciledByName: c.reconciledBy?.name ?? null,
+      reconciledAt: c.reconciledAt?.toISOString() ?? null,
       lineCount: c.lines.length,
       totalVariance: c.lines.reduce(
         (s, l) => s + toNum(l.variance),

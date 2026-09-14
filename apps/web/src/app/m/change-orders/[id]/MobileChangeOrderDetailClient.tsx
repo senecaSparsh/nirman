@@ -43,6 +43,7 @@ interface ChangeOrderDetail {
   approvedAt: string | null;
   implementedAt: string | null;
   submittedByName: string | null;
+  submittedById?: string | null;
   approvedByName: string | null;
   implementedByName: string | null;
   lines: Array<{
@@ -83,9 +84,14 @@ const REASON_LABELS: Record<string, string> = {
 export function MobileChangeOrderDetailClient({
   co,
   canManage,
+  currentUserId,
+  canSelfApprove,
 }: {
   co: ChangeOrderDetail;
   canManage: boolean;
+  currentUserId?: string | null;
+  /** Tier-1 approvers (OWNER/ADMIN) may approve their own change order. */
+  canSelfApprove?: boolean;
 }) {
   const router = useRouter();
   const [confirm, confirmDialog] = useConfirm();
@@ -95,6 +101,9 @@ export function MobileChangeOrderDetailClient({
   const [showApprove, setShowApprove] = useState(false);
   const [clientApprovedBy, setClientApprovedBy] = useState("");
   const [showEdit, setShowEdit] = useState(false);
+  // Hide approve/reject from the submitter — self-approval is blocked
+  // server-side — unless a tier-1 approver (OWNER/ADMIN).
+  const canApproveCo = co.submittedById !== currentUserId || canSelfApprove;
   const [editForm, setEditForm] = useState({
     title: co.title,
     description: co.description,
@@ -311,7 +320,7 @@ export function MobileChangeOrderDetailClient({
         </div>
       )}
 
-      {/* Workflow actions */}
+      {/* Workflow actions — approve/reject hidden from the submitter unless tier-1. */}
       {canManage && (
         <ActionBar>
           {co.status === "DRAFT" && (
@@ -332,7 +341,7 @@ export function MobileChangeOrderDetailClient({
               variant="primary"
             />
           )}
-          {co.status === "SUBMITTED" && co.clientApprovalRequired && (
+          {co.status === "SUBMITTED" && co.clientApprovalRequired && canApproveCo && (
             <ActionButton
               onClick={() => setShowApprove(true)}
               loading={false}
@@ -341,7 +350,7 @@ export function MobileChangeOrderDetailClient({
               variant="go"
             />
           )}
-          {co.status === "SUBMITTED" && !co.clientApprovalRequired && (
+          {co.status === "SUBMITTED" && !co.clientApprovalRequired && canApproveCo && (
             <ActionButton
               onClick={() => doAction("approve")}
               loading={acting === "approve"}
@@ -350,7 +359,7 @@ export function MobileChangeOrderDetailClient({
               variant="go"
             />
           )}
-          {co.status === "SUBMITTED" && (
+          {co.status === "SUBMITTED" && canApproveCo && (
             <ActionButton
               onClick={() => setShowReject(true)}
               loading={false}

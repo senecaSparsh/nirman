@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { CrewsView, type CrewRow } from "@/components/hr/crews-view";
 import { EmployeeName } from "@/components/employee-name";
-import { formatCurrency, cn } from "@/lib/utils";
+import { localDateISO, formatCurrency, cn } from "@/lib/utils";
 import { useTabParam } from "@/lib/use-tab-param";
 
 export type EmployeeRow = {
@@ -510,7 +510,7 @@ function EmployeeFormDialog({
     monthlySalary: employee?.monthlySalary?.toString() ?? "",
     crewId: employee?.crewId ?? "",
     activeProjectId: employee?.activeProjectId ?? "",
-    joinDate: employee?.joinDate ? employee.joinDate.split("T")[0] : new Date().toISOString().slice(0, 10),
+    joinDate: employee?.joinDate ? employee.joinDate.split("T")[0] : localDateISO(),
     active: employee?.active ?? true,
     hierarchyLevel: employee?.hierarchyLevel?.toString() ?? "",
     reportingLocationId: employee?.reportingLocationId ?? "",

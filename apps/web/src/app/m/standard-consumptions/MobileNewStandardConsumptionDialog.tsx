@@ -154,7 +154,7 @@ export function MobileNewStandardConsumptionForm({
       {/* Consumption */}
       <SectionCard title="Consumption">
         <div
-          className="grid grid-cols-3 gap-2 divide-x"
+          className="grid grid-cols-3 gap-1.5 divide-x"
           style={{ borderColor: "var(--color-line)" }}
         >
           <UnderlineInput

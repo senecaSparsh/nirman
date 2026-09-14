@@ -45,10 +45,14 @@ describe("shouldRoleReceiveEvent", () => {
     expect(shouldRoleReceiveEvent("SALES_MANAGER", NotificationEventType.DPR_SUBMITTED)).toBe(false);
   });
 
-  it("STORE_KEEPER receives procurement and equipment events", () => {
+  it("STORE_KEEPER receives procurement, equipment, inventory and gate-pass events", () => {
     expect(shouldRoleReceiveEvent("STORE_KEEPER", NotificationEventType.GOODS_RECEIVED)).toBe(true);
     expect(shouldRoleReceiveEvent("STORE_KEEPER", NotificationEventType.LOW_STOCK_ALERT)).toBe(true);
     expect(shouldRoleReceiveEvent("STORE_KEEPER", NotificationEventType.EQUIPMENT_ASSIGNED)).toBe(true);
+    expect(shouldRoleReceiveEvent("STORE_KEEPER", NotificationEventType.STOCK_TRANSFER_CREATED)).toBe(true);
+    expect(shouldRoleReceiveEvent("STORE_KEEPER", NotificationEventType.STOCK_ISSUE_CREATED)).toBe(true);
+    expect(shouldRoleReceiveEvent("STORE_KEEPER", NotificationEventType.GATE_PASS_SUBMITTED)).toBe(true);
+    expect(shouldRoleReceiveEvent("STORE_KEEPER", NotificationEventType.GATE_PASS_APPROVED)).toBe(true);
   });
 
   it("STORE_KEEPER does not receive sales or DPR events", () => {
@@ -69,6 +73,23 @@ describe("shouldRoleReceiveEvent", () => {
     expect(shouldRoleReceiveEvent("QAQC_ENGINEER", NotificationEventType.DPR_SUBMITTED)).toBe(true);
   });
 
+  it("SITE_ENGINEER receives inventory and gate-pass events", () => {
+    expect(shouldRoleReceiveEvent("SITE_ENGINEER", NotificationEventType.STOCK_COUNT_DUE)).toBe(true);
+    expect(shouldRoleReceiveEvent("SITE_ENGINEER", NotificationEventType.SCRAP_GENERATED)).toBe(true);
+    expect(shouldRoleReceiveEvent("SITE_ENGINEER", NotificationEventType.GATE_PASS_EXITED)).toBe(true);
+  });
+
+  it("ACCOUNTANT receives inventory events but not gate-pass events", () => {
+    expect(shouldRoleReceiveEvent("ACCOUNTANT", NotificationEventType.MATERIAL_PRICE_CHANGE)).toBe(true);
+    expect(shouldRoleReceiveEvent("ACCOUNTANT", NotificationEventType.SCRAP_GENERATED)).toBe(true);
+    expect(shouldRoleReceiveEvent("ACCOUNTANT", NotificationEventType.GATE_PASS_SUBMITTED)).toBe(false);
+  });
+
+  it("DEVELOPER receives all events", () => {
+    expect(shouldRoleReceiveEvent("DEVELOPER", NotificationEventType.SALE_CREATED)).toBe(true);
+    expect(shouldRoleReceiveEvent("DEVELOPER", NotificationEventType.GATE_PASS_SUBMITTED)).toBe(true);
+  });
+
   it("unknown role receives nothing", () => {
     expect(shouldRoleReceiveEvent("UNKNOWN_ROLE", NotificationEventType.SALE_CREATED)).toBe(false);
     expect(shouldRoleReceiveEvent("UNKNOWN_ROLE", NotificationEventType.NCR_RAISED)).toBe(false);
@@ -76,20 +97,22 @@ describe("shouldRoleReceiveEvent", () => {
 });
 
 describe("renderEventMessage", () => {
-  it("renders event type with variables", () => {
+  it("renders a human-readable message with variables interpolated", () => {
     const event = {
       eventType: NotificationEventType.SALE_CREATED,
       companyId: "c1",
-      variables: { projectName: "Tower A", amount: "5000000" },
+      variables: { saleNumber: "S-001", salePrice: "5000000.00" },
       timestamp: new Date(),
     };
     const msg = renderEventMessage(event);
-    expect(msg).toContain("SALE_CREATED");
-    expect(msg).toContain("projectName=Tower A");
-    expect(msg).toContain("amount=5000000");
+    // Human-readable — no raw "SALE_CREATED: key=value" debug format.
+    expect(msg).toContain("Sale S-001");
+    expect(msg).toContain("₹5000000.00");
+    expect(msg).not.toContain("SALE_CREATED:");
+    expect(msg).not.toContain("=");
   });
 
-  it("handles empty variables", () => {
+  it("handles empty variables gracefully", () => {
     const event = {
       eventType: NotificationEventType.DPR_SUBMITTED,
       companyId: "c1",
@@ -97,20 +120,31 @@ describe("renderEventMessage", () => {
       timestamp: new Date(),
     };
     const msg = renderEventMessage(event);
-    expect(msg).toBe("DPR_SUBMITTED: ");
+    expect(msg).toContain("Daily report");
+    expect(msg).not.toContain("DPR_SUBMITTED:");
   });
 
-  it("handles multiple variables", () => {
+  it("falls back to humanized type + readable vars for unmapped events", () => {
     const event = {
-      eventType: NotificationEventType.REQUISITION_APPROVED,
+      eventType: "SOME_UNKNOWN_EVENT" as NotificationEventType,
       companyId: "c1",
-      variables: { reqNo: "REQ-001", approver: "John", amount: "10000" },
+      variables: { reqNo: "REQ-001", approver: "John" },
       timestamp: new Date(),
     };
     const msg = renderEventMessage(event);
-    expect(msg).toContain("REQUISITION_APPROVED");
+    expect(msg).toContain("Some Unknown Event");
     expect(msg).toContain("reqNo=REQ-001");
-    expect(msg).toContain("approver=John");
-    expect(msg).toContain("amount=10000");
+  });
+
+  it("renders rejection reason when provided", () => {
+    const event = {
+      eventType: NotificationEventType.DPR_REJECTED,
+      companyId: "c1",
+      variables: { dprId: "d1", reason: "Missing photos" },
+      timestamp: new Date(),
+    };
+    const msg = renderEventMessage(event);
+    expect(msg).toContain("rejected");
+    expect(msg).toContain("Missing photos");
   });
 });

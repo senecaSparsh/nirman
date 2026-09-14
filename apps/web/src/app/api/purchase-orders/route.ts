@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { PurchaseOrderStatus } from "@nirman/db";
-import { createPurchaseOrder, ServiceError } from "@nirman/services";
+import { createPurchaseOrder, canAutoApprove, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, getCompanyGroupIds, json, purchaseOrderSchema, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
@@ -25,8 +25,15 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const { take, cursor, skip } = parseCursorParams(req);
   const usePagination = searchParams.has("cursor") || searchParams.has("take");
 
+  const where = { companyId: { in: groupCompanyIds }, supplier: { deletedAt: null }, ...statusFilter, ...await scopeWhere("PurchaseOrder") };
+
+  // countOnly — nav badges need just the number, not 200 hydrated rows.
+  if (searchParams.get("countOnly") === "1") {
+    return json({ count: await prisma.purchaseOrder.count({ where }) });
+  }
+
   const pos = await prisma.purchaseOrder.findMany({
-    where: { companyId: { in: groupCompanyIds }, supplier: { deletedAt: null }, ...statusFilter, ...(cursorToWhere(cursor) ?? {}), ...await scopeWhere("PurchaseOrder") },
+    where: { ...where, ...(cursorToWhere(cursor) ?? {}) },
     orderBy: { createdAt: "desc" },
     take: usePagination ? take + 1 : 200,
     skip: usePagination ? skip : undefined,
@@ -106,6 +113,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
   }
   try {
+    // Tier-1 creators (OWNER/ADMIN) auto-approve — there is no higher approver
+    // above them, so routing their own PO through a second review is pure
+    // friction (and a deadlock when the owner is the only admin). Everyone
+    // else's PO stays DRAFT and waits for an approver who isn't the creator.
+    const selfApprove = canAutoApprove(user.role);
     const po = await createPurchaseOrder({
       ...rest,
       companyId: company.id,
@@ -113,6 +125,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
       expectedDate: expectedDate ? new Date(expectedDate) : undefined,
       notes: rest.notes ?? undefined,
       createdById: user.id,
+      initialStatus: selfApprove ? "APPROVED" : "DRAFT",
+      approvedById: selfApprove ? user.id : undefined,
+      creatorRole: user.role,
       quotationId: quotationId ?? undefined,
       waiverReason: waiverReason ?? undefined,
       charges: charges && charges.length > 0

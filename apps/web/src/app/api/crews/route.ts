@@ -18,6 +18,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       ...await scopeWhere("Crew"),
     },
     orderBy: { name: "asc" },
+    take: 500,
     include: {
       project: { select: { id: true, name: true } },
       supervisor: { select: { id: true, name: true } },

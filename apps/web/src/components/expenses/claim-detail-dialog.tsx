@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { localDateISO, formatCurrency, formatDate } from "@/lib/utils";
 import { AttachmentList } from "@/components/attachments/attachment-list";
 import type { ExpenseCategoryRow } from "@/lib/types";
 import { EmptyState } from "@/components/empty-state";
@@ -69,7 +69,7 @@ export function ClaimDetailDialog({
     category: "",
     amount: "",
     gstRate: "",
-    date: new Date().toISOString().slice(0, 10),
+    date: localDateISO(),
     notes: "",
     receiptUrl: "",
   });
@@ -145,7 +145,7 @@ export function ClaimDetailDialog({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to add line");
       toast.success("Line added");
-      setLineForm({ categoryId: "", category: "", amount: "", gstRate: "", date: new Date().toISOString().slice(0, 10), notes: "", receiptUrl: "" });
+      setLineForm({ categoryId: "", category: "", amount: "", gstRate: "", date: localDateISO(), notes: "", receiptUrl: "" });
       if (fileInput) fileInput.value = "";
       await fetchDetail();
       router.refresh();

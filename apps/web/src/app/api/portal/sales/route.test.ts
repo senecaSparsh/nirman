@@ -51,12 +51,12 @@ describe("GET /api/portal/sales", () => {
 
   it("returns 401 when not logged in", async () => {
     mockGetPortalCustomer.mockResolvedValue(null);
-    const res = await GET(makeRequest("/api/portal/sales"));
+    const res = await GET(makeRequest("/api/portal/sales"), {});
     expect(res.status).toBe(401);
   });
 
   it("returns empty sales list when customer has no active sales", async () => {
-    const res = await GET(makeRequest("/api/portal/sales"));
+    const res = await GET(makeRequest("/api/portal/sales"), {});
     expect(res.status).toBe(200);
     const body = await getJson<{ sales: unknown[] }>(res);
     expect(body.sales).toHaveLength(0);
@@ -64,7 +64,7 @@ describe("GET /api/portal/sales", () => {
 
   it("returns sales with computed payment progress", async () => {
     mockPrisma().assetSale!.findMany.mockResolvedValue([prismaSale()]);
-    const res = await GET(makeRequest("/api/portal/sales"));
+    const res = await GET(makeRequest("/api/portal/sales"), {});
     expect(res.status).toBe(200);
     const body = await getJson<{ sales: Array<{ id: string; totalAmount: number; totalPaid: number; balanceDue: number; paymentProgress: number; unitLabel: string }> }>(res);
     expect(body.sales).toHaveLength(1);
@@ -88,7 +88,7 @@ describe("GET /api/portal/sales", () => {
         landParcel: { id: "lp-1", number: "Plot 5", area: 5000, areaUnit: "sqft" },
       }),
     ]);
-    const res = await GET(makeRequest("/api/portal/sales"));
+    const res = await GET(makeRequest("/api/portal/sales"), {});
     const body = await getJson<{ sales: Array<{ unitLabel: string }> }>(res);
     expect(body.sales[0]!.unitLabel).toContain("Plot 5");
   });

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Receipt, Share2, Calendar, Tag, IndianRupee, CreditCard, Building2, FileText } from "lucide-react";
+import Link from "next/link";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 import { useLongPress } from "@/lib/use-long-press";
@@ -66,6 +67,7 @@ export function MobileExpensesList({
 }) {
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   const { items, loading, hasMore, loadMore } = usePaginatedList<ExpenseListItem>(
     initialItems,
@@ -86,10 +88,24 @@ export function MobileExpensesList({
     [categories],
   );
 
+  const statusOptions = useMemo(
+    () => [
+      { label: "All", value: "ALL" },
+      { label: "Draft", value: "DRAFT" },
+      { label: "Pending", value: "PENDING" },
+      { label: "Approved", value: "APPROVED" },
+      { label: "Rejected", value: "REJECTED" },
+    ],
+    [],
+  );
+
   const filtered = useMemo(() => {
     let result = items;
     if (categoryFilter !== "ALL") {
       result = result.filter((e) => e.category === categoryFilter);
+    }
+    if (statusFilter !== "ALL") {
+      result = result.filter((e) => e.status === statusFilter);
     }
     if (query.trim()) {
       const q = query.toLowerCase();
@@ -106,7 +122,7 @@ export function MobileExpensesList({
       if (db !== da) return db - da;
       return b.amount - a.amount;
     });
-  }, [items, query, categoryFilter]);
+  }, [items, query, categoryFilter, statusFilter]);
 
   const summaryStats: SummaryStat[] = [
     { label: "Total Spent", value: formatCurrencyCompact(totalAmount), tone: totalAmount > 0 ? "stop" : "default" },
@@ -137,6 +153,12 @@ export function MobileExpensesList({
         action={
           <div className="flex items-center gap-1 shrink-0">
             <MobileFilterIcon
+              options={statusOptions}
+              active={statusFilter}
+              defaultValue="ALL"
+              onChange={setStatusFilter}
+            />
+            <MobileFilterIcon
               options={filterOptions}
               active={categoryFilter}
               defaultValue="ALL"
@@ -152,8 +174,8 @@ export function MobileExpensesList({
             ) : null}
           </div>
         }
-        showClear={categoryFilter !== "ALL" || !!query}
-        onClear={() => { setQuery(""); setCategoryFilter("ALL"); }}
+        showClear={categoryFilter !== "ALL" || statusFilter !== "ALL" || !!query}
+        onClear={() => { setQuery(""); setCategoryFilter("ALL"); setStatusFilter("ALL"); }}
       />
 
       {/* ── Expense cards grid ── */}
@@ -190,8 +212,8 @@ export function MobileExpensesList({
 
 const STATUS_COLOR: Record<string, string> = {
   DRAFT: "var(--color-ink-500)",
-  PENDING: "var(--color-hold)",
-  APPROVED: "var(--color-go)",
+  PENDING: "var(--color-signal-dark)",
+  APPROVED: "var(--color-steel)",
   REJECTED: "var(--color-stop)",
 };
 
@@ -236,8 +258,9 @@ function ExpenseCard({ e }: { e: ExpenseListItem }) {
   return (
     <>
       <div {...longPressBind}>
-        <div
-          className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden"
+        <Link
+          href={`/m/expenses/${e.id}`}
+          className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
           style={{
             borderColor: "var(--color-line)",
             backgroundColor: "var(--color-paper)",
@@ -301,7 +324,7 @@ function ExpenseCard({ e }: { e: ExpenseListItem }) {
               ) : null}
             </div>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Long-press overview sheet */}

@@ -4,6 +4,7 @@ import { prisma } from "@nirman/db";
 import { Cloud, Hammer, Users, CheckCircle2, XCircle } from "lucide-react";
 import { getUserPermissions, toNum, scopeWhere, getCurrentUser } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { canAutoApprove } from "@nirman/services";
 import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
 import { AttachmentList } from "@/components/attachments/attachment-list";
 import { MobileEmptyState, mobileStatusColor } from "@/components/mobile/v2/primitives";
@@ -100,7 +101,16 @@ export default function MobileDprDetailPage({
           },
         ];
 
-        const nextAction = resolveNextAction("dpr", dpr.approvalStatus, role, overrides);
+        // Suppress approve cards when the viewer submitted this DPR —
+        // self-approval is blocked server-side (both stages), so the card
+        // would promise an action that 403s.
+        const isSubmitter = dpr.submittedBy?.id === currentUserId;
+        let nextAction = resolveNextAction("dpr", dpr.approvalStatus, role, overrides);
+        // Suppress approve cards for the submitter unless tier-1 (OWNER/ADMIN)
+        // — they CAN self-approve, so the card is the correct next action.
+        if (isSubmitter && !canAutoApprove(role) && nextAction && (nextAction.perm === PERM.DPR_APPROVE_SUB_ADMIN || nextAction.perm === PERM.DPR_APPROVE_ADMIN)) {
+          nextAction = undefined;
+        }
 
         // Permissions to announce to the NavSheet's Next Step resolver
         const canActions: string[] = [];
@@ -468,6 +478,7 @@ export default function MobileDprDetailPage({
               costPosted={!!dpr.costPostedDate}
               submittedById={dpr.submittedBy?.id ?? null}
               currentUserId={currentUserId}
+              canSelfApprove={canAutoApprove(role)}
             />
           </div>
           </PageContextProvider>

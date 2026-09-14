@@ -8,6 +8,7 @@ import {
   cancelPurchaseOrder,
   orderPurchaseOrder,
   addLineToPurchaseOrder,
+  canAutoApprove,
   ServiceError,
 } from "@nirman/services";
 import { PERM } from "@/lib/roles";
@@ -143,7 +144,9 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       where: { id, companyId: { in: groupCompanyIds } },
       select: { createdById: true },
     });
-    if (po?.createdById === user.id) {
+    // Prevent self-approval — the creator cannot approve their own PO, unless
+    // they're a tier-1 role (OWNER/ADMIN) where no higher approver exists.
+    if (po?.createdById === user.id && !canAutoApprove(user.role)) {
       return json({ error: "You cannot approve your own purchase order. Ask another approver to review it." }, { status: 403 });
     }
     await approvePurchaseOrder(id, user.role, user.id, body?.approvalNotes, body?.autoOrder ?? true);

@@ -2,7 +2,9 @@ import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { canAutoApprove } from "./rbac";
 import { withSerializableTransaction } from "./transaction";
+import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 import { createPurchaseOrderTx } from "./procurement";
 
 /**
@@ -163,12 +165,11 @@ export function computeQuoteTotals(lines: LineLandedCostResult[]): QuoteTotalsRe
 
 // ── Request number generator ──
 
-function generateRequestNumber(date = new Date()): string {
+function requestNumberPrefix(date = new Date()): string {
   const yy = String(date.getFullYear()).slice(2);
   const mm = String(date.getMonth() + 1).padStart(2, "0");
   const dd = String(date.getDate()).padStart(2, "0");
-  const rand = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-  return `QR-${yy}${mm}${dd}-${rand}`;
+  return `QR-${yy}${mm}${dd}-`;
 }
 
 // ── Service functions ──
@@ -267,18 +268,15 @@ export async function createQuotationRequest(input: CreateQuotationRequestInput)
   });
   if (!membership) throw new ServiceError("Invalid company membership for submitter", 403);
 
-  // Generate a unique request number (retry on collision).
-  let requestNumber = generateRequestNumber();
-  for (let i = 0; i < 5; i++) {
-    const existing = await prisma.quotationRequest.findUnique({
-      where: { requestNumber },
-      select: { id: true },
-    });
-    if (!existing) break;
-    requestNumber = generateRequestNumber();
-  }
-
   return withSerializableTransaction(async (tx) => {
+    // Atomic per-company sequence — the previous random-suffix + existence
+    // check could exhaust its 5 retries and still collide (P2002 inside the
+    // transaction, which retries with the SAME dead number).
+    const requestNumber = await nextSequenceNumber(
+      tx,
+      await companyScopedPrefix(tx, input.companyId, requestNumberPrefix()),
+      4,
+    );
     const request = await tx.quotationRequest.create({
       data: {
         requestNumber,
@@ -557,15 +555,18 @@ export interface ApproveQuotationInput {
   approverUserId: string;
   selectedQuoteId: string;
   reason?: string;
+  /** Approver's role — tier-1 (OWNER/ADMIN) may approve their own request. */
+  approverRole?: string;
 }
 
 /**
  * Approve a quotation request and select the winning quote.
  *
- * ENFORCEMENT: only the submitter's DIRECT REPORTING MANAGER (one level
- * up via UserCompany.reportsToUserCompanyId) can approve. Not a permission
- * flag, not any OWNER/ADMIN — the specific person set as the submitter's
- * reportsTo in the company hierarchy.
+ * ENFORCEMENT: permission-based — the caller must have QUOTATION_MANAGE
+ * (checked by the API layer) and cannot be the submitter. The org-chart
+ * `reportsTo` hierarchy is used for notification routing only, not as an
+ * approval gate — a stuck approval should never block procurement because
+ * someone's manager hasn't been set in the org chart.
  *
  * If the selected quote is NOT the cheapest, a reason is mandatory.
  */
@@ -587,30 +588,16 @@ export async function approveQuotation(input: ApproveQuotationInput) {
       throw new ServiceError("Cannot approve a closed/cancelled request");
     }
 
-    // ── HIERARCHY CHECK: approver must be the submitter's direct manager ──
+    // ── SELF-APPROVAL PREVENTION: approver cannot be the submitter ──
     const submitterMembership = await tx.userCompany.findUnique({
       where: { id: request.submittedByUserCompanyId },
-      select: { reportsToUserCompanyId: true, userId: true },
+      select: { userId: true },
     });
     if (!submitterMembership) {
       throw new ServiceError("Submitter's company membership not found", 403);
     }
-
-    // If the submitter is the top of the chain (no reportsTo), they self-approve.
-    // This covers the OWNER case — the owner's quotations don't need a manager.
-    if (submitterMembership.reportsToUserCompanyId === null) {
-      // Only the submitter themselves can self-approve.
-      if (input.approverUserId !== submitterMembership.userId) {
-        throw new ServiceError("Only the submitter can self-approve (top of reporting chain)", 403);
-      }
-    } else {
-      // The approver must be exactly the submitter's reportsTo.
-      if (input.approverUserCompanyId !== submitterMembership.reportsToUserCompanyId) {
-        throw new ServiceError(
-          "Only your direct reporting manager can approve this quotation request",
-          403,
-        );
-      }
+    if (input.approverUserId === submitterMembership.userId && !canAutoApprove(input.approverRole)) {
+      throw new ServiceError("You cannot approve your own quotation request", 403);
     }
 
     // ── Validate the selected quote belongs to this request ──
@@ -725,7 +712,11 @@ export async function approveQuotation(input: ApproveQuotationInput) {
       projectId: poProjectId,
       destinationLocationId: destLocation.id,
       notes: `Auto-created from quotation ${request.requestNumber}`,
-      createdById: input.approverUserId,
+      // The PO creator is the original submitter (who initiated the
+      // procurement need), not the approver — prevents the self-approval
+      // guard in createPurchaseOrderTx from firing when the approver
+      // approves a quote submitted by someone else.
+      createdById: submitterMembership.userId,
       // The quotation approval IS the approval to buy — create the PO as
       // APPROVED (not DRAFT). This skips the separate PO approval step.
       initialStatus: "APPROVED",
@@ -1142,37 +1133,6 @@ export async function getComparativeMatrix(quotationRequestId: string) {
 }
 
 // ── Internal helpers ──
-
-/**
- * Pick a destination stock location for the auto-created PO.
- * Prefer the project's first PROJECT_SITE; otherwise a COMPANY_WAREHOUSE.
- */
-async function resolveDestinationLocation(
-  tx: Prisma.TransactionClient,
-  companyId: string,
-  projectId: string | null,
-): Promise<{ locationId: string; scope: "PROJECT" | "COMPANY" }> {
-  if (projectId) {
-    const site = await tx.stockLocation.findFirst({
-      where: { companyId, projectId, type: "PROJECT_SITE", deletedAt: null },
-      orderBy: { createdAt: "asc" },
-      select: { id: true },
-    });
-    if (site) return { locationId: site.id, scope: "PROJECT" };
-  }
-  const warehouse = await tx.stockLocation.findFirst({
-    where: { companyId, type: "COMPANY_WAREHOUSE", deletedAt: null },
-    orderBy: { createdAt: "asc" },
-    select: { id: true },
-  });
-  if (!warehouse) {
-    throw new ServiceError(
-      "Cannot create PO: no warehouse or project site found for this company. Add a stock location first.",
-      400,
-    );
-  }
-  return { locationId: warehouse.id, scope: "COMPANY" };
-}
 
 function cheapestQuoteForRequest(
   quotes: { id: string; landedTotal: Prisma.Decimal; status: string }[],

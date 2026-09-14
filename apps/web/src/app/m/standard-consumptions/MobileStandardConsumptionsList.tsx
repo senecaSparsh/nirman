@@ -2,9 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Ruler } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
-import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
@@ -33,26 +31,25 @@ export function MobileStandardConsumptionsList({
   exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
+  const [selectedWorkType, setSelectedWorkType] = useState<string | null>(null);
+
+  const allWorkTypes = useMemo(() => [...new Set(items.map((b) => b.workType))].sort(), [items]);
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return items;
-    const q = query.toLowerCase();
-    return items.filter(
-      (b) =>
-        b.workType.toLowerCase().includes(q) ||
-        b.materialName.toLowerCase().includes(q),
-    );
-  }, [items, query]);
+    let result = items;
+    if (selectedWorkType) result = result.filter((b) => b.workType === selectedWorkType);
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      result = result.filter(
+        (b) =>
+          b.workType.toLowerCase().includes(q) ||
+          b.materialName.toLowerCase().includes(q),
+      );
+    }
+    return result;
+  }, [items, query, selectedWorkType]);
 
-  if (items.length === 0) {
-    return (
-      <MobileEmptyState
-        icon={Ruler}
-        title="No standard consumptions"
-        hint="Consumption benchmarks will appear here"
-      />
-    );
-  }
+  if (items.length === 0) return null;
 
   // Group by work type
   const workTypes = [...new Set(filtered.map((b) => b.workType))].sort();
@@ -78,6 +75,43 @@ export function MobileStandardConsumptionsList({
         showClear={!!query}
         onClear={() => setQuery("")}
       />
+
+      {/* Work-type filter chips */}
+      {allWorkTypes.length > 1 && (
+        <div className="flex gap-1 px-4 pb-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+          <button
+            type="button"
+            onClick={() => setSelectedWorkType(null)}
+            className="shrink-0 rounded-full px-2.5 py-1 text-m-caption font-semibold press"
+            style={{
+              backgroundColor: !selectedWorkType ? "var(--color-ink-950)" : "var(--color-paper)",
+              color: !selectedWorkType ? "var(--color-paper)" : "var(--color-ink-500)",
+              border: `1px solid ${!selectedWorkType ? "var(--color-ink-950)" : "var(--color-line)"}`,
+            }}
+          >
+            All ({items.length})
+          </button>
+          {allWorkTypes.map((wt) => {
+            const count = items.filter((b) => b.workType === wt).length;
+            const isActive = selectedWorkType === wt;
+            return (
+              <button
+                key={wt}
+                type="button"
+                onClick={() => setSelectedWorkType(isActive ? null : wt)}
+                className="shrink-0 rounded-full px-2.5 py-1 text-m-caption font-semibold press"
+                style={{
+                  backgroundColor: isActive ? "var(--color-ink-950)" : "var(--color-paper)",
+                  color: isActive ? "var(--color-paper)" : "var(--color-ink-500)",
+                  border: `1px solid ${isActive ? "var(--color-ink-950)" : "var(--color-line)"}`,
+                }}
+              >
+                {wt} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {filtered.length === 0 ? (
         <MobileNoResults title="No matching benchmarks" hint="Try a different search" />

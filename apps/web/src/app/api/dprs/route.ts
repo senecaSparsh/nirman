@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { submitDPR } from "@nirman/services";
+import { submitDPR, subAdminApproveDpr, adminApproveDpr, canAutoApprove } from "@nirman/services";
 import { apiHandler, getCompany, json, dprSchema, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
@@ -121,6 +121,18 @@ export const POST = apiHandler(async (req: NextRequest) => {
       skipAttendanceCheck: parsed.data.skipAttendanceCheck ?? false,
       userId: user.id,
     });
+    // Tier-1 creators (OWNER/ADMIN) auto-complete both approval tiers — the
+    // 2-tier DPR review exists to check a supervisor's report, but an owner's
+    // own submission has no higher reviewer to defer to.
+    if (canAutoApprove(user.role)) {
+      try {
+        await subAdminApproveDpr(dpr.id, user.id, undefined, user.role);
+        await adminApproveDpr(dpr.id, user.id, undefined, user.role);
+      } catch (e) {
+        // Non-fatal — the DPR is submitted; a manager can still approve it.
+        console.warn("DPR auto-approve failed:", e);
+      }
+    }
     revalidatePath("/dprs");
     revalidatePath("/m/dprs");
     revalidatePath("/m/hr?tab=dprs");

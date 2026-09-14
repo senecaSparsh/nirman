@@ -298,6 +298,7 @@ export {
   deleteLegalDoc,
   listLegalDocs,
   listAllLegalDocs,
+  countAllLegalDocs,
   checkExpiringLegalDocs,
 } from "./legal-docs";
 export type { CreateLegalDocInput, UpdateLegalDocInput } from "./legal-docs";
@@ -925,6 +926,7 @@ export {
   getReportingChain,
   assignScopedMembership,
   getDirectReports,
+  canAutoApprove,
   type ScopeType,
   type ScopeKind,
   type ResolvedScope,

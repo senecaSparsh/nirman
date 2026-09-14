@@ -15,7 +15,6 @@ import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
-  MobileCardGrid,
   MobileNoResults,
   MobileSummaryStrip,
   type SummaryStat,
@@ -34,11 +33,11 @@ export type ExpenseClaimListItem = {
 };
 
 const STATUS_META: Record<string, { label: string; icon: typeof Clock; color: string }> = {
-  DRAFT: { label: "Draft", icon: Receipt, color: "text-muted-foreground" },
-  SUBMITTED: { label: "Pending", icon: Clock, color: "text-warning" },
-  APPROVED: { label: "Approved", icon: CheckCircle2, color: "text-success" },
-  PAID: { label: "Paid", icon: CheckCircle2, color: "text-success" },
-  REJECTED: { label: "Rejected", icon: XCircle, color: "text-danger" },
+  DRAFT: { label: "Draft", icon: Receipt, color: "var(--color-ink-500)" },
+  SUBMITTED: { label: "Pending", icon: Clock, color: "var(--color-signal-dark)" },
+  APPROVED: { label: "Approved", icon: CheckCircle2, color: "var(--color-steel)" },
+  PAID: { label: "Paid", icon: CheckCircle2, color: "var(--color-go)" },
+  REJECTED: { label: "Rejected", icon: XCircle, color: "var(--color-stop)" },
 };
 
 export function MobileExpenseClaimsList({
@@ -123,11 +122,11 @@ export function MobileExpenseClaimsList({
         }
       />
       <MobileSummaryStrip stats={stats} />
-      <MobileCardGrid>
+      <div className="flex flex-col gap-2.5 px-1">
         {filtered.map((claim) => (
           <ClaimCard key={claim.id} claim={claim} />
         ))}
-      </MobileCardGrid>
+      </div>
       {filtered.length === 0 && <MobileNoResults query={query} />}
       {loadMoreUrl ? (
         <MobileLoadMore
@@ -144,7 +143,7 @@ export function MobileExpenseClaimsList({
 /* ─── Claim card — long-press opens overview sheet ─── */
 function ClaimCard({ claim }: { claim: ExpenseClaimListItem }) {
   const router = useRouter();
-  const meta = STATUS_META[claim.status] ?? { label: claim.status, icon: Receipt, color: "text-muted-foreground" };
+  const meta = STATUS_META[claim.status] ?? { label: claim.status, icon: Receipt, color: "var(--color-ink-500)" };
   const StatusIcon = meta.icon;
 
   // ── Long-press overview sheet (data already in the list item — no fetch) ──
@@ -205,7 +204,7 @@ function ClaimCard({ claim }: { claim: ExpenseClaimListItem }) {
             </div>
           </div>
           <div className="mt-2 flex items-center justify-between">
-            <div className={`flex items-center gap-1 text-caption ${meta.color}`}>
+            <div className="flex items-center gap-1 text-caption" style={{ color: meta.color }}>
               <StatusIcon className="size-3" />
               {meta.label}
             </div>

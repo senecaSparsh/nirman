@@ -18,6 +18,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   const cats = await prisma.expenseCategory.findMany({
     where: { companyId: company.id },
     orderBy: { name: "asc" },
+    take: 300,
   });
   return json(cats.map((c) => ({
     id: c.id,

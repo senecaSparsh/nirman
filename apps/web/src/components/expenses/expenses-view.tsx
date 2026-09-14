@@ -37,13 +37,15 @@ export function ExpensesView({
   suppliers,
   glAccounts,
   permissions,
+  currentUserId,
 }: {
   expenses: ExpenseRow[];
   categories: ExpenseCategoryRow[];
   projects: ProjectOption[];
   suppliers: { id: string; name: string }[];
   glAccounts: GlAccountOption[];
-  permissions: { canCreate: boolean; canApprove: boolean; canManage: boolean; canView: boolean };
+  permissions: { canCreate: boolean; canApprove: boolean; canManage: boolean; canView: boolean; canSelfApprove?: boolean };
+  currentUserId?: string | null;
 }) {
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
@@ -254,6 +256,7 @@ export function ExpensesView({
                   <ExpenseActions
                     expense={e}
                     permissions={permissions}
+                    currentUserId={currentUserId}
                     actionLoading={actionLoading}
                     onEdit={() => openEdit(e)}
                     onSubmit={() => doAction(e, "submit")}
@@ -334,6 +337,7 @@ export function ExpensesView({
 function ExpenseActions({
   expense,
   permissions,
+  currentUserId,
   actionLoading,
   onEdit,
   onSubmit,
@@ -342,7 +346,8 @@ function ExpenseActions({
   onDelete,
 }: {
   expense: ExpenseRow;
-  permissions: { canCreate: boolean; canApprove: boolean; canManage: boolean };
+  permissions: { canCreate: boolean; canApprove: boolean; canManage: boolean; canSelfApprove?: boolean };
+  currentUserId?: string | null;
   actionLoading: string | null;
   onEdit: () => void;
   onSubmit: () => void;
@@ -353,7 +358,10 @@ function ExpenseActions({
   const isLoading = (a: string) => actionLoading === `${expense.id}-${a}`;
   const canEdit = (expense.status === "DRAFT" || expense.status === "REJECTED") && permissions.canCreate;
   const canSubmit = (expense.status === "DRAFT" || expense.status === "REJECTED") && permissions.canCreate;
-  const canApprove = expense.status === "PENDING" && permissions.canApprove;
+  // Hide Approve from the submitter — self-approval is blocked server-side —
+  // unless a tier-1 approver (OWNER/ADMIN), where no higher reviewer exists.
+  const isSelfSubmitted = expense.submittedById === currentUserId;
+  const canApprove = expense.status === "PENDING" && permissions.canApprove && (!isSelfSubmitted || permissions.canSelfApprove);
   const canDelete = permissions.canManage && expense.status !== "PENDING";
 
   return (

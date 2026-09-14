@@ -158,20 +158,20 @@ export function PurchaseOrderDetailView({
       </div>
 
       {/* Approval / rejection audit trail */}
-      {detail.approvedAt && (
+      {detail.approvedAt && detail.approvedByName && (
         <div className="rounded-md border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/10 p-3 text-meta">
           <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-medium">
-            <Check className="h-3.5 w-3.5" /> Approved by {detail.approvedByName ?? "Unknown"} on {formatDate(detail.approvedAt)}
+            <Check className="h-3.5 w-3.5" /> Approved by {detail.approvedByName} on {formatDate(detail.approvedAt)}
           </div>
           {detail.approvalNotes && (
             <div className="mt-1 text-muted-foreground">Notes: {detail.approvalNotes}</div>
           )}
         </div>
       )}
-      {detail.rejectedAt && (
+      {detail.rejectedAt && detail.rejectedByName && (
         <div className="rounded-md border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/10 p-3 text-meta">
           <div className="flex items-center gap-1.5 text-red-700 dark:text-red-400 font-medium">
-            <X className="h-3.5 w-3.5" /> Rejected by {detail.rejectedByName ?? "Unknown"} on {formatDate(detail.rejectedAt)}
+            <X className="h-3.5 w-3.5" /> Rejected by {detail.rejectedByName} on {formatDate(detail.rejectedAt)}
           </div>
           {detail.rejectionReason && (
             <div className="mt-1 text-muted-foreground">Reason: {detail.rejectionReason}</div>

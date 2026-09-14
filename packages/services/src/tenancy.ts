@@ -1,4 +1,4 @@
-import { prisma, type Prisma, type AssetType, type TenancyStatus } from "@nirman/db";
+import { prisma, type Prisma, type AssetType } from "@nirman/db";
 import { withSerializableTransaction } from "./transaction";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
@@ -435,13 +435,21 @@ export async function activateTenancy(tenancyId: string, companyId: string, user
     const now = new Date();
     const monthsAhead = 12;
     let scheduleCreated = 0;
+    // Schedule months from the later of "now" or the lease start — a future
+    // lease must not generate rent for months before it begins.
+    const schedBase = start > now ? start : now;
 
     for (let i = 0; i < monthsAhead; i++) {
-      const dueDate = new Date(now.getFullYear(), now.getMonth() + i, start.getDate());
+      // UTC-midnight construction — dueDate/periodStart/periodEnd land in
+      // @db.Date columns. `new Date(y, m, d)` (local midnight) would store the
+      // previous UTC day in timezones ahead of UTC (IST = UTC+5:30). The
+      // year/month come from local time (business "current month") while the
+      // day-of-month comes from the stored UTC-midnight startDate.
+      const dueDate = new Date(Date.UTC(schedBase.getFullYear(), schedBase.getMonth() + i, start.getUTCDate()));
       if (dueDate > end) break;
 
-      const periodStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), 1);
-      const periodEnd = new Date(dueDate.getFullYear(), dueDate.getMonth() + 1, 0);
+      const periodStart = new Date(Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), 1));
+      const periodEnd = new Date(Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth() + 1, 0));
 
       const existing = await tx.rentalPayment.findFirst({
         where: { tenancyId: t.id, periodStart },
@@ -928,17 +936,22 @@ export async function generateRentSchedule(input: GenerateRentScheduleInput) {
     const start = new Date(t.startDate);
     const end = new Date(t.endDate);
     const now = new Date();
+    const schedBase = start > now ? start : now;
 
     const created: string[] = [];
     const skipped: string[] = [];
 
     for (let i = 0; i < monthsAhead; i++) {
-      // Due date = same day of month as start, for the next N months from now
-      const dueDate = new Date(now.getFullYear(), now.getMonth() + i, start.getDate());
+      // Due date = same day of month as start, for the next N months from the
+      // later of "now" or the lease start (a future lease must not bill
+      // earlier months). UTC-midnight construction (@db.Date columns) —
+      // local `new Date(y, m, d)` stores the previous UTC day in timezones
+      // ahead of UTC.
+      const dueDate = new Date(Date.UTC(schedBase.getFullYear(), schedBase.getMonth() + i, start.getUTCDate()));
       if (dueDate > end) break;
 
-      const periodStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), 1);
-      const periodEnd = new Date(dueDate.getFullYear(), dueDate.getMonth() + 1, 0);
+      const periodStart = new Date(Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), 1));
+      const periodEnd = new Date(Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth() + 1, 0));
 
       // Check if a payment already exists for this period
       const existing = await tx.rentalPayment.findFirst({
@@ -1003,13 +1016,15 @@ export async function generateDueRentSchedules(): Promise<{ checked: number; cre
       const rent = new Decimal(t.monthlyRent);
       const start = new Date(t.startDate);
       const end = new Date(t.endDate);
+      const schedBase = start > now ? start : now;
       // Generate for the current month + next 2 months (covers any gaps)
       for (let i = 0; i < 3; i++) {
-        const dueDate = new Date(now.getFullYear(), now.getMonth() + i, start.getDate());
+        // UTC-midnight construction (@db.Date columns) — see activateTenancy.
+        const dueDate = new Date(Date.UTC(schedBase.getFullYear(), schedBase.getMonth() + i, start.getUTCDate()));
         if (dueDate > end) break;
 
-        const periodStart = new Date(dueDate.getFullYear(), dueDate.getMonth(), 1);
-        const periodEnd = new Date(dueDate.getFullYear(), dueDate.getMonth() + 1, 0);
+        const periodStart = new Date(Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), 1));
+        const periodEnd = new Date(Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth() + 1, 0));
 
         const existing = await prisma.rentalPayment.findFirst({
           where: { tenancyId: t.id, periodStart },

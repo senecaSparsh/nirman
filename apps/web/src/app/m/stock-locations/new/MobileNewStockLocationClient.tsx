@@ -173,10 +173,10 @@ export default function MobileNewStockLocationClient({
         <p className="text-m-body mb-4" style={{ color: "var(--color-ink-500)" }}>
           {success} is ready to receive stock.
         </p>
-        <div className="flex flex-col gap-2">
+        <div className="flex gap-2">
           <button
             onClick={() => router.push("/m/stock")}
-            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
+            className="flex-1 rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View Stock
@@ -187,7 +187,7 @@ export default function MobileNewStockLocationClient({
               setName("");
               setAddress("");
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
+            className="flex-1 rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           >
             Add Another
@@ -279,10 +279,6 @@ export default function MobileNewStockLocationClient({
               )}
             />
           )}
-        </SectionCard>
-
-        {/* Address */}
-        <SectionCard title="Address">
           <div className="flex flex-col gap-2">
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Address (optional)

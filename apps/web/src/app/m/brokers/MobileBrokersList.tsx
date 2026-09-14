@@ -320,14 +320,14 @@ function BrokerEditSheet({
         {/* Form */}
         <div className="pb-4 flex flex-col gap-3">
           {confirmDelete ? (
-            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-2" style={{ borderColor: "var(--color-danger, #dc2626)" }}>
+            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-2" style={{ borderColor: "var(--color-stop)" }}>
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                 Delete &quot;{broker.name}&quot;?
               </p>
               <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 This won&apos;t affect past sales that reference this broker.
               </p>
-              <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
                 <button
                   onClick={() => setConfirmDelete(false)}
                   className="flex-1 h-8 rounded-[0.375rem] border text-m-caption font-bold text-m-body press"
@@ -339,7 +339,7 @@ function BrokerEditSheet({
                   onClick={del}
                   disabled={saving}
                   className="flex-1 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press"
-                  style={{ backgroundColor: "var(--color-danger, #dc2626)", color: "var(--color-paper)" }}
+                  style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
                 >
                   {saving ? "Deleting…" : "Delete"}
                 </button>
@@ -374,13 +374,13 @@ function BrokerEditSheet({
                   <textarea rows={1} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any notes about this broker…" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
                 </div>
               </div>
-              <div className="flex flex-col gap-2 pt-1">
+              <div className="flex gap-2 pt-1">
                 {canDelete ? (
                   <button
                     onClick={() => setConfirmDelete(true)}
                     disabled={saving}
                     className="h-9 px-3 rounded-[0.5rem] border text-m-caption font-bold text-m-body press flex items-center gap-1"
-                    style={{ borderColor: "var(--color-danger, #dc2626)", color: "var(--color-danger, #dc2626)" }}
+                    style={{ borderColor: "var(--color-stop)", color: "var(--color-stop)" }}
                   >
                     <Trash2 className="size-3" /> Delete
                   </button>

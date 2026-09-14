@@ -1,6 +1,7 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
+import { canAutoApprove } from "@nirman/services";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import {
@@ -171,7 +172,7 @@ export default function MobileWorkOrderDetailPage({
 
             {/* ── Scope (work order lines) ── */}
             <div>
-              <SectionHead title={`Scope (${wo.lines.length} items)`} />
+              <SectionHead title={`Scope (${wo.lines.length} item${wo.lines.length === 1 ? "" : "s"})`} />
               <div
                 className="rounded-[0.5rem] border overflow-hidden"
                 style={{ borderColor: "var(--color-line)" }}
@@ -270,6 +271,7 @@ export default function MobileWorkOrderDetailPage({
                         canPay={canPay}
                         isCreator={bill.createdById === currentUserId}
                         isSubmitter={bill.submittedById === currentUserId}
+                        canSelfApprove={canAutoApprove(role)}
                       />
                     </div>
                   ))}

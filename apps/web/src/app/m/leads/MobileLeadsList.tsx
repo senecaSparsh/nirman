@@ -53,9 +53,9 @@ export type LeadListItem = {
 
 const STAGE_COLORS: Record<string, string> = {
   NEW: "var(--color-steel)",
-  CONTACTED: "var(--color-info)",
-  SITE_VISIT: "var(--color-info)",
-  NEGOTIATION: "var(--color-warn)",
+  CONTACTED: "var(--color-steel)",
+  SITE_VISIT: "var(--color-steel)",
+  NEGOTIATION: "var(--color-signal-dark)",
   BOOKED: "var(--color-go)",
   LOST: "var(--color-stop)",
 };
@@ -71,8 +71,8 @@ const STAGE_LABELS: Record<string, string> = {
 
 const PRIORITY_COLORS: Record<string, string> = {
   LOW: "var(--color-ink-500)",
-  MEDIUM: "var(--color-info)",
-  HIGH: "var(--color-warn)",
+  MEDIUM: "var(--color-steel)",
+  HIGH: "var(--color-signal-dark)",
   HOT: "var(--color-stop)",
 };
 

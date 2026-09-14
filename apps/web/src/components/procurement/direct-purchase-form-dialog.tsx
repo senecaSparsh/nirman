@@ -8,7 +8,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
-import { formatCurrency } from "@/lib/utils";
+import { localDateISO, formatCurrency } from "@/lib/utils";
 import type { MaterialOption, StockLocationOption } from "@/lib/types";
 import { VehicleCapture, type VehicleData } from "@/components/mobile/vehicle-capture";
 import { required, positiveNumber, nonNegativeNumber } from "@/lib/validate";
@@ -229,7 +229,7 @@ export function DirectPurchaseFormDialog({
         if (o) {
           clearAll();
           // Default bill date to today
-          setBillDate((cur) => cur || new Date().toISOString().slice(0, 10));
+          setBillDate((cur) => cur || localDateISO());
         }
       }}
       title="New Cash Purchase"

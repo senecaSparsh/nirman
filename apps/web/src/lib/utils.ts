@@ -46,6 +46,23 @@ const twMergeCustom = createTailwindMerge(() => {
   return config;
 });
 
+/**
+ * Today's date as a "YYYY-MM-DD" string in the LOCAL timezone.
+ *
+ * `localDateISO()` returns the UTC date — which is a day
+ * behind the local date for the first (UTC-offset) hours of each day. E.g. at
+ * 02:00 IST (UTC+5:30) on Sep 14, `toISOString()` still says "2026-09-13" while
+ * the local calendar already reads Sep 14. Forms defaulting "today" via
+ * `toISOString()` write records under the wrong business date and appear
+ * "missing" to any query that buckets by local date (attendance rail, DPR feed).
+ *
+ * `toLocaleDateString("en-CA")` returns `YYYY-MM-DD` in local time — the
+ * business "today" a field user means.
+ */
+export function localDateISO(d: Date = new Date()): string {
+  return d.toLocaleDateString("en-CA");
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMergeCustom(clsx(inputs));
 }

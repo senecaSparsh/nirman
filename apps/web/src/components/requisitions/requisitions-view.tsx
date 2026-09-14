@@ -31,6 +31,8 @@ type CategoryOption = { id: string; name: string; unit: string };
 /** Column definitions for the requisitions DataTable. */
 function buildReqColumns(opts: {
   canApprove: boolean;
+  /** Tier-1 viewers may approve their own indent. */
+  canSelfApprove?: boolean;
   currentUserId?: string;
   onApprove: (r: RequisitionRow) => void;
   onReject: (r: RequisitionRow) => void;
@@ -128,7 +130,7 @@ function buildReqColumns(opts: {
               <Check className="h-3 w-3" /> {r.status === "REJECTED" ? "Resubmit" : "Submit"}
             </Button>
           )}
-          {r.status === "SUBMITTED" && opts.canApprove && !isOwner && (
+          {r.status === "SUBMITTED" && opts.canApprove && (!isOwner || opts.canSelfApprove) && (
             <>
               <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); opts.onReject(r); }}>
                 <X className="h-3 w-3" /> Reject
@@ -179,11 +181,12 @@ export function RequisitionsView({
   suppliers: SupplierOption[];
   locations: LocationOption[];
   categories: CategoryOption[];
-  permissions?: { canCreate?: boolean; canApprove?: boolean };
+  permissions?: { canCreate?: boolean; canApprove?: boolean; canSelfApprove?: boolean };
   currentUserId?: string;
 }) {
   const canCreate = permissions?.canCreate ?? false;
   const canApprove = permissions?.canApprove ?? false;
+  const canSelfApprove = permissions?.canSelfApprove ?? false;
   const [formOpen, setFormOpen] = useState(false);
   const [convertTarget, setConvertTarget] = useState<RequisitionRow | null>(null);
   const [deleting, setDeleting] = useState<RequisitionRow | null>(null);
@@ -374,6 +377,7 @@ export function RequisitionsView({
                 initialSort={{ key: "requestDate", direction: "desc" }}
                 columns={buildReqColumns({
                   canApprove,
+                  canSelfApprove,
                   currentUserId,
                   onApprove: (r) => action(r.id, "approve"),
                   onReject: (r) => { setRejectTarget(r); },
@@ -404,7 +408,7 @@ export function RequisitionsView({
                       <Button
                         size="sm"
                         disabled={bulkApproving}
-                        onClick={() => bulkAction(selected.filter((r) => r.status === "SUBMITTED" && r.requestedById !== currentUserId), "approve")}
+                        onClick={() => bulkAction(selected.filter((r) => r.status === "SUBMITTED" && (r.requestedById !== currentUserId || canSelfApprove)), "approve")}
                       >
                         {bulkApproving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                         Approve
@@ -416,7 +420,7 @@ export function RequisitionsView({
                         variant="ghost"
                         className="text-danger"
                         disabled={bulkApproving}
-                        onClick={() => bulkAction(selected.filter((r) => r.status === "SUBMITTED" && r.requestedById !== currentUserId), "reject")}
+                        onClick={() => bulkAction(selected.filter((r) => r.status === "SUBMITTED" && (r.requestedById !== currentUserId || canSelfApprove)), "reject")}
                       >
                         {bulkApproving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
                         Reject
@@ -562,13 +566,13 @@ export function RequisitionsView({
                             {r.status === "REJECTED" && (
                               <Button size="sm" variant="outline" className="h-7 flex-1" onClick={() => action(r.id, "submit")}>Resubmit</Button>
                             )}
-                            {r.status === "SUBMITTED" && canApprove && r.requestedById !== currentUserId && (
+                            {r.status === "SUBMITTED" && canApprove && (r.requestedById !== currentUserId || canSelfApprove) && (
                               <>
                                 <Button size="sm" variant="outline" className="h-7 flex-1" onClick={() => action(r.id, "approve")}><Check className="h-3.5 w-3.5" /> Approve</Button>
                                 <Button size="sm" variant="outline" className="h-7 flex-1" onClick={() => { setRejectTarget(r); setRejectReason(""); }}><X className="h-3.5 w-3.5" /> Reject</Button>
                               </>
                             )}
-                            {r.status === "SUBMITTED" && (!canApprove || r.requestedById === currentUserId) && (
+                            {r.status === "SUBMITTED" && (!canApprove || (r.requestedById === currentUserId && !canSelfApprove)) && (
                               <span className="text-micro text-muted-foreground">Awaiting approval</span>
                             )}
                             {r.status === "APPROVED" && (r.quotesWaived || r.hasWinningQuote) && (

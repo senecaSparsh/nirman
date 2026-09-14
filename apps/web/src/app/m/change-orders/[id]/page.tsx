@@ -1,6 +1,7 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, getCurrentUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { canAutoApprove } from "@nirman/services";
 import { notFound } from "next/navigation";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileChangeOrderDetailClient } from "./MobileChangeOrderDetailClient";
@@ -13,7 +14,7 @@ export default async function MobileChangeOrderDetailPage({
 }) {
   return (
     <MobileDetailPage params={params} managePerm={PERM.WO_MANAGE} skeletonSections={6}>
-      {async ({ id, company, canManage }) => {
+      {async ({ id, company, canManage, role }) => {
         const co = await prisma.changeOrder.findUnique({
           where: { id },
           include: {
@@ -33,6 +34,7 @@ export default async function MobileChangeOrderDetailPage({
 
         if (!co || co.companyId !== company.id) notFound();
 
+        const currentUser = await getCurrentUser();
         const serialized = {
           id: co.id,
           changeOrderNo: co.changeOrderNo,
@@ -58,6 +60,7 @@ export default async function MobileChangeOrderDetailPage({
           approvedAt: co.approvedAt?.toISOString() ?? null,
           implementedAt: co.implementedAt?.toISOString() ?? null,
           submittedByName: co.submittedBy?.name ?? null,
+          submittedById: co.submittedBy?.id ?? null,
           approvedByName: co.approvedBy?.name ?? null,
           implementedByName: co.implementedBy?.name ?? null,
           lines: co.lines.map((l) => ({
@@ -84,7 +87,7 @@ export default async function MobileChangeOrderDetailPage({
             subtitle: co.project.name,
             recordId: co.id,
           }}>
-            <MobileChangeOrderDetailClient co={serialized} canManage={canManage} />
+            <MobileChangeOrderDetailClient co={serialized} canManage={canManage} currentUserId={currentUser?.id ?? null} canSelfApprove={canAutoApprove(role)} />
           </PageContextProvider>
         );
       }}

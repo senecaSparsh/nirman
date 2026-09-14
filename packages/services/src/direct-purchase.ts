@@ -5,6 +5,7 @@ import { logAction } from "./audit";
 import { postDirectPurchase, reverseJournalEntry } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
+import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 
 /**
  * Direct Purchase Service — simplified purchase log for local/ad-hoc buys
@@ -66,18 +67,14 @@ export function computeDirectPurchaseTotals(
   return { subtotal, gstTotal, billAmount };
 }
 
-/** Generate a unique bill number: P-NNNNNN (sequential, zero-padded) */
-async function generateBillNumber(): Promise<string> {
-  const last = await prisma.directPurchase.findFirst({
-    orderBy: { billNumber: "desc" },
-    select: { billNumber: true },
-  });
-  let nextSeq = 1;
-  if (last) {
-    const match = last.billNumber?.match(/^P-(\d+)$/);
-    if (match?.[1]) nextSeq = parseInt(match[1], 10) + 1;
-  }
-  return `P-${String(nextSeq).padStart(6, "0")}`;
+/** Generate a unique bill number: P-NNNNNN (sequential, zero-padded).
+ *  Uses the atomic NumberSequence upsert — the previous max+1 read was
+ *  race-prone: two concurrent purchases could compute the same number and
+ *  one would fail with P2002. Gaps are possible (a rolled-back create burns
+ *  its number) but uniqueness is always preserved. */
+async function generateBillNumber(companyId: string): Promise<string> {
+  const prefix = await companyScopedPrefix(prisma, companyId, "P-");
+  return nextSequenceNumber(prisma, prefix, 6);
 }
 
 interface CreateDirectPurchaseInput {
@@ -142,7 +139,7 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
     }
   }
 
-  const billNumber = await generateBillNumber();
+  const billNumber = await generateBillNumber(input.companyId);
 
   // If there are lines that receive stock, use the stock transaction wrapper
   const hasStockLines = input.lines && input.lines.length > 0;

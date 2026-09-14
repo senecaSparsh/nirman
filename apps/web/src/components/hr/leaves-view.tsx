@@ -17,6 +17,8 @@ import { EmployeeName } from "@/components/employee-name";
 export type LeaveRow = {
   id: string;
   employeeId: string;
+  /** The leave owner's linked user account — used for self-approval gating. */
+  employeeUserId?: string | null;
   employeeName: string;
   employeeTrade: string | null;
   employeeDesignation: string | null;
@@ -115,13 +117,16 @@ export function LeavesView({
   leaves,
   employees,
   permissions,
+  currentUserId,
 }: {
   leaves: LeaveRow[];
   employees: { id: string; name: string; trade: string | null; designation: string | null }[];
-  permissions?: { canManage?: boolean };
+  permissions?: { canManage?: boolean; canSelfApprove?: boolean };
+  currentUserId?: string | null;
 }) {
   const router = useRouter();
   const canManage = permissions?.canManage ?? false;
+  const canSelfApprove = permissions?.canSelfApprove ?? false;
   const [formOpen, setFormOpen] = useState(false);
   const [detailTarget, setDetailTarget] = useState<LeaveRow | null>(null);
   const [rejectTarget, setRejectTarget] = useState<LeaveRow | null>(null);
@@ -221,14 +226,23 @@ export function LeavesView({
 
   function leaveRowActions(l: LeaveRow) {
     if (!canManage || l.status !== "PENDING") return null;
+    // Hide approve/reject from the leave's owner — self-approval is blocked
+    // server-side — unless a tier-1 approver (OWNER/ADMIN), where no higher
+    // reviewer exists. Cancel stays (that's the owner withdrawing their own leave).
+    const isSelfLeave = l.employeeUserId === currentUserId;
+    const canActOnLeave = !isSelfLeave || canSelfApprove;
     return (
       <>
-        <Button size="sm" onClick={(e) => { e.stopPropagation(); actOnLeave(l, true); }} disabled={submitting}>
-          <Check className="mr-1 h-3.5 w-3.5" /> Approve
-        </Button>
-        <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setRejectTarget(l); setRejectReason(""); }} disabled={submitting}>
-          <X className="mr-1 h-3.5 w-3.5" /> Reject
-        </Button>
+        {canActOnLeave && (
+          <Button size="sm" onClick={(e) => { e.stopPropagation(); actOnLeave(l, true); }} disabled={submitting}>
+            <Check className="mr-1 h-3.5 w-3.5" /> Approve
+          </Button>
+        )}
+        {canActOnLeave && (
+          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setRejectTarget(l); setRejectReason(""); }} disabled={submitting}>
+            <X className="mr-1 h-3.5 w-3.5" /> Reject
+          </Button>
+        )}
         <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); cancelLeave(l); }} disabled={submitting} title="Cancel">
           <Ban className="h-3.5 w-3.5" />
         </Button>

@@ -401,7 +401,7 @@ export function MobileWbsDeleteConfirm({
             </p>
           </div>
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex gap-2">
           <button
             onClick={onClose}
             disabled={deleteAction.isPending}

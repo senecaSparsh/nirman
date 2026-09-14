@@ -217,7 +217,7 @@ export function MobileNewEmployeeForm({
                     {c.parentCompanyId === null && (
                       <span
                         className="text-m-caption px-1 rounded-full"
-                        style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-500)" }}
+                        style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}
                       >
                         Parent
                       </span>
@@ -243,7 +243,7 @@ export function MobileNewEmployeeForm({
           disabled={saving}
           className="h-11 px-4 rounded-[0.5rem] text-m-section font-semibold press disabled:opacity-50"
           style={{
-            backgroundColor: "var(--color-ink-100)",
+            backgroundColor: "var(--color-concrete)",
             color: "var(--color-ink-700)",
           }}
         >

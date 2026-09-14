@@ -367,7 +367,7 @@ export function MobileNewSaleForm({
           <p className="text-m-caption font-semibold mb-1.5" style={{ color: "var(--color-ink-500)" }}>
             Asset type <span style={{ color: "var(--color-stop)" }}>*</span>
           </p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-1.5">
             <button
               type="button"
               onClick={() => { setAssetType("BUILT_UNIT"); haptic(10); }}
@@ -543,7 +543,7 @@ export function MobileNewSaleForm({
             </FormFieldSm>
 
             {/* GST + Total */}
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               <FormFieldSm label="GST %">
                 <input
                   type="number"
@@ -573,7 +573,7 @@ export function MobileNewSaleForm({
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             {/* Maturity + Payment cycle */}
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               <FormFieldSm label="Maturity (mo)">
                 <input
                   type="number"
@@ -600,7 +600,7 @@ export function MobileNewSaleForm({
 
             {/* Deal source */}
             <FormFieldSm label="Deal Source">
-              <div className="grid grid-cols-2 gap-1">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setDealSource("SELF")}
@@ -670,7 +670,7 @@ export function MobileNewSaleForm({
                     )}
                   />
                 </FormFieldSm>
-                <div className="grid grid-cols-2 gap-1.5">
+                <div className="grid grid-cols-2 gap-2">
                   <FormFieldSm label="Broker Name">
                     <input
                       type="text"
@@ -784,7 +784,7 @@ export function MobileNewSaleForm({
               <p className="text-m-caption mb-1" style={{ color: "var(--color-ink-500)" }}>
                 Either ATS or Registry — one is the registered document.
               </p>
-              <div className="grid grid-cols-2 gap-1">
+              <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => { setIsATS(true); haptic(10); }}
                   className="h-7 rounded-[0.375rem] border-2 text-m-caption font-bold text-m-body press"
                   style={{
@@ -806,7 +806,7 @@ export function MobileNewSaleForm({
               </div>
               {isATS ? (
                 <div className="space-y-1.5 mt-1.5">
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="grid grid-cols-2 gap-2">
                     <FormFieldSm label="ATS Reg. No.">
                       <input type="text" value={atsNo}
                         onChange={(e) => setAtsNo(e.target.value)}
@@ -852,7 +852,7 @@ export function MobileNewSaleForm({
               <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                 Home Loan
               </span>
-              <div className="grid grid-cols-2 gap-1">
+              <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => { setHasHomeLoan(false); haptic(10); }}
                   className="h-6 rounded-[0.375rem] border-2 text-m-caption font-bold text-m-body press px-2"
                   style={{
@@ -875,7 +875,7 @@ export function MobileNewSaleForm({
             </div>
             {hasHomeLoan && (
               <>
-                <div className="grid grid-cols-2 gap-1.5">
+                <div className="grid grid-cols-2 gap-2">
                   <FormFieldSm label="Bank">
                     <input type="text" value={homeLoanBank}
                       onChange={(e) => setHomeLoanBank(e.target.value)}
@@ -889,7 +889,7 @@ export function MobileNewSaleForm({
                       className={`${inputClassSm} tabular-nums`} style={inputStyleSm} />
                   </FormFieldSm>
                 </div>
-                <div className="grid grid-cols-2 gap-1.5">
+                <div className="grid grid-cols-2 gap-2">
                   <FormFieldSm label="Sanction No.">
                     <input type="text" value={homeLoanSanctionNo}
                       onChange={(e) => setHomeLoanSanctionNo(e.target.value)}
@@ -1120,7 +1120,7 @@ export function MobileNewSaleForm({
                       <Trash2 className="size-3" />
                     </button>
                   </div>
-                  <div className="grid grid-cols-3 gap-1">
+                  <div className="grid grid-cols-3 gap-1.5">
                     <input
                       type="number"
                       inputMode="decimal"

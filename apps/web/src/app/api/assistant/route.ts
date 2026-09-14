@@ -427,7 +427,7 @@ function roleAwareQuickLinks(role: Role): ActionCard[] {
     cards.push({ type: "link", label: "Sales", href: "/m/material-sales" });
   }
   if (hasPermission(role, PERM.FINANCE_VIEW)) {
-    cards.push({ type: "link", label: "Finance", href: "/m/gl" });
+    cards.push({ type: "link", label: "Finance", href: "/m/books/gl" });
   }
   return cards.slice(0, 3);
 }
@@ -649,7 +649,7 @@ async function approvalsListResponse(companyId: string): Promise<AssistantRespon
       take: 10,
     }),
     prisma.materialRequisition.findMany({
-      where: { project: { companyId }, status: "SUBMITTED" },
+      where: { OR: [{ project: { companyId } }, { department: { companyId } }], status: "SUBMITTED" },
       include: { project: true, _count: { select: { lines: true } } },
       orderBy: { createdAt: "desc" },
       take: 10,
@@ -746,7 +746,7 @@ async function approvePoResponse(companyId: string, entities: ParsedEntities): P
 async function approveReqResponse(companyId: string, entities: ParsedEntities): Promise<AssistantResponse> {
   if (!entities.reqNumber) {
     const pendingReqs = await prisma.materialRequisition.findMany({
-      where: { project: { companyId }, status: "SUBMITTED" },
+      where: { OR: [{ project: { companyId } }, { department: { companyId } }], status: "SUBMITTED" },
       include: { project: true },
       orderBy: { createdAt: "desc" },
       take: 10,
@@ -1014,8 +1014,8 @@ async function cashPositionResponse(companyId: string): Promise<AssistantRespons
     intent: "CASH_POSITION",
     confidence: 0.9,
     cards: [
-      { type: "link", label: "Trial balance", href: "/m/gl" },
-      { type: "link", label: "Cash flow", href: "/m/cash-flow" },
+      { type: "link", label: "Trial balance", href: "/m/books/gl" },
+      { type: "link", label: "Cash flow", href: "/m/reports/cash-flow" },
     ],
   };
 }
@@ -1196,7 +1196,7 @@ async function trialBalanceResponse(companyId: string): Promise<AssistantRespons
     text,
     intent: "TRIAL_BALANCE",
     confidence: 0.9,
-    cards: [{ type: "link", label: "Full GL", href: "/m/gl" }],
+    cards: [{ type: "link", label: "Full GL", href: "/m/books/gl" }],
   };
 }
 
@@ -1282,7 +1282,7 @@ async function taskResponse(_companyId: string): Promise<AssistantResponse> {
     text,
     intent: "TASK_LIST",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All tasks", href: "/m/tasks" }],
+    cards: [{ type: "link", label: "All tasks", href: "/m/site/tasks" }],
   };
 }
 
@@ -1335,7 +1335,7 @@ async function attentionResponse(companyId: string): Promise<AssistantResponse> 
   const dprScope = await scopeWhere("DailyProgressReport", {});
   const [draftPOs, pendingReqs, overduePOs, lowStock, pendingDPRs] = await Promise.all([
     prisma.purchaseOrder.count({ where: { companyId, status: "DRAFT" } }),
-    prisma.materialRequisition.count({ where: { project: { companyId }, status: "SUBMITTED" } }),
+    prisma.materialRequisition.count({ where: { OR: [{ project: { companyId } }, { department: { companyId } }], status: "SUBMITTED" } }),
     prisma.purchaseOrder.count({
       where: { companyId, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() } },
     }),
@@ -1427,7 +1427,7 @@ async function monthlySummaryResponse(companyId: string): Promise<AssistantRespo
     confidence: 0.9,
     cards: [
       { type: "link", label: "Sales detail", href: "/m/material-sales" },
-      { type: "link", label: "GL / P&L", href: "/m/gl" },
+      { type: "link", label: "GL / P&L", href: "/m/books/gl" },
     ],
   };
 }
@@ -1469,7 +1469,7 @@ async function profitLossResponse(companyId: string): Promise<AssistantResponse>
     text,
     intent: "PROFIT_LOSS",
     confidence: 0.9,
-    cards: [{ type: "link", label: "Full GL", href: "/m/gl" }],
+    cards: [{ type: "link", label: "Full GL", href: "/m/books/gl" }],
   };
 }
 
@@ -1551,7 +1551,7 @@ async function approveAllResponse(companyId: string): Promise<AssistantResponse>
   });
 
   const pendingReqs = await prisma.materialRequisition.findMany({
-    where: { project: { companyId }, status: "SUBMITTED" },
+    where: { OR: [{ project: { companyId } }, { department: { companyId } }], status: "SUBMITTED" },
     include: { project: true },
     orderBy: { createdAt: "desc" },
     take: 20,
@@ -1628,7 +1628,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
   if (hasPermission(role, PERM.PROCUREMENT_VIEW)) {
     const [draftPOs, pendingReqs] = await Promise.all([
       prisma.purchaseOrder.count({ where: { companyId, status: "DRAFT" } }),
-      prisma.materialRequisition.count({ where: { project: { companyId }, status: "SUBMITTED" } }),
+      prisma.materialRequisition.count({ where: { OR: [{ project: { companyId } }, { department: { companyId } }], status: "SUBMITTED" } }),
     ]);
     if (draftPOs > 0 || pendingReqs > 0) {
       items.push(`Approvals: ${draftPOs} POs + ${pendingReqs} requisitions pending`);
@@ -1934,7 +1934,7 @@ async function tallyResponse(companyId: string): Promise<AssistantResponse> {
   ]);
 
   if (pending === 0 && synced === 0 && failed === 0) {
-    return { text: "Koi Tally sync data nahi hai. Pehle journal entries banao.", intent: "TALLY_STATUS", confidence: 0.8, cards: [{ type: "link", label: "GL page", href: "/m/gl" }] };
+    return { text: "Koi Tally sync data nahi hai. Pehle journal entries banao.", intent: "TALLY_STATUS", confidence: 0.8, cards: [{ type: "link", label: "GL page", href: "/m/books/gl" }] };
   }
 
   let text = `**Tally Sync Status:**\n\n`;
@@ -1944,10 +1944,10 @@ async function tallyResponse(companyId: string): Promise<AssistantResponse> {
 
   if (pending > 0) {
     text += `\n${pending} entries sync karne pending hain.`;
-    return { text, intent: "TALLY_STATUS", confidence: 0.9, cards: [{ type: "link", label: "Sync now", href: "/m/gl", variant: "primary" }] };
+    return { text, intent: "TALLY_STATUS", confidence: 0.9, cards: [{ type: "link", label: "Sync now", href: "/m/books/gl", variant: "primary" }] };
   }
 
-  return { text, intent: "TALLY_STATUS", confidence: 0.9, cards: [{ type: "link", label: "GL page", href: "/m/gl" }] };
+  return { text, intent: "TALLY_STATUS", confidence: 0.9, cards: [{ type: "link", label: "GL page", href: "/m/books/gl" }] };
 }
 
 function transferStockResponse(): AssistantResponse {
@@ -2325,7 +2325,7 @@ async function profitMarginResponse(companyId: string): Promise<AssistantRespons
     text,
     intent: "PROFIT_MARGIN",
     confidence: 0.9,
-    cards: [{ type: "link", label: "P&L detail", href: "/m/gl" }],
+    cards: [{ type: "link", label: "P&L detail", href: "/m/books/gl" }],
   };
 }
 

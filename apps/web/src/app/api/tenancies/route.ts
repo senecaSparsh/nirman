@@ -19,6 +19,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       ...await scopeWhere("Tenancy", {}),
     },
     orderBy: { createdAt: "desc" },
+    take: 300,
     include: {
       customer: { select: { id: true, name: true, phone: true } },
       project: { select: { id: true, name: true } },

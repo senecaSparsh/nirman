@@ -8,18 +8,30 @@ import {
   submitRequisition,
   waiveQuoteRequirement,
   logAction,
+  canAutoApprove,
 } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, ForbiddenError, getCompany, json, requirePermission, requireUser, toNum, UnauthorizedError, scopeWhere } from "@/lib/server";
 import { z } from "zod";
 import { withSerializableTransaction } from "@nirman/services";
 
+/**
+ * Tenant anchor for indents: a requisition belongs to the company through
+ * EITHER its project OR its department (cost-centre indents have no project).
+ */
+const companyAnchor = (companyId: string) => ({
+  OR: [
+    { project: { companyId, deletedAt: null } },
+    { department: { companyId, deletedAt: null } },
+  ],
+});
+
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.PROCUREMENT_VIEW);
   const company = await getCompany();
   const { id } = await params;
   const req = await prisma.materialRequisition.findFirst({
-    where: { id, project: { companyId: company.id }, ...await scopeWhere("MaterialRequisition") },
+    where: { id, ...companyAnchor(company.id), ...await scopeWhere("MaterialRequisition") },
     include: {
       project: { select: { id: true, name: true } },
       phase: { select: { id: true, name: true } },
@@ -118,7 +130,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   await requireUser();
   const { id } = await params;
   const company = await getCompany();
-  const existing = await prisma.materialRequisition.findFirst({ where: { id, project: { companyId: company.id }, ...await scopeWhere("MaterialRequisition") }, select: { id: true } });
+  const existing = await prisma.materialRequisition.findFirst({ where: { id, ...companyAnchor(company.id), ...await scopeWhere("MaterialRequisition") }, select: { id: true } });
   if (!existing) return json({ error: "Indent not found" }, { status: 404 });
   const body = await req.json();
   const action = body?.action as string;
@@ -127,21 +139,28 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     if (action === "submit") {
       const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
       await submitRequisition(id, user.id);
+      // A tier-1 creator (OWNER/ADMIN) is the top of the approval hierarchy —
+      // no higher approver exists, so submitting auto-approves their indent.
+      // Lower tiers leave it SUBMITTED for another approver to review.
+      if (canAutoApprove(user.role)) {
+        await approveRequisition(id, user.id, undefined, user.role);
+      }
       revalidatePath("/requisitions");
       revalidatePath("/m/procurement");
       return json({ ok: true });
     }
     if (action === "approve") {
       const user = await requirePermission(PERM.REQUISITION_APPROVE);
-      // Prevent self-approval — the requester cannot approve their own indent.
+      // Prevent self-approval — the requester cannot approve their own indent,
+      // unless they're a tier-1 role (OWNER/ADMIN) where no higher approver exists.
       const req = await prisma.materialRequisition.findFirst({
-        where: { id, project: { companyId: company.id }, ...await scopeWhere("MaterialRequisition") },
+        where: { id, ...companyAnchor(company.id), ...await scopeWhere("MaterialRequisition") },
         select: { requestedById: true },
       });
-      if (req?.requestedById === user.id) {
+      if (req?.requestedById === user.id && !canAutoApprove(user.role)) {
         return json({ error: "You cannot approve your own indent. Ask another approver to review it." }, { status: 403 });
       }
-      await approveRequisition(id, user.id);
+      await approveRequisition(id, user.id, undefined, user.role);
       revalidatePath("/requisitions");
       revalidatePath("/m/procurement");
       return json({ ok: true });
@@ -150,7 +169,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       const user = await requirePermission(PERM.REQUISITION_APPROVE);
       // Prevent self-rejection — same logic as self-approval.
       const req = await prisma.materialRequisition.findFirst({
-        where: { id, project: { companyId: company.id }, ...await scopeWhere("MaterialRequisition") },
+        where: { id, ...companyAnchor(company.id), ...await scopeWhere("MaterialRequisition") },
         select: { requestedById: true },
       });
       if (req?.requestedById === user.id) {
@@ -203,7 +222,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const company = await getCompany();
   const { id } = await params;
   const req = await prisma.materialRequisition.findFirst({
-    where: { id, project: { companyId: company.id }, ...await scopeWhere("MaterialRequisition") },
+    where: { id, ...companyAnchor(company.id), ...await scopeWhere("MaterialRequisition") },
   });
   if (!req) return json({ error: "Indent not found" }, { status: 404 });
   // Only allow deleting draft or rejected requisitions

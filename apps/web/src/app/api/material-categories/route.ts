@@ -12,6 +12,7 @@ export const GET = apiHandler(async () => {
   const categories = await prisma.materialCategory.findMany({
     where: { companyId: company.id, deletedAt: null },
     orderBy: { name: "asc" },
+    take: 500,
     include: { _count: { select: { materials: { where: { deletedAt: null } } } } },
   });
   return json(categories);
@@ -27,7 +28,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   // If HSN is provided but GST is not, auto-fill GST from the HSN master.
-  let hsnCode = parsed.data.hsnCode ?? null;
+  const hsnCode = parsed.data.hsnCode ?? null;
   let gstRate = parsed.data.gstRate != null ? new Decimal(parsed.data.gstRate) : null;
   if (hsnCode && gstRate == null) {
     const hsnEntry = await lookupGstByHsn(hsnCode);

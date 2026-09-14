@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { getCompanyGroupIds, getCurrentUser, getUserPermissions, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { canAutoApprove } from "@nirman/services";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate, formatDateTime } from "@/lib/utils";
 import {
   MobileEmptyState,
@@ -39,7 +40,7 @@ export default function MobilePoDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} managePerm={PERM.PROCUREMENT_MANAGE} skeletonSections={6}>
+    <MobileDetailPage params={params} perm={PERM.PROCUREMENT_VIEW} managePerm={PERM.PROCUREMENT_MANAGE} skeletonSections={6}>
       {async ({ id, company, role, canManage }) => {
         const groupCompanyIds = await getCompanyGroupIds(company);
         const overrides = await getUserPermissions();
@@ -92,7 +93,11 @@ export default function MobilePoDetailPage({
         }
 
         const currentUserId = (await getCurrentUser())?.id;
-        const canApprove = hasPermission(role, PERM.PO_APPROVE) && po.createdById !== currentUserId;
+        // A tier-1 creator (OWNER/ADMIN) may approve their own PO — no higher
+        // approver exists above them. Everyone else is blocked from self-
+        // approval, so the button stays hidden for a staff-created PO.
+        const canApprove = hasPermission(role, PERM.PO_APPROVE) &&
+          (po.createdById !== currentUserId || canAutoApprove(role));
         const canManagePayments = hasPermission(role, PERM.FINANCE_MANAGE);
         const canReceive = hasPermission(role, PERM.PROCUREMENT_VIEW);
         const isReceivable = po.status === "ORDERED" || po.status === "PARTIAL";
@@ -299,7 +304,17 @@ export default function MobilePoDetailPage({
 
         // Resolve the next action for this PO's status + the viewer's role.
         // Server-side — no permission function crosses the boundary.
-        const nextAction = resolveNextAction("procurement", po.status, role, overrides);
+        // When the viewer created this draft PO, self-approval is blocked —
+        // suppress the "Approve & order" card (it would 403) and show the
+        // honest "waiting for another approver" state instead.
+        const isSelfCreated = po.createdById === currentUserId;
+        let nextAction = resolveNextAction("procurement", po.status, role, overrides);
+        // For a self-created DRAFT, suppress the "Approve & order" card unless
+        // the viewer is tier-1 (OWNER/ADMIN) — they CAN self-approve, so the
+        // card is the correct next action for them.
+        if (isSelfCreated && po.status === "DRAFT" && nextAction?.perm === PERM.PO_APPROVE && !canAutoApprove(role)) {
+          nextAction = undefined;
+        }
 
         // Permissions to announce to the NavSheet's Next Step resolver
         const canActions: string[] = [];
@@ -463,9 +478,9 @@ export default function MobilePoDetailPage({
               </div>
             </div>
 
-            {/* ── Receive CTA ── */}
+            {/* ── Receive CTA ── `id="receive"` is the NextActionCard target */}
             {isReceivable && canReceive ? (
-              <div className="mb-3">
+              <div id="receive" className="mb-3">
                 <MobileReceiveDialog
                   poId={po.id}
                   poNumber={po.poNumber}
@@ -692,18 +707,22 @@ export default function MobilePoDetailPage({
               </div>
             ) : null}
 
-            {/* ── Inline actions ── */}
+            {/* ── Inline actions ── `id` anchors let the NextActionCard's
+                "#approve" link scroll the real control into view. */}
+            <div id="approve">
             <MobilePoActions
               po={poPayload}
               canApprove={canApprove}
               canManage={canManage}
               canManagePayments={canManagePayments}
               currentUserId={currentUserId}
+              canSelfApprove={canAutoApprove(role)}
               supplierId={po.supplierId}
               supplierName={po.supplier.name}
               balanceRemaining={Math.max(0, poPayload.total - totalPaid)}
               backHref="/m/procurement"
             />
+            </div>
           </div>
           </PageContextProvider>
         );

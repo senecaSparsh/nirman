@@ -36,14 +36,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   try {
     if (action === "verify") {
       const user = await requirePermission(PERM.MB_VERIFY);
-      const entry = await verifyMbEntry(id, user.id);
+      const entry = await verifyMbEntry(id, user.id, user.role);
       revalidatePath("/boq");
       revalidatePath("/projects");
       return json(entry);
     }
     if (action === "approve") {
       const user = await requirePermission(PERM.MB_APPROVE);
-      const entry = await approveMbEntry(id, user.id);
+      const entry = await approveMbEntry(id, user.id, user.role);
       revalidatePath("/boq");
       revalidatePath("/projects");
       return json(entry);

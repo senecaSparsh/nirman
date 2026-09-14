@@ -1333,8 +1333,10 @@ export function MobileTransferDetailClient({
         </div>
       ) : null}
 
-      {/* ── Sticky action bar — context-aware ── */}
+      {/* ── Sticky action bar — context-aware ── `id`s are the
+          NextActionCard anchor targets: #dispatch (draft) / #receive (in-transit). */}
       {canManage && (isDraft || isInTransit) ? (
+        <div id={isDraft ? "dispatch" : "receive"}>
         <ActionBar>
           <div className="flex items-center gap-2">
             {isDraft ? (
@@ -1479,6 +1481,7 @@ export function MobileTransferDetailClient({
             ) : null}
           </div>
         </ActionBar>
+        </div>
       ) : null}
 
       {/* ── Cancel confirmation modal ── */}
@@ -1492,7 +1495,7 @@ export function MobileTransferDetailClient({
             {transfer.fromLocation.name} to {transfer.toLocation.name}. No
             stock will be moved. This action cannot be undone.
           </p>
-          <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
             <button
               onClick={() => setShowCancel(false)}
               disabled={acting !== null}
@@ -1562,7 +1565,7 @@ export function MobileTransferDetailClient({
                 }}
               />
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
               <button
                 onClick={() => setShowReturn(false)}
                 disabled={acting !== null}
@@ -1613,7 +1616,7 @@ export function MobileTransferDetailClient({
             {transfer.fromLocation.name} to {transfer.toLocation.name}. Stock
             will be moved immediately. This action cannot be undone.
           </p>
-          <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
             <button
               onClick={() => setShowComplete(false)}
               disabled={acting !== null}

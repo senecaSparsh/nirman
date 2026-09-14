@@ -14,6 +14,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const assignments = await prisma.equipmentAssignment.findMany({
     where: { equipment: { companyId: company.id, deletedAt: null }, ...(status ? { status: status as EquipmentAssignmentStatus } : {}), ...await scopeWhere("EquipmentAssignment", {}) },
     orderBy: { assignedAt: "desc" },
+    take: 300,
     include: {
       equipment: { select: { id: true, name: true, assetTag: true } },
       location: { select: { name: true } },

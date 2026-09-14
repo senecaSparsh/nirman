@@ -50,6 +50,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       material: { select: { id: true, code: true, name: true, unit: true, barcode: true } },
     },
     orderBy: { material: { name: "asc" } },
+    take: 1000,
   });
 
   const rows = items.map((i) => ({

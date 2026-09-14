@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole, scopeWhere, projectScopeFilter } from "@/lib/server";
+import { getCompany, toNum, getUserRole, scopeWhere, projectScopeFilter, getCurrentUser } from "@/lib/server";
+import { canAutoApprove } from "@nirman/services";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { NoAccess } from "@/components/no-access";
@@ -21,7 +22,9 @@ export async function GatePassesContent() {
     canApprove: hasPermission(role, PERM.GATE_PASS_APPROVE),
     canExit: hasPermission(role, PERM.GATE_PASS_EXIT),
     canManage: hasPermission(role, PERM.GATE_PASS_MANAGE),
+    canSelfApprove: canAutoApprove(role),
   };
+  const currentUser = await getCurrentUser();
 
   const projectScope = await projectScopeFilter();
 
@@ -88,6 +91,7 @@ export async function GatePassesContent() {
     rejectionReason: gp.rejectionReason,
     approvalNotes: gp.approvalNotes,
     createdByName: gp.createdBy?.name ?? null,
+    createdById: gp.createdById ?? null,
     submittedByName: gp.submittedBy?.name ?? null,
     approvedByName: gp.approvedBy?.name ?? null,
     rejectedByName: gp.rejectedBy?.name ?? null,
@@ -181,6 +185,7 @@ export async function GatePassesContent() {
         materials={materialRows}
         projects={projectRows}
         permissions={perms}
+        currentUserId={currentUser?.id ?? null}
       />
     </>
   );

@@ -223,6 +223,9 @@ export default function MobileStockPage({
             include: {
               location: { select: { id: true, name: true, type: true } },
               lines: { select: { variance: true, materialId: true } },
+              createdBy: { select: { name: true } },
+              confirmedBy: { select: { name: true } },
+              reconciledBy: { select: { name: true } },
             },
           }),
           // ── Scrap tab ──
@@ -237,6 +240,7 @@ export default function MobileStockPage({
               notes: true,
               toLocation: { select: { name: true } },
               project: { select: { name: true } },
+              createdBy: { select: { name: true } },
               dprAutoScrap: { select: { id: true } },
               lines: {
                 select: {
@@ -376,6 +380,11 @@ export default function MobileStockPage({
             locationId: c.location.id,
             locationName: c.location.name,
             locationType: c.location.type,
+            createdByName: c.createdBy?.name ?? null,
+            confirmedByName: c.confirmedBy?.name ?? null,
+            confirmedAt: c.confirmedAt?.toISOString() ?? null,
+            reconciledByName: c.reconciledBy?.name ?? null,
+            reconciledAt: c.reconciledAt?.toISOString() ?? null,
             lineCount: c.lines.length,
             totalVariance,
             itemsWithVariance,
@@ -396,6 +405,7 @@ export default function MobileStockPage({
           notes: sc.notes,
           toLocationName: sc.toLocation.name,
           projectName: sc.project?.name ?? null,
+          createdByName: sc.createdBy?.name ?? null,
           isAuto: !!sc.dprAutoScrap,
           lineCount: sc.lines.length,
           totalValue: sc.lines.reduce(

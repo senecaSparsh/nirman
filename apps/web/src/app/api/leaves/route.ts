@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import type { LeaveStatus } from "@nirman/db";
-import { createLeaveRequest } from "@nirman/services";
+import { createLeaveRequest, approveLeaveRequest, canAutoApprove } from "@nirman/services";
 import { apiHandler, getCompany, json, leaveRequestSchema, requirePermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -20,6 +20,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       ...await scopeWhere("LeaveRequest", {}),
     },
     orderBy: { createdAt: "desc" },
+    take: 500,
     include: {
       employee: { select: { id: true, name: true, trade: true, designation: true } },
       approvedBy: { select: { id: true, name: true } },
@@ -61,7 +62,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const { prisma } = await import("@nirman/db");
   const employee = await prisma.employee.findFirst({
     where: { id: parsed.data.employeeId, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
-    select: { id: true },
+    select: { id: true, userId: true },
   });
   if (!employee) return json({ error: "Employee not found or out of scope" }, { status: 404 });
 
@@ -75,6 +76,20 @@ export const POST = apiHandler(async (req: NextRequest) => {
       reason: parsed.data.reason ?? undefined,
       userId: user.id,
     });
+    // A tier-1 user (OWNER/ADMIN) creating their OWN leave auto-approves it —
+    // they're both the requester and the top of the approval hierarchy, so no
+    // higher reviewer exists. Leave created for someone else still goes through
+    // that person's normal approval (the creator isn't the leave owner).
+    if (canAutoApprove(user.role) && employee.userId === user.id) {
+      await approveLeaveRequest({
+        leaveId: leave.id,
+        companyId: company.id,
+        approvedById: user.id,
+        approve: true,
+        actorRole: user.role,
+      });
+      return json({ ok: true, id: leave.id, status: "APPROVED" }, { status: 201 });
+    }
     return json({ ok: true, id: leave.id }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to create leave request") }, { status: 400 });

@@ -112,7 +112,14 @@ export const PATCH = apiHandler(async (req: NextRequest) => {
     try {
       // Verify the issue belongs to this company
       const issue = await prisma.materialIssue.findFirst({
-        where: { id: body.issueId, project: { companyId: company.id }, ...await scopeWhere("MaterialIssue") },
+        where: {
+          id: body.issueId,
+          OR: [
+            { project: { companyId: company.id, deletedAt: null } },
+            { department: { companyId: company.id, deletedAt: null } },
+          ],
+          ...await scopeWhere("MaterialIssue"),
+        },
         select: { id: true, status: true },
       });
       if (!issue) return json({ error: "Material issue not found" }, { status: 404 });

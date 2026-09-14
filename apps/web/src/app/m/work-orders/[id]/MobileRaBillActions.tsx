@@ -19,6 +19,7 @@ export function MobileRaBillActions({
   canPay,
   isCreator,
   isSubmitter,
+  canSelfApprove,
 }: {
   billId: string;
   billNumber: string;
@@ -29,6 +30,8 @@ export function MobileRaBillActions({
   canPay: boolean;
   isCreator: boolean;
   isSubmitter: boolean;
+  /** Tier-1 viewers (OWNER/ADMIN) may approve their own RA bill. */
+  canSelfApprove?: boolean;
 }) {
   const router = useRouter();
   const [acting, setActing] = useState<string | null>(null);
@@ -48,13 +51,18 @@ export function MobileRaBillActions({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success(
-        action === "submit" ? (status === "REJECTED" ? "RA bill resubmitted for approval" : "RA bill submitted for approval")
-        : action === "approve" ? "RA bill approved"
-        : action === "reject" ? "RA bill rejected"
-        : action === "pay" ? "RA bill paid"
-        : "Updated"
-      );
+      if (action === "pay") {
+        toast.success("RA bill paid", {
+          action: { label: "View GL", onClick: () => window.open("/gl", "_blank") },
+        });
+      } else {
+        toast.success(
+          action === "submit" ? (status === "REJECTED" ? "RA bill resubmitted for approval" : "RA bill submitted for approval")
+          : action === "approve" ? "RA bill approved"
+          : action === "reject" ? "RA bill rejected"
+          : "Updated"
+        );
+      }
       setShowReject(false);
       setShowPay(false);
       router.refresh();
@@ -65,8 +73,9 @@ export function MobileRaBillActions({
     }
   }
 
-  // Self-approval protection: creator/submitter cannot approve or reject
-  const selfBlock = isCreator || isSubmitter;
+  // Self-approval protection: creator/submitter cannot approve or reject —
+  // unless a tier-1 approver (OWNER/ADMIN), where no higher reviewer exists.
+  const selfBlock = (isCreator || isSubmitter) && !canSelfApprove;
   const showSubmitBtn = canSubmit && (status === "DRAFT" || status === "REJECTED") && !isCreator;
   const showApproveBtn = canApprove && status === "SUBMITTED" && !selfBlock;
   const showRejectBtn = canApprove && status === "SUBMITTED" && !selfBlock;

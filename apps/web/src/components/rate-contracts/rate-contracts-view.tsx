@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -119,23 +120,14 @@ function rcColumnsWithActions(onCancel: (id: string) => void): Column<RateContra
 }
 
 export function RateContractsView({ canCreate, categories }: { canCreate: boolean; categories: MaterialCategory[] }) {
-  const [contracts, setContracts] = useState<RateContract[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error, retry: loadContracts } = useFetch<RateContract[]>("/api/rate-contracts");
+  const contracts = data ?? [];
   const [dialogOpen, setDialogOpen] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
 
   useEffect(() => {
-    loadContracts();
-  }, []);
-
-  function loadContracts() {
-    setLoading(true);
-    fetch("/api/rate-contracts")
-      .then((r) => r.json())
-      .then((data) => setContracts(data ?? []))
-      .catch(() => toast.error("Failed to load rate contracts"))
-      .finally(() => setLoading(false));
-  }
+    if (error) toast.error("Failed to load rate contracts");
+  }, [error]);
 
   async function onCancel(id: string) {
     const ok = await confirm({

@@ -40,7 +40,7 @@ export type MobilePermissionRow = {
 const STATUS_CONFIG: Record<LegalDocStatus, { label: string; tone: "neutral" | "signal" | "go" | "stop"; bg: string; fg: string }> = {
   NOT_REQUIRED: { label: "N/A", tone: "neutral", bg: "var(--color-concrete)", fg: "var(--color-ink-500)" },
   PENDING: { label: "Pending", tone: "signal", bg: "var(--color-signal-wash)", fg: "var(--color-signal-dark)" },
-  APPROVED: { label: "Approved", tone: "go", bg: "var(--color-go-wash)", fg: "var(--color-go-dark)" },
+  APPROVED: { label: "Approved", tone: "go", bg: "var(--color-go-wash)", fg: "var(--color-go)" },
   REJECTED: { label: "Rejected", tone: "stop", bg: "var(--color-stop-wash)", fg: "var(--color-stop)" },
   EXPIRED: { label: "Expired", tone: "stop", bg: "var(--color-stop-wash)", fg: "var(--color-stop)" },
   RENEWAL_DUE: { label: "Renewal", tone: "signal", bg: "var(--color-signal-wash)", fg: "var(--color-signal-dark)" },
@@ -92,7 +92,7 @@ const TYPE_ICON: Record<string, typeof FileText> = {
 // ── Stage → icon + color ──
 const STAGE_STYLE: Record<string, { icon: typeof MapPin; bg: string; fg: string }> = {
   FEASIBILITY: { icon: MapPin, bg: "var(--color-ink-950)", fg: "var(--color-paper)" },
-  SANCTION: { icon: Building2, bg: "var(--color-steel)", fg: "#fff" },
+  SANCTION: { icon: Building2, bg: "var(--color-steel)", fg: "var(--color-paper)" },
   POST_COMPLETION: { icon: ShieldCheck, bg: "var(--color-signal)", fg: "var(--color-ink-950)" },
 };
 
@@ -204,7 +204,7 @@ export function MobilePermissionsList({
                 </div>
 
                 {/* ── 2-column grid of compact cards ── */}
-                <div className="grid grid-cols-2 gap-1.5">
+                <div className="grid grid-cols-2 gap-2">
                   {stageDocs.map((doc) => (
                     <PermissionCard key={doc.id} doc={doc} canManage={canManage} />
                   ))}

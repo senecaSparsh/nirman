@@ -25,7 +25,11 @@ const fieldBase = [
   "aria-[invalid=true]:border-danger aria-[invalid=true]:ring-danger/20",
 ];
 
-const fieldSize = "h-11 px-3 text-[14px] sm:h-8 sm:px-2.5 sm:text-[13px]";
+// NOTE: horizontal padding is intentionally NOT overridden at sm:. An
+// `sm:px-*` rule would beat consumer `pl-*`/`pr-*` overrides (media-query
+// rules emit later in the stylesheet), which used to put search icons on
+// top of placeholder text in ~30 places. Keep px-3 at every size.
+const fieldSize = "h-11 px-3 text-[14px] sm:h-8 sm:text-[13px]";
 
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, type, ...props }, ref) => (
@@ -61,7 +65,7 @@ export const Select = React.forwardRef<
       ref={ref}
       className={cn(
         fieldBase,
-        "h-11 appearance-none bg-none pl-3 pr-8 text-[14px] sm:h-8 sm:pl-2.5 sm:pr-7 sm:text-[13px]",
+        "h-11 appearance-none bg-none pl-3 pr-8 text-[14px] sm:h-8 sm:text-[13px]",
         className,
       )}
       {...props}

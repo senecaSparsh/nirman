@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import { TrendingUp, TrendingDown, Wallet, Calculator, Download } from "lucide-react";
 import { Select } from "@/components/ui/input";
@@ -33,18 +34,13 @@ type JobCostingData = {
 
 export function JobCostingView({ projects }: { projects: Project[] }) {
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
-  const [data, setData] = useState<JobCostingData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { data, loading, error } = useFetch<JobCostingData>(
+    projectId ? `/api/job-costing?projectId=${projectId}` : null,
+  );
 
   useEffect(() => {
-    if (!projectId) return;
-    setLoading(true);
-    fetch(`/api/job-costing?projectId=${projectId}`)
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => toast.error("Failed to load job costing"))
-      .finally(() => setLoading(false));
-  }, [projectId]);
+    if (error) toast.error("Failed to load job costing");
+  }, [error]);
 
   function handleExport() {
     if (!data) return;

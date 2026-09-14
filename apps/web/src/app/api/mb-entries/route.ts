@@ -67,6 +67,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       ...await scopeWhere("MeasurementBookEntry"),
     },
     orderBy: { measureDate: "desc" },
+    take: 500,
     include: {
       boqItem: { select: { id: true, serialNo: true, description: true, unit: true, rate: true } },
       wbsNode: { select: { id: true, code: true, name: true } },

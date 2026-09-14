@@ -1,6 +1,7 @@
 import { prisma } from "@nirman/db";
-import { toNum, scopeWhere } from "@/lib/server";
+import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { canAutoApprove } from "@nirman/services";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileExpenseClaimDetailClient } from "./MobileExpenseClaimDetailClient";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -26,6 +27,8 @@ export default function MobileExpenseClaimDetailPage({
             claimant: { select: { id: true, name: true } },
             project: { select: { id: true, name: true } },
             approvedBy: { select: { id: true, name: true } },
+            createdBy: { select: { id: true, name: true } },
+            submittedBy: { select: { id: true, name: true } },
             lines: {
               include: { categoryMaster: { select: { id: true, name: true } } },
               orderBy: { date: "desc" },
@@ -33,7 +36,12 @@ export default function MobileExpenseClaimDetailPage({
           },
         });
 
-        const canApprove = hasPermission(role, PERM.EXPENSE_APPROVE);
+        const currentUser = await getCurrentUser();
+        // Self-approval is blocked server-side for non-tier-1 — mirror that so
+        // the claimant doesn't see an Approve button that will fail. Tier-1
+        // approvers (OWNER/ADMIN) CAN approve their own claim — no higher reviewer.
+        const canApprove = hasPermission(role, PERM.EXPENSE_APPROVE) &&
+          (claim?.claimantId !== currentUser?.id || canAutoApprove(role));
         const canManage = hasPermission(role, PERM.FINANCE_MANAGE);
         const canCreate = hasPermission(role, PERM.EXPENSE_CREATE);
 
@@ -62,6 +70,8 @@ export default function MobileExpenseClaimDetailPage({
               paidAt={null}
               paymentMode={null}
               referenceNo={null}
+              createdByName={null}
+              submittedByName={null}
               lines={[]}
               canApprove={false}
               canManage={false}
@@ -80,36 +90,38 @@ export default function MobileExpenseClaimDetailPage({
             subtitle: claim.project?.name ?? undefined,
             recordId: claim.id,
           }}>
-          <MobileExpenseClaimDetailClient
-            id={claim.id}
-            claimantName={claim.claimant.name}
-            projectName={claim.project?.name ?? null}
-            status={claim.status}
-            totalAmount={toNum(claim.totalAmount)}
-            description={claim.description}
-            submittedAt={claim.submittedAt?.toISOString() ?? null}
-            approvedByName={claim.approvedBy?.name ?? null}
-            approvedAt={claim.approvedAt?.toISOString() ?? null}
-            rejectedReason={claim.rejectedReason}
-            paidAt={claim.paidAt?.toISOString() ?? null}
-            paymentMode={claim.paymentMode}
-            referenceNo={claim.referenceNo}
-            lines={claim.lines.map((l) => ({
-              id: l.id,
-              categoryName: l.categoryMaster?.name ?? l.category,
-              amount: toNum(l.amount),
-              gstRate: l.gstRate ? toNum(l.gstRate) : null,
-              gstAmount: l.gstAmount ? toNum(l.gstAmount) : null,
-              date: l.date.toISOString(),
-              receiptUrl: l.receiptUrl,
-              notes: l.notes,
-            }))}
-            canApprove={canApprove}
-            canManage={canManage}
-            canCreate={canCreate}
-            createdAt={claim.createdAt.toISOString()}
-            categories={categories}
-          />
+            <MobileExpenseClaimDetailClient
+              id={claim.id}
+              claimantName={claim.claimant.name}
+              projectName={claim.project?.name ?? null}
+              status={claim.status}
+              totalAmount={toNum(claim.totalAmount)}
+              description={claim.description}
+              submittedAt={claim.submittedAt?.toISOString() ?? null}
+              approvedByName={claim.approvedBy?.name ?? null}
+              approvedAt={claim.approvedAt?.toISOString() ?? null}
+              rejectedReason={claim.rejectedReason}
+              paidAt={claim.paidAt?.toISOString() ?? null}
+              paymentMode={claim.paymentMode}
+              referenceNo={claim.referenceNo}
+              createdByName={claim.createdBy?.name ?? null}
+              submittedByName={claim.submittedBy?.name ?? null}
+              lines={claim.lines.map((l) => ({
+                id: l.id,
+                categoryName: l.categoryMaster?.name ?? l.category,
+                amount: toNum(l.amount),
+                gstRate: l.gstRate ? toNum(l.gstRate) : null,
+                gstAmount: l.gstAmount ? toNum(l.gstAmount) : null,
+                date: l.date.toISOString(),
+                receiptUrl: l.receiptUrl,
+                notes: l.notes,
+              }))}
+              canApprove={canApprove}
+              canManage={canManage}
+              canCreate={canCreate}
+              createdAt={claim.createdAt.toISOString()}
+              categories={categories}
+            />
           </PageContextProvider>
         );
       }}

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { RequisitionStatus } from "@nirman/db";
-import { createRequisition, submitRequisition, ServiceError } from "@nirman/services";
+import { createRequisition, submitRequisition, approveRequisition, canAutoApprove, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission, requisitionSchema, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
 
@@ -14,7 +14,14 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const statusFilter = statusParam ? { status: { in: statusParam.split(",") as RequisitionStatus[] } } : {};
 
   const reqs = await prisma.materialRequisition.findMany({
-    where: { project: { companyId: company.id, deletedAt: null }, ...statusFilter, ...await scopeWhere("MaterialRequisition") },
+    where: {
+      OR: [
+        { project: { companyId: company.id, deletedAt: null } },
+        { department: { companyId: company.id, deletedAt: null } },
+      ],
+      ...statusFilter,
+      ...await scopeWhere("MaterialRequisition"),
+    },
     orderBy: { createdAt: "desc" },
     take: 200,
     include: {
@@ -57,13 +64,15 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const { phaseId, neededByDate, autoSubmit, ...rest } = parsed.data;
   const company = await getCompany();
   try {
-    await assertScopeAllows({ projectId: parsed.data.projectId ?? null, departmentId: null });
+    await assertScopeAllows({ projectId: parsed.data.projectId ?? null, departmentId: parsed.data.departmentId ?? null });
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
   }
   try {
     const req = await createRequisition({
       ...rest,
+      projectId: rest.projectId ?? undefined,
+      departmentId: rest.departmentId ?? undefined,
       companyId: company.id,
       phaseId: phaseId ?? undefined,
       neededByDate: neededByDate ? new Date(neededByDate) : undefined,
@@ -85,6 +94,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
       try {
         await submitRequisition(req.id, user.id);
         submitted = true;
+        // Tier-1 creators (OWNER/ADMIN) auto-approve — no higher approver exists
+        // above them, so the indent completes immediately instead of waiting
+        // for a second approver who may not exist.
+        if (canAutoApprove(user.role)) {
+          await approveRequisition(req.id, user.id, undefined, user.role);
+        }
       } catch (err) {
         // If auto-submit fails (e.g. transition not allowed), still return
         // success — the indent was created as DRAFT and can be submitted

@@ -376,13 +376,13 @@ export function MobileEquipmentDetailClient({
 
       {/* ── Action buttons ── */}
       {canManage && !isRetired && !isSold ? (
-        <div className="flex flex-col gap-2 mt-2">
+        <div className="flex gap-2 mt-2">
           {/* Assign (only if available) */}
           {isAvailable ? (
             <button
               onClick={() => setShowAssign(true)}
               disabled={acting !== null}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               <MapPin className="size-4" />
@@ -395,7 +395,7 @@ export function MobileEquipmentDetailClient({
             <button
               onClick={() => setShowMaintenance(true)}
               disabled={acting !== null}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold border text-m-body press disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold border text-m-body press disabled:opacity-50"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
             >
               <Settings className="size-4" />
@@ -408,7 +408,7 @@ export function MobileEquipmentDetailClient({
             <button
               onClick={() => handleAction("complete-maintenance")}
               disabled={acting !== null}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
               style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
             >
               {acting === "complete-maintenance" ? (
@@ -426,7 +426,7 @@ export function MobileEquipmentDetailClient({
           <button
             onClick={() => setShowRetire(true)}
             disabled={acting !== null}
-            className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press disabled:opacity-50"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-stop)" }}
           >
             <Archive className="size-3.5" />
@@ -487,7 +487,7 @@ export function MobileEquipmentDetailClient({
               <p className="text-m-body mb-3" style={{ color: "var(--color-ink-500)" }}>
                 {equipment.name} will be marked as retired. You can restore it later if needed.
               </p>
-              <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
                 <button
                   onClick={() => setShowRetire(false)}
                   className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press"

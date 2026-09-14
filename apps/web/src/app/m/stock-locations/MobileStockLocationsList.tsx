@@ -124,10 +124,7 @@ export function MobileStockLocationsList({
 
   return (
     <div>
-      <div className="px-4 pt-4 pb-2">
-        <h1 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-          Stock Locations
-        </h1>
+      <div className="px-4 pt-3 pb-1">
         <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
           {typeFilter !== "ALL" || query.trim()
             ? `${filtered.length} of ${locations.length} location${locations.length !== 1 ? "s" : ""}`
@@ -227,7 +224,6 @@ function LocationCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const router = useRouter();
   const Icon = TYPE_ICONS[loc.type] ?? MapPin;
 
   // ── Long-press overview sheet (data already in the list item — no fetch) ──
@@ -437,7 +433,7 @@ function EditLocationDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <label className="text-m-caption font-medium" style={{ color: "var(--color-ink-600)" }}>
                 Latitude

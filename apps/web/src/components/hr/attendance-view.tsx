@@ -104,12 +104,16 @@ export function AttendanceView({
   permissions,
   leaveRows,
   leaveEmployees,
+  currentUserId,
+  canSelfApprove,
 }: {
   employees: { id: string; name: string; trade: string | null }[];
   projects: { id: string; name: string }[];
   recentAttendance: AttendanceRow[];
   todayDate: string;
   permissions?: { canEdit?: boolean; canManage?: boolean };
+  currentUserId?: string | null;
+  canSelfApprove?: boolean;
   leaveRows?: LeaveRow[];
   leaveEmployees?: { id: string; name: string; trade: string | null; designation: string | null }[];
 }) {
@@ -611,7 +615,7 @@ export function AttendanceView({
 
         <TabsContent value="leave">
           {leaveRows && leaveEmployees ? (
-            <LeavesView leaves={leaveRows} employees={leaveEmployees} permissions={{ canManage }} />
+            <LeavesView leaves={leaveRows} employees={leaveEmployees} permissions={{ canManage, canSelfApprove }} currentUserId={currentUserId} />
           ) : null}
         </TabsContent>
       </Tabs>

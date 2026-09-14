@@ -135,13 +135,13 @@ export default function MobileNewEquipmentClient({
         <p className="text-m-body mb-4" style={{ color: "var(--color-ink-700)" }}>
           {assetTag} · {name}
         </p>
-        <div className="flex flex-col gap-3">
+        <div className="flex gap-3">
           <button
             onClick={() => {
               router.refresh();
               router.push(`/m/equipment/${success.id}`);
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
+            className="flex-1 rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View Equipment
@@ -158,7 +158,7 @@ export default function MobileNewEquipmentClient({
               setPurchaseDate("");
               setNotes("");
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
+            className="flex-1 rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
           >
             Add Another

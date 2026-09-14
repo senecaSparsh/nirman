@@ -11,7 +11,7 @@ import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { ChequeFields, EMPTY_CHEQUE, type ChequeFormState } from "@/components/sales/cheque-fields";
 import { required, positiveNumber, type ValidationErrors } from "@/lib/validate";
-import { formatCurrency } from "@/lib/utils";
+import { localDateISO, formatCurrency } from "@/lib/utils";
 import type { ProjectOption, AreaUnit } from "@/lib/types";
 
 type FormValues = {
@@ -57,7 +57,7 @@ export function LandPurchaseOrderDialog({
     sellerName: "",
     sellerContact: "",
     projectId: "",
-    purchaseDate: new Date().toISOString().slice(0, 10),
+    purchaseDate: localDateISO(),
     totalArea: "",
     areaUnit: "SQFT" as AreaUnit,
     totalCost: "",

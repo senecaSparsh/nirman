@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { localDateISO } from "./utils";
 
 /**
  * Returns today's date as a "YYYY-MM-DD" string, but only after
@@ -20,7 +21,7 @@ import { useEffect, useState } from "react";
 export function useTodayDate(): string {
   const [date, setDate] = useState("");
   useEffect(() => {
-    setDate(new Date().toISOString().slice(0, 10));
+    setDate(localDateISO());
   }, []);
   return date;
 }
@@ -33,7 +34,7 @@ export function useTodayDateState(): [string, (v: string) => void] {
   const [date, setDate] = useState("");
   useEffect(() => {
     if (!date) {
-      setDate(new Date().toISOString().slice(0, 10));
+      setDate(localDateISO());
     }
   }, [date]);
   return [date, setDate];

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, XCircle, Truck, Loader2, Plus, X, IndianRupee, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatCurrencyCompact, formatCurrency } from "@/lib/utils";
+import { useTodayDateState } from "@/lib/use-today-date";
 import { haptic } from "@/lib/haptic";
 import { useOptimisticAction } from "@/lib/use-optimistic-action";
 import { ActionBar } from "@/components/mobile/v2/primitives";
@@ -40,6 +41,7 @@ export function MobilePoActions({
   supplierName,
   balanceRemaining,
   currentUserId,
+  canSelfApprove,
   backHref: _backHref,
 }: {
   po: PoPayload;
@@ -50,6 +52,8 @@ export function MobilePoActions({
   supplierName?: string;
   balanceRemaining?: number;
   currentUserId?: string | null;
+  /** Tier-1 viewers (OWNER/ADMIN) may approve their own PO — no higher approver exists. */
+  canSelfApprove?: boolean;
   backHref: string;
 }) {
   const router = useRouter();
@@ -103,11 +107,12 @@ export function MobilePoActions({
 
   // Use the optimistic status for button visibility so the action bar
   // updates immediately — no flash of the old buttons.
-  // Self-approval prevention: the creator cannot approve their own PO.
-  // The API enforces this server-side, but hiding the button avoids a
-  // frustrating tap-then-error round-trip on mobile.
+  // Self-approval prevention: the creator cannot approve their own PO — unless
+  // they're a tier-1 approver (OWNER/ADMIN), where no higher reviewer exists.
+  // The API enforces this server-side; hiding the button avoids a frustrating
+  // tap-then-error round-trip on mobile.
   const isOwnPo = !!currentUserId && po.createdById === currentUserId;
-  const showApprove = visibleStatus === "DRAFT" && canApprove && !isOwnPo;
+  const showApprove = visibleStatus === "DRAFT" && canApprove && (!isOwnPo || canSelfApprove);
   // APPROVED is now transient — approval auto-orders. Keep the order button
   // as a fallback only for POs that were approved before this change.
   const showOrder = visibleStatus === "APPROVED" && canManage;
@@ -261,7 +266,7 @@ function MobilePayDialog({
   const [amount, setAmount] = useState(defaultAmount ? String(defaultAmount) : "");
   const [tdsAmount, setTdsAmount] = useState("");
   const [tdsSection, setTdsSection] = useState("");
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
+  const [paymentDate, setPaymentDate] = useTodayDateState();
   const [paymentMode, setPaymentMode] = useState("BANK");
   const [referenceNo, setReferenceNo] = useState("");
   const [notes, _setNotes] = useState("");

@@ -724,7 +724,7 @@ export function MobileCallDetailClient({
                   The recording will be permanently purged. This is for GDPR compliance — the call record cannot be recovered.
                 </p>
               </div>
-              <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
                 <button
                   onClick={() => setShowDelete(false)}
                   disabled={loading}

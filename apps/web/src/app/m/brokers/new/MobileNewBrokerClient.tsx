@@ -77,11 +77,11 @@ export function MobileNewBrokerClient({
         </div>
         <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>Broker Added</p>
         <p className="text-m-caption font-mono mb-4" style={{ color: "var(--color-ink-700)" }}>{success.name}</p>
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          <button onClick={() => { if (onCreated) { onCreated({ id: success.id, name: success.name }); onClose?.(); } else { router.push("/m/real-estate?tab=brokers"); router.refresh(); } }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+        <div className="flex gap-3 w-full max-w-xs">
+          <button onClick={() => { if (onCreated) { onCreated({ id: success.id, name: success.name }); onClose?.(); } else { router.push("/m/real-estate?tab=brokers"); router.refresh(); } }} className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
             <Eye className="size-4 inline mr-1" /> View Brokers
           </button>
-          <button onClick={() => { setSuccess(null); setName(""); setPhone(""); setAgency(""); setCommission(""); setNotes(""); router.refresh(); }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
+          <button onClick={() => { setSuccess(null); setName(""); setPhone(""); setAgency(""); setCommission(""); setNotes(""); router.refresh(); }} className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
             <Plus className="size-4 inline mr-1" /> Add Another
           </button>
         </div>

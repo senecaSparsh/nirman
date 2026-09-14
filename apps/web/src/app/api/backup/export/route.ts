@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, requirePermission, getCompany } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { localDateISO } from "@/lib/utils";
 
 /**
  * GET /api/backup/export — full JSON backup of the current company's data.
@@ -123,7 +124,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     tables,
   };
 
-  const filename = `nirman-backup-${company.name.replace(/[^a-zA-Z0-9]/g, "-")}-${new Date().toISOString().slice(0, 10)}.json`;
+  const filename = `nirman-backup-${company.name.replace(/[^a-zA-Z0-9]/g, "-")}-${localDateISO()}.json`;
 
   return new NextResponse(JSON.stringify(backup, null, 2), {
     headers: {

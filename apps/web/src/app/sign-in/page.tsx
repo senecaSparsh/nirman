@@ -11,7 +11,7 @@ import { type Role, ROLES } from "@/lib/roles";
 
 type CompanyOption = { id: string; name: string; role: string };
 type LoginMode = "phone" | "email";
-type PhoneStep = "password" | "otp-enter" | "otp-verify" | "otp-select-user" | "select-user";
+type PhoneStep = "password" | "otp-enter" | "otp-verify" | "otp-select-user" | "select-user" | "select-company";
 
 type MultiUserEntry = {
   id: string;
@@ -201,14 +201,17 @@ function SignInForm() {
   // window.location.assign() forces a full page load, which re-initializes
   // useSession() with a fresh get-session call that sees the new session
   // cookie and returns the real session.
-  async function routeAfterLogin() {
-    // If the user selected a company on the login screen, set the cookie
-    // before navigating so the first page load uses the right company.
-    if (selectedCompanyId) {
+  async function routeAfterLogin(companyIdOverride?: string) {
+    // If the user selected a company on the login screen (or the company
+    // picker step), set the cookie before navigating so the first page
+    // load uses the right company. An explicit arg wins over state —
+    // setState doesn't flush before this runs in the same tick.
+    const companyId = companyIdOverride ?? selectedCompanyId;
+    if (companyId) {
       await fetch("/api/company/switch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyId: selectedCompanyId }),
+        body: JSON.stringify({ companyId }),
       }).catch(() => {});
     }
     // Fetch the user profile once — used both for the must-change-password
@@ -512,18 +515,19 @@ function SignInForm() {
         setLoading(false);
         return;
       }
-      // Company picker: user has multiple memberships
+      // Company picker: user has multiple memberships — show the picker
+      // step instead of silently routing into the first company.
       if (data.requiresCompanySelect) {
         setCompanies(data.companies.map((c: { id: string; name: string; role: string }) => ({
           id: c.id, name: c.name, role: c.role,
         })));
         setSelectedCompanyId(data.companies[0]?.id ?? "");
-        // Session is already created — just need to pick company
         if (data.mustChangePassword) {
           window.location.assign("/change-password");
           return;
         }
-        await routeAfterLogin();
+        setPhoneStep("select-company");
+        setLoading(false);
         return;
       }
       // Must change password on first login
@@ -565,7 +569,8 @@ function SignInForm() {
           window.location.assign("/change-password");
           return;
         }
-        await routeAfterLogin();
+        setPhoneStep("select-company");
+        setLoading(false);
         return;
       }
       if (data.mustChangePassword) {
@@ -576,6 +581,16 @@ function SignInForm() {
     } catch {
       setError("Could not reach the server. Is the dev server running?");
     }
+    setLoading(false);
+  }
+
+  // Phone flow: pick which company to enter when the user has several
+  async function handleSelectCompany(companyId: string) {
+    if (loading) return;
+    setLoading(true);
+    setError("");
+    setSelectedCompanyId(companyId);
+    await routeAfterLogin(companyId);
     setLoading(false);
   }
 
@@ -904,6 +919,58 @@ function SignInForm() {
                         {u.companies.map((c) => c.name).join(" · ")}
                       </p>
                     )}
+                  </div>
+                </button>
+              ))}
+            </div>
+            {error && (
+              <p
+                role="alert"
+                className="flex items-start gap-1.5 rounded-md bg-danger-soft px-2.5 py-2 text-caption leading-relaxed text-danger"
+              >
+                <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
+                <span>{error}</span>
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={resetPhoneFlow}
+              className="text-micro font-medium text-muted-foreground underline hover:text-foreground"
+              disabled={busy}
+            >
+              Use a different phone number
+            </button>
+          </div>
+        )}
+
+        {/* ── Phone: company picker (user has multiple memberships) ── */}
+        {mode === "phone" && phoneStep === "select-company" && (
+          <div className="space-y-4 rounded-lg border border-border bg-card p-5 shadow-raised">
+            <div>
+              <p className="text-body font-medium text-foreground">Select a company</p>
+              <p className="mt-1 text-micro text-muted-foreground">
+                You have access to {companies.length} companies. Pick which one to sign into.
+              </p>
+            </div>
+            <div className="space-y-2">
+              {companies.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => handleSelectCompany(c.id)}
+                  disabled={busy}
+                  className="flex w-full items-center gap-3 rounded-lg border border-border bg-card px-3 py-3 text-left transition-colors hover:bg-accent/50 disabled:opacity-50"
+                >
+                  {loading && selectedCompanyId === c.id ? (
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+                  ) : (
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand/10 text-caption font-medium text-brand">
+                      {c.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-caption font-medium text-foreground">{c.name}</p>
+                    <p className="truncate text-micro text-muted-foreground">{ROLES[c.role as Role]?.label ?? c.role}</p>
                   </div>
                 </button>
               ))}

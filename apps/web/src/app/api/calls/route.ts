@@ -90,6 +90,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
     where.tags = { some: { callTag: { name: tag, companyId: company.id } } };
   }
 
+  // countOnly — nav badges need just the number, not hydrated calls.
+  if (url.searchParams.get("countOnly") === "1") {
+    return json({ count: await prisma.callLog.count({ where }) });
+  }
+
   const [calls, total] = await Promise.all([
     prisma.callLog.findMany({
       where,

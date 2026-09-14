@@ -5,10 +5,11 @@ import { logAction } from "./audit";
 import { evaluateRequisitionRouting, getCachedRoutingScope } from "./procurement-routing";
 import { isQuoteGateSatisfied } from "./quote-comparison";
 import { ServiceError } from "./errors";
+import { canAutoApprove } from "./rbac";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { createQuotationRequest } from "./quotation";
 import { withSerializableTransaction } from "./transaction";
-import { nextSequenceNumber } from "./sequence";
+import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 
 /**
  * Requisition Service — material request → approval → convert to PO.
@@ -62,10 +63,10 @@ export function isRequisitionTransitionAllowed(
   return allowed[from]?.includes(to) ?? false;
 }
 
-async function generateReqNumber(tx: Prisma.TransactionClient): Promise<string> {
+async function generateReqNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `REQ-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `REQ-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
@@ -159,7 +160,7 @@ export async function createRequisition(input: CreateRequisitionInput) {
   return withSerializableTransaction(async (tx) => {
     const req = await tx.materialRequisition.create({
       data: {
-        reqNumber: await generateReqNumber(tx),
+        reqNumber: await generateReqNumber(tx, scopeCompanyId),
         projectId: input.projectId ?? null,
         departmentId: input.departmentId ?? null,
         phaseId: input.phaseId,
@@ -236,14 +237,15 @@ export async function submitRequisition(reqId: string, userId?: string) {
     companyId,
     entityType: "MaterialRequisition",
     entityId: reqId,
-    variables: { requisitionId: reqId },
+    variables: { requisitionId: reqId, reqNumber: updated.reqNumber },
+    excludeIds: [userId],
     timestamp: new Date(),
   });
 
   return updated;
 }
 
-export async function approveRequisition(reqId: string, approvedById?: string, approvalNotes?: string) {
+export async function approveRequisition(reqId: string, approvedById?: string, approvalNotes?: string, actorRole?: string) {
   const { updated, companyId } = await withSerializableTransaction(async (tx) => {
     const req = await tx.materialRequisition.findUnique({
       where: { id: reqId },
@@ -254,12 +256,16 @@ export async function approveRequisition(reqId: string, approvedById?: string, a
     });
     if (!req) throw new ServiceError("Indent not found", 404);
     if (req.status !== "SUBMITTED") throw new ServiceError(`Cannot approve indent in status ${req.status}`);
-    // Prevent self-approval — the requester or submitter cannot approve their own requisition.
-    if (approvedById && req.requestedById === approvedById) {
-      throw new ServiceError("You cannot approve your own indent. Ask another approver to review it.", 403);
-    }
-    if (approvedById && req.submittedById && req.submittedById === approvedById) {
-      throw new ServiceError("You cannot approve an indent you submitted. Ask another approver to review it.", 403);
+    // Prevent self-approval — the requester or submitter cannot approve their
+    // own requisition, unless they're a tier-1 role (OWNER/ADMIN) where no
+    // higher approver exists.
+    if (approvedById && !canAutoApprove(actorRole)) {
+      if (req.requestedById === approvedById) {
+        throw new ServiceError("You cannot approve your own indent. Ask another approver to review it.", 403);
+      }
+      if (req.submittedById && req.submittedById === approvedById) {
+        throw new ServiceError("You cannot approve an indent you submitted. Ask another approver to review it.", 403);
+      }
     }
     const reqCompanyId = req.project?.companyId ?? req.department?.companyId;
     if (!reqCompanyId) throw new ServiceError("Indent has no project or department", 400);
@@ -289,7 +295,9 @@ export async function approveRequisition(reqId: string, approvedById?: string, a
     companyId,
     entityType: "MaterialRequisition",
     entityId: reqId,
-    variables: { requisitionId: reqId },
+    variables: { requisitionId: reqId, reqNumber: updated.reqNumber },
+    extraRecipientIds: [updated.requestedById, updated.submittedById],
+    excludeIds: [approvedById],
     timestamp: new Date(),
   });
 
@@ -410,7 +418,9 @@ export async function rejectRequisition(reqId: string, rejectedById?: string, re
     companyId,
     entityType: "MaterialRequisition",
     entityId: reqId,
-    variables: { requisitionId: reqId, reason: rejectReason ?? "" },
+    variables: { requisitionId: reqId, reqNumber: updated.reqNumber, reason: rejectReason ?? "" },
+    extraRecipientIds: [updated.requestedById, updated.submittedById],
+    excludeIds: [rejectedById],
     timestamp: new Date(),
   });
 
@@ -464,11 +474,18 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
     procurementScope = resolved ?? "PROJECT";
   }
 
+  // Fetch the winning quote first — a SELECTED quote is itself the buy
+  // decision, so its presence satisfies the quote gate (the losers are already
+  // REJECTED at that point and would otherwise wrongly count against it).
+  const winningQuote = await prisma.vendorQuote.findFirst({
+    where: { requisitionId: input.requisitionId, status: "SELECTED" },
+    include: { lines: true },
+  });
+
   // ── Comparative Quote Engine gate ──
   // Enforce the min-quotes requirement before allowing conversion. The gate
   // is satisfied if there are ≥ minQuotesRequired non-rejected quotes OR the
-  // requirement has been waived by an approver. Also fetch the winning quote
-  // (if selected) to auto-fill line costs and link the PO to it.
+  // requirement has been waived by an approver OR a winning quote is selected.
   const quoteSummary = await prisma.vendorQuote.groupBy({
     by: ["status"],
     where: { requisitionId: input.requisitionId },
@@ -481,20 +498,18 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
     where: { id: input.requisitionId },
     select: { minQuotesRequired: true, quotesWaived: true },
   });
-  if (reqForGate && !isQuoteGateSatisfied(totalQuoteCount, reqForGate.minQuotesRequired, reqForGate.quotesWaived)) {
+  if (
+    reqForGate &&
+    !winningQuote &&
+    !isQuoteGateSatisfied(totalQuoteCount, reqForGate.minQuotesRequired, reqForGate.quotesWaived)
+  ) {
     throw new ServiceError(
       `Quote gate not satisfied: ${totalQuoteCount}/${reqForGate.minQuotesRequired} quotes uploaded. ` +
       `Upload more quotes or waive the requirement (requires approver).`,
     );
   }
 
-  // Fetch the winning quote (if any) to link the PO + auto-fill costs
-  const winningQuote = await prisma.vendorQuote.findFirst({
-    where: { requisitionId: input.requisitionId, status: "SELECTED" },
-    include: { lines: true },
-  });
-
-  const { po, companyId } = await withSerializableTransaction(async (tx) => {
+  const { po, companyId, reqNumber, requestedById, submittedById } = await withSerializableTransaction(async (tx) => {
     const req = await tx.materialRequisition.findUnique({
       where: { id: input.requisitionId },
       include: { lines: true, project: true, department: { select: { companyId: true } } },
@@ -531,10 +546,17 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
           discountPerUnit: wline.discountPerUnit,
         };
       }
+      const cost = new Decimal(input.lineCosts[line.materialId] ?? 0);
+      if (cost.lte(0)) {
+        throw new ServiceError(
+          `Unit cost required for material ${line.materialId} — a ₹0 PO line is not valid`,
+          400,
+        );
+      }
       return {
         materialId: line.materialId,
         qtyOrdered: new Decimal(line.qtyRequested),
-        unitCost: new Decimal(input.lineCosts[line.materialId] ?? 0),
+        unitCost: cost,
       };
     });
 
@@ -608,7 +630,7 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
       after: { status: "CONVERTED", purchaseOrderId: po.id, winningQuoteId: winningQuote?.id ?? null },
     });
 
-    return { po, companyId: reqCompanyId };
+    return { po, companyId: reqCompanyId, reqNumber: req.reqNumber, requestedById: req.requestedById, submittedById: req.submittedById };
   });
 
   void emitNotificationEvent({
@@ -616,7 +638,9 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
     companyId,
     entityType: "MaterialRequisition",
     entityId: input.requisitionId,
-    variables: { requisitionId: input.requisitionId, poId: po.id, poNumber: po.poNumber ?? po.id },
+    variables: { requisitionId: input.requisitionId, reqNumber, poId: po.id, poNumber: po.poNumber ?? po.id },
+    extraRecipientIds: [requestedById, submittedById],
+    excludeIds: [input.userId],
     timestamp: new Date(),
   });
 

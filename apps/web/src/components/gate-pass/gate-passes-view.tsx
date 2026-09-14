@@ -16,6 +16,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { GatePassFormDialog } from "./gate-pass-form-dialog";
 import { GatePassDetailDialog } from "./gate-pass-detail-dialog";
+import { formatDate } from "@/lib/utils";
 
 export type GatePassRow = {
   id: string;
@@ -44,6 +45,7 @@ export type GatePassRow = {
   rejectionReason: string | null;
   approvalNotes: string | null;
   createdByName: string | null;
+  createdById?: string | null;
   submittedByName: string | null;
   approvedByName: string | null;
   rejectedByName: string | null;
@@ -67,6 +69,8 @@ type Permissions = {
   canApprove: boolean;
   canExit: boolean;
   canManage: boolean;
+  /** Tier-1 approvers (OWNER/ADMIN) may approve their own gate pass. */
+  canSelfApprove?: boolean;
 };
 
 const STATUS_CONFIG: Record<GatePassRow["status"], { label: string; color: string; dot: string }> = {
@@ -92,12 +96,14 @@ export function GatePassesView({
   materials,
   projects,
   permissions,
+  currentUserId,
 }: {
   gatePasses: GatePassRow[];
   locations: { id: string; name: string; type: string }[];
   materials: { id: string; code: string; name: string; unit: string }[];
   projects: { id: string; name: string; type: string; status: string }[];
   permissions: Permissions;
+  currentUserId?: string | null;
 }) {
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
@@ -209,7 +215,7 @@ export function GatePassesView({
       key: "createdAt",
       label: "Created",
       sortable: true,
-      render: (r) => <span className="tnum text-caption text-muted-foreground">{new Date(r.createdAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}</span>,
+      render: (r) => <span className="tnum text-caption text-muted-foreground">{formatDate(r.createdAt)}</span>,
     },
   ];
 
@@ -319,6 +325,7 @@ export function GatePassesView({
           gatePass={selected}
           onClose={() => setSelectedId(null)}
           permissions={permissions}
+          currentUserId={currentUserId}
           onAction={handleAction}
           actionLoading={actionLoading}
         />

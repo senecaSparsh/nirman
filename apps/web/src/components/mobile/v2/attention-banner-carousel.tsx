@@ -31,17 +31,17 @@ export interface AttentionBanner {
 }
 
 const GRADIENTS: Record<AttentionBanner["severity"], string> = {
-  out: "linear-gradient(135deg, #b91c1c 0%, #dc2626 100%)",
-  low: "linear-gradient(135deg, #b45309 0%, #d97706 100%)",
-  summary: "linear-gradient(135deg, #1a3a5c 0%, #2d5a8c 100%)",
-  clear: "linear-gradient(135deg, #15803d 0%, #22c55e 100%)",
+  out: "linear-gradient(135deg, var(--color-stop-active) 0%, var(--color-stop) 100%)",
+  low: "linear-gradient(135deg, var(--color-signal-dark) 0%, var(--color-signal-active) 100%)",
+  summary: "linear-gradient(135deg, color-mix(in srgb, var(--color-steel) 80%, black) 0%, var(--color-steel) 100%)",
+  clear: "linear-gradient(135deg, var(--color-go-active) 0%, var(--color-go) 100%)",
 };
 
 const ACCENT_COLORS: Record<AttentionBanner["severity"], string> = {
-  out: "#fca5a5",
-  low: "#fcd34d",
-  summary: "#93c5fd",
-  clear: "#bbf7d0",
+  out: "color-mix(in srgb, var(--color-stop) 25%, #fff)",
+  low: "color-mix(in srgb, var(--color-signal) 30%, #fff)",
+  summary: "color-mix(in srgb, var(--color-steel) 30%, #fff)",
+  clear: "color-mix(in srgb, var(--color-go) 30%, #fff)",
 };
 
 export function AttentionBannerCarousel({
@@ -104,7 +104,7 @@ export function AttentionBannerCarousel({
 
   return (
     <div
-      className="relative overflow-hidden rounded-[0.625rem] mb-3"
+      className="relative overflow-hidden rounded-[0.75rem] mb-3"
       style={{ background: GRADIENTS[visibleBanners[0]?.severity ?? "summary"], touchAction: "pan-y" }}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
@@ -116,7 +116,7 @@ export function AttentionBannerCarousel({
           className="absolute top-1.5 left-1.5 z-30 flex items-center gap-1 rounded-full px-2 py-0.5 text-m-caption font-bold text-m-body press"
           style={{
             backgroundColor: "rgba(255,255,255,0.25)",
-            color: "#fff",
+            color: "var(--color-paper)",
             backdropFilter: "blur(4px)",
           }}
         >
@@ -131,7 +131,7 @@ export function AttentionBannerCarousel({
           className="absolute top-1.5 right-1.5 z-30 flex items-center gap-1 rounded-full px-2.5 py-1 text-m-caption font-bold pointer-events-none"
           style={{
             backgroundColor: "rgba(255,255,255,0.25)",
-            color: "#fff",
+            color: "var(--color-paper)",
             backdropFilter: "blur(4px)",
           }}
         >
@@ -161,32 +161,32 @@ export function AttentionBannerCarousel({
               style={{ background: GRADIENTS[banner.severity] }}
             >
               <Link href={banner.href} className="block">
-                <div className="px-4 py-5 flex items-center gap-3 min-h-[8rem] pr-12">
+                <div className="px-3.5 py-3.5 flex items-center gap-3 min-h-[6.75rem] pr-10">
                   {/* Icon */}
                   <div
-                    className="grid place-items-center w-14 h-14 rounded-[0.75rem] shrink-0"
+                    className="grid place-items-center w-11 h-11 rounded-[0.625rem] shrink-0"
                     style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
                   >
-                    <Icon className="size-7" style={{ color: "#fff" }} />
+                    <Icon className="size-5" style={{ color: "var(--color-paper)" }} />
                   </div>
 
                   {/* Text */}
                   <div className="flex-1 min-w-0">
                     <span
-                      className="text-m-caption font-semibold uppercase tracking-wide block mb-1"
-                      style={{ color: "#fff", opacity: 0.7 }}
+                      className="text-m-caption font-semibold uppercase tracking-wide block mb-0.5"
+                      style={{ color: "var(--color-paper)", opacity: 0.7 }}
                     >
                       {banner.category}
                     </span>
                     <p
                       className="font-bold text-m-section leading-tight truncate"
-                      style={{ color: "#fff" }}
+                      style={{ color: "var(--color-paper)" }}
                     >
                       {banner.title}
                     </p>
                     <p
-                      className="text-m-body mt-1 truncate"
-                      style={{ color: "#fff", opacity: 0.8 }}
+                      className="text-m-caption mt-0.5 truncate"
+                      style={{ color: "var(--color-paper)", opacity: 0.85 }}
                     >
                       {banner.subtitle}
                     </p>
@@ -194,10 +194,10 @@ export function AttentionBannerCarousel({
 
                   {/* CTA pill */}
                   <div
-                    className="shrink-0 rounded-full px-3 py-1.5 text-m-body font-bold flex items-center gap-1"
+                    className="shrink-0 rounded-full px-2.5 py-1 text-m-caption font-bold flex items-center gap-1 tabular-nums"
                     style={{
                       backgroundColor: ACCENT_COLORS[banner.severity],
-                      color: "#1a1a1a",
+                      color: "var(--color-ink-950)",
                     }}
                   >
                     {banner.qtyText}

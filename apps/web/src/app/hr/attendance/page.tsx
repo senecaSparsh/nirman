@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { computeAttendanceTier } from "@nirman/services";
-import { getCompany, toNum, getUserRole, getUserScope, scopeWhere, getScopedFormOptions } from "@/lib/server";
+import { computeAttendanceTier, canAutoApprove } from "@nirman/services";
+import { getCompany, toNum, getUserRole, getUserScope, scopeWhere, getScopedFormOptions, getCurrentUser } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
@@ -28,8 +28,10 @@ async function AttendanceContent() {
     );
   }
 
+  const currentUser = await getCurrentUser();
   const perms = {
     canEdit: hasPermission(role, PERM.HR_MANAGE),
+    canManage: hasPermission(role, PERM.HR_MANAGE),
   };
 
   const today = new Date();
@@ -76,7 +78,7 @@ async function AttendanceContent() {
       where: {...await scopeWhere("LeaveRequest"),  companyId: company.id },
       orderBy: { createdAt: "desc" },
       include: {
-        employee: { select: { id: true, name: true, trade: true, designation: true } },
+        employee: { select: { id: true, name: true, trade: true, designation: true, userId: true } },
         approvedBy: { select: { id: true, name: true } },
       },
     }),
@@ -145,6 +147,7 @@ async function AttendanceContent() {
   const leaveRows = leaves.map((l) => ({
     id: l.id,
     employeeId: l.employeeId,
+    employeeUserId: l.employee?.userId ?? null,
     employeeName: l.employee.name,
     employeeTrade: l.employee.trade,
     employeeDesignation: l.employee.designation,
@@ -178,6 +181,8 @@ async function AttendanceContent() {
         permissions={perms}
         leaveRows={leaveRows}
         leaveEmployees={leaveEmployees.map((e) => ({ id: e.id, name: e.name, trade: e.trade, designation: e.designation }))}
+        currentUserId={currentUser?.id ?? null}
+        canSelfApprove={canAutoApprove(role)}
       />
     </>
   );

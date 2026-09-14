@@ -112,15 +112,12 @@ export function MobileNewHazardForm({
 
       {/* Description */}
       <SectionCard title="Description">
-        <div>
-          <label className={labelClass} style={labelStyle}>Description</label>
-          <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="What is the hazard?" className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors" style={inputStyle} />
-        </div>
+        <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="What is the hazard?" className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors" style={inputStyle} />
       </SectionCard>
 
       {/* Risk Assessment */}
       <SectionCard title="Risk Assessment">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           <div>
             <label className={labelClass} style={labelStyle}>Likelihood (1-5)</label>
             <input type="range" min="1" max="5" value={form.likelihood} onChange={(e) => set("likelihood", e.target.value)} className="w-full" />

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Plus, Trash2, CalendarClock, Wand2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
-import { formatCurrency } from "@/lib/utils";
+import { localDateISO, formatCurrency } from "@/lib/utils";
 
 export type PaymentPlanItem = {
   installmentNo: number;
@@ -119,7 +119,7 @@ export function PaymentPlanEditor({
           description: "Booking Advance",
           percentage: ((advanceAmount / totalCollectible) * 100).toFixed(2),
           amount: advanceAmount.toFixed(2),
-          dueDate: new Date().toISOString().split("T")[0]!,
+          dueDate: localDateISO()!,
           wbsNodeId: "",
         });
       }
@@ -168,7 +168,7 @@ export function PaymentPlanEditor({
         description: "Booking Advance",
         percentage: ((advanceAmount / totalCollectible) * 100).toFixed(2),
         amount: advanceAmount.toFixed(2),
-        dueDate: new Date().toISOString().split("T")[0]!,
+        dueDate: localDateISO()!,
         wbsNodeId: "",
       });
     }

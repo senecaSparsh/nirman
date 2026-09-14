@@ -33,6 +33,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       lng: { not: null },
       project: { deletedAt: null },
     },
+    take: 200,
     include: {
       project: { select: { id: true, name: true } },
     },

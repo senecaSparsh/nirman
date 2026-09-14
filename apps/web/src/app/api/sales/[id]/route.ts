@@ -404,7 +404,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       revalidatePath(`/m/sales/${id}`);
       revalidatePath("/finance");
       revalidatePath("/gl");
-      return json({ ok: true, paymentStatus: result.paymentStatus }, { status: 201 });
+      return json({ ok: true, paymentStatus: result.paymentStatus, paymentId: result.payment?.id ?? null }, { status: 201 });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Payment failed") }, { status: 400 });
     }

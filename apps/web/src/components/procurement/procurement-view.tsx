@@ -25,7 +25,7 @@ import { DirectPurchaseFormDialog } from "./direct-purchase-form-dialog";
 import { RequisitionsView } from "@/components/requisitions/requisitions-view";
 import { SupplierReturnsView } from "@/components/supplier-returns/supplier-returns-view";
 import { WorkflowStrip } from "@/components/workflow-strip";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { localDateISO, formatCurrency, formatDate } from "@/lib/utils";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { downloadCSV, downloadExcel } from "@/lib/export";
 import type {
@@ -50,7 +50,7 @@ export function ProcurementView({
   supplierReturns?: SupplierReturnRow[];
   quotationRequests?: QuotationRequestRow[];
   reportIds?: Set<string>;
-  permissions?: { canCreate?: boolean; canApprove?: boolean; canManagePayments?: boolean; canApproveRequisitions?: boolean; canReceiveGoods?: boolean };
+  permissions?: { canCreate?: boolean; canApprove?: boolean; canSelfApprove?: boolean; canManagePayments?: boolean; canApproveRequisitions?: boolean; canReceiveGoods?: boolean };
   currentUserId?: string;
 }) {
   const [tab, setTab] = useTabParam(
@@ -59,6 +59,7 @@ export function ProcurementView({
   );
   const canCreate = permissions?.canCreate ?? false;
   const canApprove = permissions?.canApprove ?? false;
+  const canSelfApprove = permissions?.canSelfApprove ?? false;
   const canManagePayments = permissions?.canManagePayments ?? false;
   const canApproveRequisitions = permissions?.canApproveRequisitions ?? false;
   const canReceiveGoods = permissions?.canReceiveGoods ?? false;
@@ -111,7 +112,7 @@ export function ProcurementView({
         </TabsList>
 
         <TabsContent value="purchase-orders">
-          <PurchaseOrdersTab purchaseOrders={purchaseOrders} suppliers={suppliers} materials={materials} locations={locations} projects={projects} categories={categories} canCreate={canCreate} canApprove={canApprove} canManagePayments={canManagePayments} canManage={canManage} canReceiveGoods={canReceiveGoods} currentUserId={currentUserId} />
+          <PurchaseOrdersTab purchaseOrders={purchaseOrders} suppliers={suppliers} materials={materials} locations={locations} projects={projects} categories={categories} canCreate={canCreate} canApprove={canApprove} canSelfApprove={canSelfApprove} canManagePayments={canManagePayments} canManage={canManage} canReceiveGoods={canReceiveGoods} currentUserId={currentUserId} />
         </TabsContent>
         <TabsContent value="indents">
           {requisitions && phases ? (
@@ -123,7 +124,7 @@ export function ProcurementView({
               suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
               locations={locationOptions.map((l) => ({ id: l.id, name: l.name, type: l.type }))}
               categories={categories.map((c) => ({ id: c.id, name: c.name, unit: c.unit }))}
-              permissions={{ canCreate, canApprove: canApproveRequisitions }}
+              permissions={{ canCreate, canApprove: canApproveRequisitions, canSelfApprove }}
               currentUserId={currentUserId}
             />
           ) : null}
@@ -350,7 +351,7 @@ const directPurchaseColumns: Column<DirectPurchaseRow>[] = [
 ];
 
 function PurchaseOrdersTab({
-  purchaseOrders, suppliers, materials, locations, projects, categories, canCreate, canApprove, canManagePayments, canManage, canReceiveGoods, currentUserId,
+  purchaseOrders, suppliers, materials, locations, projects, categories, canCreate, canApprove, canSelfApprove, canManagePayments, canManage, canReceiveGoods, currentUserId,
 }: {
   purchaseOrders: PurchaseOrderRow[];
   suppliers: SupplierRow[];
@@ -360,6 +361,7 @@ function PurchaseOrdersTab({
   categories: MaterialCategory[];
   canCreate: boolean;
   canApprove: boolean;
+  canSelfApprove?: boolean;
   canManagePayments: boolean;
   canManage: boolean;
   canReceiveGoods: boolean;
@@ -476,7 +478,7 @@ function PurchaseOrdersTab({
       {/* Export CSV (icon-only) */}
       <div className="group relative">
         <button
-          onClick={() => downloadCSV(`purchase-orders-${new Date().toISOString().slice(0,10)}.csv`, filtered as unknown as Record<string, unknown>[], [
+          onClick={() => downloadCSV(`purchase-orders-${localDateISO()}.csv`, filtered as unknown as Record<string, unknown>[], [
             { key: "poNumber", label: "PO Number" },
             { key: "supplierName", label: "Supplier" },
             { key: "procurementScope", label: "Scope" },
@@ -668,6 +670,7 @@ function PurchaseOrdersTab({
             suppliers={suppliers}
             canManagePayments={canManagePayments}
             currentUserId={currentUserId}
+            canSelfApprove={canSelfApprove}
           />
         </Dialog>
       )}
@@ -1027,7 +1030,7 @@ export function QuotationsTab({
 
   const columns: Column<QuotationRequestRow>[] = [
     { key: "requestNumber", label: "Request", render: (r) => (
-      <Link href={`/m/quotations?open=${r.id}`} className="block">
+      <Link href={`/m/procurement?tab=quotations&open=${r.id}`} className="block">
         <p className="font-mono text-xs font-bold">{r.requestNumber}</p>
         <p className="font-medium truncate max-w-[20rem]">{r.title}</p>
       </Link>

@@ -5,7 +5,7 @@ import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { postScrapGeneration, reverseJournalEntry } from "./gl-posting";
-import { nextSequenceNumber } from "./sequence";
+import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 
 /**
  * Scrap / "Create" Material Generation Service.
@@ -51,10 +51,10 @@ export function computeScrapTotalValue(
 }
 
 /** Generate a unique scrap generation number: SG-YYMMDD-NNNN */
-async function generateScrapNumber(tx: Prisma.TransactionClient): Promise<string> {
+async function generateScrapNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `SG-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `SG-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
@@ -113,7 +113,7 @@ export async function createScrapGeneration(input: CreateScrapGenerationInput) {
   }
 
   return withStockTransaction(async (tx) => {
-    const scrapNumber = await generateScrapNumber(tx);
+    const scrapNumber = await generateScrapNumber(tx, input.companyId);
 
     // Create the ScrapGeneration record FIRST so we have the ID to pass
     // directly to recordMovement — avoids the broad updateMany that could
@@ -135,7 +135,7 @@ export async function createScrapGeneration(input: CreateScrapGenerationInput) {
     let totalValue = new Decimal(0);
 
     for (const line of input.lines) {
-      const result = await recordMovement(tx, {
+      await recordMovement(tx, {
         materialId: line.materialId,
         movementType: "SCRAP_GENERATED",
         toLocationId: input.toLocationId,

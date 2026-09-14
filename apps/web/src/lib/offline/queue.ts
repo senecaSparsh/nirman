@@ -34,7 +34,9 @@ export interface QueuedOperation {
     | "requisition"
     | "stock-count"
     | "supplier-return"
-    | "purchase-order";
+    | "purchase-order"
+    | "attendance"
+    | "dpr";
   /** Serialized JSON body to POST. */
   payload: unknown;
   status: QueueStatus;
@@ -183,6 +185,11 @@ const ENDPOINTS: Record<QueuedOperation["kind"], string> = {
   "stock-count": "/api/stock-counts",
   "supplier-return": "/api/supplier-returns",
   "purchase-order": "/api/purchase-orders",
+  // Both are upsert-style (attendance on [employeeId,date]; DPR on
+  // [projectId,date]) so a queued retry after a half-committed network
+  // failure is safe — the server resolves to the same record.
+  "attendance": "/api/attendance",
+  "dpr": "/api/dprs",
 };
 
 /**

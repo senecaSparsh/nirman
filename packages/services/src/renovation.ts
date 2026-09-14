@@ -6,7 +6,7 @@ import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { ServiceError } from "./errors";
-import { nextSequenceNumber } from "./sequence";
+import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 
 /**
  * Renovation / Value-Add Service — track enhancement work on existing
@@ -24,10 +24,10 @@ import { nextSequenceNumber } from "./sequence";
  * REPAIR type costs are expensed (not capitalised).
  */
 
-async function generateRenovationNumber(tx: Prisma.TransactionClient): Promise<string> {
+async function generateRenovationNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `REN-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `REN-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
@@ -77,7 +77,7 @@ export async function createRenovation(input: CreateRenovationInput) {
 
     const renovation = await tx.renovationProject.create({
       data: {
-        renovationNumber: await generateRenovationNumber(tx),
+        renovationNumber: await generateRenovationNumber(tx, input.companyId),
         type: input.type,
         status: "PLANNED",
         builtUnitId: input.builtUnitId ?? null,

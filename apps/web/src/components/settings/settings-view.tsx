@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, ShieldPlus, Loader2, Network, Plug, Pencil, Layers, Warehouse, Lock, KeyRound, History, Upload, Search, Unlock } from "lucide-react";
+import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, ShieldPlus, Loader2, Network, Plug, Pencil, Layers, Warehouse, Lock, KeyRound, History, Upload, Search, Unlock, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -840,6 +840,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
         return (
           u.name.toLowerCase().includes(q) ||
           u.email.toLowerCase().includes(q) ||
+          (u.phone ?? "").toLowerCase().includes(q) ||
           u.role.toLowerCase().includes(q) ||
           (u.department ?? "").toLowerCase().includes(q) ||
           (u.designation ?? "").toLowerCase().includes(q) ||
@@ -979,7 +980,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search by name, email, role, department…"
+            placeholder="Search by name, email, phone, role, department…"
             value={userSearch}
             onChange={(e) => setUserSearch(e.target.value)}
             className="pl-9"
@@ -1021,7 +1022,9 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
                     <div className="flex flex-col">
                       <span>{u.email}</span>
                       {u.phone && (
-                        <span className="text-caption text-muted-foreground">{u.phone}</span>
+                        <span className="text-caption text-muted-foreground flex items-center gap-1">
+                          <Phone className="h-3 w-3" /> {u.phone}
+                        </span>
                       )}
                     </div>
                   </TD>

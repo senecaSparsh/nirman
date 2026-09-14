@@ -325,10 +325,10 @@ export default function MobileNewStockCountClient({ onClose, onCreated }: { onCl
           </p>
         ) : (
           <p className="text-m-body mb-4" style={{ color: "var(--color-ink-700)" }}>
-            {varianceSummary.counted} items counted · {varianceSummary.mismatches} mismatches
+            {varianceSummary.counted} item{varianceSummary.counted === 1 ? "" : "s"} counted · {varianceSummary.mismatches} mismatch{varianceSummary.mismatches === 1 ? "" : "es"}
           </p>
         )}
-        <div className="flex flex-col gap-3">
+        <div className="flex gap-3">
           {!isQueued && (
             <button
               onClick={() => {
@@ -339,7 +339,7 @@ export default function MobileNewStockCountClient({ onClose, onCreated }: { onCl
                   router.push(`/m/stock-counts/${success.id}`);
                 }
               }}
-              className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
+              className="flex-1 rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               View Count
@@ -358,7 +358,7 @@ export default function MobileNewStockCountClient({ onClose, onCreated }: { onCl
                 countedQty: "",
               })));
             }}
-            className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
+            className="flex-1 rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
           >
             New Count

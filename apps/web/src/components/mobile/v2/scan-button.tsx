@@ -31,7 +31,7 @@ export function ScanButton({
         style={{
           minHeight: "2.5rem",
           padding: "0 0.75rem",
-          backgroundColor: "var(--color-surface)",
+          backgroundColor: "var(--color-concrete)",
           color: "var(--color-ink-700)",
           border: "1px solid var(--color-line)",
         }}

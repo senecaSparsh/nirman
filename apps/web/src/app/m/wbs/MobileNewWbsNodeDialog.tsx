@@ -230,7 +230,7 @@ export function MobileNewWbsNodeDialog({
           {/* Node Details */}
           <SectionCard title="Node Details">
             {/* Code + Name */}
-            <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div className="grid grid-cols-3 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
               <UnderlineInput
                 label="Code"
                 value={form.code}

@@ -23,6 +23,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
   if (category) where.category = category;
   if (locationId) where.locationId = locationId;
 
+  // countOnly — nav badges need just the number, not hydrated rows.
+  if (searchParams.get("countOnly") === "1") {
+    return json({ count: await prisma.gatePass.count({ where }) });
+  }
+
   const gatePasses = await prisma.gatePass.findMany({
     where,
     orderBy: { createdAt: "desc" },

@@ -62,20 +62,23 @@ export function MobileSalesHub({
 
   return (
     <div className="pb-6">
-      <div className="mb-3 grid grid-cols-2 gap-1 rounded-[0.625rem] p-1" style={{ backgroundColor: "var(--color-concrete)" }}>
+      <div
+        className="mb-3 grid grid-cols-2 gap-1 rounded-[0.625rem] border p-1"
+        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
+      >
         <button
           type="button"
           onClick={() => setView("pipeline")}
-          className="h-9 rounded-[0.5rem] text-m-body font-bold text-m-body press"
-          style={{ backgroundColor: view === "pipeline" ? "var(--color-paper)" : "transparent", color: view === "pipeline" ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
+          className="h-9 rounded-[0.5rem] text-m-body font-bold press transition-colors"
+          style={{ backgroundColor: view === "pipeline" ? "var(--color-ink-950)" : "transparent", color: view === "pipeline" ? "var(--color-paper)" : "var(--color-ink-500)" }}
         >
           Pipeline · {leads.filter((lead) => !["BOOKED", "LOST"].includes(lead.stage)).length}
         </button>
         <button
           type="button"
           onClick={() => setView("collections")}
-          className="h-9 rounded-[0.5rem] text-m-body font-bold text-m-body press"
-          style={{ backgroundColor: view === "collections" ? "var(--color-paper)" : "transparent", color: view === "collections" ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
+          className="h-9 rounded-[0.5rem] text-m-body font-bold press transition-colors"
+          style={{ backgroundColor: view === "collections" ? "var(--color-ink-950)" : "transparent", color: view === "collections" ? "var(--color-paper)" : "var(--color-ink-500)" }}
         >
           Collections · {stats.outstandingCount}
         </button>
@@ -145,7 +148,7 @@ function MobileLeadPipeline({
 
   return (
     <>
-      <div className="mb-3 grid grid-cols-3 gap-2">
+      <div className="mb-3 grid grid-cols-3 gap-1.5">
         <div className="rounded-[0.625rem] border p-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
           <CalendarClock className="mb-1 size-3.5" style={{ color: dueCount ? "var(--color-stop)" : "var(--color-ink-300)" }} />
           <p className="text-m-section font-bold tabular-nums" style={{ color: dueCount ? "var(--color-stop)" : "var(--color-ink-950)" }}>{dueCount}</p>

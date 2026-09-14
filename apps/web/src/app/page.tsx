@@ -238,8 +238,8 @@ async function CommandCenterContent() {
   const healthyStockCount = lowStockFull.length - lowStockCount;
   const stockHealth = healthyStockCount > 0 || lowStockCount > 0
     ? [
-        { label: "In stock", value: healthyStockCount },
-        { label: "Low stock", value: lowStockCount },
+        { label: "In stock", value: healthyStockCount, color: "var(--color-success)" },
+        { label: "Low stock", value: lowStockCount, color: "var(--color-warning)" },
       ]
     : [];
 

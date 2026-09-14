@@ -1,4 +1,5 @@
 import { prisma } from "@nirman/db";
+import { getVendorRankings } from "@nirman/services";
 import { toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { Truck } from "lucide-react";
@@ -14,7 +15,7 @@ export default function MobileSupplierDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} managePerm={PERM.PROCUREMENT_MANAGE} skeletonSections={6}>
+    <MobileDetailPage params={params} perm={PERM.PROCUREMENT_VIEW} managePerm={PERM.PROCUREMENT_MANAGE} skeletonSections={6}>
       {async ({ id, company, canManage }) => {
         const supplier = await prisma.supplier.findFirst({
           where: { id, companyId: company.id, deletedAt: null },
@@ -49,6 +50,10 @@ export default function MobileSupplierDetailPage({
         const balanceOwed = toNum(supplier.balanceOwed);
         const totalPoValue = supplier.purchaseOrders.reduce((s, po) => s + toNum(po.total), 0);
         const totalPaid = supplier.supplierPayments.reduce((s, p) => s + toNum(p.amount), 0);
+
+        // Vendor rating — auto-computed from POs, receipts, quote comparisons.
+        const rankings = await getVendorRankings(company.id);
+        const rating = rankings.find((r) => r.supplierId === supplier.id) ?? null;
 
         const pos = supplier.purchaseOrders.map((po) => ({
           id: po.id,
@@ -92,6 +97,14 @@ export default function MobileSupplierDetailPage({
             paymentCount={supplier.supplierPayments.length}
             pos={pos}
             payments={payments}
+            rating={rating ? {
+              onTimeRate: toNum(rating.onTimeRate),
+              qualityRate: toNum(rating.qualityRate),
+              priceCompetitiveness: toNum(rating.priceCompetitiveness),
+              overallScore: toNum(rating.overallScore),
+              totalPos: rating.totalPos,
+              totalReceipts: rating.totalReceipts,
+            } : null}
             canManage={canManage}
           />
           </>

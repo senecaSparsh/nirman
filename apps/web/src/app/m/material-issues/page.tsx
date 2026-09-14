@@ -1,10 +1,10 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { Package } from "lucide-react";
+import { Package, Plus } from "lucide-react";
+import Link from "next/link";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {
-  MobilePageHeader,
   MobileEmptyState,
   Card,
 } from "@/components/mobile/v2/primitives";
@@ -18,8 +18,8 @@ import { MobileMaterialIssuesList, type MaterialIssueListItem } from "./MobileMa
  */
 export default function MobileMaterialIssuesPage() {
   return (
-    <MobileListPage perm={PERM.INVENTORY_VIEW} what="material issues" permission="inventory.view">
-      {async ({ company }) => {
+    <MobileListPage perm={PERM.INVENTORY_VIEW} managePerm={PERM.STOCK_ISSUE} what="material issues" permission="inventory.view">
+      {async ({ company, canManage }) => {
         const BATCH_SIZE = 40;
         const issues = await prisma.materialIssue.findMany({
           where: {...await scopeWhere("MaterialIssue"), 
@@ -69,10 +69,9 @@ export default function MobileMaterialIssuesPage() {
 
         return (
           <div>
-            <MobilePageHeader
-              title="Material Issues"
-              subtitle="Stock issued to projects & departments"
-            />
+            <p className="px-4 pt-3 pb-1 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+              Stock issued to projects &amp; departments
+            </p>
 
             {batch.length > 0 && (
               <div className="px-4 mb-3">
@@ -104,6 +103,16 @@ export default function MobileMaterialIssuesPage() {
                 icon={Package}
                 title="No material issues yet"
                 description="Stock issued to projects or departments will appear here."
+                action={canManage ? (
+                  <Link
+                    href="/m/stock-out?mode=issue"
+                    className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press"
+                    style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+                  >
+                    <Plus className="size-4" />
+                    Issue Materials
+                  </Link>
+                ) : undefined}
               />
             ) : (
               <MobileMaterialIssuesList
@@ -112,6 +121,21 @@ export default function MobileMaterialIssuesPage() {
                 initialCursor={nextCursor}
               />
             )}
+
+            {canManage && batch.length > 0 ? (
+              <Link
+                href="/m/stock-out?mode=issue"
+                className="fixed right-4 z-30 grid place-items-center size-12 rounded-full shadow-lg press"
+                style={{
+                  bottom: "calc(4.5rem + max(env(safe-area-inset-bottom), 0px))",
+                  backgroundColor: "var(--color-ink-950)",
+                  color: "var(--color-paper)",
+                }}
+                aria-label="Issue materials"
+              >
+                <Plus className="size-5" />
+              </Link>
+            ) : null}
           </div>
         );
       }}

@@ -30,6 +30,7 @@ export function PurchaseOrderDetailDialog({
   suppliers = [],
   canManagePayments = false,
   currentUserId,
+  canSelfApprove = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -40,6 +41,8 @@ export function PurchaseOrderDetailDialog({
   suppliers?: SupplierRow[];
   canManagePayments?: boolean;
   currentUserId?: string | null;
+  /** Tier-1 viewers (OWNER/ADMIN) may approve their own PO — no higher approver. */
+  canSelfApprove?: boolean;
 }) {
   const router = useRouter();
   const [detail, setDetail] = useState<PurchaseOrderDetail | null>(null);
@@ -99,7 +102,6 @@ export function PurchaseOrderDetailDialog({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- doAction uses latest state via closure
   }, [open, detail, canApprove, showApproveField, acting]);
 
   async function doAction(action: "approve" | "order" | "cancel" | "resubmit") {
@@ -252,7 +254,9 @@ export function PurchaseOrderDetailDialog({
 
             {/* Action buttons */}
             <div className="flex flex-wrap gap-2">
-              {detail.status === "DRAFT" && canApprove && po.createdById !== currentUserId && !showApproveField && (
+              {/* Self-approval: hidden from the creator unless they're a tier-1
+                  approver (OWNER/ADMIN), where no higher reviewer exists. */}
+              {detail.status === "DRAFT" && canApprove && (po.createdById !== currentUserId || canSelfApprove) && !showApproveField && (
                 <Button size="sm" onClick={() => setShowApproveField(true)} disabled={acting}>
                   <Check className="h-4 w-4" /> Approve & Order <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">A</kbd>
                 </Button>
@@ -294,7 +298,7 @@ export function PurchaseOrderDetailDialog({
             </div>
 
             {/* Inline approval notes (appears when approving) */}
-            {detail.status === "DRAFT" && canApprove && po.createdById !== currentUserId && showApproveField && (
+            {detail.status === "DRAFT" && canApprove && (po.createdById !== currentUserId || canSelfApprove) && showApproveField && (
               <div className="flex flex-col gap-2 rounded-lg border border-border/60 p-3">
                 <label className="text-meta text-muted-foreground">Approval notes (optional)</label>
                 <textarea
@@ -496,6 +500,15 @@ export function PurchaseOrderDetailDialog({
         purchaseOrderNumber={detail?.poNumber}
         defaultSupplierId={detail?.supplierId}
         defaultAmount={detail ? Math.max(0, detail.total - payments.reduce((s, p) => s + p.amount, 0)) : undefined}
+        onSuccess={() => {
+          if (detail) {
+            fetch(`/api/supplier-payments?purchaseOrderId=${detail.id}`)
+              .then((r) => r.json())
+              .then((d) => { if (Array.isArray(d)) setPayments(d); })
+              .catch(() => {/* best-effort */});
+          }
+          router.refresh();
+        }}
       />
       <PoAddLineDialog
         open={addLineOpen}

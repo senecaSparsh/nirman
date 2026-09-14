@@ -330,7 +330,14 @@ export function MobileSaleDetailClient({
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? "Failed to record payment");
       }
-      toast.success(payMode === "CHEQUE" ? "Cheque payment recorded (pending clearance)" : "Payment recorded");
+      const data = await res.json().catch(() => ({}));
+      const paymentId = data.paymentId as string | undefined;
+      toast.success(payMode === "CHEQUE" ? "Cheque payment recorded (pending clearance)" : "Payment recorded", {
+        action: paymentId ? {
+          label: "Print Receipt",
+          onClick: () => window.open(`/print/payment-receipt/${paymentId}`, "_blank"),
+        } : undefined,
+      });
       setShowPayment(false);
       setPayAmount("");
       setPayRef("");
@@ -624,7 +631,7 @@ export function MobileSaleDetailClient({
             <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-300)" }}>No phone</span>
           </div>
         )}
-        {canManage && !isCancelled && !isPaid ? (
+        {canManage && !isCancelled && !isPaid && isCompleted ? (
           <button
             onClick={() => setShowPayment(true)}
             className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
@@ -1010,7 +1017,7 @@ export function MobileSaleDetailClient({
                     {it.dueDate ? ` · Due ${new Date(it.dueDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}` : ""}
                   </div>
                   {it.paidAmount > 0 && (
-                    <div className="text-m-caption font-bold" style={{ color: it.status === "PAID" ? "var(--color-go)" : "var(--color-amber)" }}>
+                    <div className="text-m-caption font-bold" style={{ color: it.status === "PAID" ? "var(--color-go)" : "var(--color-signal-dark)" }}>
                       Paid {formatCurrency(it.paidAmount)} · {it.status === "PAID" ? "Settled" : it.status === "PARTIAL" ? "Partial" : "Pending"}
                     </div>
                   )}
@@ -1252,11 +1259,11 @@ export function MobileSaleDetailClient({
 
       <ActionBar>
         {/* ── Record Deposit action ── */}
-        {canManage && !isCancelled && !isCompleted && saleStage === "PENDING" ? (
+        {canManage && !isCancelled && !isCompleted ? (
           <button
             onClick={() => setShowDeposit(true)}
             className="flex items-center justify-center gap-1.5 w-full rounded-[0.5rem] py-2 mb-2 text-m-body press"
-            style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-950)" }}
+            style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-950)" }}
           >
             <Banknote className="size-3.5" />
             <span className="text-m-body font-bold">Record Deposit</span>
@@ -1306,7 +1313,7 @@ export function MobileSaleDetailClient({
           <p className="text-m-body mb-3" style={{ color: "var(--color-ink-700)" }}>
             Cancel sale <span className="font-mono font-bold">{saleNumber}</span>? This will reverse the sale and release the asset. This cannot be undone.
           </p>
-          <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
             <button
               onClick={() => setShowCancel(false)}
               className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold text-m-body press"
@@ -1421,7 +1428,7 @@ export function MobileSaleDetailClient({
               </div>
               {payMode === "CHEQUE" && <MobileChequeFields value={payCheque} onChange={setPayCheque} />}
             </div>
-            <div className="flex flex-col gap-2 pt-1">
+            <div className="flex gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setShowPayment(false)}
@@ -1755,7 +1762,7 @@ export function MobileSaleDetailClient({
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 pt-1">
+            <div className="flex gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setShowComplete(false)}
@@ -1784,7 +1791,7 @@ export function MobileSaleDetailClient({
             Pay broker commission of <span className="font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{commissionAmount != null ? formatCurrency(commissionAmount) : "—"}</span>
             {brokerName ? <> to <span className="font-bold">{brokerName}</span></> : null}? This will settle the commission payable and record the payment. This cannot be undone.
           </p>
-          <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
             <button
               onClick={() => setShowCommission(false)}
               disabled={payingCommission}
@@ -2216,7 +2223,7 @@ function ScheduleEditorModal({
       {hasPaidItems && (
         <div
           className="rounded-[0.5rem] border px-3 py-2 mb-3 text-m-caption"
-          style={{ borderColor: "var(--color-amber)", backgroundColor: "color-mix(in srgb, var(--color-amber) 10%, transparent)", color: "var(--color-ink-700)" }}
+          style={{ borderColor: "var(--color-signal)", backgroundColor: "var(--color-signal-wash)", color: "var(--color-ink-700)" }}
         >
           Some installments already have payments. Regenerating will replace the entire schedule — paid items will be preserved by the service.
         </div>

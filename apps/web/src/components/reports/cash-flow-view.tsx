@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import { TrendingUp, TrendingDown, Wallet, Calendar, Download } from "lucide-react";
 import { Select } from "@/components/ui/input";
@@ -37,18 +38,13 @@ type CashFlowData = {
 
 export function CashFlowView({ projects }: { projects: Project[] }) {
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
-  const [data, setData] = useState<CashFlowData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { data, loading, error } = useFetch<CashFlowData>(
+    projectId ? `/api/cash-flow?projectId=${projectId}` : null,
+  );
 
   useEffect(() => {
-    if (!projectId) return;
-    setLoading(true);
-    fetch(`/api/cash-flow?projectId=${projectId}`)
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => toast.error("Failed to load cash flow forecast"))
-      .finally(() => setLoading(false));
-  }, [projectId]);
+    if (error) toast.error("Failed to load cash flow forecast");
+  }, [error]);
 
   function handleExport() {
     if (!data) return;

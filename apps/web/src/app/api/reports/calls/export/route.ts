@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { localDateISO } from "@/lib/utils";
 
 /**
  * GET /api/reports/calls/export — CSV export of call logs.
@@ -137,7 +138,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     status: 200,
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="calls-export-${new Date().toISOString().split("T")[0]}.csv"`,
+      "Content-Disposition": `attachment; filename="calls-export-${localDateISO()}.csv"`,
     },
   });
 });

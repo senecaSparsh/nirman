@@ -17,6 +17,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   const roles = await prisma.customRole.findMany({
     where: { companyId: company.id },
     orderBy: { createdAt: "asc" },
+    take: 100,
   });
 
   return json({ roles });

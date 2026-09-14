@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { prisma } from "@nirman/db";
 import { getCompany, getCurrentUser, getUserRole, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { canAutoApprove } from "@nirman/services";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
@@ -71,7 +72,8 @@ async function PoDetailContent({
 
   if (!po) notFound();
 
-  const canApprove = hasPermission(role, PERM.PO_APPROVE) && po.createdById !== currentUser?.id;
+  // Tier-1 creators (OWNER/ADMIN) may approve their own PO — no higher approver.
+  const canApprove = hasPermission(role, PERM.PO_APPROVE) && (po.createdById !== currentUser?.id || canAutoApprove(role));
   const canManage = hasPermission(role, PERM.PROCUREMENT_MANAGE);
   const canReceiveGoods = hasPermission(role, PERM.PROCUREMENT_MANAGE) || hasPermission(role, PERM.INVENTORY_MANAGE);
 

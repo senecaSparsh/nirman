@@ -1,13 +1,13 @@
 import { prisma } from "@nirman/db";
 import { getAttendanceWithTiers } from "@nirman/services";
-import { CalendarCheck } from "lucide-react";
+import { CalendarCheck, MapPin } from "lucide-react";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {
   MobileSectionTitle,
   MobileEmptyState,
   MobileCta,
 } from "@/components/mobile/v2/primitives";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM, hasPermission, roleTier } from "@/lib/roles";
 import { MobileAttendanceList } from "./MobileAttendanceList";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
@@ -25,6 +25,7 @@ export default function MobileAttendancePage() {
     <MobileListPage perm={PERM.HR_VIEW} what="attendance" permission="hr.view">
       {async ({ company, role }) => {
         const canManageAttendance = hasPermission(role, PERM.HR_MANAGE);
+        const isFieldStaff = roleTier(role) >= 4;
         // Fetch attendance with traffic-light tiers via the service rollup
         // (joins attendance → DPR approval status per project+date)
         const today = new Date();
@@ -71,6 +72,14 @@ export default function MobileAttendancePage() {
               <div className="mb-4">
                 <MobileCta href="/m/site/attendance" icon={CalendarCheck} variant="primary">
                   Check in now
+                </MobileCta>
+              </div>
+            )}
+
+            {isFieldStaff && !canManageAttendance && (
+              <div className="mb-4">
+                <MobileCta href="/m/home" icon={MapPin} variant="primary">
+                  Self check-in
                 </MobileCta>
               </div>
             )}

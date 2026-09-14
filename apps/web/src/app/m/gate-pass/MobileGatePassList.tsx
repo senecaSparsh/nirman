@@ -59,6 +59,7 @@ type GatePassRow = {
   approvedAt?: string | null;
   exitedAt?: string | null;
   approvedByName?: string | null;
+  createdById?: string | null;
   createdByName?: string | null;
   submittedByName?: string | null;
   rejectedByName?: string | null;
@@ -78,10 +79,10 @@ type GatePassRow = {
 const STATUS_CONFIG: Record<GatePassRow["status"], { label: string; color: string; bg: string }> = {
   DRAFT: { label: "Draft", color: "var(--color-ink-500)", bg: "var(--color-paper-2)" },
   PENDING: { label: "Pending", color: "var(--color-signal)", bg: "color-mix(in srgb, var(--color-signal) 10%, transparent)" },
-  APPROVED: { label: "Approved", color: "var(--color-go)", bg: "color-mix(in srgb, var(--color-go) 10%, transparent)" },
+  APPROVED: { label: "Approved", color: "var(--color-steel)", bg: "color-mix(in srgb, var(--color-steel) 10%, transparent)" },
   REJECTED: { label: "Rejected", color: "var(--color-stop)", bg: "color-mix(in srgb, var(--color-stop) 10%, transparent)" },
   EXITED: { label: "Exited", color: "var(--color-ink-700)", bg: "color-mix(in srgb, var(--color-ink-700) 10%, transparent)" },
-  CANCELLED: { label: "Cancelled", color: "var(--color-ink-500)", bg: "var(--color-paper-2)" },
+  CANCELLED: { label: "Cancelled", color: "var(--color-stop)", bg: "var(--color-paper-2)" },
 };
 
 const VEHICLE_TYPE_LABELS: Record<string, string> = {
@@ -103,7 +104,9 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 export function MobileGatePassList({
   gatePasses: initialItems,
+  currentUserId,
   canApprove,
+  canSelfApprove,
   canExit,
   canCreate,
   canManage,
@@ -115,7 +118,10 @@ export function MobileGatePassList({
   exportSummary,
 }: {
   gatePasses: GatePassRow[];
+  currentUserId?: string;
   canApprove: boolean;
+  /** Tier-1 viewers (OWNER/ADMIN) may approve their own gate pass. */
+  canSelfApprove?: boolean;
   canExit: boolean;
   canCreate: boolean;
   canManage: boolean;
@@ -130,6 +136,7 @@ export function MobileGatePassList({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [rejectTarget, setRejectTarget] = useState<GatePassRow | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [cancelTarget, setCancelTarget] = useState<GatePassRow | null>(null);
@@ -161,15 +168,19 @@ export function MobileGatePassList({
   }, []);
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return items;
-    const q = query.toLowerCase();
-    return items.filter((gp) =>
-      gp.gatePassNumber.toLowerCase().includes(q) ||
-      (gp.vehicleNumber ?? "").toLowerCase().includes(q) ||
-      (gp.driverName ?? "").toLowerCase().includes(q) ||
-      (gp.destination ?? "").toLowerCase().includes(q),
-    );
-  }, [items, query]);
+    let result = items;
+    if (statusFilter !== "ALL") result = result.filter((gp) => gp.status === statusFilter);
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      result = result.filter((gp) =>
+        gp.gatePassNumber.toLowerCase().includes(q) ||
+        (gp.vehicleNumber ?? "").toLowerCase().includes(q) ||
+        (gp.driverName ?? "").toLowerCase().includes(q) ||
+        (gp.destination ?? "").toLowerCase().includes(q),
+      );
+    }
+    return result;
+  }, [items, query, statusFilter]);
 
   const handleAction = useCallback(
     async (id: string, action: string, body?: Record<string, unknown>) => {
@@ -252,6 +263,29 @@ export function MobileGatePassList({
         onClear={() => setQuery("")}
       />
 
+      {/* Status filter chips */}
+      <div className="flex gap-1 pb-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+        {(["ALL", "PENDING", "APPROVED", "EXITED", "REJECTED", "DRAFT"] as const).map((s) => {
+          const count = s === "ALL" ? items.length : items.filter((gp) => gp.status === s).length;
+          const isActive = statusFilter === s;
+          return (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setStatusFilter(isActive ? "ALL" : s)}
+              className="shrink-0 rounded-full px-2.5 py-1 text-m-caption font-semibold press"
+              style={{
+                backgroundColor: isActive ? "var(--color-ink-950)" : "var(--color-paper)",
+                color: isActive ? "var(--color-paper)" : "var(--color-ink-500)",
+                border: `1px solid ${isActive ? "var(--color-ink-950)" : "var(--color-line)"}`,
+              }}
+            >
+              {s === "ALL" ? "All" : STATUS_CONFIG[s]?.label ?? s} {count > 0 ? `(${count})` : ""}
+            </button>
+          );
+        })}
+      </div>
+
       {sorted.length === 0 && query && (
         <MobileNoResults title="No gate passes found" query={query} />
       )}
@@ -272,7 +306,7 @@ export function MobileGatePassList({
                   <span className="text-m-label font-medium" style={{ color: cfg.color }}>{cfg.label}</span>
                 </div>
                 <div className="mt-0.5 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                  {gp.lineCount} items · {gp.locationName}
+                  {gp.lineCount} item{gp.lineCount === 1 ? "" : "s"} · {gp.locationName}
                 </div>
                 {gp.vehicleNumber && (
                   <div className="mt-0.5 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
@@ -382,7 +416,7 @@ export function MobileGatePassList({
                 </div>
 
                 {/* Actions */}
-                <div className="flex flex-col gap-2 pt-1">
+                <div className="flex flex-wrap gap-2 pt-1">
                   <button
                     onClick={() => window.open(`/print/gate-pass/${gp.id}`, "_blank")}
                     className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption active:opacity-70 press"
@@ -404,8 +438,12 @@ export function MobileGatePassList({
                     </button>
                   )}
 
-                  {/* Approve + Reject: PENDING */}
-                  {gp.status === "PENDING" && canApprove && (
+                  {/* Approve + Reject: PENDING — hidden when the viewer created
+                      the pass, unless they're a tier-1 approver (OWNER/ADMIN)
+                      where no higher reviewer exists. For non-tier-1 creators a
+                      hint is shown instead so they know it's awaiting someone
+                      else (self-approval is blocked server-side too). */}
+                  {gp.status === "PENDING" && canApprove && (gp.createdById !== currentUserId || canSelfApprove) && (
                     <>
                       <button
                         disabled={actionLoading === gp.id}
@@ -425,6 +463,11 @@ export function MobileGatePassList({
                         Approve
                       </button>
                     </>
+                  )}
+                  {gp.status === "PENDING" && canApprove && gp.createdById === currentUserId && !canSelfApprove && (
+                    <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                      Awaiting another approver — you can&apos;t approve your own pass
+                    </span>
                   )}
 
                   {/* Confirm Exit: APPROVED → EXITED */}

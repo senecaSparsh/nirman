@@ -38,14 +38,14 @@ export function MobileAttentionBanner({
     <div
       className="border-b"
       style={{
-        borderColor: "color-mix(in srgb, var(--color-warn) 30%, var(--color-line))",
-        backgroundColor: "color-mix(in srgb, var(--color-warn) 5%, transparent)",
+        borderColor: "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
+        backgroundColor: "color-mix(in srgb, var(--color-signal) 5%, transparent)",
       }}
     >
       <div className="px-4 py-2">
         <div
           className="mb-1.5 flex items-center gap-1.5 text-m-caption font-semibold uppercase tracking-wide"
-          style={{ color: "var(--color-warn)" }}
+          style={{ color: "var(--color-signal-dark)" }}
         >
           <AlertTriangle className="h-3 w-3" />
           Needs your attention

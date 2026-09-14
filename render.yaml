@@ -136,6 +136,11 @@ cronJobs:
         || echo "backup failed"
     instanceType: nano
     scheduleTimezone: UTC
+    envVars:
+      # Cron jobs do NOT inherit the web service's env vars — declare the
+      # secret here or every call returns 401 (previously swallowed by || echo).
+      - key: CRON_SECRET
+        sync: false
   # ── Reminder + notification flush every 15 minutes ──
   # Processes PENDING NotificationLog entries (email/WhatsApp delivery),
   # checks milestone payments, sends rent/sale reminders, generates due
@@ -151,6 +156,9 @@ cronJobs:
         || echo "reminders failed"
     instanceType: nano
     scheduleTimezone: UTC
+    envVars:
+      - key: CRON_SECRET
+        sync: false
   # ── HSN/GST master weekly re-seed ──
   # Re-seeds the DB from the bundled JSON baseline so rate changes
   # (e.g. GST 2.0 updates) are picked up automatically after deploy.
@@ -163,3 +171,6 @@ cronJobs:
         || echo "hsn-seed failed"
     instanceType: nano
     scheduleTimezone: UTC
+    envVars:
+      - key: CRON_SECRET
+        sync: false

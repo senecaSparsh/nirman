@@ -17,8 +17,8 @@ import { haptic } from "@/lib/haptic";
  * Usage:
  *   const { offset, bind, actionWidth, close } = useSwipeAction({
  *     actions: [
- *       { label: "Approve", color: "#16a34a", onPress: () => approve() },
- *       { label: "Reject", color: "#ef4444", onPress: () => reject() },
+ *       { label: "Approve", color: "var(--color-go)", onPress: () => approve() },
+ *       { label: "Reject", color: "var(--color-stop)", onPress: () => reject() },
  *     ],
  *   });
  *   <div className="relative overflow-hidden">

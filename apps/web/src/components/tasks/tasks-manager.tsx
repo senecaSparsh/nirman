@@ -16,7 +16,7 @@ import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { AssignTaskDialog } from "@/components/tasks/assign-task-dialog";
 import { TaskDetailDrawer } from "@/components/tasks/task-detail-drawer";
 import { downloadCSV } from "@/lib/export";
-import { cn, formatDate } from "@/lib/utils";
+import { localDateISO, cn, formatDate } from "@/lib/utils";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { } from "@/components/employee-name";
 
@@ -230,7 +230,7 @@ export function TasksManager({ tasks, users, canAssign = true, canManage = false
             </button>
           </div>
           <Button variant="outline" size="sm" className="h-9"
-            onClick={() => downloadCSV(`tasks-${new Date().toISOString().slice(0,10)}.csv`, filtered as unknown as Record<string, unknown>[], [
+            onClick={() => downloadCSV(`tasks-${localDateISO()}.csv`, filtered as unknown as Record<string, unknown>[], [
               { key: "title", label: "Title" },
               { key: "status", label: "Status" },
               { key: "priority", label: "Priority" },

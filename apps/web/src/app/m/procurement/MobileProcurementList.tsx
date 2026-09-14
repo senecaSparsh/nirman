@@ -14,6 +14,7 @@ import { SwipeableListItem } from "@/components/mobile/swipeable-item";
 import { MobileContextMenu, type ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import { useLongPress } from "@/lib/use-long-press";
 import { useUrlFilter, useUrlQuery } from "@/lib/use-url-filter";
+import { PERM } from "@/lib/roles";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -78,9 +79,9 @@ const FILTER_CHIPS: { label: string; value: PoStatus }[] = [
 /* ── Status → accent color + label ── */
 const STATUS_STYLE: Record<string, { color: string; label: string }> = {
   DRAFT: { color: "var(--color-ink-500)", label: "Draft" },
-  APPROVED: { color: "var(--color-signal)", label: "Approved" },
+  APPROVED: { color: "var(--color-steel)", label: "Approved" },
   ORDERED: { color: "var(--color-steel)", label: "Ordered" },
-  PARTIAL: { color: "var(--color-signal)", label: "Partial" },
+  PARTIAL: { color: "var(--color-steel)", label: "Partial" },
   RECEIVED: { color: "var(--color-go)", label: "Received" },
   CANCELLED: { color: "var(--color-stop)", label: "Cancelled" },
 };
@@ -89,6 +90,8 @@ export function MobileProcurementList(props: {
   items: ProcurementListItem[];
   canCreate?: boolean;
   canApprove?: boolean;
+  /** Tier-1 viewers may approve their own items. */
+  canSelfApprove?: boolean;
   currentUserId?: string | null;
   draftCount?: number;
   loadMoreUrl?: string;
@@ -112,6 +115,7 @@ function MobileProcurementListInner({
   items: initialItems,
   canCreate,
   canApprove,
+  canSelfApprove,
   currentUserId,
   draftCount = 0,
   loadMoreUrl,
@@ -126,6 +130,8 @@ function MobileProcurementListInner({
   items: ProcurementListItem[];
   canCreate?: boolean;
   canApprove?: boolean;
+  /** Tier-1 viewers may approve their own items. */
+  canSelfApprove?: boolean;
   currentUserId?: string | null;
   draftCount?: number;
   loadMoreUrl?: string;
@@ -345,7 +351,7 @@ function MobileProcurementListInner({
       <NextActionCard
         flow="procurement"
         count={draftCount}
-        can={(perm) => perm === "PO_APPROVE" ? !!canApprove : false}
+        can={(perm) => perm === PERM.PO_APPROVE ? !!canApprove : false}
       />
 
       {/* ── Results ── */}
@@ -370,7 +376,7 @@ function MobileProcurementListInner({
           )}
           <MobileCardGrid cols={2}>
             {filtered.map((po) => (
-              <PoCard key={po.id} po={po} canApprove={canApprove} currentUserId={currentUserId} onAction={() => router.refresh()} />
+              <PoCard key={po.id} po={po} canApprove={canApprove} currentUserId={currentUserId} canSelfApprove={canSelfApprove} onAction={() => router.refresh()} />
             ))}
           </MobileCardGrid>
           {loadMoreUrl ? (
@@ -515,11 +521,14 @@ function DirectPurchaseCard({ dp }: { dp: DirectPurchaseListItem }) {
 function PoCard({
   po,
   canApprove,
+  canSelfApprove,
   currentUserId,
   onAction,
 }: {
   po: ProcurementListItem;
   canApprove?: boolean;
+  /** Tier-1 viewers may approve their own items. */
+  canSelfApprove?: boolean;
   currentUserId?: string | null;
   onAction?: () => void;
 }) {
@@ -531,7 +540,8 @@ function PoCard({
 
   // Permission + creator gate: only show approve to users who have PO_APPROVE
   // AND did not create this PO themselves.
-  const canActOn = canApprove && po.createdById !== currentUserId;
+  // Tier-1 approvers (OWNER/ADMIN) may approve their own PO.
+  const canActOn = canApprove && (po.createdById !== currentUserId || canSelfApprove);
 
   // Swipe actions for DRAFT POs (approve / cancel) — only for approvers
   const canSwipe = po.status === "DRAFT" && canActOn;

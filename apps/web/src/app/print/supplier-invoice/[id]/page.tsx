@@ -102,7 +102,7 @@ export default async function SupplierInvoicePrintPage({
       </div>
       {invoice.matchNotes && invoice.matchStatus !== "THREE_WAY_MATCH" && (
         <div className="mt-1 text-xs text-amber-700">
-          {invoice.matchNotes.split(";").filter(n => n.trim()).length} line(s) with variance — review before payment
+          {invoice.matchNotes.split(";").filter(n => n.trim()).length} {invoice.matchNotes.split(";").filter(n => n.trim()).length === 1 ? "line" : "lines"} with variance — review before payment
         </div>
       )}
 

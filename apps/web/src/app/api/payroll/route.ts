@@ -20,6 +20,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       ...(year ? { year: parseInt(year) } : {}),
     },
     orderBy: [{ year: "desc" }, { month: "desc" }],
+    take: 120,
     include: {
       _count: { select: { lines: true } },
       processedBy: { select: { name: true } },

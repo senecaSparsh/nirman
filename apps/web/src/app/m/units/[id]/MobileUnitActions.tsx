@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Pencil, Trash2, Loader2, X, Tag, TrendingUp,
@@ -130,6 +130,21 @@ export function MobileUnitActions({
   // Status form state
   const [newStatus, setNewStatus] = useState<UnitStatus>(currentStatus);
 
+  // NextActionCard deep-link: `#status` opens the status sheet directly so
+  // the "Mark available"/"Start construction" card is a one-tap action.
+  useEffect(() => {
+    const check = () => {
+      if (window.location.hash === "#status") {
+        setNewStatus(currentStatus);
+        setShowStatus(true);
+        history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
+    };
+    check();
+    window.addEventListener("hashchange", check);
+    return () => window.removeEventListener("hashchange", check);
+  }, [currentStatus]);
+
   // Valuation form state
   const [valAskingPrice, setValAskingPrice] = useState(initialAskingPrice ?? "");
   const [valCurrentValuation, setValCurrentValuation] = useState(initialCurrentValuation);
@@ -211,8 +226,9 @@ export function MobileUnitActions({
 
   return (
     <>
-      {/* Action buttons */}
-      <div className="grid grid-cols-2 gap-2 mb-3">
+      {/* Action buttons — `id="status"` is the NextActionCard anchor target
+          (the hash listener below opens the status sheet directly). */}
+      <div id="status" className="grid grid-cols-2 gap-2 mb-3">
         <button onClick={() => setShowEdit(true)} disabled={busy} className="flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press disabled:opacity-50" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>
           <Pencil className="size-3" /> Edit
         </button>

@@ -5,6 +5,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { EmployeeNavListener } from "@/components/employee-nav-listener";
+import { AuthGate } from "@/components/auth-gate";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 import { ErrorCatcher } from "@/components/dev/error-catcher";
 import { SurfaceAdapter } from "@/components/surface-adapter";
@@ -115,15 +116,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
       </head>
       <body className="antialiased">
+        {/* Surface adapter — watches viewport width and instantly redirects
+            between mobile (/m/*) and desktop (/*) surfaces. Mounted OUTSIDE
+            the Suspense boundary so it always runs even while page content
+            is streaming/suspending. Breakpoint: 1024px. */}
+        <SurfaceAdapter />
         <Suspense fallback={<div className="min-h-screen bg-background" />}>
           <SWRConfig value={swrValue}>
             <CurrencyProvider>
-              {/* Surface adapter — watches viewport width and instantly
-                  redirects between mobile (/m/*) and desktop (/*) surfaces.
-                  Breakpoint: 1024px. No mobile user sees desktop, no desktop
-                  user sees mobile. Adapts on resize/orientation change. */}
-              <SurfaceAdapter />
               <EmployeeNavListener />
+              {/* Enforces mustChangePassword + call-recording consent —
+                  redirects to /change-password or /consent when flagged. */}
+              <AuthGate />
               <AppShell isDev={process.env.NODE_ENV !== "production"} hasSession={!!nav}>{children}</AppShell>
               {/* Surface selection — two layers:
                   1. Server-side (middleware): redirects mobile UA from

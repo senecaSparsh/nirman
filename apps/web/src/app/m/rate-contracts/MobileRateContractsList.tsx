@@ -2,9 +2,9 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { FileText } from "lucide-react";
+
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { MobileStatusBadge, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
@@ -48,15 +48,9 @@ export function MobileRateContractsList({
     );
   }, [items, query]);
 
-  if (items.length === 0) {
-    return (
-      <MobileEmptyState
-        icon={FileText}
-        title="No rate contracts"
-        hint="Rate contracts will appear here"
-      />
-    );
-  }
+  // Empty state is handled by the parent page (MobileRateContractsEmptyState)
+  // which provides contextual actions (Add Supplier / Add Material buttons).
+  if (items.length === 0) return null;
 
   return (
     <div>

@@ -4,6 +4,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, getCompanyGroupIds, getCurrentUser, getCurrentUserMembership, toNum, getUserRole, scopeWhere, projectScopeFilter } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { PERM, hasPermission } from "@/lib/roles";
+import { canAutoApprove } from "@nirman/services";
 import { PageHeader } from "@/components/page-header";
 import { ProcurementView } from "@/components/procurement/procurement-view";
 import { PageLoading } from "@/components/page-loading";
@@ -39,6 +40,7 @@ async function ProcurementContent() {
   const perms = {
     canCreate: hasPermission(role, PERM.PROCUREMENT_MANAGE),
     canApprove: hasPermission(role, PERM.PO_APPROVE),
+    canSelfApprove: canAutoApprove(role),
     canManagePayments: hasPermission(role, PERM.FINANCE_MANAGE),
     canApproveRequisitions: hasPermission(role, PERM.REQUISITION_APPROVE),
     canReceiveGoods: hasPermission(role, PERM.PROCUREMENT_MANAGE) || hasPermission(role, PERM.INVENTORY_MANAGE),
@@ -131,7 +133,13 @@ async function ProcurementContent() {
     // ── Requisitions (indents) — for the Indents tab ──
     prisma.materialRequisition.findMany({
       take: 500,
-      where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id } },
+      where: {
+        ...await scopeWhere("MaterialRequisition"),
+        OR: [
+          { project: { companyId: company.id, deletedAt: null } },
+          { department: { companyId: company.id, deletedAt: null } },
+        ],
+      },
       orderBy: { createdAt: "desc" },
       include: {
         project: { select: { name: true } },

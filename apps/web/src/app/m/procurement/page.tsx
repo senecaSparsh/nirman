@@ -5,6 +5,7 @@ import { getCompanyGroupIds,
   toNum,
   getCurrentUserMembership, scopeWhere } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
+import { canAutoApprove } from "@nirman/services";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { type DirectPurchaseListItem } from "./MobileProcurementList";
@@ -349,6 +350,7 @@ export default function MobileProcurementPage() {
             indentItems={indentItems}
             indentCanCreate={canCreate}
             indentCanApprove={canApproveRequisition}
+            indentCanSelfApprove={canAutoApprove(role)}
             indentSubmittedCount={reqSubmittedCount}
             indentLoadMoreUrl="/api/mobile/list/requisitions"
             indentNextCursor={reqNextCursor}
@@ -361,6 +363,7 @@ export default function MobileProcurementPage() {
             poItems={poItems}
             poCanCreate={canCreate}
             poCanApprove={canApprove}
+            poCanSelfApprove={canAutoApprove(role)}
             poDraftCount={poDraftCount}
             poLoadMoreUrl="/api/mobile/list/procurement"
             poNextCursor={poNextCursor}

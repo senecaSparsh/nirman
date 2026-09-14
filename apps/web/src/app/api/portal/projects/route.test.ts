@@ -26,13 +26,13 @@ describe("GET /api/portal/projects", () => {
 
   it("returns 401 when not logged in", async () => {
     mockGetPortalCustomer.mockResolvedValue(null);
-    const res = await GET(makeRequest("/api/portal/projects"));
+    const res = await GET(makeRequest("/api/portal/projects"), {});
     expect(res.status).toBe(401);
   });
 
   it("returns empty projects when customer has no active sales", async () => {
     mockPrisma().assetSale!.findMany.mockResolvedValue([]);
-    const res = await GET(makeRequest("/api/portal/projects"));
+    const res = await GET(makeRequest("/api/portal/projects"), {});
     expect(res.status).toBe(200);
     const body = await getJson<{ projects: unknown[] }>(res);
     expect(body.projects).toHaveLength(0);
@@ -61,7 +61,7 @@ describe("GET /api/portal/projects", () => {
         projectId: "proj-1",
       },
     ]);
-    const res = await GET(makeRequest("/api/portal/projects"));
+    const res = await GET(makeRequest("/api/portal/projects"), {});
     expect(res.status).toBe(200);
     const body = await getJson<{ projects: Array<{ id: string; name: string; progressPct: number; latestUpdates: unknown[] }> }>(res);
     expect(body.projects).toHaveLength(1);

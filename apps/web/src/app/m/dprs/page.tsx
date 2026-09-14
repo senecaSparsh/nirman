@@ -1,6 +1,7 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { canAutoApprove } from "@nirman/services";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileDprsList } from "./MobileDprsList";
 import { MobileDprsFab } from "./MobileDprsFab";
@@ -71,6 +72,7 @@ export default function MobileDprsPage() {
               canSubmit={canSubmit}
               canApproveSubAdmin={canApproveSubAdmin}
               canApproveAdmin={canApproveAdmin}
+              canSelfApprove={canAutoApprove(role)}
               currentUserId={currentUserId}
               submittedCount={submittedCount}
               loadMoreUrl="/api/dprs"

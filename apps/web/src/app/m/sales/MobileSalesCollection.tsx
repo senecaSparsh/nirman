@@ -46,7 +46,7 @@ const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as con
 
 const STATUS_META: Record<string, { color: string; label: string }> = {
   PENDING: { color: "var(--color-signal)", label: "Pending" },
-  PARTIAL: { color: "var(--color-signal)", label: "Partial" },
+  PARTIAL: { color: "var(--color-steel)", label: "Partial" },
   PAID: { color: "var(--color-go)", label: "Paid" },
 };
 
@@ -132,7 +132,7 @@ export function MobileSalesCollection({
           style={{ backgroundColor: "var(--color-concrete)" }}
         >
           <div
-            className="h-full rounded-full transition-all"
+            className="h-full rounded-full transition-[width]"
             style={{
               width: `${stats.collectionPct}%`,
               backgroundColor: "var(--color-go)",

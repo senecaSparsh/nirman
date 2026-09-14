@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
+import { useUrlFilter } from "@/lib/use-url-filter";
+import { PERM } from "@/lib/roles";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { ClipboardList } from "lucide-react";
 import { toast } from "sonner";
@@ -24,6 +26,7 @@ import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-mo
 
 type DprApprovalFilter =
   | "ALL"
+  | "MINE"
   | "SUBMITTED"
   | "SUB_ADMIN_APPROVED"
   | "APPROVED"
@@ -43,6 +46,7 @@ export type DprListItem = {
 
 const FILTER_CHIPS: { label: string; value: DprApprovalFilter }[] = [
   { label: "All", value: "ALL" },
+  { label: "Mine", value: "MINE" },
   { label: "Submitted", value: "SUBMITTED" },
   { label: "Sub-Admin", value: "SUB_ADMIN_APPROVED" },
   { label: "Approved", value: "APPROVED" },
@@ -64,11 +68,36 @@ const STATUS_INFO: Record<
   REJECTED: { color: "var(--color-stop)", label: "Rejected", step: 0 },
 };
 
-export function MobileDprsList({
+export function MobileDprsList(props: {
+  items: DprListItem[];
+  canSubmit?: boolean;
+  canApproveSubAdmin?: boolean;
+  canApproveAdmin?: boolean;
+  /** Tier-1 viewers may approve their own DPR. */
+  canSelfApprove?: boolean;
+  currentUserId?: string | null;
+  submittedCount?: number;
+  loadMoreUrl?: string;
+  nextCursor?: string | null;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
+}) {
+  // Suspense — useUrlFilter/useSearchParams requires it
+  return (
+    <Suspense fallback={null}>
+      <MobileDprsListInner {...props} />
+    </Suspense>
+  );
+}
+
+function MobileDprsListInner({
   items: initialItems,
   canSubmit,
   canApproveSubAdmin,
   canApproveAdmin,
+  canSelfApprove,
   currentUserId,
   submittedCount = 0,
   loadMoreUrl,
@@ -82,6 +111,8 @@ export function MobileDprsList({
   canSubmit?: boolean;
   canApproveSubAdmin?: boolean;
   canApproveAdmin?: boolean;
+  /** Tier-1 viewers may approve their own DPR. */
+  canSelfApprove?: boolean;
   currentUserId?: string | null;
   submittedCount?: number;
   loadMoreUrl?: string;
@@ -92,7 +123,7 @@ export function MobileDprsList({
   exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<DprApprovalFilter>("ALL");
+  const [statusFilter, setStatusFilter] = useUrlFilter<DprApprovalFilter>("status", "ALL");
   const router = useRouter();
 
   const { items, loading, hasMore, loadMore } = usePaginatedList<DprListItem>(
@@ -105,7 +136,9 @@ export function MobileDprsList({
 
   const filtered = useMemo(() => {
     let result = items;
-    if (statusFilter !== "ALL") {
+    if (statusFilter === "MINE") {
+      result = result.filter((d) => d.submittedById === currentUserId);
+    } else if (statusFilter !== "ALL") {
       result = result.filter((d) => d.approvalStatus === statusFilter);
     }
     if (query.trim()) {
@@ -117,7 +150,7 @@ export function MobileDprsList({
       );
     }
     return result;
-  }, [items, query, statusFilter]);
+  }, [items, query, statusFilter, currentUserId]);
 
   // Group by date label
   const grouped = useMemo(() => {
@@ -155,7 +188,7 @@ export function MobileDprsList({
           title="No Daily Progress Reports yet"
           hint={
             canSubmit
-              ? "Tap the + button below to submit your first Daily Progress Report"
+              ? "Tap \"Add today's DPR\" below to submit your first Daily Progress Report"
               : "Daily progress reports will appear here"
           }
         />
@@ -200,7 +233,7 @@ export function MobileDprsList({
       <NextActionCard
         flow="dpr"
         count={submittedCount}
-        can={(perm) => perm === "DPR_APPROVE_SUB_ADMIN" ? !!canApproveSubAdmin : false}
+        can={(perm) => perm === PERM.DPR_APPROVE_SUB_ADMIN ? !!canApproveSubAdmin : false}
       />
 
       {/* ── Date-grouped sections ── */}
@@ -239,6 +272,7 @@ export function MobileDprsList({
                     dpr={d}
                     canApproveSubAdmin={canApproveSubAdmin}
                     canApproveAdmin={canApproveAdmin}
+                    canSelfApprove={canSelfApprove}
                     currentUserId={currentUserId}
                     onAction={() => router.refresh()}
                   />
@@ -267,12 +301,15 @@ function DprStrip({
   dpr,
   canApproveSubAdmin,
   canApproveAdmin,
+  canSelfApprove,
   currentUserId,
   onAction,
 }: {
   dpr: DprListItem;
   canApproveSubAdmin?: boolean;
   canApproveAdmin?: boolean;
+  /** Tier-1 viewers may approve their own DPR. */
+  canSelfApprove?: boolean;
   currentUserId?: string | null;
   onAction?: () => void;
 }) {
@@ -282,9 +319,9 @@ function DprStrip({
 
   // ── Permission + creator gate: only show approve/reject to users who have
   //    the right approval permission AND did not submit this DPR themselves.
-  const isOwnDpr = dpr.submittedById !== currentUserId;
-  const canSubAdminAct = canApproveSubAdmin && isOwnDpr;
-  const canAdminAct = canApproveAdmin && isOwnDpr;
+  const isNotOwnDpr = dpr.submittedById !== currentUserId;
+  const canSubAdminAct = canApproveSubAdmin && (isNotOwnDpr || canSelfApprove);
+  const canAdminAct = canApproveAdmin && (isNotOwnDpr || canSelfApprove);
 
   // Swipe actions for submitted / sub-admin approved DPRs
   const canSwipeApprove =
@@ -391,7 +428,7 @@ function DprStrip({
             style={{ backgroundColor: "var(--color-concrete)" }}
           >
             <div
-              className="h-full rounded-full transition-all"
+              className="h-full rounded-full transition-[width]"
               style={{
                 width: `${pct}%`,
                 backgroundColor: isRejected ? "var(--color-stop)" : info.color,
@@ -528,7 +565,7 @@ function ProgressRing({ pct, color }: { pct: number; color: string }) {
         strokeDasharray={circumference}
         strokeDashoffset={offset}
         strokeLinecap="round"
-        className="transition-all duration-300"
+        className="transition-[stroke-dashoffset] duration-300"
       />
       <text
         x={size / 2}

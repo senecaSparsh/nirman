@@ -17,6 +17,7 @@ export const GET = apiHandler(async () => {
       ],
     },
     orderBy: { createdAt: "desc" },
+    take: 500,
     include: {
       fromLocation: { select: { id: true, name: true, type: true, company: { select: { name: true } } } },
       toLocation: { select: { id: true, name: true, type: true, company: { select: { name: true } } } },

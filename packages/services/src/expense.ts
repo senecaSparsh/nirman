@@ -3,6 +3,7 @@ import { logAction } from "./audit";
 import { postExpense, reverseJournalEntry } from "./gl-posting";
 import { checkExpenseBudget } from "./expense-budget";
 import { ServiceError } from "./errors";
+import { canAutoApprove } from "./rbac";
 import { withSerializableTransaction } from "./transaction";
 
 /**
@@ -214,7 +215,7 @@ export async function approveExpense(
   expenseId: string,
   companyId: string,
   userId?: string,
-  options?: { allowBudgetOverrun?: boolean },
+  options?: { allowBudgetOverrun?: boolean; actorRole?: string },
 ) {
   return withSerializableTransaction(async (tx) => {
     const existing = await tx.expense.findFirst({ where: { id: expenseId, companyId } });
@@ -222,8 +223,9 @@ export async function approveExpense(
     if (existing.status !== "PENDING") {
       throw new ServiceError(`Only PENDING expenses can be approved (current: ${existing.status})`, 409);
     }
-    // Prevent self-approval: the submitter cannot approve their own expense.
-    if (userId && existing.submittedById && userId === existing.submittedById) {
+    // Prevent self-approval: the submitter cannot approve their own expense —
+    // unless a tier-1 role (OWNER/ADMIN), where no higher approver exists.
+    if (userId && existing.submittedById && userId === existing.submittedById && !canAutoApprove(options?.actorRole)) {
       throw new ServiceError("You cannot approve an expense you submitted — ask another approver", 403);
     }
 

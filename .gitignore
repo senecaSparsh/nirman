@@ -13,6 +13,7 @@ Screenshot 2026-07-30 at 7.29.34 PM.png
 
 # Root-level dev screenshots
 /*.png
+shots/
 
 # Uploaded files — stored outside public/ for auth-gated access
 storage/

@@ -28,6 +28,7 @@ export function PurchaseOrderDetailPanel({
   suppliers = [],
   canManagePayments = false,
   currentUserId,
+  canSelfApprove = false,
 }: {
   po: PurchaseOrderRow;
   canApprove?: boolean;
@@ -36,6 +37,8 @@ export function PurchaseOrderDetailPanel({
   suppliers?: SupplierRow[];
   canManagePayments?: boolean;
   currentUserId?: string | null;
+  /** Tier-1 viewers (OWNER/ADMIN) may approve their own PO — no higher approver. */
+  canSelfApprove?: boolean;
 }) {
   const router = useRouter();
   const [detail, setDetail] = useState<PurchaseOrderDetail | null>(null);
@@ -162,20 +165,20 @@ export function PurchaseOrderDetailPanel({
           </div>
 
           {/* Approval / rejection audit trail */}
-          {detail.approvedAt && (
+          {detail.approvedAt && detail.approvedByName && (
             <div className="rounded-md border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/10 p-3 text-meta">
               <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-medium">
-                <Check className="h-3.5 w-3.5" /> Approved by {detail.approvedByName ?? "Unknown"} on {formatDate(detail.approvedAt)}
+                <Check className="h-3.5 w-3.5" /> Approved by {detail.approvedByName} on {formatDate(detail.approvedAt)}
               </div>
               {detail.approvalNotes && (
                 <div className="mt-1 text-muted-foreground">Notes: {detail.approvalNotes}</div>
               )}
             </div>
           )}
-          {detail.rejectedAt && (
+          {detail.rejectedAt && detail.rejectedByName && (
             <div className="rounded-md border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/10 p-3 text-meta">
               <div className="flex items-center gap-1.5 text-red-700 dark:text-red-400 font-medium">
-                <X className="h-3.5 w-3.5" /> Rejected by {detail.rejectedByName ?? "Unknown"} on {formatDate(detail.rejectedAt)}
+                <X className="h-3.5 w-3.5" /> Rejected by {detail.rejectedByName} on {formatDate(detail.rejectedAt)}
               </div>
               {detail.rejectionReason && (
                 <div className="mt-1 text-muted-foreground">Reason: {detail.rejectionReason}</div>
@@ -185,7 +188,9 @@ export function PurchaseOrderDetailPanel({
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2">
-            {detail.status === "DRAFT" && canApprove && po.createdById !== currentUserId && !showApproveField && (
+            {/* Self-approval: hidden from the creator unless they're a tier-1
+                approver (OWNER/ADMIN), where no higher reviewer exists. */}
+            {detail.status === "DRAFT" && canApprove && (po.createdById !== currentUserId || canSelfApprove) && !showApproveField && (
               <Button size="sm" onClick={() => setShowApproveField(true)} disabled={acting}>
                 <Check className="h-4 w-4" /> Approve & Order
               </Button>
@@ -222,7 +227,7 @@ export function PurchaseOrderDetailPanel({
           </div>
 
           {/* Inline approval notes */}
-          {detail.status === "DRAFT" && canApprove && po.createdById !== currentUserId && showApproveField && (
+          {detail.status === "DRAFT" && canApprove && (po.createdById !== currentUserId || canSelfApprove) && showApproveField && (
             <div className="flex flex-col gap-2 rounded-lg border border-border/60 p-3">
               <label className="text-meta text-muted-foreground">Approval notes (optional)</label>
               <textarea
@@ -421,6 +426,16 @@ export function PurchaseOrderDetailPanel({
         purchaseOrderNumber={detail?.poNumber}
         defaultSupplierId={detail?.supplierId}
         defaultAmount={detail ? Math.max(0, detail.total - payments.reduce((s, p) => s + p.amount, 0)) : undefined}
+        onSuccess={() => {
+          // Re-fetch payments so the history updates immediately
+          if (detail) {
+            fetch(`/api/supplier-payments?purchaseOrderId=${detail.id}`)
+              .then((r) => r.json())
+              .then((d) => { if (Array.isArray(d)) setPayments(d); })
+              .catch(() => {/* best-effort */});
+          }
+          router.refresh();
+        }}
       />
     </div>
   );

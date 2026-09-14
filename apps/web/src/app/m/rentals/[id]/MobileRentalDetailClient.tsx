@@ -72,7 +72,7 @@ interface TenancyData {
 }
 
 const STATUS_META: Record<string, { color: string; label: string }> = {
-  ACTIVE: { color: "var(--color-go)", label: "Active" },
+  ACTIVE: { color: "var(--color-steel)", label: "Active" },
   PENDING: { color: "var(--color-signal)", label: "Pending" },
   EXPIRED: { color: "var(--color-stop)", label: "Expired" },
   TERMINATED: { color: "var(--color-stop)", label: "Terminated" },
@@ -435,7 +435,7 @@ export function MobileRentalDetailClient({
 
       {/* ── Manage actions ── */}
       {(canEdit || canEscalate || canGenerateSchedule || canUploadDraft || canChangeTenant) ? (
-        <div className="grid grid-cols-4 gap-2 mb-3">
+        <div className="grid grid-cols-4 gap-1.5 mb-3">
           {canEdit ? (
             <button
               onClick={() => setShowEdit(true)}
@@ -499,7 +499,7 @@ export function MobileRentalDetailClient({
             Lease Terms
           </p>
         </div>
-        <div className="p-3 grid grid-cols-2 gap-3">
+        <div className="p-3 grid grid-cols-2 gap-2">
           <Field icon={<Calendar className="size-2.5" />} label="Start" value={formatDate(data.startDate)} />
           <Field icon={<Calendar className="size-2.5" />} label="End" value={formatDate(data.endDate)} />
           <Field icon={<IndianRupee className="size-2.5" />} label="Monthly Rent" value={formatCurrency(data.monthlyRent)} />
@@ -620,7 +620,7 @@ export function MobileRentalDetailClient({
             Tenant
           </p>
         </div>
-        <div className="p-3 grid grid-cols-2 gap-3">
+        <div className="p-3 grid grid-cols-2 gap-2">
           <Field icon={<User className="size-2.5" />} label="Name" value={data.tenantName} />
           <Field icon={<Phone className="size-2.5" />} label="Phone" value={data.tenantPhone} />
           {data.tenantEmail ? (
@@ -1015,7 +1015,7 @@ function PaymentSheet({
           </div>
 
           {/* Actions */}
-          <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
             <button
               onClick={onClose}
               disabled={saving}
@@ -1058,7 +1058,7 @@ function ActionSheet({
               ? `This will mark ${tenantName}'s lease as active and start rent collection.`
               : `This will terminate ${tenantName}'s active lease. The asset will become available for new rentals.`}
           />
-          <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
             <button
               onClick={onClose}
               disabled={acting}
@@ -1270,7 +1270,7 @@ function EditSheet({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mb-3">
+      <div className="grid grid-cols-3 gap-1.5 mb-3">
         <div>
           <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
             Escalation %
@@ -1352,7 +1352,7 @@ function EscalateSheet({
               {formatCurrency(currentRent)} → {formatCurrency(projectedRent)}
             </p>
           </DetailAlertBanner>
-          <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
             <button
               onClick={onClose}
               disabled={acting}

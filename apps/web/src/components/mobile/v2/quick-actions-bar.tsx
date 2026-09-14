@@ -369,13 +369,12 @@ export function QuickActionsBar({
         )}
       </div>
 
-      {/* ── Toggle tabs ── */}
+      {/* ── Toggle tabs — segmented control, not a button pair ── */}
       <div
-        className="grid gap-1 rounded-[0.625rem] border p-1 mb-3"
+        className="grid gap-0.5 rounded-[0.625rem] p-0.5 mb-3"
         style={{
           gridTemplateColumns: `repeat(${tabs.length}, 1fr)`,
-          borderColor: "var(--color-line)",
-          backgroundColor: "var(--color-paper)",
+          backgroundColor: "var(--color-concrete)",
         }}
       >
         {tabs.map((tab) => {
@@ -384,14 +383,15 @@ export function QuickActionsBar({
             <button
               key={tab.id}
               onClick={() => selectTab(tab.id)}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body press transition-colors"
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-1.5 text-m-body press transition-colors"
               style={{
-                backgroundColor: isActive ? "var(--color-ink-950)" : "transparent",
-                color: isActive ? "var(--color-paper)" : "var(--color-ink-500)",
+                backgroundColor: isActive ? "var(--color-paper)" : "transparent",
+                color: isActive ? "var(--color-ink-950)" : "var(--color-ink-500)",
+                boxShadow: isActive ? "0 1px 2px rgba(0,0,0,0.08)" : "none",
               }}
             >
-              <span className="text-m-section">{tab.icon}</span>
-              <span className="text-m-body font-bold">{tab.label}</span>
+              <span className="text-m-body leading-none">{tab.icon}</span>
+              <span className="text-m-label font-semibold">{tab.label}</span>
             </button>
           );
         })}
@@ -531,7 +531,7 @@ function QuickActionTile({
       onPointerCancel={cancelPress}
       onClick={handleClick}
       onContextMenu={(e) => e.preventDefault()}
-      className="flex flex-col items-center gap-1 rounded-[0.625rem] border p-2 text-m-body press select-none"
+      className="flex flex-col items-center justify-start gap-1.5 rounded-[0.625rem] border px-1 py-2.5 min-h-[4.25rem] text-m-body press select-none"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
@@ -540,9 +540,9 @@ function QuickActionTile({
         userSelect: "none",
       }}
     >
-      <Icon className="size-4" style={{ color: "var(--color-ink-500)" }} />
+      <Icon className="size-4 mt-0.5" style={{ color: "var(--color-ink-600)" }} />
       <span
-        className="font-semibold text-m-caption text-center leading-tight"
+        className="font-semibold text-m-caption text-center leading-tight line-clamp-2"
         style={{ color: "var(--color-ink-950)" }}
       >
         {action.label}
@@ -579,7 +579,7 @@ function SortableTile({
       ref={setNodeRef}
       {...attributes}
       {...dragListeners}
-      className="flex flex-col items-center gap-1 rounded-[0.625rem] border p-2 text-m-body cursor-grab active:cursor-grabbing select-none relative"
+      className="flex flex-col items-center gap-1 rounded-[0.625rem] border p-2 min-h-[4.25rem] text-m-body cursor-grab active:cursor-grabbing select-none relative"
       style={{
         borderColor: isDragging ? "var(--color-signal)" : "var(--color-line)",
         backgroundColor: "var(--color-paper)",
@@ -597,7 +597,7 @@ function SortableTile({
         className="absolute -top-1.5 -right-1.5 size-5 rounded-full flex items-center justify-center press"
         style={{
           backgroundColor: "var(--color-stop)",
-          color: "#fff",
+          color: "var(--color-paper)",
           border: "2px solid var(--color-paper)",
         }}
         aria-label={`Remove ${action.label}`}
@@ -675,7 +675,7 @@ function AddActionPicker({
         <div className="flex justify-center pt-2 pb-1">
           <div
             className="w-10 h-1 rounded-full"
-            style={{ backgroundColor: "var(--color-ink-200)" }}
+            style={{ backgroundColor: "var(--color-concrete)" }}
           />
         </div>
 
@@ -690,7 +690,7 @@ function AddActionPicker({
           <button
             onClick={onClose}
             className="size-7 rounded-full flex items-center justify-center press"
-            style={{ backgroundColor: "var(--color-ink-100)" }}
+            style={{ backgroundColor: "var(--color-concrete)" }}
             aria-label="Close"
           >
             <X className="size-4" style={{ color: "var(--color-ink-500)" }} />

@@ -81,6 +81,12 @@ export type CompanyProfileData = {
   departments: { id: string; code: string; name: string; description: string | null; active: boolean; stockLocationId: string | null; stockLocationName: string | null; issueCount: number }[];
   // Projects
   projects: { id: string; name: string; status: string }[];
+  // Phone pool — company-owned numbers (assigned, available, recycled)
+  phonePool: {
+    id: string; phoneNumber: string; numberType: string; label: string | null;
+    department: string | null; status: string;
+    assignedToName: string | null; assignedToUserId: string | null;
+  }[];
   // Audit
   auditLogs: { id: string; action: string; entityType: string; entityId: string; userName: string | null; userEmail: string | null; timestamp: string }[];
   backups: { id: string; sizeBytes: number; createdAt: string }[];
@@ -186,6 +192,7 @@ export function CompanyProfileClient({
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="members" count={data.members.length}>Members & Access</TabsTrigger>
+              <TabsTrigger value="phones" count={data.phonePool.length}>Phone Pool</TabsTrigger>
               <TabsTrigger value="hierarchy" count={data.children.length}>Hierarchy</TabsTrigger>
               <TabsTrigger value="locations" count={data.locations.length}>Locations</TabsTrigger>
               <TabsTrigger value="policy">Policy & Security</TabsTrigger>
@@ -199,6 +206,9 @@ export function CompanyProfileClient({
             </TabsContent>
             <TabsContent value="members">
               <MembersTab data={data} canManage={permissions.canManage} actorRole={actorRole} roleOptions={roleOptions} assignable={assignable} />
+            </TabsContent>
+            <TabsContent value="phones">
+              <PhonePoolTab data={data} canManage={permissions.canManageTelephony} />
             </TabsContent>
             <TabsContent value="hierarchy">
               <HierarchyTab data={data} canManage={permissions.canManageCompanies} />
@@ -533,7 +543,7 @@ function MembersTab({
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
-                <TH>Name</TH><TH>Email</TH><TH>Role</TH><TH>Scope</TH><TH>Last login</TH>
+                <TH>Name</TH><TH>Email</TH><TH>Phone</TH><TH>Role</TH><TH>Scope</TH><TH>Last login</TH>
                 {canManage && <TH className="text-right">Actions</TH>}
               </TR>
             </THead>
@@ -549,6 +559,7 @@ function MembersTab({
                       {m.lockedUntil && new Date(m.lockedUntil) > new Date() && <Badge variant="danger" className="ml-2">locked</Badge>}
                     </TD>
                     <TD className="text-muted-foreground">{m.email}</TD>
+                    <TD className="text-muted-foreground text-caption">{m.phone ?? "—"}</TD>
                     <TD>
                       {canManage && canAssignRole(actorRole, m.role) ? (
                         <Select value={m.role} onChange={(e) => changeRole(m.id, e.target.value)} className="h-8 w-36 text-caption">
@@ -583,6 +594,93 @@ function MembersTab({
           </Table>
         )}
         {confirmDialog}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Phone Pool tab — company-owned numbers and their assignment status
+// ───────────────────────────────────────────────────────────────
+
+const PHONE_STATUS_VARIANT: Record<string, "default" | "outline" | "success" | "warning" | "danger" | "muted"> = {
+  ACTIVE: "success",
+  RECYCLED: "warning",
+  INACTIVE: "muted",
+  SUSPENDED: "danger",
+};
+const PHONE_STATUS_LABEL: Record<string, string> = {
+  ACTIVE: "In use",
+  RECYCLED: "Available",
+  INACTIVE: "Inactive",
+  SUSPENDED: "Suspended",
+};
+
+function PhonePoolTab({ data, canManage }: { data: CompanyProfileData; canManage: boolean }) {
+  const assigned = data.phonePool.filter((p) => p.assignedToUserId);
+  const available = data.phonePool.filter((p) => !p.assignedToUserId && p.status !== "INACTIVE");
+
+  return (
+    <Card>
+      <CardContent className="p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-body font-semibold">Company Phone Pool</h3>
+            <p className="text-caption text-muted-foreground mt-0.5">
+              Company-owned numbers assigned to staff for login and call recording. When an employee leaves, their number is recycled back here.
+            </p>
+          </div>
+        </div>
+
+        {/* Summary chips */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant="success">{assigned.length} assigned</Badge>
+          <Badge variant="warning">{available.length} available</Badge>
+          <Badge variant="muted">{data.phonePool.length} total</Badge>
+        </div>
+
+        {data.phonePool.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-8 text-center">
+            No company phone numbers yet. Numbers are added automatically when you onboard an employee with a phone, or via the Telephony settings.
+          </p>
+        ) : (
+          <Table>
+            <THead>
+              <TR className="hover:bg-transparent">
+                <TH>Number</TH>
+                <TH>Type</TH>
+                <TH>Label / Dept</TH>
+                <TH>Assigned to</TH>
+                <TH>Status</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {data.phonePool.map((p) => (
+                <TR key={p.id}>
+                  <TD className="font-medium">{p.phoneNumber}</TD>
+                  <TD className="text-muted-foreground text-caption">{p.numberType}</TD>
+                  <TD className="text-muted-foreground text-caption">
+                    {p.label ?? p.department ?? "—"}
+                  </TD>
+                  <TD className="text-muted-foreground">
+                    {p.assignedToName ?? <span className="text-muted-foreground">—</span>}
+                  </TD>
+                  <TD>
+                    <Badge variant={PHONE_STATUS_VARIANT[p.status] ?? "muted"}>
+                      {PHONE_STATUS_LABEL[p.status] ?? p.status}
+                    </Badge>
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        )}
+
+        {!canManage && (
+          <p className="text-caption text-muted-foreground">
+            Telephony management permission is required to add or reassign numbers.
+          </p>
+        )}
       </CardContent>
     </Card>
   );

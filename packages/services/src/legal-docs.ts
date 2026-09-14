@@ -277,7 +277,7 @@ export async function listLegalDocs(companyId: string, filter: { landPurchaseId?
  * List ALL legal documents for a company (for the /permissions overview page).
  * Optionally filter by type, status, or appliesTo.
  */
-export async function listAllLegalDocs(
+function allLegalDocsWhere(
   companyId: string,
   filter?: { type?: string; status?: string; appliesTo?: string },
 ) {
@@ -295,14 +295,31 @@ export async function listAllLegalDocs(
     const parts = filter.appliesTo.split(",").map((s) => s.trim()).filter(Boolean);
     where.appliesTo = parts.length > 1 ? { in: parts } : parts[0];
   }
+  return where;
+}
 
+export async function listAllLegalDocs(
+  companyId: string,
+  filter?: { type?: string; status?: string; appliesTo?: string },
+) {
   return prisma.legalDocument.findMany({
-    where: where as never,
+    where: allLegalDocsWhere(companyId, filter) as never,
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+    take: 500,
     include: {
       project: { select: { id: true, name: true } },
       landPurchase: { select: { id: true, sellerName: true, location: true } },
     },
+  });
+}
+
+/** Count-only variant for nav badges — same filters, no row hydration. */
+export async function countAllLegalDocs(
+  companyId: string,
+  filter?: { type?: string; status?: string; appliesTo?: string },
+) {
+  return prisma.legalDocument.count({
+    where: allLegalDocsWhere(companyId, filter) as never,
   });
 }
 

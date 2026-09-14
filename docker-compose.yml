@@ -72,6 +72,7 @@ services:
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
       SEED_PASSWORD: ${SEED_PASSWORD:-nirman123}
       CRON_SECRET: ${CRON_SECRET}
+      SCHEDULER_SECRET: ${SCHEDULER_SECRET:-}
       # ── Sentry (optional — leave empty to disable) ──
       SENTRY_DSN: ${SENTRY_DSN:-}
       NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}

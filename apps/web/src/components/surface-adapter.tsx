@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ROUTES, ROUTE_BY_PATH, matchRoute } from "@/lib/route-manifest";
 
 /**
@@ -227,6 +227,29 @@ export function resolveTarget(pathname: string, search: string, toMobile: boolea
 }
 
 /**
+ * Resolve a stored entity link to the surface the user is currently on.
+ *
+ * Notification links (bell + push) are stored as MOBILE paths (`/m/...`) so a
+ * phone never lands on a desktop page. On desktop the stored `/m/...` link is
+ * converted to its desktop equivalent via the same mapping the adapter uses,
+ * so the desktop bell keeps working. On mobile the link is returned as-is.
+ *
+ * Falls back to the raw link when there's no mapping (e.g. a mobile-only or
+ * desktop-only route) — never returns a desktop path to a mobile viewport.
+ */
+export function resolveLinkForSurface(link: string | null): string | null {
+  if (!link) return null;
+  if (typeof window === "undefined") return link;
+  const isMobile = window.matchMedia(MOBILE_BREAKPOINT).matches;
+  if (isMobile) return link; // already mobile-native
+  // Desktop: convert the stored /m/... link to its desktop route.
+  const q = link.indexOf("?");
+  const pathname = q === -1 ? link : link.slice(0, q);
+  const search = q === -1 ? "" : link.slice(q);
+  return resolveTarget(pathname, search, false) ?? link;
+}
+
+/**
  * Map dynamic segments from the source path to the target path pattern.
  * e.g., pathname="/m/materials/abc123", sourcePattern="/m/materials/[id]",
  *       targetPattern="/materials" → "/materials/abc123"
@@ -270,121 +293,83 @@ export function mapDynamicSegments(pathname: string, sourcePattern: string | und
 
 export function SurfaceAdapter() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const currentPath = pathname ?? "";
-  const search = searchParams?.toString() ?? "";
-  const isRedirecting = useRef(false);
-  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Keep the latest path in a ref so the resize/matchMedia listeners always
+  // read the live location — never a stale closure. Search params are read
+  // from window.location inside the handler (no useSearchParams hook, so this
+  // component never suspends and can mount outside the root Suspense boundary).
+  const pathRef = useRef(currentPath);
 
-  // ── Core redirect logic (shared by mount + change listeners) ──
-  // Uses router.replace() for instant client-side navigation — no full
-  // page reload, no re-downloading JS, no re-hydrating React, no losing
-  // SWR cache. The transition is effectively instant.
-  const attemptRedirect = (path: string, searchStr: string) => {
-    if (shouldSkip(path)) return;
-    if (isRedirecting.current) return;
+  // ── Core redirect logic — idempotent, self-healing ──────────────────────
+  // Guard is "don't re-issue the same navigation", not a sticky flag — so a
+  // resize can never permanently block. The guard clears as soon as the path
+  // changes (below), and `target === path` is a no-op.
+  const lastIssued = useRef<string | null>(null);
 
-    // Respect the "View desktop" escape-hatch cookie. The middleware sets
-    // this when the user visits ?desktop=1. If it's present, the user
-    // explicitly chose desktop — don't fight them.
+  const checkAndRedirect = () => {
+    const path = pathRef.current;
+    if (!path || shouldSkip(path)) return;
     if (document.cookie.includes("nirman-desktop=1")) return;
 
-    const mql = window.matchMedia(MOBILE_BREAKPOINT);
-    const isMobile = mql.matches;
+    const isMobile = window.matchMedia(MOBILE_BREAKPOINT).matches;
     const onMobileRoute = path.startsWith("/m/") || path === "/m";
-
     const needsRedirect =
       (isMobile && !onMobileRoute) || (!isMobile && onMobileRoute);
-    if (!needsRedirect) return;
-
-    // resolveTarget(pathname, search, toMobile):
-    //   toMobile=true  → desktop→mobile mapping
-    //   toMobile=false → mobile→desktop mapping
-    // When isMobile=true (narrow), we're going TO mobile → toMobile=true.
-    // When isMobile=false (wide), we're going TO desktop → toMobile=false.
-    // So the third arg is simply `isMobile` (not `!isMobile`).
-    const target = resolveTarget(path, searchStr || "", isMobile);
-    if (!target) {
-      // No direct mobile equivalent. For desktop→mobile, fall back to
-      // /m/home so the user always lands on the mobile surface instead
-      // of being stuck on a desktop page on a phone screen.
-      if (isMobile && !onMobileRoute) {
-        isRedirecting.current = true;
-        if (resetTimer.current) clearTimeout(resetTimer.current);
-        resetTimer.current = setTimeout(() => { isRedirecting.current = false; }, 1500);
-        router.replace("/m/home");
-        return;
-      }
-      return; // Mobile→desktop with no equivalent — stay on mobile
+    if (!needsRedirect) {
+      lastIssued.current = null;
+      return;
     }
 
-    isRedirecting.current = true;
-    if (resetTimer.current) clearTimeout(resetTimer.current);
-    resetTimer.current = setTimeout(() => { isRedirecting.current = false; }, 1500);
+    const search = window.location.search || "";
+    let target = resolveTarget(path, search, isMobile);
+     
+    console.log("[SA]", { path, isMobile, onMobileRoute, needsRedirect, target });
+    // Desktop→mobile with no mapped equivalent → land on the mobile home so
+    // the user is never stranded on a desktop page on a phone-width screen.
+    if (!target && isMobile && !onMobileRoute) target = "/m/home" + search;
+    if (!target || target === path) return;
+    if (lastIssued.current === target) return; // already navigating there
+    lastIssued.current = target;
     router.replace(target);
   };
 
-  // ── 1. Check on mount and when the path changes ──────────────
+  // Re-check whenever the path changes (and on mount). Reading currentPath as a
+  // dep re-runs the check after each navigation so redirect chains settle.
   useEffect(() => {
-    attemptRedirect(currentPath, search ? `?${search}` : "");
+    pathRef.current = currentPath;
+    lastIssued.current = null; // new path → allow a fresh redirect
+    checkAndRedirect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPath, search]);
-
-  // ── 2. Listen for viewport size changes ──────────────────────
-  // Primary: matchMedia change event (fires when crossing the breakpoint).
-  // Fallback: resize event (fires on every pixel change — debounced).
-  // The resize fallback catches edge cases where matchMedia change
-  // doesn't fire (rare browser bugs, certain DevTools workflows).
-  useEffect(() => {
-    if (shouldSkip(currentPath)) return;
-
-    const mql = window.matchMedia(MOBILE_BREAKPOINT);
-    let resizeDebounce: ReturnType<typeof setTimeout> | null = null;
-
-    // matchMedia change fires ONCE when crossing the breakpoint — no
-    // debounce needed, redirect immediately for instant response.
-    const handleMediaChange = () => {
-      attemptRedirect(currentPath, search ? `?${search}` : "");
-    };
-
-    // resize fires on EVERY pixel change during drag — debounce to avoid
-    // spamming router.replace() while the user is still dragging.
-    const handleResize = () => {
-      if (resizeDebounce) clearTimeout(resizeDebounce);
-      resizeDebounce = setTimeout(() => {
-        attemptRedirect(currentPath, search ? `?${search}` : "");
-      }, 100);
-    };
-
-    // Safari < 14 uses the legacy addListener/removeListener API.
-    const supportsAddEventListener = typeof mql.addEventListener === "function";
-    if (supportsAddEventListener) {
-      mql.addEventListener("change", handleMediaChange);
-    } else {
-      (mql as MediaQueryList & { addListener: (cb: () => void) => void }).addListener(handleMediaChange);
-    }
-    window.addEventListener("resize", handleResize);
-    return () => {
-      if (supportsAddEventListener) {
-        mql.removeEventListener("change", handleMediaChange);
-      } else {
-        (mql as MediaQueryList & { removeListener: (cb: () => void) => void }).removeListener(handleMediaChange);
-      }
-      window.removeEventListener("resize", handleResize);
-      if (resizeDebounce) clearTimeout(resizeDebounce);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPath, search]);
-
-  // ── 3. Reset the redirecting flag when the pathname changes ──
-  useEffect(() => {
-    isRedirecting.current = false;
-    if (resetTimer.current) {
-      clearTimeout(resetTimer.current);
-      resetTimer.current = null;
-    }
   }, [currentPath]);
+
+  // Listen for viewport changes — matchMedia change fires on crossing the
+  // breakpoint; resize is a debounced fallback for edge cases.
+  useEffect(() => {
+    const mql = window.matchMedia(MOBILE_BREAKPOINT);
+    const onChange = () => checkAndRedirect();
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    const onResize = () => {
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(checkAndRedirect, 120);
+    };
+    if (typeof mql.addEventListener === "function") {
+      mql.addEventListener("change", onChange);
+    } else {
+      (mql as MediaQueryList & { addListener: (cb: () => void) => void }).addListener(onChange);
+    }
+    window.addEventListener("resize", onResize);
+    return () => {
+      if (typeof mql.removeEventListener === "function") {
+        mql.removeEventListener("change", onChange);
+      } else {
+        (mql as MediaQueryList & { removeListener: (cb: () => void) => void }).removeListener(onChange);
+      }
+      window.removeEventListener("resize", onResize);
+      if (debounce) clearTimeout(debounce);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return null;
 }

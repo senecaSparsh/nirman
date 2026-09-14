@@ -92,7 +92,7 @@ export function WorkforceBreakdown({
                     style={{ backgroundColor: "var(--color-concrete)" }}
                   >
                     <div
-                      className="h-full rounded-[0.25rem] transition-all duration-500"
+                      className="h-full rounded-[0.25rem] transition-[width] duration-300"
                       style={{
                         width: `${barPct}%`,
                         backgroundColor: "var(--color-signal)",
@@ -175,7 +175,7 @@ export function WorkforceBreakdown({
                     style={{ backgroundColor: "var(--color-concrete)" }}
                   >
                     <div
-                      className="h-full rounded-full transition-all duration-500"
+                      className="h-full rounded-full transition-[width] duration-300"
                       style={{ width: `${rate}%`, backgroundColor: barColor }}
                     />
                   </div>

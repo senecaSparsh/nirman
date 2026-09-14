@@ -7,7 +7,7 @@ import {
   ClipboardList, TrendingUp, ShoppingCart,
   FileText, Package,
   ArrowRight, ShieldAlert, GitBranch, ListTree,
-  Wrench, Wallet,
+  Wrench, Wallet, ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
 import type { Persona } from "@/lib/mobile-nav-v2";
@@ -81,6 +81,7 @@ const PERSONA_CONFIGS: Record<Persona, PersonaConfig> = {
     quickActionModule: "site",
     quickActionTabs: SITE_QUICK_ACTIONS as QuickActionTab[],
     links: [
+      { label: "Approvals", href: "/m/approvals", icon: ClipboardCheck },
       { label: "Change Orders", href: "/m/change-orders", icon: GitBranch },
       { label: "WBS", href: "/m/wbs", icon: ListTree },
       { label: "Quality Control", href: "/m/quality-control", icon: ShieldAlert },

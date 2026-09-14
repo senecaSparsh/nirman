@@ -176,19 +176,48 @@ export function MobileNewRateContractForm({
         />
       </SectionCard>
 
-      {/* Pricing */}
-      <SectionCard title="Pricing">
-        <UnderlineInput
-          label="Agreed Rate (₹)"
-          value={form.agreedRate}
-          onChange={(v) => set("agreedRate", v)}
-          placeholder="0"
-          type="number"
-          min="0.01"
-          step="any"
-          inputMode="decimal"
-          required
-        />
+      {/* Pricing & Limits */}
+      <SectionCard title="Pricing & Limits">
+        <div
+          className="grid grid-cols-3 gap-2 divide-x"
+          style={{ borderColor: "var(--color-line)" }}
+        >
+          <UnderlineInput
+            label="Agreed Rate (₹)"
+            value={form.agreedRate}
+            onChange={(v) => set("agreedRate", v)}
+            placeholder="0"
+            type="number"
+            min="0.01"
+            step="any"
+            inputMode="decimal"
+            required
+          />
+          <div className="pl-2">
+            <UnderlineInput
+              label="Min Qty"
+              value={form.minQty}
+              onChange={(v) => set("minQty", v)}
+              placeholder="0"
+              type="number"
+              min="0"
+              step="any"
+              inputMode="decimal"
+            />
+          </div>
+          <div className="pl-2">
+            <UnderlineInput
+              label="Max Qty"
+              value={form.maxQty}
+              onChange={(v) => set("maxQty", v)}
+              placeholder="0"
+              type="number"
+              min="0"
+              step="any"
+              inputMode="decimal"
+            />
+          </div>
+        </div>
       </SectionCard>
 
       {/* Validity */}
@@ -211,37 +240,6 @@ export function MobileNewRateContractForm({
               onChange={(v) => set("validTo", v)}
               type="date"
               required
-            />
-          </div>
-        </div>
-      </SectionCard>
-
-      {/* Quantity Limits */}
-      <SectionCard title="Quantity Limits">
-        <div
-          className="grid grid-cols-2 gap-2 divide-x"
-          style={{ borderColor: "var(--color-line)" }}
-        >
-          <UnderlineInput
-            label="Min Qty (optional)"
-            value={form.minQty}
-            onChange={(v) => set("minQty", v)}
-            placeholder="0"
-            type="number"
-            min="0"
-            step="any"
-            inputMode="decimal"
-          />
-          <div className="pl-2">
-            <UnderlineInput
-              label="Max Qty (optional)"
-              value={form.maxQty}
-              onChange={(v) => set("maxQty", v)}
-              placeholder="0"
-              type="number"
-              min="0"
-              step="any"
-              inputMode="decimal"
             />
           </div>
         </div>

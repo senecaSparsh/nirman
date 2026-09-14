@@ -259,7 +259,7 @@ export default function MobileNewMaterialClient({
                 style={{ borderColor: "var(--color-steel)", backgroundColor: "var(--color-steel-wash)" }}
               >
                 <Sparkles className="size-3.5 shrink-0" style={{ color: "var(--color-steel)" }} />
-                <span className="text-m-body font-mono font-bold truncate" style={{ color: "var(--color-steel-dark)" }}>
+                <span className="text-m-body font-mono font-bold truncate" style={{ color: "var(--color-steel)" }}>
                   {codePreview || "Auto"}
                 </span>
               </div>

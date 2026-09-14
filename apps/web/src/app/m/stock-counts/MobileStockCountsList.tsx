@@ -31,6 +31,11 @@ export type StockCountItem = {
   locationId: string;
   locationName: string;
   locationType: string;
+  createdByName: string | null;
+  confirmedByName: string | null;
+  confirmedAt: string | null;
+  reconciledByName: string | null;
+  reconciledAt: string | null;
   lineCount: number;
   totalVariance: number;
   itemsWithVariance: number;
@@ -203,7 +208,9 @@ function CountCard({ c }: { c: StockCountItem }) {
     { icon: MapPin, label: "Location", value: c.locationName },
     { icon: ClipboardList, label: "Items Counted", value: String(c.lineCount) },
     { icon: GitCompare, label: "Variances", value: varianceText, valueColor: hasVariance ? varianceColor : undefined },
-    { icon: User, label: "Initiated By", value: "—" },
+    { icon: User, label: "Initiated By", value: c.createdByName ?? "—" },
+    ...(c.confirmedByName ? [{ icon: CheckCircle2, label: "Confirmed By", value: c.confirmedByName }] : []),
+    ...(c.reconciledByName ? [{ icon: CheckCircle2, label: "Reconciled By", value: c.reconciledByName }] : []),
   ];
 
   const overviewActions: ContextAction[] = [
@@ -255,7 +262,7 @@ function CountCard({ c }: { c: StockCountItem }) {
                 className="text-m-caption font-semibold"
                 style={{ color: "var(--color-ink-500)" }}
               >
-                {c.lineCount} items
+                {c.lineCount} item{c.lineCount === 1 ? "" : "s"}
               </span>
             </div>
 

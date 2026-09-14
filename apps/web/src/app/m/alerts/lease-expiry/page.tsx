@@ -5,7 +5,7 @@ import { getCompany, getUserRole, toNum } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { AlertTriangle, Clock, CalendarClock } from "lucide-react";
+import { AlertTriangle, Clock } from "lucide-react";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
 /**
@@ -58,13 +58,7 @@ async function LeaseExpiryContent() {
         className="rounded-[0.625rem] border p-3 mb-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
       >
-        <div className="flex items-center gap-2 mb-2">
-          <CalendarClock className="size-4" style={{ color: "var(--color-signal)" }} />
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            Lease Expiry Alerts
-          </p>
-        </div>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-1.5">
           <div className="text-center">
             <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>
               {expired.length}

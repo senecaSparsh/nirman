@@ -36,6 +36,7 @@ export const GET = apiHandler(async () => {
   const purchases = await prisma.landPurchase.findMany({
     where: { companyId: company.id, deletedAt: null, ...await scopeWhere("LandPurchase", {}) },
     orderBy: { createdAt: "desc" },
+    take: 500,
     include: {
       project: { select: { name: true } },
       parcels: { where: { deletedAt: null }, select: { id: true, area: true, status: true, purpose: true } },

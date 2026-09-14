@@ -56,6 +56,8 @@ type Props = {
   paidAt: string | null;
   paymentMode: string | null;
   referenceNo: string | null;
+  createdByName: string | null;
+  submittedByName: string | null;
   lines: ClaimLine[];
   canApprove: boolean;
   canManage: boolean;
@@ -65,11 +67,11 @@ type Props = {
 };
 
 const STATUS_META: Record<string, { label: string; icon: typeof Clock; color: string }> = {
-  DRAFT: { label: "Draft", icon: Receipt, color: "text-muted-foreground" },
-  SUBMITTED: { label: "Pending", icon: Clock, color: "text-warning" },
-  APPROVED: { label: "Approved", icon: CheckCircle2, color: "text-success" },
-  PAID: { label: "Paid", icon: CheckCircle2, color: "text-success" },
-  REJECTED: { label: "Rejected", icon: XCircle, color: "text-danger" },
+  DRAFT: { label: "Draft", icon: Receipt, color: "var(--color-ink-500)" },
+  SUBMITTED: { label: "Pending", icon: Clock, color: "var(--color-signal-dark)" },
+  APPROVED: { label: "Approved", icon: CheckCircle2, color: "var(--color-steel)" },
+  PAID: { label: "Paid", icon: CheckCircle2, color: "var(--color-go)" },
+  REJECTED: { label: "Rejected", icon: XCircle, color: "var(--color-stop)" },
 };
 
 export function MobileExpenseClaimDetailClient({
@@ -87,6 +89,8 @@ export function MobileExpenseClaimDetailClient({
   paidAt,
   paymentMode,
   referenceNo,
+  createdByName,
+  submittedByName,
   lines,
   canApprove,
   canManage,
@@ -145,7 +149,7 @@ export function MobileExpenseClaimDetailClient({
     );
   }
 
-  const meta = STATUS_META[status] ?? { label: status, icon: Receipt, color: "text-muted-foreground" };
+  const meta = STATUS_META[status] ?? { label: status, icon: Receipt, color: "var(--color-ink-500)" };
   const StatusIcon = meta.icon;
 
   async function doAction(
@@ -259,10 +263,10 @@ export function MobileExpenseClaimDetailClient({
   const hasAction = canSubmit || canApproveAction || canRejectAction || canPayAction;
 
   const timelineSteps: TimelineStepData[] = [
-    { label: "Created", date: formatDate(createdAt), state: "done", color: "var(--color-go)" },
+    { label: "Created", date: formatDate(createdAt), detail: createdByName ?? undefined, state: "done", color: "var(--color-go)" },
   ];
   if (submittedAt) {
-    timelineSteps.push({ label: "Submitted", date: formatDate(submittedAt), state: "done", color: "var(--color-go)" });
+    timelineSteps.push({ label: "Submitted", date: formatDate(submittedAt), detail: submittedByName ?? undefined, state: "done", color: "var(--color-go)" });
   } else {
     timelineSteps.push({ label: "Draft — not submitted", detail: canSubmit ? "Your action needed" : "Awaiting submission", state: "current" });
   }
@@ -303,11 +307,11 @@ export function MobileExpenseClaimDetailClient({
             <p className="text-m-caption font-bold uppercase tracking-wider" style={{ color: "var(--color-steel)" }}>
               Total Amount
             </p>
-            <p className="mt-1 text-m-h2 font-bold tnum" style={{ color: "var(--color-ink-950)" }}>
+            <p className="mt-1 text-m-figure font-bold tnum" style={{ color: "var(--color-ink-950)" }}>
               {formatCurrency(totalAmount)}
             </p>
           </div>
-          <div className={`flex items-center gap-1.5 text-m-body font-semibold ${meta.color}`}>
+          <div className="flex items-center gap-1.5 text-m-body font-semibold" style={{ color: meta.color }}>
             <StatusIcon className="size-4" />
             {meta.label}
           </div>

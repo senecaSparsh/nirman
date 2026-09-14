@@ -1231,7 +1231,7 @@ function SalarySubTab({
             <button
               onClick={() => { setEditing(true); setEditComponents(components); haptic(10); }}
               className="text-m-caption font-semibold press"
-              style={{ color: "var(--color-accent, #2563eb)" }}
+              style={{ color: "var(--color-steel)" }}
             >
               Edit
             </button>
@@ -1271,7 +1271,7 @@ function SalarySubTab({
                     <button
                       onClick={() => handleRemove(displayComponents.indexOf(c))}
                       className="ml-2 p-0.5"
-                      style={{ color: "var(--color-red-500, #dc2626)" }}
+                      style={{ color: "var(--color-stop)" }}
                     >
                       <Trash2 className="size-4" />
                     </button>
@@ -1297,14 +1297,14 @@ function SalarySubTab({
                     <span className="text-m-body flex-1" style={{ color: "var(--color-ink-950)" }}>
                       {SALARY_COMPONENT_LABELS[c.type] ?? c.type}
                     </span>
-                    <span className="text-m-body font-semibold tabular-nums" style={{ color: "var(--color-red-500, #dc2626)" }}>
+                    <span className="text-m-body font-semibold tabular-nums" style={{ color: "var(--color-stop)" }}>
                       -{formatCurrency(c.amount)}
                     </span>
                     {editing && (
                       <button
                         onClick={() => handleRemove(displayComponents.indexOf(c))}
                         className="ml-2 p-0.5"
-                        style={{ color: "var(--color-red-500, #dc2626)" }}
+                        style={{ color: "var(--color-stop)" }}
                       >
                         <Trash2 className="size-4" />
                       </button>
@@ -1313,7 +1313,7 @@ function SalarySubTab({
                 ))}
                 <div className="flex justify-between py-1.5 font-bold">
                   <span className="text-m-body" style={{ color: "var(--color-ink-700)" }}>Total Deductions</span>
-                  <span className="text-m-body tabular-nums" style={{ color: "var(--color-red-500, #dc2626)" }}>
+                  <span className="text-m-body tabular-nums" style={{ color: "var(--color-stop)" }}>
                     -{formatCurrency(monthlyDeductions)}
                   </span>
                 </div>
@@ -1405,7 +1405,7 @@ function SalarySubTab({
               type="button"
               onClick={handleAdd}
               className="mt-1.5 w-full h-9 rounded-[0.5rem] text-m-section font-semibold press flex items-center justify-center gap-1.5"
-              style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-700)" }}
+              style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
             >
               <Plus className="size-4" />
               Add Component
@@ -1416,7 +1416,7 @@ function SalarySubTab({
               <button
                 onClick={handleCancel}
                 className="flex-1 h-9 rounded-[0.5rem] text-m-body font-semibold press"
-                style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-700)" }}
+                style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
               >
                 Cancel
               </button>
@@ -1424,7 +1424,7 @@ function SalarySubTab({
                 onClick={handleSave}
                 disabled={saving}
                 className="flex-1 h-9 rounded-[0.5rem] text-m-body font-semibold press flex items-center justify-center gap-1.5"
-                style={{ backgroundColor: "var(--color-accent, #2563eb)", color: "var(--color-accent-foreground)" }}
+                style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
               >
                 {saving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
                 Save
@@ -1501,8 +1501,8 @@ function OfferLetterSubTab({
           <span
             className="text-m-caption font-semibold px-2 py-0.5 rounded-full"
             style={{
-              backgroundColor: issued ? "var(--color-success-bg, #dcfce7)" : "var(--color-ink-100)",
-              color: issued ? "var(--color-success-text, #166534)" : "var(--color-ink-500)",
+              backgroundColor: issued ? "var(--color-go-wash)" : "var(--color-concrete)",
+              color: issued ? "var(--color-go)" : "var(--color-ink-500)",
             }}
           >
             {statusLabel[status ?? "DRAFT"] ?? "Draft"}
@@ -1522,11 +1522,12 @@ function OfferLetterSubTab({
             is created with the required fields.
           </p>
 
+          <div className="flex gap-2">
           {canManage && (
             <button
               onClick={generate}
               disabled={busy}
-              className="w-full h-10 rounded-[0.5rem] text-m-section font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
+              className="flex-1 h-10 rounded-[0.5rem] text-m-section font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
               style={{
                 backgroundColor: "var(--color-ink-950)",
                 color: "var(--color-paper)",
@@ -1540,9 +1541,9 @@ function OfferLetterSubTab({
           {issued && (
             <button
               onClick={() => openDoc(`/print/offer-letter/${employee.id}`, "Offer Letter")}
-              className="block w-full h-10 rounded-[0.5rem] text-m-section font-semibold press flex items-center justify-center gap-1.5"
+              className="flex-1 h-10 rounded-[0.5rem] text-m-section font-semibold press flex items-center justify-center gap-1.5"
               style={{
-                backgroundColor: "var(--color-ink-100)",
+                backgroundColor: "var(--color-concrete)",
                 color: "var(--color-ink-700)",
               }}
             >
@@ -1550,6 +1551,7 @@ function OfferLetterSubTab({
               View / Print
             </button>
           )}
+          </div>
         </div>
       </div>
 
@@ -1626,8 +1628,8 @@ function IdCardSubTab({
           <span
             className="text-m-caption font-semibold px-2 py-0.5 rounded-full"
             style={{
-              backgroundColor: issued ? "var(--color-success-bg, #dcfce7)" : "var(--color-ink-100)",
-              color: issued ? "var(--color-success-text, #166534)" : "var(--color-ink-500)",
+              backgroundColor: issued ? "var(--color-go-wash)" : "var(--color-concrete)",
+              color: issued ? "var(--color-go)" : "var(--color-ink-500)",
             }}
           >
             {statusLabel[status ?? "DRAFT"] ?? "Draft"}
@@ -1646,11 +1648,12 @@ function IdCardSubTab({
             contact, and statutory IDs. Print on standard card stock and laminate.
           </p>
 
+          <div className="flex gap-2">
           {canManage && (
             <button
               onClick={generate}
               disabled={busy}
-              className="w-full h-10 rounded-[0.5rem] text-m-section font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
+              className="flex-1 h-10 rounded-[0.5rem] text-m-section font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
               style={{
                 backgroundColor: "var(--color-ink-950)",
                 color: "var(--color-paper)",
@@ -1664,9 +1667,9 @@ function IdCardSubTab({
           {issued && (
             <button
               onClick={() => openDoc(`/print/employee-id-card/${employee.id}`, "ID Card")}
-              className="block w-full h-10 rounded-[0.5rem] text-m-section font-semibold press flex items-center justify-center gap-1.5"
+              className="flex-1 h-10 rounded-[0.5rem] text-m-section font-semibold press flex items-center justify-center gap-1.5"
               style={{
-                backgroundColor: "var(--color-ink-100)",
+                backgroundColor: "var(--color-concrete)",
                 color: "var(--color-ink-700)",
               }}
             >
@@ -1674,6 +1677,7 @@ function IdCardSubTab({
               View / Print
             </button>
           )}
+          </div>
         </div>
       </div>
     </div>
@@ -1983,8 +1987,8 @@ function AppointmentLetterSubTab({
           <span
             className="text-m-caption font-semibold px-2 py-0.5 rounded-full"
             style={{
-              backgroundColor: issued ? "var(--color-success-bg, #dcfce7)" : "var(--color-ink-100)",
-              color: issued ? "var(--color-success-text, #166534)" : "var(--color-ink-500)",
+              backgroundColor: issued ? "var(--color-go-wash)" : "var(--color-concrete)",
+              color: issued ? "var(--color-go)" : "var(--color-ink-500)",
             }}
           >
             {statusLabel[status ?? "DRAFT"] ?? "Draft"}
@@ -2004,11 +2008,12 @@ function AppointmentLetterSubTab({
             key terms. It complements the detailed employment agreement.
           </p>
 
+          <div className="flex gap-2">
           {canManage && (
             <button
               onClick={generate}
               disabled={busy}
-              className="w-full h-10 rounded-[0.5rem] text-m-section font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
+              className="flex-1 h-10 rounded-[0.5rem] text-m-section font-bold press disabled:opacity-50 flex items-center justify-center gap-1.5"
               style={{
                 backgroundColor: "var(--color-ink-950)",
                 color: "var(--color-paper)",
@@ -2022,9 +2027,9 @@ function AppointmentLetterSubTab({
           {issued && (
             <button
               onClick={() => openDoc(`/print/appointment-letter/${employee.id}`, "Appointment Letter")}
-              className="block w-full h-10 rounded-[0.5rem] text-m-section font-semibold press flex items-center justify-center gap-1.5"
+              className="flex-1 h-10 rounded-[0.5rem] text-m-section font-semibold press flex items-center justify-center gap-1.5"
               style={{
-                backgroundColor: "var(--color-ink-100)",
+                backgroundColor: "var(--color-concrete)",
                 color: "var(--color-ink-700)",
               }}
             >
@@ -2032,6 +2037,7 @@ function AppointmentLetterSubTab({
               View / Print
             </button>
           )}
+          </div>
         </div>
       </div>
     </div>
@@ -2979,9 +2985,9 @@ function ChecklistRow({
       <span
         className="h-5 w-5 rounded-full flex items-center justify-center text-m-label font-bold"
         style={{
-          backgroundColor: done ? "var(--color-success-bg, #dcfce7)" : "transparent",
-          border: done ? "none" : "1.5px solid var(--color-ink-300, #cbd5e1)",
-          color: done ? "#16a34a" : "var(--color-ink-400)",
+          backgroundColor: done ? "var(--color-go-wash)" : "transparent",
+          border: done ? "none" : "1.5px solid var(--color-ink-300)",
+          color: done ? "var(--color-go)" : "var(--color-ink-400)",
         }}
       >
         {done ? "✓" : ""}
@@ -3464,7 +3470,7 @@ function OffboardSubTab({
             { label: "Agreement", value: employee.contractStatus === "TERMINATED" ? "Terminated" : employee.contractStatus ?? "—" },
             { label: "Login", value: employee.user ? (employee.user.active ? "Still active" : "Disabled") : "No account" },
             { label: "Auto-Deposit", value: employee.autoDepositEnabled === true ? "Still active" : "Disabled" },
-            { label: "Phone", value: employee.phone ?? "Recycled" },
+            { label: "Phone", value: "Recycled to pool" },
           ]} />
         </div>
       </div>

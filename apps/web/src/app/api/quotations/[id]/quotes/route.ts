@@ -15,10 +15,10 @@ import {
  * request. Supports inline supplier creation (newSupplier field) so the
  * user never has to go to a separate "add supplier" page.
  */
-export const POST = apiHandler(async (req: NextRequest) => {
+export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.QUOTATION_MANAGE);
   const company = await getCompany();
-  const { id } = { id: new URL(req.url).pathname.split("/").slice(-2, -1)[0]! };
+  const { id } = await params;
 
   // Verify the request belongs to the current company.
   const request = await prisma.quotationRequest.findFirst({

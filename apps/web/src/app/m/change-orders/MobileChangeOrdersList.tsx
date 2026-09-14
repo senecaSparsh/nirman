@@ -2,9 +2,9 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { ArrowUpRight, ArrowDownRight, Clock, GitBranch } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Clock } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { MobileStatusBadge, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -78,15 +78,7 @@ export function MobileChangeOrdersList({
     return result;
   }, [items, query, filter]);
 
-  if (items.length === 0) {
-    return (
-      <MobileEmptyState
-        icon={GitBranch}
-        title="No change orders"
-        hint="Change orders will appear here"
-      />
-    );
-  }
+  if (items.length === 0) return null;
 
   return (
     <div>

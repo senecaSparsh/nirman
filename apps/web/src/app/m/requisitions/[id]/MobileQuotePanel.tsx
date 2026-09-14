@@ -250,7 +250,7 @@ export function MobileQuotePanel({
       {/* ── KPI summary ── */}
       {kpis ? (
         <div
-          className="rounded-[0.5rem] border p-2.5 mb-2 grid grid-cols-3 gap-2"
+          className="rounded-[0.5rem] border p-2.5 mb-2 grid grid-cols-3 gap-1.5"
           style={{
             borderColor: "var(--color-line)",
             backgroundColor: "var(--color-paper)",
@@ -300,6 +300,52 @@ export function MobileQuotePanel({
           </div>
         </div>
       ) : null}
+
+      {/* ── Last-rate benchmark (cartel detection) ── */}
+      {(() => {
+        const lastRate = statement.lastRateByMaterial ?? {};
+        const materialIds = Object.keys(lastRate);
+        if (materialIds.length === 0) return null;
+        // Flag materials where ALL quotes are >15% above the last PO rate
+        const flagged = materialIds.filter((mid) => {
+          const lr = lastRate[mid];
+          if (!lr) return false;
+          const quotesForMaterial = sortedQuotes
+            .map((q) => q.lines.find((l) => l.materialId === mid))
+            .filter((l): l is NonNullable<typeof l> => l != null);
+          if (quotesForMaterial.length === 0) return false;
+          return quotesForMaterial.every((l) => l.unitLandedCost > lr.unitCost * 1.15);
+        });
+        if (flagged.length === 0) return null;
+        return (
+          <div
+            className="rounded-[0.5rem] border p-2.5 mb-2 flex items-start gap-2"
+            style={{
+              borderColor: "color-mix(in srgb, var(--color-stop) 30%, transparent)",
+              backgroundColor: "color-mix(in srgb, var(--color-stop) 5%, transparent)",
+            }}
+          >
+            <AlertTriangle
+              className="size-4 shrink-0 mt-0.5"
+              style={{ color: "var(--color-stop)" }}
+            />
+            <div>
+              <p
+                className="text-m-caption font-bold"
+                style={{ color: "var(--color-stop)" }}
+              >
+                All quotes above last purchase rate
+              </p>
+              <p
+                className="text-m-caption"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                {flagged.length} material{flagged.length > 1 ? "s" : ""} priced over 15% above the last PO rate. Check for cartel pricing or rate drift.
+              </p>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Quote cards ── */}
       {sortedQuotes.length > 0 ? (
@@ -433,6 +479,41 @@ export function MobileQuotePanel({
                       </div>
                     );
                   })}
+                  {/* Commercial terms summary */}
+                  {(quote.paymentTerms || quote.leadTimeDays != null || quote.quoteSource !== "DOCUMENT") ? (
+                    <div
+                      className="flex flex-wrap gap-1 mt-1 pt-1"
+                      style={{ borderTop: "1px solid var(--color-line)" }}
+                    >
+                      {quote.quoteSource !== "DOCUMENT" ? (
+                        <span
+                          className="text-m-caption font-semibold px-1.5 py-0.5 rounded"
+                          style={{
+                            backgroundColor: "color-mix(in srgb, var(--color-signal) 12%, transparent)",
+                            color: "var(--color-signal-dark)",
+                          }}
+                        >
+                          {quote.quoteSource}
+                        </span>
+                      ) : null}
+                      {quote.paymentTerms ? (
+                        <span
+                          className="text-m-caption px-1.5 py-0.5 rounded"
+                          style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}
+                        >
+                          {quote.paymentTerms}
+                        </span>
+                      ) : null}
+                      {quote.leadTimeDays != null ? (
+                        <span
+                          className="text-m-caption px-1.5 py-0.5 rounded"
+                          style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}
+                        >
+                          {quote.leadTimeDays}d lead
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Card actions */}
@@ -443,15 +524,24 @@ export function MobileQuotePanel({
                     backgroundColor: "var(--color-paper-2)",
                   }}
                 >
-                  <a
-                    href={quote.fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-m-caption font-semibold px-2 py-1 rounded text-m-body press"
-                    style={{ color: "var(--color-ink-700)" }}
-                  >
-                    <FileText className="size-3" /> View
-                  </a>
+                  {quote.fileUrl ? (
+                    <a
+                      href={quote.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-m-caption font-semibold px-2 py-1 rounded text-m-body press"
+                      style={{ color: "var(--color-ink-700)" }}
+                    >
+                      <FileText className="size-3" /> View
+                    </a>
+                  ) : (
+                    <span
+                      className="flex items-center gap-1 text-m-caption font-semibold px-2 py-1 rounded"
+                      style={{ color: "var(--color-ink-300)" }}
+                    >
+                      <FileText className="size-3" /> No file
+                    </span>
+                  )}
                   {canApprove && !isSelected && !locked ? (
                     <button
                       type="button"
@@ -502,7 +592,7 @@ export function MobileQuotePanel({
         <MobileEmptyState
           icon={FileText}
           title="No quotes uploaded yet"
-          description={`${minRequired} vendor quote${minRequired > 1 ? "s" : ""} required to convert to PO. Upload quote files from suppliers with pricing.`}
+          description={`${minRequired} vendor quote${minRequired > 1 ? "s" : ""} required to convert to PO. Upload quote files or add verbal/WhatsApp quotes from suppliers with pricing.`}
           size="compact"
           className="mb-3"
         />
@@ -523,7 +613,7 @@ export function MobileQuotePanel({
               color: "var(--color-signal-dark)",
             }}
           >
-            <Plus className="size-3.5" /> Upload Quote
+            <Plus className="size-3.5" /> Add Quote
           </button>
         ) : null}
         {canApprove && !gateSatisfied && !waived ? (
@@ -611,6 +701,8 @@ function MobileQuoteUploadDialog({
   const [showNewSupplier, setShowNewSupplier] = useState(false);
   const [supplierSearch, setSupplierSearch] = useState("");
   const [showSupplierPicker, setShowSupplierPicker] = useState(false);
+  const [quoteSource, setQuoteSource] = useState<"DOCUMENT" | "EMAIL" | "VERBAL" | "WHATSAPP" | "LETTER" | "EXCEL">("DOCUMENT");
+  const [sourceNote, setSourceNote] = useState("");
   const [fileUrl, setFileUrl] = useState("");
   const [fileName, setFileName] = useState("");
   const [mimeType, setMimeType] = useState("");
@@ -621,6 +713,8 @@ function MobileQuoteUploadDialog({
   const [warranty, setWarranty] = useState("");
   const [notes, setNotes] = useState("");
   const [linePrices, setLinePrices] = useState<Record<string, string>>({});
+
+  const isDocumentSource = quoteSource === "DOCUMENT" || quoteSource === "EMAIL" || quoteSource === "LETTER" || quoteSource === "EXCEL";
 
   const computedTotal = requisitionLines.reduce((sum, l) => {
     const price = Number(linePrices[l.materialId] ?? 0);
@@ -668,7 +762,8 @@ function MobileQuoteUploadDialog({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!supplierId) return toast.error("Select a supplier");
-    if (!fileUrl) return toast.error("Upload a quote file (PDF/image)");
+    if (isDocumentSource && !fileUrl) return toast.error("Upload a quote file (PDF/image)");
+    if (!isDocumentSource && !sourceNote.trim()) return toast.error(`Add a source note (e.g. "Verbal quote from Ramesh on 15-Aug-2026")`);
     if (!paymentTerms.trim()) return toast.error("Payment terms required (e.g. '30 days credit')");
     if (!leadTimeDays || Number(leadTimeDays) < 0) return toast.error("Lead time (days) required");
     if (!landedTotal && computedTotal === 0)
@@ -690,9 +785,11 @@ function MobileQuoteUploadDialog({
         body: JSON.stringify({
           requisitionId,
           supplierId,
-          fileUrl,
-          fileName,
-          mimeType,
+          fileUrl: fileUrl || undefined,
+          fileName: fileName || undefined,
+          mimeType: mimeType || undefined,
+          quoteSource,
+          sourceNote: sourceNote.trim() || undefined,
           landedTotal: landedTotal ? total : undefined,
           validUntil: validUntil || null,
           notes: notes.trim() || null,
@@ -753,7 +850,7 @@ function MobileQuoteUploadDialog({
               className="text-m-section font-extrabold tracking-tight"
               style={{ color: "var(--color-ink-950)" }}
             >
-              Upload Vendor Quote
+              Add Vendor Quote
             </p>
             <p
               className="text-m-caption font-mono"
@@ -776,7 +873,7 @@ function MobileQuoteUploadDialog({
           {/* Supplier & Quote File */}
           <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
             <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              Supplier & Quote File
+              Supplier & Quote Source
             </p>
             {/* Supplier */}
             <div>
@@ -805,62 +902,118 @@ function MobileQuoteUploadDialog({
               </button>
             </div>
 
-            {/* File upload */}
+            {/* Quote source selector */}
             <div>
               <label
                 className="text-m-caption font-semibold block mb-1"
                 style={{ color: "var(--color-ink-500)" }}
               >
-                Quote File (PDF/Image) *
+                Quote Source *
               </label>
-              {fileUrl ? (
-                <div
-                  className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2"
-                  style={inputStyle}
-                >
-                  <a
-                    href={fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 truncate text-m-body font-semibold"
-                    style={{ color: "var(--color-ink-700)" }}
-                  >
-                    {fileName}
-                  </a>
+              <div className="grid grid-cols-3 gap-1.5">
+                {([
+                  { value: "DOCUMENT", label: "Document" },
+                  { value: "EMAIL", label: "Email" },
+                  { value: "WHATSAPP", label: "WhatsApp" },
+                  { value: "VERBAL", label: "Verbal" },
+                  { value: "LETTER", label: "Letter" },
+                  { value: "EXCEL", label: "Excel" },
+                ] as const).map((opt) => (
                   <button
+                    key={opt.value}
                     type="button"
-                    onClick={clearFile}
-                    aria-label="Clear selected file"
-                    className="shrink-0 press"
-                    style={{ color: "var(--color-ink-500)" }}
+                    onClick={() => setQuoteSource(opt.value)}
+                    className="rounded-[0.375rem] border py-1.5 text-m-caption font-semibold press"
+                    style={{
+                      borderColor: quoteSource === opt.value ? "var(--color-ink-950)" : "var(--color-line)",
+                      backgroundColor: quoteSource === opt.value ? "var(--color-ink-950)" : "transparent",
+                      color: quoteSource === opt.value ? "var(--color-paper)" : "var(--color-ink-700)",
+                    }}
                   >
-                    <X className="size-4" />
+                    {opt.label}
                   </button>
-                </div>
-              ) : (
-                <label
-                  className="flex cursor-pointer items-center justify-center gap-2 rounded-[0.5rem] border border-dashed py-3 text-m-body"
-                  style={{
-                    borderColor: "var(--color-line)",
-                    color: "var(--color-ink-500)",
-                  }}
-                >
-                  {uploading ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Upload className="size-4" />
-                  )}
-                  <span>{uploading ? "Uploading…" : "Choose file"}</span>
-                  <input
-                    type="file"
-                    accept=".pdf,image/*"
-                    className="hidden"
-                    onChange={handleFileUpload}
-                    disabled={uploading}
-                  />
-                </label>
-              )}
+                ))}
+              </div>
             </div>
+
+            {/* Source note for non-document sources */}
+            {!isDocumentSource ? (
+              <div>
+                <label
+                  className="text-m-caption font-semibold block mb-1"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  Source Note *
+                </label>
+                <textarea
+                  rows={2}
+                  value={sourceNote}
+                  onChange={(e) => setSourceNote(e.target.value)}
+                  placeholder={`e.g. "Verbal quote from Ramesh (Ambuja) on 15-Aug-2026 over phone"`}
+                  className="w-full px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+                  style={inputStyle}
+                />
+              </div>
+            ) : null}
+
+            {/* File upload — only for document-based sources */}
+            {isDocumentSource ? (
+              <div>
+                <label
+                  className="text-m-caption font-semibold block mb-1"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  Quote File (PDF/Image) *
+                </label>
+                {fileUrl ? (
+                  <div
+                    className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2"
+                    style={inputStyle}
+                  >
+                    <a
+                      href={fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 truncate text-m-body font-semibold"
+                      style={{ color: "var(--color-ink-700)" }}
+                    >
+                      {fileName}
+                    </a>
+                    <button
+                      type="button"
+                      onClick={clearFile}
+                      aria-label="Clear selected file"
+                      className="shrink-0 press"
+                      style={{ color: "var(--color-ink-500)" }}
+                    >
+                      <X className="size-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label
+                    className="flex cursor-pointer items-center justify-center gap-2 rounded-[0.5rem] border border-dashed py-3 text-m-body"
+                    style={{
+                      borderColor: "var(--color-line)",
+                      color: "var(--color-ink-500)",
+                    }}
+                  >
+                    {uploading ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Upload className="size-4" />
+                    )}
+                    <span>{uploading ? "Uploading…" : "Choose file"}</span>
+                    <input
+                      type="file"
+                      accept=".pdf,image/*"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                      disabled={uploading}
+                    />
+                  </label>
+                )}
+              </div>
+            ) : null}
           </div>
 
           {/* Pricing */}
@@ -1086,7 +1239,7 @@ function MobileQuoteUploadDialog({
                 ) : (
                   <Upload className="size-3.5" />
                 )}
-                {saving ? "Saving…" : "Upload Quote"}
+                {saving ? "Saving…" : "Add Quote"}
               </button>
             </div>
           </div>

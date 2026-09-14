@@ -15,10 +15,21 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const status = url.searchParams.get("status");
 
   const where: Record<string, unknown> = { assignedToId: userId };
-  if (status) where.status = status;
+  // status may be comma-separated ("PENDING,IN_PROGRESS") — a plain
+  // equality match would return zero rows for that form.
+  if (status) {
+    const parts = status.split(",").map((s) => s.trim()).filter(Boolean);
+    where.status = parts.length > 1 ? { in: parts } : parts[0];
+  }
+
+  // countOnly — nav badges need just the number, not hydrated tasks.
+  if (url.searchParams.get("countOnly") === "1") {
+    return json({ count: await prisma.task.count({ where }) });
+  }
 
   const tasks = await prisma.task.findMany({
     where,
+    take: 500,
     orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
     include: {
       assignedBy: { select: { id: true, name: true } },

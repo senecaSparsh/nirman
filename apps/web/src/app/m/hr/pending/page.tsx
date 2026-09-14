@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
+import { getCompany, getUserRole, getCurrentUser, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate, formatCurrencyCompact } from "@/lib/utils";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
@@ -37,6 +37,8 @@ async function MobilePendingListContent() {
   await connection();
   const role = await getUserRole();
   const company = await getCompany();
+  const currentUser = await getCurrentUser();
+  const userId = currentUser?.id ?? "";
 
   if (!hasPermission(role, PERM.HR_VIEW)) {
     return (
@@ -56,7 +58,7 @@ async function MobilePendingListContent() {
     pendingTasks,
   ] = await Promise.all([
     prisma.dailyProgressReport.findMany({
-      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: "SUBMITTED" },
+      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: "SUBMITTED", submittedById: { not: userId } },
       orderBy: { date: "desc" },
       take: 15,
       include: {
@@ -77,7 +79,7 @@ async function MobilePendingListContent() {
       include: { _count: { select: { lines: true } } },
     }),
     prisma.purchaseOrder.findMany({
-      where: { companyId: company.id, status: "DRAFT" },
+      where: { companyId: company.id, status: "DRAFT", createdById: { not: userId } },
       orderBy: { createdAt: "desc" },
       take: 15,
       include: {
@@ -86,7 +88,7 @@ async function MobilePendingListContent() {
       },
     }),
     prisma.materialRequisition.findMany({
-      where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED" },
+      where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: userId } },
       orderBy: { createdAt: "desc" },
       take: 15,
       include: {
@@ -183,7 +185,7 @@ async function MobilePendingListContent() {
               title={d.project?.name ?? "Unknown project"}
               subtitle={d.workSummary?.slice(0, 60) ?? "No summary"}
               meta={`${formatDate(d.date)} · ${d.submittedBy?.name ?? "Unknown"}`}
-              href="/m/dprs"
+              href={`/m/dprs/${d.id}`}
               tone="signal"
             />
           ))}
@@ -222,7 +224,7 @@ async function MobilePendingListContent() {
           {draftPayrolls.map((p) => (
             <PendingRow
               key={p.id}
-              title={`${p.month + 1}/${p.year}`}
+              title={`${new Date(2000, p.month - 1, 1).toLocaleString("en-IN", { month: "short" })} ${p.year}`}
               subtitle={`${p._count.lines} employees`}
               meta={`Net: ${formatCurrencyCompact(toNum(p.totalNet))}`}
               href="/m/books/payroll"
@@ -246,7 +248,7 @@ async function MobilePendingListContent() {
               title={po.poNumber}
               subtitle={`${po.supplier?.name ?? "Unknown"} · ${po.project?.name ?? "No project"}`}
               meta={`Total: ${formatCurrencyCompact(toNum(po.total))}`}
-              href="/m/procurement"
+              href={`/m/procurement/${po.id}`}
               tone="signal"
             />
           ))}
@@ -267,7 +269,7 @@ async function MobilePendingListContent() {
               title={r.reqNumber}
               subtitle={`${r.project?.name ?? "No project"} · ${r.requestedBy?.name ?? "Unknown"}`}
               meta={formatDate(r.createdAt)}
-              href="/m/procurement?tab=indents"
+              href={`/m/procurement/${r.id}`}
               tone="signal"
             />
           ))}

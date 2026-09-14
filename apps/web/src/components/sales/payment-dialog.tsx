@@ -67,13 +67,17 @@ export function PaymentDialog({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to record payment");
       const remaining = balanceDue - amountNum;
+      const paymentId = data.paymentId as string | undefined;
       toast.success(isCheque ? "Cheque payment recorded (pending clearance)" : "Payment received", {
         description: isCheque
           ? "Cheque must be cleared before the sale is marked as paid."
           : remaining > 0
             ? `Remaining balance: ${formatCurrency(remaining)}`
             : "Sale fully paid — GL entry posted.",
-        action: !isCheque && remaining > 0 ? {
+        action: paymentId ? {
+          label: "Print Receipt",
+          onClick: () => window.open(`/print/payment-receipt/${paymentId}`, "_blank"),
+        } : !isCheque && remaining > 0 ? {
           label: "Record Next Payment",
           onClick: () => router.push(`/sales?sale=${sale!.id}`),
         } : !isCheque ? {

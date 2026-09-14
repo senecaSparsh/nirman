@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
+import { useUrlFilter } from "@/lib/use-url-filter";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Building, Eye, Share2, IndianRupee, Maximize } from "lucide-react";
@@ -12,7 +13,7 @@ import {
   type OverviewRow,
 } from "@/components/mobile/v2/mobile-overview-sheet";
 import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
-import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -56,11 +57,11 @@ const FILTER_CHIPS: { label: string; value: UnitStatusFilter }[] = [
 
 const STATUS_TONE: Record<string, string> = {
   AVAILABLE: "var(--color-go)",
-  UNDER_CONSTRUCTION: "var(--color-signal)",
-  PLANNED: "var(--color-signal-dark)",
-  SOLD: "var(--color-steel)",
-  HOLD: "var(--color-stop)",
-  RENTED: "var(--color-ink-500)",
+  UNDER_CONSTRUCTION: "var(--color-steel)",
+  PLANNED: "var(--color-ink-500)",
+  SOLD: "var(--color-go)",
+  HOLD: "var(--color-signal-dark)",
+  RENTED: "var(--color-steel)",
   RESERVED: "var(--color-signal-dark)",
 };
 
@@ -81,7 +82,23 @@ const STATUS_LABEL: Record<string, string> = {
  * (Available → Sold → On Hold → Rented). When a filter or search is
  * active, a flat result list is shown instead.
  */
-export function MobileUnitsList({
+export function MobileUnitsList(props: {
+  items: UnitListItem[];
+  projectFiltered?: boolean;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
+}) {
+  // Suspense — useUrlFilter/useSearchParams requires it
+  return (
+    <Suspense fallback={null}>
+      <MobileUnitsListInner {...props} />
+    </Suspense>
+  );
+}
+
+function MobileUnitsListInner({
   items,
   projectFiltered = false,
   exportTitle,
@@ -97,7 +114,7 @@ export function MobileUnitsList({
   exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<UnitStatusFilter>("ALL");
+  const [statusFilter, setStatusFilter] = useUrlFilter<UnitStatusFilter>("status", "ALL");
 
   const filtered = useMemo(() => {
     let result = items;
@@ -117,15 +134,8 @@ export function MobileUnitsList({
 
   const isFiltering = query.trim() !== "" || statusFilter !== "ALL";
 
-  if (items.length === 0) {
-    return (
-      <MobileEmptyState
-        icon={Building}
-        title="No units"
-        hint="Built units will appear here once created"
-      />
-    );
-  }
+  // Parent page renders its own empty state with "View Projects" action.
+  if (items.length === 0) return null;
 
   return (
     <div>

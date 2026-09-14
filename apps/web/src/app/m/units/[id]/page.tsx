@@ -138,6 +138,10 @@ export default function MobileUnitDetailPage({
             label: unit.unitNumber,
             subtitle: unit.project.name,
             recordId: unit.id,
+            canActions: [
+              ...(canManage ? [PERM.ASSETS_MANAGE] : []),
+              ...(canSell ? [PERM.SALE_CREATE] : []),
+            ],
           }}>
           <div>
             {/* ── Next action — the one thing to do, doable on this page ── */}

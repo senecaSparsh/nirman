@@ -23,7 +23,7 @@ import { SmartDefaultsBadge } from "@/components/mobile/v2/smart-defaults-badge"
 import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 
 interface ProjectItem { id: string; name: string; }
-interface MaterialItem { id: string; name: string; code: string; unit: string; }
+interface MaterialItem { id: string; name: string; code: string; unit: string; stock?: number; }
 interface SupplierItem { id: string; name: string; }
 
 interface FormData {
@@ -236,7 +236,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
             ? "It's now in the approval queue for a manager to review."
             : "You can submit it for approval from the indent list."}
         </p>
-        <div className="flex flex-col gap-3 w-full max-w-xs">
+        <div className="flex gap-3 w-full max-w-xs">
           {success.id ? (
             <button
               onClick={() => {
@@ -246,7 +246,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
                   router.push(`/m/requisitions/${success.id}`);
                 }
               }}
-              className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95"
+              className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               <Eye className="size-4 inline mr-1" /> View Indent
@@ -260,7 +260,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
               setLines([{ materialId: "", qty: "", notes: "", preferredSupplierId: "" }]);
               router.refresh();
             }}
-            className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95"
+            className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95"
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
           >
             <Plus className="size-4 inline mr-1" /> Create Another
@@ -274,7 +274,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
                 router.refresh();
               }
             }}
-            className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95"
+            className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             View All Indents
@@ -398,6 +398,13 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
                         {mat?.unit || "units"}
                       </span>
                     </div>
+                    {mat && typeof mat.stock === "number" && (
+                      <div className="flex items-center gap-1 text-m-caption" style={{ color: mat.stock > 0 ? "var(--color-ink-500)" : "var(--color-stop)" }}>
+                        <span className="font-semibold">In stock:</span>
+                        <span className="font-mono font-bold">{mat.stock.toLocaleString("en-IN")} {mat.unit}</span>
+                        {mat.stock === 0 && <span className="font-semibold">— reorder needed</span>}
+                      </div>
+                    )}
                     {lines.length > 1 ? (
                       <button
                         type="button"

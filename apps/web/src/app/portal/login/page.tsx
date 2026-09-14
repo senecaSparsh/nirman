@@ -149,19 +149,21 @@ export default function PortalLoginPage() {
                   autoFocus
                 />
               </div>
-              <button
-                className="portal-btn portal-btn-primary w-full"
-                onClick={verifyOtp}
-                disabled={loading}
-              >
-                {loading ? "Verifying…" : "Verify & Login"}
-              </button>
-              <button
-                className="portal-btn portal-btn-secondary w-full"
-                onClick={() => { setStep("phone"); setCode(""); setError(""); }}
-              >
-                Change Phone Number
-              </button>
+              <div className="flex gap-2">
+                <button
+                  className="portal-btn portal-btn-primary flex-1"
+                  onClick={verifyOtp}
+                  disabled={loading}
+                >
+                  {loading ? "Verifying…" : "Verify & Login"}
+                </button>
+                <button
+                  className="portal-btn portal-btn-secondary flex-1"
+                  onClick={() => { setStep("phone"); setCode(""); setError(""); }}
+                >
+                  Change Phone Number
+                </button>
+              </div>
             </div>
           )}
 
@@ -179,7 +181,7 @@ export default function PortalLoginPage() {
                 >
                   <span className="font-medium">{c.name}</span>
                   <span className="text-xs text-slate-500">
-                    {c.companyName} · {c.activeBookings} booking(s)
+                    {c.companyName} · {c.activeBookings} booking{c.activeBookings === 1 ? "" : "s"}
                   </span>
                 </button>
               ))}

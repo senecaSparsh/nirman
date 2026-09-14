@@ -67,7 +67,7 @@ export default function MobileProjectDetailPage({
     );
   }
 
-  const [units, recentPOs, recentIssues, recentCosts, recentDprs, requisitions, landParcels, recentAttendance, legalDocs] =
+  const [units, recentPOs, recentIssues, recentCosts, recentDprs, requisitions, landParcels, recentAttendance, legalDocs, onSiteEquipment] =
     await Promise.all([
       prisma.builtUnit.findMany({
         where: {...await scopeWhere("BuiltUnit"),  projectId: id, deletedAt: null },
@@ -120,6 +120,18 @@ export default function MobileProjectDetailPage({
         where: { projectId: id, companyId: company.id, deletedAt: null },
         orderBy: [{ type: "asc" }, { createdAt: "desc" }],
         take: 50,
+      }),
+      // Equipment currently assigned to this project — "what's on my site".
+      prisma.equipmentAssignment.findMany({
+        where: { projectId: id, returnedAt: null, status: "ACTIVE" },
+        orderBy: { assignedAt: "desc" },
+        take: 10,
+        select: {
+          id: true,
+          assignedAt: true,
+          location: { select: { name: true } },
+          equipment: { select: { id: true, name: true, category: true, status: true } },
+        },
       }),
     ]);
 
@@ -322,7 +334,7 @@ export default function MobileProjectDetailPage({
       <SectionHead title="Quick actions" />
       <div className="grid grid-cols-4 gap-1.5 mb-3">
         <QuickActionTile href={`/m/site/dpr?project=${id}`} icon={FileText} label="New Daily Progress Report" />
-        <QuickActionTile href={`/m/requisitions?project=${id}`} icon={ClipboardList} label="Indent" />
+        <QuickActionTile href={`/m/procurement?tab=indents&project=${id}`} icon={ClipboardList} label="Indent" />
         <QuickActionTile href={`/m/stock-out?mode=issue&project=${id}`} icon={PackageCheck} label="Issue" />
         <QuickActionTile href={`/m/procurement/new?project=${id}`} icon={Truck} label="New Purchase Order" />
         <QuickActionTile href={`/m/units?project=${id}`} icon={Home} label="Add Built Units" />
@@ -559,6 +571,46 @@ export default function MobileProjectDetailPage({
                   }}
                 >
                   {a.status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </>
+      ) : null}
+
+      {/* ── On-site equipment — "what machines are on my site" ── */}
+      {onSiteEquipment.length > 0 ? (
+        <>
+          <MobileSectionTitle>On-site Equipment</MobileSectionTitle>
+          <div className="flex flex-col gap-1.5 mb-3">
+            {onSiteEquipment.map((a) => (
+              <Link
+                key={a.id}
+                href={`/m/equipment/${a.equipment.id}`}
+                className="flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 press"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              >
+                <div
+                  className="grid place-items-center size-8 rounded-[0.375rem] shrink-0"
+                  style={{ backgroundColor: "var(--color-concrete)" }}
+                >
+                  <Wrench className="size-4" style={{ color: "var(--color-ink-700)" }} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-m-body font-semibold truncate" style={{ color: "var(--color-ink-950)" }}>
+                    {a.equipment.name}
+                  </p>
+                  <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                    {a.equipment.category ?? "Equipment"} · {a.location.name} · since {formatDate(a.assignedAt)}
+                  </p>
+                </div>
+                <span
+                  className="text-m-caption font-bold uppercase shrink-0"
+                  style={{
+                    color: a.equipment.status === "IN_MAINTENANCE" ? "var(--color-signal)" : "var(--color-go)",
+                  }}
+                >
+                  {a.equipment.status === "IN_MAINTENANCE" ? "In repair" : "Active"}
                 </span>
               </Link>
             ))}

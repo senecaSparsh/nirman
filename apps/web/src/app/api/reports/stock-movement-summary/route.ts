@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { prisma, type StockMovementType } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere } from "@/lib/server";
+import { Prisma, prisma } from "@nirman/db";
+import { apiHandler, getCompany, getUserScope, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -18,7 +18,22 @@ import { PERM } from "@/lib/roles";
  *
  * Identity: Opening + Received − Issued = Balance
  * Opening = (all IN before `from`) − (all OUT before `from`)
+ *
+ * All aggregation runs in the database (SUM(qty × unitCost) via $queryRaw) —
+ * the previous version hydrated every historical StockMovement row into JS,
+ * which grew linearly with company history and would OOM on large ledgers.
+ *
+ * Scope semantics: StockMovement has no projectId column, so scopeWhere's
+ * project mapping never worked for this report (it threw for project-scoped
+ * users). Scope is applied on the movement's *location* instead — a
+ * project-scoped user sees movements at locations belonging to their
+ * projects (StockLocation.projectId). DEPARTMENT scope is unscoped here,
+ * matching scopeWhere's behavior (StockMovement has no department field).
  */
+
+const IN_TYPES = ["PURCHASE_RECEIPT", "ADJUSTMENT_IN"];
+const OUT_TYPES = ["ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "ADJUSTMENT_OUT", "RETURN", "SALE"];
+
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
@@ -33,110 +48,143 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const toDate = to ? new Date(to) : now;
   toDate.setHours(23, 59, 59, 999);
 
-  const IN_TYPES: StockMovementType[] = ["PURCHASE_RECEIPT", "ADJUSTMENT_IN"];
-  const OUT_TYPES: StockMovementType[] = ["ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "ADJUSTMENT_OUT", "RETURN", "SALE"];
+  // Project-scoped users only see movements at their projects' locations.
+  const scope = await getUserScope();
+  const scoped = scope.scopeType === "PROJECT" && scope.projectIds.length > 0;
+  const scopeSql = scoped ? Prisma.sql`AND l."projectId" IN (${Prisma.join(scope.projectIds)})` : Prisma.empty;
 
-  const mvScope = await scopeWhere("StockMovement", {});
-
-  // Fetch all relevant movements: IN (toLocation belongs to company) + OUT (fromLocation belongs to company)
-  // We need movements before `fromDate` (for opening) and in [fromDate, toDate] (for rec/issue)
-  const [inBefore, outBefore, inPeriod, outPeriod, locationItems] = await Promise.all([
-    prisma.stockMovement.findMany({
-      where: {
-        movementType: { in: IN_TYPES },
-        toLocation: { companyId: company.id, deletedAt: null },
-        timestamp: { lt: fromDate },
-        ...mvScope,
-      },
-      select: { qty: true, unitCost: true, toLocationId: true, materialId: true },
-    }),
-    prisma.stockMovement.findMany({
-      where: {
-        movementType: { in: OUT_TYPES },
-        fromLocation: { companyId: company.id, deletedAt: null },
-        timestamp: { lt: fromDate },
-        ...mvScope,
-      },
-      select: { qty: true, unitCost: true, fromLocationId: true, materialId: true },
-    }),
-    prisma.stockMovement.findMany({
-      where: {
-        movementType: { in: IN_TYPES },
-        toLocation: { companyId: company.id, deletedAt: null },
-        timestamp: { gte: fromDate, lte: toDate },
-        ...mvScope,
-      },
-      include: {
-        material: { select: { id: true, code: true, name: true, unit: true, category: { select: { name: true } } } },
-        toLocation: { select: { id: true, name: true, type: true } },
-      },
-      orderBy: { timestamp: "asc" },
-    }),
-    prisma.stockMovement.findMany({
-      where: {
-        movementType: { in: OUT_TYPES },
-        fromLocation: { companyId: company.id, deletedAt: null },
-        timestamp: { gte: fromDate, lte: toDate },
-        ...mvScope,
-      },
-      include: {
-        material: { select: { id: true, code: true, name: true, unit: true, category: { select: { name: true } } } },
-        fromLocation: { select: { id: true, name: true, type: true } },
-      },
-      orderBy: { timestamp: "asc" },
-    }),
+  const [
+    openingInRows,
+    openingOutRows,
+    inByLocation,
+    outByLocation,
+    inByCategory,
+    outByCategory,
+    locationItems,
+  ] = await Promise.all([
+    // ── Opening: all IN before `from` ──
+    prisma.$queryRaw<{ total: number }[]>`
+      SELECT COALESCE(SUM(m.qty * m."unitCost"), 0)::float8 AS total
+      FROM "StockMovement" m
+      JOIN "StockLocation" l ON l.id = m."toLocationId"
+      WHERE m."movementType"::text IN (${Prisma.join(IN_TYPES)})
+        AND l."companyId" = ${company.id}
+        AND l."deletedAt" IS NULL
+        AND m."timestamp" < ${fromDate}
+        ${scopeSql}
+    `,
+    // ── Opening: all OUT before `from` ──
+    prisma.$queryRaw<{ total: number }[]>`
+      SELECT COALESCE(SUM(m.qty * m."unitCost"), 0)::float8 AS total
+      FROM "StockMovement" m
+      JOIN "StockLocation" l ON l.id = m."fromLocationId"
+      WHERE m."movementType"::text IN (${Prisma.join(OUT_TYPES)})
+        AND l."companyId" = ${company.id}
+        AND l."deletedAt" IS NULL
+        AND m."timestamp" < ${fromDate}
+        ${scopeSql}
+    `,
+    // ── Period IN per location ──
+    prisma.$queryRaw<{ id: string; name: string; type: string; received: number }[]>`
+      SELECT l.id, l.name, l.type::text AS type,
+             SUM(m.qty * m."unitCost")::float8 AS received
+      FROM "StockMovement" m
+      JOIN "StockLocation" l ON l.id = m."toLocationId"
+      WHERE m."movementType"::text IN (${Prisma.join(IN_TYPES)})
+        AND l."companyId" = ${company.id}
+        AND l."deletedAt" IS NULL
+        AND m."timestamp" >= ${fromDate} AND m."timestamp" <= ${toDate}
+        ${scopeSql}
+      GROUP BY l.id, l.name, l.type
+    `,
+    // ── Period OUT per location ──
+    prisma.$queryRaw<{ id: string; name: string; type: string; issued: number }[]>`
+      SELECT l.id, l.name, l.type::text AS type,
+             SUM(m.qty * m."unitCost")::float8 AS issued
+      FROM "StockMovement" m
+      JOIN "StockLocation" l ON l.id = m."fromLocationId"
+      WHERE m."movementType"::text IN (${Prisma.join(OUT_TYPES)})
+        AND l."companyId" = ${company.id}
+        AND l."deletedAt" IS NULL
+        AND m."timestamp" >= ${fromDate} AND m."timestamp" <= ${toDate}
+        ${scopeSql}
+      GROUP BY l.id, l.name, l.type
+    `,
+    // ── Period IN per category ──
+    prisma.$queryRaw<{ categoryName: string; received: number }[]>`
+      SELECT c.name AS "categoryName",
+             SUM(m.qty * m."unitCost")::float8 AS received
+      FROM "StockMovement" m
+      JOIN "StockLocation" l ON l.id = m."toLocationId"
+      JOIN "Material" mat ON mat.id = m."materialId"
+      JOIN "MaterialCategory" c ON c.id = mat."categoryId"
+      WHERE m."movementType"::text IN (${Prisma.join(IN_TYPES)})
+        AND l."companyId" = ${company.id}
+        AND l."deletedAt" IS NULL
+        AND m."timestamp" >= ${fromDate} AND m."timestamp" <= ${toDate}
+        ${scopeSql}
+      GROUP BY c.name
+    `,
+    // ── Period OUT per category ──
+    prisma.$queryRaw<{ categoryName: string; issued: number }[]>`
+      SELECT c.name AS "categoryName",
+             SUM(m.qty * m."unitCost")::float8 AS issued
+      FROM "StockMovement" m
+      JOIN "StockLocation" l ON l.id = m."fromLocationId"
+      JOIN "Material" mat ON mat.id = m."materialId"
+      JOIN "MaterialCategory" c ON c.id = mat."categoryId"
+      WHERE m."movementType"::text IN (${Prisma.join(OUT_TYPES)})
+        AND l."companyId" = ${company.id}
+        AND l."deletedAt" IS NULL
+        AND m."timestamp" >= ${fromDate} AND m."timestamp" <= ${toDate}
+        ${scopeSql}
+      GROUP BY c.name
+    `,
+    // ── Live current-state (used for balance + per-location opening) ──
     prisma.stockLocationItem.findMany({
       where: {
-        location: { companyId: company.id, deletedAt: null },
+        location: {
+          companyId: company.id,
+          deletedAt: null,
+          ...(scoped ? { projectId: { in: scope.projectIds } } : {}),
+        },
         material: { deletedAt: null },
       },
       include: {
         location: { select: { id: true, name: true, type: true } },
-        material: { select: { id: true, code: true, name: true, unit: true, category: { select: { name: true } } } },
       },
     }),
   ]);
 
-  // Compute opening value = sum(IN before) - sum(OUT before)
-  const openingIn = inBefore.reduce((s, m) => s + toNum(m.qty) * toNum(m.unitCost), 0);
-  const openingOut = outBefore.reduce((s, m) => s + toNum(m.qty) * toNum(m.unitCost), 0);
-  const opening = openingIn - openingOut;
-
-  // Compute received and issued in period
-  const received = inPeriod.reduce((s, m) => s + toNum(m.qty) * toNum(m.unitCost), 0);
-  const issued = outPeriod.reduce((s, m) => s + toNum(m.qty) * toNum(m.unitCost), 0);
+  const opening = (openingInRows[0]?.total ?? 0) - (openingOutRows[0]?.total ?? 0);
+  const received = inByLocation.reduce((s, r) => s + r.received, 0);
+  const issued = outByLocation.reduce((s, r) => s + r.issued, 0);
 
   // Balance = Opening + Received - Issued (also verifiable against live StockLocationItem)
   const balance = opening + received - issued;
   const liveBalance = locationItems.reduce((s, i) => s + toNum(i.qty) * toNum(i.movingAvgCost), 0);
   const balanceQty = locationItems.reduce((s, i) => s + toNum(i.qty), 0);
 
-  // Per-location breakdown
+  // Per-location breakdown — same derivation as before:
+  // received/issued from the period aggregates, balance from live items,
+  // opening back-computed as balance - received + issued.
   const byLocation = new Map<string, { name: string; type: string; opening: number; received: number; issued: number; balance: number }>();
-  // Per-location rec/issue from period movements
-  for (const m of inPeriod) {
-    const loc = m.toLocation!;
-    if (!byLocation.has(loc.id)) {
-      byLocation.set(loc.id, { name: loc.name, type: loc.type, opening: 0, received: 0, issued: 0, balance: 0 });
+
+  function locRow(id: string, name: string, type: string) {
+    let row = byLocation.get(id);
+    if (!row) {
+      row = { name, type, opening: 0, received: 0, issued: 0, balance: 0 };
+      byLocation.set(id, row);
     }
-    byLocation.get(loc.id)!.received += toNum(m.qty) * toNum(m.unitCost);
+    return row;
   }
-  for (const m of outPeriod) {
-    const loc = m.fromLocation!;
-    if (!byLocation.has(loc.id)) {
-      byLocation.set(loc.id, { name: loc.name, type: loc.type, opening: 0, received: 0, issued: 0, balance: 0 });
-    }
-    byLocation.get(loc.id)!.issued += toNum(m.qty) * toNum(m.unitCost);
-  }
-  // Compute per-location balance from live items
+
+  for (const r of inByLocation) locRow(r.id, r.name, r.type).received = r.received;
+  for (const r of outByLocation) locRow(r.id, r.name, r.type).issued = r.issued;
   for (const item of locationItems) {
     const loc = item.location;
-    if (!byLocation.has(loc.id)) {
-      byLocation.set(loc.id, { name: loc.name, type: loc.type, opening: 0, received: 0, issued: 0, balance: 0 });
-    }
-    const row = byLocation.get(loc.id)!;
+    const row = locRow(loc.id, loc.name, loc.type);
     row.balance += toNum(item.qty) * toNum(item.movingAvgCost);
-    // Opening = balance - received + issued
     row.opening = row.balance - row.received + row.issued;
   }
 
@@ -146,15 +194,13 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
   // Per-category breakdown (period movements only)
   const byCategory = new Map<string, { name: string; received: number; issued: number }>();
-  for (const m of inPeriod) {
-    const cat = m.material.category.name;
-    if (!byCategory.has(cat)) byCategory.set(cat, { name: cat, received: 0, issued: 0 });
-    byCategory.get(cat)!.received += toNum(m.qty) * toNum(m.unitCost);
+  for (const r of inByCategory) {
+    byCategory.set(r.categoryName, { name: r.categoryName, received: r.received, issued: 0 });
   }
-  for (const m of outPeriod) {
-    const cat = m.material.category.name;
-    if (!byCategory.has(cat)) byCategory.set(cat, { name: cat, received: 0, issued: 0 });
-    byCategory.get(cat)!.issued += toNum(m.qty) * toNum(m.unitCost);
+  for (const r of outByCategory) {
+    const row = byCategory.get(r.categoryName) ?? { name: r.categoryName, received: 0, issued: 0 };
+    row.issued = r.issued;
+    byCategory.set(r.categoryName, row);
   }
   const categoryRows = Array.from(byCategory.values()).sort((a, b) => (b.received + b.issued) - (a.received + a.issued));
 

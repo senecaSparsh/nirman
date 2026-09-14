@@ -29,7 +29,7 @@ const BUTTON_VARIANTS: Record<ButtonVariant, React.CSSProperties> = {
   signal: { backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)", borderColor: "var(--color-signal-active)", fontWeight: 700 },
   secondary: { backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)", borderColor: "var(--color-line)" },
   ghost: { backgroundColor: "transparent", color: "var(--color-ink-700)", borderColor: "transparent" },
-  danger: { backgroundColor: "var(--color-stop)", color: "#fff", borderColor: "var(--color-stop-active)" },
+  danger: { backgroundColor: "var(--color-stop)", color: "var(--color-paper)", borderColor: "var(--color-stop-active)" },
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {
@@ -525,7 +525,7 @@ export function MobileCta({
     primary: { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", borderColor: "var(--color-ink-950)" },
     signal: { backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)", borderColor: "var(--color-signal-active)" },
     secondary: { backgroundColor: "var(--color-paper)", color: "var(--color-ink-900)", borderColor: "var(--color-line)" },
-    danger: { backgroundColor: "var(--color-stop)", color: "#fff", borderColor: "var(--color-stop-active)" },
+    danger: { backgroundColor: "var(--color-stop)", color: "var(--color-paper)", borderColor: "var(--color-stop-active)" },
   };
 
   return (
@@ -552,16 +552,16 @@ export function MobileCta({
  *
  * Meaning → tone:
  *   neutral  → neutral  (grey — not started / inactive)
- *   active   → signal   (amber — in flight, someone is working on it)
- *   waiting  → steel    (blue-grey — blocked on a human decision)
+ *   active   → steel    (blue-grey — in flight, someone is working on it)
+ *   waiting  → signal   (amber — blocked on a human decision)
  *   good     → go       (green — finished successfully)
  *   bad      → stop     (red — cancelled / rejected / failed)
  *   alert    → stop     (red — needs attention now)
  */
 const MEANING_TO_TONE: Record<string, BadgeTone> = {
   neutral: "neutral",
-  active: "signal",
-  waiting: "steel",
+  active: "steel",
+  waiting: "signal",
   good: "go",
   bad: "stop",
   alert: "stop",
@@ -594,8 +594,8 @@ export function MobileStatusBadge({ status, label }: { status: string; label?: s
  */
 const MEANING_TO_COLOR: Record<string, { base: string; wash: string; dark: string }> = {
   neutral: { base: "var(--color-ink-400)", wash: "var(--color-concrete)", dark: "var(--color-ink-700)" },
-  active: { base: "var(--color-signal)", wash: "var(--color-signal-wash)", dark: "var(--color-signal-dark)" },
-  waiting: { base: "var(--color-steel)", wash: "var(--color-steel-wash)", dark: "var(--color-steel)" },
+  active: { base: "var(--color-steel)", wash: "var(--color-steel-wash)", dark: "var(--color-steel)" },
+  waiting: { base: "var(--color-signal)", wash: "var(--color-signal-wash)", dark: "var(--color-signal-dark)" },
   good: { base: "var(--color-go)", wash: "var(--color-go-wash)", dark: "var(--color-go)" },
   bad: { base: "var(--color-stop)", wash: "var(--color-stop-wash)", dark: "var(--color-stop)" },
   alert: { base: "var(--color-stop)", wash: "var(--color-stop-wash)", dark: "var(--color-stop)" },
@@ -661,7 +661,7 @@ export function MobilePageHeader({
                 className="mt-1 truncate text-m-section font-semibold leading-none tnum"
                 style={{
                   color:
-                    s.tone === "warning" ? "var(--color-warn)" :
+                    s.tone === "warning" ? "var(--color-signal-dark)" :
                     s.tone === "danger" ? "var(--color-stop)" :
                     s.tone === "success" ? "var(--color-go)" :
                     "var(--color-ink-950)",

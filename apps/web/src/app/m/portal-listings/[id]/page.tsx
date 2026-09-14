@@ -64,7 +64,7 @@ export default function MobilePortalListingDetailPage({
             </div>
 
             <MobileSectionTitle>Pricing</MobileSectionTitle>
-            <div className="grid grid-cols-2 gap-1.5 mb-4">
+            <div className="grid grid-cols-2 gap-2 mb-4">
               <MobileStatCard
                 label="Asking Price"
                 value={formatCurrency(toNum(listing.askingPrice))}

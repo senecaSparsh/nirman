@@ -1,4 +1,4 @@
-import { type Prisma } from "@nirman/db";
+import { type Prisma, type PrismaClient } from "@nirman/db";
 
 /**
  * Atomic sequence number generator.
@@ -37,8 +37,38 @@ export function formatSeqNumber(prefix: string, seq: number, padLen = 4): string
   return `${prefix}${String(seq).padStart(padLen, "0")}`;
 }
 
+/**
+ * Scope a document-number prefix to a company.
+ *
+ * If the company has a `code` set (e.g. "SRG"), the code is inserted after
+ * the leading tag: "PO-260914-" → "PO-SRG-260914-". Because the sequence
+ * row is keyed by the full prefix, each coded company gets its own
+ * contiguous series — required for per-entity GST invoice continuity when
+ * a group runs multiple GSTINs on one deployment.
+ *
+ * Companies without a code share the global series (previous behaviour).
+ * Displayed numbers stay globally unique because Company.code is @unique.
+ */
+export async function companyScopedPrefix(
+  tx: Prisma.TransactionClient | PrismaClient,
+  companyId: string | undefined | null,
+  prefix: string,
+): Promise<string> {
+  if (!companyId) return prefix;
+  const company = await tx.company.findUnique({
+    where: { id: companyId },
+    select: { code: true },
+  });
+  const code = company?.code?.trim().toUpperCase();
+  if (!code) return prefix;
+  const sep = prefix.indexOf("-");
+  return sep > 0
+    ? `${prefix.slice(0, sep)}-${code}-${prefix.slice(sep + 1)}`
+    : `${code}-${prefix}`;
+}
+
 export async function nextSequenceNumber(
-  tx: Prisma.TransactionClient,
+  tx: Prisma.TransactionClient | PrismaClient,
   prefix: string,
   padLen = 4,
 ): Promise<string> {

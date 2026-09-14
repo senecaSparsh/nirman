@@ -209,7 +209,9 @@ export function TransferFormDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create transfer");
-      toast.success("Transfer created (DRAFT). Complete it to move stock.");
+      toast.success("Transfer created", {
+        description: "Gate pass generated — auto-dispatches once approved.",
+      });
       onOpenChange(false);
       setFromLocationId(""); setToLocationId(""); setNotes(""); setFreight(""); setHandlingFee(""); setMarkupPct(""); setLines([newLine()]);
       router.refresh();

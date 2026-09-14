@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import {Input, Select} from "@/components/ui/input";
 import { Field } from "@/components/field";
 import {Plus, AlertTriangle, Package} from "lucide-react";
-import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { localDateISO, formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 import type { MaterialRow } from "@/lib/types";
 
@@ -44,7 +44,7 @@ export function LotTrackingDialog({
   const [form, setForm] = useState({
     lotNumber: "",
     batchCode: "",
-    receivedDate: new Date().toISOString().slice(0, 10),
+    receivedDate: localDateISO(),
     expiryDate: "",
     initialQty: "",
     unitCost: "",
@@ -111,7 +111,7 @@ export function LotTrackingDialog({
       setForm({
         lotNumber: "",
         batchCode: "",
-        receivedDate: new Date().toISOString().slice(0, 10),
+        receivedDate: localDateISO(),
         expiryDate: "",
         initialQty: "",
         unitCost: "",

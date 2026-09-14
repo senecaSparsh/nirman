@@ -67,7 +67,7 @@ async function MobileGlContent() {
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-1.5 mb-4">
+      <div className="grid grid-cols-2 gap-2 mb-4">
         <MobileStatCard label="Total Debit" value={formatCurrencyCompact(totalDebit)} icon={BookOpen} />
         <MobileStatCard label="Total Credit" value={formatCurrencyCompact(totalCredit)} icon={BookOpen} tone="go" />
       </div>

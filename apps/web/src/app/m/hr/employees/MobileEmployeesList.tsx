@@ -130,25 +130,12 @@ export function MobileEmployeesList({
       />
 
       {/* ── Onboarding status summary ── */}
-      {(pendingCount > 0 || inactiveCount > 0) && (
+      {(inactiveCount > 0 || onboardedCount > 0) && (
         <div className="flex items-center gap-2 px-4 pb-2">
-          {pendingCount > 0 && (
-            <Link
-              href="/m/hr/onboarding"
-              className="flex items-center gap-1.5 px-2 py-1 rounded-full text-m-caption font-bold press"
-              style={{
-                backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)",
-                color: "var(--color-signal-dark)",
-              }}
-            >
-              <Clock className="size-3" />
-              {pendingCount} pending onboarding
-            </Link>
-          )}
           {inactiveCount > 0 && (
             <span
               className="flex items-center gap-1.5 px-2 py-1 rounded-full text-m-caption font-bold"
-              style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-500)" }}
+              style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}
             >
               <AlertCircle className="size-3" />
               {inactiveCount} inactive
@@ -172,7 +159,7 @@ export function MobileEmployeesList({
       {isFiltering ? (
         <FlatList items={filtered} />
       ) : (
-        <GroupedList items={items} />
+        <GroupedList items={items} pendingCount={pendingCount} />
       )}
     </div>
   );
@@ -204,13 +191,31 @@ function FlatList({ items }: { items: EmployeeListItem[] }) {
  * Employees without a trade are shown in an "Other" group so nobody
  * is hidden just because they don't have a trade assigned.
  * ---------------------------------------------------------------- */
-function GroupedList({ items }: { items: EmployeeListItem[] }) {
+function GroupedList({ items, pendingCount }: { items: EmployeeListItem[]; pendingCount: number }) {
   const trades = [...new Set(items.map((e) => e.trade).filter(Boolean))] as string[];
   const ungrouped = items.filter((e) => !e.trade);
 
   return (
     <div>
-      <MobileSectionTitle>By Trade</MobileSectionTitle>
+      <MobileSectionTitle
+        right={
+          pendingCount > 0 ? (
+            <Link
+              href="/m/hr/onboarding"
+              className="flex items-center gap-1.5 px-2 py-1 rounded-full text-m-caption font-bold press"
+              style={{
+                backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)",
+                color: "var(--color-signal-dark)",
+              }}
+            >
+              <Clock className="size-3" />
+              {pendingCount} pending onboarding
+            </Link>
+          ) : null
+        }
+      >
+        By Trade
+      </MobileSectionTitle>
       {trades.map((trade) => {
         const tradeWorkers = items.filter((e) => e.trade === trade);
         return (
@@ -267,7 +272,7 @@ function EmployeeRow({ e }: { e: EmployeeListItem }) {
     badge = (
       <span
         className="text-micro font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1"
-        style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-500)" }}
+        style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}
       >
         <AlertCircle className="size-2.5" />
         Inactive

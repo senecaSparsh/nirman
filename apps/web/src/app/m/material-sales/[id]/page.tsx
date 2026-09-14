@@ -81,7 +81,11 @@ export default function MobileMaterialSaleDetailPage({
             })
           : null;
 
-        const nextAction = resolveNextAction("materialSale", sale.status, role, overrides);
+        // Suppress "Record a payment" once the sale is fully paid —
+        // the flow's ACTIVE action only makes sense while money is due.
+        const nextAction = sale.paymentStatus === "PAID"
+          ? undefined
+          : resolveNextAction("materialSale", sale.status, role, overrides);
 
         // Lifecycle pipeline: PENDING → ACTIVE → CANCELLED
         const msPipelineSteps: MobilePipelineStep[] = sale.status === "CANCELLED"

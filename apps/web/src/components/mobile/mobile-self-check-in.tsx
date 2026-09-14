@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { MapPin, CheckCircle2, AlertTriangle, Loader2, Clock, LogOut } from "lucide-react";
+import Link from "next/link";
+import { MapPin, CheckCircle2, AlertTriangle, Loader2, Clock, LogOut, FileText } from "lucide-react";
 
 /**
  * MobileSelfCheckIn — a self-service attendance check-in/check-out button
@@ -127,27 +128,48 @@ export function MobileSelfCheckIn({
   // ── Checked out state — show full summary ──
   if (checkedIn && checkedOut) {
     return (
-      <div
-        className="rounded-xl p-3 flex items-center gap-3"
-        style={{
-          backgroundColor: "color-mix(in srgb, var(--color-green-500) 8%, transparent)",
-          border: "1px solid color-mix(in srgb, var(--color-green-500) 20%, transparent)",
-        }}
-      >
-        <CheckCircle2 className="size-5 shrink-0" style={{ color: "var(--color-green-600)" }} />
-        <div className="flex-1 min-w-0">
-          <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-900)" }}>
-            Day complete
-          </p>
-          <p className="text-m-body" style={{ color: "var(--color-ink-600)" }}>
-            {checkInTime} → {checkOutTime} · {employeeName}
-          </p>
-          {hoursWorked != null && (
-            <p className="text-m-label font-medium mt-0.5" style={{ color: "var(--color-ink-700)" }}>
-              {hoursWorked}h worked
+      <div className="space-y-2">
+        <div
+          className="rounded-xl p-3 flex items-center gap-3"
+          style={{
+            backgroundColor: "color-mix(in srgb, var(--color-go) 8%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--color-go) 20%, transparent)",
+          }}
+        >
+          <CheckCircle2 className="size-5 shrink-0" style={{ color: "var(--color-go)" }} />
+          <div className="flex-1 min-w-0">
+            <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-900)" }}>
+              Day complete
             </p>
-          )}
+            <p className="text-m-body" style={{ color: "var(--color-ink-600)" }}>
+              {checkInTime} → {checkOutTime} · {employeeName}
+            </p>
+            {hoursWorked != null && (
+              <p className="text-m-label font-medium mt-0.5" style={{ color: "var(--color-ink-700)" }}>
+                {hoursWorked}h worked
+              </p>
+            )}
+          </div>
         </div>
+        <Link
+          href="/m/site/dpr"
+          className="touch flex items-center gap-2 rounded-xl px-3 py-2.5 press"
+          style={{
+            backgroundColor: "color-mix(in srgb, var(--color-steel) 6%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--color-steel) 15%, transparent)",
+          }}
+        >
+          <FileText className="size-4 shrink-0" style={{ color: "var(--color-steel)" }} />
+          <div className="flex-1 min-w-0">
+            <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-900)" }}>
+              Submit DPR for today
+            </p>
+            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+              Record work done & materials used
+            </p>
+          </div>
+          <Clock className="size-3.5" style={{ color: "var(--color-ink-400)" }} />
+        </Link>
       </div>
     );
   }
@@ -159,11 +181,11 @@ export function MobileSelfCheckIn({
         <div
           className="rounded-xl p-3 flex items-center gap-3"
           style={{
-            backgroundColor: "color-mix(in srgb, var(--color-green-500) 8%, transparent)",
-            border: "1px solid color-mix(in srgb, var(--color-green-500) 20%, transparent)",
+            backgroundColor: "color-mix(in srgb, var(--color-go) 8%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--color-go) 20%, transparent)",
           }}
         >
-          <CheckCircle2 className="size-5 shrink-0" style={{ color: "var(--color-green-600)" }} />
+          <CheckCircle2 className="size-5 shrink-0" style={{ color: "var(--color-go)" }} />
           <div className="flex-1 min-w-0">
             <p className="text-m-section font-semibold" style={{ color: "var(--color-ink-900)" }}>
               Checked in
@@ -172,13 +194,13 @@ export function MobileSelfCheckIn({
               {checkInTime ?? "Today"} · {employeeName}
             </p>
             {geoStatus?.ok === false && (
-              <p className="text-m-label font-medium mt-0.5 flex items-center gap-1" style={{ color: "var(--color-amber-600)" }}>
+              <p className="text-m-label font-medium mt-0.5 flex items-center gap-1" style={{ color: "var(--color-signal-dark)" }}>
                 <AlertTriangle className="size-3" />
                 Outside site geofence ({geoStatus.distance}m away)
               </p>
             )}
             {geoStatus?.ok === true && (
-              <p className="text-m-label font-medium mt-0.5 flex items-center gap-1" style={{ color: "var(--color-green-600)" }}>
+              <p className="text-m-label font-medium mt-0.5 flex items-center gap-1" style={{ color: "var(--color-go)" }}>
                 <MapPin className="size-3" />
                 At {geoStatus.location ?? "site"}
               </p>
@@ -190,9 +212,9 @@ export function MobileSelfCheckIn({
           disabled={loading}
           className="w-full rounded-xl py-3 px-4 flex items-center justify-center gap-2 font-semibold text-m-section transition-all active:scale-[0.98] disabled:opacity-50"
           style={{
-            backgroundColor: "color-mix(in srgb, var(--color-red-500) 10%, transparent)",
-            color: "var(--color-red-600)",
-            border: "1px solid color-mix(in srgb, var(--color-red-500) 25%, transparent)",
+            backgroundColor: "color-mix(in srgb, var(--color-stop) 10%, transparent)",
+            color: "var(--color-stop)",
+            border: "1px solid color-mix(in srgb, var(--color-stop) 25%, transparent)",
             minHeight: 56,
           }}
         >
@@ -204,7 +226,7 @@ export function MobileSelfCheckIn({
           {loading ? "Checking out..." : "Check Out"}
         </button>
         {error && (
-          <p className="text-m-body text-center" style={{ color: "var(--color-red-600)" }}>
+          <p className="text-m-body text-center" style={{ color: "var(--color-stop)" }}>
             {error}
           </p>
         )}
@@ -220,8 +242,8 @@ export function MobileSelfCheckIn({
         disabled={loading}
         className="w-full rounded-xl py-3 px-4 flex items-center justify-center gap-2 font-semibold text-m-section transition-all active:scale-[0.98] disabled:opacity-50"
         style={{
-          backgroundColor: "var(--color-primary)",
-          color: "var(--color-primary-foreground)",
+          backgroundColor: "var(--color-ink-950)",
+          color: "var(--color-paper)",
           minHeight: 56,
         }}
       >
@@ -233,7 +255,7 @@ export function MobileSelfCheckIn({
         {loading ? "Checking in..." : "Check In"}
       </button>
       {error && (
-        <p className="text-m-body mt-2 text-center" style={{ color: "var(--color-red-600)" }}>
+        <p className="text-m-body mt-2 text-center" style={{ color: "var(--color-stop)" }}>
           {error}
         </p>
       )}

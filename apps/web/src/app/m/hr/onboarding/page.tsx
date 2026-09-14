@@ -7,7 +7,6 @@ import { getCompany, getUserRole, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import {
-  MobileSectionTitle,
   MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
 import {
@@ -160,15 +159,14 @@ async function MobileOnboardingQueueContent() {
     <div className="pb-20">
       {/* ── Header ── */}
       <div className="px-4 pt-4 pb-2">
-        <MobileSectionTitle>Onboarding</MobileSectionTitle>
-        <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
+        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
           Hire → account → agreement → deposit → dossier → offboard
         </p>
       </div>
 
       {/* ── Summary stats ── */}
       <div className="px-4 pb-3">
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-1.5">
           <SummaryStat label="In Progress" value={totalInProgress} tone="signal" />
           <SummaryStat label="Complete" value={totalComplete} tone="go" />
           <SummaryStat label="Inactive" value={inactive.length} tone="neutral" />

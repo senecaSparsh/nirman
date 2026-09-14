@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
+import { useUrlFilter } from "@/lib/use-url-filter";
 import Link from "next/link";
-import { AlertTriangle, ShieldCheck, FileText, ShieldAlert } from "lucide-react";
+import { AlertTriangle, ShieldCheck, FileText } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import { MobileStatusBadge, MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileFilterIcon, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
@@ -59,7 +60,22 @@ const CATEGORY_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
-export function MobileNcrList({
+export function MobileNcrList(props: {
+  items: NcrListItem[];
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
+}) {
+  // Suspense — useUrlFilter/useSearchParams requires it
+  return (
+    <Suspense fallback={null}>
+      <MobileNcrListInner {...props} />
+    </Suspense>
+  );
+}
+
+function MobileNcrListInner({
   items,
   exportTitle,
   exportRows,
@@ -73,7 +89,7 @@ export function MobileNcrList({
   exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<NcrFilter>("ALL");
+  const [filter, setFilter] = useUrlFilter<NcrFilter>("status", "ALL");
 
   const filtered = useMemo(() => {
     let result = items;
@@ -87,15 +103,8 @@ export function MobileNcrList({
     return result;
   }, [items, query, filter]);
 
-  if (items.length === 0) {
-    return (
-      <MobileEmptyState
-        icon={ShieldAlert}
-        title="No NCRs raised"
-        hint="Non-conformance reports will appear here"
-      />
-    );
-  }
+  // Parent page renders its own empty state with contextual actions.
+  if (items.length === 0) return null;
 
   return (
     <div>

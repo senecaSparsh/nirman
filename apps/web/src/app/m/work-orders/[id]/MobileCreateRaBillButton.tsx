@@ -166,7 +166,7 @@ export function MobileCreateRaBillButton({
               </p>
 
               {/* Billing period */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className={labelClass} style={labelStyle}>Period From *</label>
                   <input type="date" value={periodFrom} onChange={(e) => setPeriodFrom(e.target.value)} className={inputClass} style={inputStyle} />

@@ -2,13 +2,14 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getTallySyncStats, lowStockAlerts, leaseExpiryAlerts } from "@nirman/services";
+import { getTallySyncStats, lowStockAlerts, leaseExpiryAlerts, canAutoApprove } from "@nirman/services";
 import {
   AlertTriangle, ClipboardCheck, Package, Truck, RefreshCw,
   CheckCircle2, ChevronRight, ArrowRight,
   TrendingDown, Building2, CalendarClock,
 } from "lucide-react";
-import { getCompany, toNum, scopeWhere } from "@/lib/server";
+import { getCompany, getUserRole, getUserPermissions, getCurrentUser, toNum, scopeWhere } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import { TallySyncButton } from "@/components/mobile/tally-sync-button";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
@@ -46,57 +47,121 @@ export default function AttentionPage() {
 async function AttentionContent() {
   await connection();
   const company = await getCompany();
+  const role = await getUserRole();
+  const overrides = await getUserPermissions();
+  const user = await getCurrentUser();
+  const userId = user?.id ?? "";
+  // Tier-1 approvers (OWNER/ADMIN) may approve their own creations — no higher
+  // approver exists — so their own pending items still surface. Everyone else's
+  // own items are hidden (they can't self-approve anyway).
+  const hideSelf = !canAutoApprove(role);
+
+  // Gate each alert type by the permission that lets the user act on it —
+  // a site engineer shouldn't see pending-expense counts or project cost
+  // overruns. Approval counts exclude self-created items (matching the
+  // approvals queue — you can't approve your own submissions).
+  const canApprovePo = hasPermission(role, PERM.PO_APPROVE, overrides);
+  const canApproveReq = hasPermission(role, PERM.REQUISITION_APPROVE, overrides);
+  const canApproveGatePass = hasPermission(role, PERM.GATE_PASS_APPROVE, overrides);
+  const canApproveDpr = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN, overrides) || hasPermission(role, PERM.DPR_APPROVE_ADMIN, overrides);
+  const canApproveExpense = hasPermission(role, PERM.EXPENSE_APPROVE, overrides);
+  const canApproveRa = hasPermission(role, PERM.RA_APPROVE, overrides);
+  const canViewProcurement = hasPermission(role, PERM.PROCUREMENT_VIEW, overrides);
+  const canViewInventory = hasPermission(role, PERM.INVENTORY_VIEW, overrides);
+  const canViewProjectControl = hasPermission(role, PERM.PROJECT_CONTROL_VIEW, overrides);
+  const canViewFinance = hasPermission(role, PERM.FINANCE_VIEW, overrides);
+  const canViewAssets = hasPermission(role, PERM.ASSETS_VIEW, overrides);
 
   const [
     draftPOs,
     pendingReqs,
+    pendingGatePasses,
+    pendingDprs,
+    pendingExpenses,
+    pendingClaims,
+    pendingRaBills,
     overduePOs,
     lowStock,
     tallyStats,
     overBudgetProjects,
     leaseExpiry,
   ] = await Promise.all([
-    prisma.purchaseOrder.findMany({
-      where: { companyId: company.id, status: "DRAFT" },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      include: { supplier: { select: { id: true, name: true } } },
-    }),
-    prisma.materialRequisition.findMany({
-      where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED" },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      include: { project: { select: { id: true, name: true } } },
-    }),
-    prisma.purchaseOrder.findMany({
-      where: {
-        companyId: company.id,
-        status: { in: ["ORDERED", "PARTIAL"] },
-        expectedDate: { lt: new Date() },
-      },
-      orderBy: { expectedDate: "asc" },
-      take: 20,
-      include: { supplier: { select: { id: true, name: true } } },
-    }),
-    lowStockAlerts(company.id).catch(() => []),
-    getTallySyncStats(company.id).catch(() => ({
-      total: 0, synced: 0, failed: 0, pending: 0, imported: 0, variance: 0,
-    })),
-    prisma.project.findMany({
-      where: {
-        companyId: company.id,
-        deletedAt: null,
-        status: { in: ["PLANNED", "ACTIVE"] },
-        totalBudget: { gt: 0 },
-        totalProjectCost: { gt: 0 },
-      },
-      select: {
-        id: true, name: true, status: true,
-        totalBudget: true, totalProjectCost: true,
-      },
-      orderBy: { name: "asc" },
-    }),
-    leaseExpiryAlerts(company.id).catch(() => []),
+    canApprovePo
+      ? prisma.purchaseOrder.findMany({
+          where: { companyId: company.id, status: "DRAFT", createdById: hideSelf ? { not: userId } : undefined },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+          include: { supplier: { select: { id: true, name: true } } },
+        })
+      : Promise.resolve([]),
+    canApproveReq
+      ? prisma.materialRequisition.findMany({
+          where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED", requestedById: hideSelf ? { not: userId } : undefined },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+          include: { project: { select: { id: true, name: true } } },
+        })
+      : Promise.resolve([]),
+    canApproveGatePass
+      ? prisma.gatePass.count({
+          where: { companyId: company.id, status: "PENDING", submittedById: hideSelf ? { not: userId } : undefined },
+        })
+      : Promise.resolve(0),
+    canApproveDpr
+      ? prisma.dailyProgressReport.count({
+          where: { companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] }, submittedById: hideSelf ? { not: userId } : undefined },
+        })
+      : Promise.resolve(0),
+    canApproveExpense
+      ? prisma.expense.count({
+          where: { companyId: company.id, status: "PENDING", submittedById: hideSelf ? { not: userId } : undefined },
+        })
+      : Promise.resolve(0),
+    canApproveExpense
+      ? prisma.expenseClaim.count({
+          where: { companyId: company.id, status: "SUBMITTED", claimantId: hideSelf ? { not: userId } : undefined, ...await scopeWhere("ExpenseClaim", {}) },
+        })
+      : Promise.resolve(0),
+    canApproveRa
+      ? prisma.raBill.count({
+          where: { companyId: company.id, status: "SUBMITTED", createdById: hideSelf ? { not: userId } : undefined, submittedById: hideSelf ? { not: userId } : undefined },
+        })
+      : Promise.resolve(0),
+    canViewProcurement
+      ? prisma.purchaseOrder.findMany({
+          where: {
+            companyId: company.id,
+            status: { in: ["ORDERED", "PARTIAL"] },
+            expectedDate: { lt: new Date() },
+          },
+          orderBy: { expectedDate: "asc" },
+          take: 20,
+          include: { supplier: { select: { id: true, name: true } } },
+        })
+      : Promise.resolve([]),
+    canViewInventory ? lowStockAlerts(company.id).catch(() => []) : Promise.resolve([]),
+    canViewFinance
+      ? getTallySyncStats(company.id).catch(() => ({
+          total: 0, synced: 0, failed: 0, pending: 0, imported: 0, variance: 0,
+        }))
+      : Promise.resolve({ total: 0, synced: 0, failed: 0, pending: 0, imported: 0, variance: 0 }),
+    canViewProjectControl
+      ? prisma.project.findMany({
+          where: {
+            companyId: company.id,
+            deletedAt: null,
+            status: { in: ["PLANNED", "ACTIVE"] },
+            totalBudget: { gt: 0 },
+            totalProjectCost: { gt: 0 },
+          },
+          select: {
+            id: true, name: true, status: true,
+            totalBudget: true, totalProjectCost: true,
+          },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
+    canViewAssets ? leaseExpiryAlerts(company.id).catch(() => []) : Promise.resolve([]),
   ]);
 
   // Filter to projects where actual > budget
@@ -111,7 +176,7 @@ async function AttentionContent() {
     .filter((p) => p.overrun > 0)
     .sort((a, b) => b.overrun - a.overrun);
 
-  const approvalCount = draftPOs.length + pendingReqs.length;
+  const approvalCount = draftPOs.length + pendingReqs.length + pendingGatePasses + pendingDprs + pendingExpenses + pendingClaims + pendingRaBills;
   const totalAlerts =
     approvalCount + overduePOs.length + lowStock.length + overBudget.length + tallyStats.pending + leaseExpiry.length;
 
@@ -245,9 +310,30 @@ async function AttentionContent() {
             </div>
           ) : null}
 
+          {/* Other approval types — compact count rows */}
+          {[
+            { label: "expenses", count: pendingExpenses },
+            { label: "expense claims", count: pendingClaims },
+            { label: "gate passes", count: pendingGatePasses },
+            { label: "DPRs", count: pendingDprs },
+            { label: "RA bills", count: pendingRaBills },
+          ]
+            .filter((t) => t.count > 0)
+            .map((t) => (
+              <AlertCard
+                key={t.label}
+                href="/m/approvals"
+                title={`${t.count} ${t.label}`}
+                subtitle="Awaiting approval"
+                meta="Review"
+                metaColor="var(--color-signal)"
+                icon={<ClipboardCheck className="size-3" />}
+              />
+            ))}
+
           {/* Single link to full approvals page */}
           <Link
-            href="/m/pulse/approvals"
+            href="/m/approvals"
             className="flex items-center justify-center gap-1 h-8 rounded-[0.5rem] text-m-caption font-bold text-m-body press mt-2"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
@@ -386,7 +472,7 @@ async function AttentionContent() {
           </div>
           <AlertCard
             href="/m/accounts?tab=gl"
-            title={`${tallyStats.pending} entries not synced`}
+            title={`${tallyStats.pending} ${tallyStats.pending === 1 ? "entry" : "entries"} not synced`}
             subtitle={`${tallyStats.synced} synced · ${tallyStats.failed} failed`}
             meta="View GL"
             metaColor="var(--color-steel)"

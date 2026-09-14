@@ -1,7 +1,7 @@
-import { type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
+import { canAutoApprove } from "./rbac";
 import { postJournalEntry, ACCT } from "./gl-posting";
 import { withSerializableTransaction } from "./transaction";
 
@@ -39,6 +39,15 @@ export interface CreateClaimInput {
 
 export async function createExpenseClaim(input: CreateClaimInput) {
   return withSerializableTransaction(async (tx) => {
+    // The claimant must be a user who is a member of this company — without
+    // this check a bad id crashes with a Prisma FK violation (500), and an
+    // id from another tenant would silently create a claim under them.
+    const claimant = await tx.user.findFirst({
+      where: { id: input.claimantId, memberships: { some: { companyId: input.companyId } } },
+      select: { id: true },
+    });
+    if (!claimant) throw new ServiceError("Claimant not found in this company", 400);
+
     const claim = await tx.expenseClaim.create({
       data: {
         companyId: input.companyId,
@@ -161,7 +170,7 @@ export async function submitExpenseClaim(claimId: string, companyId: string, use
   });
 }
 
-export async function approveExpenseClaim(claimId: string, companyId: string, userId?: string) {
+export async function approveExpenseClaim(claimId: string, companyId: string, userId?: string, actorRole?: string) {
   return withSerializableTransaction(async (tx) => {
     const claim = await tx.expenseClaim.findFirst({
       where: { id: claimId, companyId },
@@ -169,8 +178,9 @@ export async function approveExpenseClaim(claimId: string, companyId: string, us
     });
     if (!claim) throw new ServiceError("Claim not found", 404);
     if (claim.status !== "SUBMITTED") throw new ServiceError(`Only SUBMITTED claims can be approved (current: ${claim.status})`, 409);
-    // Prevent self-approval: the claimant cannot approve their own claim.
-    if (userId && claim.claimantId === userId) {
+    // Prevent self-approval: the claimant cannot approve their own claim —
+    // unless a tier-1 role (OWNER/ADMIN), where no higher approver exists.
+    if (userId && claim.claimantId === userId && !canAutoApprove(actorRole)) {
       throw new ServiceError("You cannot approve your own claim — ask another approver", 403);
     }
 

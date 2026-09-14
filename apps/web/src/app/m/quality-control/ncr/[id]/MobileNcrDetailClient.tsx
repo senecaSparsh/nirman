@@ -253,9 +253,9 @@ export function MobileNcrDetailClient({
         </div>
       )}
 
-      {/* CAPA section */}
+      {/* CAPA section — `id="capa"` is the NextActionCard anchor target */}
       {ncr.capa ? (
-        <CapaSection capa={ncr.capa} />
+        <div id="capa"><CapaSection capa={ncr.capa} /></div>
       ) : ncr.status === "CAPA_REQUIRED" && canManage ? (
         <DetailAlertBanner tone="warning" title="CAPA Required" description="Create a Corrective And Preventive Action plan for this NCR.">
           <button
@@ -268,8 +268,10 @@ export function MobileNcrDetailClient({
         </DetailAlertBanner>
       ) : null}
 
-      {/* Workflow actions */}
+      {/* Workflow actions — `id`s are NextActionCard anchors: #review
+          (open/under-review) / #capa (capa fill-in lands on this bar too). */}
       {canManage && (
+        <div id={ncr.status === "CAPA_REQUIRED" ? "capa" : "review"}>
         <ActionBar>
           {/* NCR actions */}
           {(ncr.status === "OPEN" || ncr.status === "UNDER_REVIEW") && (
@@ -287,7 +289,7 @@ export function MobileNcrDetailClient({
                 const ok = await confirm({ title: "Delete?", description: "Delete this NCR? This cannot be undone.", confirmLabel: "Delete", variant: "destructive" });
                 if (!ok) return;
                 await ncrAction("delete");
-                router.push("/m/construction?tab=quality");
+                router.push("/m/quality-control");
               }}
               loading={acting === "delete"}
               icon={Trash2}
@@ -319,6 +321,7 @@ export function MobileNcrDetailClient({
             </>
           )}
         </ActionBar>
+        </div>
       )}
 
       {/* Review dialog */}

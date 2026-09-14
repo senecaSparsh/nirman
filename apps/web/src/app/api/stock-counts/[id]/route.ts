@@ -17,6 +17,9 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
       lines: {
         include: { material: { select: { id: true, code: true, name: true, unit: true } } },
       },
+      createdBy: { select: { name: true } },
+      confirmedBy: { select: { name: true } },
+      reconciledBy: { select: { name: true } },
     },
   });
   if (!count || count.location.companyId !== company.id) {
@@ -39,6 +42,11 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
     countDate: count.countDate.toISOString(),
     notes: count.notes,
     createdAt: count.createdAt.toISOString(),
+    createdByName: count.createdBy?.name ?? null,
+    confirmedByName: count.confirmedBy?.name ?? null,
+    confirmedAt: count.confirmedAt?.toISOString() ?? null,
+    reconciledByName: count.reconciledBy?.name ?? null,
+    reconciledAt: count.reconciledAt?.toISOString() ?? null,
     lines: count.lines.map((l) => ({
       id: l.id,
       materialId: l.materialId,

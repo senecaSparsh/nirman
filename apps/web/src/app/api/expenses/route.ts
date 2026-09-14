@@ -28,7 +28,10 @@ const expenseSchema = z.object({
   receiptUrl: z.string().optional().nullable(),
   date: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  // `submitForApproval` is the historic name; `autoSubmit` matches the
+  // convention used by requisitions / RA bills / gate passes / change orders.
   submitForApproval: z.boolean().optional(),
+  autoSubmit: z.boolean().optional(),
 });
 
 export const GET = apiHandler(async (req: NextRequest) => {
@@ -165,7 +168,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       receiptUrl: d.receiptUrl ?? null,
       date: expenseDate,
       notes: d.notes ?? null,
-      submitForApproval: d.submitForApproval,
+      // `autoSubmit` (convention) wins over the legacy `submitForApproval`.
+      submitForApproval: d.autoSubmit ?? d.submitForApproval,
       userId: user.id,
     });
     revalidatePath("/expenses");

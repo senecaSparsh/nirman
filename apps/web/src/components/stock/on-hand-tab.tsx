@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { Boxes, ChevronDown, AlertTriangle, SlidersHorizontal, ClipboardCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -26,22 +27,17 @@ export function OnHandTab({ stock, locations, canManage = false }: { stock: Stoc
   const [locationFilter, setLocationFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [lowStockOnly, setLowStockOnly] = useState(false);
-  const [lowStockIds, setLowStockIds] = useState<Set<string>>(new Set());
+  // Fetch low-stock material IDs only while the toggle is on (skip pauses
+  // the fetch entirely); cached so toggling back is instant.
+  const { data: lowStockData } = useFetch<{ id: string }[]>("/api/low-stock", { skip: !lowStockOnly });
+  const lowStockIds = useMemo(
+    () => new Set((lowStockData ?? []).map((d) => d.id)),
+    [lowStockData],
+  );
 
   // Adjust-stock dialog state
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [adjustRow, setAdjustRow] = useState<StockRow | null>(null);
-
-  // Fetch low-stock material IDs when the toggle is enabled
-  useEffect(() => {
-    if (!lowStockOnly) { setLowStockIds(new Set()); return; }
-    fetch("/api/low-stock")
-      .then((r) => r.json())
-      .then((data: { id: string }[]) => {
-        setLowStockIds(new Set(data.map((d) => d.id)));
-      })
-      .catch(() => setLowStockIds(new Set()));
-  }, [lowStockOnly]);
 
   // Derive unique categories from stock data for the category filter
   const categories = useMemo(() => {

@@ -1,7 +1,8 @@
 import { prisma } from "@nirman/db";
 import { toNum } from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { PERM, hasPermission } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
+import { MobileFab } from "@/components/mobile/v2/scaffold";
 import { MobileSupplierPaymentsList, type SupplierPaymentListItem } from "./MobileSupplierPaymentsList";
 
 /**
@@ -10,8 +11,9 @@ import { MobileSupplierPaymentsList, type SupplierPaymentListItem } from "./Mobi
  */
 export default function MobileSupplierPaymentsPage() {
   return (
-    <MobileListPage managePerm={PERM.FINANCE_MANAGE}>
-      {async ({ company, canManage }) => {
+    <MobileListPage perm={PERM.FINANCE_VIEW} managePerm={PERM.FINANCE_MANAGE}>
+      {async ({ company, canManage, role }) => {
+        const canViewProcurement = hasPermission(role, PERM.PROCUREMENT_VIEW);
         const BATCH_SIZE = 40;
         const payments = await prisma.supplierPayment.findMany({
           where: { companyId: company.id },
@@ -19,7 +21,7 @@ export default function MobileSupplierPaymentsPage() {
           take: BATCH_SIZE + 1,
           include: {
             supplier: { select: { id: true, name: true } },
-            purchaseOrder: { select: { poNumber: true } },
+            purchaseOrder: { select: { id: true, poNumber: true } },
             invoice: { select: { invoiceNumber: true } },
           },
         });
@@ -35,6 +37,8 @@ export default function MobileSupplierPaymentsPage() {
           id: p.id,
           paymentNumber: p.paymentNumber,
           supplierName: p.supplier.name,
+          poId: p.purchaseOrder?.id ?? null,
+          supplierId: p.supplier.id,
           poNumber: p.purchaseOrder?.poNumber ?? null,
           invoiceNumber: p.invoice?.invoiceNumber ?? null,
           amount: toNum(p.amount),
@@ -45,13 +49,17 @@ export default function MobileSupplierPaymentsPage() {
         const totalAmount = rows.reduce((s, p) => s + p.amount, 0);
 
         return (
-          <MobileSupplierPaymentsList
-            items={rows}
-            totalAmount={totalAmount}
-            canManage={canManage}
-            loadMoreUrl="/api/mobile/list/supplier-payments"
-            initialCursor={nextCursor}
-          />
+          <div>
+            <MobileSupplierPaymentsList
+              items={rows}
+              totalAmount={totalAmount}
+              canManage={canManage}
+              canViewProcurement={canViewProcurement}
+              loadMoreUrl="/api/mobile/list/supplier-payments"
+              initialCursor={nextCursor}
+            />
+            {canManage && <MobileFab href="/m/supplier-payments/new" label="Record payment" />}
+          </div>
         );
       }}
     </MobileListPage>

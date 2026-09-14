@@ -4,8 +4,15 @@ import { getCurrentUser, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatDate } from "@/lib/utils";
+import { ClipboardCheck, Truck, Package, Building2 } from "lucide-react";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
+import {
+  MobileSectionTitle,
+  MobileRow,
+  MobileEmptyState,
+  MobileStatusBadge,
+} from "@/components/mobile/v2/primitives";
 import { SiteInteractive } from "./site-interactive";
 
 /**
@@ -118,207 +125,142 @@ export default function SitePage() {
             {/* ── Quick actions — editable, drag-to-reorder (same as inventory) ── */}
             <SiteInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} />
 
-            {/* ── Open Tasks + Awaiting Receipt — 2-col side by side ── */}
-            <div className="grid grid-cols-2 gap-2 items-start">
-              {/* Tasks column — shows due date + overdue days */}
+            {/* ── My Tasks — dense rows, overdue first ── */}
+            <MobileSectionTitle
+              right={
+                myTasks.length > 0 ? (
+                  <Link
+                    href="/m/site/tasks"
+                    className="text-m-label font-semibold text-m-body press"
+                    style={{ color: "var(--color-ink-500)" }}
+                  >
+                    View all
+                  </Link>
+                ) : undefined
+              }
+            >
+              My tasks {myTasks.length > 0 ? `(${myTasks.length})` : ""}
+            </MobileSectionTitle>
+            {myTasks.length === 0 ? (
+              <MobileEmptyState size="compact" icon={ClipboardCheck} title="No open tasks" />
+            ) : (
               <div className="flex flex-col gap-1.5">
-                <h3 className="text-m-body font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
-                  Tasks ({myTasks.length})
-                </h3>
-                {myTasks.length === 0 ? (
-                  <EmptyCol text="No open tasks" />
-                ) : (
-                  myTasks.slice(0, 5).map((t) => {
-                    const taskTone =
-                      t.status === "BLOCKED" ? "var(--color-stop)" :
-                      t.status === "IN_PROGRESS" ? "var(--color-signal)" :
-                      "var(--color-ink-500)";
-                    const isOverdue = t.dueDate && new Date(t.dueDate) < startOfToday;
-                    const overdueDays = isOverdue && t.dueDate
-                      ? Math.floor((startOfToday.getTime() - new Date(t.dueDate).getTime()) / (1000 * 60 * 60 * 24))
-                      : 0;
-                    return (
-                      <Link
-                        key={t.id}
-                        href="/m/site/tasks"
-                        className="flex flex-col rounded-[0.5rem] border p-2 text-m-body press overflow-hidden"
-                        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                      >
-                        <div className="h-0.5 -mx-2 -mt-2 mb-1.5" style={{ backgroundColor: isOverdue ? "var(--color-stop)" : taskTone }} />
-                        <p className="text-m-caption font-bold leading-tight truncate mb-1" style={{ color: "var(--color-ink-950)" }}>
-                          {t.title}
-                        </p>
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-m-caption uppercase font-semibold" style={{ color: taskTone }}>
-                            {t.status.replace(/_/g, " ").toLowerCase()}
-                          </span>
-                          {isOverdue ? (
-                            <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>
-                              {overdueDays}d overdue
-                            </span>
-                          ) : t.dueDate ? (
-                            <span className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-                              due {formatDate(t.dueDate)}
-                            </span>
-                          ) : (
-                            <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                              {t.priority}
-                            </span>
-                          )}
-                        </div>
-                      </Link>
-                    );
-                  })
-                )}
+                {myTasks.slice(0, 5).map((t) => {
+                  const isOverdue = t.dueDate && new Date(t.dueDate) < startOfToday;
+                  const overdueDays = isOverdue && t.dueDate
+                    ? Math.floor((startOfToday.getTime() - new Date(t.dueDate).getTime()) / (1000 * 60 * 60 * 24))
+                    : 0;
+                  return (
+                    <MobileRow
+                      key={t.id}
+                      href="/m/site/tasks"
+                      icon={ClipboardCheck}
+                      title={t.title}
+                      subtitle={t.status.replace(/_/g, " ").toLowerCase()}
+                      meta={
+                        isOverdue
+                          ? `${overdueDays}d late`
+                          : t.dueDate
+                            ? formatDate(t.dueDate)
+                            : t.priority
+                      }
+                      tone={isOverdue ? "danger" : t.status === "IN_PROGRESS" ? "warning" : "default"}
+                    />
+                  );
+                })}
               </div>
+            )}
 
-              {/* Awaiting receipt column — shows days until/overdue delivery */}
+            {/* ── In Transit — POs on their way to site ── */}
+            <MobileSectionTitle
+              right={
+                inTransitPOs.length > 0 ? (
+                  <Link
+                    href="/m/site/receive"
+                    className="text-m-label font-semibold text-m-body press"
+                    style={{ color: "var(--color-ink-500)" }}
+                  >
+                    View all
+                  </Link>
+                ) : undefined
+              }
+            >
+              In transit {inTransitPOs.length > 0 ? `(${inTransitPOs.length})` : ""}
+            </MobileSectionTitle>
+            {inTransitPOs.length === 0 ? (
+              <MobileEmptyState size="compact" icon={Truck} title="Nothing in transit" />
+            ) : (
               <div className="flex flex-col gap-1.5">
-                <h3 className="text-m-body font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
-                  In Transit ({inTransitPOs.length})
-                </h3>
-                {inTransitPOs.length === 0 ? (
-                  <EmptyCol text="Nothing in transit" />
-                ) : (
-                  inTransitPOs.slice(0, 5).map((po) => {
-                    const isOverdue = po.expectedDate && new Date(po.expectedDate) < startOfToday;
-                    const overdueDays = isOverdue && po.expectedDate
-                      ? Math.floor((startOfToday.getTime() - new Date(po.expectedDate).getTime()) / (1000 * 60 * 60 * 24))
-                      : 0;
-                    const daysUntil = !isOverdue && po.expectedDate
-                      ? Math.ceil((new Date(po.expectedDate).getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24))
-                      : 0;
-                    const poTone = isOverdue ? "var(--color-stop)" : po.status === "PARTIAL" ? "var(--color-signal)" : "var(--color-steel)";
-                    return (
-                      <Link
-                        key={po.id}
-                        href={`/m/site/receive?po=${po.id}`}
-                        className="flex flex-col rounded-[0.5rem] border p-2 text-m-body press overflow-hidden"
-                        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                      >
-                        <div className="h-0.5 -mx-2 -mt-2 mb-1.5" style={{ backgroundColor: poTone }} />
-                        <p className="text-m-caption font-bold leading-tight truncate mb-1" style={{ color: "var(--color-ink-950)" }}>
-                          {po.supplier.name}
-                        </p>
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-m-caption font-mono" style={{ color: "var(--color-ink-500)" }}>
-                            {po.poNumber}
-                          </span>
-                          {isOverdue ? (
-                            <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>
-                              {overdueDays}d late
-                            </span>
-                          ) : daysUntil === 0 ? (
-                            <span className="text-m-caption font-bold" style={{ color: "var(--color-signal)" }}>
-                              today
-                            </span>
-                          ) : daysUntil === 1 ? (
-                            <span className="text-m-caption font-bold" style={{ color: "var(--color-signal)" }}>
-                              tomorrow
-                            </span>
-                          ) : (
-                            <span className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-                              {daysUntil}d
-                            </span>
-                          )}
-                        </div>
-                        {po.status === "PARTIAL" ? (
-                          <span className="text-m-caption mt-0.5 uppercase font-semibold" style={{ color: "var(--color-signal)" }}>
-                            Partially received
-                          </span>
-                        ) : null}
-                      </Link>
-                    );
-                  })
-                )}
+                {inTransitPOs.slice(0, 5).map((po) => {
+                  const isOverdue = po.expectedDate && new Date(po.expectedDate) < startOfToday;
+                  const overdueDays = isOverdue && po.expectedDate
+                    ? Math.floor((startOfToday.getTime() - new Date(po.expectedDate).getTime()) / (1000 * 60 * 60 * 24))
+                    : 0;
+                  const daysUntil = !isOverdue && po.expectedDate
+                    ? Math.ceil((new Date(po.expectedDate).getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24))
+                    : 0;
+                  const meta = isOverdue
+                    ? `${overdueDays}d late`
+                    : !po.expectedDate
+                      ? "no date"
+                      : daysUntil === 0
+                        ? "today"
+                        : daysUntil === 1
+                          ? "tomorrow"
+                          : `${daysUntil}d`;
+                  return (
+                    <MobileRow
+                      key={po.id}
+                      href={`/m/site/receive?po=${po.id}`}
+                      icon={Truck}
+                      title={po.supplier.name}
+                      subtitle={`${po.poNumber}${po.status === "PARTIAL" ? " · partially received" : ""}`}
+                      meta={meta}
+                      tone={isOverdue ? "danger" : po.status === "PARTIAL" ? "warning" : "default"}
+                    />
+                  );
+                })}
               </div>
-            </div>
+            )}
 
-            {/* ── Recent Issues + My Projects — 2-col side by side ── */}
-            <div className="grid grid-cols-2 gap-2 items-start">
-              {/* Recent issues column — shows issue number + line count + total */}
-              <div className="flex flex-col gap-1.5">
-                <h3 className="text-m-body font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
-                  Recent Issues ({recentIssues.length})
-                </h3>
-                {recentIssues.length === 0 ? (
-                  <EmptyCol text="No recent issues" />
-                ) : (
-                  recentIssues.slice(0, 5).map((i) => (
-                    <div
+            {/* ── Recent Issues ── */}
+            {recentIssues.length > 0 && (
+              <>
+                <MobileSectionTitle>Recent issues</MobileSectionTitle>
+                <div className="flex flex-col gap-1.5">
+                  {recentIssues.slice(0, 5).map((i) => (
+                    <MobileRow
                       key={i.id}
-                      className="flex flex-col rounded-[0.5rem] border p-2 overflow-hidden"
-                      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                    >
-                      <div className="h-0.5 -mx-2 -mt-2 mb-1.5" style={{ backgroundColor: "var(--color-steel)" }} />
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-m-caption font-mono font-bold" style={{ color: "var(--color-steel)" }}>
-                          {i.issueNumber ?? "—"}
-                        </span>
-                        <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                          {formatDate(i.issueDate)}
-                        </span>
-                      </div>
-                      <p className="text-m-caption font-bold leading-tight truncate mb-0.5" style={{ color: "var(--color-ink-950)" }}>
-                        {i.project?.name ?? "—"}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
-                          {i.lines.length} line{i.lines.length !== 1 ? "s" : ""} · {i.fromLocation?.name ?? "—"}
-                        </span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+                      icon={Package}
+                      title={i.project?.name ?? "—"}
+                      subtitle={`${i.issueNumber ?? "—"} · ${i.lines.length} line${i.lines.length !== 1 ? "s" : ""} · ${i.fromLocation?.name ?? "—"}`}
+                      meta={formatDate(i.issueDate)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
 
-              {/* My projects column — shows status badge */}
-              <div className="flex flex-col gap-1.5">
-                <h3 className="text-m-body font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
-                  My Projects ({projects.length})
-                </h3>
-                {projects.length === 0 ? (
-                  <EmptyCol text="No active projects" />
-                ) : (
-                  projects.map((p) => {
-                    const projTone = p.status === "ACTIVE" ? "var(--color-go)" : "var(--color-signal)";
-                    return (
-                      <Link
-                        key={p.id}
-                        href={`/m/projects/${p.id}`}
-                        className="flex flex-col rounded-[0.5rem] border p-2 text-m-body press overflow-hidden"
-                        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-                      >
-                        <div className="h-0.5 -mx-2 -mt-2 mb-1.5" style={{ backgroundColor: projTone }} />
-                        <p className="text-m-caption font-bold leading-tight truncate mb-0.5" style={{ color: "var(--color-ink-950)" }}>
-                          {p.name}
-                        </p>
-                        <span className="text-m-caption uppercase font-semibold" style={{ color: projTone }}>
-                          {p.status === "ACTIVE" ? "Active" : "Planned"}
-                        </span>
-                      </Link>
-                    );
-                  })
-                )}
-              </div>
-            </div>
+            {/* ── My Projects ── */}
+            {projects.length > 0 && (
+              <>
+                <MobileSectionTitle>My projects</MobileSectionTitle>
+                <div className="flex flex-col gap-1.5">
+                  {projects.map((p) => (
+                    <MobileRow
+                      key={p.id}
+                      href={`/m/projects/${p.id}`}
+                      icon={Building2}
+                      title={p.name}
+                      badge={<MobileStatusBadge status={p.status} />}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         );
       }}
     </MobileHubPage>
-  );
-}
-
-/* ─── Empty column placeholder ─── */
-function EmptyCol({ text }: { text: string }) {
-  return (
-    <div
-      className="flex flex-col items-center justify-center rounded-[0.5rem] border p-2 text-center"
-      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", minHeight: "3rem" }}
-    >
-      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-        {text}
-      </p>
-    </div>
   );
 }

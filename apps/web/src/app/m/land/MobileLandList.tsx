@@ -313,7 +313,7 @@ export function MobileLandList({
               </span>
             </div>
           )}
-        <div className="grid grid-cols-2 gap-2.5 items-start">
+        <div className="grid grid-cols-2 gap-2 items-start">
           {/* ── Left column: Whole ── */}
           <div className="flex flex-col gap-2">
             <ColumnHeader
@@ -540,7 +540,7 @@ function PurchaseCard({
           {p.purchaseStage === "REGISTERED" && (
             <span
               className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-m-caption font-bold"
-              style={{ backgroundColor: "color-mix(in srgb, var(--color-primary, var(--color-ink-700)) 12%, transparent)", color: "var(--color-primary, var(--color-ink-700))" }}
+              style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
             >
               REGISTERED
             </span>

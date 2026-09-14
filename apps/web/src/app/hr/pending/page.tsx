@@ -99,7 +99,14 @@ async function PendingListContent() {
     }),
     // Requisitions pending approval
     prisma.materialRequisition.findMany({
-      where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED" },
+      where: {
+        ...await scopeWhere("MaterialRequisition"),
+        OR: [
+          { project: { companyId: company.id, deletedAt: null } },
+          { department: { companyId: company.id, deletedAt: null } },
+        ],
+        status: "SUBMITTED",
+      },
       orderBy: { createdAt: "desc" },
       take: 20,
       include: {

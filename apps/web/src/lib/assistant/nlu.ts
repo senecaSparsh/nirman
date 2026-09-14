@@ -379,6 +379,10 @@ const INTENTS: IntentDef[] = [
       "attendance dikhao", "attendance status",
       "aaj ka haazri", "haazri", "hazri",
       "aaj ka kaam", "site par kitne",
+      // Colloquial "pe" variants — spoken Hindi uses "site pe" more than
+      // "site par". Covers "site pe kitne log aaye", "site pe kaun hai".
+      "site pe kitne", "site mein kitne", "site pe log",
+      "log aaye", "kitne log aaye", "site pe kaun",
     ],
     weight: 2,
   },

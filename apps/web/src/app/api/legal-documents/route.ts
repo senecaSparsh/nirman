@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { createLegalDoc, listLegalDocs, listAllLegalDocs } from "@nirman/services";
+import { createLegalDoc, listLegalDocs, listAllLegalDocs, countAllLegalDocs } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -18,6 +18,15 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const all = sp.get("all") === "true";
 
   if (all) {
+    // countOnly — nav badges need just the number, not hydrated docs.
+    if (sp.get("countOnly") === "1") {
+      const count = await countAllLegalDocs(company.id, {
+        type: sp.get("type") ?? undefined,
+        status: sp.get("status") ?? undefined,
+        appliesTo: sp.get("appliesTo") ?? undefined,
+      });
+      return json({ count });
+    }
     const docs = await listAllLegalDocs(company.id, {
       type: sp.get("type") ?? undefined,
       status: sp.get("status") ?? undefined,

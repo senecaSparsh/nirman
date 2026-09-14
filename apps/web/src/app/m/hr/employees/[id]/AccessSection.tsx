@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Shield,
@@ -13,6 +13,8 @@ import {
   CheckCircle2,
   XCircle,
   Plus,
+  Phone,
+  Recycle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ROLES, type Role, ROLE_META } from "@/lib/roles";
@@ -24,6 +26,7 @@ import { ScopeEditorDialog } from "@/components/settings/scope-editor-dialog";
 import { PermissionsEditorDialog } from "@/components/settings/permissions-editor-dialog";
 import { ResetPasswordDialog } from "@/components/settings/reset-password-dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { MobileCreateAccountDialog } from "../MobileCreateAccountDialog";
 
 const HIERARCHY_LABELS_MOBILE = ["Management", "Manager", "Engineer", "Supervisor", "Skilled", "Labor"];
 
@@ -59,6 +62,11 @@ type Department = { id: string; code: string; name: string; active: boolean };
 export function AccessSection({
   employeeId,
   employeeName,
+  employeePhone,
+  employeeEmail,
+  employeeDesignation,
+  employeeHierarchyLevel,
+  actorRole,
   user,
   canManageUsers,
   isSelf,
@@ -68,6 +76,11 @@ export function AccessSection({
 }: {
   employeeId: string;
   employeeName: string;
+  employeePhone: string | null;
+  employeeEmail: string | null;
+  employeeDesignation: string | null;
+  employeeHierarchyLevel: number | null;
+  actorRole: string;
   user: AccessSectionUser | null;
   canManageUsers: boolean;
   isSelf: boolean;
@@ -80,12 +93,24 @@ export function AccessSection({
 
   // Case 1: Employee has no linked user account — show provision login UI
   if (!user) {
-    return <ProvisionLoginCard employeeId={employeeId} employeeName={employeeName} assignableRoles={assignableRoles} />;
+    return (
+      <ProvisionLoginCard
+        employeeId={employeeId}
+        employeeName={employeeName}
+        employeePhone={employeePhone}
+        employeeEmail={employeeEmail}
+        employeeDesignation={employeeDesignation}
+        employeeHierarchyLevel={employeeHierarchyLevel}
+        actorRole={actorRole}
+        projects={projects}
+      />
+    );
   }
 
   // Case 2: Employee has a linked user account — show access management UI
   return (
     <AccessManagementCard
+      employeeId={employeeId}
       user={user}
       employeeName={employeeName}
       isSelf={isSelf}
@@ -97,18 +122,43 @@ export function AccessSection({
 }
 
 /* ----------------------------------------------------------------
- * Provision Login — for employees without a user account
+ * Provision Login — for employees without a user account.
+ * Reuses the same MobileCreateAccountDialog as the onboarding tab
+ * so the user gets the same full-featured experience (phone pool,
+ * role, permissions, scope) regardless of which page they're on.
  * ---------------------------------------------------------------- */
 function ProvisionLoginCard({
   employeeId,
   employeeName,
-  assignableRoles,
+  employeePhone,
+  employeeEmail,
+  employeeDesignation,
+  employeeHierarchyLevel,
+  actorRole,
+  projects,
 }: {
   employeeId: string;
   employeeName: string;
-  assignableRoles: AssignableRole[];
+  employeePhone: string | null;
+  employeeEmail: string | null;
+  employeeDesignation: string | null;
+  employeeHierarchyLevel: number | null;
+  actorRole: string;
+  projects: { id: string; name: string }[];
 }) {
   const [showProvision, setShowProvision] = useState(false);
+  const [availableNumbers, setAvailableNumbers] = useState<
+    { id: string; phoneNumber: string; label: string | null; department: string | null; status: string; monthlyCost: number | null; provider: string | null }[]
+  >([]);
+
+  async function openProvision() {
+    haptic(10);
+    try {
+      const res = await fetch("/api/telephony/numbers/available");
+      if (res.ok) setAvailableNumbers(await res.json());
+    } catch { /* non-critical — dialog still works with empty pool */ }
+    setShowProvision(true);
+  }
 
   return (
     <div
@@ -124,7 +174,7 @@ function ProvisionLoginCard({
         <div className="flex items-center gap-2 mb-3">
           <div
             className="grid place-items-center size-7 rounded-full shrink-0"
-            style={{ backgroundColor: "var(--color-ink-100)" }}
+            style={{ backgroundColor: "var(--color-concrete)" }}
           >
             <XCircle className="size-3.5" style={{ color: "var(--color-ink-400)" }} />
           </div>
@@ -138,7 +188,7 @@ function ProvisionLoginCard({
           </div>
         </div>
         <button
-          onClick={() => setShowProvision(true)}
+          onClick={openProvision}
           className="flex w-full items-center justify-center gap-1.5 h-8 rounded-[0.375rem] text-m-caption font-bold text-m-body press"
           style={{
             color: "var(--color-paper)",
@@ -151,179 +201,20 @@ function ProvisionLoginCard({
       </div>
 
       {showProvision && (
-        <ProvisionLoginDialog
+        <MobileCreateAccountDialog
           employeeId={employeeId}
           employeeName={employeeName}
-          assignableRoles={assignableRoles}
+          employeePhone={employeePhone}
+          employeeEmail={employeeEmail}
+          employeeDesignation={employeeDesignation}
+          employeeHierarchyLevel={employeeHierarchyLevel}
+          actorRole={actorRole}
+          projects={projects}
+          availableNumbers={availableNumbers}
           onClose={() => setShowProvision(false)}
-          onProvisioned={() => setShowProvision(false)}
         />
       )}
     </div>
-  );
-}
-
-function ProvisionLoginDialog({
-  employeeId,
-  employeeName,
-  assignableRoles,
-  onClose,
-  onProvisioned,
-}: {
-  employeeId: string;
-  employeeName: string;
-  assignableRoles: AssignableRole[];
-  onClose: () => void;
-  onProvisioned: () => void;
-}) {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState<string>(assignableRoles[0]?.key ?? "PROJECT_MANAGER");
-  const [submitting, setSubmitting] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email.trim()) {
-      toast.error("Email is required");
-      return;
-    }
-    setSubmitting(true);
-    haptic(10);
-    try {
-      const res = await fetch("/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: employeeName,
-          email: email.trim(),
-          role,
-          password: password.trim() || undefined,
-          employeeId,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? "Failed to provision access");
-      haptic([10, 40, 80]);
-      toast.success(data.message ?? "Login access provisioned");
-      router.refresh();
-      onProvisioned();
-    } catch (err) {
-      haptic([50, 20, 50]);
-      toast.error(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <MobileDialog open={true} onClose={onClose} title="Provision Login Access">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-          Create a login account for {employeeName}. They&rsquo;ll be able to sign in with the email and password below.
-        </p>
-
-        <div>
-          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-            Email <span style={{ color: "var(--color-stop)" }}>*</span>
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="member@company.com"
-            autoComplete="email"
-            autoFocus
-            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-          />
-        </div>
-
-        <div>
-          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-            Password (optional)
-          </label>
-          <input
-            type="text"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Leave blank for auto-generated"
-            className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
-          />
-          <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-700)" }}>
-            Leave blank to use the default password — they can change it after signing in.
-          </p>
-        </div>
-
-        <div>
-          <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-            Role <span style={{ color: "var(--color-stop)" }}>*</span>
-          </label>
-          <div className="flex flex-col gap-3">
-            {Object.entries(
-              assignableRoles.reduce(
-                (acc, r) => {
-                  const isCustom = r.key.startsWith("CUSTOM_");
-                  const cat = isCustom ? "Custom" : ROLES[r.key as Role]?.category ?? "Other";
-                  if (!acc[cat]) acc[cat] = [];
-                  acc[cat].push(r);
-                  return acc;
-                },
-                {} as Record<string, AssignableRole[]>,
-              ),
-            ).map(([category, roles]) => (
-              <div key={category}>
-                <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-400)" }}>
-                  {category}
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {roles.map((r) => {
-                    const isCustom = r.key.startsWith("CUSTOM_");
-                    const meta = ROLE_META[r.key as Role];
-                    const color = isCustom ? "var(--color-ink-600)" : meta?.color ?? "var(--color-ink-600)";
-                    const isCurrent = r.key === role;
-                    return (
-                      <button
-                        key={r.key}
-                        type="button"
-                        onClick={() => { setRole(r.key); haptic(10); }}
-                        className="flex items-center gap-1 h-8 px-2.5 rounded-[0.375rem] text-m-caption font-semibold text-m-body press"
-                        style={{
-                          color: isCurrent ? "var(--color-paper)" : color,
-                          backgroundColor: isCurrent ? color : `color-mix(in srgb, ${color} 8%, transparent)`,
-                          border: isCurrent ? "none" : `1px solid color-mix(in srgb, ${color} 20%, transparent)`,
-                        }}
-                      >
-                        {isCurrent && <Check className="size-3" />}
-                        {r.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div
-          className="sticky bottom-0 left-0 right-0 z-20 border-t -mx-3 -mb-3 px-3 py-2"
-          style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-        >
-          <div className="flex items-center justify-end gap-3">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
-              style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
-            >
-              {submitting ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
-              {submitting ? "Provisioning…" : "Provision Access"}
-            </button>
-          </div>
-        </div>
-      </form>
-    </MobileDialog>
   );
 }
 
@@ -342,7 +233,7 @@ function PhoneStatusRow({ user, canManage }: { user: AccessSectionUser; canManag
       <div className="flex items-center gap-2 mb-3">
         <span
           className="flex items-center gap-1 text-m-caption font-bold px-1.5 py-0.5 rounded-full"
-          style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-500)" }}
+          style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}
         >
           <AlertCircle className="size-2.5" />
           No phone number
@@ -518,6 +409,7 @@ function PhoneStatusRow({ user, canManage }: { user: AccessSectionUser; canManag
  * Access Management — for employees with a linked user account
  * ---------------------------------------------------------------- */
 function AccessManagementCard({
+  employeeId,
   user,
   employeeName,
   isSelf,
@@ -525,6 +417,7 @@ function AccessManagementCard({
   projects,
   departments,
 }: {
+  employeeId: string;
   user: AccessSectionUser;
   employeeName: string;
   isSelf: boolean;
@@ -537,6 +430,7 @@ function AccessManagementCard({
   const [showScope, setShowScope] = useState(false);
   const [showPerms, setShowPerms] = useState(false);
   const [showResetPwd, setShowResetPwd] = useState(false);
+  const [showChangePhone, setShowChangePhone] = useState(false);
   const [showCreateRole, setShowCreateRole] = useState(false);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
 
@@ -644,7 +538,7 @@ function AccessManagementCard({
           ) : (
             <span
               className="flex items-center gap-1 text-m-caption font-bold px-1.5 py-0.5 rounded-full"
-              style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-500)" }}
+              style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}
             >
               <AlertCircle className="size-2.5" />
               Deactivated
@@ -702,6 +596,16 @@ function AccessManagementCard({
               >
                 <KeyRound className="size-3 shrink-0" />
                 <span className="truncate">Reset Pwd</span>
+              </button>
+
+              {/* Change Phone — reassign or replace the company phone */}
+              <button
+                onClick={() => setShowChangePhone(true)}
+                className="flex flex-1 items-center justify-center gap-1 h-8 px-1 rounded-[0.375rem] text-m-caption font-bold text-m-body press"
+                style={{ color: "var(--color-ink-500)", backgroundColor: "var(--color-concrete)" }}
+              >
+                <Phone className="size-3 shrink-0" />
+                <span className="truncate">Change Phone</span>
               </button>
             </div>
 
@@ -820,20 +724,29 @@ function AccessManagementCard({
         />
       )}
 
+      {showChangePhone && (
+        <ChangePhoneDialog
+          employeeId={employeeId}
+          currentPhone={user.phone}
+          employeeName={employeeName}
+          onClose={() => setShowChangePhone(false)}
+        />
+      )}
+
       {/* Deactivation confirmation */}
       {confirmDeactivate && (
         <MobileDialog open={true} onClose={() => setConfirmDeactivate(false)} title={`Deactivate ${employeeName}?`}>
           <p className="text-m-body mb-3" style={{ color: "var(--color-ink-700)" }}>
             This will log them out, clear pending approvals, cancel tasks, and remove project assignments. They can be reactivated later.
           </p>
-          <div className="flex flex-col gap-2">
-            <Button variant="secondary" size="md" fullWidth onClick={() => setConfirmDeactivate(false)}>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="md" className="flex-1" onClick={() => setConfirmDeactivate(false)}>
               Cancel
             </Button>
             <Button
               variant="danger"
               size="md"
-              fullWidth
+              className="flex-1"
               disabled={changing}
               onClick={() => {
                 setConfirmDeactivate(false);
@@ -1002,6 +915,173 @@ function CreateCustomRoleDialog({
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {saving ? <Loader2 className="size-4 animate-spin mx-auto" /> : "Create Role"}
+          </button>
+        </div>
+      </div>
+    </MobileDialog>
+  );
+}
+
+/* ----------------------------------------------------------------
+ * Change Phone — reassign or replace the company phone number
+ * Uses POST /api/employees/[id]/assign-phone which atomically:
+ *   - Closes the old PhoneAssignment (reason: "Reassigned")
+ *   - Creates a new CompanyPhone (if new number) or reuses existing
+ *   - Creates a new PhoneAssignment
+ *   - Updates User.phone + Employee.phone
+ * ---------------------------------------------------------------- */
+function ChangePhoneDialog({
+  employeeId,
+  currentPhone,
+  employeeName,
+  onClose,
+}: {
+  employeeId: string;
+  currentPhone: string | null;
+  employeeName: string;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [availableNumbers, setAvailableNumbers] = useState<
+    { id: string; phoneNumber: string; label: string | null; department: string | null; status: string }[]
+  >([]);
+  const [selectedPhoneId, setSelectedPhoneId] = useState<string>("");
+  const [newPhone, setNewPhone] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/telephony/numbers/available")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((nums: { id: string; phoneNumber: string; label: string | null; department: string | null; status: string }[]) => {
+        if (!cancelled) setAvailableNumbers(nums);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  async function handleSubmit() {
+    const phoneToAssign = selectedPhoneId
+      ? availableNumbers.find((n) => n.id === selectedPhoneId)?.phoneNumber
+      : newPhone.trim();
+    if (!phoneToAssign) {
+      toast.error("Select an available number or enter a new one");
+      return;
+    }
+    setSaving(true);
+    haptic(10);
+    try {
+      const body: Record<string, unknown> = {};
+      if (selectedPhoneId) {
+        body.companyPhoneId = selectedPhoneId;
+      } else {
+        body.newPhoneNumber = newPhone.trim();
+      }
+      const res = await fetch(`/api/employees/${employeeId}/assign-phone`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to change phone");
+      haptic([10, 40, 80]);
+      toast.success(`Phone changed to ${phoneToAssign} for ${employeeName}`);
+      router.refresh();
+      onClose();
+    } catch (err) {
+      haptic([50, 20, 50]);
+      toast.error(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <MobileDialog open={true} onClose={onClose} title="Change Phone Number">
+      <div className="space-y-3">
+        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+          Current: <strong style={{ color: "var(--color-ink-950)" }}>{currentPhone ?? "None"}</strong>
+          <br />
+          Reassigning closes the old assignment and creates a new one. The old number returns to the pool.
+        </p>
+
+        {/* Available company phones */}
+        {availableNumbers.length > 0 && (
+          <div>
+            <p className="text-m-caption font-bold mb-1.5" style={{ color: "var(--color-ink-700)" }}>
+              Available numbers
+            </p>
+            <div className="flex flex-col gap-1">
+              {availableNumbers.map((n) => {
+                const isSel = selectedPhoneId === n.id;
+                return (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => { setSelectedPhoneId(n.id); setNewPhone(""); haptic(10); }}
+                    className="flex items-center gap-2 p-2 rounded-[0.375rem] border text-left press"
+                    style={{
+                      borderColor: isSel ? "var(--color-ink-950)" : "var(--color-line)",
+                      backgroundColor: isSel ? "color-mix(in srgb, var(--color-ink-950) 5%, transparent)" : "transparent",
+                    }}
+                  >
+                    <div className="grid place-items-center size-5 rounded-full border shrink-0" style={{ borderColor: "var(--color-line)" }}>
+                      {isSel && <Check className="size-3" style={{ color: "var(--color-ink-950)" }} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-m-caption font-semibold flex items-center gap-1.5" style={{ color: "var(--color-ink-950)" }}>
+                        <Phone className="size-3" /> {n.phoneNumber}
+                      </p>
+                      <p className="text-m-caption truncate" style={{ color: "var(--color-ink-400)" }}>
+                        {n.label ?? n.department ?? "Unlabeled"}
+                      </p>
+                    </div>
+                    {n.status === "RECYCLED" && (
+                      <span className="text-micro font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0"
+                        style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)", color: "var(--color-signal-dark)" }}>
+                        <Recycle className="size-2.5" /> Recycled
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Or enter a new number */}
+        <div>
+          <p className="text-m-caption font-bold mb-1" style={{ color: "var(--color-ink-700)" }}>
+            {availableNumbers.length > 0 ? "Or enter a new number" : "New phone number"}
+          </p>
+          <input
+            type="tel"
+            value={newPhone}
+            onChange={(e) => { setNewPhone(e.target.value); setSelectedPhoneId(""); }}
+            placeholder="98765 43210"
+            inputMode="tel"
+            className="w-full h-9 px-2 rounded-[0.375rem] border text-m-caption outline-none"
+            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-950)" }}
+          />
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={onClose}
+            disabled={saving}
+            className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold press"
+            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={saving || (!selectedPhoneId && !newPhone.trim())}
+            className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold press flex items-center justify-center gap-1.5 disabled:opacity-50"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+          >
+            {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Phone className="size-3.5" />}
+            Change Phone
           </button>
         </div>
       </div>

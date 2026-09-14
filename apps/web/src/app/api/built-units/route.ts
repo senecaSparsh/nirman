@@ -24,6 +24,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       ...await scopeWhere("BuiltUnit", {}),
     },
     orderBy: [{ projectId: "asc" }, { unitNumber: "asc" }],
+    take: 500,
     include: {
       project: { select: { id: true, name: true } },
       phase: { select: { id: true, name: true } },

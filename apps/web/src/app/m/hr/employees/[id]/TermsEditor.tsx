@@ -111,7 +111,7 @@ export function TermsEditor({
               <button
                 onClick={() => { setEditing(true); setText(terms ?? ""); haptic(10); }}
                 className="text-m-caption font-semibold press"
-                style={{ color: "var(--color-accent, #2563eb)" }}
+                style={{ color: "var(--color-steel)" }}
               >
                 Edit
               </button>
@@ -147,7 +147,7 @@ export function TermsEditor({
                     onClick={() => setEditing(false)}
                     disabled={saving}
                     className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold press"
-                    style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-700)" }}
+                    style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
                   >
                     Cancel
                   </button>

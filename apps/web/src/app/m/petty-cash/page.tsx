@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
-import { toNum, scopeWhere } from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobilePettyCashList, type PettyCashFloatListItem } from "./MobilePettyCashList";
 import { MobileFab } from "@/components/mobile/v2/scaffold";
@@ -11,8 +11,10 @@ import { MobileFab } from "@/components/mobile/v2/scaffold";
  */
 export default function MobilePettyCashPage() {
   return (
-    <MobileListPage managePerm={PERM.FINANCE_MANAGE} skeletonRows={4}>
-      {async ({ company, canManage }) => {
+    <MobileListPage perm={PERM.FINANCE_VIEW} managePerm={PERM.FINANCE_MANAGE} skeletonRows={4}>
+      {async ({ company, canManage, role }) => {
+        const canSpend = hasPermission(role, PERM.EXPENSE_CREATE);
+        const currentUser = await getCurrentUser();
         const floats = await prisma.pettyCashFloat.findMany({
           where: {...await scopeWhere("PettyCashFloat"),  companyId: company.id },
           orderBy: { name: "asc" },
@@ -27,6 +29,7 @@ export default function MobilePettyCashPage() {
           id: f.id,
           name: f.name,
           projectName: f.project?.name ?? null,
+          custodianId: f.custodianId,
           custodianName: f.custodian?.name ?? null,
           floatAmount: toNum(f.floatAmount),
           topUpTotal: toNum(f.topUpTotal),
@@ -35,7 +38,8 @@ export default function MobilePettyCashPage() {
           lastTopUpDate: f.topUps[0]?.date.toISOString() ?? null,
         }));
 
-        const totalBalance = rows.reduce((s, f) => s + f.floatAmount + (f.topUpTotal || 0) - (f.spentTotal || 0), 0);
+        // floatAmount is the running balance (already net of top-ups + spends)
+        const totalBalance = rows.reduce((s, f) => s + f.floatAmount, 0);
         const totalTopUps = rows.reduce((s, f) => s + f.topUpTotal, 0);
 
         return (
@@ -45,6 +49,8 @@ export default function MobilePettyCashPage() {
               totalBalance={totalBalance}
               totalTopUps={totalTopUps}
               canManage={canManage}
+              canSpend={canSpend}
+              currentUserId={currentUser?.id ?? null}
             />
             {canManage && <MobileFab href="/m/petty-cash/new" label="Add float" />}
           </>

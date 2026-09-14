@@ -115,14 +115,14 @@ export default function MobileProjectControlPage({
               </p>
               <div className="h-2 rounded-full overflow-hidden mt-2" style={{ backgroundColor: "var(--color-concrete)" }}>
                 <div
-                  className="h-full rounded-full transition-all"
+                  className="h-full rounded-full transition-[width]"
                   style={{ width: `${Math.min(100, pctComplete)}%`, backgroundColor: "var(--color-go)" }}
                 />
               </div>
             </div>
 
             {/* EVM Triple Constraint */}
-            <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="grid grid-cols-3 gap-1.5 mb-3">
               <EvmCard label="PV" sublabel="Planned" value={formatCurrencyCompact(pv)} icon={Target} />
               <EvmCard label="EV" sublabel="Earned" value={formatCurrencyCompact(ev)} icon={TrendingUp} tone="go" />
               <EvmCard label="AC" sublabel="Actual" value={formatCurrencyCompact(ac)} icon={DollarSign} tone="signal" />

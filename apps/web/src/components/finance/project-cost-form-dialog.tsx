@@ -17,11 +17,12 @@ import type { GlPreviewLine } from "@nirman/services/gl-preview";
 import type { ProjectOption, ProjectCostRow } from "@/lib/types";
 import { required, positiveNumber } from "@/lib/validate";
 import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
+import { localDateISO } from "@/lib/utils";
 
 const COST_TYPES = ["LABOUR", "OVERHEAD", "EQUIPMENT", "CONTRACTOR", "PERMIT", "TRANSFER_DUTY", "OTHER"] as const;
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateISO();
 }
 
 export function ProjectCostFormDialog({

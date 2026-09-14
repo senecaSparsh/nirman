@@ -27,6 +27,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useRecentItems } from "@/lib/use-recent-items";
+import { useFetch } from "@/lib/use-fetch";
 import { formatDate, formatCurrencyCompact } from "@/lib/utils";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { useMounted } from "@/lib/use-mounted";
@@ -98,42 +99,20 @@ type BriefingData = {
 
 export function HomeTree({ userName }: { userName: string | null }) {
   const { items: recentItems } = useRecentItems();
-  const [briefing, setBriefing] = React.useState<BriefingData | null>(null);
-  const [loading, setLoading] = React.useState(true);
   const mounted = useMounted();
+  const { data: briefing, loading, error, isValidating, retry } = useFetch<BriefingData>("/api/briefing");
   const [refreshing, setRefreshing] = React.useState(false);
-  const [error, setError] = React.useState(false);
 
-  const fetchBriefing = React.useCallback(async (isRefresh = false) => {
+  // useFetch already retries network errors with backoff — no custom
+  // retry timer needed (replaces the old 2s auto-retry effect).
+  const fetchBriefing = React.useCallback((isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(false);
-    try {
-      const res = await fetch("/api/briefing", { cache: "no-store" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      setBriefing(json);
-    } catch (e) {
-      console.error("[HomeTree] briefing fetch failed:", e);
-      setError(true);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  // Auto-retry once after 2s if the first fetch fails (Brave shields can
-  // block the initial request before the page fully loads)
-  React.useEffect(() => {
-    fetchBriefing();
-  }, [fetchBriefing]);
+    retry();
+  }, [retry]);
 
   React.useEffect(() => {
-    if (error && !loading) {
-      const t = setTimeout(() => fetchBriefing(true), 2000);
-      return () => clearTimeout(t);
-    }
-  }, [error, loading, fetchBriefing]);
+    if (!isValidating) setRefreshing(false);
+  }, [isValidating]);
 
   // Greeting
   const now = useHydratedDate();
@@ -165,7 +144,7 @@ export function HomeTree({ userName }: { userName: string | null }) {
     if (briefing.lowStock.length > 0) {
       briefingChildren.push({
         icon: PackageX,
-        iconBg: "#d97706",
+        iconBg: "var(--color-signal-dark)",
         name: "Low stock",
         sub: briefing.lowStock[0]?.materialName,
         href: "/m/inventory",
@@ -175,7 +154,7 @@ export function HomeTree({ userName }: { userName: string | null }) {
     if (briefing.deliveriesToday.length > 0) {
       briefingChildren.push({
         icon: Truck,
-        iconBg: "#2d5a8c",
+        iconBg: "var(--color-steel)",
         name: "Deliveries today",
         sub: briefing.deliveriesToday[0]?.poNumber,
         href: "/m/procurement",
@@ -185,7 +164,7 @@ export function HomeTree({ userName }: { userName: string | null }) {
     if (briefing.paymentsDue.length > 0) {
       briefingChildren.push({
         icon: CalendarClock,
-        iconBg: "#b91c1c",
+        iconBg: "var(--color-stop)",
         name: "Payments overdue",
         sub: formatCurrencyCompact(briefing.paymentsDue[0]?.amount ?? 0),
         href: "/m/accounts?tab=payments",
@@ -235,10 +214,10 @@ export function HomeTree({ userName }: { userName: string | null }) {
             </p>
           </div>
         ) : (
-          <div
-            className="grid gap-2"
-            style={{ gridTemplateColumns: (loading || hasBriefing || error) && hasRecent ? "1fr 1fr" : "1fr" }}
-          >
+          <div className="flex flex-col">
+            {/* Briefing and Recent stack full-width — at 390px a side-by-side
+                split halves every row's label room and reads as two cramped
+                columns instead of one calm tree. */}
             {/* ── Briefing folder ── */}
             {loading ? (
               <div className="flex items-center justify-center py-3">
@@ -282,6 +261,13 @@ export function HomeTree({ userName }: { userName: string | null }) {
 
             {/* ── Recent folder ── */}
             {hasRecent ? (
+              <>
+              {(loading || hasBriefing || error) && (
+                <div
+                  className="mx-2 my-0.5"
+                  style={{ borderTop: "1px solid var(--color-line)" }}
+                />
+              )}
               <TreeFolder
                 name="Recent"
                 icon={<Clock className="size-2.5" style={{ color: "var(--color-ink-700)" }} />}
@@ -305,6 +291,7 @@ export function HomeTree({ userName }: { userName: string | null }) {
                   );
                 })}
               </TreeFolder>
+              </>
             ) : null}
           </div>
         )}

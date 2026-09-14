@@ -220,6 +220,7 @@ input[type="number"] {
   /* ── Go / Stop — state colours ─────────────────────────────────── */
   --color-go: #1f7a4c;
   --color-go-wash: #e8f4ed;
+  --color-go-active: #16653c; /* pressed border on go-filled controls */
   --color-stop: #c1341a;
   --color-stop-wash: #fdecea;
   --color-stop-active: #a52b15;
@@ -356,6 +357,7 @@ input[type="number"] {
 
   --color-go: #4cae7a; /* lifted green                       */
   --color-go-wash: #122018;
+  --color-go-active: #2e7a55;
   --color-stop: #e85a3f; /* lifted red                         */
   --color-stop-wash: #2a1410;
   --color-stop-active: #c1341a;
@@ -1136,6 +1138,23 @@ input[type="number"] {
     #000 calc(100% - 0.5rem),
     transparent 100%
   );
+}
+
+/* ── Orbit node — spring-pop entrance for the navigator's ring nodes.
+   Scale+fade on an inner wrapper only; the positioning transform on the
+   outer button (translate(-50%,-50%) anchor) must never be animated. ── */
+@utility orbit-node-in {
+  animation: orbit-node-in 260ms var(--ease-out) both;
+}
+@keyframes orbit-node-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* ── Hide scrollbar on horizontal chip rows. ── */

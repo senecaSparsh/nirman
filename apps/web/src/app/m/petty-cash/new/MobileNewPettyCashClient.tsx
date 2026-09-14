@@ -114,11 +114,11 @@ export function MobileNewPettyCashClient({
         </div>
         <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>Float Created</p>
         <p className="text-m-caption font-mono mb-4" style={{ color: "var(--color-ink-700)" }}>{success.name}</p>
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          <button onClick={() => { if (onCreated) onCreated(); else { router.push("/m/petty-cash"); router.refresh(); } }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+        <div className="flex gap-3 w-full max-w-xs">
+          <button onClick={() => { if (onCreated) onCreated(); else { router.push("/m/petty-cash"); router.refresh(); } }} className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
             <Eye className="size-4 inline mr-1" /> View Petty Cash
           </button>
-          <button onClick={() => { setSuccess(null); setName(""); setFloatAmount(""); setProjectId(""); setCustodianId(""); setExtraProjects([]); setExtraEmployees([]); router.refresh(); }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
+          <button onClick={() => { setSuccess(null); setName(""); setFloatAmount(""); setProjectId(""); setCustodianId(""); setExtraProjects([]); setExtraEmployees([]); router.refresh(); }} className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
             <Plus className="size-4 inline mr-1" /> Create Another
           </button>
         </div>
@@ -131,41 +131,47 @@ export function MobileNewPettyCashClient({
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {/* ══════ SECTION: FLOAT DETAILS ══════ */}
         <SectionCard title="Float Details">
-          <UnderlineInput
-            label="Float Name"
-            required
-            value={nameTouched ? name : effectiveName}
-            onChange={(v) => { setName(v); setNameTouched(true); }}
-            placeholder={effectiveName || "e.g. Site cash — Tower A"}
-            autoFocus
-          />
-
-          <UnderlineInput
-            label="Float Amount (₹)"
-            required
-            type="number"
-            inputMode="decimal"
-            value={floatAmount}
-            onChange={setFloatAmount}
-            placeholder="0"
-            mono
-          />
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <UnderlineInput
+              label="Float Name"
+              required
+              value={nameTouched ? name : effectiveName}
+              onChange={(v) => { setName(v); setNameTouched(true); }}
+              placeholder={effectiveName || "e.g. Site cash — Tower A"}
+              autoFocus
+            />
+            <div className="pl-2">
+              <UnderlineInput
+                label="Float Amount (₹)"
+                required
+                type="number"
+                inputMode="decimal"
+                value={floatAmount}
+                onChange={setFloatAmount}
+                placeholder="0"
+                mono
+              />
+            </div>
+          </div>
         </SectionCard>
 
         {/* ══════ SECTION: LINKAGES (optional) ══════ */}
         <SectionCard title="Linkages (optional)">
-          <SelectorCardInline
-            label="Project"
-            value={selectedProject?.name}
-            onClick={() => setModal("project")}
-          />
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <SelectorCardInline
+              label="Project"
+              value={selectedProject?.name}
+              onClick={() => setModal("project")}
+            />
+            <div className="pl-2">
+              <SelectorCardInline
+                label="Custodian"
+                value={selectedCustodian?.name}
+                onClick={() => setModal("custodian")}
+              />
+            </div>
+          </div>
           {selectedProject && <SmartDefaultsBadge />}
-
-          <SelectorCardInline
-            label="Custodian"
-            value={selectedCustodian?.name}
-            onClick={() => setModal("custodian")}
-          />
         </SectionCard>
       </form>
 

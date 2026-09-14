@@ -147,32 +147,30 @@ export function MobileFinanceList({
 
       {/* Tab switcher */}
       <div
-        className="flex items-center gap-1 p-0.5 rounded-[0.5rem] mb-2"
-        style={{ backgroundColor: "var(--color-concrete)" }}
+        className="flex items-center gap-1 p-1 rounded-[0.625rem] border mb-2"
+        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
       >
         <button
           onClick={() => { haptic(5); setTab("expenses"); }}
-          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[0.375rem] text-m-label font-bold transition-colors text-m-body press"
+          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[0.5rem] text-m-body font-bold transition-colors press"
           style={{
-            backgroundColor: tab === "expenses" ? "var(--color-paper)" : "transparent",
-            color: tab === "expenses" ? "var(--color-ink-950)" : "var(--color-ink-500)",
-            boxShadow: tab === "expenses" ? "0 1px 2px rgba(0,0,0,0.08)" : "none",
+            backgroundColor: tab === "expenses" ? "var(--color-ink-950)" : "transparent",
+            color: tab === "expenses" ? "var(--color-paper)" : "var(--color-ink-500)",
           }}
         >
-          <Wallet className="size-3" />
+          <Wallet className="size-3.5" />
           Expenses
           <span className="text-m-caption tabular-nums opacity-70">{expenses.length + projectCosts.length}</span>
         </button>
         <button
           onClick={() => { haptic(5); setTab("invoices"); }}
-          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[0.375rem] text-m-label font-bold transition-colors text-m-body press"
+          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[0.5rem] text-m-body font-bold transition-colors press"
           style={{
-            backgroundColor: tab === "invoices" ? "var(--color-paper)" : "transparent",
-            color: tab === "invoices" ? "var(--color-ink-950)" : "var(--color-ink-500)",
-            boxShadow: tab === "invoices" ? "0 1px 2px rgba(0,0,0,0.08)" : "none",
+            backgroundColor: tab === "invoices" ? "var(--color-ink-950)" : "transparent",
+            color: tab === "invoices" ? "var(--color-paper)" : "var(--color-ink-500)",
           }}
         >
-          <FileText className="size-3" />
+          <FileText className="size-3.5" />
           Invoices
           <span className="text-m-caption tabular-nums opacity-70">{supplierInvoices.length}</span>
         </button>

@@ -4,10 +4,11 @@
 #
 # Runs on every container start (including Coolify deploys / restarts):
 #   1. Prisma migrate deploy  — applies pending DB migrations (safe, ordered)
-#   2. Production seed         — idempotent: chart of accounts only (no mock data)
-#   3. SRG REALCON provisioning — idempotent: creates SRG REALCON company +
+#   2. SRG REALCON provisioning — idempotent: creates SRG REALCON company +
 #      7 team accounts on first run, silently skips on subsequent runs.
 #      This is the FIRST and ONLY data added to a clean production database.
+#   3. Production seed         — idempotent: chart of accounts for every
+#      company (runs AFTER provisioning so SRG REALCON gets its GL accounts)
 #   4. Start the app           — hands off to start-with-recovery.mjs which
 #                                wraps `next start` with auto-restart, health
 #                                checks, graceful shutdown, and memory monitoring.
@@ -59,16 +60,7 @@ if [ "$SEED_DEMO_DATA" = "true" ]; then
   echo ""
 fi
 
-# ── 3. Production seed (idempotent — safe on every deploy) ──────────────────
-# Seeds only the chart of accounts (structural data needed for GL posting).
-# Does NOT create any users, companies, or mock data.
-echo "── Running production seed (chart of accounts) ──"
-cd /app/apps/web
-node --import tsx scripts/seed-prod.ts
-echo "✓ Seed complete"
-echo ""
-
-# ── 4. SRG REALCON user provisioning (idempotent — runs once, then no-ops) ──
+# ── 3. SRG REALCON user provisioning (idempotent — runs once, then no-ops) ──
 # Creates the SRG REALCON parent company + 7 team member accounts with
 # RBAC roles, H1–H4 hierarchy, phone-based login, and call-system phone
 # numbers. On the first run it prints generated passwords to the deploy
@@ -76,10 +68,43 @@ echo ""
 # already exist and exits silently. Safe to run on every deploy.
 #
 # This is the FIRST and ONLY data added to a clean production database.
+#
+# ORDERING: this runs BEFORE seed:prod so the chart-of-accounts seed below
+# sees SRG REALCON and seeds its GL accounts. The inverse order would leave
+# the company without a chart of accounts — the first expense approval or
+# GL posting would fail with "Chart of accounts is not seeded".
 echo "── SRG REALCON user provisioning ──"
 cd /app/apps/web
-node scripts/create-srg-users.mjs || echo "  (SRG provisioning skipped or already done)"
-echo "✓ SRG provisioning check complete"
+if ! node scripts/create-srg-users.mjs; then
+  # Non-fatal by design: this runs on EVERY container start, and a transient
+  # failure (e.g. DB connection blip during a restart) must not take the
+  # whole app down — existing users can still sign in. But a real failure on
+  # first deploy means missing accounts, so say so loudly instead of
+  # claiming "skipped or already done".
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════╗"
+  echo "║  ⚠  SRG PROVISIONING FAILED — the app will still start,     ║"
+  echo "║     but some team accounts may be missing.                  ║"
+  echo "║                                                             ║"
+  echo "║  Fix: re-run manually once the DB is healthy —              ║"
+  echo "║     cd /app/apps/web && node scripts/create-srg-users.mjs   ║"
+  echo "║  The script is idempotent — re-running only creates what    ║"
+  echo "║  is missing; it never resets existing passwords.            ║"
+  echo "╚══════════════════════════════════════════════════════════════╝"
+  echo ""
+else
+  echo "✓ SRG provisioning check complete"
+fi
+echo ""
+
+# ── 4. Production seed (idempotent — safe on every deploy) ──────────────────
+# Seeds only the chart of accounts (structural data needed for GL posting)
+# for EVERY company in the database — including SRG REALCON created above.
+# Does NOT create any users, companies, or mock data.
+echo "── Running production seed (chart of accounts) ──"
+cd /app/apps/web
+node --import tsx scripts/seed-prod.ts
+echo "✓ Seed complete"
 echo ""
 
 # ── 5. Start the production server with auto-recovery ───────────────────────

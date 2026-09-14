@@ -8,7 +8,7 @@ import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { autoSyncEntryToTally } from "./auto-sync";
 import { assertGatePassApproved, autoCreateGatePassFromRef } from "./gate-pass";
-import { nextSequenceNumber } from "./sequence";
+import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 
 /**
  * Material Sale Service — sell raw materials / stock items to customers.
@@ -87,10 +87,10 @@ export function computeMaterialSaleTotals(
   return { subtotal, gstTotal, totalCost, scrapSubtotal, totalAmount, grossProfit };
 }
 
-async function generateMaterialSaleNumber(tx: Prisma.TransactionClient): Promise<string> {
+async function generateMaterialSaleNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `MS-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `MS-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
@@ -235,7 +235,7 @@ export async function createMaterialSale(input: CreateMaterialSaleInput) {
     // Create the material sale
     const sale = await tx.materialSale.create({
       data: {
-        saleNumber: await generateMaterialSaleNumber(tx),
+        saleNumber: await generateMaterialSaleNumber(tx, input.companyId),
         customerId: input.customerId,
         companyId: input.companyId,
         projectId: input.projectId ?? null,
@@ -425,7 +425,7 @@ export async function createMaterialSaleRequest(input: CreateMaterialSaleInput) 
 
     const sale = await tx.materialSale.create({
       data: {
-        saleNumber: await generateMaterialSaleNumber(tx),
+        saleNumber: await generateMaterialSaleNumber(tx, input.companyId),
         customerId: input.customerId,
         companyId: input.companyId,
         projectId: input.projectId ?? null,
@@ -690,10 +690,10 @@ export async function cancelMaterialSale(id: string, companyId: string, userId?:
 //  reverseJournalEntry, and a credit note number is recorded.
 // ───────────────────────────────────────────────────────────────
 
-async function generateCreditNoteNumber(tx: Prisma.TransactionClient): Promise<string> {
+async function generateCreditNoteNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `CN-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `CN-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
@@ -772,7 +772,7 @@ export async function createMaterialSaleReturn(
     const gstTotal = returnLines.reduce((sum, l) => sum.plus(l.gstAmount), new Decimal(0));
     const totalAmount = subtotal.plus(gstTotal);
 
-    const returnNumber = await generateCreditNoteNumber(tx);
+    const returnNumber = await generateCreditNoteNumber(tx, input.companyId);
 
     // Create the return record
     const saleReturn = await tx.materialSaleReturn.create({

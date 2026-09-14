@@ -100,18 +100,22 @@ export function MobileNewSubcontractorDialog({
               required
               autoFocus
             />
-            <UnderlineInput
-              label="Trade"
-              value={trade}
-              onChange={setTrade}
-              placeholder="e.g. Plumbing, Electrical, Masonry"
-            />
-            <UnderlineInput
-              label="GSTIN"
-              value={gstin}
-              onChange={(v) => setGstin(v.toUpperCase())}
-              placeholder="22AAAAA0000A1Z5"
-            />
+            <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+              <UnderlineInput
+                label="Trade"
+                value={trade}
+                onChange={setTrade}
+                placeholder="Plumbing, Masonry…"
+              />
+              <div className="pl-2">
+                <UnderlineInput
+                  label="GSTIN"
+                  value={gstin}
+                  onChange={(v) => setGstin(v.toUpperCase())}
+                  placeholder="22AAAAA0000A1Z5"
+                />
+              </div>
+            </div>
           </SectionCard>
 
           {/* Contact & Address */}

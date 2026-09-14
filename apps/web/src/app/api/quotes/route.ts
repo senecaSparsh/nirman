@@ -21,7 +21,14 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const company = await getCompany();
   // Verify the requisition belongs to the current company
   const requisition = await prisma.materialRequisition.findFirst({
-    where: { id: requisitionId, project: { companyId: company.id }, ...await scopeWhere("MaterialRequisition", {}) },
+    where: {
+      id: requisitionId,
+      OR: [
+        { project: { companyId: company.id, deletedAt: null } },
+        { department: { companyId: company.id, deletedAt: null } },
+      ],
+      ...await scopeWhere("MaterialRequisition", {}),
+    },
     select: { id: true },
   });
   if (!requisition) return json({ error: "Indent not found" }, { status: 404 });
@@ -38,6 +45,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
       fileUrl: q.fileUrl,
       fileName: q.fileName,
       mimeType: q.mimeType,
+      quoteSource: q.quoteSource,
+      sourceNote: q.sourceNote,
       landedTotal: toNum(q.landedTotal),
       validUntil: q.validUntil?.toISOString() ?? null,
       isCheapest: q.isCheapest,
@@ -90,6 +99,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     selectedQuoteId: statement.selectedQuoteId,
     nonRejectedCount: statement.nonRejectedCount,
     gateSatisfied: statement.gateSatisfied,
+    lastRateByMaterial: statement.lastRateByMaterial ?? {},
   });
 });
 
@@ -110,14 +120,19 @@ const quoteLineSchema = z.object({
 const createQuoteSchema = z.object({
   requisitionId: z.string().min(1, "Indent is required"),
   supplierId: z.string().min(1, "Supplier is required"),
-  fileUrl: z.string().min(1, "Quote file is required"),
-  fileName: z.string().min(1),
-  mimeType: z.string().min(1),
+  fileUrl: z.string().optional().nullable(),
+  fileName: z.string().optional().nullable(),
+  mimeType: z.string().optional().nullable(),
+  quoteSource: z.enum(["DOCUMENT", "EMAIL", "VERBAL", "WHATSAPP", "LETTER", "EXCEL"]).optional(),
+  sourceNote: z.string().optional().nullable(),
   landedTotal: z.coerce.number().nonnegative().optional(),
   validUntil: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   deliveryTermsType: z.enum(["DELIVERED_SITE", "EX_WORKS", "FOR_STATION", "CUSTOM"]).optional(),
   deliveryTerms: z.string().optional().nullable(),
+  paymentTerms: z.string().optional().nullable(),
+  leadTimeDays: z.coerce.number().int().nonnegative().optional().nullable(),
+  warranty: z.string().optional().nullable(),
   lines: z.array(quoteLineSchema).min(1, "At least one line is required"),
 });
 
@@ -136,7 +151,14 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // Verify the requisition belongs to the current company
   const company = await getCompany();
   const reqExists = await prisma.materialRequisition.findFirst({
-    where: { id: parsed.data.requisitionId, project: { companyId: company.id }, ...await scopeWhere("MaterialRequisition", {}) },
+    where: {
+      id: parsed.data.requisitionId,
+      OR: [
+        { project: { companyId: company.id, deletedAt: null } },
+        { department: { companyId: company.id, deletedAt: null } },
+      ],
+      ...await scopeWhere("MaterialRequisition", {}),
+    },
     select: { id: true },
   });
   if (!reqExists) return json({ error: "Indent not found" }, { status: 404 });
@@ -144,15 +166,20 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const quote = await createVendorQuote({
     requisitionId: parsed.data.requisitionId,
     supplierId: parsed.data.supplierId,
-    fileUrl: parsed.data.fileUrl,
-    fileName: parsed.data.fileName,
-    mimeType: parsed.data.mimeType,
+    fileUrl: parsed.data.fileUrl ?? undefined,
+    fileName: parsed.data.fileName ?? undefined,
+    mimeType: parsed.data.mimeType ?? undefined,
+    quoteSource: parsed.data.quoteSource,
+    sourceNote: parsed.data.sourceNote ?? undefined,
     landedTotal: parsed.data.landedTotal,
     validUntil: parsed.data.validUntil ? new Date(parsed.data.validUntil) : undefined,
     notes: parsed.data.notes ?? undefined,
     submittedById: user.id,
     deliveryTermsType: parsed.data.deliveryTermsType,
     deliveryTerms: parsed.data.deliveryTerms ?? undefined,
+    paymentTerms: parsed.data.paymentTerms ?? undefined,
+    leadTimeDays: parsed.data.leadTimeDays ?? null,
+    warranty: parsed.data.warranty ?? undefined,
     lines: parsed.data.lines.map((l) => ({
       materialId: l.materialId,
       qty: l.qty,

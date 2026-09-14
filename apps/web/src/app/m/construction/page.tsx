@@ -100,8 +100,6 @@ export default function MobileConstructionHubPage({
 /** Work Orders tab — mirrors /m/work-orders */
 async function ConstructionWorkOrdersTab() {
   const company = await getCompany();
-  const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.ASSETS_MANAGE);
   // Scope-aware action permissions (for FAB gating)
   const actions = await getActionPermissions();
 
@@ -257,13 +255,6 @@ async function ConstructionChangeOrdersTab() {
         ] as MobileColumnSpec[]}
         exportSummary={`${serialized.length} change orders`}
       />
-      {changeOrders.length === 0 && (
-        <MobileEmptyState
-          icon={GitBranch}
-          title="No change orders"
-          hint={(actions?.canCreateChangeOrder ?? canManage) ? (projects.length === 0 ? "Create a project first, then track scope changes here" : "Tap + to create a change order for a project") : "Change orders will appear here"}
-        />
-      )}
       {(actions?.canCreateChangeOrder ?? canManage) && projects.length > 0 && <MobileChangeOrdersFab projects={projects} />}
     </div>
   );
@@ -513,7 +504,7 @@ function BoqRowCard({ row }: { row: BoqRow }) {
       className="rounded-[0.5rem] border p-2.5"
       style={{
         marginLeft: indent,
-        borderColor: "var(--color-paper-3)",
+        borderColor: "var(--color-line)",
         backgroundColor: isLineItem ? "var(--color-paper)" : "color-mix(in srgb, var(--color-brand) 4%, var(--color-paper))",
       }}
     >
@@ -535,7 +526,7 @@ function BoqRowCard({ row }: { row: BoqRow }) {
           {row.estimatedQty != null && <span>Qty: {formatNumber(row.estimatedQty, 2)} {row.unit ?? ""}</span>}
           {row.rate != null && <span>Rate: {formatCurrencyCompact(row.rate)}</span>}
           {row.estimatedAmount != null && (
-            <span className="font-semibold" style={{ color: "var(--color-ink-800)" }}>
+            <span className="font-semibold" style={{ color: "var(--color-ink-700)" }}>
               Amt: {formatCurrencyCompact(row.estimatedAmount)}
             </span>
           )}
@@ -597,7 +588,7 @@ async function ConstructionBoqTab({ projectId }: { projectId?: string }) {
   return (
     <div>
       <MobileBoqProjectSelector projects={projects} selectedId={projectId} canCreate={canCreateProject} />
-      <div className="grid grid-cols-2 gap-1.5 mb-4">
+      <div className="grid grid-cols-2 gap-2 mb-4">
         <MobileStatCard label="Line Items" value={formatNumber(lineItemCount, 0)} hint="billable lines" icon={Package} />
         <MobileStatCard label="Est. Amount" value={formatCurrencyCompact(totalAmount)} hint="total budget" icon={FileText} tone="signal" />
       </div>
@@ -669,7 +660,7 @@ async function ConstructionWbsTab({ projectId }: { projectId?: string }) {
       <div key={node.id}>
         <div
           className="rounded-[0.5rem] border p-2.5 mb-1"
-          style={{ marginLeft: indent, borderColor: "var(--color-paper-3)", backgroundColor: "var(--color-paper)" }}
+          style={{ marginLeft: indent, borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <div className="flex items-center gap-1.5 mb-0.5">
             <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-ink-400)" }}>{node.code}</span>
@@ -694,7 +685,7 @@ async function ConstructionWbsTab({ projectId }: { projectId?: string }) {
   return (
     <div>
       <MobileWbsProjectSelector projects={projects} selectedId={projectId} />
-      <div className="grid grid-cols-2 gap-1.5 mb-4">
+      <div className="grid grid-cols-2 gap-2 mb-4">
         <MobileStatCard label="Nodes" value={formatNumber(nodes.length, 0)} icon={ListTree} />
         <MobileStatCard label="Linked BOQ" value={formatNumber(nodes.filter((n) => n.boqItemId).length, 0)} icon={Package} tone="go" />
       </div>
@@ -796,7 +787,7 @@ async function ConstructionMbTab({ projectId }: { projectId?: string }) {
       ) : (
         <div className="flex flex-col gap-1.5">
           {serialized.map((e) => (
-            <div key={e.id} className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-paper-3)", backgroundColor: "var(--color-paper)" }}>
+            <div key={e.id} className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 mb-0.5">

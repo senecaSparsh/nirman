@@ -806,7 +806,7 @@ function MobileLegalDocForm({
           <div>
             <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Proof Document</label>
             {form.documentUrl ? (
-              <div className="flex items-center justify-between gap-2 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-surface)" }}>
+              <div className="flex items-center justify-between gap-2 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}>
                 <a href={form.documentUrl} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-2 text-m-section" style={{ color: "var(--color-ink-900)" }}>
                   <FileText className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
                   <span className="truncate">{form.documentName ?? "View"}</span>

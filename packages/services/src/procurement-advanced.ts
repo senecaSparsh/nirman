@@ -3,7 +3,7 @@ import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
-import { nextSequenceNumber } from "./sequence";
+import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 
 /**
  * Advanced Procurement Service.
@@ -182,10 +182,10 @@ export async function getVendorRankings(companyId: string): Promise<VendorRating
 
 // ── 2. Rate Contract / Framework Agreement ─────────────────
 
-async function generateContractNumber(tx: Prisma.TransactionClient): Promise<string> {
+async function generateContractNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-  const prefix = `RC-${ymd}-`;
+  const prefix = await companyScopedPrefix(tx, companyId, `RC-${ymd}-`);
   return nextSequenceNumber(tx, prefix, 4);
 }
 
@@ -221,7 +221,7 @@ export async function createRateContract(input: CreateRateContractInput) {
     const rate = new Decimal(input.agreedRate);
     if (!rate.gt(0)) throw new ServiceError("Agreed rate must be > 0", 400);
 
-    const contractNumber = await generateContractNumber(tx);
+    const contractNumber = await generateContractNumber(tx, input.companyId);
 
     const contract = await tx.rateContract.create({
       data: {

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, Suspense } from "react";
+import { useUrlFilter } from "@/lib/use-url-filter";
+import { PERM } from "@/lib/roles";
 import { useRouter } from "next/navigation";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { CheckCircle2, ShoppingCart, Send, Check, X, Eye, Copy, Share2 } from "lucide-react";
@@ -69,10 +71,34 @@ const STATUS_STYLE: Record<string, { color: string; label: string }> = {
   CONVERTED: { color: "var(--color-go)", label: "Converted" },
 };
 
-export function MobileRequisitionsList({
+export function MobileRequisitionsList(props: {
+  items: RequisitionListItem[];
+  canCreate?: boolean;
+  canApprove?: boolean;
+  /** Tier-1 viewers may approve their own items. */
+  canSelfApprove?: boolean;
+  currentUserId?: string | null;
+  submittedCount?: number;
+  loadMoreUrl?: string;
+  nextCursor?: string | null;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
+  exportSummary?: string;
+}) {
+  // Suspense — useUrlFilter/useSearchParams requires it
+  return (
+    <Suspense fallback={null}>
+      <MobileRequisitionsListInner {...props} />
+    </Suspense>
+  );
+}
+
+function MobileRequisitionsListInner({
   items: initialItems,
   canCreate,
   canApprove,
+  canSelfApprove,
   currentUserId,
   submittedCount = 0,
   loadMoreUrl,
@@ -85,6 +111,8 @@ export function MobileRequisitionsList({
   items: RequisitionListItem[];
   canCreate?: boolean;
   canApprove?: boolean;
+  /** Tier-1 viewers may approve their own items. */
+  canSelfApprove?: boolean;
   currentUserId?: string | null;
   submittedCount?: number;
   loadMoreUrl?: string;
@@ -95,7 +123,7 @@ export function MobileRequisitionsList({
   exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<ReqStatus>("ALL");
+  const [statusFilter, setStatusFilter] = useUrlFilter<ReqStatus>("status", "ALL");
   const router = useRouter();
 
   const { items, loading, hasMore, loadMore } = usePaginatedList<RequisitionListItem>(
@@ -185,7 +213,7 @@ export function MobileRequisitionsList({
       <NextActionCard
         flow="requisition"
         count={submittedCount}
-        can={(perm) => perm === "REQUISITION_APPROVE" ? !!canApprove : false}
+        can={(perm) => perm === PERM.REQUISITION_APPROVE ? !!canApprove : false}
       />
 
       {/* ── Results ── */}
@@ -209,7 +237,7 @@ export function MobileRequisitionsList({
           )}
           <MobileCardGrid cols={2}>
             {filtered.map((r) => (
-              <ReqCard key={r.id} req={r} canApprove={canApprove} currentUserId={currentUserId} onAction={() => router.refresh()} />
+              <ReqCard key={r.id} req={r} canApprove={canApprove} currentUserId={currentUserId} canSelfApprove={canSelfApprove} onAction={() => router.refresh()} />
             ))}
           </MobileCardGrid>
           {loadMoreUrl ? (
@@ -230,7 +258,7 @@ export function MobileRequisitionsList({
    REQ CARD — distinct from PO cards. Left accent bar, requester-focused,
    needed-by badge, approval workflow context.
    ═══════════════════════════════════════════════════════════════════════════ */
-function ReqCard({ req, canApprove, currentUserId, onAction }: { req: RequisitionListItem; canApprove?: boolean; currentUserId?: string | null; onAction?: () => void }) {
+function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: { req: RequisitionListItem; canApprove?: boolean; currentUserId?: string | null; canSelfApprove?: boolean; onAction?: () => void }) {
   const router = useRouter();
   const now = useHydratedDate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -294,7 +322,8 @@ function ReqCard({ req, canApprove, currentUserId, onAction }: { req: Requisitio
 
   // ── Permission + creator gate: only show approve/reject to users who
   //    have REQUISITION_APPROVE AND did not create this indent themselves.
-  const canActOn = canApprove && req.requestedById !== currentUserId;
+  // Tier-1 approvers (OWNER/ADMIN) may approve their own indent.
+  const canActOn = canApprove && (req.requestedById !== currentUserId || canSelfApprove);
 
   // Swipe actions based on status
   const swipeActions =

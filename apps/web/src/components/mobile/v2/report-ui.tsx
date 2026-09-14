@@ -159,7 +159,7 @@ export function MobileBarChart({
               style={{ backgroundColor: "var(--color-concrete)" }}
             >
               <div
-                className="h-full rounded-full transition-all"
+                className="h-full rounded-full transition-[width]"
                 style={{
                   width: `${pct}%`,
                   backgroundColor: toneColor[d.tone ?? "default"],

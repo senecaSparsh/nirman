@@ -47,6 +47,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
 
   const [
     lowStockItems,
+    stockByMaterial,
     draftPOs,
     pendingRequisitions,
     overduePOs,
@@ -58,9 +59,16 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     poTrendOrders,
   ] = await Promise.all([
     prisma.material.findMany({
-      take: 1000,
       where: { companyId: company.id, deletedAt: null, minStock: { not: null } },
-      select: { id: true, minStock: true, stockItems: { where: { location: { deletedAt: null, companyId: company.id } }, select: { qty: true } } },
+      select: { id: true, minStock: true },
+    }),
+    // DB-side per-material stock totals — replaces hydrating every
+    // StockLocationItem per material just to compute two counts, and
+    // removes the old take:1000 silent truncation.
+    prisma.stockLocationItem.groupBy({
+      by: ["materialId"],
+      where: { location: { deletedAt: null, companyId: company.id } },
+      _sum: { qty: true },
     }),
     prisma.purchaseOrder.count({ where: { companyId: company.id, status: "DRAFT", ...poScope } }),
     prisma.materialRequisition.count({ where: { project: { companyId: company.id }, status: "SUBMITTED", ...reqScope } }),
@@ -83,8 +91,11 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   ]);
 
   // ── Low stock computation ──
+  const qtyByMaterial = new Map(
+    stockByMaterial.map((s) => [s.materialId, toNum(s._sum.qty ?? 0)]),
+  );
   const lowStockFull = lowStockItems.map((m) => {
-    const totalQty = m.stockItems.reduce((s, i) => s + toNum(i.qty), 0);
+    const totalQty = qtyByMaterial.get(m.id) ?? 0;
     return { totalQty, minStock: toNum(m.minStock) };
   });
   const lowStockCount = lowStockFull.filter((m) => m.totalQty < m.minStock).length;
@@ -154,4 +165,9 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       pendingActions,
     },
   });
+}, {
+  // Polled every 30s by every open dashboard — serve repeat hits from
+  // memory for 15s (halves DB load; staleness is bounded by the poll
+  // interval anyway). Keyed per user+company by buildCacheKey.
+  cache: { tag: "dashboard", ttlMs: 15_000 },
 });

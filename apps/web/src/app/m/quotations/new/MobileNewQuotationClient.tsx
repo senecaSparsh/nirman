@@ -193,11 +193,11 @@ export function MobileNewQuotationClient({
         </div>
         <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>Quotation Request Created</p>
         <p className="text-m-caption font-mono mb-4" style={{ color: "var(--color-ink-700)" }}>{success.requestNumber}</p>
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          <button onClick={() => { if (onCreated) onCreated(success.id); else { router.push(`/m/quotations/${success.id}`); router.refresh(); } }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+        <div className="flex gap-3 w-full max-w-xs">
+          <button onClick={() => { if (onCreated) onCreated(success.id); else { router.push(`/m/quotations/${success.id}`); router.refresh(); } }} className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
             <Eye className="size-4 inline mr-1" /> View Request
           </button>
-          <button onClick={() => { setSuccess(null); setTitle(""); setProjectId(""); setNotes(""); setRequiredByDate(""); setWorkActivity(""); setDestinationLocationId(""); setLines([]); setExtraMaterials([]); router.refresh(); }} className="rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
+          <button onClick={() => { setSuccess(null); setTitle(""); setProjectId(""); setNotes(""); setRequiredByDate(""); setWorkActivity(""); setDestinationLocationId(""); setLines([]); setExtraMaterials([]); router.refresh(); }} className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
             <Plus className="size-4 inline mr-1" /> Create Another
           </button>
         </div>
@@ -346,8 +346,8 @@ export function MobileNewQuotationClient({
                         {g.companyName}
                       </span>
                       {g.isParent ? <span className="text-m-caption px-1 rounded" style={{ backgroundColor: "var(--color-signal-wash)", color: "var(--color-signal-dark)" }}>PARENT</span> : null}
-                      {g.isCurrent ? <span className="text-m-caption px-1 rounded" style={{ backgroundColor: "var(--color-go-wash)", color: "var(--color-go-dark)" }}>CURRENT</span> : null}
-                      {g.isChild ? <span className="text-m-caption px-1 rounded" style={{ backgroundColor: "var(--color-steel-wash)", color: "var(--color-steel-dark)" }}>SUBSIDIARY</span> : null}
+                      {g.isCurrent ? <span className="text-m-caption px-1 rounded" style={{ backgroundColor: "var(--color-go-wash)", color: "var(--color-go)" }}>CURRENT</span> : null}
+                      {g.isChild ? <span className="text-m-caption px-1 rounded" style={{ backgroundColor: "var(--color-steel-wash)", color: "var(--color-steel)" }}>SUBSIDIARY</span> : null}
                     </div>
                     {g.locations.length === 0 ? (
                       <p className="text-m-caption italic pl-4" style={{ color: "var(--color-ink-500)" }}>No locations</p>

@@ -28,7 +28,7 @@ import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog"
 import { MobileSellerDialog } from "./MobileSellerDialog";
 import { MobileLegalDocsSection } from "@/components/legal/mobile-legal-docs-section";
 import type { LegalDocRow } from "@/components/legal/legal-docs-section";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { localDateISO, formatCurrency, formatNumber } from "@/lib/utils";
 
 type AreaUnit =
   | "SQFT"
@@ -690,11 +690,13 @@ export function MobileLandWizard({
                     value={land.sellerId}
                     onChange={(v) => {
                       const s = localSellers.find((x) => x.id === v);
+                      // A seller just created via the inline dialog is auto-selected
+                      // before setLocalSellers has flushed — keep the name it set.
                       setLand((f) => ({
                         ...f,
                         sellerId: v,
-                        sellerName: s?.name ?? "",
-                        sellerContact: s?.phone ?? "",
+                        sellerName: s?.name ?? f.sellerName,
+                        sellerContact: s?.phone ?? f.sellerContact,
                       }));
                     }}
                     options={localSellers.map((s) => ({
@@ -915,7 +917,7 @@ export function MobileLandWizard({
                       </button>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                  <div className="grid grid-cols-3 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
                     <div>
                       <label className={labelClass} style={labelStyle}>
                         Period (yrs)
@@ -1195,7 +1197,7 @@ export function MobileLandWizard({
                 </div>
 
                 {/* Additional acquisition costs */}
-                <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+                <div className="grid grid-cols-3 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
                     <label className={labelClass} style={labelStyle}>
                       Brokerage (₹)
@@ -1281,7 +1283,7 @@ export function MobileLandWizard({
                     type="button"
                     className="flex items-center gap-1 text-m-caption font-medium"
                     style={{ color: "var(--color-brand)" }}
-                    onClick={() => setExtraCosts((c) => [...c, { label: "", amount: "", frequency: "ONE_TIME", interval: "YEARLY", startDate: new Date().toISOString().slice(0, 10), occurrences: "" }])}
+                    onClick={() => setExtraCosts((c) => [...c, { label: "", amount: "", frequency: "ONE_TIME", interval: "YEARLY", startDate: localDateISO(), occurrences: "" }])}
                   >
                     <Plus className="size-3" /> Add
                   </button>
@@ -1834,7 +1836,7 @@ export function MobileLandWizard({
                       <MobilePurposeBadge purpose={s.purpose} />
                     </div>
                     <div
-                      className="grid grid-cols-3 gap-1 text-m-caption"
+                      className="grid grid-cols-3 gap-1.5 text-m-caption"
                       style={{ color: "var(--color-ink-700)" }}
                     >
                       <div>
@@ -2116,7 +2118,7 @@ function MobileSectionEditor({
         <label className={labelClass} style={labelStyle}>
           Purpose
         </label>
-        <div className="grid grid-cols-3 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+        <div className="grid grid-cols-3 gap-1.5 divide-x" style={{ borderColor: "var(--color-line)" }}>
           {[
             { value: "SELL" as const, label: "Sell", icon: CircleDollarSign },
             { value: "PROJECT" as const, label: "Project", icon: Building2 },

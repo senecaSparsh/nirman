@@ -62,7 +62,7 @@ export default function MobileBoqPage({
         // Fetch the BOQ tree for the selected project.
         const actions = await getActionPermissions();
         const canCreateBoq = actions?.canCreateBoq ?? hasPermission(role, PERM.BOQ_MANAGE);
-        const [boqResult, materials, canManage] = await Promise.all([
+        const [boqResult, materials] = await Promise.all([
           getBoqTree(projectId),
           canCreateBoq
             ? prisma.material.findMany({
@@ -71,7 +71,6 @@ export default function MobileBoqPage({
                 select: { id: true, name: true, unit: true },
               })
             : [],
-          Promise.resolve(hasPermission(role, PERM.BOQ_MANAGE)),
         ]);
 
         const { tree, totalEstimatedAmount } = boqResult;
@@ -93,7 +92,7 @@ export default function MobileBoqPage({
             <MobileBoqProjectSelector projects={projects} selectedId={projectId ?? undefined} canCreate={canCreateProject} />
 
             {/* ── Summary stats ── */}
-            <div className="grid grid-cols-2 gap-1.5 mb-4">
+            <div className="grid grid-cols-2 gap-2 mb-4">
               <MobileStatCard
                 label="Line Items"
                 value={formatNumber(lineItemCount, 0)}

@@ -224,7 +224,7 @@ function RecentItemsCarousel({
               <div className="flex items-center gap-1 mb-1">
                 <div
                   className="flex items-center justify-center size-4 rounded-md shrink-0"
-                  style={{ backgroundColor: "var(--color-surface)" }}
+                  style={{ backgroundColor: "var(--color-concrete)" }}
                 >
                   <Icon className="size-2.5" style={{ color: "var(--color-ink-500)" }} />
                 </div>

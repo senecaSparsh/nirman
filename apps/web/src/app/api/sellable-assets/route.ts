@@ -25,6 +25,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         deletedAt: null,
         status: { in: ["PLANNED", "ACTIVE"] },
       },
+      take: 200,
       select: {
         id: true,
         name: true,
@@ -77,6 +78,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         landPurchase: { select: { sellerName: true } },
       },
       orderBy: { number: "asc" },
+      take: 500,
     });
     for (const p of parcels) {
       result.push({
@@ -107,6 +109,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         project: { select: { id: true, name: true, reraNumber: true } },
       },
       orderBy: { unitNumber: "asc" },
+      take: 500,
     });
     for (const u of units) {
       result.push({

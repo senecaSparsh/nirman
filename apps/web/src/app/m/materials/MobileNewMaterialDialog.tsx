@@ -239,7 +239,7 @@ export function MobileNewMaterialForm({
             {code === "AUTO" ? (
               <div className="flex items-center gap-1.5 rounded-[0.375rem] border px-2 h-7" style={{ borderColor: "var(--color-steel)", backgroundColor: "var(--color-steel-wash)" }}>
                 <Sparkles className="size-3 shrink-0" style={{ color: "var(--color-steel)" }} />
-                <span className="text-m-caption font-mono font-bold truncate" style={{ color: "var(--color-steel-dark)" }}>
+                <span className="text-m-caption font-mono font-bold truncate" style={{ color: "var(--color-steel)" }}>
                   {autoCode || "Auto"}
                 </span>
               </div>
