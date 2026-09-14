@@ -1,0 +1,53 @@
+# Uptime check — free external monitoring, no extra service needed.
+#
+# Pings the public /api/health endpoint every 15 minutes. If the site is
+# down or unhealthy, the workflow fails — and GitHub emails the repo
+# watchers about the failed run (no UptimeRobot/BetterStack signup needed).
+#
+# SETUP (one-time, 30 seconds):
+#   GitHub repo → Settings → Secrets and variables → Actions → Variables tab
+#   → New repository variable → Name: APP_URL, Value: https://your-domain.com
+#
+# If APP_URL is unset, the workflow skips silently (no false alarms).
+# Manual test: Actions → Uptime Check → Run workflow.
+#
+# Caveat: GitHub scheduled workflows can be delayed a few minutes under
+# load — this catches sustained downtime, not 30-second blips (the start
+# wrapper's internal health checks handle those anyway).
+
+name: Uptime Check
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: # manual "is it up?" button in the Actions tab
+
+jobs:
+  ping:
+    name: Ping /api/health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check health endpoint
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          if [ -z "$APP_URL" ]; then
+            echo "APP_URL variable not set — skipping. Set it in repo Settings → Variables."
+            exit 0
+          fi
+
+          echo "Checking $APP_URL/api/health ..."
+          # 3 attempts, 10s each, then fail — avoids false alarms on
+          # single-packet loss while still catching real downtime fast.
+          for i in 1 2 3; do
+            if response=$(curl -fsS -m 10 "$APP_URL/api/health" 2>&1); then
+              echo "Attempt $i OK: $response"
+              exit 0
+            fi
+            echo "Attempt $i failed: $response"
+            sleep 5
+          done
+
+          echo "::error::Health check failed 3x — $APP_URL/api/health is DOWN or unhealthy"
+          exit 1

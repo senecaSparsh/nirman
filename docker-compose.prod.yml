@@ -156,6 +156,43 @@ services:
       - ./apps/web/scripts/scheduler.sh:/scheduler.sh:ro
     command: ["sh", "/scheduler.sh"]
 
+  # ── Backup — self-contained data protection ────────────────────────────
+  # Daily pg_dump + uploads tarball to the pgbackups volume (14-day
+  # retention). Complements /api/cron/backup (which stores BackupRecord rows
+  # inside Postgres) — this produces real dump files that survive DB
+  # corruption. Set RCLONE_REMOTE + RCLONE_CONFIG_* env vars in Coolify to
+  # also sync off-VPS (Backblaze B2, S3, etc.) — off by default.
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - default
+    environment:
+      PGHOST: db
+      POSTGRES_DB: ${POSTGRES_DB:-nirman_inventory}
+      POSTGRES_USER: ${POSTGRES_USER:-nirman}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_please}
+      RETENTION_DAYS: ${RETENTION_DAYS:-14}
+      # Optional off-site sync — see apps/web/scripts/backup.sh header.
+      RCLONE_REMOTE: ${RCLONE_REMOTE:-}
+      # Pass through any RCLONE_CONFIG_* vars set in Coolify.
+      RCLONE_CONFIG_B2_TYPE: ${RCLONE_CONFIG_B2_TYPE:-}
+      RCLONE_CONFIG_B2_ACCOUNT: ${RCLONE_CONFIG_B2_ACCOUNT:-}
+      RCLONE_CONFIG_B2_KEY: ${RCLONE_CONFIG_B2_KEY:-}
+    volumes:
+      - ./apps/web/scripts/backup.sh:/backup.sh:ro
+      - pgbackups:/backups
+      - uploads:/uploads-src:ro
+    command: ["sh", "/backup.sh"]
+
 networks:
   # The `coolify` network is created by Coolify and shared with the Traefik
   # proxy container. The web service joins it so Traefik can route to it.
@@ -164,7 +201,10 @@ networks:
 
 volumes:
   pgdata:
-    # Postgres data — CRITICAL: back this up. Coolify supports scheduled
-    # volume backups, or run pg_dump via a cron container.
+    # Postgres data — CRITICAL: back this up. The `backup` service dumps it
+    # daily into pgbackups; also enable Coolify → db → Backups for off-VPS.
   uploads:
-    # User-uploaded files — back up alongside pgdata.
+    # User-uploaded files — archived daily by the `backup` service too.
+  pgbackups:
+    # pg_dump + uploads archives (14-day retention). Copy off-VPS via
+    # RCLONE_REMOTE env vars, Coolify volume backups, or VirtFusion snapshots.
