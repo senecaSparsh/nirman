@@ -25,6 +25,14 @@ export type QueueStatus = "PENDING" | "SYNCING" | "COMPLETED" | "FAILED";
 export interface QueuedOperation {
   /** Client-generated UUID — stable across retries. */
   id: string;
+  /**
+   * Company the op was queued under. Endpoints resolve the company from the
+   * session, so an op queued under company A must never sync while company B
+   * is active — it would silently land in the wrong tenant. The resolver is
+   * registered by the app/mobile shell; ops stamped before a resolver exists
+   * (companyId undefined) sync under whatever company is active (back-compat).
+   */
+  companyId?: string;
   /** Operation kind, maps to an API endpoint. */
   kind:
     | "goods-receipt"
@@ -107,6 +115,24 @@ async function tx<T>(
   });
 }
 
+// ── Active-company resolver ──────────────────────────────────────
+// Registered by the app/mobile shell (they know the session's active
+// company). Used to stamp new ops and to refuse syncing ops that belong
+// to a different tenant after a company switch.
+let activeCompanyResolver: (() => string | null) | null = null;
+
+export function setActiveCompanyResolver(fn: (() => string | null) | null) {
+  activeCompanyResolver = fn;
+}
+
+export function getActiveCompanyId(): string | null {
+  try {
+    return activeCompanyResolver?.() ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ── UUID (crypto.randomUUID with fallback) ──────────────────────
 
 export function newOpId(): string {
@@ -130,6 +156,7 @@ export async function enqueue(
 ): Promise<QueuedOperation> {
   const op: QueuedOperation = {
     id: newOpId(),
+    companyId: getActiveCompanyId() ?? undefined,
     kind,
     payload,
     status: "PENDING",
@@ -167,6 +194,15 @@ export async function clearCompleted(): Promise<void> {
     for (const op of completed) last = store.delete(op.id);
     return last;
   });
+}
+
+/**
+ * Wipe the entire queue — used on sign-out. Queued ops replay under
+ * whatever session is active at sync time, so leaving them would leak
+ * one user's pending work into the next sign-in on the same device.
+ */
+export async function clearAllOps(): Promise<void> {
+  await tx("readwrite", (store) => store.clear());
 }
 
 async function updateOp(op: QueuedOperation): Promise<void> {
@@ -211,6 +247,21 @@ export async function syncQueue(
     op.status = "SYNCING";
     op.attemptedAt = new Date().toISOString();
     op.attempts += 1;
+
+    // Tenant guard: the endpoint resolves company from the session. If the
+    // op was queued under a different company than the active one, posting
+    // it would write to the wrong tenant. Mark FAILED (retained for review)
+    // instead — the user can switch back to that company and retry.
+    const activeCompany = getActiveCompanyId();
+    if (op.companyId && activeCompany && op.companyId !== activeCompany) {
+      op.status = "FAILED";
+      op.error =
+        "Queued under a different company. Switch back to that company to sync this item.";
+      failed += 1;
+      await updateOp(op);
+      continue;
+    }
+
     await updateOp(op);
 
     const endpoint = ENDPOINTS[op.kind];

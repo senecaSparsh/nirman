@@ -109,6 +109,28 @@ async function deleteDraft(key: string): Promise<void> {
   }
 }
 
+/**
+ * Wipe ALL drafts — used on sign-out. Drafts are keyed by form, not user,
+ * so a different user signing in on the same device would see (and could
+ * submit) another user's half-finished forms.
+ */
+export async function clearAllDrafts(): Promise<void> {
+  try {
+    const db = await openDraftDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(DRAFTS_STORE, "readwrite");
+      tx.objectStore(DRAFTS_STORE).clear();
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // Silently fail — best-effort cleanup
+  }
+}
+
 // Check if a draft's data is effectively empty (all values are empty/falsy).
 // This cleans up stale drafts saved before the hasContent guards were added.
 function isDraftEmpty(data: unknown): boolean {

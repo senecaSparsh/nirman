@@ -16,11 +16,13 @@ import {
   MoreVertical,
   Search,
 } from "lucide-react";
-import { useSession, signOut as authSignOut } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth-client";
+import { signOutAndCleanup } from "@/lib/use-sign-out";
 import { mutate } from "swr";
 import { CommandPalette } from "@/components/command-palette";
 import { usePullToRefresh } from "@/components/mobile/use-pull-to-refresh";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
+import { setActiveCompanyResolver } from "@/lib/offline/queue";
 import { NavSheet } from "@/components/mobile/v2/nav-sheet";
 import { TabSwitcher } from "@/components/mobile/v2/tab-switcher";
 import { VoiceAgentButton } from "@/components/mobile/v2/voice-agent-button";
@@ -119,6 +121,13 @@ export function MobileShellV2({
         },
   );
   const [companies, setCompanies] = useState<CompanyOption[]>(initial?.company.companies ?? []);
+
+  // Tell the offline queue which company is active — ops are stamped with it
+  // at enqueue and refused on sync after a switch (prevents cross-tenant writes).
+  useEffect(() => {
+    setActiveCompanyResolver(() => companies.find((c) => c.isCurrent)?.id ?? null);
+    return () => setActiveCompanyResolver(null);
+  }, [companies]);
   const [companySwitcherOpen, setCompanySwitcherOpen] = useState(false);
   const [switchingCompanyId, setSwitchingCompanyId] = useState<string | null>(null);
   const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
@@ -128,8 +137,7 @@ export function MobileShellV2({
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_AUTH_BYPASS === "true") return;
     if (!sessionLoading && !session) {
-      authSignOut().catch(() => {});
-      router.replace("/sign-in");
+      void signOutAndCleanup();
     }
   }, [session, sessionLoading, router]);
 
@@ -147,10 +155,9 @@ export function MobileShellV2({
       return originalFetch(input, init).then((res) => {
         if (res.status === 401 && !redirecting) {
           redirecting = true;
-          authSignOut().catch(() => {});
           // Preserve the current path so the user returns here after re-login.
           const current = window.location.pathname + window.location.search;
-          router.replace(`/sign-in?redirect=${encodeURIComponent(current)}`);
+          void signOutAndCleanup(`/sign-in?redirect=${encodeURIComponent(current)}`);
         }
         return res;
       });

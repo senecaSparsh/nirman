@@ -33,7 +33,8 @@ import {
   Wallet,
   CalendarOff,
 } from "lucide-react";
-import { useSession, signOut as authSignOut, authClient } from "@/lib/auth-client";
+import { useSession, authClient } from "@/lib/auth-client";
+import { useSignOut } from "@/lib/use-sign-out";
 import { useFieldMode } from "@/lib/field-mode";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { useDeviceTierWithCaps } from "@/lib/device-tier-client";
@@ -232,18 +233,7 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
     }
   };
 
-  const [signingOut, setSigningOut] = useState(false);
-  const handleSignOut = async () => {
-    if (signingOut) return;
-    setSigningOut(true);
-    try {
-      await authSignOut();
-    } catch {
-      // Even if the server call fails, clear the client and redirect.
-    }
-    // Hard redirect — drops all client state/cache, ensures a clean session.
-    window.location.href = "/sign-in";
-  };
+  const { handleSignOut, signingOut, dialog: signOutDialog } = useSignOut();
 
   function startEditProfile() {
     setEditName(userName);
@@ -944,6 +934,7 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
           {signingOut ? "Signing out…" : "Sign Out"}
         </Button>
       </div>
+      {signOutDialog}
     </div>
   );
 }

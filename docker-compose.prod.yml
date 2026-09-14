@@ -26,6 +26,13 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    # Bound container logs — the default json-file driver is unbounded and
+    # would slowly fill the 120GB disk over months of uptime.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-nirman_inventory}
       POSTGRES_USER: ${POSTGRES_USER:-nirman}
@@ -55,6 +62,11 @@ services:
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
         NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       db:
         condition: service_healthy
@@ -126,6 +138,11 @@ services:
   scheduler:
     image: alpine:3.20
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       web:
         condition: service_healthy

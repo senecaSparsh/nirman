@@ -115,6 +115,13 @@ export function clearLocalCache() {
     .forEach((k) => localStorage.removeItem(k));
 }
 
+// Cached GET responses are tenant-scoped — drop them on company switch so a
+// stale entry from company A can't be served while company B is active.
+// (Same guard as useFetch's in-memory cache, which listens for this event too.)
+if (typeof window !== "undefined") {
+  window.addEventListener("nirman-company-switched", () => clearLocalCache());
+}
+
 /**
  * fetchWithCache — wraps fetch with local-first caching.
  * When local-first mode is on:

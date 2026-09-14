@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { authClient } from "@/lib/auth-client";
+import { signOutAndCleanup } from "@/lib/use-sign-out";
 import { getAuthenticatorName } from "@better-auth/passkey";
 import type { MembershipData } from "@/components/profile/profile-tabs";
 
@@ -490,7 +491,7 @@ function SessionsSection() {
       toast.success("All other sessions signed out");
       setConfirmOpen(false);
       // Hard redirect to sign-in since the current session is also revoked.
-      setTimeout(() => { window.location.href = "/sign-in"; }, 1000);
+      setTimeout(() => { void signOutAndCleanup(); }, 1000);
     } catch {
       toast.error("Network error");
       setRevokingAll(false);

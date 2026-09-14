@@ -31,7 +31,7 @@ import {
   type NavContext,
 } from "@/lib/route-manifest";
 import { GlassSurface } from "@/components/ui/glass-surface";
-import { signOut as authSignOut } from "@/lib/auth-client";
+import { useSignOut } from "@/lib/use-sign-out";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    NAV PANEL — 3-dot overflow side panel (compact, accordion + pinning)
@@ -125,19 +125,8 @@ export function NavSheet({ open, onClose, moduleId, persona, permissions, userNa
   const { pinned, togglePin, isPinned } = usePinnedPages();
   const { recent } = useRecentPages();
 
-  // ── Sign-out handler ──
-  const [signingOut, setSigningOut] = React.useState(false);
-  const handleSignOut = React.useCallback(async () => {
-    if (signingOut) return;
-    setSigningOut(true);
-    try {
-      await authSignOut();
-    } catch {
-      // Even if the server call fails, clear the client and redirect.
-    }
-    // Hard redirect — drops all client state/cache, ensures a clean session.
-    window.location.href = "/sign-in";
-  }, [signingOut]);
+  // ── Sign-out handler (shared flow: pending-work warning + local wipe) ──
+  const { handleSignOut, signingOut, dialog: signOutDialog } = useSignOut();
 
   // ── Adaptive: page context from detail pages (must be before early return) ──
   const pageCtx = usePageContext();
@@ -576,6 +565,7 @@ export function NavSheet({ open, onClose, moduleId, persona, permissions, userNa
             </button>
           </div>
         </div>
+        {signOutDialog}
       </GlassSurface>
     </div>
   );

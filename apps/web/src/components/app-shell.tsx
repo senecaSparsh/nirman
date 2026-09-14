@@ -38,7 +38,9 @@ import { NotificationBell } from "@/components/notification-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CurrencyToggle } from "@/components/currency-toggle";
 import { BuildNavPanel } from "@/components/build/build-nav-panel";
-import { useSession, signOut as authSignOut } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth-client";
+import { useSignOut, signOutAndCleanup } from "@/lib/use-sign-out";
+import { setActiveCompanyResolver } from "@/lib/offline/queue";
 
 /**
  * ═══════════════════════════════════════════════════════════════════
@@ -163,6 +165,16 @@ export function AppShell({
   const userRole: string = meData?.role ?? "PROJECT_MANAGER";
   const userName: string = meData?.name ?? "";
 
+  // Tell the offline queue which company is active — ops are stamped with it
+  // at enqueue and refused on sync after a switch (prevents cross-tenant writes).
+  const currentCompanyId = companies.find((c) => c.isCurrent)?.id ?? null;
+  useEffect(() => {
+    setActiveCompanyResolver(() => currentCompanyId);
+    return () => setActiveCompanyResolver(null);
+  }, [currentCompanyId]);
+
+
+
   // ── Auth guard ───────────────────────────────────────────────
   // Runs in ALL environments (including dev) so that expired sessions
   // redirect to /sign-in. Only skipped when NEXT_PUBLIC_AUTH_BYPASS=true
@@ -188,8 +200,7 @@ export function AppShell({
     const timer = setTimeout(() => {
       // Re-check: session may have arrived during the wait
       if (!session) {
-        authSignOut().catch(() => {});
-        router.replace("/sign-in");
+        void signOutAndCleanup();
       }
     }, 2000);
     return () => clearTimeout(timer);
@@ -210,10 +221,9 @@ export function AppShell({
       return originalFetch(input, init).then((res) => {
         if (res.status === 401 && !redirecting) {
           redirecting = true;
-          authSignOut().catch(() => {});
           // Preserve the current path so the user returns here after re-login.
           const current = window.location.pathname + window.location.search;
-          router.replace(`/sign-in?redirect=${encodeURIComponent(current)}`);
+          void signOutAndCleanup(`/sign-in?redirect=${encodeURIComponent(current)}`);
         }
         return res;
       });
@@ -590,6 +600,9 @@ function WorldRail({
   onSettings: boolean;
   className?: string;
 }) {
+  // Shared sign-out flow — pending-work warning + local wipe + session end.
+  const { handleSignOut, signingOut, dialog: signOutDialog } = useSignOut();
+
   const initials =
     (userName || companyName)
       .split(" ")
@@ -707,13 +720,15 @@ function WorldRail({
 
       <div className="mt-1.5 flex flex-col items-center gap-1.5">
         <button
-          onClick={() => authSignOut().catch(() => {}).finally(() => { window.location.href = "/sign-in"; })}
-          className="flex size-8 items-center justify-center rounded-md text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          onClick={handleSignOut}
+          disabled={signingOut}
+          className="flex size-8 items-center justify-center rounded-md text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground disabled:opacity-50"
           title="Sign out"
           aria-label="Sign out"
         >
           <LogOut className="size-4" />
         </button>
+        {signOutDialog}
         <Link
           href="/me"
           className={cn(
