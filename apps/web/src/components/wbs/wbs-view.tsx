@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/empty-state";
 import { cn, formatDate, formatCurrency, formatNumber } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
+import { useFetch } from "@/lib/use-fetch";
 import {
   ListChecks,
   Plus,
@@ -228,13 +229,15 @@ function generateMonthMarkers(range: { start: number; end: number }): { label: s
 // ════════════════════════════════════════════════════════════
 export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: boolean }) {
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
-  const [tree, setTree] = useState<WbsNode[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { data: treeData, loading, error, retry: fetchTree } = useFetch<WbsNode[]>(
+    projectId ? `/api/wbs/tree?projectId=${projectId}` : null,
+  );
+  const tree = useMemo(() => treeData ?? [], [treeData]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingNode, setEditingNode] = useState<WbsNode | null>(null);
   const [parentNode, setParentNode] = useState<WbsNode | null>(null);
-  const [boqItems, setBoqItems] = useState<BoqItem[]>([]);
+
   const [search, setSearch] = useState("");
   const [detailNode, setDetailNode] = useState<WbsNode | null>(null);
   const [confirm, confirmDialog] = useConfirm();
@@ -243,26 +246,24 @@ export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: b
   const now = useHydratedDate();
   const nowMs = now?.getTime() ?? 0;
 
-  const fetchTree = useCallback(() => {
-    if (!projectId) return;
-    setLoading(true);
-    fetch(`/api/wbs/tree?projectId=${projectId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setTree(data ?? []);
-        const all = new Set<string>();
-        function collect(ns: WbsNode[]) {
-          for (const n of ns) {
-            if (n.children.length > 0) all.add(n.id);
-            collect(n.children);
-          }
-        }
-        collect(data ?? []);
-        setExpanded(all);
-      })
-      .catch(() => toast.error("Failed to load WBS"))
-      .finally(() => setLoading(false));
-  }, [projectId]);
+  useEffect(() => {
+    if (error) toast.error("Failed to load WBS");
+  }, [error]);
+
+  // Expand all parent nodes whenever fresh tree data arrives (same as the
+  // old fetch handler did on every load).
+  useEffect(() => {
+    if (!treeData) return;
+    const all = new Set<string>();
+    function collect(ns: WbsNode[]) {
+      for (const n of ns) {
+        if (n.children.length > 0) all.add(n.id);
+        collect(n.children);
+      }
+    }
+    collect(treeData);
+    setExpanded(all);
+  }, [treeData]);
 
   const handleCalcSchedule = useCallback(async () => {
     if (!projectId) return;
@@ -287,23 +288,21 @@ export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: b
     }
   }, [projectId, fetchTree]);
 
-  useEffect(() => {
-    fetchTree();
-    fetch(`/api/boq/tree?projectId=${projectId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        const items: BoqItem[] = [];
-        function collect(nodes: { type: string; id: string; serialNo: string; description: string; children?: unknown[] }[]) {
-          for (const n of nodes) {
-            if (n.type === "LINE_ITEM") items.push({ id: n.id, serialNo: n.serialNo, description: n.description });
-            if (n.children) collect(n.children as typeof nodes);
-          }
-        }
-        collect(data.tree ?? []);
-        setBoqItems(items);
-      })
-      .catch(() => { /* silent — BOQ items are optional */ });
-  }, [fetchTree, projectId]);
+  // BOQ line items for the link-dialog dropdown (optional — silent fail).
+  const { data: boqData } = useFetch<{ tree?: unknown[] }>(
+    projectId ? `/api/boq/tree?projectId=${projectId}` : null,
+  );
+  const boqItems = useMemo(() => {
+    const items: BoqItem[] = [];
+    function collect(nodes: { type: string; id: string; serialNo: string; description: string; children?: unknown[] }[]) {
+      for (const n of nodes) {
+        if (n.type === "LINE_ITEM") items.push({ id: n.id, serialNo: n.serialNo, description: n.description });
+        if (n.children) collect(n.children as typeof nodes);
+      }
+    }
+    collect((boqData?.tree ?? []) as Parameters<typeof collect>[0]);
+    return items;
+  }, [boqData]);
 
   // Flat lookup for syncing editingNode after refetch
   const nodeMap = useMemo(() => {
@@ -1324,44 +1323,24 @@ type MbEntry = {
 function WbsDetailDialog({ node, onClose, canEdit, allNodes, onReload, projectId }: { node: WbsNode | null; onClose: () => void; canEdit: boolean; allNodes: WbsNode[]; onReload: () => void; projectId: string }) {
   const now = useHydratedDate();
   const nowMs = now?.getTime() ?? 0;
-  const [entries, setEntries] = useState<MbEntry[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [deps, setDeps] = useState<{ id: string; type: string; lagDays: number; predecessor: { id: string; code: string; name: string }; successor: { id: string; code: string; name: string }; direction: string }[]>([]);
-  const [depsLoading, setDepsLoading] = useState(false);
+  const { data: entriesData, loading } = useFetch<MbEntry[] | null>(
+    node ? `/api/mb-entries?wbsNodeId=${node.id}` : null,
+  );
+  const entries = entriesData ?? [];
+  type WbsDep = { id: string; type: string; lagDays: number; predecessor: { id: string; code: string; name: string }; successor: { id: string; code: string; name: string }; direction: string };
+  const { data: depsData, loading: depsLoading } = useFetch<WbsDep[]>(
+    node ? `/api/wbs/dependencies?nodeId=${node.id}` : null,
+  );
+  const deps = Array.isArray(depsData) ? depsData : [];
   const [showAddDep, setShowAddDep] = useState(false);
   const [depForm, setDepForm] = useState({ otherNodeId: "", depType: "FS", lagDays: "0", isPredecessor: "true" });
-  const [evm, setEvm] = useState<{ nodeId: string; pv: number; ev: number; progressPct: number; variance: number; isCritical: boolean } | null>(null);
-  const [evmLoading, setEvmLoading] = useState(false);
 
-  useEffect(() => {
-    if (!node) return;
-    setLoading(true);
-    fetch(`/api/mb-entries?wbsNodeId=${node.id}`)
-      .then((r) => r.json())
-      .then((data) => setEntries(data ?? []))
-      .catch(() => setEntries([]))
-      .finally(() => setLoading(false));
-    setDepsLoading(true);
-    fetch(`/api/wbs/dependencies?nodeId=${node.id}`)
-      .then((r) => r.json())
-      .then((data) => setDeps(Array.isArray(data) ? data : []))
-      .catch(() => setDeps([]))
-      .finally(() => setDepsLoading(false));
-    // Fetch per-node EVM (only for nodes with BOQ links)
-    if (node.boqItem && projectId) {
-      setEvmLoading(true);
-      fetch(`/api/node-evm?projectId=${projectId}`)
-        .then((r) => r.json())
-        .then((data: Array<{ nodeId: string; pv: number; ev: number; progressPct: number; variance: number; isCritical: boolean }>) => {
-          const match = data.find((d) => d.nodeId === node.id);
-          setEvm(match ?? null);
-        })
-        .catch(() => setEvm(null))
-        .finally(() => setEvmLoading(false));
-    } else {
-      setEvm(null);
-    }
-  }, [node, projectId]);
+  // Per-node EVM — only fetched for nodes with BOQ links.
+  type NodeEvm = { nodeId: string; pv: number; ev: number; progressPct: number; variance: number; isCritical: boolean };
+  const { data: evmData, loading: evmLoading } = useFetch<NodeEvm[]>(
+    node?.boqItem && projectId ? `/api/node-evm?projectId=${projectId}` : null,
+  );
+  const evm = evmData?.find((d) => d.nodeId === node?.id) ?? null;
 
   if (!node) return null;
 

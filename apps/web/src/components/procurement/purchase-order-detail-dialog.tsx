@@ -18,7 +18,10 @@ import { PoAddLineDialog } from "./po-add-line-dialog";
 import { AuditTrail } from "@/components/audit-trail";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
 import { useApiAction } from "@/lib/use-api-action";
+import { useFetch } from "@/lib/use-fetch";
 import type { PurchaseOrderDetail, PurchaseOrderRow, SupplierRow } from "@/lib/types";
+
+type PoPayment = { id: string; paymentNumber: string; amount: number; tdsAmount: number; tdsSection: string | null; netPaidAmount: number; paymentDate: string; paymentMode: string; referenceNo: string | null };
 
 export function PurchaseOrderDetailDialog({
   open,
@@ -45,34 +48,34 @@ export function PurchaseOrderDetailDialog({
   canSelfApprove?: boolean;
 }) {
   const router = useRouter();
+  const { data: detailData, loading, error: detailError, retry: refetchDetail } = useFetch<PurchaseOrderDetail & { error?: string }>(
+    open && po ? `/api/purchase-orders/${po.id}` : null,
+  );
+  const { data: paymentsData, retry: refetchPayments } = useFetch<PoPayment[]>(
+    open && po ? `/api/supplier-payments?purchaseOrderId=${po.id}` : null,
+  );
+  const payments: PoPayment[] = Array.isArray(paymentsData) ? paymentsData : [];
+  // Local copy of the detail so optimistic status updates (mutateAction)
+  // render instantly; synced back whenever fresh data arrives.
   const [detail, setDetail] = useState<PurchaseOrderDetail | null>(null);
-  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (detailData && !detailData.error) setDetail(detailData);
+  }, [detailData]);
+  useEffect(() => {
+    if (detailError) toast.error("Failed to load purchase order details");
+  }, [detailError]);
   const [recvOpen, setRecvOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [addLineOpen, setAddLineOpen] = useState(false);
-  const [payments, setPayments] = useState<{ id: string; paymentNumber: string; amount: number; tdsAmount: number; tdsSection: string | null; netPaidAmount: number; paymentDate: string; paymentMode: string; referenceNo: string | null }[]>([]);
   const [acting, setActing] = useState(false);
   const [approvalNotes, setApprovalNotes] = useState("");
   const [showApproveField, setShowApproveField] = useState(false);
   const trackRecent = useTrackRecent();
   const { mutate: mutateAction } = useApiAction();
 
+  // Track in recently viewed when the dialog opens.
   useEffect(() => {
     if (open && po) {
-      setLoading(true);
-      setDetail(null);
-      setPayments([]);
-      fetch(`/api/purchase-orders/${po.id}`)
-        .then((r) => r.json())
-        .then((d) => { if (!d.error) setDetail(d); })
-        .catch(() => toast.error("Failed to load purchase order details"))
-        .finally(() => setLoading(false));
-      // Fetch supplier payments linked to this PO
-      fetch(`/api/supplier-payments?purchaseOrderId=${po.id}`)
-        .then((r) => r.json())
-        .then((d) => { if (Array.isArray(d)) setPayments(d); })
-        .catch(() => {/* best-effort */});
-      // Track in recently viewed
       trackRecent({ type: "po", id: po.id, label: po.poNumber, href: `/procurement/${po.id}` });
     }
   }, [open, po, trackRecent]);
@@ -138,11 +141,7 @@ export function PurchaseOrderDetailDialog({
       setShowApproveField(false);
 
       // Re-fetch detail to get the full updated state (approval info, timestamps)
-      const r2 = await fetch(`/api/purchase-orders/${po.id}`);
-      if (r2.ok) {
-        const d2 = await r2.json();
-        if (!d2.error) setDetail(d2);
-      }
+      refetchDetail();
       router.refresh();
     } catch {
       // Error already handled by useApiAction (toast + revert)
@@ -501,12 +500,7 @@ export function PurchaseOrderDetailDialog({
         defaultSupplierId={detail?.supplierId}
         defaultAmount={detail ? Math.max(0, detail.total - payments.reduce((s, p) => s + p.amount, 0)) : undefined}
         onSuccess={() => {
-          if (detail) {
-            fetch(`/api/supplier-payments?purchaseOrderId=${detail.id}`)
-              .then((r) => r.json())
-              .then((d) => { if (Array.isArray(d)) setPayments(d); })
-              .catch(() => {/* best-effort */});
-          }
+          if (detail) refetchPayments();
           router.refresh();
         }}
       />

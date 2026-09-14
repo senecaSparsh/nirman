@@ -34,6 +34,11 @@ import { ROUTES, ROUTE_BY_PATH, matchRoute } from "@/lib/route-manifest";
 
 const MOBILE_BREAKPOINT = "(max-width: 1023px)";
 
+// Same mobile-UA test as the middleware — used to scope the "view desktop"
+// escape hatch to actual phones (a desktop window dragged narrow must still
+// adapt; a phone that chose desktop should be respected).
+const MOBILE_UA_RE = /Android(?:(?=.*Mobile)|(?=.*\bSilk\b))|iPhone|iPod|Windows Phone|BlackBerry|Opera Mini|Mobile\b/i;
+
 // ── Build route mappings from the manifest ──────────────────────
 // mobileToDesktop: "/m/materials" → "/materials"
 // desktopToMobile: "/materials" → "/m/materials"
@@ -310,7 +315,10 @@ export function SurfaceAdapter() {
   const checkAndRedirect = () => {
     const path = pathRef.current;
     if (!path || shouldSkip(path)) return;
-    if (document.cookie.includes("nirman-desktop=1")) return;
+    // "View desktop" escape hatch — only honored on a real mobile device. A
+    // desktop browser resized to a narrow window must still adapt to mobile;
+    // the cookie only exists to let a *phone* keep the desktop ERP view.
+    if (MOBILE_UA_RE.test(navigator.userAgent) && document.cookie.includes("nirman-desktop=1")) return;
 
     const isMobile = window.matchMedia(MOBILE_BREAKPOINT).matches;
     const onMobileRoute = path.startsWith("/m/") || path === "/m";
@@ -323,8 +331,6 @@ export function SurfaceAdapter() {
 
     const search = window.location.search || "";
     let target = resolveTarget(path, search, isMobile);
-     
-    console.log("[SA]", { path, isMobile, onMobileRoute, needsRedirect, target });
     // Desktop→mobile with no mapped equivalent → land on the mobile home so
     // the user is never stranded on a desktop page on a phone-width screen.
     if (!target && isMobile && !onMobileRoute) target = "/m/home" + search;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CalendarClock, CheckCircle2, MessageSquarePlus, Phone, Trash2, UserRoundCheck } from "lucide-react";
@@ -35,8 +36,9 @@ export function LeadDetailDialog({
   bookingHref?: string;
 }) {
   const router = useRouter();
-  const [detail, setDetail] = useState<LeadDetail | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { data: detail, loading, error } = useFetch<LeadDetail>(
+    open && lead ? `/api/leads/${lead.id}` : null,
+  );
   const [saving, setSaving] = useState(false);
   const [stage, setStage] = useState<LeadStage>("CONTACTED");
   const [lostReason, setLostReason] = useState("");
@@ -48,19 +50,12 @@ export function LeadDetailDialog({
   });
 
   useEffect(() => {
-    if (!open || !lead) return;
-    setLoading(true);
-    setDetail(null);
-    fetch(`/api/leads/${lead.id}`)
-      .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error ?? "Failed to load lead");
-        setDetail(data);
-        setStage(NEXT_STAGES[data.stage as LeadStage][0] ?? data.stage);
-      })
-      .catch((error) => toast.error(error instanceof Error ? error.message : "Failed to load lead"))
-      .finally(() => setLoading(false));
-  }, [open, lead]);
+    if (detail) setStage(NEXT_STAGES[detail.stage as LeadStage][0] ?? detail.stage);
+  }, [detail]);
+
+  useEffect(() => {
+    if (error) toast.error(error);
+  }, [error]);
 
   async function addActivity(event: React.FormEvent) {
     event.preventDefault();

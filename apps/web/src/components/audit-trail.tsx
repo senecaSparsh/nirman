@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { CheckCircle2, XCircle, Plus, Truck, IndianRupee, FileText, Clock, History } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { EmptyState } from "@/components/empty-state";
@@ -41,19 +41,13 @@ function getActionIcon(action: string) {
   return <FileText className="h-3.5 w-3.5 text-muted-foreground" />;
 }
 
-export function AuditTrail({ entityType, entityId }: { entityType: string; entityId: string }) {
-  const [entries, setEntries] = useState<{ id: string; action: string; userName: string | null; createdAt: string }[]>([]);
-  const [loading, setLoading] = useState(true);
+type AuditRow = { id: string; action: string; userName: string | null; createdAt: string };
 
-  useEffect(() => {
-    if (!entityId) return;
-    setLoading(true);
-    fetch(`/api/audit?entityType=${entityType}&entityId=${entityId}`)
-      .then(r => r.json())
-      .then(d => { const rows = d.rows ?? d; if (Array.isArray(rows)) setEntries(rows); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [entityType, entityId]);
+export function AuditTrail({ entityType, entityId }: { entityType: string; entityId: string }) {
+  const { data, loading } = useFetch<{ rows?: AuditRow[] } | AuditRow[]>(
+    entityId ? `/api/audit?entityType=${entityType}&entityId=${entityId}` : null,
+  );
+  const entries: AuditRow[] = Array.isArray(data) ? data : (data?.rows ?? []);
 
   if (loading) {
     return (

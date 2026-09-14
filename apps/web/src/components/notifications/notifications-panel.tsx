@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {Bell, Plus, Loader2, CheckCircle2, XCircle, Clock} from "lucide-react";
@@ -43,9 +44,11 @@ const CHANNELS = [
 
 export function NotificationsPanel() {
   const _router = useRouter();
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [stats, setStats] = useState<Stats>({ total: 0, sent: 0, failed: 0, pending: 0 });
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error, retry: load } = useFetch<{ templates?: Template[]; stats?: Stats }>(
+    "/api/notifications/templates",
+  );
+  const templates = data?.templates ?? [];
+  const stats = data?.stats ?? { total: 0, sent: 0, failed: 0, pending: 0 };
   const [formOpen, setFormOpen] = useState(false);
   const [showLog, setShowLog] = useState(false);
   const [logs, setLogs] = useState<Array<{
@@ -61,23 +64,8 @@ export function NotificationsPanel() {
   }>>([]);
 
   useEffect(() => {
-    load();
-  }, []);
-
-  async function load() {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/notifications/templates");
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to load");
-      setTemplates(data.templates ?? []);
-      setStats(data.stats ?? { total: 0, sent: 0, failed: 0, pending: 0 });
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed");
-    } finally {
-      setLoading(false);
-    }
-  }
+    if (error) toast.error(error);
+  }, [error]);
 
   async function loadLog() {
     try {

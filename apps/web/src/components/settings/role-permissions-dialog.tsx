@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import { Loader2, Save, Shield, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,32 +28,24 @@ export function RolePermissionsDialog({
   onSaved: () => void;
 }) {
   const [selectedRole, setSelectedRole] = useState<Role>("PROJECT_MANAGER");
-  const [loading, setLoading] = useState(false);
+
   const [saving, setSaving] = useState(false);
   const [overrides, setOverrides] = useState<Set<string>>(new Set());
   const [originalOverrides, setOriginalOverrides] = useState<Set<string>>(new Set());
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
 
-  // Load overrides for the selected role
+  // Load overrides for the selected role (cached per role).
+  const { data: rpData, loading, error: rpError } = useFetch<{ permissions?: RolePermRow[] }>(
+    `/api/role-permissions?role=${selectedRole}`,
+  );
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    (async () => {
-      try {
-        const res = await fetch(`/api/role-permissions?role=${selectedRole}`);
-        const data = await res.json();
-        if (cancelled) return;
-        const perms = new Set<string>((data.permissions ?? []).map((r: RolePermRow) => r.permission));
-        setOverrides(perms);
-        setOriginalOverrides(perms);
-      } catch {
-        if (!cancelled) toast.error("Failed to load role permissions");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [selectedRole]);
+    const perms = new Set<string>((rpData?.permissions ?? []).map((r: RolePermRow) => r.permission));
+    setOverrides(perms);
+    setOriginalOverrides(perms);
+  }, [rpData]);
+  useEffect(() => {
+    if (rpError) toast.error("Failed to load role permissions");
+  }, [rpError]);
 
   const roleDef = ROLE_LIST.find((r) => r.key === selectedRole);
   const basePerms = roleDef?.permissions === "*" ? ALL_PERMISSIONS : (roleDef?.permissions ?? []);

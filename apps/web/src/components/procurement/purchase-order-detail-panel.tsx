@@ -12,7 +12,10 @@ import { StatusPill } from "@/components/page";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { ReceiveGoodsDialog } from "./receive-goods-dialog";
 import { SupplierPaymentFormDialog } from "./supplier-payment-form-dialog";
+import { useFetch } from "@/lib/use-fetch";
 import type { PurchaseOrderDetail, PurchaseOrderRow, SupplierRow } from "@/lib/types";
+
+type PoPayment = { id: string; paymentNumber: string; amount: number; tdsAmount: number; tdsSection: string | null; netPaidAmount: number; paymentDate: string; paymentMode: string; referenceNo: string | null };
 
 /**
  * Inline PO detail panel — the split-view sibling of
@@ -41,30 +44,28 @@ export function PurchaseOrderDetailPanel({
   canSelfApprove?: boolean;
 }) {
   const router = useRouter();
-  const [detail, setDetail] = useState<PurchaseOrderDetail | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { data: detailData, loading, error: detailError, retry: refetchDetail } = useFetch<PurchaseOrderDetail & { error?: string }>(
+    `/api/purchase-orders/${po.id}`,
+  );
+  const { data: paymentsData, retry: refetchPayments } = useFetch<PoPayment[]>(
+    `/api/supplier-payments?purchaseOrderId=${po.id}`,
+  );
+  const payments: PoPayment[] = Array.isArray(paymentsData) ? paymentsData : [];
+  const detail = detailData && !detailData.error ? detailData : null;
   const [recvOpen, setRecvOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
-  const [payments, setPayments] = useState<{ id: string; paymentNumber: string; amount: number; tdsAmount: number; tdsSection: string | null; netPaidAmount: number; paymentDate: string; paymentMode: string; referenceNo: string | null }[]>([]);
   const [acting, setActing] = useState(false);
   const [approvalNotes, setApprovalNotes] = useState("");
   const [showApproveField, setShowApproveField] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
-    setDetail(null);
-    setPayments([]);
+    if (detailError) toast.error("Failed to load purchase order details");
+  }, [detailError]);
+
+  // Reset the approval-note UI when switching to a different PO.
+  useEffect(() => {
     setShowApproveField(false);
     setApprovalNotes("");
-    fetch(`/api/purchase-orders/${po.id}`)
-      .then((r) => r.json())
-      .then((d) => { if (!d.error) setDetail(d); })
-      .catch(() => toast.error("Failed to load purchase order details"))
-      .finally(() => setLoading(false));
-    fetch(`/api/supplier-payments?purchaseOrderId=${po.id}`)
-      .then((r) => r.json())
-      .then((d) => { if (Array.isArray(d)) setPayments(d); })
-      .catch(() => {/* best-effort */});
   }, [po.id]);
 
   async function doAction(action: "approve" | "order" | "cancel" | "resubmit") {
@@ -98,10 +99,7 @@ export function PurchaseOrderDetailPanel({
       }
       setApprovalNotes("");
       setShowApproveField(false);
-      const r2 = await fetch(`/api/purchase-orders/${po.id}`);
-      if (!r2.ok) throw new Error("Failed to re-fetch purchase order details");
-      const d2 = await r2.json();
-      if (!d2.error) setDetail(d2);
+      refetchDetail();
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
@@ -428,12 +426,7 @@ export function PurchaseOrderDetailPanel({
         defaultAmount={detail ? Math.max(0, detail.total - payments.reduce((s, p) => s + p.amount, 0)) : undefined}
         onSuccess={() => {
           // Re-fetch payments so the history updates immediately
-          if (detail) {
-            fetch(`/api/supplier-payments?purchaseOrderId=${detail.id}`)
-              .then((r) => r.json())
-              .then((d) => { if (Array.isArray(d)) setPayments(d); })
-              .catch(() => {/* best-effort */});
-          }
+          if (detail) refetchPayments();
           router.refresh();
         }}
       />

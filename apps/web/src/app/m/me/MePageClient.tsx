@@ -37,6 +37,7 @@ import { useSession, signOut as authSignOut, authClient } from "@/lib/auth-clien
 import { useFieldMode } from "@/lib/field-mode";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { useDeviceTierWithCaps } from "@/lib/device-tier-client";
+import { useFetch } from "@/lib/use-fetch";
 import {
   Card,
   MobileSectionTitle,
@@ -175,53 +176,49 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
 
   // ── Fallback fetch — only when the server didn't provide initial data ──
   // When `initial` is present, the profile fields are already seeded from
-  // server-side data and this effect is skipped entirely.
+  // server-side data and these queries are skipped entirely.
+  const meQ = useFetch<{
+    name?: string; role?: string; email?: string; phone?: string;
+    image?: string | null; active?: boolean; employeeCode?: string | null;
+    designation?: string | null; department?: string | null;
+    joiningDate?: string | null; lastLoginAt?: string | null;
+  } | null>("/api/me", { skip: !!initial });
+  const companyQ = useFetch<{ name?: string } | null>("/api/company", { skip: !!initial });
+
   useEffect(() => {
-    if (initial) {
-      // Still need to check dark mode + passkeys (client-only concerns)
-      const isDarkNow = document.documentElement.classList.contains("dark");
-      setIsDark((prev) => (prev !== isDarkNow ? isDarkNow : prev));
-      if (window.PublicKeyCredential) {
-        setPasskeySupported(true);
-        void loadPasskeys();
-      }
-      return;
-    }
-    let meDone = false;
-    let companyDone = false;
-    const checkDone = () => { if (meDone && companyDone) setProfileLoading(false); };
-    fetch("/api/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d?.name) setUserName(d.name);
-        if (d?.role) setUserRole(d.role);
-        if (d?.email) setUserEmail(d.email);
-        if (d?.phone) setUserPhone(d.phone);
-        if (d?.image !== undefined) setUserImage(d.image ?? null);
-        if (d?.active !== undefined) setUserActive(d.active ?? true);
-        if (d?.employeeCode !== undefined) setUserEmployeeCode(d.employeeCode ?? null);
-        if (d?.designation !== undefined) setUserDesignation(d.designation ?? null);
-        if (d?.department !== undefined) setUserDepartment(d.department ?? null);
-        if (d?.joiningDate !== undefined) setUserJoiningDate(d.joiningDate ?? null);
-        if (d?.lastLoginAt !== undefined) setUserLastLoginAt(d.lastLoginAt ?? null);
-      })
-      .catch(() => {})
-      .finally(() => { meDone = true; checkDone(); });
-    fetch("/api/company")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((c) => {
-        if (c?.name) setCompanyName(c.name);
-      })
-      .catch(() => {})
-      .finally(() => { companyDone = true; checkDone(); });
+    const d = meQ.data;
+    if (!d) return;
+    if (d.name) setUserName(d.name);
+    if (d.role) setUserRole(d.role);
+    if (d.email) setUserEmail(d.email);
+    if (d.phone) setUserPhone(d.phone);
+    if (d.image !== undefined) setUserImage(d.image ?? null);
+    if (d.active !== undefined) setUserActive(d.active ?? true);
+    if (d.employeeCode !== undefined) setUserEmployeeCode(d.employeeCode ?? null);
+    if (d.designation !== undefined) setUserDesignation(d.designation ?? null);
+    if (d.department !== undefined) setUserDepartment(d.department ?? null);
+    if (d.joiningDate !== undefined) setUserJoiningDate(d.joiningDate ?? null);
+    if (d.lastLoginAt !== undefined) setUserLastLoginAt(d.lastLoginAt ?? null);
+  }, [meQ.data]);
+
+  useEffect(() => {
+    if (companyQ.data?.name) setCompanyName(companyQ.data.name);
+  }, [companyQ.data]);
+
+  useEffect(() => {
+    if (!initial && !meQ.loading && !companyQ.loading) setProfileLoading(false);
+  }, [initial, meQ.loading, companyQ.loading]);
+
+  // Client-only concerns: dark mode + WebAuthn passkeys.
+  useEffect(() => {
     const isDarkNow = document.documentElement.classList.contains("dark");
     setIsDark((prev) => (prev !== isDarkNow ? isDarkNow : prev));
-    // Check WebAuthn support + load passkeys
     if (window.PublicKeyCredential) {
       setPasskeySupported(true);
       void loadPasskeys();
     }
-  }, [initial]);
+     
+  }, []);
 
   const toggleDark = () => {
     const next = !isDark;

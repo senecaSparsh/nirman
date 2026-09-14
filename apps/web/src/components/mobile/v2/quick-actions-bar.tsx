@@ -32,6 +32,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Persona } from "@/lib/mobile-nav-v2";
+import { useFetch } from "@/lib/use-fetch";
 import { ROUTE_BY_PATH } from "@/lib/route-manifest";
 
 /** A serializable extra action from the server (no icon — resolved from the
@@ -155,21 +156,14 @@ export function QuickActionsBar({
   const [savedLayouts, setSavedLayouts] = React.useState<Record<string, string[]>>(
     initialSaved ?? {},
   );
-  const [loadingLayouts, setLoadingLayouts] = React.useState(!initialSaved);
-
+  // Skipped when server already provided layouts; merge on arrival.
+  const { data: qaData, loading: loadingLayouts } = useFetch<{ layouts?: Record<string, string[]> }>(
+    "/api/me/quick-actions",
+    { skip: !!initialSaved },
+  );
   React.useEffect(() => {
-    if (initialSaved) return; // server already provided them
-    let cancelled = false;
-    fetch("/api/me/quick-actions")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!cancelled && d?.layouts) setSavedLayouts(d.layouts);
-      })
-      .catch(() => {})
-      .finally(() => !cancelled && setLoadingLayouts(false));
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (qaData?.layouts) setSavedLayouts(qaData.layouts);
+  }, [qaData]);
 
   // ── Edit mode ──
   const [editMode, setEditMode] = React.useState(false);

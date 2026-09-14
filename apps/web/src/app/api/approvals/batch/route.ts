@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { approvePurchaseOrder, approveGatePass, approveRequisition } from "@nirman/services";
+import { approvePurchaseOrder, approveGatePass, approveRequisition, canAutoApprove } from "@nirman/services";
 import { apiHandler, getCompany, getUserPermissions, json, requireUser, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
@@ -41,6 +41,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const canApproveReq = perms.includes(PERM.REQUISITION_APPROVE);
   const canApproveGp = perms.includes(PERM.GATE_PASS_APPROVE);
 
+  // Tier-1 roles (OWNER/ADMIN) may approve their own submissions — mirror
+  // the service-layer exemption so batch approve doesn't silently skip them.
+  const selfFilter = canAutoApprove(user.role) ? {} : { not: user.id };
+
   // ── Partition items by type ───────────────────────────────────────
   const poIds: string[] = [];
   const reqIds: string[] = [];
@@ -57,19 +61,19 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const [validPos, validReqs, validGps] = await Promise.all([
     canApprovePo && poIds.length > 0
       ? prisma.purchaseOrder.findMany({
-          where: { id: { in: poIds }, companyId: company.id, status: "DRAFT", createdById: { not: user.id } },
+          where: { id: { in: poIds }, companyId: company.id, status: "DRAFT", createdById: selfFilter },
           select: { id: true },
         })
       : Promise.resolve([]),
     canApproveReq && reqIds.length > 0
       ? prisma.materialRequisition.findMany({
-          where: { id: { in: reqIds }, project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: user.id }, ...reqScope },
+          where: { id: { in: reqIds }, project: { companyId: company.id }, status: "SUBMITTED", requestedById: selfFilter, ...reqScope },
           select: { id: true },
         })
       : Promise.resolve([]),
     canApproveGp && gpIds.length > 0
       ? prisma.gatePass.findMany({
-          where: { id: { in: gpIds }, companyId: company.id, status: "PENDING", createdById: { not: user.id }, ...gpScope },
+          where: { id: { in: gpIds }, companyId: company.id, status: "PENDING", createdById: selfFilter, ...gpScope },
           select: { id: true },
         })
       : Promise.resolve([]),

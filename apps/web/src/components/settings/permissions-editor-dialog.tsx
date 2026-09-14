@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import {
   Loader2, Shield, HardHat, Package, ShoppingCart, MapPin, Calculator,
@@ -51,33 +52,24 @@ export function PermissionsEditorDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [loading, setLoading] = useState(true);
+
   const [saving, setSaving] = useState(false);
   const [data, setData] = useState<PermissionsResponse | null>(null);
   const [overrides, setOverrides] = useState<Set<string>>(new Set());
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
 
+  const { data: permData, loading, error: permError } = useFetch<PermissionsResponse>(
+    `/api/users/${userId}/permissions`,
+  );
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/users/${userId}/permissions`);
-        if (!res.ok) {
-          const d = await res.json();
-          throw new Error(d.error ?? "Failed to load permissions");
-        }
-        const d: PermissionsResponse = await res.json();
-        if (cancelled) return;
-        setData(d);
-        setOverrides(new Set(d.userOverrides));
-      } catch (err: unknown) {
-        if (!cancelled) toast.error(err instanceof Error ? err.message : "Failed to load permissions");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [userId]);
+    if (permData) {
+      setData(permData);
+      setOverrides(new Set(permData.userOverrides));
+    }
+  }, [permData]);
+  useEffect(() => {
+    if (permError) toast.error(permError);
+  }, [permError]);
 
   // Check if a permission is granted by the role (base + role overrides)
   function isFromRole(perm: string): boolean {

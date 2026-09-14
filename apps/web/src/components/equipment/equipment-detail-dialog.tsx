@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowRight, Wrench, Check, Ban, Pencil, Trash2, RotateCcw, ClipboardList, Hammer, DollarSign, Loader2 } from "lucide-react";
@@ -48,8 +49,10 @@ export function EquipmentDetailDialog({
 }) {
   const router = useRouter();
   const canEdit = permissions?.canEdit ?? false;
-  const [detail, setDetail] = useState<EquipmentDetail | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { data, loading, error, retry: refetchDetail } = useFetch<EquipmentDetail & { error?: string }>(
+    open && equipment ? `/api/equipment/${equipment.id}` : null,
+  );
+  const detail = data && !data.error ? data : null;
   const [acting, setActing] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [maintOpen, setMaintOpen] = useState(false);
@@ -62,28 +65,8 @@ export function EquipmentDetailDialog({
   const [sellNotes, setSellNotes] = useState("");
 
   useEffect(() => {
-    if (open && equipment) {
-      setLoading(true);
-      setDetail(null);
-      fetch(`/api/equipment/${equipment.id}`)
-        .then((r) => r.json())
-        .then((d) => { if (!d.error) setDetail(d); })
-        .catch(() => toast.error("Failed to load equipment details"))
-        .finally(() => setLoading(false));
-    }
-  }, [open, equipment]);
-
-  async function refetchDetail() {
-    if (!equipment) return;
-    try {
-      const r = await fetch(`/api/equipment/${equipment.id}`);
-      if (!r.ok) throw new Error("Failed to re-fetch equipment details");
-      const d = await r.json();
-      if (!d.error) setDetail(d);
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Unknown error");
-    }
-  }
+    if (error) toast.error("Failed to load equipment details");
+  }, [error]);
 
   async function doReturn() {
     if (!detail) return;

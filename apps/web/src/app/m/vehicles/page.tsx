@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import {Truck, User, X, ChevronRight, Loader2, RefreshCw} from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils";
+import { useFetch } from "@/lib/use-fetch";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileNoResults, MobileSearchHeader } from "@/components/mobile/v2/scaffold";
 import { usePermissions } from "@/lib/permissions";
@@ -38,37 +39,16 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export default function MobileVehiclesPage() {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: vehiclesData, loading, retry: loadVehicles } = useFetch<Vehicle[]>("/api/vehicles");
+  const vehicles = vehiclesData ?? [];
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Vehicle | null>(null);
-  const [trips, setTrips] = useState<VehicleTrip[] | null>(null);
-  const [tripsLoading, setTripsLoading] = useState(false);
+  const { data: tripsData, loading: tripsLoading } = useFetch<VehicleTrip[]>(
+    selected ? `/api/vehicles/${selected.id}/trips` : null,
+  );
+  const trips = selected ? (tripsData ?? null) : null;
   const { can } = usePermissions();
   const canManage = can(PERM.VEHICLE_MANAGE);
-
-  async function loadVehicles() {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/vehicles");
-      if (res.ok) setVehicles(await res.json());
-    } catch (err) { console.warn("Failed to load vehicles:", err); }
-    setLoading(false);
-  }
-
-  async function loadTrips(vehicleId: string) {
-    setTripsLoading(true);
-    setTrips([]);
-    try {
-      const res = await fetch(`/api/vehicles/${vehicleId}/trips`);
-      if (res.ok) setTrips(await res.json());
-    } catch (err) { console.warn("Failed to load vehicle trips:", err); }
-    setTripsLoading(false);
-  }
-
-  useEffect(() => {
-    loadVehicles();
-  }, []);
 
   const filtered = query
     ? vehicles.filter((v) => v.vehicleNumber.toLowerCase().includes(query.toLowerCase()))
@@ -118,7 +98,7 @@ export default function MobileVehiclesPage() {
           {filtered.map((v) => (
             <button
               key={v.id}
-              onClick={() => { setSelected(v); loadTrips(v.id); }}
+              onClick={() => setSelected(v)}
               className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--color-paper-2)] press"
             >
               {/* Vehicle photo or icon */}

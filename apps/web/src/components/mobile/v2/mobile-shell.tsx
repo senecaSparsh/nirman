@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import {
   ChevronLeft,
@@ -161,35 +162,28 @@ export function MobileShellV2({
   }, [router]);
 
   // ── Resolve company name + role via /api/me + /api/company ──
-  // Both fetches run in parallel (Promise.all) to halve the waterfall.
   // Skipped when `initial` is provided — the /m layout already resolved
   // the same data server-side, so refetching would just double the work.
+  const meQ = useFetch<{ role?: string; name?: string; permissions?: string[] } | null>("/api/me", { skip: !!initial });
+  const companyQ = useFetch<{ name?: string; parentCompanyId?: string | null; companies?: CompanyOption[] } | null>("/api/company", { skip: !!initial });
   useEffect(() => {
-    if (initial) return;
-    let cancelled = false;
-    Promise.all([
-      fetch("/api/me").then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch("/api/company").then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    ]).then(([me, company]) => {
-      if (cancelled) return;
-      if (me?.role || company?.name) {
-        setCompanyInfo((prev) => ({
-          ...prev,
-          role: me?.role ?? prev.role,
-          name: company?.name ?? prev.name,
-          parentCompanyId: company?.parentCompanyId ?? null,
-          permissions: Array.isArray(me?.permissions) && me.permissions.length > 0
-            ? me.permissions
-            : prev.permissions,
-          userName: me?.name ?? prev.userName,
-        }));
-      }
-      if (Array.isArray(company?.companies)) setCompanies(company.companies);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [initial]);
+    const me = meQ.data;
+    const company = companyQ.data;
+    if (!me && !company) return;
+    if (me?.role || company?.name) {
+      setCompanyInfo((prev) => ({
+        ...prev,
+        role: me?.role ?? prev.role,
+        name: company?.name ?? prev.name,
+        parentCompanyId: company?.parentCompanyId ?? null,
+        permissions: Array.isArray(me?.permissions) && me.permissions.length > 0
+          ? me.permissions
+          : prev.permissions,
+        userName: me?.name ?? prev.userName,
+      }));
+    }
+    if (Array.isArray(company?.companies)) setCompanies(company.companies);
+  }, [meQ.data, companyQ.data]);
 
   // ── Update document title to the current company name ──────
   // Once we know the active company, the tab title becomes

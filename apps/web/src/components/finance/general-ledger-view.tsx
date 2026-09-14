@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -211,8 +212,14 @@ export function GeneralLedgerView({
   isBalanced: boolean;
 }) {
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
-  const [ledger, setLedger] = useState<LedgerLine[] | null>(null);
-  const [loadingLedger, setLoadingLedger] = useState(false);
+  const {
+    data: ledgerData,
+    loading: loadingLedger,
+    error: ledgerError,
+  } = useFetch<{ lines: LedgerLine[]; hasMore: boolean; nextCursor: string | null }>(
+    selectedAccount ? `/api/gl/ledger?account=${encodeURIComponent(selectedAccount)}` : null,
+  );
+  const ledger = ledgerData?.lines ?? null;
   const [seeding, setSeeding] = useState(false);
   const { mode, toggle } = useCurrencyMode();
   const showPaise = mode === "detailed";
@@ -222,20 +229,8 @@ export function GeneralLedgerView({
   const fmt = showPaise ? formatCurrencyDetailed : formatCurrencyCompact;
 
   useEffect(() => {
-    if (!selectedAccount) {
-      setLedger(null);
-      return;
-    }
-    setLoadingLedger(true);
-    fetch(`/api/gl/ledger?account=${encodeURIComponent(selectedAccount)}`)
-      .then((r) => (r.ok ? r.json() : { lines: [] }))
-      .then((d: { lines: LedgerLine[]; hasMore: boolean; nextCursor: string | null }) => setLedger(d.lines))
-      .catch(() => {
-        toast.error("Failed to load account ledger");
-        setLedger([]);
-      })
-      .finally(() => setLoadingLedger(false));
-  }, [selectedAccount]);
+    if (ledgerError) toast.error("Failed to load account ledger");
+  }, [ledgerError]);
 
   return (
     <div className="space-y-5">

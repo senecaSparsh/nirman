@@ -1,6 +1,7 @@
 "use client";
 
 import {useEffect, useState, useRef} from "react";
+import { useFetch } from "@/lib/use-fetch";
 import {useRouter} from "next/navigation";
 import {
   ArrowLeftRight, Package, Plus, Trash2,
@@ -89,11 +90,14 @@ export function MobileStockOutClient({
   const [mode, setMode] = useState<Mode>(initialMode);
 
   // ── Data ──
+  // ── Options: locations + projects + materials (parallel, cached) ──
+  const locQ = useFetch<LocationItem[]>("/api/stock-locations?group=true");
+  const projQ = useFetch<ProjectItem[]>("/api/projects");
+  const matQ = useFetch<{ rows?: MaterialItem[] }>("/api/materials");
+  const loading = locQ.loading || projQ.loading || matQ.loading;
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
-  const [units, setUnits] = useState<UnitItem[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // ── Shared form state ──
   const [fromLocationId, setFromLocationId] = useState("");
@@ -144,61 +148,48 @@ export function MobileStockOutClient({
     useDrafts<StockOutDraft>("stock-out", "stock-out-new");
   const [draftRestored, setDraftRestored] = useState(false);
 
-  // ── Load options ──
+  // ── Pre-fill from draft or defaults once all three option lists arrive ──
+  const prefilledRef = useRef(false);
   useEffect(() => {
-    let cancelled = false;
-    async function loadData() {
-      try {
-        const [locRes, projRes, matRes] = await Promise.all([
-          fetch("/api/stock-locations?group=true").then((r) => (r.ok ? r.json() : [])),
-          fetch("/api/projects").then((r) => (r.ok ? r.json() : [])),
-          fetch("/api/materials").then((r) => (r.ok ? r.json() : { rows: [] })),
-        ]);
-        if (cancelled) return;
-        const locs: LocationItem[] = Array.isArray(locRes) ? locRes : [];
-        const projs: ProjectItem[] = Array.isArray(projRes) ? projRes : [];
-        const mats: MaterialItem[] = matRes?.rows ?? [];
-        setLocations(locs);
-        setProjects(projs);
-        setMaterials(mats);
+    if (prefilledRef.current || locQ.loading || projQ.loading || matQ.loading) return;
+    prefilledRef.current = true;
+    const locs: LocationItem[] = locQ.data ?? [];
+    const projs: ProjectItem[] = projQ.data ?? [];
+    const mats: MaterialItem[] = matQ.data?.rows ?? [];
+    setLocations(locs);
+    setProjects(projs);
+    setMaterials(mats);
 
-        // Pre-fill from draft or defaults
-        if (hasDraft && draft) {
-          setMode(draft.mode);
-          setFromLocationId(draft.fromLocationId);
-          setToLocationId(draft.toLocationId);
-          setProjectId(draft.projectId);
-          setBuiltUnitId(draft.builtUnitId);
-          setReceiverName(draft.receiverName);
-          setReceiverMobile(draft.receiverMobile);
-          setVehicle(draft.vehicle);
-          setNotes(draft.notes);
-          setLines(draft.lines.length > 0 ? draft.lines : [{ materialId: "", qty: "", lotNumber: "" }]);
-          setFreight(draft.freight ?? "");
-          setHandlingFee(draft.handlingFee ?? "");
-          setMarkupPct(draft.markupPct ?? "");
-          setDraftRestored(true);
-        } else {
-          if (initialFromLocationId && locs.some((l) => l.id === initialFromLocationId)) {
-            setFromLocationId(initialFromLocationId);
-          } else if (locs.length > 0) setFromLocationId(locs[0]!.id);
-          if (locs.length > 1) setToLocationId(locs[1]!.id);
-          if (initialProjectId && projs.some((p) => p.id === initialProjectId)) {
-            setProjectId(initialProjectId);
-          } else if (projs.length > 0) {
-            setProjectId(projs[0]!.id);
-          }
-          if (mats.length > 0) setLines([{ materialId: "", qty: "", lotNumber: "" }]);
-        }
-      } catch (err) {
-        console.error("Failed to load stock-out options:", err);
-      } finally {
-        if (!cancelled) setLoading(false);
+    // Pre-fill from draft or defaults
+    if (hasDraft && draft) {
+      setMode(draft.mode);
+      setFromLocationId(draft.fromLocationId);
+      setToLocationId(draft.toLocationId);
+      setProjectId(draft.projectId);
+      setBuiltUnitId(draft.builtUnitId);
+      setReceiverName(draft.receiverName);
+      setReceiverMobile(draft.receiverMobile);
+      setVehicle(draft.vehicle);
+      setNotes(draft.notes);
+      setLines(draft.lines.length > 0 ? draft.lines : [{ materialId: "", qty: "", lotNumber: "" }]);
+      setFreight(draft.freight ?? "");
+      setHandlingFee(draft.handlingFee ?? "");
+      setMarkupPct(draft.markupPct ?? "");
+      setDraftRestored(true);
+    } else {
+      if (initialFromLocationId && locs.some((l) => l.id === initialFromLocationId)) {
+        setFromLocationId(initialFromLocationId);
+      } else if (locs.length > 0) setFromLocationId(locs[0]!.id);
+      if (locs.length > 1) setToLocationId(locs[1]!.id);
+      if (initialProjectId && projs.some((p) => p.id === initialProjectId)) {
+        setProjectId(initialProjectId);
+      } else if (projs.length > 0) {
+        setProjectId(projs[0]!.id);
       }
+      if (mats.length > 0) setLines([{ materialId: "", qty: "", lotNumber: "" }]);
     }
-    loadData();
-    return () => { cancelled = true; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot prefill on data arrival
+  }, [locQ.loading, projQ.loading, matQ.loading]);
 
   // ── Auto-save draft ──
   useEffect(() => {
@@ -219,19 +210,13 @@ export function MobileStockOutClient({
       freight, handlingFee, markupPct, loading,
       success, saveDraft]);
 
-  // ── Fetch built units when project changes (issue mode) ──
+  // ── Built units when a project is selected (issue mode) ──
+  const { data: projectData } = useFetch<{ units?: UnitItem[] }>(
+    mode === "issue" && projectId ? `/api/projects/${projectId}` : null,
+  );
+  const units: UnitItem[] = Array.isArray(projectData?.units) ? projectData.units : [];
   useEffect(() => {
-    if (mode !== "issue" || !projectId) {
-      setUnits([]);
-      setBuiltUnitId("");
-      return;
-    }
-    fetch(`/api/projects/${projectId}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        setUnits(data?.units && Array.isArray(data.units) ? data.units : []);
-      })
-      .catch(() => setUnits([]));
+    if (mode !== "issue" || !projectId) setBuiltUnitId("");
   }, [mode, projectId]);
 
   // ── Unsaved guard ──
@@ -1225,9 +1210,12 @@ export function MobileStockOutClient({
               handleLineChange(modal.lineIndex, "lotNumber", id);
             }
             else if (modal.type === "material" && modal.lineIndex !== undefined) {
-              handleLineChange(modal.lineIndex, "materialId", id);
-              // Clear any stale lot when material changes
-              handleLineChange(modal.lineIndex, "lotNumber", "");
+              // Set material + clear stale lot in ONE update — two sequential
+              // handleLineChange calls share the same stale `lines` snapshot,
+              // so the second would clobber the materialId just set.
+              setLines((prev) => prev.map((l, i) =>
+                i === modal.lineIndex ? { ...l, materialId: id, lotNumber: "" } : l,
+              ));
             }
             setModal(null);
           }}

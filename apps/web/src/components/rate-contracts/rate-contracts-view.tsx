@@ -218,14 +218,11 @@ function RateContractDialog({
     maxQty: "",
     notes: "",
   });
-  const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
-  const [materials, setMaterials] = useState<{ id: string; code: string; name: string; unit: string }[]>([]);
+  const { data: suppliersData } = useFetch<{ suppliers?: { id: string; name: string }[] } | { id: string; name: string }[]>("/api/suppliers");
+  const suppliers: { id: string; name: string }[] = Array.isArray(suppliersData) ? suppliersData : (suppliersData?.suppliers ?? []);
+  const { data: materialsData } = useFetch<{ rows?: { id: string; code: string; name: string; unit: string }[]; materials?: { id: string; code: string; name: string; unit: string }[] } | { id: string; code: string; name: string; unit: string }[]>("/api/materials");
+  const materials: { id: string; code: string; name: string; unit: string }[] = Array.isArray(materialsData) ? materialsData : (materialsData?.rows ?? materialsData?.materials ?? []);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/suppliers").then((r) => r.json()).then((d) => setSuppliers(d.suppliers ?? d ?? [])).catch(() => {});
-    fetch("/api/materials").then((r) => r.json()).then((d) => setMaterials(d.rows ?? d.materials ?? d ?? [])).catch(() => {});
-  }, []);
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));

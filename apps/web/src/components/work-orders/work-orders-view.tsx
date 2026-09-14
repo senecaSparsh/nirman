@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -258,8 +259,6 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
 }) {
   const router = useRouter();
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
-  const [loading, setLoading] = useState(false);
   const [statusFilter, _setStatusFilter] = useState<WorkOrder["status"] | "ALL">("ALL");
   const [search, _setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -272,17 +271,14 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
   const [localProjects, setLocalProjects] = useState<Project[]>(projects);
   useEffect(() => { setLocalProjects(projects); }, [projects]);
 
-  const fetchWOs = useCallback(() => {
-    if (!projectId) return;
-    setLoading(true);
-    fetch(`/api/work-orders?projectId=${projectId}`)
-      .then((r) => r.json())
-      .then((data) => setWorkOrders(data ?? []))
-      .catch(() => toast.error("Failed to load work orders"))
-      .finally(() => setLoading(false));
-  }, [projectId]);
+  const { data: woData, loading, error, retry: fetchWOs } = useFetch<WorkOrder[]>(
+    projectId ? `/api/work-orders?projectId=${projectId}` : null,
+  );
+  const workOrders = useMemo(() => woData ?? [], [woData]);
 
-  useEffect(() => { fetchWOs(); }, [fetchWOs]);
+  useEffect(() => {
+    if (error) toast.error("Failed to load work orders");
+  }, [error]);
 
   // ── Stats ──
   const stats = useMemo(() => {
@@ -594,8 +590,6 @@ function WorkOrderDetailDialog({
   onRefresh: () => void;
   actionLoading: boolean;
 }) {
-  const [detail, setDetail] = useState<WorkOrderDetail | null>(null);
-  const [loading, setLoading] = useState(false);
   const [raBillDialogOpen, setRaBillDialogOpen] = useState(false);
   const [raBillDetail, setRaBillDetail] = useState<{ id: string; number: string } | null>(null);
   const [advanceOpen, setAdvanceOpen] = useState(false);
@@ -603,15 +597,9 @@ function WorkOrderDetailDialog({
   const [advanceMode, setAdvanceMode] = useState("BANK_TRANSFER");
   const [advanceRef, setAdvanceRef] = useState("");
 
-  useEffect(() => {
-    if (!wo) { setDetail(null); return; }
-    setLoading(true);
-    fetch(`/api/work-orders/${wo.id}`)
-      .then((r) => r.json())
-      .then((data) => setDetail(data))
-      .catch(() => setDetail(null))
-      .finally(() => setLoading(false));
-  }, [wo]);
+  const { data: detail, loading } = useFetch<WorkOrderDetail | null>(
+    wo ? `/api/work-orders/${wo.id}` : null,
+  );
 
   if (!wo) return null;
 
@@ -1006,19 +994,10 @@ function RaBillDialog({
   const [periodTo, setPeriodTo] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
-  const [preview, setPreview] = useState<PreviewData | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-
   // Fetch preview when dialog opens
-  useEffect(() => {
-    if (!open || !workOrderId) return;
-    setPreviewLoading(true);
-    fetch(`/api/ra-bills?preview=unbilled&workOrderId=${workOrderId}`)
-      .then((r) => r.json())
-      .then((data) => setPreview(data))
-      .catch(() => setPreview(null))
-      .finally(() => setPreviewLoading(false));
-  }, [open, workOrderId]);
+  const { data: preview, loading: previewLoading } = useFetch<PreviewData | null>(
+    open && workOrderId ? `/api/ra-bills?preview=unbilled&workOrderId=${workOrderId}` : null,
+  );
 
   const totalUnbilledEntries = preview?.lines.reduce((s, l) => s + l.unbilledEntries.length, 0) ?? 0;
   const hasUnbilled = totalUnbilledEntries > 0;
@@ -1210,31 +1189,27 @@ function WorkOrderDialog({
     defectLiabilityMonths: "12",
   });
   const [lines, setLines] = useState([{ boqItemId: "", agreedRate: "" }]);
-  const [subcontractors, setSubcontractors] = useState<{ id: string; name: string; trade: string | null }[]>([]);
-  const [boqItems, setBoqItems] = useState<{ id: string; serialNo: string; description: string; unit: string | null; rate: number | null; estimatedQty: number | null }[]>([]);
+
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/subcontractors").then((r) => r.json()).then((d) => setSubcontractors(d ?? [])).catch(() => {});
-  }, []);
+  const { data: subcontractorsData } = useFetch<{ id: string; name: string; trade: string | null }[]>("/api/subcontractors");
+  const subcontractors = subcontractorsData ?? [];
 
-  useEffect(() => {
-    if (!projectId) return;
-    fetch(`/api/boq/tree?projectId=${projectId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        const items: typeof boqItems = [];
-        function collect(nodes: unknown[]) {
-          for (const n of nodes) {
-            const node = n as Record<string, unknown>;
-            if (node.type === "LINE_ITEM") items.push({ id: node.id as string, serialNo: node.serialNo as string, description: node.description as string, unit: node.unit as string | null, rate: node.rate as number | null, estimatedQty: node.estimatedQty as number | null });
-            if (node.children) collect(node.children as unknown[]);
-          }
-        }
-        collect(data.tree ?? []);
-        setBoqItems(items);
-      });
-  }, [projectId]);
+  const { data: boqTreeData } = useFetch<{ tree?: unknown[] }>(
+    projectId ? `/api/boq/tree?projectId=${projectId}` : null,
+  );
+  const boqItems = useMemo(() => {
+    const items: { id: string; serialNo: string; description: string; unit: string | null; rate: number | null; estimatedQty: number | null }[] = [];
+    function collect(nodes: unknown[]) {
+      for (const n of nodes) {
+        const node = n as Record<string, unknown>;
+        if (node.type === "LINE_ITEM") items.push({ id: node.id as string, serialNo: node.serialNo as string, description: node.description as string, unit: node.unit as string | null, rate: node.rate as number | null, estimatedQty: node.estimatedQty as number | null });
+        if (node.children) collect(node.children as unknown[]);
+      }
+    }
+    collect(boqTreeData?.tree ?? []);
+    return items;
+  }, [boqTreeData]);
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -1411,8 +1386,6 @@ function RaBillDetailDialog({
   permissions: { canManage: boolean; canSubmit: boolean; canApprove: boolean; canPay: boolean };
   onAction: (action: string, rejectReason?: string, body?: Record<string, unknown>) => void;
 }) {
-  const [detail, setDetail] = useState<RaBillDetailData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [showCalc, setShowCalc] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -1421,13 +1394,9 @@ function RaBillDetailDialog({
   const [paymentMode, setPaymentMode] = useState("BANK_TRANSFER");
   const [paymentReference, setPaymentReference] = useState("");
 
-  useEffect(() => {
-    fetch(`/api/ra-bills/${raBillId}`)
-      .then((r) => r.json())
-      .then((data) => setDetail(data))
-      .catch(() => setDetail(null))
-      .finally(() => setLoading(false));
-  }, [raBillId]);
+  const { data: detail, loading } = useFetch<RaBillDetailData | null>(
+    raBillId ? `/api/ra-bills/${raBillId}` : null,
+  );
 
   return (
     <Dialog

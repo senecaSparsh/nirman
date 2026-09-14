@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -161,54 +162,55 @@ export function MeasurementBookView({
   const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects);
   useEffect(() => { setLocalProjects(projects); }, [projects]);
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
-  const [entries, setEntries] = useState<MbEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { data: entriesData, loading, error, retry: refetchEntries } = useFetch<MbEntry[]>(
+    projectId ? `/api/mb-entries?projectId=${projectId}` : null,
+  );
+  const entries = entriesData ?? [];
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [boqItems, _setBoqItems] = useState<BoqItem[]>([]);
-  const [wbsNodes, setWbsNodes] = useState<WbsNode[]>([]);
   // Rejection dialog state — replaces native prompt() for rejection reason input
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
-    if (!projectId) return;
-    setLoading(true);
-    fetch(`/api/mb-entries?projectId=${projectId}`)
-      .then((r) => r.json())
-      .then((data) => setEntries(data ?? []))
-      .catch(() => toast.error("Failed to load MB entries"))
-      .finally(() => setLoading(false));
+    if (error) toast.error("Failed to load MB entries");
+  }, [error]);
 
-    // Load BOQ line items + WBS nodes for the dialog
-    Promise.all([
-      fetch(`/api/boq/tree?projectId=${projectId}`).then((r) => r.json()),
-      fetch(`/api/wbs/tree?projectId=${projectId}`).then((r) => r.json()),
-    ]).then(([boq, wbs]) => {
-      const items: BoqItem[] = [];
-      function collect(nodes: unknown[]) {
-        for (const n of nodes) {
-          const node = n as Record<string, unknown>;
-          if (node.type === "LINE_ITEM") {
-            items.push({ id: node.id as string, serialNo: node.serialNo as string, description: node.description as string, unit: node.unit as string | null, rate: node.rate as number | null, estimatedQty: node.estimatedQty as number | null });
-          }
-          if (node.children) collect(node.children as unknown[]);
-        }
-      }
-      collect(boq.tree ?? []);
+  // BOQ line items + WBS nodes for the create-entry dialog (cached per project).
+  const { data: boqData } = useFetch<{ tree?: unknown[] }>(
+    projectId ? `/api/boq/tree?projectId=${projectId}` : null,
+  );
+  const { data: wbsData } = useFetch<unknown[]>(
+    projectId ? `/api/wbs/tree?projectId=${projectId}` : null,
+  );
 
-      const nodes: WbsNode[] = [];
-      function collectWbs(ns: unknown[]) {
-        for (const n of ns) {
-          const node = n as Record<string, unknown>;
-          const boqItem = node.boqItem as Record<string, unknown> | undefined;
-          nodes.push({ id: node.id as string, code: node.code as string, name: node.name as string, boqItemId: boqItem?.id as string | null ?? null });
-          if (node.children) collectWbs(node.children as unknown[]);
+  const boqItems = useMemo(() => {
+    const items: BoqItem[] = [];
+    function collect(nodes: unknown[]) {
+      for (const n of nodes) {
+        const node = n as Record<string, unknown>;
+        if (node.type === "LINE_ITEM") {
+          items.push({ id: node.id as string, serialNo: node.serialNo as string, description: node.description as string, unit: node.unit as string | null, rate: node.rate as number | null, estimatedQty: node.estimatedQty as number | null });
         }
+        if (node.children) collect(node.children as unknown[]);
       }
-      collectWbs(wbs ?? []);
-      setWbsNodes(nodes);
-    });
-  }, [projectId]);
+    }
+    collect(boqData?.tree ?? []);
+    return items;
+  }, [boqData]);
+
+  const wbsNodes = useMemo(() => {
+    const nodes: WbsNode[] = [];
+    function collectWbs(ns: unknown[]) {
+      for (const n of ns) {
+        const node = n as Record<string, unknown>;
+        const boqItem = node.boqItem as Record<string, unknown> | undefined;
+        nodes.push({ id: node.id as string, code: node.code as string, name: node.name as string, boqItemId: boqItem?.id as string | null ?? null });
+        if (node.children) collectWbs(node.children as unknown[]);
+      }
+    }
+    collectWbs(wbsData ?? []);
+    return nodes;
+  }, [wbsData]);
 
   async function onAction(id: string, action: "verify" | "approve" | "reject") {
     if (action === "reject") {
@@ -230,7 +232,7 @@ export function MeasurementBookView({
         toast.info("Approved — ready for billing", { description: "Include this entry in the next RA Bill from the work order page.", action: { label: "Go to Work Orders", onClick: () => window.location.href = "/work-orders" } });
       }
       // Refresh entries
-      fetch(`/api/mb-entries?projectId=${projectId}`).then((r) => r.json()).then((d) => setEntries(d ?? [])).catch(() => {});
+      refetchEntries();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     }
@@ -252,7 +254,7 @@ export function MeasurementBookView({
       if (!res.ok) throw new Error(data.error ?? "Failed");
       toast.success("Entry rejected");
       setRejectTarget(null);
-      fetch(`/api/mb-entries?projectId=${projectId}`).then((r) => r.json()).then((d) => setEntries(d ?? [])).catch(() => {});
+      refetchEntries();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     }
@@ -318,7 +320,7 @@ export function MeasurementBookView({
         projectId={projectId}
         boqItems={boqItems}
         wbsNodes={wbsNodes}
-        onCreated={() => fetch(`/api/mb-entries?projectId=${projectId}`).then((r) => r.json()).then((d) => setEntries(d ?? [])).catch(() => {})}
+        onCreated={refetchEntries}
       />
 
       {/* Rejection reason dialog — replaces native prompt() */}

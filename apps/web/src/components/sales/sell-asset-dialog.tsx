@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -109,10 +110,6 @@ export function SellAssetDialog({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [assets, setAssets] = useState<SellableAssetRow[]>([]);
-  const [loadingAssets, setLoadingAssets] = useState(false);
-  const [projects, setProjects] = useState<{ id: string; name: string; unitCount?: number; totalArea?: number; totalCost?: number }[]>([]);
-  const [brokers, setBrokers] = useState<BrokerOption[]>([]);
   const [localCustomers, setLocalCustomers] = useState<CustomerOption[]>(customers);
   useEffect(() => { setLocalCustomers(customers); }, [customers]);
   const isPreset = Boolean(presetAsset);
@@ -186,52 +183,42 @@ export function SellAssetDialog({
     }
   }, [presetAsset]);
 
-  // Fetch sellable assets whenever the asset type changes
-  useEffect(() => {
-    if (!open || isPreset) return;
-    if (form.assetType === "PROJECT") {
-      // Fetch sellable projects instead
-      setLoadingAssets(true);
-      setAssets([]);
-      fetch(`/api/sellable-assets?type=PROJECT`)
-        .then((r) => r.json())
-        .then((d) => { if (Array.isArray(d)) setProjects(d); })
-        .catch(() => toast.error("Failed to load projects"))
-        .finally(() => setLoadingAssets(false));
-    } else {
-      setLoadingAssets(true);
-      setAssets([]);
-      fetch(`/api/sellable-assets?type=${form.assetType}`)
-        .then((r) => r.json())
-        .then((d) => {
-          if (Array.isArray(d)) {
-            setAssets(d);
-            // Auto-select the unit passed from lead conversion
-            if (initialUnitId && form.assetType === "BUILT_UNIT") {
-              const match = d.find((a) => a.assetId === initialUnitId);
-              if (match) {
-                setForm((f) => ({
-                  ...f,
-                  assetId: match.assetId,
-                  salePrice: match.askingPrice != null ? String(match.askingPrice) : f.salePrice,
-                }));
-              }
-            }
-          }
-        })
-        .catch(() => toast.error("Failed to load sellable assets"))
-        .finally(() => setLoadingAssets(false));
-    }
-  }, [open, form.assetType, isPreset, initialUnitId]);
+  // Sellable assets (or projects when assetType=PROJECT) — refetches when
+  // the asset type changes, cached per type.
+  const { data: sellableData, loading: loadingAssets, error: sellableError } = useFetch<unknown[]>(
+    open && !isPreset ? `/api/sellable-assets?type=${form.assetType}` : null,
+  );
+  const assets: SellableAssetRow[] = useMemo(() =>
+    form.assetType !== "PROJECT" && Array.isArray(sellableData) ? (sellableData as SellableAssetRow[]) : [],
+    [form.assetType, sellableData],
+  );
+  const projects: { id: string; name: string; unitCount?: number; totalArea?: number; totalCost?: number }[] = useMemo(() =>
+    form.assetType === "PROJECT" && Array.isArray(sellableData) ? (sellableData as { id: string; name: string; unitCount?: number; totalArea?: number; totalCost?: number }[]) : [],
+    [form.assetType, sellableData],
+  );
 
-  // Fetch brokers when dialog opens
   useEffect(() => {
-    if (!open) return;
-    fetch("/api/brokers")
-      .then((r) => r.json())
-      .then((d) => { if (Array.isArray(d)) setBrokers(d); })
-      .catch(() => { /* best-effort */ });
-  }, [open]);
+    if (sellableError) toast.error("Failed to load sellable assets");
+  }, [sellableError]);
+
+  // Auto-select the unit passed from lead conversion once assets arrive.
+  useEffect(() => {
+    if (initialUnitId && form.assetType === "BUILT_UNIT" && Array.isArray(sellableData)) {
+      const match = (sellableData as SellableAssetRow[]).find((a) => a.assetId === initialUnitId);
+      if (match) {
+        setForm((f) => ({
+          ...f,
+          assetId: match.assetId,
+          salePrice: match.askingPrice != null ? String(match.askingPrice) : f.salePrice,
+        }));
+      }
+    }
+     
+  }, [sellableData, initialUnitId, form.assetType]);
+
+  // Brokers when dialog opens.
+  const { data: brokersData } = useFetch<BrokerOption[]>("/api/brokers", { skip: !open });
+  const brokers = Array.isArray(brokersData) ? brokersData : [];
 
   const selectedAsset = useMemo(
     () => isPreset && presetAsset

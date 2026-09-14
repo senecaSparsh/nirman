@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum, scopeWhere } from "@/lib/server";
+import { canAutoApprove } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -46,39 +47,43 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   // Mirrors /m/approvals: permission-gated per type AND excludes items the
   // current user created/submitted — you can't approve your own work, so
   // counting it here would show a number with nothing actionable behind it.
+  // Tier-1 roles (OWNER/ADMIN) are exempt — they CAN self-approve, so their
+  // own pending items must still count.
+  const hideSelf = !canAutoApprove(user.role);
+  const self = hideSelf ? { not: user.id } : undefined;
   const [poCount, reqCount, gpCount, dprCount, expenseCount, claimCount, raCount] = await Promise.all([
     canApprovePo
-      ? prisma.purchaseOrder.count({ where: { companyId: company.id, status: "DRAFT", createdById: { not: user.id } } })
+      ? prisma.purchaseOrder.count({ where: { companyId: company.id, status: "DRAFT", createdById: self } })
       : 0,
     canApproveReq
       ? prisma.materialRequisition.count({
-          where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: user.id }, ...reqScope },
+          where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: self, ...reqScope },
         })
       : 0,
     canApproveGp
-      ? prisma.gatePass.count({ where: { companyId: company.id, status: "PENDING", submittedById: { not: user.id }, ...gpScope } })
+      ? prisma.gatePass.count({ where: { companyId: company.id, status: "PENDING", submittedById: self, ...gpScope } })
       : 0,
     canApproveDpr
       ? prisma.dailyProgressReport.count({
           where: {
             project: { companyId: company.id },
             approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] },
-            submittedById: { not: user.id },
+            submittedById: self,
             ...dprScope,
           },
         })
       : 0,
     canApproveExpense
-      ? prisma.expense.count({ where: { companyId: company.id, status: "PENDING", submittedById: { not: user.id } } })
+      ? prisma.expense.count({ where: { companyId: company.id, status: "PENDING", submittedById: self } })
       : 0,
     canApproveExpense
       ? prisma.expenseClaim.count({
-          where: { companyId: company.id, status: "SUBMITTED", claimantId: { not: user.id }, ...await scopeWhere("ExpenseClaim", {}) },
+          where: { companyId: company.id, status: "SUBMITTED", claimantId: self, ...await scopeWhere("ExpenseClaim", {}) },
         })
       : 0,
     canApproveRa
       ? prisma.raBill.count({
-          where: { companyId: company.id, status: "SUBMITTED", createdById: { not: user.id }, submittedById: { not: user.id } },
+          where: { companyId: company.id, status: "SUBMITTED", createdById: self, submittedById: self },
         })
       : 0,
   ]);

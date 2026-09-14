@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import {
   Calculator,
@@ -54,8 +55,8 @@ interface Integration {
 
 export function IntegrationsTab() {
   const [confirm, confirmDialog] = useConfirm();
-  const [integrations, setIntegrations] = useState<Integration[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: integData, loading, error: integError, retry: load } = useFetch<{ integrations: Integration[] }>("/api/integrations");
+  const integrations = integData?.integrations ?? [];
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [forms, setForms] = useState<Record<string, Record<string, unknown>>>({});
   const [enabledMap, setEnabledMap] = useState<Record<string, boolean>>({});
@@ -63,48 +64,40 @@ export function IntegrationsTab() {
   const [verifying, setVerifying] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/integrations");
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setIntegrations(data.integrations);
-      // Initialize forms with existing config values
-      const newForms: Record<string, Record<string, unknown>> = {};
-      const newEnabled: Record<string, boolean> = {};
-      for (const integ of data.integrations as Integration[]) {
-        const formValues: Record<string, unknown> = {};
-        for (const field of integ.fields) {
-          const existing = integ.config[field.name];
-          if (existing !== undefined && existing !== null && existing !== "" && existing !== "••••••••") {
-            formValues[field.name] = existing;
-          } else if (field.defaultValue !== undefined) {
-            formValues[field.name] = field.defaultValue;
-          } else if (field.type === "boolean") {
-            formValues[field.name] = false;
-          } else {
-            formValues[field.name] = "";
-          }
+  // Initialize forms with existing config values whenever integrations load.
+  useEffect(() => {
+    const list = integData?.integrations;
+    if (!list) return;
+    const newForms: Record<string, Record<string, unknown>> = {};
+    const newEnabled: Record<string, boolean> = {};
+    for (const integ of list) {
+      const formValues: Record<string, unknown> = {};
+      for (const field of integ.fields) {
+        const existing = integ.config[field.name];
+        if (existing !== undefined && existing !== null && existing !== "" && existing !== "••••••••") {
+          formValues[field.name] = existing;
+        } else if (field.defaultValue !== undefined) {
+          formValues[field.name] = field.defaultValue;
+        } else if (field.type === "boolean") {
+          formValues[field.name] = false;
+        } else {
+          formValues[field.name] = "";
         }
-        newForms[integ.key] = formValues;
-        newEnabled[integ.key] = integ.enabled;
       }
-      setForms(newForms);
-      setEnabledMap(newEnabled);
-      if (data.integrations.length > 0 && !activeKey) {
-        setActiveKey(data.integrations[0].key);
-      }
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to load integrations");
-    } finally {
-      setLoading(false);
+      newForms[integ.key] = formValues;
+      newEnabled[integ.key] = integ.enabled;
     }
-  }, [activeKey]);
+    setForms(newForms);
+    setEnabledMap(newEnabled);
+    if (list.length > 0) {
+      setActiveKey((prev) => prev ?? list[0]!.key);
+    }
+  }, [integData]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (integError) toast.error(integError);
+  }, [integError]);
+
 
   async function save(key: string) {
     setSaving(key);

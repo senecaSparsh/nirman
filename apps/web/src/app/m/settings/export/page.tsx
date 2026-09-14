@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import {
   Download, FileText, Loader2, Package, TrendingUp,
   Wallet, Receipt, Scale, BarChart3, FileSpreadsheet,
@@ -44,26 +45,19 @@ export default function MobileExportPage() {
   const [to, setTo] = useState("");
   const [downloading, setDownloading] = useState(false);
   const [downloaded, setDownloaded] = useState<string | null>(null);
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
-  const [projectsLoading, setProjectsLoading] = useState(true);
+
   const [selectedProjectId, setSelectedProjectId] = useState("");
 
   const report = REPORTS.find((r) => r.id === selected);
 
   // Fetch projects for reports that need a project selection
-  useEffect(() => {
-    fetch("/api/projects")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (Array.isArray(d)) {
-          setProjects(d.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })));
-        } else if (d?.items && Array.isArray(d.items)) {
-          setProjects(d.items.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })));
-        }
-      })
-      .catch(() => {})
-      .finally(() => setProjectsLoading(false));
-  }, []);
+  const { data: projectsData, loading: projectsLoading } = useFetch<
+    { id: string; name: string }[] | { items?: { id: string; name: string }[] }
+  >("/api/projects");
+  const projects = useMemo(() => {
+    const list = Array.isArray(projectsData) ? projectsData : (projectsData?.items ?? []);
+    return list.map((p) => ({ id: p.id, name: p.name }));
+  }, [projectsData]);
 
   const handleDownload = async () => {
     if (!selected) return;

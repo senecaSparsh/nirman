@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Persona } from "@/lib/mobile-nav-v2";
+import { useFetch } from "@/lib/use-fetch";
 import { QuickActionsBar, type QuickActionTab, type ExtraActionDef } from "@/components/mobile/v2/quick-actions-bar";
 import {
   INVENTORY_QUICK_ACTIONS,
@@ -187,20 +188,12 @@ const PERSONA_CONFIGS: Record<Persona, PersonaConfig> = {
 
 export function PersonaHomeDashboard({ persona, role: _role, currentCompany }: PersonaHomeDashboardProps) {
   const config = PERSONA_CONFIGS[persona] ?? PERSONA_CONFIGS.executive;
-  const [qaData, setQaData] = React.useState<{ persona: string; savedLayouts: Record<string, string[]>; extraActions: ExtraActionDef[] } | null>(null);
-  const [qaLoading, setQaLoading] = React.useState(true);
-
-  // Fetch quick-action context (saved layouts + extra actions for this module)
-  React.useEffect(() => {
-    setQaLoading(true);
-    fetch("/api/me/quick-actions-context?module=" + config.quickActionModule)
-      .then((r) => r.ok ? r.json() : null)
-      .catch(() => null)
-      .then((qa) => {
-        if (qa) setQaData(qa);
-        setQaLoading(false);
-      });
-  }, [config.quickActionModule]);
+  // Quick-action context (saved layouts + extra actions for this module)
+  const { data: qaData, loading: qaLoading } = useFetch<{
+    persona: string;
+    savedLayouts: Record<string, string[]>;
+    extraActions: ExtraActionDef[];
+  }>("/api/me/quick-actions-context?module=" + config.quickActionModule);
 
   const Icon = config.icon;
 

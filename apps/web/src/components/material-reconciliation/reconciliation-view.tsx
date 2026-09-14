@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -110,18 +111,13 @@ const reconColumns: Column<ReconItem>[] = [
 
 export function MaterialReconciliationView({ projects }: { projects: Project[] }) {
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
-  const [data, setData] = useState<ReconData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { data, loading, error } = useFetch<ReconData>(
+    projectId ? `/api/material-reconciliation?projectId=${projectId}` : null,
+  );
 
   useEffect(() => {
-    if (!projectId) return;
-    setLoading(true);
-    fetch(`/api/material-reconciliation?projectId=${projectId}`)
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => toast.error("Failed to load reconciliation"))
-      .finally(() => setLoading(false));
-  }, [projectId]);
+    if (error) toast.error("Failed to load reconciliation");
+  }, [error]);
 
   if (projects.length === 0) {
     return <EmptyState icon={<ClipboardCheck />} title="No projects" description="Create a project to see material reconciliation." />;

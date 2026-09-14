@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Trash2, Loader2, FileText, Receipt } from "lucide-react";
@@ -60,8 +61,9 @@ export function ClaimDetailDialog({
   canEdit: boolean;
 }) {
   const router = useRouter();
-  const [detail, setDetail] = useState<ClaimDetail | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { data: detail, loading, error, retry: fetchDetail } = useFetch<ClaimDetail>(
+    open && claimId ? `/api/expense-claims/${claimId}` : null,
+  );
   const [adding, setAdding] = useState(false);
   const [deletingLine, setDeletingLine] = useState<string | null>(null);
   const [lineForm, setLineForm] = useState({
@@ -76,26 +78,8 @@ export function ClaimDetailDialog({
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    if (open && claimId) {
-      fetchDetail();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchDetail is stable; adding it causes infinite re-runs
-  }, [open, claimId]);
-
-  async function fetchDetail() {
-    if (!claimId) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/expense-claims/${claimId}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to load claim");
-      setDetail(data);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Load failed");
-    } finally {
-      setLoading(false);
-    }
-  }
+    if (error) toast.error(error);
+  }, [error]);
 
   async function uploadReceipt(file: File): Promise<string | null> {
     setUploading(true);

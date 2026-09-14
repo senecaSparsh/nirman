@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -712,17 +713,13 @@ function ProcurementTab({ data }: { data: ProjectHubData }) {
 
 function StockTab({ data }: { data: ProjectHubData }) {
   const [view, setView] = useState<"issues" | "movements" | "valuation">("issues");
-  const [valuation, setValuation] = useState<{ locationName: string; totalValue: number; items: { materialName: string; materialCode: string; qty: number; mac: number; value: number }[] }[] | null>(null);
-  const [valuationLoading, setValuationLoading] = useState(false);
+  // Valuation is lazy — only fetched once the user switches to that view,
+  // then cached so switching back is instant.
+  const { data: valuation, loading: valuationLoading } = useFetch<
+    { locationName: string; totalValue: number; items: { materialName: string; materialCode: string; qty: number; mac: number; value: number }[] }[]
+  >(view === "valuation" ? `/api/site-stock-valuation?projectId=${data.project.id}` : null);
 
-  async function loadValuation() {
-    if (valuation) return;
-    setValuationLoading(true);
-    try {
-      const res = await fetch(`/api/site-stock-valuation?projectId=${data.project.id}`);
-      if (res.ok) setValuation(await res.json());
-    } catch (err) { console.warn("Failed to load site stock valuation:", err); } finally { setValuationLoading(false); }
-  }
+
 
   const toggle = (
     <div className="inline-flex shrink-0 rounded-md border border-border bg-card p-0.5">
@@ -743,7 +740,7 @@ function StockTab({ data }: { data: ProjectHubData }) {
         Movements <span className="tnum">({data.stockMovements.length})</span>
       </button>
       <button
-        onClick={() => { setView("valuation"); loadValuation(); }}
+        onClick={() => setView("valuation")}
         className={`rounded px-2.5 py-1 text-caption font-medium transition-colors ${
           view === "valuation" ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"
         }`}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowRight, Check, X, ShoppingCart, FileText, Truck, Trophy, Trash2 } from "lucide-react";
@@ -48,22 +49,17 @@ export function RequisitionDetailDialog({
 }) {
   const router = useRouter();
   const [confirm, confirmDialog] = useConfirm();
-  const [detail, setDetail] = useState<RequisitionDetail | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { data, loading, retry: refetchDetail } = useFetch<RequisitionDetail & { error?: string }>(
+    open && requisition ? `/api/requisitions/${requisition.id}` : null,
+  );
+  const detail = data && !data.error ? data : null;
   const [convertOpen, setConvertOpen] = useState(false);
   const [acting, setActing] = useState(false);
   const trackRecent = useTrackRecent();
 
+  // Track in recently viewed when the dialog opens.
   useEffect(() => {
     if (open && requisition) {
-      setLoading(true);
-      setDetail(null);
-      fetch(`/api/requisitions/${requisition.id}`)
-        .then((r) => r.json())
-        .then((d) => { if (!d.error) setDetail(d); })
-        .catch(() => { /* silent — loading state reset below */ })
-        .finally(() => setLoading(false));
-      // Track in recently viewed
       trackRecent({ type: "requisition", id: requisition.id, label: requisition.reqNumber, href: `/requisitions?req=${requisition.id}` });
     }
   }, [open, requisition, trackRecent]);
@@ -110,10 +106,7 @@ export function RequisitionDetailDialog({
       if (!res.ok) throw new Error(data.error ?? "Action failed");
       toast.success(`Indent ${action}ted`);
       // Re-fetch detail
-      const r2 = await fetch(`/api/requisitions/${requisition.id}`);
-      if (!r2.ok) throw new Error("Failed to re-fetch indent details");
-      const d2 = await r2.json();
-      if (!d2.error) setDetail(d2);
+      refetchDetail();
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
@@ -56,36 +57,32 @@ export function IssueFormDialog({
   const [departmentId, setDepartmentId] = useState("");
   const [fromLocationId, setFromLocationId] = useState("");
   const [builtUnitId, setBuiltUnitId] = useState("");
-  const [builtUnits, setBuiltUnits] = useState<{ id: string; unitNumber: string; unitType: string | null }[]>([]);
+
   const [receiverName, setReceiverName] = useState("");
   const [receiverMobile, setReceiverMobile] = useState("");
   const [roundOff, setRoundOff] = useState("");
   const [notes, setNotes] = useState("");
   const [vehicle, setVehicle] = useState<VehicleData>(EMPTY_VEHICLE);
   const [lines, setLines] = useState<IssueLine[]>([{ id: crypto.randomUUID(), materialId: "", materialName: "", unit: "", qty: "", lotNumber: "", available: null }]);
-  // Stock at the from-location: materialId → { qty, mac }
-  const [stockMap, setStockMap] = useState<Record<string, { qty: number; mac: number }>>({});
+  // Stock at the from-location: materialId → { qty, mac } (cached per location)
+  const { data: stockData } = useFetch<{ materialId: string; qty: number; mac: number }[]>(
+    fromLocationId ? `/api/stock/available?locationId=${fromLocationId}` : null,
+  );
+  const stockMap = useMemo(() => {
+    const map: Record<string, { qty: number; mac: number }> = {};
+    for (const item of stockData ?? []) map[item.materialId] = { qty: item.qty, mac: item.mac };
+    return map;
+  }, [stockData]);
 
-  // Fetch stock at from-location when it changes
+  // Built units when a project is selected (for per-unit issue)
+  const { data: builtUnitsData } = useFetch<{ id: string; unitNumber: string; unitType: string | null }[]>(
+    target === "PROJECT" && projectId
+      ? `/api/built-units?projectId=${projectId}&status=AVAILABLE,BOOKED,SOLD`
+      : null,
+  );
+  const builtUnits = builtUnitsData ?? [];
   useEffect(() => {
-    if (!fromLocationId) { setStockMap({}); return; }
-    fetch(`/api/stock/available?locationId=${fromLocationId}`)
-      .then((r) => r.json())
-      .then((data: { materialId: string; qty: number; mac: number }[]) => {
-        const map: Record<string, { qty: number; mac: number }> = {};
-        for (const item of data) map[item.materialId] = { qty: item.qty, mac: item.mac };
-        setStockMap(map);
-      })
-      .catch(() => setStockMap({}));
-  }, [fromLocationId]);
-
-  // Fetch built units when project changes (for per-unit issue)
-  useEffect(() => {
-    if (target !== "PROJECT" || !projectId) { setBuiltUnits([]); setBuiltUnitId(""); return; }
-    fetch(`/api/built-units?projectId=${projectId}&status=AVAILABLE,BOOKED,SOLD`)
-      .then((r) => r.json())
-      .then((data: { id: string; unitNumber: string; unitType: string | null }[]) => setBuiltUnits(data))
-      .catch(() => setBuiltUnits([]));
+    if (target !== "PROJECT" || !projectId) setBuiltUnitId("");
   }, [target, projectId]);
   const [errors, setErrors] = useState<ValidationErrors<IssueFormValues>>({});
   // Local copies so freshly created masters appear in their dropdowns without

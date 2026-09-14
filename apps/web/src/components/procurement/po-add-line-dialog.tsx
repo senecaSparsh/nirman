@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import {Input, Select} from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { formatCurrency } from "@/lib/utils";
+import { useFetch } from "@/lib/use-fetch";
 import type { MaterialRow } from "@/lib/types";
 
 /**
@@ -26,32 +27,17 @@ export function PoAddLineDialog({
   poId: string;
   onAdded?: () => void;
 }) {
-  const [materials, setMaterials] = useState<MaterialRow[]>([]);
   const [materialId, setMaterialId] = useState("");
   const [qty, setQty] = useState("");
   const [unitCost, setUnitCost] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const { data: materialsData } = useFetch<{ rows?: MaterialRow[] }>("/api/materials", { skip: !open });
+  const materials = materialsData?.rows ?? [];
   useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    async function load() {
-      try {
-        const res = await fetch("/api/materials");
-        if (!cancelled && res.ok) {
-          const data = await res.json();
-          const rows = data?.rows ?? [];
-          setMaterials(rows);
-          if (rows.length > 0 && !materialId) setMaterialId(rows[0].id);
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-    load();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+    if (materials.length > 0 && !materialId) setMaterialId(materials[0]!.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only seed default once data arrives
+  }, [materialsData]);
 
   useEffect(() => {
     if (!open) {

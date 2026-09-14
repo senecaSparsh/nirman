@@ -33,6 +33,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { StatusPill } from "@/components/page";
 import { cn, formatDate } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
+import { useFetch } from "@/lib/use-fetch";
 import type { WorkflowGraph, WorkflowStep, StepType } from "@/lib/workflow-engine";
 import { WORKFLOW_TEMPLATES } from "@/lib/workflow-templates";
 
@@ -642,10 +643,11 @@ function StepEditor({
 // ── Step config components ──
 
 function CreateTaskConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u: Partial<WorkflowStep>) => void }) {
-  const [users, setUsers] = useState<{ id: string; name: string; role: string }[]>([]);
+  const { data: usersData, error: usersError } = useFetch<{ id: string; name: string; role: string }[]>("/api/users");
+  const users = usersData ?? [];
   useEffect(() => {
-    fetch("/api/users").then((r) => r.json()).then((d) => { if (Array.isArray(d)) setUsers(d); }).catch(() => toast.error("Failed to load users"));
-  }, []);
+    if (usersError) toast.error("Failed to load users");
+  }, [usersError]);
 
   return (
     <div className="space-y-2">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import { Select } from "@/components/ui/input";
 import { Field } from "@/components/field";
@@ -46,30 +47,21 @@ type MtoItem = {
 
 export function ProjectControlView({ projects }: { projects: Project[] }) {
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
-  const [evm, setEvm] = useState<EvmMetrics | null>(null);
-  const [commitments, setCommitments] = useState<Commitments | null>(null);
-  const [overruns, setOverruns] = useState<OverrunItem[]>([]);
-  const [mto, setMto] = useState<MtoItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const skip = !projectId;
+  const evmQ = useFetch<EvmMetrics>(skip ? null : `/api/evm?projectId=${projectId}`);
+  const comQ = useFetch<Commitments>(skip ? null : `/api/project-commitments?projectId=${projectId}`);
+  const ovrQ = useFetch<OverrunItem[]>(skip ? null : `/api/cost-overrun?projectId=${projectId}`);
+  const mtoQ = useFetch<MtoItem[]>(skip ? null : `/api/material-take-off?projectId=${projectId}`);
+  const evm = evmQ.data ?? null;
+  const commitments = comQ.data ?? null;
+  const overruns = ovrQ.data ?? [];
+  const mto = mtoQ.data ?? [];
+  const loading = evmQ.loading || comQ.loading || ovrQ.loading || mtoQ.loading;
+  const error = evmQ.error || comQ.error || ovrQ.error || mtoQ.error;
 
   useEffect(() => {
-    if (!projectId) return;
-    setLoading(true);
-    Promise.all([
-      fetch(`/api/evm?projectId=${projectId}`).then((r) => r.json()),
-      fetch(`/api/project-commitments?projectId=${projectId}`).then((r) => r.json()),
-      fetch(`/api/cost-overrun?projectId=${projectId}`).then((r) => r.json()),
-      fetch(`/api/material-take-off?projectId=${projectId}`).then((r) => r.json()),
-    ])
-      .then(([e, c, o, m]) => {
-        setEvm(e);
-        setCommitments(c);
-        setOverruns(o ?? []);
-        setMto(m ?? []);
-      })
-      .catch(() => toast.error("Failed to load project control data"))
-      .finally(() => setLoading(false));
-  }, [projectId]);
+    if (error) toast.error("Failed to load project control data");
+  }, [error]);
 
   if (projects.length === 0) {
     return <EmptyState icon={<Gauge />} title="No projects" description="Create a project to see project control metrics." />;

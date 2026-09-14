@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
@@ -41,7 +42,7 @@ export function IssueMaterialsDialog({
   const [projectId, setProjectId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [builtUnitId, setBuiltUnitId] = useState("");
-  const [builtUnits, setBuiltUnits] = useState<Array<{ id: string; unitNumber: string; unitType: string }>>([]);
+
   const [fromLocationId, setFromLocationId] = useState("");
   const [receiverName, setReceiverName] = useState("");
   const [receiverMobile, setReceiverMobile] = useState("");
@@ -49,7 +50,7 @@ export function IssueMaterialsDialog({
   const [vehicle, setVehicle] = useState<VehicleData>(EMPTY_VEHICLE);
   const [lines, setLines] = useState<Line[]>([newLine()]);
   const [saving, setSaving] = useState(false);
-  const [available, setAvailable] = useState<AvailableStockRow[]>([]);
+
   // Local copies so freshly created masters appear in their dropdowns without
   // waiting for router.refresh.
   const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects);
@@ -57,28 +58,20 @@ export function IssueMaterialsDialog({
   useEffect(() => { setLocalProjects(projects); }, [projects]);
   useEffect(() => { setLocalLocations(locations); }, [locations]);
 
-  useEffect(() => {
-    if (!fromLocationId) {
-      setAvailable([]);
-      return;
-    }
-    fetch(`/api/stock/available?locationId=${fromLocationId}`)
-      .then((r) => r.json())
-      .then((data) => setAvailable(Array.isArray(data) ? data : []))
-      .catch((err) => { console.error("Failed to load available stock:", err); setAvailable([]); });
-  }, [fromLocationId]);
+  const { data: availableData } = useFetch<AvailableStockRow[]>(
+    fromLocationId ? `/api/stock/available?locationId=${fromLocationId}` : null,
+  );
+  const available = availableData ?? [];
 
-  // Fetch built units when a project is selected (for per-unit issuance)
+  // Built units when a project is selected (for per-unit issuance).
+  const { data: builtUnitsData } = useFetch<{ id: string; unitNumber: string; unitType: string }[]>(
+    target === "PROJECT" && projectId
+      ? `/api/built-units?projectId=${projectId}&status=AVAILABLE,UNDER_CONSTRUCTION,PLANNED`
+      : null,
+  );
+  const builtUnits = builtUnitsData ?? [];
   useEffect(() => {
-    if (target !== "PROJECT" || !projectId) {
-      setBuiltUnits([]);
-      setBuiltUnitId("");
-      return;
-    }
-    fetch(`/api/built-units?projectId=${projectId}&status=AVAILABLE,UNDER_CONSTRUCTION,PLANNED`)
-      .then((r) => r.json())
-      .then((data) => setBuiltUnits(Array.isArray(data) ? data : []))
-      .catch(() => setBuiltUnits([]));
+    if (target !== "PROJECT" || !projectId) setBuiltUnitId("");
   }, [target, projectId]);
 
   function updateLine(key: string, patch: Partial<Line>) {

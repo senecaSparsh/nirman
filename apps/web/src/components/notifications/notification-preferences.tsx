@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import { Bell, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -59,27 +60,13 @@ const CHANNELS = [
  * Users can opt in/out of specific notification types per channel.
  */
 export function NotificationPreferences() {
-  const [prefs, setPrefs] = useState<Preference[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error, retry: fetchPrefs } = useFetch<Preference[]>("/api/notifications/preferences");
+  const prefs = data ?? [];
   const [updating, setUpdating] = useState<string | null>(null);
 
-  async function fetchPrefs() {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/notifications/preferences");
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to load preferences");
-      setPrefs(data);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to load preferences");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
-    fetchPrefs();
-  }, []);
+    if (error) toast.error(error);
+  }, [error]);
 
   function isEnabled(eventType: string, channel: string): boolean {
     const pref = prefs.find((p) => p.eventType === eventType && p.channel === channel);
@@ -98,16 +85,8 @@ export function NotificationPreferences() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to update preference");
-      // Update local state
-      setPrefs((prev) => {
-        const existing = prev.find((p) => p.eventType === eventType && p.channel === channel);
-        if (existing) {
-          return prev.map((p) =>
-            p.eventType === eventType && p.channel === channel ? { ...p, enabled } : p,
-          );
-        }
-        return [...prev, data];
-      });
+      // Refetch — the PUT already persisted server-side.
+      fetchPrefs();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update preference");
     } finally {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { createPortal } from "react-dom";
@@ -37,17 +38,14 @@ export function MobileSmsMatchSheet() {
   const searchParams = useSearchParams();
   const smsId = searchParams.get("match");
   const [mounted, setMounted] = useState(false);
-  const [items, setItems] = useState<Receivable[] | null>(null);
+
   const [busy, setBusy] = useState<string | null>(null);
   useEffect(() => setMounted(true), []);
 
-  useEffect(() => {
-    if (!smsId) return;
-    fetch("/api/sms/receivables")
-      .then((r) => (r.ok ? r.json() : { items: [] }))
-      .then((d) => setItems(d.items ?? []))
-      .catch(() => setItems([]));
-  }, [smsId]);
+  const { data: receivablesData, error: receivablesError } = useFetch<{ items?: Receivable[] }>(
+    smsId ? "/api/sms/receivables" : null,
+  );
+  const items = receivablesError ? [] : receivablesData ? (receivablesData.items ?? []) : null;
 
   const open = !!smsId;
 

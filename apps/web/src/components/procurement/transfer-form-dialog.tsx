@@ -15,6 +15,7 @@ import { formatNumber, formatCurrency } from "@/lib/utils";
 import { required, nonNegativeNumber, numberInRange } from "@/lib/validate";
 import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 import type { AvailableStockRow, ProjectOption, StockLocationRow } from "@/lib/types";
+import { useFetch } from "@/lib/use-fetch";
 
 type Line = { key: string; materialId: string; materialName: string; availableQty: number; unit: string; qty: string };
 
@@ -46,7 +47,7 @@ export function TransferFormDialog({
   const [markupPct, setMarkupPct] = useState("");
   const [lines, setLines] = useState<Line[]>([newLine()]);
   const [saving, setSaving] = useState(false);
-  const [available, setAvailable] = useState<AvailableStockRow[]>([]);
+
   // Local copy so a freshly created location appears in both dropdowns without
   // waiting for router.refresh.
   const [localLocations, setLocalLocations] = useState<StockLocationRow[]>(locations);
@@ -71,17 +72,11 @@ export function TransferFormDialog({
     if (defaults?.fromLocationId) setFromLocationId(defaults.fromLocationId);
   }, [open, defaults, clearAll]);
 
-  // Fetch available stock when source location changes
-  useEffect(() => {
-    if (!fromLocationId) {
-      setAvailable([]);
-      return;
-    }
-    fetch(`/api/stock/available?locationId=${fromLocationId}`)
-      .then((r) => r.json())
-      .then((data) => setAvailable(Array.isArray(data) ? data : []))
-      .catch((err) => { console.error("Failed to load available stock:", err); setAvailable([]); });
-  }, [fromLocationId]);
+  // Available stock at the source location (cached per location).
+  const { data: availableData } = useFetch<AvailableStockRow[]>(
+    fromLocationId ? `/api/stock/available?locationId=${fromLocationId}` : null,
+  );
+  const available = useMemo(() => (Array.isArray(availableData) ? availableData : []), [availableData]);
 
   const otherLocations = localLocations.filter((l) => l.id !== fromLocationId);
 

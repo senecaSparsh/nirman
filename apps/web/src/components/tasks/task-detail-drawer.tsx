@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -164,48 +165,51 @@ export function TaskDetailDrawer({
   tasks?: TaskRow[];
 }) {
   const router = useRouter();
-  const [detail, setDetail] = useState<TaskDetail | null>(null);
-  const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<Tab>("steps");
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null);
 
-  const fetchDetail = useCallback(async () => {
-    if (!taskId) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/tasks/${taskId}`);
-      if (!res.ok) { toast.error("Failed to load task"); return; }
-      const data = (await res.json()) as TaskDetail & { assignedTo?: { employees?: { id: string }[] } };
-      // Flatten employees[] → employeeId for the EmployeeName link
-      if (data.assignedTo?.employees?.[0]?.id) {
-        data.assignedTo.employeeId = data.assignedTo.employees[0].id;
-      }
-      setDetail(data);
-      // Detect open timer for current user
-      const openLog = data.timeLogs.find((l) => l.user.id === currentUserId && l.endedAt === null);
-      if (openLog) {
-        setTimerRunning(true);
-        setTimerStartedAt(new Date(openLog.startedAt).getTime());
-      } else {
-        setTimerRunning(false);
-        setTimerStartedAt(null);
-      }
-    } catch {
-      toast.error("Network error");
-    } finally {
-      setLoading(false);
-    }
-  }, [taskId, currentUserId]);
+  // Fetches when the drawer is open; pause (and drop the URL) when closed.
+  const {
+    data: rawDetail,
+    loading,
+    error,
+    retry: fetchDetail,
+  } = useFetch<TaskDetail & { assignedTo?: { employees?: { id: string }[]; employeeId?: string } }>(
+    open && taskId ? `/api/tasks/${taskId}` : null,
+  );
+
+  const detail = useMemo(() => {
+    if (!rawDetail) return null;
+    // Flatten employees[] → employeeId for the EmployeeName link — derive a
+    // new object rather than mutating the hook-returned value.
+    const employeeId = rawDetail.assignedTo?.employees?.[0]?.id;
+    if (!employeeId) return rawDetail;
+    return {
+      ...rawDetail,
+      assignedTo: { ...rawDetail.assignedTo, employeeId },
+    };
+  }, [rawDetail]);
 
   useEffect(() => {
-    if (open && taskId) {
-      setTab("steps");
-      fetchDetail();
+    if (open && taskId) setTab("steps");
+  }, [open, taskId]);
+
+  // Detect open timer for current user whenever fresh detail arrives.
+  useEffect(() => {
+    const openLog = detail?.timeLogs.find((l) => l.user.id === currentUserId && l.endedAt === null);
+    if (openLog) {
+      setTimerRunning(true);
+      setTimerStartedAt(new Date(openLog.startedAt).getTime());
     } else {
-      setDetail(null);
+      setTimerRunning(false);
+      setTimerStartedAt(null);
     }
-  }, [open, taskId, fetchDetail]);
+  }, [detail, currentUserId]);
+
+  useEffect(() => {
+    if (error) toast.error("Failed to load task");
+  }, [error]);
 
   // Esc to close
   useEffect(() => {

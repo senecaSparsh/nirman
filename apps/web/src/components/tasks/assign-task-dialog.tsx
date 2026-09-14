@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Send, Plus, X, ListChecks } from "lucide-react";
@@ -32,8 +33,7 @@ export function AssignTaskDialog({
   onCreated,
 }: AssignTaskDialogProps) {
   const router = useRouter();
-  const [users, setUsers] = useState<UserOption[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
+
   const [saving, setSaving] = useState(false);
 
   const [title, setTitle] = useState(defaultTitle ?? "");
@@ -61,20 +61,18 @@ export function AssignTaskDialog({
     }
   }, [open, defaultTitle]);
 
-  // Fetch active users when dialog opens
+  // Fetch active users when dialog opens (cached — reopen is instant).
+  const { data: usersData, loading: loadingUsers, error: usersError } = useFetch<UserOption[]>(
+    "/api/users",
+    { skip: !open },
+  );
+  const users = useMemo(
+    () => (usersData ?? []).filter((u) => u.active),
+    [usersData],
+  );
   useEffect(() => {
-    if (!open) return;
-    setLoadingUsers(true);
-    fetch("/api/users")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setUsers(data.filter((u: UserOption) => u.active));
-        }
-      })
-      .catch(() => toast.error("Failed to load users"))
-      .finally(() => setLoadingUsers(false));
-  }, [open]);
+    if (usersError) toast.error("Failed to load users");
+  }, [usersError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

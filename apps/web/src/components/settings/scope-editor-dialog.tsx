@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import { Loader2, Shield, Building2, Layers, HardHat, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -66,7 +67,6 @@ export function ScopeEditorDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [scopeType, setScopeType] = useState<"COMPANY" | "DEPARTMENT" | "PROJECT">("COMPANY");
   const [entries, setEntries] = useState<ScopeEntry[]>([]);
@@ -74,41 +74,29 @@ export function ScopeEditorDialog({
   const [potentialManagers, setPotentialManagers] = useState<{ membershipId: string; name: string; role: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Load current scope on open
+  // Load current scope on open (per-user, cached).
+  const { data: scopeData, loading, error: scopeErr } = useFetch<ScopeResponse>(
+    `/api/users/${userId}/scope`,
+  );
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/users/${userId}/scope`);
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error ?? "Failed to load scope");
-        }
-        const data: ScopeResponse = await res.json();
-        if (cancelled) return;
-        const st = (data.scopeType === "DEPARTMENT" || data.scopeType === "PROJECT")
-          ? data.scopeType
-          : "COMPANY";
-        setScopeType(st);
-        setEntries(
-          data.scopes.map((s) => ({
-            id: s.id,
-            departmentId: s.departmentId,
-            projectId: s.projectId,
-          })),
-        );
-        setReportsTo(data.reportsToUserCompanyId ?? "");
-        setPotentialManagers(data.potentialManagers ?? []);
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load scope");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [userId]);
+    if (!scopeData) return;
+    const st = (scopeData.scopeType === "DEPARTMENT" || scopeData.scopeType === "PROJECT")
+      ? scopeData.scopeType
+      : "COMPANY";
+    setScopeType(st);
+    setEntries(
+      scopeData.scopes.map((s) => ({
+        id: s.id,
+        departmentId: s.departmentId,
+        projectId: s.projectId,
+      })),
+    );
+    setReportsTo(scopeData.reportsToUserCompanyId ?? "");
+    setPotentialManagers(scopeData.potentialManagers ?? []);
+  }, [scopeData]);
+  useEffect(() => {
+    if (scopeErr) setError(scopeErr);
+  }, [scopeErr]);
 
   // When switching to COMPANY, clear entries. When switching to DEPARTMENT/PROJECT
   // with no entries, seed one empty row.

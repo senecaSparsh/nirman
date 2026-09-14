@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -36,8 +37,18 @@ export function SaleDetailDialog({
   permissions?: { canCreateSale?: boolean; canManage?: boolean };
 }) {
   const router = useRouter();
+  const { data: detailData, loading, error: detailError, retry: refreshDetail } = useFetch<AssetSaleDetail & { error?: string }>(
+    open && sale ? `/api/sales/${sale.id}` : null,
+  );
+  // Local copy so optimistic status updates (mutateAction) render instantly;
+  // synced back whenever fresh detail arrives.
   const [detail, setDetail] = useState<AssetSaleDetail | null>(null);
-  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (detailData && !detailData.error) setDetail(detailData);
+  }, [detailData]);
+  useEffect(() => {
+    if (detailError) toast.error("Failed to load sale details");
+  }, [detailError]);
   const [payOpen, setPayOpen] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
@@ -98,27 +109,10 @@ export function SaleDetailDialog({
 
   useEffect(() => {
     if (open && sale) {
-      setLoading(true);
-      setDetail(null);
-      fetch(`/api/sales/${sale.id}`)
-        .then((r) => r.json())
-        .then((d) => { if (!d.error) setDetail(d); })
-        .catch(() => toast.error("Failed to load sale details"))
-        .finally(() => setLoading(false));
       // Track in recently viewed
       trackRecent({ type: "sale", id: sale.id, label: sale.saleNumber, href: `/sales?sale=${sale.id}` });
     }
   }, [open, sale, trackRecent]);
-
-  // Re-fetch sale detail after a sub-dialog action (payment, deposit, complete)
-  // so the dialog stays live instead of going stale.
-  function refreshDetail() {
-    if (!sale) return;
-    fetch(`/api/sales/${sale.id}`)
-      .then((r) => r.json())
-      .then((d) => { if (!d.error) setDetail(d); })
-      .catch(() => { /* best-effort */ });
-  }
 
   async function cancelSale() {
     if (!sale) return;
@@ -178,13 +172,7 @@ export function SaleDetailDialog({
       });
       router.refresh();
       // Refresh the detail
-      if (sale) {
-        const detailRes = await fetch(`/api/sales/${sale.id}`);
-        if (detailRes.ok) {
-          const fresh = await detailRes.json();
-          setDetail(fresh);
-        }
-      }
+      if (sale) refreshDetail();
     } catch {
       // Error already handled by useApiAction
     } finally {

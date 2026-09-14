@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { Paperclip, X, FileText, Image as ImageIcon, Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -64,27 +65,11 @@ export function AttachmentList({
   compact?: boolean;
   extraDocuments?: ExtraDocument[];
 }) {
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, retry: fetchAttachments } = useFetch<Attachment[]>(
+    `/api/attachments?entityType=${entityType}&entityId=${entityId}`,
+  );
+  const attachments = data ?? [];
   const [uploading, setUploading] = useState(false);
-
-  const fetchAttachments = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/attachments?entityType=${entityType}&entityId=${entityId}`);
-      const data = await res.json();
-      if (res.ok) {
-        setAttachments(Array.isArray(data) ? data : []);
-      }
-    } catch {
-      // silent fail
-    } finally {
-      setLoading(false);
-    }
-  }, [entityType, entityId]);
-
-  useEffect(() => {
-    fetchAttachments();
-  }, [fetchAttachments]);
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -136,7 +121,7 @@ export function AttachmentList({
     try {
       const res = await fetch(`/api/attachments/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to remove");
-      setAttachments((prev) => prev.filter((a) => a.id !== id));
+      fetchAttachments();
       toast.success("Attachment removed");
     } catch {
       toast.error("Could not remove attachment");

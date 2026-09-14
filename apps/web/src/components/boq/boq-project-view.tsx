@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import { Plus, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,32 +26,21 @@ export function BoqProjectView({
   canEdit: boolean;
 }) {
   const [projectId, setProjectId] = useState<string>(projects[0]?.id ?? "");
-  const [tree, setTree] = useState<BoqNode[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const { data, loading, error, retry: fetchTree } = useFetch<{
+    tree?: BoqNode[];
+    totalEstimatedAmount?: number;
+  }>(projectId ? `/api/boq/tree?projectId=${projectId}` : null);
+  const tree = data?.tree ?? [];
+  const total = data?.totalEstimatedAmount ?? 0;
   const [emptyDialogOpen, setEmptyDialogOpen] = useState(false);
   // Local copy so freshly created projects appear in the dropdown without
   // waiting for router.refresh.
   const [localProjects, setLocalProjects] = useState<Project[]>(projects);
   useEffect(() => { setLocalProjects(projects); }, [projects]);
 
-  const fetchTree = () => {
-    if (!projectId) return;
-    setLoading(true);
-    fetch(`/api/boq/tree?projectId=${projectId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setTree(data.tree ?? []);
-        setTotal(data.totalEstimatedAmount ?? 0);
-      })
-      .catch(() => toast.error("Failed to load BOQ"))
-      .finally(() => setLoading(false));
-  };
-
   useEffect(() => {
-    fetchTree();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+    if (error) toast.error("Failed to load BOQ");
+  }, [error]);
 
   if (projects.length === 0) {
     return (
